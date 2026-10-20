@@ -74,7 +74,7 @@ namespace TerrainNavigationAutomation
         auto& surface = owner->GetComponent<NavMeshSurface>(); auto& terrain = ground->GetComponent<Terrain>();
         if( command == "terrain-nav-bake" ) return nav->Bake( surface, true );
         if( command == "terrain-nav-wait" ) { nav->WaitForBakes(); return true; }
-        if( command == "terrain-nav-cook" ) return widget->StartStreamCook( ( s_directory / "Runtime.terrainc" ).generic_string(), 2, true, args == "compressed" );
+        if( command == "terrain-nav-cook" ) return widget->StartStreamCook( ( s_directory / "Runtime.terrainc" ).generic_string(), 2, true, args == "compressed" || args == "hierarchical", args == "hierarchical" );
         if( command == "terrain-nav-cook-wait" ) return widget->FinishStreamCook( true );
         if( command == "terrain-nav-bind-stream" )
         {

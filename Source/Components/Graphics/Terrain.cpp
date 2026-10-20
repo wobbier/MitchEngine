@@ -27,7 +27,7 @@ ME_REFLECT_BEGIN( Terrain )
     ME_FIELD( CastShadows );
     ME_FIELD( LodPixelError ).Category( "LOD" ).Range( 0.25f, 32.f );
     ME_FIELD( LodHysteresis ).Category( "LOD" ).Range( 0.f, 0.9f );
-    ME_FIELD( ForcedLod ).Category( "LOD" ).NoSerialize().Range( -1, 10 ).Tooltip( "-1 selects by pixel error; 0 is full detail" );
+    ME_FIELD( ForcedLod ).Category( "LOD" ).NoSerialize().Range( -1, 30 ).Tooltip( "-1 selects by pixel error; 0 is full detail" );
     ME_FIELD( ShowLods ).Category( "LOD" ).NoSerialize();
     ME_FIELD( ShowPatches ).Category( "LOD" ).NoSerialize();
     ME_FIELD( StreamDetail ).Category( "Streaming" ).Tooltip( "Load nearby detail from streamed cooked terrain; disabling this retains the coarse visual horizon" );

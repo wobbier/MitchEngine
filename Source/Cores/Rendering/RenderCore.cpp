@@ -53,6 +53,7 @@ struct RenderCore::TerrainDraw
     std::shared_ptr<Moonlight::TerrainTextureSet> LayerTextures;
     std::shared_ptr<const TerrainData::Surface> PaintedSurface;
     std::vector<TerrainData::PatchLodChoice> Choices;
+    bool Drawable = false;
     uint16_t RetryFrames = 0;
     std::string RetryError;
 };
@@ -113,7 +114,13 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
     if( previous != m_terrainDraws.end() && ( previous->second->Source->AssetGUID != data->AssetGUID || previous->second->Source->StreamRevision != data->StreamRevision || ( !data->PagedCoverage && previous->second->Parts.size() != data->Patches.size() ) ||
         previous->second->Source->Heights->GetSettings().PatchQuads != data->Heights->GetSettings().PatchQuads || previous->second->Source->Heights->GetSettings().TilesX != data->Heights->GetSettings().TilesX || previous->second->Source->Heights->GetSettings().TilesZ != data->Heights->GetSettings().TilesZ ) ) RemoveTerrainDraw( id );
     previous = m_terrainDraws.find( id );
-    if( previous != m_terrainDraws.end() && data->PagedCoverage && previous->second->Source->CoverageTiles != data->CoverageTiles )
+    bool hierarchyChange = false;
+    if( previous != m_terrainDraws.end() && data->Hierarchical )
+    {
+        const auto& old = *previous->second;
+        hierarchyChange = old.Source->CoverageNodes != data->CoverageNodes || old.Source->Patches != data->Patches || ( !old.Previous && old.Active->Patches != data->Patches );
+    }
+    if( previous != m_terrainDraws.end() && data->PagedCoverage && ( previous->second->Source->CoverageTiles != data->CoverageTiles || hierarchyChange ) )
     {
         priorWindow = std::move( previous->second ); m_terrainDraws.erase( previous );
         if( priorWindow->Previous )
@@ -135,12 +142,12 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
         draw->Previous = std::move( priorWindow );
         if( draw->Previous )
         {
-            std::map<std::pair<int64_t, int64_t>, size_t> old;
+            std::map<std::tuple<int64_t, int64_t, uint8_t>, size_t> old;
             for( size_t i = 0; i < draw->Previous->Parts.size(); ++i ) if( draw->Previous->Geometry[i] )
-            { const auto origin = draw->Previous->Active->Patches[i]->Mesh.SampleOrigin; old[{ origin.X, origin.Z }] = i; }
+            { const auto origin = draw->Previous->Active->Patches[i]->Mesh.SampleOrigin; old[{ origin.X, origin.Z, draw->Previous->Active->Patches[i]->SpanLevel }] = i; }
             for( size_t i = 0; i < data->Patches.size(); ++i )
             {
-                const auto origin = data->Patches[i]->Mesh.SampleOrigin; const auto found = old.find( { origin.X, origin.Z } );
+                const auto origin = data->Patches[i]->Mesh.SampleOrigin; const auto found = old.find( { origin.X, origin.Z, data->Patches[i]->SpanLevel } );
                 if( found == old.end() ) continue;
                 const size_t j = found->second;
                 draw->Parts[i] = draw->Previous->Parts[j]; draw->Geometry[i] = draw->Previous->Geometry[j];
@@ -177,7 +184,7 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
             if( bytes > uploadLimit ) { uploadError = "A terrain patch exceeds Upload KiB; increase the budget or cook smaller patches"; continue; }
             const double elapsed = std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - started ).count();
             if( bytes > uploadLimit - uploaded || ( streamed && !deterministic && uploaded && elapsed >= InTerrain.UploadMilliseconds ) ) break;
-            const uint32_t grid = data->Heights->GetSettings().PatchQuads >> patch->BaseLod;
+            const uint32_t grid = uint32_t( ( uint64_t( data->Heights->GetSettings().PatchQuads ) << patch->SpanLevel ) >> patch->BaseLod );
             const uint8_t last = static_cast<uint8_t>( patch->Mesh.Lods.size() - 1 );
             const uint64_t fallbackKey = ( uint64_t( grid ) << 16 ) | ( uint64_t( last ) << 8 );
             std::shared_ptr<Moonlight::MeshIndexData> fallback;
@@ -235,8 +242,8 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
         draw->Source = data;
     }
     if( std::any_of( draw->Geometry.begin(), draw->Geometry.end(), []( const auto& geometry ) { return !geometry; } ) )
-    { InTerrain.m_lodError = uploadError.empty() ? "Uploading terrain coverage window" : uploadError; return draw->Previous.get(); }
-    if( draw->Previous ) RetireTerrainDraw( std::move( draw->Previous ), draw.get() );
+    { InTerrain.m_lodError = uploadError.empty() ? "Uploading terrain coverage window" : uploadError; return draw->Previous && draw->Previous->Drawable ? draw->Previous.get() : nullptr; }
+    if( draw->Previous && !data->Hierarchical ) RetireTerrainDraw( std::move( draw->Previous ), draw.get() );
     draw->Active->Heights = data->Heights;
     data = draw->Active;
     const auto translation = InEntity.GetComponent<Transform>().GetWorldPosition();
@@ -249,7 +256,7 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
     if( ready ) for( size_t i = 0; i < choices.size(); ++i )
     {
         const auto choice = choices[i];
-        const uint32_t q = data->Heights->GetSettings().PatchQuads >> data->Patches[i]->BaseLod;
+        const uint32_t q = uint32_t( ( uint64_t( data->Heights->GetSettings().PatchQuads ) << data->Patches[i]->SpanLevel ) >> data->Patches[i]->BaseLod );
         const uint8_t localLevel = choice.Level - data->Patches[i]->BaseLod;
         if( !localLevel && !choice.Edges ) continue; // Existing base representation buffer.
         const uint64_t key = ( static_cast<uint64_t>( q ) << 16 ) | ( static_cast<uint64_t>( localLevel ) << 8 ) | choice.Edges;
@@ -274,6 +281,8 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
         }
         topologies[i] = found->second;
     }
+    if( !ready && data->Hierarchical ) { InTerrain.m_lodError = error; return draw->Previous && draw->Previous->Drawable ? draw->Previous.get() : nullptr; }
+    if( ready && draw->Previous ) RetireTerrainDraw( std::move( draw->Previous ), draw.get() );
     if( !ready )
     {
         choices.assign( data->Patches.size(), {} );
@@ -313,7 +322,7 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
         auto& part = draw->Parts[i];
         draw->Geometry[i]->SetIndexTopology( std::move( topologies[i] ) );
         InTerrain.m_lodTriangles += draw->Geometry[i]->GetIndexCount() / 3;
-        InTerrain.m_fullTriangles += uint64_t( data->Heights->GetSettings().PatchQuads ) * data->Heights->GetSettings().PatchQuads * 2;
+        InTerrain.m_fullTriangles += ( uint64_t( data->Heights->GetSettings().PatchQuads ) << data->Patches[i]->SpanLevel ) * ( uint64_t( data->Heights->GetSettings().PatchQuads ) << data->Patches[i]->SpanLevel ) * 2;
         // Materials prepare themselves in parallel jobs, so each patch keeps its own instance.
         auto& material = static_cast<TerrainMaterial&>( *part->MeshMaterial );
         material.DiffuseColor = InTerrain.ShowResidency && streamed ? ( data->Patches[i]->BaseLod ? Vector3( 0.25f, 0.55f, 0.9f ) : Vector3( 0.2f, 0.85f, 0.3f ) ) : ( InTerrain.ShowLods ? colors[draw->Choices[i].Level % 6] : InTerrain.Color );
@@ -343,6 +352,7 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
     }
     if( surfaceReady ) draw->PaintedSurface = surface;
     else InTerrain.m_lodError = "Terrain weight texture upload failed";
+    draw->Drawable = true;
     return draw.get();
 }
 

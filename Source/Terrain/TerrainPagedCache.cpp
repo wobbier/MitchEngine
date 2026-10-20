@@ -47,12 +47,12 @@ namespace TerrainData
         bool complete = true;
         for( const auto& [coord, request] : demand ) if( request.Coverage )
         {
-            const auto found = m_pages.find( coord );
+            const auto found = m_pages.find( uint32_t( m_archive->TileIndex( coord ) ) );
             if( found == m_pages.end() || !found->second.Active || !found->second.Page || found->second.Failed ) { complete = false; break; }
         }
         for( const auto& [coord, request] : demand ) if( request.Coverage )
         {
-            const auto found = m_pages.find( coord );
+            const auto found = m_pages.find( uint32_t( m_archive->TileIndex( coord ) ) );
             if( found != m_pages.end() && found->second.Active && found->second.Page &&
                 ( complete || std::binary_search( m_snapshot->CoverageTiles.begin(), m_snapshot->CoverageTiles.end(), coord ) ) ) window.push_back( coord );
         }
@@ -70,7 +70,7 @@ namespace TerrainData
         if( !heights->SetSurface( m_archive->Coverage->Heights->GetSurface(), error ) ) { m_stats.Error = error; return false; }
         for( const auto& coord : window )
         {
-            const auto& page = m_pages.at( coord ).Page; data->CoverageTiles.push_back( coord ); data->ResidencyPins.push_back( page );
+            const auto& page = m_pages.at( uint32_t( m_archive->TileIndex( coord ) ) ).Page; data->CoverageTiles.push_back( coord ); data->ResidencyPins.push_back( page );
             data->CoveragePatches.insert( data->CoveragePatches.end(), page->Patches.begin(), page->Patches.end() );
             const auto detail = m_entries.find( coord );
             const auto& patches = detail != m_entries.end() && detail->second.Active && detail->second.Tile && detail->second.UseDetail ? detail->second.Tile->Patches : page->Patches;
@@ -97,14 +97,23 @@ namespace TerrainData
         m_limits = limits; m_stats.Pressure.clear();
         if( !limits.Instances || limits.Instances > 65536 ) { m_stats.CoverageReady = m_stats.CollisionReady = false; m_stats.Pressure = "Invalid paged terrain limits"; return; }
         m_stats.CoverageReady = m_baseCost.CpuBytes * limits.Instances <= limits.CpuBytes && m_baseCost.GpuBytes * limits.Instances <= limits.GpuBytes;
-        std::map<TileCoord, TileDemand> demand;
+        std::map<TileCoord, TileDemand> demand; std::map<uint32_t, TileDemand> pages;
+        const bool hierarchy = m_archive->Hierarchical;
         for( auto request : requests ) if( m_archive->Config.Contains( request.Coordinate ) && std::isfinite( request.Priority ) )
         {
-            request.Coverage |= request.Visual;
+            if( hierarchy && request.CoverageNode >= 0 )
+            {
+                const auto node = uint32_t( request.CoverageNode );
+                if( node < m_archive->Nodes.size() && m_archive->Nodes[node].Root >= 0 ) pages.emplace( node, request );
+                continue;
+            }
+            if( !hierarchy ) request.Coverage |= request.Visual;
             auto [it, added] = demand.emplace( request.Coordinate, request );
             if( !added ) { it->second.Collision |= request.Collision; it->second.Visual |= request.Visual; it->second.Coverage |= request.Coverage; it->second.Prefetch |= request.Prefetch; it->second.Priority = std::min( it->second.Priority, request.Priority ); }
         }
-        bool changed = demand.size() != m_publishedDemand.size();
+        if( !hierarchy ) for( const auto& [coord, request] : demand ) if( request.Coverage ) pages.emplace( uint32_t( m_archive->TileIndex( coord ) ), request );
+        std::set<uint32_t> pageIDs; for( const auto& [id, request] : pages ) pageIDs.insert( id );
+        bool changed = demand.size() != m_publishedDemand.size() || pageIDs != m_publishedPages;
         for( const auto& [coord, request] : demand )
         {
             const auto old = m_publishedDemand.find( coord );
@@ -120,7 +129,7 @@ namespace TerrainData
         }
         for( auto& [coord, entry] : m_pages )
         {
-            const auto wanted = demand.find( coord ); const bool active = wanted != demand.end() && wanted->second.Coverage;
+            const auto wanted = pages.find( coord ); const bool active = wanted != pages.end();
             if( active && !entry.Failed ) { if( !entry.Active ) changed = true; entry.Active = true; entry.LastDemand = frame; }
             else if( entry.Active ) { entry.Active = false; changed = true; if( entry.Loading ) { entry.Request = ++m_request; ++m_stats.Cancelled; } }
         }
@@ -129,10 +138,15 @@ namespace TerrainData
             Completion result = m_job.get(); changed = true;
             if( result.Coverage )
             {
-                auto& entry = m_pages.at( result.Coordinate ); entry.Loading = false;
+                auto& entry = m_pages.at( result.CoverageID ); entry.Loading = false;
                 if( entry.Active && entry.Request == result.Request )
                 {
-                    if( result.Page ) { entry.Page = std::move( result.Page ); ++m_stats.CoverageLoaded; m_stats.BytesRead += m_archive->Blocks[m_archive->TileIndex( result.Coordinate )].CoverageSize; m_stats.DecodedBytesRead += m_archive->Blocks[m_archive->TileIndex( result.Coordinate )].CoverageDecodedSize; }
+                    if( result.Page )
+                    {
+                        entry.Page = std::move( result.Page ); ++m_stats.CoverageLoaded;
+                        m_stats.BytesRead += hierarchy ? m_archive->Nodes[result.CoverageID].Size : m_archive->Blocks[result.CoverageID].CoverageSize;
+                        m_stats.DecodedBytesRead += hierarchy ? m_archive->Nodes[result.CoverageID].DecodedSize : m_archive->Blocks[result.CoverageID].CoverageDecodedSize;
+                    }
                     else { entry.Failed = true; entry.Active = false; ++m_stats.Failed; m_stats.Error = result.Error; }
                 }
                 else entry.Active = false;
@@ -162,27 +176,36 @@ namespace TerrainData
         const auto fits = [&]( uint64_t cpu, uint64_t gpu ) {
             return m_stats.CpuReserved <= limits.CpuBytes && cpu <= limits.CpuBytes - m_stats.CpuReserved && m_stats.GpuReserved <= limits.GpuBytes && gpu <= limits.GpuBytes - m_stats.GpuReserved;
         };
-        struct Task { TileDemand Demand; int Kind; }; std::vector<Task> tasks;
+        struct Task { TileDemand Demand; int Kind; uint32_t PageID = 0; }; std::vector<Task> tasks;
         for( const auto& [coord, request] : demand )
         {
             if( request.Collision ) tasks.push_back( { request, 0 } );
-            if( request.Coverage ) tasks.push_back( { request, 1 } );
             if( request.Prefetch && !request.Collision ) tasks.push_back( { request, 2 } );
             if( request.Visual && !request.Collision && !request.Prefetch ) tasks.push_back( { request, 3 } );
         }
-        std::stable_sort( tasks.begin(), tasks.end(), []( const auto& a, const auto& b ) { if( a.Kind != b.Kind ) return a.Kind < b.Kind; if( a.Demand.Priority != b.Demand.Priority ) return a.Demand.Priority < b.Demand.Priority; return a.Demand.Coordinate < b.Demand.Coordinate; } );
+        for( const auto& [id, request] : pages ) if( !hierarchy || m_archive->Nodes[id].Root != int32_t( id ) ) tasks.push_back( { request, 1, id } );
+        std::stable_sort( tasks.begin(), tasks.end(), [&]( const auto& a, const auto& b ) {
+            if( a.Kind != b.Kind ) return a.Kind < b.Kind;
+            if( hierarchy && a.Kind == 1 && m_archive->Nodes[a.PageID].Level != m_archive->Nodes[b.PageID].Level ) return m_archive->Nodes[a.PageID].Level > m_archive->Nodes[b.PageID].Level;
+            if( a.Demand.Priority != b.Demand.Priority ) return a.Demand.Priority < b.Demand.Priority;
+            return a.Demand.Coordinate < b.Demand.Coordinate;
+        } );
         m_stats.Pending = m_stats.CoveragePending = 0;
         for( const auto& task : tasks )
         {
             const auto coord = task.Demand.Coordinate;
             if( task.Kind == 1 )
             {
-                auto found = m_pages.find( coord ); if( found != m_pages.end() && ( found->second.Page || found->second.Failed ) ) continue;
+                auto found = m_pages.find( task.PageID ); if( found != m_pages.end() && ( found->second.Page || found->second.Failed ) ) continue;
                 ++m_stats.Pending; ++m_stats.CoveragePending;
                 if( m_job.valid() || !allowLoad || !m_stats.CoverageReady || !fits( m_pageCost.CpuBytes * limits.Instances, m_pageCost.GpuBytes * limits.Instances ) ) continue;
-                auto& entry = m_pages[coord]; entry.Active = entry.Loading = true; entry.Request = ++m_request; entry.LastDemand = frame;
-                const auto archive = m_archive; const auto generation = entry.Request;
-                try { m_job = std::async( std::launch::async, [archive, coord, generation]() { Completion result; result.Coordinate = coord; result.Request = generation; result.Coverage = true; try { ReadStreamCoverage( *archive, coord, result.Page, result.Error ); } catch( const std::exception& e ) { result.Error = e.what(); } return result; } ); }
+                auto& entry = m_pages[task.PageID]; entry.Active = entry.Loading = true; entry.Request = ++m_request; entry.LastDemand = frame;
+                const auto archive = m_archive; const auto generation = entry.Request; const auto pageID = task.PageID;
+                try { m_job = std::async( std::launch::async, [archive, coord, generation, pageID]() {
+                    Completion result; result.Coordinate = coord; result.Request = generation; result.Coverage = true; result.CoverageID = pageID;
+                    try { if( archive->Hierarchical ) ReadHierarchyCoverage( *archive, pageID, result.Page, result.Error ); else ReadStreamCoverage( *archive, coord, result.Page, result.Error ); }
+                    catch( const std::exception& e ) { result.Error = e.what(); } return result;
+                } ); }
                 catch( const std::exception& e ) { entry.Active = entry.Loading = false; entry.Failed = true; m_stats.Error = e.what(); ++m_stats.Failed; }
                 changed = true; Measure(); continue;
             }
@@ -203,7 +226,11 @@ namespace TerrainData
             if( task.Demand.Collision && !entry.Collision && m_stats.CollisionReserved <= limits.CollisionBytes && m_tileCost.CollisionBytes * limits.Instances <= limits.CollisionBytes - m_stats.CollisionReserved ) { entry.Collision = true; changed = true; Measure(); }
         }
         m_publishDirty |= changed;
-        if( m_publishDirty ) m_publishDirty = !PublishPaged( demand );
+        if( m_publishDirty )
+        {
+            m_publishDirty = !( hierarchy ? PublishHierarchy( demand, pages ) : PublishPaged( demand ) );
+            if( !m_publishDirty ) m_publishedPages = pageIDs;
+        }
         m_stats.CollisionReady = m_stats.CoverageReady; m_stats.HorizonReady = true;
         for( const auto& [coord, request] : demand )
         {
@@ -212,7 +239,16 @@ namespace TerrainData
                 const auto entry = m_entries.find( coord );
                 if( entry == m_entries.end() || !entry->second.Active || !entry->second.Tile || !entry->second.Collision || std::find( m_snapshot->CollisionTiles.begin(), m_snapshot->CollisionTiles.end(), entry->second.Tile->Collision ) == m_snapshot->CollisionTiles.end() ) m_stats.CollisionReady = false;
             }
-            if( request.Coverage && !std::binary_search( m_snapshot->CoverageTiles.begin(), m_snapshot->CoverageTiles.end(), coord ) ) m_stats.HorizonReady = false;
+            if( !hierarchy && request.Coverage && !std::binary_search( m_snapshot->CoverageTiles.begin(), m_snapshot->CoverageTiles.end(), coord ) ) m_stats.HorizonReady = false;
+        }
+        if( hierarchy )
+        {
+            for( const auto& [id, request] : pages )
+            {
+                const auto& node = m_archive->Nodes[id];
+                const bool terminal = !node.Level || std::none_of( node.Children.begin(), node.Children.end(), [&]( int32_t c ) { return pages.contains( uint32_t( c ) ); } );
+                if( terminal && !std::binary_search( m_snapshot->CoverageNodes.begin(), m_snapshot->CoverageNodes.end(), id ) ) m_stats.HorizonReady = false;
+            }
         }
         CountPrefetch( demand );
         Measure();

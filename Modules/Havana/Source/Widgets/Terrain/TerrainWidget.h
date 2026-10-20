@@ -77,7 +77,7 @@ public:
     UndoStack& GetHistory() { return m_category == 3 ? UndoStack::Get() : m_active ? m_active->GetUndo() : m_brushHistory; }
     TerrainData::BrushSettings Brush;
     bool BrushEnabled = false;
-    bool StartStreamCook( const std::string& InPath, uint8_t InCoverageLod, bool InPaged = true, bool InCompressed = false );
+    bool StartStreamCook( const std::string& InPath, uint8_t InCoverageLod, bool InPaged = true, bool InCompressed = false, bool InHierarchical = false );
     bool FinishStreamCook( bool InWait = false );
     bool IsCooking() const { return m_cook.valid(); }
 
@@ -145,6 +145,7 @@ private:
     bool m_cookRequested = false, m_replaceCook = false;
     bool m_pagedCook = true;
     bool m_compressedCook = true;
+    bool m_hierarchicalCook = false;
     uint64_t m_strokeEntity = 0;
     double m_lastPreviewTime = 0;
     struct RecoveryEntry

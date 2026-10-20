@@ -16,6 +16,7 @@ namespace TerrainData
             std::vector<TileDemand> Demand;
             std::map<TileCoord, TileDemand> Selected;
             std::set<TileCoord> Decoded;
+            std::map<uint32_t, TileDemand> PageRequests, SelectedPages;
         };
         struct Candidate { size_t PlanIndex; TileDemand Demand; int Kind = 0; };
         std::vector<Plan> plans;
@@ -34,7 +35,7 @@ namespace TerrainData
             coverageCpu += cache.m_baseCost.CpuBytes * instances; coverageGpu += cache.m_baseCost.GpuBytes * instances;
             // Paged window snapshot space is included in each coverage grant below. Counting
             // the current window again would shrink a newly published horizon and oscillate.
-            const uint64_t fixedCpu = cache.m_baseCost.CpuBytes * instances + ( cache.m_archive->PagedCoverage ? 0 : cache.m_snapshot->Patches.size() * 128 ) + 4096;
+            const uint64_t fixedCpu = ( cache.m_archive->Hierarchical ? cache.m_archive->Coverage->Patches.size() * 128 : 0 ) + cache.m_baseCost.CpuBytes * instances + ( cache.m_archive->PagedCoverage ? 0 : cache.m_snapshot->Patches.size() * 128 ) + 4096;
             plan.Grant.CpuBytes = std::min( batch.Limits.CpuBytes, fixedCpu );
             plan.Grant.GpuBytes = std::min( batch.Limits.GpuBytes, cache.m_baseCost.GpuBytes * instances );
             plan.Grant.CollisionBytes = 0;
@@ -45,6 +46,11 @@ namespace TerrainData
                 std::map<TileCoord, TileDemand> merged;
                 for( const auto& request : batch.Demand ) if( cache.m_archive->Config.Contains( request.Coordinate ) && std::isfinite( request.Priority ) )
                 {
+                    if( cache.m_archive->Hierarchical && request.CoverageNode >= 0 )
+                    {
+                        if( size_t( request.CoverageNode ) < cache.m_archive->Nodes.size() ) plan.PageRequests.emplace( uint32_t( request.CoverageNode ), request );
+                        continue;
+                    }
                     auto [it, added] = merged.emplace( request.Coordinate, request );
                     if( !added ) { it->second.Collision |= request.Collision; it->second.Visual |= request.Visual; it->second.Coverage |= request.Coverage; it->second.Prefetch |= request.Prefetch; it->second.Priority = std::min( it->second.Priority, request.Priority ); }
                 }
@@ -55,16 +61,22 @@ namespace TerrainData
                         ranked.push_back( { plans.size(), request, 0 } );
                         auto required = request; required.Visual = required.Coverage = required.Prefetch = false; plan.Selected[coord] = required;
                     }
-                    if( cache.m_archive->PagedCoverage && ( request.Coverage || request.Visual ) ) ranked.push_back( { plans.size(), request, 1 } );
+                    if( cache.m_archive->PagedCoverage && !cache.m_archive->Hierarchical && ( request.Coverage || request.Visual ) ) ranked.push_back( { plans.size(), request, 1 } );
                     if( request.Prefetch && !request.Collision ) ranked.push_back( { plans.size(), request, 2 } );
                     if( request.Visual ) ranked.push_back( { plans.size(), request, 3 } );
                 }
+                for( const auto& [id, request] : plan.PageRequests ) ranked.push_back( { plans.size(), request, 1 } );
             }
             else ++m_stats.RetiringAssets;
             plans.push_back( std::move( plan ) );
         }
         const auto less = [&]( const Candidate& a, const Candidate& b ) {
             if( a.Kind != b.Kind ) return a.Kind < b.Kind;
+            if( a.Kind == 1 )
+            {
+                const auto level = [&]( const Candidate& c ) { const auto& archive = plans[c.PlanIndex].Batch->Cache->GetArchive(); return archive.Hierarchical && c.Demand.CoverageNode >= 0 ? archive.Nodes[c.Demand.CoverageNode].Level : uint8_t( 0 ); };
+                if( level( a ) != level( b ) ) return level( a ) > level( b );
+            }
             if( a.Demand.Priority != b.Demand.Priority ) return a.Demand.Priority < b.Demand.Priority;
             const auto& aa = plans[a.PlanIndex].Batch->Cache->GetArchive(); const auto& bb = plans[b.PlanIndex].Batch->Cache->GetArchive();
             if( aa.AssetGUID != bb.AssetGUID ) return aa.AssetGUID < bb.AssetGUID;
@@ -83,8 +95,29 @@ namespace TerrainData
             const uint64_t tileGpu = ( page ? cache.m_pageCost.GpuBytes : cache.m_tileCost.GpuBytes ) * instances;
             const uint64_t tileCollision = cache.m_tileCost.CollisionBytes * instances;
             const auto request = candidate.Demand; const auto coord = request.Coordinate;
+            if( page && cache.m_archive->Hierarchical )
+            {
+                const uint32_t id = uint32_t( request.CoverageNode );
+                if( plan.SelectedPages.contains( id ) ) continue;
+                const auto& node = cache.m_archive->Nodes[id];
+                if( node.Root == int32_t( id ) ) { plan.SelectedPages[id] = request; continue; }
+                std::vector<uint32_t> group{ id };
+                if( node.Parent >= 0 )
+                {
+                    const auto& siblings = cache.m_archive->Nodes[node.Parent].Children;
+                    if( std::all_of( siblings.begin(), siblings.end(), [&]( int32_t child ) { return plan.PageRequests.contains( uint32_t( child ) ); } ) ) group.assign( siblings.begin(), siblings.end() );
+                    // A descendant is useful only after its parent fallback has an allowance.
+                    if( !plan.SelectedPages.contains( uint32_t( node.Parent ) ) ) { ++m_stats.Deferred; continue; }
+                }
+                const uint64_t cpuCost = tileCpu * group.size(), gpuCost = tileGpu * group.size();
+                if( !fits( cpu, cpuCost, limits.CpuBytes ) || !fits( plan.Grant.CpuBytes, cpuCost, plan.Batch->Limits.CpuBytes ) ||
+                    !fits( gpu, gpuCost, limits.GpuBytes ) || !fits( plan.Grant.GpuBytes, gpuCost, plan.Batch->Limits.GpuBytes ) ) { ++m_stats.Deferred; continue; }
+                cpu += cpuCost; plan.Grant.CpuBytes += cpuCost; gpu += gpuCost; plan.Grant.GpuBytes += gpuCost;
+                for( auto child : group ) plan.SelectedPages[child] = plan.PageRequests.at( child );
+                continue;
+            }
             const uint64_t cpuCost = !page && plan.Decoded.contains( coord ) ? 0 : tileCpu;
-            const bool hasCoverage = !cache.m_archive->PagedCoverage || ( plan.Selected.contains( coord ) && plan.Selected.at( coord ).Coverage );
+            const bool hasCoverage = !cache.m_archive->PagedCoverage || ( cache.m_archive->Hierarchical ? plan.SelectedPages.contains( uint32_t( cache.m_archive->TileIndex( coord ) ) ) : ( plan.Selected.contains( coord ) && plan.Selected.at( coord ).Coverage ) );
             const bool decoded = fits( cpu, cpuCost, limits.CpuBytes ) && fits( plan.Grant.CpuBytes, cpuCost, plan.Batch->Limits.CpuBytes );
             const bool visual = candidate.Kind == 0 || candidate.Kind == 2 || ( fits( gpu, tileGpu, limits.GpuBytes ) && fits( plan.Grant.GpuBytes, tileGpu, plan.Batch->Limits.GpuBytes ) && ( page || hasCoverage ) );
             if( !decoded || !visual ) { ++m_stats.Deferred; continue; }
@@ -105,7 +138,11 @@ namespace TerrainData
                 if( page ) selected->second.Coverage = true; else selected->second.Visual = true;
             }
         }
-        for( auto& plan : plans ) for( const auto& [coord, request] : plan.Selected ) plan.Demand.push_back( request );
+        for( auto& plan : plans )
+        {
+            for( const auto& [coord, request] : plan.Selected ) plan.Demand.push_back( request );
+            for( const auto& [id, request] : plan.SelectedPages ) plan.Demand.push_back( request );
+        }
         const auto measure = [&]() {
             m_stats.CpuReserved = m_stats.GpuReserved = m_stats.CollisionReserved = 0; m_stats.Loading = 0;
             m_stats.CollisionReady = true;
@@ -149,7 +186,9 @@ namespace TerrainData
                 if( missing && request.Collision ) consider( 0 );
                 if( cache.m_archive->PagedCoverage && request.Coverage )
                 {
-                    const auto page = cache.m_pages.find( request.Coordinate );
+                    const uint32_t id = cache.m_archive->Hierarchical ? uint32_t( request.CoverageNode ) : uint32_t( cache.m_archive->TileIndex( request.Coordinate ) );
+                    if( cache.m_archive->Hierarchical && ( request.CoverageNode < 0 || cache.m_archive->Nodes[id].Root == int32_t( id ) ) ) continue;
+                    const auto page = cache.m_pages.find( id );
                     if( page == cache.m_pages.end() || ( !page->second.Page && !page->second.Failed ) ) consider( 1 );
                 }
                 if( missing && request.Prefetch ) consider( 2 );

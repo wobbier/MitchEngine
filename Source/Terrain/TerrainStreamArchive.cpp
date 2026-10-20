@@ -21,6 +21,8 @@ namespace TerrainData
         constexpr uint32_t kPagedMagic = 0x3353544d; // MTS3.
         constexpr uint32_t kSurfaceMagic = 0x3453544d; // MTS4.
         constexpr uint32_t kCompressedMagic = 0x3553544d; // MTS5.
+        constexpr uint32_t kHierarchyMagic = 0x3653544d; // MTS6.
+        constexpr size_t kHierarchyHeaderBytes = 128, kNodeBytes = 64;
         constexpr uint64_t kPaletteLimit = 32768 + 24;
         constexpr size_t kHeaderBytes = 104, kEntryBytes = 40, kPagedEntryBytes = 64;
         constexpr uint64_t kCoverageLimit = 64ull << 20, kTileLimit = 65536, kPatchLimit = 65536;
@@ -92,10 +94,10 @@ namespace TerrainData
             Require( file.good(), "Could not write terrain stream block" );
         }
 
-        std::shared_ptr<ResidentPatch> MakePatch( const Settings& s, TileCoord tile, uint32_t px, uint32_t pz, uint8_t base )
+        std::shared_ptr<ResidentPatch> MakePatch( const Settings& s, TileCoord tile, uint32_t px, uint32_t pz, uint8_t base, uint8_t span = 0 )
         {
-            auto patch = std::make_shared<ResidentPatch>(); patch->BaseLod = base;
-            patch->Mesh.SampleOrigin = { int64_t( tile.X ) * s.TileQuads + px * s.PatchQuads, int64_t( tile.Z ) * s.TileQuads + pz * s.PatchQuads };
+            auto patch = std::make_shared<ResidentPatch>(); patch->BaseLod = base + span; patch->SpanLevel = span;
+            patch->Mesh.SampleOrigin = { int64_t( tile.X ) * s.TileQuads + ( int64_t( px ) * s.PatchQuads << span ), int64_t( tile.Z ) * s.TileQuads + ( int64_t( pz ) * s.PatchQuads << span ) };
             patch->Offset = Vector3( static_cast<float>( patch->Mesh.SampleOrigin.X * double( s.SampleSpacing ) ), 0.f, static_cast<float>( patch->Mesh.SampleOrigin.Z * double( s.SampleSpacing ) ) );
             Require( std::isfinite( patch->Offset.x ) && std::isfinite( patch->Offset.z ), "Terrain stream coordinates exceed Float32" );
             for( float p : { patch->Offset.x, patch->Offset.z } ) Require( p + s.SampleSpacing != p, "Terrain stream coordinates lose canonical sample precision" );
@@ -120,7 +122,7 @@ namespace TerrainData
 
     bool IsStreamArchive( std::span<const uint8_t> prefix )
     {
-        return prefix.size() >= 4 && prefix[0] == 'M' && prefix[1] == 'T' && prefix[2] == 'S' && ( prefix[3] == '2' || prefix[3] == '3' || prefix[3] == '4' || prefix[3] == '5' );
+        return prefix.size() >= 4 && prefix[0] == 'M' && prefix[1] == 'T' && prefix[2] == 'S' && ( prefix[3] == '2' || prefix[3] == '3' || prefix[3] == '4' || prefix[3] == '5' || prefix[3] == '6' );
     }
 
 
@@ -145,7 +147,7 @@ namespace TerrainData
     }
 
 
-    static bool CookArchive( const std::filesystem::path& path, const Heightfield& field, uint64_t guid, uint8_t base, bool paged, bool compressed, std::string& error )
+    static bool CookArchive( const std::filesystem::path& path, const Heightfield& field, uint64_t guid, uint8_t base, bool paged, bool compressed, bool hierarchical, std::string& error )
     {
         std::filesystem::path temporary;
         try
@@ -170,13 +172,22 @@ namespace TerrainData
             }
             const uint32_t q = s.PatchQuads >> base, levels = LastLevel( q ) + 1, patches = s.TileQuads / s.PatchQuads;
             const uint64_t weightBytes = surface ? uint64_t( s.PatchQuads + 1 ) * ( s.PatchQuads + 1 ) * 4 : 0;
+            std::vector<CoverageNode> nodes; std::vector<uint32_t> roots;
+            const size_t headerBytes = hierarchical ? kHierarchyHeaderBytes : kHeaderBytes;
+            if( hierarchical )
+            {
+                Require( base < LastLevel( s.PatchQuads ), "Hierarchical coverage needs at least two grid quads per patch" );
+                if( !BuildCoverageHierarchy( s, nodes, roots, error ) ) throw std::runtime_error( error );
+            }
             const uint64_t coverageSize = PatchCount( s ) * ( 8 + levels * 4 + uint64_t( q + 1 ) * ( q + 1 ) * 16 + weightBytes );
             Require( ( paged ? coverageSize / count : coverageSize ) <= kCoverageLimit, "Terrain coarse coverage exceeds 64 MiB; increase its stride or split the dataset" );
+            Require( !hierarchical || roots.size() * ( coverageSize / count ) <= kCoverageLimit, "Terrain root coverage exceeds 64 MiB; use a smaller/coarser dataset" );
             if( !path.parent_path().empty() ) std::filesystem::create_directories( path.parent_path() );
             temporary = path; temporary += "." + std::to_string( GUID::Generate() ) + ".tmp";
             std::ofstream file( temporary, std::ios::binary | std::ios::trunc ); Require( bool( file ), "Could not stage terrain cook" );
             Bytes coverage, directory; coverage.Data.reserve( static_cast<size_t>( paged ? coverageSize / count : coverageSize ) );
-            uint64_t offset = kHeaderBytes + count * ( paged ? kPagedEntryBytes : kEntryBytes ) + ( paged ? palette.Data.size() : coverageSize ), revision = surface ? Hash( palette.Data ) : kHashSeed;
+            uint64_t offset = headerBytes + nodes.size() * kNodeBytes + count * ( paged ? kPagedEntryBytes : kEntryBytes ) + ( paged ? palette.Data.size() : coverageSize ), revision = surface ? Hash( palette.Data ) : kHashSeed;
+            size_t leafIndex = 0;
             for( const auto& [tile, source] : field.GetTiles() )
             {
                 Bytes payload; payload.Data.reserve( s.SamplesPerTile() * 16 );
@@ -208,14 +219,53 @@ namespace TerrainData
                 if( paged ) { Write( file, offset, coverage ); offset += coverage.Data.size(); }
                 directory.U32( std::bit_cast<uint32_t>( tile.X ) ); directory.U32( std::bit_cast<uint32_t>( tile.Z ) );
                 directory.U64( offset ); directory.U64( payload.Data.size() ); directory.U64( payloadHash ); directory.F32( min ); directory.F32( max );
+                if( hierarchical )
+                {
+                    auto& node = nodes[leafIndex++]; node.Offset = coverageOffset; node.Size = coverage.Data.size(); node.Checksum = coverageHash;
+                    node.DecodedSize = coverageSize / count; node.MinHeight = min; node.MaxHeight = max;
+                }
                 if( paged ) { directory.U64( coverageOffset ); directory.U64( coverage.Data.size() ); directory.U64( coverageHash ); coverage.Data.clear(); }
                 Write( file, offset, payload ); offset += payload.Data.size();
             }
+            Bytes nodeDirectory;
+            if( hierarchical )
+            {
+                for( size_t i = count; i < nodes.size(); ++i )
+                {
+                    auto& node = nodes[i]; std::shared_ptr<const StreamCoverageTile> page;
+                    if( !BuildHierarchyPage( field, node, base, page, error ) ) throw std::runtime_error( error );
+                    Bytes bytes; node.MinHeight = std::numeric_limits<float>::max(); node.MaxHeight = -node.MinHeight;
+                    for( const auto& patch : page->Patches )
+                    {
+                        bytes.F32( patch->Mesh.Bounds.Min.y ); bytes.F32( patch->Mesh.Bounds.Max.y );
+                        node.MinHeight = std::min( node.MinHeight, patch->Mesh.Bounds.Min.y ); node.MaxHeight = std::max( node.MaxHeight, patch->Mesh.Bounds.Max.y );
+                        for( const auto& lod : patch->Mesh.Lods ) bytes.F32( lod.MaxError );
+                        for( const auto& v : patch->Mesh.Vertices ) { bytes.F32( v.Position.y ); bytes.F32( v.Normal.x ); bytes.F32( v.Normal.y ); bytes.F32( v.Normal.z ); }
+                        for( const auto& weights : patch->Weights ) bytes.Data.insert( bytes.Data.end(), weights.begin(), weights.end() );
+                    }
+                    Require( bytes.Data.size() == coverageSize / count, "Internal hierarchy page size mismatch" );
+                    node.DecodedSize = bytes.Data.size(); node.Checksum = Hash( bytes.Data );
+                    if( !EncodeStreamBlock( bytes.Data, bytes.Data, error ) ) throw std::runtime_error( error );
+                    node.Offset = offset; node.Size = bytes.Data.size(); Write( file, offset, bytes ); offset += node.Size;
+                }
+                for( const auto& node : nodes )
+                {
+                    nodeDirectory.U32( std::bit_cast<uint32_t>( node.Coordinate.X ) ); nodeDirectory.U32( std::bit_cast<uint32_t>( node.Coordinate.Z ) );
+                    nodeDirectory.U32( node.Level ); nodeDirectory.U32( std::bit_cast<uint32_t>( node.Parent ) );
+                    for( int32_t child : node.Children ) nodeDirectory.U32( std::bit_cast<uint32_t>( child ) );
+                    nodeDirectory.U64( node.Offset ); nodeDirectory.U64( node.Size ); nodeDirectory.U64( node.Checksum ); nodeDirectory.F32( node.MinHeight ); nodeDirectory.F32( node.MaxHeight );
+                }
+            }
             Require( paged || coverage.Data.size() == coverageSize, "Internal terrain coverage size mismatch" );
-            Bytes header; header.U32( compressed ? kCompressedMagic : ( surface ? kSurfaceMagic : ( paged ? kPagedMagic : kMagic ) ) ); header.U32( compressed ? 5 : ( surface ? 4 : ( paged ? 3 : 2 ) ) ); SettingsBytes( header, s ); header.U32( base ); header.U64( guid ); header.U64( revision );
-            header.U64( count ); header.U64( paged ? palette.Data.size() : coverageSize ); header.U64( surface ? Hash( palette.Data ) : ( paged ? 0 : Hash( coverage.Data ) ) ); header.U64( Hash( directory.Data ) ); header.U64( Hash( header.Data ) );
-            Require( header.Data.size() == kHeaderBytes, "Internal terrain stream header mismatch" );
-            Write( file, 0, header ); Write( file, kHeaderBytes, directory ); if( paged ) Write( file, kHeaderBytes + directory.Data.size(), palette ); else Write( file, kHeaderBytes + directory.Data.size(), coverage );
+            Bytes header; header.U32( hierarchical ? kHierarchyMagic : ( compressed ? kCompressedMagic : ( surface ? kSurfaceMagic : ( paged ? kPagedMagic : kMagic ) ) ) ); header.U32( hierarchical ? 6 : ( compressed ? 5 : ( surface ? 4 : ( paged ? 3 : 2 ) ) ) ); SettingsBytes( header, s ); header.U32( base ); header.U64( guid ); header.U64( revision );
+            header.U64( count ); header.U64( paged ? palette.Data.size() : coverageSize ); header.U64( surface ? Hash( palette.Data ) : ( paged ? 0 : Hash( coverage.Data ) ) ); header.U64( Hash( directory.Data ) );
+            if( hierarchical ) { header.U64( nodes.size() ); header.U64( Hash( nodeDirectory.Data ) ); header.U64( roots.size() ); }
+            header.U64( Hash( header.Data ) );
+            Require( header.Data.size() == headerBytes, "Internal terrain stream header mismatch" );
+            Write( file, 0, header ); Write( file, headerBytes, directory );
+            if( hierarchical ) Write( file, headerBytes + directory.Data.size(), nodeDirectory );
+            const uint64_t metadataEnd = headerBytes + directory.Data.size() + nodeDirectory.Data.size();
+            if( paged ) Write( file, metadataEnd, palette ); else Write( file, metadataEnd, coverage );
             file.flush(); Require( file.good(), "Could not flush terrain stream cook" ); file.close(); Require( !file.fail(), "Could not close terrain stream cook" );
 #if USING( ME_PLATFORM_WINDOWS )
             Require( MoveFileExW( temporary.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH ) != 0, "Could not publish terrain stream cook" );
@@ -231,19 +281,25 @@ namespace TerrainData
 
     bool CookStreamArchive( const std::filesystem::path& path, const Heightfield& field, uint64_t guid, uint8_t base, std::string& error )
     {
-        return CookArchive( path, field, guid, base, false, false, error );
+        return CookArchive( path, field, guid, base, false, false, false, error );
     }
 
 
     bool CookPagedStreamArchive( const std::filesystem::path& path, const Heightfield& field, uint64_t guid, uint8_t base, std::string& error )
     {
-        return CookArchive( path, field, guid, base, true, false, error );
+        return CookArchive( path, field, guid, base, true, false, false, error );
     }
 
 
     bool CookCompressedStreamArchive( const std::filesystem::path& path, const Heightfield& field, uint64_t guid, uint8_t base, std::string& error )
     {
-        return CookArchive( path, field, guid, base, true, true, error );
+        return CookArchive( path, field, guid, base, true, true, false, error );
+    }
+
+
+    bool CookHierarchicalStreamArchive( const std::filesystem::path& path, const Heightfield& field, uint64_t guid, uint8_t base, std::string& error )
+    {
+        return CookArchive( path, field, guid, base, true, true, true, error );
     }
 
 
@@ -254,17 +310,29 @@ namespace TerrainData
             std::ifstream file( path, std::ios::binary | std::ios::ate ); Require( bool( file ), "Could not open terrain stream archive" );
             const auto size = file.tellg(); Require( size >= static_cast<std::streamoff>( kHeaderBytes ), "Truncated terrain stream header" );
             auto archive = std::make_shared<StreamArchive>(); archive->Path = path; archive->FileSize = static_cast<uint64_t>( size );
-            auto header = Read( file, 0, kHeaderBytes ); archive->Header = header.Data;
+            auto header = Read( file, 0, kHeaderBytes );
+            if( header.Data[3] == '6' ) header = Read( file, 0, kHierarchyHeaderBytes );
+            archive->Header = header.Data; const size_t headerBytes = header.Data.size();
             const uint32_t magic = header.Read32(), version = header.Read32();
             bool layered = magic == kSurfaceMagic && version == 4;
-            archive->Compressed = magic == kCompressedMagic && version == 5;
+            archive->Hierarchical = magic == kHierarchyMagic && version == 6;
+            archive->Compressed = archive->Hierarchical || ( magic == kCompressedMagic && version == 5 );
             archive->PagedCoverage = archive->Compressed || layered || ( magic == kPagedMagic && version == 3 );
             Require( archive->PagedCoverage || ( magic == kMagic && version == 2 ), "Unsupported terrain stream format/version" );
             const bool paged = archive->PagedCoverage; const size_t entryBytes = paged ? kPagedEntryBytes : kEntryBytes;
             archive->Config = SettingsBytes( header ); const auto& s = archive->Config;
             const uint32_t base = header.Read32(); Require( base <= LastLevel( s.PatchQuads ), "Invalid terrain coverage stride" ); archive->CoverageLod = static_cast<uint8_t>( base );
-            archive->AssetGUID = header.Read64(); archive->Revision = header.Read64(); const uint64_t count = header.Read64(), coverageSize = header.Read64(), coverageHash = header.Read64(), directoryHash = header.Read64(), headerHash = header.Read64();
-            Require( Hash( std::span( header.Data ).first( kHeaderBytes - 8 ) ) == headerHash, "Terrain stream header checksum failed" );
+            archive->AssetGUID = header.Read64(); archive->Revision = header.Read64(); const uint64_t count = header.Read64(), coverageSize = header.Read64(), coverageHash = header.Read64(), directoryHash = header.Read64();
+            uint64_t nodeCount = 0, nodeHash = 0, rootCount = 0;
+            if( archive->Hierarchical ) { nodeCount = header.Read64(); nodeHash = header.Read64(); rootCount = header.Read64(); }
+            const uint64_t headerHash = header.Read64();
+            Require( Hash( std::span( header.Data ).first( headerBytes - 8 ) ) == headerHash, "Terrain stream header checksum failed" );
+            if( archive->Hierarchical )
+            {
+                Require( base < LastLevel( s.PatchQuads ) && nodeCount <= 2 * kTileLimit, "Invalid hierarchy directory count or grid" );
+                if( !BuildCoverageHierarchy( s, archive->Nodes, archive->Roots, error ) ) throw std::runtime_error( error );
+                Require( nodeCount == archive->Nodes.size() && rootCount == archive->Roots.size(), "Invalid hierarchy topology counts" );
+            }
             layered |= archive->Compressed && coverageSize != 0;
             Require( archive->AssetGUID && count == uint64_t( s.TilesX ) * s.TilesZ && count <= kTileLimit && ( paged || PatchCount( s ) <= kPatchLimit ), "Invalid or excessive terrain stream directory" );
             const uint32_t q = s.PatchQuads >> base, levels = LastLevel( q ) + 1, patches = s.TileQuads / s.PatchQuads;
@@ -272,9 +340,10 @@ namespace TerrainData
             const uint64_t pageBytes = uint64_t( patches ) * patches * ( 8 + levels * 4 + uint64_t( q + 1 ) * ( q + 1 ) * 16 + weightBytes );
             Require( paged ? ( pageBytes <= kCoverageLimit && ( layered ? ( coverageSize >= 24 && coverageSize <= kPaletteLimit ) : ( coverageSize == 0 && coverageHash == 0 ) ) ) :
                 ( coverageSize <= kCoverageLimit && coverageSize == count * pageBytes ), "Invalid terrain coverage size" );
-            Require( kHeaderBytes + count * entryBytes + coverageSize <= archive->FileSize, "Truncated terrain coverage" );
-            auto directory = Read( file, kHeaderBytes, count * entryBytes ); Require( Hash( directory.Data ) == directoryHash, "Terrain stream directory checksum failed" );
-            uint64_t offset = kHeaderBytes + count * entryBytes + coverageSize;
+            Require( headerBytes + count * entryBytes + nodeCount * kNodeBytes + coverageSize <= archive->FileSize, "Truncated terrain coverage" );
+            auto directory = Read( file, headerBytes, count * entryBytes ); Require( Hash( directory.Data ) == directoryHash, "Terrain stream directory checksum failed" );
+            const uint64_t metadataEnd = headerBytes + count * entryBytes + nodeCount * kNodeBytes;
+            uint64_t offset = metadataEnd + coverageSize;
             for( size_t i = 0; i < count; ++i )
             {
                 StreamBlock block; block.Coordinate.X = std::bit_cast<int32_t>( directory.Read32() ); block.Coordinate.Z = std::bit_cast<int32_t>( directory.Read32() );
@@ -291,14 +360,41 @@ namespace TerrainData
                 Require( block.Coordinate == Coordinate( s, i ) && block.Offset == offset && ( archive->Compressed ? ( block.Size >= 8 && block.Size <= block.DecodedSize + 8 ) : block.Size == block.DecodedSize ) && block.MinHeight <= block.MaxHeight, "Invalid terrain stream tile record" );
                 Require( offset <= archive->FileSize && block.Size <= archive->FileSize - offset, "Truncated terrain detail block" ); offset += block.Size; archive->Blocks.push_back( block );
             }
+            if( archive->Hierarchical )
+            {
+                Require( rootCount * pageBytes <= kCoverageLimit, "Terrain resident roots exceed the bounded limit" );
+                auto records = Read( file, headerBytes + count * entryBytes, nodeCount * kNodeBytes );
+                Require( Hash( records.Data ) == nodeHash, "Terrain hierarchy directory checksum failed" );
+                for( size_t i = 0; i < archive->Nodes.size(); ++i )
+                {
+                    auto& n = archive->Nodes[i];
+                    const int32_t x = std::bit_cast<int32_t>( records.Read32() ), z = std::bit_cast<int32_t>( records.Read32() ); const uint32_t level = records.Read32();
+                    Require( x == n.Coordinate.X && z == n.Coordinate.Z && level == n.Level && std::bit_cast<int32_t>( records.Read32() ) == n.Parent, "Invalid terrain hierarchy address or parent" );
+                    for( auto child : n.Children ) Require( std::bit_cast<int32_t>( records.Read32() ) == child, "Invalid terrain hierarchy child" );
+                    n.Offset = records.Read64(); n.Size = records.Read64(); n.Checksum = records.Read64(); n.DecodedSize = pageBytes; n.MinHeight = records.ReadFloat(); n.MaxHeight = records.ReadFloat();
+                    Require( n.MinHeight <= n.MaxHeight && n.Size >= 8 && n.Size <= pageBytes + 8, "Invalid hierarchy bounds or stored size" );
+                    if( i < count )
+                    {
+                        const auto& leaf = archive->Blocks[i];
+                        Require( n.Offset == leaf.CoverageOffset && n.Size == leaf.CoverageSize && n.Checksum == leaf.CoverageChecksum && n.MinHeight == leaf.MinHeight && n.MaxHeight == leaf.MaxHeight, "Hierarchy leaf disagrees with canonical directory" );
+                    }
+                    else
+                    {
+                        Require( n.Offset == offset && offset <= archive->FileSize && n.Size <= archive->FileSize - offset, "Invalid hierarchy page range" ); offset += n.Size;
+                        float minimum = std::numeric_limits<float>::infinity(), maximum = -minimum;
+                        for( auto child : n.Children ) { minimum = std::min( minimum, archive->Nodes[child].MinHeight ); maximum = std::max( maximum, archive->Nodes[child].MaxHeight ); }
+                        Require( n.MinHeight == minimum && n.MaxHeight == maximum, "Hierarchy bounds disagree with canonical children" );
+                    }
+                }
+            }
             Require( offset == archive->FileSize, "Terrain stream archive contains trailing data" );
             if( paged )
             {
-                auto data = std::make_shared<ResidentTerrain>(); data->AssetGUID = archive->AssetGUID; data->Streamed = data->PagedCoverage = true;
+                auto data = std::make_shared<ResidentTerrain>(); data->AssetGUID = archive->AssetGUID; data->Streamed = data->PagedCoverage = true; data->Hierarchical = archive->Hierarchical;
                 data->StreamRevision = headerHash; auto heights = std::make_shared<Heightfield>( s );
                 if( layered )
                 {
-                    auto palette = Read( file, kHeaderBytes + count * entryBytes, coverageSize );
+                    auto palette = Read( file, metadataEnd, coverageSize );
                     Require( Hash( palette.Data ) == coverageHash, "Terrain surface palette checksum failed" );
                     auto surface = std::make_shared<Surface>();
                     if( !DeserializeSurface( palette.Data, s, *surface, error ) ) throw std::runtime_error( error );
@@ -310,9 +406,21 @@ namespace TerrainData
                 for( const auto& block : archive->Blocks ) { min = std::min( min, block.MinHeight ); max = std::max( max, block.MaxHeight ); }
                 data->Bounds.Min = Vector3( float( s.MinSample().X * double( s.SampleSpacing ) ), min, float( s.MinSample().Z * double( s.SampleSpacing ) ) );
                 data->Bounds.Max = Vector3( float( s.MaxSample().X * double( s.SampleSpacing ) ), max, float( s.MaxSample().Z * double( s.SampleSpacing ) ) );
-                archive->Coverage = data; out = archive; error.clear(); return true;
+                archive->Coverage = data;
+                if( archive->Hierarchical )
+                {
+                    for( auto root : archive->Roots )
+                    {
+                        std::shared_ptr<const StreamCoverageTile> page;
+                        if( !ReadHierarchyCoverage( *archive, root, page, error ) ) throw std::runtime_error( error );
+                        data->CoverageNodes.push_back( root ); data->CoverageTiles.push_back( archive->Nodes[root].Coordinate );
+                        data->Patches.insert( data->Patches.end(), page->Patches.begin(), page->Patches.end() );
+                    }
+                    data->CoveragePatches = data->Patches; BuildHierarchyNeighbors( *data );
+                }
+                out = archive; error.clear(); return true;
             }
-            auto coverage = Read( file, kHeaderBytes + count * entryBytes, coverageSize ); Require( Hash( coverage.Data ) == coverageHash, "Terrain coverage checksum failed" );
+            auto coverage = Read( file, metadataEnd, coverageSize ); Require( Hash( coverage.Data ) == coverageHash, "Terrain coverage checksum failed" );
             auto data = std::make_shared<ResidentTerrain>(); data->AssetGUID = archive->AssetGUID; data->Streamed = true; data->StreamRevision = headerHash; data->Heights = std::make_shared<Heightfield>( s );
             for( const auto& block : archive->Blocks ) for( uint32_t pz = 0; pz < patches; ++pz ) for( uint32_t px = 0; px < patches; ++px )
             {
@@ -335,36 +443,41 @@ namespace TerrainData
     }
 
 
-    bool ReadStreamCoverage( const StreamArchive& archive, TileCoord coord, std::shared_ptr<const StreamCoverageTile>& out, std::string& error )
+    static bool ReadCoveragePage( const StreamArchive& archive, TileCoord coord, int32_t nodeID, std::shared_ptr<const StreamCoverageTile>& out, std::string& error )
     {
         try
         {
             Require( archive.PagedCoverage, "This terrain uses resident coverage" );
             const auto& s = archive.Config; const auto& block = archive.Blocks.at( archive.TileIndex( coord ) );
+            const auto* node = nodeID >= 0 ? &archive.Nodes.at( size_t( nodeID ) ) : nullptr;
+            const uint64_t pageOffset = node ? node->Offset : block.CoverageOffset, pageSize = node ? node->Size : block.CoverageSize;
+            const uint64_t decodedSize = node ? node->DecodedSize : block.CoverageDecodedSize, checksum = node ? node->Checksum : block.CoverageChecksum;
+            const float nodeMin = node ? node->MinHeight : block.MinHeight, nodeMax = node ? node->MaxHeight : block.MaxHeight;
+            const uint8_t span = node ? node->Level : 0;
             std::ifstream file( archive.Path, std::ios::binary | std::ios::ate );
             Require( bool( file ) && static_cast<uint64_t>( file.tellg() ) == archive.FileSize, "Terrain coverage archive was removed or replaced; reload it" );
-            Require( Read( file, 0, kHeaderBytes ).Data == archive.Header, "Terrain coverage generation changed; reload it" );
-            auto bytes = Read( file, block.CoverageOffset, block.CoverageSize );
-            if( archive.Compressed && !DecodeStreamBlock( bytes.Data, block.CoverageDecodedSize, bytes.Data, error ) ) throw std::runtime_error( error );
-            Require( Hash( bytes.Data ) == block.CoverageChecksum, "Terrain coverage page checksum failed" );
+            Require( Read( file, 0, archive.Header.size() ).Data == archive.Header, "Terrain coverage generation changed; reload it" );
+            auto bytes = Read( file, pageOffset, pageSize );
+            if( archive.Compressed && !DecodeStreamBlock( bytes.Data, decodedSize, bytes.Data, error ) ) throw std::runtime_error( error );
+            Require( Hash( bytes.Data ) == checksum, "Terrain coverage page checksum failed" );
             auto page = std::make_shared<StreamCoverageTile>(); page->Coordinate = coord;
             const uint32_t q = s.PatchQuads >> archive.CoverageLod, patches = s.TileQuads / s.PatchQuads, levels = LastLevel( q ) + 1;
             for( uint32_t pz = 0; pz < patches; ++pz ) for( uint32_t px = 0; px < patches; ++px )
             {
-                auto patch = MakePatch( s, coord, px, pz, archive.CoverageLod );
+                auto patch = MakePatch( s, coord, px, pz, archive.CoverageLod, span );
                 const float min = bytes.ReadFloat(), max = bytes.ReadFloat();
-                Require( min <= max && min >= block.MinHeight && max <= block.MaxHeight, "Invalid coverage page bounds" );
+                Require( min <= max && min >= nodeMin && max <= nodeMax, "Invalid coverage page bounds" );
                 std::vector<float> errors;
                 for( uint32_t l = 0; l < levels; ++l ) { errors.push_back( bytes.ReadFloat() ); Require( errors.back() >= 0, "Negative coverage error" ); }
                 for( uint32_t z = 0; z <= q; ++z ) for( uint32_t x = 0; x <= q; ++x )
                 {
-                    PatchVertex v; v.Position = Vector3( x * s.SampleSpacing * ( 1u << archive.CoverageLod ), bytes.ReadFloat(), z * s.SampleSpacing * ( 1u << archive.CoverageLod ) );
+                    PatchVertex v; v.Position = Vector3( x * s.SampleSpacing * ( 1u << ( archive.CoverageLod + span ) ), bytes.ReadFloat(), z * s.SampleSpacing * ( 1u << ( archive.CoverageLod + span ) ) );
                     v.Normal = ReadNormal( bytes ); v.U = float( x ) / q; v.V = float( z ) / q;
                     Require( v.Position.y >= min && v.Position.y <= max, "Coverage page vertex exceeds its bounds" ); patch->Mesh.Vertices.push_back( v );
                 }
                 if( !BuildPatchLods( patch->Mesh, q, error ) ) throw std::runtime_error( error );
                 for( size_t l = 0; l < errors.size(); ++l ) patch->Mesh.Lods[l].MaxError = errors[l];
-                patch->Mesh.Bounds.Min = Vector3( 0, min, 0 ); patch->Mesh.Bounds.Max = Vector3( s.PatchQuads * s.SampleSpacing, max, s.PatchQuads * s.SampleSpacing );
+                patch->Mesh.Bounds.Min = Vector3( 0, min, 0 ); patch->Mesh.Bounds.Max = Vector3( ( uint64_t( s.PatchQuads ) << span ) * s.SampleSpacing, max, ( uint64_t( s.PatchQuads ) << span ) * s.SampleSpacing );
                 if( archive.Coverage->Heights->GetSurface() )
                 {
                     const size_t samples = size_t( s.PatchQuads + 1 ) * ( s.PatchQuads + 1 );
@@ -386,11 +499,25 @@ namespace TerrainData
     }
 
 
+    bool ReadStreamCoverage( const StreamArchive& archive, TileCoord coord, std::shared_ptr<const StreamCoverageTile>& out, std::string& error )
+    {
+        if( !archive.Config.Contains( coord ) ) { error = "Coverage tile is outside the archive"; return false; }
+        return ReadCoveragePage( archive, coord, archive.Hierarchical ? int32_t( archive.TileIndex( coord ) ) : -1, out, error );
+    }
+
+
+    bool ReadHierarchyCoverage( const StreamArchive& archive, uint32_t node, std::shared_ptr<const StreamCoverageTile>& out, std::string& error )
+    {
+        if( !archive.Hierarchical || node >= archive.Nodes.size() ) { error = "Invalid hierarchy coverage node"; return false; }
+        return ReadCoveragePage( archive, archive.Nodes[node].Coordinate, int32_t( node ), out, error );
+    }
+
+
     static std::vector<float> CanonicalHeights( const StreamArchive& archive, TileCoord coord, std::vector<Vector3>* normals )
     {
         const auto& s = archive.Config; const auto& block = archive.Blocks.at( archive.TileIndex( coord ) );
         std::ifstream file( archive.Path, std::ios::binary | std::ios::ate ); Require( bool( file ) && static_cast<uint64_t>( file.tellg() ) == archive.FileSize, "Terrain stream archive was removed or replaced; reload it" );
-        Require( Read( file, 0, kHeaderBytes ).Data == archive.Header, "Terrain stream archive generation changed; reload it" );
+        Require( Read( file, 0, archive.Header.size() ).Data == archive.Header, "Terrain stream archive generation changed; reload it" );
         auto bytes = Read( file, block.Offset, block.Size );
         std::string error;
         if( archive.Compressed && !DecodeStreamBlock( bytes.Data, block.DecodedSize, bytes.Data, error ) ) throw std::runtime_error( error );

@@ -36,8 +36,8 @@ void TerrainWidget::DrawLodControls()
     if( !terrain ) { ImGui::TextDisabled( "Select a terrain instance to inspect LODs." ); return; }
     ImGui::TextWrapped( "Cameras share the finest requested detail." );
     const auto& choices = terrain->GetPatchLods();
-    std::array<size_t, 11> histogram{}; size_t stitched = 0;
-    for( const auto& choice : choices ) { ++histogram[std::min<size_t>( choice.Level, 10 )]; stitched += choice.Edges != 0; }
+    std::array<size_t, 32> histogram{}; size_t stitched = 0;
+    for( const auto& choice : choices ) { ++histogram[std::min<size_t>( choice.Level, 31 )]; stitched += choice.Edges != 0; }
     ImGui::Text( "Triangles: %llu / %llu", static_cast<unsigned long long>( terrain->GetLodTriangles() ), static_cast<unsigned long long>( terrain->GetFullDetailTriangles() ) );
     ImGui::Text( "%zu patches, %zu stitched", choices.size(), stitched );
     for( size_t level = 0; level < histogram.size(); ++level ) if( histogram[level] )
@@ -45,7 +45,7 @@ void TerrainWidget::DrawLodControls()
     ImGui::Text( "Error budget: %.2f px", terrain->LodPixelError );
     ImGui::TextWrapped( "Tune error and hysteresis in the Terrain inspector." );
     int maximum = 0;
-    if( auto data = terrain->GetData(); data && !data->Patches.empty() ) maximum = data->Patches.front()->BaseLod + static_cast<int>( data->Patches.front()->Mesh.Lods.size() ) - 1;
+    if( auto data = terrain->GetData() ) for( const auto& patch : data->Patches ) maximum = std::max( maximum, patch->BaseLod + static_cast<int>( patch->Mesh.Lods.size() ) - 1 );
     ImGui::SliderInt( "Force level", &terrain->ForcedLod, -1, maximum );
     ImGui::TextWrapped( streaming ? "-1 = Auto. Forced levels respect available streamed detail." : "-1 = Auto. Forced levels bypass the error budget." );
     if( !terrain->GetLodError().empty() )

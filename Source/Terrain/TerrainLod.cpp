@@ -37,8 +37,19 @@ namespace TerrainData
             terrain.PatchNeighbors.size() != terrain.Patches.size() )
         { error = "Invalid terrain LOD settings or neighbor table"; return false; }
         const size_t count = terrain.Patches.size();
+        const bool linked = !terrain.NeighborOffsets.empty();
+        if( linked )
+        {
+            if( terrain.NeighborOffsets.size() != count + 1 || terrain.NeighborOffsets.front() != 0 || terrain.NeighborOffsets.back() != terrain.NeighborLinks.size() ) { error = "Invalid hierarchy neighbor ranges"; return false; }
+            for( size_t i = 0; i < count; ++i ) if( terrain.NeighborOffsets[i] > terrain.NeighborOffsets[i + 1] ) { error = "Invalid hierarchy neighbor order"; return false; }
+            for( const auto& link : terrain.NeighborLinks ) if( link.Index < 0 || link.Index >= int64_t( count ) || link.Edge > 3 ) { error = "Invalid hierarchy neighbor link"; return false; }
+        }
+        const auto each = [&]( size_t i, const auto& visit ) {
+            if( linked ) for( auto n = terrain.NeighborOffsets[i]; n < terrain.NeighborOffsets[i + 1]; ++n ) visit( terrain.NeighborLinks[n].Index, terrain.NeighborLinks[n].Edge );
+            else for( uint8_t edge = 0; edge < 4; ++edge ) if( terrain.PatchNeighbors[i][edge] >= 0 ) visit( terrain.PatchNeighbors[i][edge], edge );
+        };
         std::vector<PatchLodChoice> choices( count );
-        std::vector<std::array<double, 11>> errors( count );
+        std::vector<std::array<double, 32>> errors( count );
         std::vector<double> scales( count );
         std::vector<uint8_t> minimum( count );
         // An unloaded representation cannot be refined. Propagate its minimum stride before
@@ -47,7 +58,7 @@ namespace TerrainData
         for( size_t i = 0; i < count; ++i )
         {
             const auto& patch = terrain.Patches[i];
-            if( !patch || patch->BaseLod > 10 || patch->Mesh.Lods.empty() || patch->BaseLod + patch->Mesh.Lods.size() > 11 )
+            if( !patch || patch->BaseLod > 30 || patch->Mesh.Lods.empty() || patch->BaseLod + patch->Mesh.Lods.size() > 32 )
             { error = "Invalid terrain patch LOD data"; return false; }
             minimum[i] = patch->BaseLod; floors.push_back( i );
             for( int32_t n : terrain.PatchNeighbors[i] ) if( n < -1 || n >= static_cast<int64_t>( count ) )
@@ -56,14 +67,13 @@ namespace TerrainData
         while( !floors.empty() )
         {
             const auto i = floors.front(); floors.pop_front();
-            for( int32_t n : terrain.PatchNeighbors[i] ) if( n >= 0 && minimum[i] > minimum[n] + 1 )
-            { minimum[n] = minimum[i] - 1; floors.push_back( n ); }
+            each( i, [&]( int32_t n, uint8_t ) { if( minimum[i] > minimum[n] + 1 ) { minimum[n] = minimum[i] - 1; floors.push_back( n ); } } );
         }
         std::deque<size_t> queue; std::vector<bool> queued( count, true );
         for( size_t i = 0; i < count; ++i )
         {
             const auto& patch = terrain.Patches[i];
-            if( !patch || patch->Mesh.Lods.empty() || patch->Mesh.Lods.size() > 11 ) { error = "Invalid terrain patch LOD data"; return false; }
+            if( !patch || patch->Mesh.Lods.empty() || patch->Mesh.Lods.size() > 32 ) { error = "Invalid terrain patch LOD data"; return false; }
             AABB bounds = patch->Mesh.Bounds; bounds.Min += patch->Offset + translation; bounds.Max += patch->Offset + translation;
             scales[i] = views.empty() ? std::numeric_limits<double>::infinity() : 0;
             for( const auto& view : views ) scales[i] = std::max( scales[i], VerticalPixelScale( bounds, view ) );
@@ -93,28 +103,28 @@ namespace TerrainData
         }
         const auto enqueue = [&]( size_t i ) {
             if( !queued[i] ) { queued[i] = true; queue.push_back( i ); }
-            for( int32_t n : terrain.PatchNeighbors[i] ) if( n >= 0 && !queued[n] ) { queued[n] = true; queue.push_back( n ); }
+            each( i, [&]( int32_t n, uint8_t ) { if( !queued[n] ) { queued[n] = true; queue.push_back( n ); } } );
         };
         while( !queue.empty() )
         {
             const size_t i = queue.front(); queue.pop_front(); queued[i] = false;
-            for( int32_t n : terrain.PatchNeighbors[i] ) if( n >= 0 && choices[i].Level > choices[n].Level + 1 )
-            { choices[i].Level = choices[n].Level + 1; enqueue( i ); }
+            each( i, [&]( int32_t n, uint8_t ) {
+                // A one-quad fine patch cannot contract an edge again. Its coarser neighbor
+                // must retain a vertex at that patch boundary, even across a larger footprint.
+                const auto last = terrain.Patches[n]->BaseLod + terrain.Patches[n]->Mesh.Lods.size() - 1;
+                const auto cap = std::min<size_t>( choices[n].Level + 1, last );
+                if( choices[i].Level > cap ) { choices[i].Level = uint8_t( cap ); enqueue( i ); }
+            } );
             const size_t level = choices[i].Level;
             // Each stitched triangle remains inside one next-level triangle. Relative to that
             // common plane, both surfaces deviate by at most E(next), hence a bound of 2E(next).
             if( settings.ForcedLevel < 0 && level + 1 < terrain.Patches[i]->BaseLod + terrain.Patches[i]->Mesh.Lods.size() &&
                 ( !std::isfinite( scales[i] ) || 2 * errors[i][level + 1] * scales[i] > settings.PixelError ) )
-                for( int32_t n : terrain.PatchNeighbors[i] ) if( n >= 0 && choices[n].Level > level && minimum[n] <= level )
-                { choices[n].Level = static_cast<uint8_t>( level ); enqueue( n ); }
+                each( i, [&]( int32_t n, uint8_t ) { if( choices[n].Level > level && minimum[n] <= level ) { choices[n].Level = static_cast<uint8_t>( level ); enqueue( n ); } } );
         }
         for( size_t i = 0; i < count; ++i )
         {
-            for( int edge = 0; edge < 4; ++edge )
-            {
-                const auto n = terrain.PatchNeighbors[i][edge];
-                if( n >= 0 && choices[n].Level > choices[i].Level ) choices[i].Edges |= 1 << edge;
-            }
+            each( i, [&]( int32_t n, uint8_t edge ) { if( choices[n].Level > choices[i].Level ) choices[i].Edges |= 1 << edge; } );
             const auto level = choices[i].Level;
             const double bound = choices[i].Edges ? 2 * errors[i][level + 1] : errors[i][level];
             choices[i].PixelError = bound == 0 ? 0 : bound * scales[i];

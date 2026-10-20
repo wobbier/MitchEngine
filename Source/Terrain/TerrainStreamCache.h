@@ -3,6 +3,7 @@
 #include <future>
 #include <functional>
 #include <map>
+#include <set>
 
 namespace TerrainData
 {
@@ -20,6 +21,7 @@ namespace TerrainData
         double Priority = 0; // Smaller first; collision always precedes visual requests.
         bool Coverage = false;
         bool Prefetch = false; // Optional canonical CPU data; never gates physics or uploads detail.
+        int32_t CoverageNode = -1; // Hierarchy requests are separate from canonical tile demand.
     };
 
     struct StreamStats
@@ -32,6 +34,7 @@ namespace TerrainData
         size_t PrefetchResident = 0, PrefetchPending = 0;
         size_t CoverageResident = 0, CoverageRetiring = 0, CoveragePending = 0;
         uint64_t CoverageLoaded = 0, CoverageEvicted = 0;
+        size_t HierarchyRoots = 0, HierarchySelected = 0;
         bool HorizonReady = true;
         bool Loading = false, CollisionReady = true, CoverageReady = true;
         std::string Pressure, Error;
@@ -75,6 +78,7 @@ namespace TerrainData
             std::shared_ptr<const StreamTile> Tile;
             std::shared_ptr<const StreamCoverageTile> Page;
             bool Coverage = false;
+            uint32_t CoverageID = 0;
             std::string Error;
         };
         bool HasConsumers( const Entry& InEntry ) const;
@@ -83,6 +87,7 @@ namespace TerrainData
         bool Publish( const std::map<TileCoord, TileDemand>& InDemand );
         void TickPaged( uint64_t InFrame, std::span<const TileDemand> InDemand, const StreamLimits& InLimits, bool InAllowLoad );
         bool PublishPaged( const std::map<TileCoord, TileDemand>& InDemand );
+        bool PublishHierarchy( const std::map<TileCoord, TileDemand>& InDemand, const std::map<uint32_t, TileDemand>& InPages );
         struct CoverageEntry
         {
             std::shared_ptr<const StreamCoverageTile> Page;
@@ -93,7 +98,7 @@ namespace TerrainData
         std::shared_ptr<const StreamArchive> m_archive;
         Loader m_loader;
         std::map<TileCoord, Entry> m_entries;
-        std::map<TileCoord, CoverageEntry> m_pages;
+        std::map<uint32_t, CoverageEntry> m_pages;
         std::future<Completion> m_job;
         std::shared_ptr<const ResidentTerrain> m_snapshot;
         std::vector<std::weak_ptr<const ResidentTerrain>> m_snapshots;
@@ -102,6 +107,7 @@ namespace TerrainData
         uint64_t m_request = 0;
         bool m_publishDirty = false;
         std::map<TileCoord, TileDemand> m_publishedDemand;
+        std::set<uint32_t> m_publishedPages;
     };
 
     // Adds a clipped terrain-local region; no full dataset traversal, including negative tiles.

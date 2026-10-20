@@ -32,7 +32,8 @@ namespace TerrainPagingAutomation
         std::filesystem::path s_directory;
         uint64_t s_loaded = 0;
         std::shared_ptr<const TerrainData::Surface> s_surface;
-        bool s_compressed = false;
+        bool s_compressed = false, s_hierarchical = false;
+        uint64_t s_budget = 1024 * 1024;
         EntityHandle Ground() { return EditorOps::GetWorld().FindEntityByName( "Terrain" ); }
         EntityHandle Player() { return EditorOps::GetWorld().FindEntityByName( "Paged Player" ); }
         void Pose( float coordinate )
@@ -50,9 +51,11 @@ namespace TerrainPagingAutomation
         auto* widget = TerrainWidget::Get();
         if( command == "terrain-stream-paged-fixture" )
         {
-            s_compressed = args == "compressed" || args == "compressed-painted";
-            const bool painted = args == "painted" || args == "compressed-painted"; s_surface.reset();
-            const std::string local = std::string( s_compressed ? ".tmp/Tests/TerrainCompressedFlows/" : ( painted ? ".tmp/Tests/TerrainStreamedSurfaceFlows/" : ".tmp/Tests/TerrainPagedCoverageFlows/" ) ) + std::to_string( GUID::Generate() );
+            s_hierarchical = args == "hierarchical" || args == "hierarchical-painted";
+            s_budget = ( s_hierarchical ? 8 : 1 ) * 1024 * 1024;
+            s_compressed = s_hierarchical || args == "compressed" || args == "compressed-painted";
+            const bool painted = args == "painted" || args == "compressed-painted" || args == "hierarchical-painted"; s_surface.reset();
+            const std::string local = std::string( s_hierarchical ? ".tmp/Tests/TerrainHierarchyFlows/" : s_compressed ? ".tmp/Tests/TerrainCompressedFlows/" : ( painted ? ".tmp/Tests/TerrainStreamedSurfaceFlows/" : ".tmp/Tests/TerrainPagedCoverageFlows/" ) ) + std::to_string( GUID::Generate() );
             s_directory = Path( local ).FullPath;
             TerrainData::Settings s; s.TileQuads = 16; s.PatchQuads = 8; s.MinTile = { -20, -20 }; s.TilesX = s.TilesZ = 41;
             TerrainData::Heightfield field( s );
@@ -89,8 +92,8 @@ namespace TerrainPagingAutomation
             for( int i = 1; i <= 3; ++i ) if( auto box = EditorOps::GetWorld().FindEntityByName( "Terrain Box " + std::to_string( i ) ) ) box->MarkForDelete();
             auto actor = EditorOps::GetWorld().CreateEntity( "Paged Player" ); actor->AddComponent<Transform>().SetPosition( Vector3( -40, 12, -40 ) ); actor->AddComponent<CharacterController>();
             Pose( -40 );
-            auto& settings = ProjectSettings::Get(); settings.TerrainCpuBudgetMiB = settings.TerrainGpuBudgetMiB = settings.TerrainCollisionBudgetMiB = 1; settings.TerrainMaxLoads = 1;
-            return widget->StartStreamCook( ( s_directory / "Runtime.terrainc" ).generic_string(), 2, true, s_compressed );
+            auto& settings = ProjectSettings::Get(); settings.TerrainCpuBudgetMiB = settings.TerrainGpuBudgetMiB = settings.TerrainCollisionBudgetMiB = int( s_budget / ( 1024 * 1024 ) ); settings.TerrainMaxLoads = 1;
+            return widget->StartStreamCook( ( s_directory / "Runtime.terrainc" ).generic_string(), 2, true, s_compressed, s_hierarchical );
         }
         if( command == "terrain-stream-paged-cook-wait" ) return widget->FinishStreamCook( true );
         auto ground = Ground(); auto* terrain = ground ? ground->TryGetComponent<Terrain>() : nullptr;
@@ -98,8 +101,8 @@ namespace TerrainPagingAutomation
         if( command == "terrain-stream-paged-bind" )
         {
             terrain->Asset = Path( ( s_directory / "Runtime.terrainc" ).generic_string() ); terrain->ReloadAsset();
-            terrain->CpuBudgetMiB = terrain->GpuBudgetMiB = terrain->CollisionBudgetMiB = 1;
-            terrain->StreamDistance = 12; terrain->CoverageDistance = 24; terrain->CollisionDistance = 1;
+            terrain->CpuBudgetMiB = terrain->GpuBudgetMiB = terrain->CollisionBudgetMiB = int( s_budget / ( 1024 * 1024 ) );
+            terrain->StreamDistance = 12; terrain->CoverageDistance = s_hierarchical ? 256 : 24; terrain->CollisionDistance = 1;
             terrain->UploadKiB = 16; terrain->UploadMilliseconds = 1; terrain->ShowResidency = !s_surface; Selection::Get().Set( ground ); return true;
         }
         if( command == "terrain-stream-paged-wait" ) { terrain->WaitForStreamingRequest(); GetEngine().Physics->WaitForTerrainCollision(); return true; }
@@ -118,6 +121,18 @@ namespace TerrainPagingAutomation
         }
         const auto* stats = terrain->GetStreamingStats(); const auto data = terrain->GetData();
         if( !stats || !data || !data->PagedCoverage ) { error = "Paged runtime terrain has not loaded"; return false; }
+        if( command == "terrain-stream-paged-assert-hierarchy" )
+        {
+            if( !data->Hierarchical || data->CoverageNodes.empty() || !stats->HierarchyRoots || data->CoverageNodes.size() > 1024 ) { error = "Hierarchy coverage was not published"; return false; }
+            std::shared_ptr<const TerrainData::StreamArchive> archive;
+            if( !TerrainData::OpenStreamArchive( s_directory / "Runtime.terrainc", archive, error ) ) return false;
+            uint64_t area = 0; bool parent = false;
+            for( auto id : data->CoverageNodes ) { const auto level = archive->Nodes[id].Level; area += uint64_t( 1 ) << ( 2 * level ); parent |= level != 0; }
+            if( area != uint64_t( archive->Config.TilesX ) * archive->Config.TilesZ || !parent ) { error = "Hierarchy lost distant coverage or expanded to all leaf pages"; return false; }
+            if( data->Patches.size() >= archive->Blocks.size() * 4 ) { error = "Hierarchy did not reduce the visual footprint"; return false; }
+            CLog::GetInstance().Log( CLog::LogType::Info, "[terrain-hierarchy] roots=" + std::to_string( stats->HierarchyRoots ) + " selected=" + std::to_string( data->CoverageNodes.size() ) + " patches=" + std::to_string( data->Patches.size() ) + " cpu=" + std::to_string( stats->CpuReserved ) + " gpu=" + std::to_string( stats->GpuReserved ) );
+            return true;
+        }
         if( command == "terrain-stream-paged-mark" ) { s_loaded = stats->CoverageLoaded; return true; }
         if( command == "terrain-stream-paged-assert-compressed" )
         {
@@ -125,7 +140,7 @@ namespace TerrainPagingAutomation
             if( !TerrainData::OpenStreamArchive( s_directory / "Runtime.terrainc", archive, error ) ) return false;
             uint64_t stored = 0, decoded = 0;
             for( const auto& block : archive->Blocks ) { stored += block.Size + block.CoverageSize; decoded += block.DecodedSize + block.CoverageDecodedSize; }
-            if( !archive->Compressed || !archive->Coverage->Patches.empty() || stored >= decoded || !stats->BytesRead || stats->BytesRead >= stats->DecodedBytesRead )
+            if( !archive->Compressed || ( !archive->Hierarchical && !archive->Coverage->Patches.empty() ) || stored >= decoded || !stats->BytesRead || stats->BytesRead >= stats->DecodedBytesRead )
             { error = "Compressed pages did not reduce file/read payloads or opened resident data"; return false; }
             CLog::Log( CLog::LogType::Info, "Compressed terrain payloads: " + std::to_string( stored ) + " stored / " + std::to_string( decoded ) + " decoded bytes" );
             return true;
@@ -136,7 +151,7 @@ namespace TerrainPagingAutomation
         }
         else if( command != "terrain-stream-paged-assert" ) { error = "Unknown paged terrain command"; return false; }
         const auto& world = GetEngine().Terrains->GetStreamingStats();
-        if( world.OverBudget || world.CpuReserved > 1024 * 1024 || world.GpuReserved > 1024 * 1024 || world.CollisionReserved > 1024 * 1024 || !stats->Error.empty() || !stats->HorizonReady || data->Patches.empty() || data->CoverageTiles.size() >= 81 )
+        if( world.OverBudget || world.CpuReserved > s_budget || world.GpuReserved > s_budget || world.CollisionReserved > s_budget || !stats->Error.empty() || !stats->HorizonReady || data->Patches.empty() || ( !s_hierarchical && data->CoverageTiles.size() >= 81 ) )
         { error = "Paged horizon failed: " + stats->Error + " / " + stats->Pressure + " CPU=" + std::to_string( world.CpuReserved ) + " pages=" + std::to_string( stats->CoverageResident ) + " pending=" + std::to_string( stats->CoveragePending ); return false; }
         const auto& choices = terrain->GetPatchLods();
         if( choices.size() != data->Patches.size() ) { error = "Paged GPU window has not completed"; return false; }
@@ -147,7 +162,12 @@ namespace TerrainPagingAutomation
             if( !palette || !palette->Samples.empty() || palette->Layers != s_surface->Layers || palette->BaseWeights != s_surface->BaseWeights )
             { error = "Streamed palette did not survive cooking/publication"; return false; }
             const auto q = data->Heights->GetSettings().PatchQuads;
-            for( const auto& patch : data->CoveragePatches ) if( patch->Weights != TerrainData::BuildSurfacePatch( *s_surface, patch->Mesh.SampleOrigin, q ) )
+            const auto expectedWeights = [&]( const TerrainData::ResidentPatch& patch ) {
+                std::vector<TerrainData::LayerWeights> result;
+                for( uint32_t z = 0; z <= q; ++z ) for( uint32_t x = 0; x <= q; ++x ) result.push_back( s_surface->Get( { patch.Mesh.SampleOrigin.X + ( int64_t( x ) << patch.SpanLevel ), patch.Mesh.SampleOrigin.Z + ( int64_t( z ) << patch.SpanLevel ) } ) );
+                return result;
+            };
+            for( const auto& patch : data->CoveragePatches ) if( patch->Weights != expectedWeights( *patch ) )
             { error = "Streamed weights differ from authored canonical samples"; return false; }
             size_t count = 0; std::shared_ptr<Moonlight::TerrainTextureSet> shared;
             const auto origin = ground->GetComponent<Transform>().GetWorldPosition();
@@ -157,7 +177,9 @@ namespace TerrainPagingAutomation
                 auto* material = dynamic_cast<TerrainMaterial*>( command.MeshMaterial.get() ); if( !material ) continue;
                 ++count; const auto& set = material->GetLayerTextures();
                 const TerrainData::SampleCoord sample{ std::llround( command.Transform[3].x - origin.x ), std::llround( command.Transform[3].z - origin.z ) };
-                if( !material->LayersEnabled || material->GetWeights() != TerrainData::BuildSurfacePatch( *s_surface, sample, q ) || !set || !set->IsReady() || !set->GetError().empty() )
+                const auto expected = std::find_if( data->CoveragePatches.begin(), data->CoveragePatches.end(), [&]( const auto& p ) { return p->Mesh.SampleOrigin == sample; } );
+                if( expected == data->CoveragePatches.end() || std::abs( command.SingleMesh->Bounds.GetSize().x - ( *expected )->Mesh.Bounds.GetSize().x ) > 0.001f ||
+                    !material->LayersEnabled || material->GetWeights() != expectedWeights( **expected ) || !set || !set->IsReady() || !set->GetError().empty() )
                 { error = "Streamed GPU weights/textures do not match the authored surface"; return false; }
                 if( shared && shared != set ) { error = "Streamed patches did not share layer texture packs"; return false; } shared = set;
                 if( CommandLine::Has( "--terrain-texture-atlas" ) && set->GetLayout() != Moonlight::TerrainTextureLayout::Atlas )

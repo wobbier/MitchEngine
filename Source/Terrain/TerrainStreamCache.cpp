@@ -46,12 +46,16 @@ namespace TerrainData
         m_tileCost = TileReservation( m_archive->Config, m_archive->Compressed );
         m_pageCost = CoverageReservation( m_archive->Config, m_archive->CoverageLod, bool( m_archive->Coverage->Heights->GetSurface() ), m_archive->Compressed );
         m_baseCost.CpuBytes = sizeof( StreamArchive ) + m_archive->Header.size() + m_archive->Blocks.size() * ( sizeof( StreamBlock ) + 256 );
+        m_baseCost.CpuBytes += m_archive->Nodes.capacity() * sizeof( CoverageNode ) + m_archive->Roots.capacity() * sizeof( uint32_t );
         m_baseCost.GpuBytes = m_baseCost.CollisionBytes = 0;
         if( m_archive->Coverage->Heights->GetSurface() ) m_baseCost.CpuBytes += 65536; // bounded palette and paths
         for( const auto& patch : m_archive->Coverage->Patches )
         {
             m_baseCost.CpuBytes += GeometryBytes( patch->Mesh ) + patch->Mesh.Vertices.size() * 24 + patch->Mesh.Lods.front().Indices.size() * 16 + 1024;
             m_baseCost.GpuBytes += 2 * UploadBytes( patch->Mesh );
+            // Resident hierarchy roots retain paint/material copies through window replacement.
+            m_baseCost.CpuBytes += patch->Weights.size() * 4 * 6;
+            m_baseCost.GpuBytes += patch->Weights.size() * 4 * 4;
         }
         // Shared stitched index patterns and their lazy wireframes, including full/coarse grids.
         uint64_t patternIndices = 0;
@@ -80,7 +84,7 @@ namespace TerrainData
         for( const auto& [coord, entry] : m_pages ) if( entry.Page || entry.Loading ) return false;
         m_snapshot = m_archive->Coverage; Measure();
         if( !m_snapshots.empty() ) return false;
-        for( const auto& patch : m_archive->Coverage->Patches ) if( patch.use_count() > 1 ) return false;
+        for( const auto& patch : m_archive->Coverage->Patches ) if( patch.use_count() > ( m_archive->Hierarchical ? 2 : 1 ) ) return false;
         return true;
     }
 
@@ -110,6 +114,7 @@ namespace TerrainData
         m_stats.Resident = m_stats.Detail = m_stats.Retiring = 0;
         m_stats.QueryPins = m_stats.DrawPins = m_stats.CollisionPins = 0;
         m_stats.CoverageResident = m_stats.CoverageRetiring = 0;
+        m_stats.HierarchyRoots = m_archive->Roots.size(); m_stats.HierarchySelected = m_snapshot->CoverageNodes.size();
         for( const auto& [coord, entry] : m_pages ) if( entry.Page || entry.Loading )
         {
             m_stats.CpuReserved += m_pageCost.CpuBytes * m_limits.Instances;
@@ -136,6 +141,7 @@ namespace TerrainData
             {
                 m_stats.CpuReserved += sizeof( ResidentTerrain ) + snapshot->Patches.size() * ( sizeof( void* ) + sizeof( std::array<int32_t, 4> ) );
                 m_stats.CpuReserved += snapshot->CoveragePatches.size() * sizeof( void* ) + snapshot->CoverageTiles.size() * sizeof( TileCoord );
+                m_stats.CpuReserved += snapshot->CoverageNodes.size() * sizeof( uint32_t ) + snapshot->NeighborOffsets.size() * sizeof( uint32_t ) + snapshot->NeighborLinks.size() * sizeof( ResidentTerrain::Neighbor );
                 m_stats.CpuReserved += snapshot->Heights->GetTiles().size() * ( m_archive->Config.SamplesPerTile() * 4 + 256 ); ++it;
             }
             else it = m_snapshots.erase( it );

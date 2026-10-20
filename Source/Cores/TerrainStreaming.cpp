@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <cmath>
 #include <set>
+#include <limits>
 
 void TerrainCore::SyncStreams()
 {
@@ -24,6 +25,7 @@ void TerrainCore::SyncStreams()
         TerrainData::StreamLimits Limits;
         std::map<TerrainData::TileCoord, TerrainData::TileDemand> Tiles;
         std::vector<Terrain*> Instances;
+        std::vector<TerrainData::CoverageView> Views;
     };
     std::map<const TerrainData::StreamArchive*, Requests> groups;
     bool hasStreaming = false;
@@ -105,9 +107,11 @@ void TerrainCore::SyncStreams()
         const auto origin = entity.GetComponent<Transform>().GetWorldPosition();
         for( const auto& position : cameras )
         {
-            if( archive->PagedCoverage ) TerrainData::AddStreamDemand( archive->Config, position - origin, terrain.CoverageDistance, false, request.Tiles, true );
+            if( archive->PagedCoverage && !archive->Hierarchical ) TerrainData::AddStreamDemand( archive->Config, position - origin, terrain.CoverageDistance, false, request.Tiles, true );
             if( terrain.StreamDetail ) TerrainData::AddStreamDemand( archive->Config, position - origin, archive->PagedCoverage ? std::min( terrain.StreamDistance, terrain.CoverageDistance ) : terrain.StreamDistance, false, request.Tiles );
         }
+        if( archive->Hierarchical ) for( const auto& position : cameras ) request.Views.push_back( { position - origin,
+            terrain.StreamDetail ? std::min( terrain.StreamDistance, terrain.CoverageDistance ) : 0.f, terrain.CoverageDistance } );
         if( terrain.Collision ) for( const auto& actor : actors )
         {
             const double radius = terrain.CollisionDistance + actor.Radius + actor.PendingDistance + archive->Config.SampleSpacing;
@@ -127,8 +131,24 @@ void TerrainCore::SyncStreams()
             auto& requests = groups.at( archive ); batch.Limits = requests.Limits;
             batch.Limits.Instances = static_cast<uint32_t>( requests.Instances.size() );
             for( const auto& [coord, tile] : requests.Tiles ) batch.Demand.push_back( tile );
+            if( archive->Hierarchical )
+            {
+                std::vector<uint32_t> nodes; std::string error;
+                if( TerrainData::SelectCoverageRequests( *archive, requests.Views, std::max<size_t>( 1024, archive->Roots.size() ), nodes, error ) )
+                    for( auto id : nodes )
+                    {
+                        const auto& node = archive->Nodes[id]; double priority = std::numeric_limits<double>::infinity();
+                        const double width = double( archive->Config.TileQuads ) * archive->Config.SampleSpacing, side = double( uint64_t( 1 ) << node.Level );
+                        for( const auto& view : requests.Views )
+                        {
+                            const double dx = ( node.Coordinate.X + side * 0.5 ) * width - view.Position.x, dz = ( node.Coordinate.Z + side * 0.5 ) * width - view.Position.z;
+                            priority = std::min( priority, dx * dx + dz * dz );
+                        }
+                        batch.Demand.push_back( { node.Coordinate, false, false, std::isfinite( priority ) ? priority : 0, true, false, int32_t( id ) } );
+                    }
+            }
         }
-        batches.push_back( std::move( batch ) ); drainLimit += archive->Blocks.size() * ( archive->PagedCoverage ? 2 : 1 );
+        batches.push_back( std::move( batch ) ); drainLimit += archive->Blocks.size() * ( archive->PagedCoverage ? 2 : 1 ) + archive->Nodes.size();
     }
     const auto& settings = ProjectSettings::Get();
     TerrainData::StreamWorldLimits limits;

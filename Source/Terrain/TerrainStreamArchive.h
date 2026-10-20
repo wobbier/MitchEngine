@@ -1,5 +1,6 @@
 #pragma once
 #include "Terrain/ResidentTerrain.h"
+#include "Terrain/TerrainHierarchy.h"
 #include <filesystem>
 #include <span>
 
@@ -31,6 +32,9 @@ namespace TerrainData
         uint8_t CoverageLod = 0;
         bool PagedCoverage = false;
         bool Compressed = false;
+        bool Hierarchical = false;
+        std::vector<CoverageNode> Nodes;
+        std::vector<uint32_t> Roots;
         std::vector<uint8_t> Header;
         std::vector<StreamBlock> Blocks;
         std::shared_ptr<const ResidentTerrain> Coverage;
@@ -48,12 +52,15 @@ namespace TerrainData
     // Version 5: independent lossless blocks, optional surface palette, metadata-only open.
     bool CookCompressedStreamArchive( const std::filesystem::path& InPath, const Heightfield& InField, uint64_t InGUID,
         uint8_t InCoverageLod, std::string& OutError );
+    bool CookHierarchicalStreamArchive( const std::filesystem::path& InPath, const Heightfield& InField, uint64_t InGUID,
+        uint8_t InCoverageLod, std::string& OutError );
     struct StreamCoverageTile
     {
         TileCoord Coordinate;
         std::vector<std::shared_ptr<const ResidentPatch>> Patches;
     };
     bool ReadStreamCoverage( const StreamArchive& InArchive, TileCoord InTile, std::shared_ptr<const StreamCoverageTile>& OutPage, std::string& OutError );
+    bool ReadHierarchyCoverage( const StreamArchive& InArchive, uint32_t InNode, std::shared_ptr<const StreamCoverageTile>& OutPage, std::string& OutError );
     // Reads the header, directory and coarse coverage only. No canonical tile payload is read.
     bool OpenStreamArchive( const std::filesystem::path& InPath, std::shared_ptr<const StreamArchive>& OutArchive, std::string& OutError );
     // Worker-only file I/O and CPU preparation. Rechecks the immutable archive identity.
