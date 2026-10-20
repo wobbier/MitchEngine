@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "NavigationCore.h"
 #include "Components/Graphics/Mesh.h"
+#include "Components/Graphics/Terrain.h"
 #include "Components/Graphics/Model.h"
 #include "Components/Navigation/NavMeshAgent.h"
 #include "Components/Navigation/NavMeshModifiers.h"
@@ -417,6 +418,17 @@ void NavigationCore::LoadSurface( SurfaceRecord& InRecord, NavMeshSurface& InSur
 
 void NavigationCore::SetMesh( SurfaceRecord& InRecord, const NavMeshData& InData )
 {
+    if( InRecord.Carve )
+    {
+        InRecord.Carve->Cancel = true;
+        if( InRecord.Carve->Thread.joinable() ) InRecord.Carve->Thread.join();
+        InRecord.Carve.reset();
+    }
+    InRecord.CarveInput.reset();
+    InRecord.Carved = false;
+    InRecord.PendingTiles.clear();
+    InRecord.OutOfDateCheckedAt = -1.0;
+    for( auto& [id, obstacle] : m_obstacles ) { obstacle.HasCarved = false; obstacle.Dirty = true; }
     DestroyCrowd( InRecord );
     if( !InRecord.Mesh )
     {
@@ -593,7 +605,7 @@ NavBuildInput NavigationCore::GatherInput( NavMeshSurface& InSurface )
             {
                 if( Rigidbody* body = Enabled<Rigidbody>( *transform->Parent.Get() ) )
                 {
-                    return body->Type != BodyType::Static;
+                    if( body->Type != BodyType::Static ) return true;
                 }
             }
         }
@@ -717,6 +729,26 @@ NavBuildInput NavigationCore::GatherInput( NavMeshSurface& InSurface )
         } );
     }
 
+    world.Each<Terrain, Transform>( [&]( Entity& entity, Terrain& terrain, Transform& transform ) {
+        uint8_t area = 0;
+        if( !terrain.IsEnabled() || ( !terrain.Collision && !useMeshes ) || !classify( entity, area ) ) return;
+        terrain.Resolve( false ); // start/poll resource loading; never wait for file I/O here
+        const auto data = terrain.GetData();
+        if( !data )
+        {
+            input.SourceError = "Terrain '" + entity.GetName() + "' is not ready: " + terrain.GetError();
+            input.SourcesPending |= terrain.IsLoading(); return;
+        }
+        if( !TerrainData::IsTranslationOnly( transform.GetLocalToWorldMatrix() ) )
+        { input.SourceError = "Terrain '" + entity.GetName() + "' supports translation only for navigation"; return; }
+        const auto archive = terrain.GetStreamArchive();
+        if( data->Streamed && !archive ) { input.SourceError = "Terrain '" + entity.GetName() + "' has no canonical stream archive"; return; }
+        NavTerrainSource source; std::string error;
+        if( !CaptureNavTerrain( data->Heights, archive, transform.GetWorldPosition(), area, input.Bounds, InSurface.GetBuildSettings(), source, error ) )
+        { input.SourceError = "Terrain '" + entity.GetName() + "': " + error; return; }
+        if( !source.Regions.empty() ) input.Terrains.push_back( std::move( source ) );
+    } );
+
     world.Each<NavMeshModifierVolume, Transform>( [&]( Entity& entity, NavMeshModifierVolume& volume, Transform& transform ) {
         if( InSurface.Collect == NavCollectObjects::Children && !isUnder( entity ) )
         {
@@ -772,18 +804,25 @@ bool NavigationCore::Bake( NavMeshSurface& InSurface, bool InAsync )
     CancelBake( record );
 
     NavBuildInput input = GatherInput( InSurface );
+    if( !input.SourceError.empty() )
+    {
+        record.LastError = input.SourceError;
+        if( input.SourcesPending ) record.LoadAttempted = false; // BakeOnLoad retries after resource finalization.
+        return false;
+    }
     const NavBuildSettings settings = InSurface.GetBuildSettings();
     auto job = std::make_unique<BakeJob>();
+    job->InputHash = input.Hash(); job->SettingsHash = settings.Hash(); job->Input = std::make_unique<NavBuildInput>( std::move( input ) );
 #if USING( ME_TOOLS )
     job->SavePath = GetDataPath( InSurface );
 #endif
     BakeJob* raw = job.get();
-    auto run = [raw, input = std::move( input ), settings]() {
+    auto run = [raw, settings]() {
         NavBuildOptions options;
         options.Cancel = &raw->Cancel;
         options.TilesDone = &raw->TilesDone;
         options.TilesTotal = &raw->TilesTotal;
-        raw->Result = BuildNavMesh( input, settings, options );
+        raw->Result = BuildNavMesh( *raw->Input, settings, options );
         raw->Done = true;
     };
     if( InAsync )
@@ -855,19 +894,23 @@ void NavigationCore::PollBakes()
             }
             continue;
         }
+        if( job->Input )
+        {
+            auto* surface = record.Surface ? Enabled<NavMeshSurface>( *record.Surface.Get() ) : nullptr;
+            if( !surface || !record.Surface->IsActiveInHierarchy() ) continue;
+            auto current = GatherInput( *surface );
+            if( !current.SourceError.empty() || current.Hash() != job->InputHash || surface->GetBuildSettings().Hash() != job->SettingsHash )
+            { record.LastError = "Navigation sources or settings changed during the bake; bake again"; continue; }
+        }
         SetMesh( record, result.Data );
         record.BakeMilliseconds = result.Milliseconds;
         record.LastError.clear();
         record.OutOfDateCheckedAt = -1.0;
         // Obstacles carve the new navmesh from scratch.
-        record.CarveInput.reset();
+        record.CarveInput = job->Input && !job->Input->Terrains.empty() ? std::move( job->Input ) : nullptr;
+        if( record.CarveInput ) record.CarveSettings = record.Surface->GetComponent<NavMeshSurface>().GetBuildSettings();
         record.Carved = false;
         record.PendingTiles.clear();
-        for( auto& [obstacleId, obstacle] : m_obstacles )
-        {
-            obstacle.HasCarved = false;
-            obstacle.Dirty = true;
-        }
         if( !job->SavePath.empty() )
         {
             const Path file( job->SavePath );
@@ -1058,8 +1101,12 @@ void NavigationCore::StartCarves()
         }
         if( !record.CarveInput )
         {
-            record.CarveInput = std::make_unique<NavBuildInput>( GatherInput( *surface ) );
+            auto input = GatherInput( *surface );
             record.CarveSettings = surface->GetBuildSettings();
+            if( !input.SourceError.empty() || ( !input.Terrains.empty() &&
+                ( input.Hash() ^ ( record.CarveSettings.Hash() * 31ull ) ) != record.Mesh->GetData().SourceHash ) )
+            { record.LastError = "Terrain navigation sources changed or are unavailable; rebake before carving"; record.PendingTiles.clear(); continue; }
+            record.CarveInput = std::make_unique<NavBuildInput>( std::move( input ) );
         }
         if( !record.Carved )
         {
@@ -1174,9 +1221,10 @@ bool NavigationCore::IsOutOfDate( const NavMeshSurface& InSurface, bool InRechec
     if( InRecheckNow || record->OutOfDateCheckedAt < 0.0 || now - record->OutOfDateCheckedAt > 3.0 )
     {
         NavMeshSurface& surface = *InSurface.Parent->TryGetComponent<NavMeshSurface>();
-        const uint64_t hash = GatherInput( surface ).Hash() ^ ( surface.GetBuildSettings().Hash() * 31ull );
+        const auto input = GatherInput( surface );
+        const uint64_t hash = input.Hash() ^ ( surface.GetBuildSettings().Hash() * 31ull );
         const NavMeshData& data = record->Carved ? record->BaseData : record->Mesh->GetData();
-        record->OutOfDate = hash != data.SourceHash;
+        record->OutOfDate = !input.SourceError.empty() || hash != data.SourceHash;
         record->OutOfDateCheckedAt = now;
     }
     return record->OutOfDate;

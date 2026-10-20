@@ -1,6 +1,6 @@
 # Terrain
 
-> Verified against engine commit `0c565ef5` plus the persistent texture-cache change, 2026-10-19.
+> Verified against engine commit `ec76c4e2` plus the terrain navigation change, 2026-10-20.
 
 The terrain system loads a fully resident tiled heightfield into one `Terrain` scene component, renders internal patches through the ordinary lit mesh path, and provides static triangle-mesh collision at canonical sample resolution. The `TerrainData` library supplies signed addressing, shared-border edits, normals and queries, patch geometry, source/cooked serialization, brush strokes and source publication. Havana provides a terrain authoring panel with four sculpting tools, four-layer surface painting, RAW heightmap exchange and recovery snapshots. Runtime patches select stitched LODs from camera pixel error. Version 2 cooked assets add bounded detail streaming over resident coarse coverage; version 3 streams the coverage window too. Version 4 adds painted surface pages and layer settings.
 
@@ -150,7 +150,7 @@ The focused test filter is `--test-case=Terrain*` on `MitchEngine_Tests`. The so
 - Within a loaded representation, index LOD changes reduce submitted triangles. Version 2 eviction releases detail vertex buffers and their CPU copies; its coverage and patch count stay resident. Version 3 also releases coverage pages and bounds rendered patch counts to an admitted visual window.
 - Selection is deliberately conservative for bounds touching/behind a camera's near plane, oblique projections and invalid view data. Such views retain full detail; opposed cameras can therefore reduce the triangle savings. No geomorphing is implemented, so discrete transitions can pop.
 - Version 1 cooked blocks contain complete tiles at one encoding. Version 1 decoding remains eager; versions 2/3 stream independent Float32 blocks with per-asset ceilings, world-wide CPU/GPU/collision allowances and bounded patch uploads.
-- The material exposes solid base color and roughness. Surface layers, navigation source integration and C# terrain bindings remain planned.
+- Four-layer textured PBR surfaces and canonical navigation sources are implemented. C# terrain bindings remain planned.
 - Required terrain load failure holds 3D physics stepping; other gameplay/script updates continue.
 - Authoring still deep-copies canonical heights for immutable snapshots. Unchanged patch/collision arrays and cooked shapes are shared; incremental authoring preparation remains on the editor thread.
 
@@ -280,7 +280,7 @@ Recovery retains the version 1 outer container. Painted snapshots use metadata v
 
 `TerrainMaterial` blends colors in linear space and roughness through the existing PBR lighting path. Each patch has a full-resolution linear RGBA8 weight texture in stage zero, independent of its current geometric LOD. UVs map the first/last lattice samples to texel centers; matching edge samples and clamp sampling keep bilinear filtering consistent across patches. Painting reuses CPU patches, GPU vertex buffers and canonical collision data. Only changed weight textures are replaced. The material batch key includes layer values and the weight texture identity; lighting keeps stages 8–15. LOD/residency diagnostics override the painted colors.
 
-This checkpoint supports resident `.terrain` sources in the editor and standalone game. Paged cooking now writes version 4 for painted sources, preserving the palette, map references and full-resolution weights. Legacy resident/version 2 cookers still reject layered sources while preserving the destination. Weight import/export, masks and navigation integration remain follow-ups. Future tool buttons remain visible in the panel.
+This checkpoint supports resident `.terrain` sources in the editor and standalone game. Paged cooking now writes version 4 for painted sources, preserving the palette, map references and full-resolution weights. Legacy resident/version 2 cookers still reject layered sources while preserving the destination. Weight import/export and masks remain follow-ups. Future tool buttons remain visible in the panel.
 
 `../Assets/Scenes/Tests/TerrainPaintFlows.edscript` exercises actual viewport input, four-tile painting, asset undo/redo, palette edits, fill/clear, unchanged geometry/collision, source reopen, recovery, disabling layers and Play/Stop. `TerrainSurfaceTests.cpp` also covers normalized weights, input-rate independence, cancellation, exact shared edges, corrupt companions, safe source paths, source transfer and failed-cook destination preservation.
 
@@ -334,3 +334,12 @@ The default disk target is 512 MiB. Successful reads refresh entry age; publicat
 Seven cache cases in `Tests/Source/TerrainTextureTests.cpp` cover exact array/atlas parity, preserved-timestamp edits, relocation, slot/layout/resolution identity, compiled-only selection, corrupt/oversized entries, unavailable storage, eviction and concurrent writers. `../Assets/Scenes/Tests/TerrainTextureCache01Write.edscript`, `TerrainTextureCache02Read.edscript` and `TerrainTextureCache03Repair.edscript` verify cold publication, reuse in a fresh editor process, retained GPU maps after disk corruption, repair in another process and Play/Stop. Run the three in order, or use the flow runner with `--only TerrainTextureCache`.
 
 Linux validation on 2026-10-19: editor/game Debug builds and all 325 editor / 322 game unit cases pass, including seven new cache cases. All three restart flows pass for arrays and forced atlases. Existing texture-authoring/hot-reload and painted-streaming editor flows pass. Standalone logs verify cold storage and warm array/atlas hits; cold and warm array screenshots are byte-identical. Windows/macOS builds were not run for this checkpoint.
+
+
+## Navigation baking
+
+Add a `NavMeshSurface` and bake through its inspector or Navigation actions. Terrain participates once in Physics Colliders, Render Meshes and Both collection modes; Physics Colliders omits terrain with collision disabled. Layers, collection bounds, inherited translation, modifiers and moving-body exclusions apply. Unsupported rotation/scale and unavailable sources report an error while keeping the previous bake.
+
+Navigation always uses canonical sample triangles. The main thread captures immutable sources; the bake worker reads selected version 2/3/4 archive detail pages independently of visual coverage, detail residency and physics demand. Bounds include a Recast border halo. Reads validate the archive generation and checksums, build no render/collision data, and do not populate the runtime tile cache. At most four million terrain triangles are accepted per bake; narrow the collection volume or split surfaces for larger terrain.
+
+Height edits mark the surface stale, and undo restores its prior geometry hash. Painting, texture changes and LOD selection preserve the bake. Source or settings changes during a running bake discard that result before file publication. `BakeOnLoad` retries pending terrain metadata, including in standalone games. Runtime carving uses the captured bake source and settings; first carving of a file-loaded mesh verifies source identity. See [Navigation](Navigation.md#terrain-sources) for details. Terrain rebakes remain explicit full-surface operations; runtime navmesh tile streaming is a later milestone.

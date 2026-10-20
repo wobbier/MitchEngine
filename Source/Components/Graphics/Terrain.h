@@ -9,13 +9,14 @@
 class TerrainResource;
 class TerrainCore;
 class RenderCore;
-namespace TerrainData { class TerrainStreamCache; struct StreamStats; }
+namespace TerrainData { class TerrainStreamCache; struct StreamStats; struct StreamArchive; }
 
 class Terrain : public Component<Terrain>
 {
     ME_REFLECTABLE( Terrain )
     friend class TerrainCore;
     friend class RenderCore;
+    friend class NavigationCore;
 public:
     Terrain() : Component( "Terrain" ) {}
 
@@ -46,6 +47,7 @@ public:
     float Restitution = 0.f;
 
     std::shared_ptr<const TerrainData::ResidentTerrain> GetData() const { return m_valid ? m_data : nullptr; }
+    std::shared_ptr<const TerrainData::StreamArchive> GetStreamArchive() const;
     const std::string& GetError() const { return m_error; }
     bool IsLoading() const;
     // Retry/reload without waiting on file I/O. Existing draw/physics snapshots own their lifetimes.

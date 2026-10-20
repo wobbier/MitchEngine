@@ -100,6 +100,12 @@ void Terrain::Resolve( bool InWait )
 }
 
 
+std::shared_ptr<const TerrainData::StreamArchive> Terrain::GetStreamArchive() const
+{
+    return m_valid && m_data && m_data->Streamed && m_resource ? m_resource->GetArchive() : nullptr;
+}
+
+
 const TerrainData::StreamStats* Terrain::GetStreamingStats() const { return m_stream ? &m_stream->GetStats() : nullptr; }
 
 

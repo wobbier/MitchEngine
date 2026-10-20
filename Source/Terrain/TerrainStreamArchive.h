@@ -52,6 +52,8 @@ namespace TerrainData
     bool OpenStreamArchive( const std::filesystem::path& InPath, std::shared_ptr<const StreamArchive>& OutArchive, std::string& OutError );
     // Worker-only file I/O and CPU preparation. Rechecks the immutable archive identity.
     bool ReadStreamTile( const StreamArchive& InArchive, TileCoord InTile, std::shared_ptr<const StreamTile>& OutTile, std::string& OutError );
+    // Canonical heights only: checked worker read without coverage, patch LODs or collision builds.
+    bool ReadStreamHeights( const StreamArchive& InArchive, TileCoord InTile, std::vector<float>& OutHeights, std::string& OutError );
     bool IsStreamArchive( std::span<const uint8_t> InPrefix );
     void BuildPatchNeighbors( ResidentTerrain& InTerrain );
 }

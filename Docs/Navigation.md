@@ -11,7 +11,7 @@ Navigation is built on Recast (navmesh generation) and Detour (runtime navmesh, 
 - **Obstacles:** a `NavMeshObstacle` carves its footprint out of the navmesh while the game runs, rebuilding only the tiles it touches.
 - **Areas:** 16 named areas with traversal costs, in Project Settings > Navigation. Agents and queries choose which areas they may use with a mask.
 
-> Verified against engine commit 8d6769a5, 2026-10-10 (overhaul Wave 4).
+> Terrain integration verified against engine commit `ec76c4e2` plus the terrain navigation change, 2026-10-20.
 
 ## Overview
 
@@ -31,6 +31,7 @@ Units are metres; +Y is up. The navmesh lies on surfaces facing up (normal `cros
 |------|------|
 | `Source/Navigation/NavigationTypes.h` | `NavAreas`, `NavPartition`, `NavBuildSettings`, `NavPathStatus`, `NavMeshHit`, `NavQueryFilter` |
 | `Source/Navigation/NavMeshBuilder.h` / `.cpp` | `NavBuildInput`, `BuildNavMesh` (tiled, parallel), `NavMeshData` (serialize, save, load) |
+| `Source/Navigation/TerrainNavGeometry.h` / `.cpp` | Immutable terrain capture, bounded canonical page reads and triangle expansion |
 | `Source/Navigation/NavMesh.h` / `.cpp` | Detour runtime wrapper: queries, area-cost filters, debug geometry iteration |
 | `Source/Cores/NavigationCore.h` / `.cpp` | The core: gathering scene geometry, async bakes, file load / save, crowds, agent stepping, debug draw |
 | `Source/Components/Navigation/NavMeshSurface.h` / `.cpp` | Bake settings, sources, output path; inspector with Bake / Clear |
@@ -48,7 +49,7 @@ Units are metres; +Y is up. The navmesh lies on surfaces facing up (normal `cros
 `NavigationCore::Bake( surface, async )` runs in two halves:
 
 1. **Gather (main thread):** `GatherInput` walks the world and builds a `NavBuildInput` in world space.
-   - Geometry comes from physics colliders (box, sphere, capsule, mesh; triggers skipped), render meshes (static only, not skinned), or both (`UseGeometry`).
+   - Geometry comes from physics colliders (box, sphere, capsule, mesh; triggers skipped), render meshes (static only, not skinned), or both (`UseGeometry`). Terrain supplies canonical triangles once in all three modes; physics-only collection requires its `Collision` setting.
    - Entities are skipped when any of these applies:
      - they are inactive, or outside `IncludeLayers`;
      - they are outside the surface (`Collect` = Children);
@@ -62,9 +63,23 @@ Units are metres; +Y is up. The navmesh lies on surfaces facing up (normal `cros
    - **Per tile:** rasterize, filter (low obstacles, ledges, low ceilings), compact, erode by the agent radius, mark volumes, then build regions with the chosen `Partition`. Contours, polygons, detail mesh and Detour tile data follow.
    - **Progress and cancel:** `TilesDone` / `TilesTotal` report progress, and `Cancel` abandons the bake. A new bake of the same surface cancels the running one.
    - **Limits:** 32-bit polygon references share 22 bits between tile and polygon index. Over 16384 tiles, or too many polygons in a tile, fails with a message suggesting a larger `TileSize` or `CellSize`.
-3. **Swap (main thread):** `PollBakes` (each update) loads the result into the surface's `NavMesh`, recreates its crowd, and saves the file in tools builds. It logs `NavMesh baked: '<name>' (N tiles, M polygons) in X ms`.
+3. **Swap (main thread):** `PollBakes` (each update) checks that sources and settings still match the captured input. Changed sources discard the result and preserve the previous mesh and file. A current result replaces the surface's `NavMesh`, recreates its crowd, and is saved in tools builds. It logs `NavMesh baked: '<name>' (N tiles, M polygons) in X ms`.
 
 `NavMeshData::SourceHash` combines the input geometry and the settings, so identical inputs produce identical hashes. Recast is deterministic per tile, so re-baking an unchanged scene produces the same file.
+
+### Terrain sources
+
+`GatherInput` captures immutable terrain heights, selected quad ranges, translation and area. It uses the same layers, Children/Volume collection, modifiers and moving-ancestor exclusions as other sources. Rotation and scale are rejected, matching the terrain runtime contract. The resource request is asynchronous; `BakeOnLoad` retries while terrain metadata is still loading.
+
+The bake worker expands canonical sample triangles with the height-query diagonal. Resident sources use their captured heightfield. Version 2/3/4 streamed sources read only selected canonical detail pages from the captured archive, validating generation, checksum, normals and bounds. One page is decoded at a time; these reads create no visual patches, collision shapes or runtime cache entries. A collection volume includes a tile/erosion border halo before final Recast clipping. Coarse coverage, painted weights and camera residency do not determine the baked geometry.
+
+Terrain contribution is capped at four million triangles per bake. Use collection volumes or separate surfaces for larger datasets. Expanded triangles still live in worker memory for the bake; this is bounded offline source loading, not streaming Detour tiles during travel.
+
+Source hashes include canonical heights or selected archive detail checksums, quad ranges, translation, area and normal navigation settings. Height edits and source replacement make a bake stale; paint, palette, visual LOD and residency changes do not. Undoing a sculpt restores the previous hash. Streamed archive edits require **Reload Terrain** before the new generation can be inspected or baked.
+
+Fresh terrain bakes retain the captured input and settings for obstacle carving. A file-loaded surface captures them on its first carve and verifies the source hash first, preventing a carve from mixing a different terrain generation into the saved bake. Failed reads or stale workers leave the valid navmesh available. Terrain edits still require an explicit full surface rebake; selective terrain rebakes and navmesh tile streaming are future work.
+
+Loading or replacing a baked file clears the previous carving snapshot and pending work. `Tests/Source/TerrainNavigationTests.cpp` covers canonical geometry, all stream formats, signed borders, selective reads, corruption, filtering, stale workers, source replacement and carved agent travel. `../Assets/Scenes/Tests/TerrainNavigationFlows.edscript` exercises resident/streamed editor bakes, sculpt undo, Play/Stop and metadata-load retry.
 
 ### Files and loading
 

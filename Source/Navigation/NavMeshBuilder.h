@@ -1,6 +1,7 @@
 #pragma once
 #include "Navigation/NavigationTypes.h"
 #include "Math/Bounds.h"
+#include "Navigation/TerrainNavGeometry.h"
 #include <atomic>
 #include <cstdint>
 #include <string>
@@ -57,6 +58,10 @@ struct NavBuildInput
         uint32_t UserId = 0;
     };
     std::vector<Link> Links;
+
+    std::vector<NavTerrainSource> Terrains; // canonical geometry deferred to the bake worker
+    std::string SourceError;
+    bool SourcesPending = false;
 
     AABB Bounds;    // bake volume; invalid = the geometry's bounds
 

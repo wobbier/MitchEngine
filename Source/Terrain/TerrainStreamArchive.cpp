@@ -368,19 +368,37 @@ namespace TerrainData
     }
 
 
+    static std::vector<float> CanonicalHeights( const StreamArchive& archive, TileCoord coord, std::vector<Vector3>* normals )
+    {
+        const auto& s = archive.Config; const auto& block = archive.Blocks.at( archive.TileIndex( coord ) );
+        std::ifstream file( archive.Path, std::ios::binary | std::ios::ate ); Require( bool( file ) && static_cast<uint64_t>( file.tellg() ) == archive.FileSize, "Terrain stream archive was removed or replaced; reload it" );
+        Require( Read( file, 0, kHeaderBytes ).Data == archive.Header, "Terrain stream archive generation changed; reload it" );
+        auto bytes = Read( file, block.Offset, block.Size ); Require( Hash( bytes.Data ) == block.Checksum, "Terrain detail checksum failed" );
+        std::vector<float> heights; heights.reserve( s.SamplesPerTile() ); if( normals ) normals->reserve( s.SamplesPerTile() );
+        float min = std::numeric_limits<float>::max(), max = -min;
+        for( size_t i = 0; i < s.SamplesPerTile(); ++i )
+        {
+            const float h = bytes.ReadFloat(); const auto normal = ReadNormal( bytes ); heights.push_back( h ); if( normals ) normals->push_back( normal );
+            min = std::min( min, h ); max = std::max( max, h );
+        }
+        Require( min == block.MinHeight && max == block.MaxHeight, "Terrain detail bounds disagree with its heights" ); return heights;
+    }
+
+
+    bool ReadStreamHeights( const StreamArchive& archive, TileCoord coord, std::vector<float>& out, std::string& error )
+    {
+        try { auto heights = CanonicalHeights( archive, coord, nullptr ); out = std::move( heights ); error.clear(); return true; }
+        catch( const std::exception& e ) { error = e.what(); return false; }
+    }
+
+
     bool ReadStreamTile( const StreamArchive& archive, TileCoord coord, std::shared_ptr<const StreamTile>& out, std::string& error )
     {
         try
         {
-            const auto& s = archive.Config; const auto& block = archive.Blocks.at( archive.TileIndex( coord ) );
-            std::ifstream file( archive.Path, std::ios::binary | std::ios::ate ); Require( bool( file ) && static_cast<uint64_t>( file.tellg() ) == archive.FileSize, "Terrain stream archive was removed or replaced; reload it" );
-            Require( Read( file, 0, kHeaderBytes ).Data == archive.Header, "Terrain stream archive generation changed; reload it" );
-            auto bytes = Read( file, block.Offset, block.Size ); Require( Hash( bytes.Data ) == block.Checksum, "Terrain detail checksum failed" );
-            auto tile = std::make_shared<StreamTile>(); tile->Coordinate = coord; tile->Heights.reserve( s.SamplesPerTile() ); std::vector<Vector3> normals; normals.reserve( s.SamplesPerTile() );
-            float min = std::numeric_limits<float>::max(), max = -min;
-            for( size_t i = 0; i < s.SamplesPerTile(); ++i )
-            { const float h = bytes.ReadFloat(); tile->Heights.push_back( h ); normals.push_back( ReadNormal( bytes ) ); min = std::min( min, h ); max = std::max( max, h ); }
-            Require( min == block.MinHeight && max == block.MaxHeight, "Terrain detail bounds disagree with its heights" );
+            const auto& s = archive.Config;
+            auto tile = std::make_shared<StreamTile>(); tile->Coordinate = coord; std::vector<Vector3> normals;
+            tile->Heights = CanonicalHeights( archive, coord, &normals );
             const uint32_t q = s.PatchQuads, side = s.TileQuads + 1, patches = s.TileQuads / q;
             for( uint32_t pz = 0; pz < patches; ++pz ) for( uint32_t px = 0; px < patches; ++px )
             {

@@ -107,6 +107,8 @@ private:
         std::atomic<int> TilesDone{ 0 };
         std::atomic<int> TilesTotal{ 0 };
         NavBuildResult Result;
+        std::unique_ptr<NavBuildInput> Input;
+        uint64_t InputHash = 0, SettingsHash = 0;
         std::string SavePath;   // project-local; empty = keep in memory only
     };
 

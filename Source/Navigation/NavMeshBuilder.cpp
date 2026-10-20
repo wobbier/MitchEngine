@@ -400,6 +400,7 @@ uint64_t NavBuildInput::Hash() const
         hash = HashValue( hash, link.Bidirectional );
         hash = HashValue( hash, link.Area );
     }
+    for( const auto& terrain : Terrains ) hash = HashValue( hash, terrain.Fingerprint );
     if( Bounds.IsValid() )
     {
         hash = HashValue( hash, Bounds.Min.x );
@@ -417,6 +418,15 @@ NavBuildResult BuildNavMesh( const NavBuildInput& InInput, const NavBuildSetting
 {
     const auto start = std::chrono::steady_clock::now();
     NavBuildResult result;
+    if( !InInput.SourceError.empty() ) { result.Error = InInput.SourceError; return result; }
+    if( !InInput.Terrains.empty() )
+    {
+        NavBuildInput prepared = InInput;
+        if( !AppendNavTerrainGeometry( prepared, result.Error, InOptions.Cancel ) ) return result;
+        result = BuildNavMesh( prepared, InSettings, InOptions );
+        if( result.Success ) result.Data.SourceHash = InInput.Hash() ^ ( InSettings.Hash() * 31ull );
+        result.Milliseconds = std::chrono::duration<float, std::milli>( std::chrono::steady_clock::now() - start ).count(); return result;
+    }
     const int triangleCount = static_cast<int>( InInput.Indices.size() / 3 );
     if( triangleCount == 0 || InInput.Vertices.empty() )
     {
