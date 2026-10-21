@@ -629,6 +629,7 @@ void SceneViewWidget::DrawViewMenu()
 		EditorActions& actions = EditorActions::Get();
 		actions.MenuItem("View.CameraSettings");
 		actions.MenuItem("View.FrameSelected");
+		actions.MenuItem("View.AlignWithView");
 		actions.MenuItem("View.Perspective");
 		actions.MenuItem("View.Top");
 		actions.MenuItem("View.Front");

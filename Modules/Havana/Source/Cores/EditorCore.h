@@ -39,6 +39,8 @@ public:
 
 	// Frames the selection (or the whole scene when nothing is selected).
 	void FrameSelection();
+	// Moves the selected entities to the scene camera's position and rotation (Unity's Align With View).
+	void AlignSelectionWithView();
 
 private:
 	void OnSaveScene( const class SaveSceneEvent& event );

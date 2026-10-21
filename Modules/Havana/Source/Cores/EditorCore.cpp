@@ -15,6 +15,7 @@
 #include "Editor/UndoStack.h"
 #include "Editor/EditorActions.h"
 #include "Editor/SceneTools.h"
+#include "Editor/EditorOperations.h"
 #include "Editor/ReflectionUI.h"
 #include "Widgets/SceneViewWidget.h"
 #include <imgui.h>
@@ -63,6 +64,7 @@ void EditorCore::RegisterViewActions()
         actions.Register( action );
     };
     view( "View.FrameSelected", "Frame Selected", ImGuiKey_F, [this]() { FrameSelection(); } );
+    view( "View.AlignWithView", "Align With View", ImGuiMod_Shortcut | ImGuiMod_Shift | ImGuiKey_F, [this]() { AlignSelectionWithView(); } );
     view( "View.Perspective", "Toggle Perspective/Orthographic", ImGuiKey_Keypad5, [this]() { m_camera.SetOrthographic( !m_camera.IsOrthographic() ); } );
     view( "View.Top", "Top View", ImGuiKey_Keypad7, [this]() { m_camera.SetAngles( 89.9f, 0.f ); } );
     view( "View.Front", "Front View", ImGuiKey_Keypad1, [this]() { m_camera.SetAngles( 0.f, 0.f ); } );
@@ -100,6 +102,31 @@ void EditorCore::FrameSelection()
         bounds = SceneTools::ComputeWorldBounds( *RootTransform->Parent.Get(), true );
     }
     m_camera.Focus( bounds );
+}
+
+
+void EditorCore::AlignSelectionWithView()
+{
+    const std::vector<Entity*> roots = Selection::Get().GetRootEntities();
+    if( roots.empty() )
+    {
+        return;
+    }
+    const Vector3 position = EditorCameraTransform->GetPosition();
+    const Quaternion rotation = EditorCameraTransform->GetRotation();
+    UndoTransaction transaction( "Align With View" );
+    for( Entity* entity : roots )
+    {
+        Transform* transform = entity ? entity->TryGetComponent<Transform>() : nullptr;
+        if( !transform )
+        {
+            continue;
+        }
+        const json before = EditorOps::CaptureComponent( *entity, "Transform" );
+        transform->SetWorldPosition( position );
+        transform->SetWorldRotation( rotation );
+        EditorOps::RecordComponentEdit( *entity, "Transform", before, EditorOps::CaptureComponent( *entity, "Transform" ), "Align With View" );
+    }
 }
 
 
