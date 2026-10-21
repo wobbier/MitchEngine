@@ -63,6 +63,16 @@ namespace Moonlight
         float ViewProjection[16] = {};                      // this frame's (unjittered)
         void EnsureTemporalTargets();
 
+        // Depth of field, allocated only when used. Full-resolution signed CoC and output;
+        // half-resolution colour/CoC, conservative foreground radius, near/far gathers.
+        Mip DoFCoC;
+        Mip DoFPrefilter;
+        Mip DoFRadius[2];
+        Mip DoFNear;
+        Mip DoFFar;
+        Mip DoFOutput;
+        void EnsureDepthOfFieldTargets();
+
         // Procedural sky clouds (created on first use): half resolution, rgb in-scattering and a
         // transmittance, accumulated over frames (ping-pong with the history they blend).
         Mip CloudHistory[2];
@@ -81,8 +91,8 @@ namespace Moonlight
         Mip GraphSceneMips;
         void EnsureGraphSceneMips();
 
-        // This frame's HDR image for bloom, exposure and tonemapping: the temporal resolve, or
-        // SceneColor.
+        // This frame's HDR image for bloom, exposure and tonemapping: SceneColor, optionally
+        // replaced by the temporal resolve, HDR shader graphs and depth of field.
         bgfx::TextureHandle PostInput = BGFX_INVALID_HANDLE;
 
         // HDR colour without the depth attachment: soft particles read the depth as a texture.

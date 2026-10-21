@@ -12,7 +12,7 @@ Rendering is split into CPU **producers** and a serial **consumer**:
   6. Transparent meshes.
   7. Particles.
   8. Temporal anti-aliasing (optional).
-  9. Bloom, eye adaptation, tonemapping, grading and FXAA.
+  9. Depth of field, bloom, eye adaptation, tonemapping, grading and FXAA.
   10. UI composite.
 
 Ambient light comes from per-camera image-based-lighting probes. This doc maps the frame, the view-ID scheme, the lighting data paths and the sharp edges.
@@ -51,7 +51,7 @@ Backend selection: Vulkan is forced on Linux and D3D11 on UWP; other platforms t
 | `Modules/Moonlight/Source/Graphics/DynamicSky.cpp` | Procedural sky: atmosphere tables, sun/moon/star placement, cloud noise and passes, the sky's scene light |
 | `Assets/Shaders/Sky/Atmosphere.sh`, `Clouds.sh` | Atmosphere media and table lookups; cloud density, lighting and raymarch |
 | `Assets/Shaders/Sky/ProceduralSky.frag`, `Clouds.frag`, `SkyViewLut.frag`, `SkyCapture.frag` | The sky backdrop (stars, Milky Way, moon, sun), the half-resolution cloud pass, the per-camera sky table, the probe capture |
-| `Modules/Moonlight/Source/RenderPasses/PostProcess.cpp` | SSAO, fog (`RenderFog`, `FogUniforms`), temporal AA (`RenderTemporalAA`, `TemporalJitter`), bloom, eye adaptation, tonemap + grading, FXAA |
+| `Modules/Moonlight/Source/RenderPasses/PostProcess.cpp` | SSAO, fog (`RenderFog`, `FogUniforms`), temporal AA (`RenderTemporalAA`, `TemporalJitter`), depth of field (`RenderDepthOfField`), bloom, eye adaptation, tonemap + grading, FXAA |
 | `Modules/Moonlight/Source/RenderPasses/PickingPass.cpp` | Editor entity-ID pass (see `Docs/Editor-Havana.md`) |
 | `Modules/Moonlight/Source/Debug/DebugDraw.h` | Immediate-mode debug line API |
 | `Modules/Moonlight/Source/Graphics/MeshLod.cpp` | Level-of-detail generation (meshoptimizer), relative screen height, level selection |
@@ -110,10 +110,11 @@ bgfx runs views in ascending ID order, so producers must have lower IDs than the
    5. Transparent.
    6. Particles.
    7. Temporal AA resolve (when on).
-   8. Bloom down/up chain.
-   9. Luminance + adaptation.
-   10. Tonemap.
-   11. FXAA.
+   8. Depth of field (when on, 7 views).
+   9. Bloom down/up chain.
+   10. Luminance + adaptation.
+   11. Tonemap.
+   12. FXAA.
 
 ### Inside `RenderCameraView`
 
@@ -286,6 +287,7 @@ Per camera, from `CameraData::Post`, which `CameraCore` copies from a `PostProce
   - `RenderTemporalAA` (`Post/TAA.frag`) runs on the HDR image once particles are in. It unjitters the current frame by sampling it at the jitter offset, and reprojects each pixel to last frame through the depth (`previous × inverse( current )` view-projection). It fetches the history there with a 5-tap Catmull-Rom, clips the history to the current 3×3 neighbourhood's mean ± deviation in YCoCg (variance clipping, so disocclusions and moved objects don't ghost), and blends 90% history with luma weights (Karis) against fireflies. `TemporalSharpness` adds back a little of the centre's contrast.
   - The result (`FrameBuffer::PostInput`, ping-ponged `TemporalHistory`) feeds bloom, eye adaptation and tonemapping. History is created on first use, dropped on resize, and invalid when TAA was off the frame before.
   - Captures stay repeatable: the jitter follows the camera's frame count, so `--frame-time` runs match.
+- **Depth of field** (`DepthOfField`, off by default; perspective cameras): thin-lens signed CoC at full resolution, layer-aware colour downsample, conservative foreground-radius dilation, separate 64-tap circular near/far gathers at half resolution, then composition with full-resolution focal-plane edges. Runs after TAA and HDR shader graphs, before bloom/exposure/tonemapping. Targets are allocated on first use and released on resize/destruction. `DoFFocusDistance` is in metres; `DoFAperture` is an f-number; focal length follows vertical FOV and `DoFSensorHeight`. See [Depth of Field](Depth-of-Field.md) for controls, verification and limitations.
 - **Bloom**: thresholded downsample chain (up to 6 RGBA16F mips) and additive tent upsample.
 - **Eye adaptation**: log-average luminance into 1×1, adapted over time between min/max EV (`AutoExposure`).
 - **Tonemap**:

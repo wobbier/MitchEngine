@@ -7,7 +7,7 @@
 #include <vector>
 
 // Image settings for the camera on the same entity: exposure, tonemapping, bloom, ambient
-// occlusion, colour grading, vignette and anti-aliasing. Cameras without one use the defaults.
+// occlusion, depth of field, colour grading, vignette and anti-aliasing. Cameras without one use the defaults.
 // The editor's scene view uses the main camera's settings.
 class PostProcess
     : public Component<PostProcess>
@@ -36,6 +36,14 @@ public:
     bool AmbientOcclusion = true;
     float AORadius = 0.5f;
     float AOIntensity = 1.f;
+
+    // Depth of field (perspective cameras).
+    bool DepthOfField = false;
+    float DoFFocusDistance = 8.f;
+    float DoFAperture = 2.8f;
+    float DoFSensorHeight = 24.f;
+    float DoFMaxBlurRadius = 16.f;
+    bool DoFDebugCoC = false;
 
     // Fog
     bool Fog = false;

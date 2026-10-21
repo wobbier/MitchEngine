@@ -22,6 +22,12 @@ ME_REFLECT_BEGIN( PostProcess )
     ME_FIELD( AmbientOcclusion ).Category( "Ambient Occlusion" );
     ME_FIELD( AORadius ).Display( "AO Radius (m)" ).Category( "Ambient Occlusion" ).Range( 0.05f, 5.f );
     ME_FIELD( AOIntensity ).Category( "Ambient Occlusion" ).Range( 0.f, 4.f );
+    ME_FIELD( DepthOfField ).Category( "Depth of Field" ).Tooltip( "Thin-lens circular bokeh before bloom and tonemapping; perspective cameras only" );
+    ME_FIELD( DoFFocusDistance ).Display( "Focus Distance (m)" ).Category( "Depth of Field" ).Range( 0.1f, 1000.f ).Drag( 0.001f ).Tooltip( "World-space metres along this camera's forward axis to the sharp focal plane. Drag for 1 mm steps; Alt slows, Shift speeds up, Ctrl-click to type a value. Match the depth of the face, rather than the model's origin" );
+    ME_FIELD( DoFAperture ).Display( "Aperture (f-stop)" ).Category( "Depth of Field" ).Range( 0.7f, 32.f ).Tooltip( "Smaller f-numbers give stronger blur; does not change exposure" );
+    ME_FIELD( DoFSensorHeight ).Display( "Sensor Height (mm)" ).Category( "Depth of Field" ).Range( 1.f, 70.f ).Tooltip( "Focal length is inferred from this filmback height and the camera's vertical field of view" );
+    ME_FIELD( DoFMaxBlurRadius ).Display( "Max Blur Radius (1080p px)" ).Category( "Depth of Field" ).Range( 0.f, 32.f ).Tooltip( "Scales with camera resolution, capped at 64 pixels; zero bypasses the effect" );
+    ME_FIELD( DoFDebugCoC ).Display( "Visualize Circle of Confusion" ).Category( "Depth of Field" ).Tooltip( "Red = foreground, green = background, black = in focus (requires Depth of Field)" );
     ME_FIELD( Fog ).Category( "Fog" ).Tooltip( "Exponential height fog over the opaque scene" );
     ME_FIELD( FogColor ).Category( "Fog" ).HDR().Tooltip( "Ambient light scattered by the fog" );
     ME_FIELD( FogDensity ).Category( "Fog" ).Range( 0.f, 0.5f ).Speed( 0.001f ).Tooltip( "Extinction per metre at the base height" );
@@ -98,6 +104,12 @@ Moonlight::PostProcessSettings PostProcess::ToSettings() const
     settings.AmbientOcclusion = AmbientOcclusion;
     settings.AORadius = AORadius;
     settings.AOIntensity = AOIntensity;
+    settings.DepthOfField = DepthOfField;
+    settings.DoFFocusDistance = DoFFocusDistance;
+    settings.DoFAperture = DoFAperture;
+    settings.DoFSensorHeight = DoFSensorHeight;
+    settings.DoFMaxBlurRadius = DoFMaxBlurRadius;
+    settings.DoFDebugCoC = DoFDebugCoC;
     settings.Fog = Fog;
     settings.FogColor[0] = FogColor.x;
     settings.FogColor[1] = FogColor.y;

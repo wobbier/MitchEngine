@@ -15,7 +15,7 @@ namespace Moonlight
     void FogUniforms( const PostProcessSettings& InSettings, float OutParams[4], float OutColor[4], float OutVolume[4] );
 
     // The per-camera image pipeline after the HDR scene pass:
-    //   [SSAO] -> [temporal AA] -> [bloom downsample/upsample] -> tonemap + grading -> [FXAA] -> output
+    //   [SSAO] -> [temporal AA] -> [depth of field] -> [bloom] -> tonemap + grading -> [FXAA] -> output
     // The output is the camera's final buffer, or the backbuffer for the game's main camera.
     class PostProcess
     {
@@ -55,6 +55,7 @@ namespace Moonlight
         void SetupFullscreenView( bgfx::ViewId InView, bgfx::FrameBufferHandle InTarget, uint16_t InWidth, uint16_t InHeight, uint16_t InX = 0, uint16_t InY = 0 );
         void SubmitFullscreen( bgfx::ViewId InView, const ShaderCommand& InProgram, uint64_t InState = 0 );
         void RenderBloom( ViewAllocator& InViews, const PostProcessSettings& InSettings, FrameBuffer& InTargets );
+        void RenderDepthOfField( ViewAllocator& InViews, const CameraData& InCamera, FrameBuffer& InTargets );
         bgfx::TextureHandle RenderAutoExposure( ViewAllocator& InViews, const PostProcessSettings& InSettings, FrameBuffer& InTargets );
 
         ShaderCommand m_tonemapProgram;
@@ -71,6 +72,21 @@ namespace Moonlight
         ShaderCommand m_fogProgram;
         ShaderCommand m_taaProgram;
         ShaderCommand m_copyProgram;
+        ShaderCommand m_dofCoCProgram;
+        ShaderCommand m_dofPrefilterProgram;
+        ShaderCommand m_dofDilateProgram;
+        ShaderCommand m_dofGatherProgram;
+        ShaderCommand m_dofCompositeProgram;
+
+        bgfx::UniformHandle s_dof0 = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_dof1 = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_dof2 = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_dof3 = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_dofLens = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_dofProjection = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_dofScreen = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_dofPass = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_dofJitter = BGFX_INVALID_HANDLE;
 
         bgfx::UniformHandle s_input0 = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_input1 = BGFX_INVALID_HANDLE;

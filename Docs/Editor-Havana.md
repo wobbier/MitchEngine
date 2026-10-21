@@ -112,7 +112,8 @@ The entity header shows active, name, layer (with Project Settings names) and GU
 
 Reflected components get generated UI from `ReflectionUI`, chosen from each field's `PropertyType` and metadata:
 
-- Ranges become sliders; angles are edited in degrees.
+- Ranges become sliders; floating-point fields with `.Drag( speed )` instead use a drag at that
+  sensitivity while retaining their range as bounds. Angles are edited in degrees.
 - Colours and HDR colours get colour pickers; vectors get axis-coloured drags; quaternions are edited as stable Euler angles.
 - Enums become combos; nested structs and arrays (with +/-) are expanded. Int fields registered with `.Choices( count, nameFn )` become combos of named choices, and `.MaskChoices` makes a multi-select bit mask (navigation areas, layers).
 - Asset paths get drag-drop and a picker; `EntityHandle` fields accept hierarchy drags.

@@ -78,6 +78,7 @@ namespace Reflection
             Multiline = 1 << 6,     // String edited in a multi-line box.
             Asset = 1 << 7,         // String holds an asset path; AssetFilter names the asset kind.
             CustomInspector = 1 << 8, // Custom single-object UI; use reflection when multi-editing.
+            Drag = 1 << 9,         // Float uses a drag at Speed, retaining any range as bounds.
         };
     }
 
@@ -359,6 +360,7 @@ namespace Reflection
         FieldBuilder& Category( const char* category ) { Field().Category = category; return *this; }
         FieldBuilder& Range( float min, float max ) { Field().HasRange = true; Field().Min = min; Field().Max = max; return *this; }
         FieldBuilder& Speed( float speed ) { Field().Speed = speed; return *this; }
+        FieldBuilder& Drag( float speed ) { Field().Flags |= FieldFlags::Drag; Field().Speed = speed; return *this; }
         FieldBuilder& Hidden() { Field().Flags |= FieldFlags::Hidden; return *this; }
         FieldBuilder& CustomInspector() { Field().Flags |= FieldFlags::CustomInspector; return *this; }
         FieldBuilder& ReadOnly() { Field().Flags |= FieldFlags::ReadOnly; return *this; }

@@ -90,6 +90,11 @@ namespace ReflectionUI
                 }
                 return changed;
             }
+            if( InField && InField->Has( FieldFlags::Drag ) )
+            {
+                return ImGui::DragFloat( InLabel, &InOutValue, speed, InField->HasRange ? InField->Min : 0.f,
+                    InField->HasRange ? InField->Max : 0.f, "%.3f", InField->HasRange ? ImGuiSliderFlags_AlwaysClamp : ImGuiSliderFlags_None );
+            }
             if( InField && InField->HasRange )
             {
                 return ImGui::SliderFloat( InLabel, &InOutValue, InField->Min, InField->Max );

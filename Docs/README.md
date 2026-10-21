@@ -10,6 +10,7 @@ Technical documentation for MitchEngine — a C++20, ECS-based game engine built
 | [ECS.md](ECS.md) | `EntityID` packing, component storage, `ComponentFilter`, `World` caches and `Simulate()`, registration macros, add-a-component / add-a-core recipes |
 | [Jobs-and-Events.md](Jobs-and-Events.md) | `Jobs::JobSystem` (work stealing, helping waits, `ParallelFor`), `EventManager` — **the threading rulebook** |
 | [Rendering-Pipeline.md](Rendering-Pipeline.md) | `RenderCore` parallel command build → `BGFXRenderer` submit, view-ID map (editor vs game), instancing, transparency, lighting reality |
+| [Depth-of-Field.md](Depth-of-Field.md) | Thin-lens camera controls, near/far bokeh passes, test scene and rendering checks, comparison and limitations |
 | [Terrain.md](Terrain.md) | Resident terrain assets/components, heightfields, lit patches, collision, authoring tools, incremental previews, RAW exchange, recovery, source asset operations and stitched camera-driven LODs and bounded runtime detail streaming |
 | [Foliage.md](Foliage.md) | Scene-owned terrain foliage, mesh palette, deterministic painting, undo, Reapply and starter playground |
 | [Materials-and-Shaders.md](Materials-and-Shaders.md) | Material hierarchy, instance batch keys, offline `shaderc` cooking via the MetaFile system |

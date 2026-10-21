@@ -39,6 +39,14 @@ namespace Moonlight
         float AORadius = 0.5f;              // metres
         float AOIntensity = 1.0f;
 
+        // Thin-lens depth of field (perspective cameras, before bloom/tonemapping).
+        bool DepthOfField = false;
+        float DoFFocusDistance = 8.f;       // metres along the camera's forward axis
+        float DoFAperture = 2.8f;           // f-number; smaller = shallower focus
+        float DoFSensorHeight = 24.f;      // mm; focal length follows the camera's vertical FOV
+        float DoFMaxBlurRadius = 16.f;      // radius in pixels at 1080p (scales with output height)
+        bool DoFDebugCoC = false;          // red foreground, green background, black in focus
+
         // Exponential height fog (applied before transparents)
         bool Fog = false;
         float FogColor[3] = { 0.55f, 0.62f, 0.72f };    // ambient in-scattering, sRGB (HDR allowed)
