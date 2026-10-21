@@ -24,12 +24,14 @@ namespace TerrainData
 
 
     bool UpdateResidentTerrain( const Heightfield& InField, uint64_t InAssetGUID, const std::shared_ptr<const ResidentTerrain>& InPrevious,
-        std::shared_ptr<const ResidentTerrain>& OutData, std::string& OutError )
+        std::shared_ptr<const ResidentTerrain>& OutData, std::string& OutError, const std::atomic_bool* InCancel )
     {
         OPTICK_EVENT( "TerrainData::UpdateResidentTerrain" );
         OutError.clear();
         try
         {
+            const auto checkCancelled = [&]() { if( InCancel && InCancel->load( std::memory_order_relaxed ) ) throw std::runtime_error( "Terrain preview cancelled" ); };
+            checkCancelled();
             const auto& s = InField.GetSettings();
             if( !InAssetGUID || InField.GetTiles().size() != static_cast<uint64_t>( s.TilesX ) * s.TilesZ )
                 throw std::runtime_error( "Resident terrain requires a nonzero GUID and all source tiles" );
@@ -57,6 +59,7 @@ namespace TerrainData
             std::set<TileCoord> collisionChanges;
             if( compatible ) for( const auto& [coord, tile] : InField.GetTiles() )
             {
+                checkCancelled();
                 const auto* old = InPrevious->Heights->FindTile( coord );
                 if( !old || old->Heights.size() != tile.Heights.size() ) throw std::runtime_error( "Incompatible previous terrain samples" );
                 SampleRect changed;
@@ -71,6 +74,7 @@ namespace TerrainData
             {
                 for( uint32_t z = 0; z < s.TileQuads / s.PatchQuads; ++z ) for( uint32_t x = 0; x < s.TileQuads / s.PatchQuads; ++x )
                 {
+                    checkCancelled();
                     const SampleCoord origin{ static_cast<int64_t>( coord.X ) * s.TileQuads + x * s.PatchQuads,
                         static_cast<int64_t>( coord.Z ) * s.TileQuads + z * s.PatchQuads };
                     bool rebuild = !compatible;
@@ -82,7 +86,7 @@ namespace TerrainData
                     else
                     {
                         auto patch = std::make_shared<ResidentPatch>();
-                        if( !BuildPatch( InField, coord, x, z, patch->Mesh, OutError ) ) throw std::runtime_error( OutError );
+                        if( !BuildPatch( InField, coord, x, z, patch->Mesh, OutError, InCancel ) ) throw std::runtime_error( OutError );
                         patch->Offset = Vector3( static_cast<float>( origin.X * static_cast<double>( s.SampleSpacing ) ), 0.f,
                             static_cast<float>( origin.Z * static_cast<double>( s.SampleSpacing ) ) );
                         result = std::move( patch ); ++data->BuiltPatches;
@@ -98,6 +102,7 @@ namespace TerrainData
                     if( !InPrevious->CollisionTiles[tileIndex] ) throw std::runtime_error( "Missing previous terrain collision tile" );
                     data->CollisionTiles.push_back( InPrevious->CollisionTiles[tileIndex++] ); continue;
                 }
+                checkCancelled();
                 auto collision = std::make_shared<CollisionTile>();
                 collision->Coordinate = coord;
                 const uint32_t side = s.TileQuads + 1;
@@ -137,6 +142,7 @@ namespace TerrainData
                     data->PatchNeighbors.push_back( neighbors );
                 }
             }
+            checkCancelled();
             OutData = std::move( data );
             return true;
         }

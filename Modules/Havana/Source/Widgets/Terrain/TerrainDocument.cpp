@@ -80,6 +80,7 @@ bool TerrainDocument::Load()
     std::shared_ptr<const TerrainData::ResidentTerrain> preview;
     if( !TerrainData::BuildResidentTerrain( field, guid, preview, m_error ) ) return false;
     m_stroke.Cancel( m_field );
+    m_previewBuilder.Reset(); m_previewError.clear();
     m_field = std::move( field ); m_guid = guid; m_manifestText = std::move( text );
     m_undo.Clear(); m_historyBytes = 0; m_preview = std::move( preview );
     Terrain::SetEditorPreview( Path( m_path ), m_preview );
@@ -108,6 +109,7 @@ bool TerrainDocument::CreateFromField( TerrainData::Heightfield field )
     if( !TerrainData::BuildResidentTerrain( field, guid, preview, m_error ) ) return false;
     if( !TerrainData::SaveSource( Path( m_path ).FullPath, field, guid, nullptr, text, m_error ) ) return false;
     RegisterSource( m_path, guid );
+    m_previewBuilder.Reset(); m_previewError.clear();
     m_field = std::move( field ); m_guid = guid; m_manifestText = std::move( text );
     m_undo.Clear(); m_historyBytes = 0; m_preview = std::move( preview );
     Terrain::SetEditorPreview( Path( m_path ), m_preview );
@@ -194,6 +196,7 @@ bool TerrainDocument::RestoreRecovery( const std::filesystem::path& path )
     { m_error = "Recovery snapshot belongs to another terrain asset"; return false; }
     std::shared_ptr<const TerrainData::ResidentTerrain> preview;
     if( !TerrainData::BuildResidentTerrain( field, info.AssetGUID, preview, m_error ) ) return false;
+    m_previewBuilder.Reset(); m_previewError.clear();
     m_field = std::move( field ); m_guid = info.AssetGUID; m_manifestText = std::move( info.BaseManifest );
     m_undo.Clear(); m_undo.MarkDirty(); m_historyBytes = 0; m_preview = std::move( preview );
     m_restoredRecoveries.push_back( path ); m_hasRecoveryRevision = false;
@@ -283,13 +286,36 @@ void TerrainDocument::DiscardHistory()
 
 bool TerrainDocument::PublishPreview()
 {
-    if( m_preview && m_preview->Heights->GetRevision() == m_field.GetRevision() ) return true;
-    std::shared_ptr<const TerrainData::ResidentTerrain> preview;
-    if( !TerrainData::UpdateResidentTerrain( m_field, m_guid, m_preview, preview, m_error ) ) return false;
-    m_preview = std::move( preview );
-    Terrain::SetEditorPreview( Path( m_path ), m_preview );
-    return true;
+    const auto before = m_preview;
+    const bool ready = m_previewBuilder.Request( m_field, m_guid, m_preview, m_previewError );
+    if( m_preview != before ) Terrain::SetEditorPreview( Path( m_path ), m_preview );
+    return ready;
 }
+
+
+bool TerrainDocument::TickPreview()
+{
+    const auto before = m_preview;
+    const bool ready = m_previewBuilder.Tick( m_field, m_guid, m_preview, m_previewError );
+    if( m_preview != before ) Terrain::SetEditorPreview( Path( m_path ), m_preview );
+    return ready;
+}
+
+
+bool TerrainDocument::WaitForPreview()
+{
+    const auto before = m_preview;
+    const bool ready = m_previewBuilder.Wait( m_field, m_guid, m_preview, m_previewError );
+    if( m_preview != before ) Terrain::SetEditorPreview( Path( m_path ), m_preview );
+    return ready;
+}
+
+
+void TerrainDocument::RetryPreview()
+{
+    m_previewBuilder.Reset(); m_previewError.clear(); PublishPreview();
+}
+
 
 void TerrainDocument::ApplyDeltas( uint64_t guid, const std::vector<TerrainData::SampleDelta>& deltas, bool after )
 {

@@ -441,6 +441,7 @@ void TerrainWidget::Render()
         if( ImGui::GetIO().AppFocusLost || ImGui::IsKeyPressed( ImGuiKey_Escape ) ) EndFoliageStroke( true );
         else if( !IsOpen || IsPlaying() || !BrushEnabled || !ImGui::IsMouseDown( ImGuiMouseButton_Left ) ) EndFoliageStroke();
     }
+    for( auto& document : m_documents ) if( document->IsPreparingPreview() ) document->TickPreview();
     FinishStreamCook();
     DrawStreamCook();
     UpdateRecovery();
@@ -498,6 +499,7 @@ void TerrainWidget::Render()
         const auto& s = m_active->GetField().GetSettings();
         ImGui::TextDisabled( "%u x %u tiles  /  %.0f x %.0f m", s.TilesX, s.TilesZ, s.TilesX * s.TileQuads * s.SampleSpacing, s.TilesZ * s.TileQuads * s.SampleSpacing );
         if( ImGui::IsItemHovered() ) ImGui::SetTooltip( "%s", m_active->GetPath().c_str() );
+        if( m_active->IsPreparingPreview() ) ImGui::TextDisabled( "Preparing latest terrain preview..." );
         if( const auto& preview = m_active->GetPreview() )
             ImGui::TextDisabled( "Last preview: %zu / %zu patches, %zu / %zu collision tiles rebuilt", preview->BuiltPatches, preview->Patches.size(), preview->BuiltCollisionTiles, preview->CollisionTiles.size() );
         ImGui::BeginDisabled( !editing );
@@ -518,6 +520,7 @@ void TerrainWidget::Render()
         }
         ImGui::EndTable();
     }
+    if( m_active && !m_active->IsPreparingPreview() && !m_active->GetPreviewError().empty() && ImGui::SmallButton( "Retry preview" ) ) m_active->RetryPreview();
     DrawTools();
     if( m_category == 0 ) DrawBrush();
     if( m_category == 1 ) DrawPaint();

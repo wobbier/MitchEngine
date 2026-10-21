@@ -43,7 +43,7 @@ public:
     bool RestoreAssetRecovery( const std::string& InAssetPath );
     bool DiscardRecovery( size_t InIndex );
     size_t GetRecoveryCount() const { return m_recoveries.size(); }
-    void PrepareForPlay();
+    bool PrepareForPlay();
     void RequestStartupRecovery() { m_showRecoveryRequested = !m_recoveries.empty(); }
     void ConfirmUnsaved( std::function<void()> InAction );
     // Drawn from the world viewport. True owns the entire gesture (gizmos and picking abstain).

@@ -261,7 +261,7 @@ void EditorApp::Play()
     {
         return;
     }
-    if( TerrainWidget::Get() ) TerrainWidget::Get()->PrepareForPlay();
+    if( TerrainWidget::Get() && !TerrainWidget::Get()->PrepareForPlay() ) return;
     StartGame();
     m_isGamePaused = false;
     GetEngine().SetPaused( false );

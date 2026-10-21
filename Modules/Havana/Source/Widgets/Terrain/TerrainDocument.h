@@ -3,7 +3,7 @@
 #if USING( ME_EDITOR )
 #include "Editor/UndoStack.h"
 #include "Terrain/TerrainEditing.h"
-#include "Terrain/ResidentTerrain.h"
+#include "Terrain/TerrainPreview.h"
 #include "Terrain/TerrainRecovery.h"
 
 // One editable source asset, shared by every scene instance. Scene history is independent.
@@ -28,11 +28,17 @@ public:
     // Releasing old history must not mark unsaved source samples as saved.
     void DiscardHistory();
     bool PublishPreview();
+    bool TickPreview();
+    bool WaitForPreview();
+    void RetryPreview();
+    bool IsPreparingPreview() const { return m_previewBuilder.IsBusy(); }
+    const TerrainData::TerrainPreview::Statistics& GetPreviewStatistics() const { return m_previewBuilder.GetStatistics(); }
     bool SetSurface( std::shared_ptr<const TerrainData::Surface> InSurface, bool InRecord = true );
     void ApplyDeltas( uint64_t InGUID, const std::vector<TerrainData::SampleDelta>& InDeltas, bool InAfter );
 
     const std::string& GetPath() const { return m_path; }
-    const std::string& GetError() const { return m_error; }
+    const std::string& GetPreviewError() const { return m_previewError; }
+    const std::string& GetError() const { return m_error.empty() ? m_previewError : m_error; }
     const TerrainData::Heightfield& GetField() const { return m_field; }
     const std::shared_ptr<const TerrainData::ResidentTerrain>& GetPreview() const { return m_preview; }
     UndoStack& GetUndo() { return m_undo; }
@@ -48,6 +54,8 @@ private:
     TerrainData::BrushStroke m_stroke;
     std::shared_ptr<const TerrainData::Surface> m_beforeSurface;
     std::shared_ptr<const TerrainData::ResidentTerrain> m_preview;
+    TerrainData::TerrainPreview m_previewBuilder;
+    std::string m_previewError;
     UndoStack m_undo;
     size_t m_historyBytes = 0;
     std::filesystem::path m_recoveryPath;

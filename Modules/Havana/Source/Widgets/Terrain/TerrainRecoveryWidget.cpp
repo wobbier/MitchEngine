@@ -107,11 +107,14 @@ bool TerrainWidget::WriteRecoveries()
     ScanRecoveries(); return success && !deferred;
 }
 
-void TerrainWidget::PrepareForPlay()
+bool TerrainWidget::PrepareForPlay()
 {
     EndFoliageStroke();
     for( auto& document : m_documents ) document->EndStroke();
+    for( auto& document : m_documents ) if( !document->WaitForPreview() )
+    { m_error = document->GetError(); IsOpen = true; m_focusRequested = true; return false; }
     if( AutomaticRecoveryEnabled() ) WriteRecoveries();
+    return true;
 }
 
 void TerrainWidget::UpdateRecovery()

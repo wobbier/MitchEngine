@@ -111,6 +111,7 @@ namespace TerrainAutomation
             return true;
         }
         if( !document ) { error = "Open a terrain first"; return false; }
+        if( command == "terrain-preview-wait" ) return document->WaitForPreview();
         if( command == "terrain-stroke" )
         {
             const auto value = json::parse( args, nullptr, false );
@@ -160,6 +161,7 @@ namespace TerrainAutomation
         }
         else if( command == "terrain-assert-rebuilt" )
         {
+            if( !document->WaitForPreview() ) { error = document->GetError(); return false; }
             std::istringstream stream( args ); size_t patches, tiles;
             if( !( stream >> patches >> tiles ) || document->GetPreview()->BuiltPatches != patches || document->GetPreview()->BuiltCollisionTiles != tiles )
             { error = "Unexpected incremental preview rebuild counts"; return false; }

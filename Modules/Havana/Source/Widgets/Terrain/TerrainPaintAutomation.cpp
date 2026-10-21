@@ -36,7 +36,7 @@ namespace TerrainPaintAutomation
             return document->SetSurface( surface );
         }
         if( command == "terrain-paint-mark" )
-        { s_mark = document->GetField().GetSurface(); s_geometry = document->GetPreview(); s_marked = true; return true; }
+        { if( !document->WaitForPreview() ) return false; s_mark = document->GetField().GetSurface(); s_geometry = document->GetPreview(); s_marked = true; return true; }
         if( command == "terrain-paint-assert-mark" )
         {
             const auto source = document->GetField().GetSurface();
@@ -46,6 +46,7 @@ namespace TerrainPaintAutomation
         }
         if( command == "terrain-paint-assert-geometry" )
         {
+            if( !document->WaitForPreview() ) return false;
             const auto& current = document->GetPreview();
             if( !s_geometry || current->Patches != s_geometry->Patches || current->CollisionTiles != s_geometry->CollisionTiles )
             { error = "Surface editing rebuilt terrain geometry or collision"; return false; }

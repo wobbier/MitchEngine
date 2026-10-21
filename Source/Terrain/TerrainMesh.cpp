@@ -7,7 +7,7 @@
 
 namespace TerrainData
 {
-    bool BuildPatch( const Heightfield& InField, TileCoord InTile, uint32_t InPatchX, uint32_t InPatchZ, PatchMesh& OutMesh, std::string& OutError )
+    bool BuildPatch( const Heightfield& InField, TileCoord InTile, uint32_t InPatchX, uint32_t InPatchZ, PatchMesh& OutMesh, std::string& OutError, const std::atomic_bool* InCancel )
     {
         OutError.clear();
         const Settings& settings = InField.GetSettings();
@@ -19,6 +19,8 @@ namespace TerrainData
         mesh.Revision = InField.GetRevision();
         mesh.Vertices.reserve( static_cast<size_t>( side ) * side );
         for( uint32_t z = 0; z <= q; ++z )
+        {
+            if( InCancel && InCancel->load( std::memory_order_relaxed ) ) { OutError = "Terrain preview cancelled"; return false; }
             for( uint32_t x = 0; x <= q; ++x )
             {
                 const SampleCoord sample{ mesh.SampleOrigin.X + x, mesh.SampleOrigin.Z + z };
@@ -32,12 +34,14 @@ namespace TerrainData
                 mesh.Bounds.Encapsulate( vertex.Position );
                 mesh.Vertices.push_back( vertex );
             }
-        if( !BuildPatchLods( mesh, q, OutError ) ) return false;
+        }
+        if( !BuildPatchLods( mesh, q, OutError, InCancel ) ) return false;
         OutMesh = std::move( mesh );
         return true;
     }
 
-    bool BuildPatchLods( PatchMesh& mesh, uint32_t q, std::string& error )
+
+    bool BuildPatchLods( PatchMesh& mesh, uint32_t q, std::string& error, const std::atomic_bool* InCancel )
     {
         if( !q || q > 1024 || ( q & ( q - 1 ) ) || mesh.Vertices.size() != static_cast<size_t>( q + 1 ) * ( q + 1 ) )
         { error = "Invalid terrain vertex grid"; return false; }
@@ -46,6 +50,7 @@ namespace TerrainData
         const auto heightAt = [&]( uint32_t x, uint32_t z ) { return static_cast<double>( mesh.Vertices[static_cast<size_t>( z ) * side + x].Position.y ); };
         for( uint32_t stride = 1; stride <= q; stride *= 2 )
         {
+            if( InCancel && InCancel->load( std::memory_order_relaxed ) ) { error = "Terrain preview cancelled"; return false; }
             PatchLod lod;
             lod.Stride = stride;
             lod.Indices.reserve( static_cast<size_t>( q / stride ) * ( q / stride ) * 6 );
@@ -57,6 +62,8 @@ namespace TerrainData
                 }
             double maxError = 0.0;
             for( uint32_t z = 0; z <= q; ++z )
+            {
+                if( InCancel && InCancel->load( std::memory_order_relaxed ) ) { error = "Terrain preview cancelled"; return false; }
                 for( uint32_t x = 0; x <= q; ++x )
                 {
                     const uint32_t cx = std::min( x / stride * stride, q - stride ), cz = std::min( z / stride * stride, q - stride );
@@ -65,6 +72,7 @@ namespace TerrainData
                     const double reconstructed = u + v <= 1.0 ? a + ( b - a ) * u + ( c - a ) * v : d + ( c - d ) * ( 1.0 - u ) + ( b - d ) * ( 1.0 - v );
                     maxError = std::max( maxError, std::abs( heightAt( x, z ) - reconstructed ) );
                 }
+            }
             // Both triangulations use the same nested diagonals. Their difference is linear
             // inside every fine triangle, so its maximum occurs at a fine-grid vertex.
             lod.MaxError = static_cast<float>( maxError );

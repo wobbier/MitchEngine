@@ -3,6 +3,7 @@
 #include "Terrain/TerrainMesh.h"
 #include <memory>
 #include <array>
+#include <atomic>
 
 namespace TerrainData
 {
@@ -58,7 +59,7 @@ namespace TerrainData
     // Compares canonical samples with a compatible prior snapshot; unchanged geometry is shared.
     // Dirty rectangles are deliberately not required (saving can clear them between publications).
     bool UpdateResidentTerrain( const Heightfield& InField, uint64_t InAssetGUID, const std::shared_ptr<const ResidentTerrain>& InPrevious,
-        std::shared_ptr<const ResidentTerrain>& OutData, std::string& OutError );
+        std::shared_ptr<const ResidentTerrain>& OutData, std::string& OutError, const std::atomic_bool* InCancel = nullptr );
     // The first resident renderer/physics adapter supports world translation only, including parents.
     bool IsTranslationOnly( const Matrix4& InWorld );
 }
