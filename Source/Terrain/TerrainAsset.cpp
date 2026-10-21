@@ -41,13 +41,15 @@ namespace TerrainData
         }
     }
 
-    bool LoadSource( const std::filesystem::path& path, Heightfield& outField, uint64_t& outGUID, std::string& outText, std::string& error )
+    bool LoadSource( const std::filesystem::path& path, Heightfield& outField, uint64_t& outGUID, std::string& outText, std::string& error, uint64_t maxSamples )
     {
         try
         {
             const std::string text = ReadText( path );
             Manifest manifest;
             if( !DeserializeManifest( text, manifest, error ) ) return false;
+            if( uint64_t( manifest.Config.TilesX ) * manifest.Config.TilesZ > maxSamples / manifest.Config.SamplesPerTile() )
+            { error = "Terrain source exceeds the resident authoring sample budget; split the source or use a cooked runtime archive"; return false; }
             Heightfield field( manifest.Config );
             for( const auto& reference : manifest.Pages )
             {

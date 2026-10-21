@@ -5,6 +5,9 @@
 
 namespace TerrainData
 {
+    constexpr uint64_t MaxAuthoringSamples = 1024 * 1024;
+    bool ValidateAuthoringSettings( const Settings& InSettings, std::string& OutError );
+
     enum class BrushTool { Raise, Lower, Smooth, Flatten, Paint, Erase };
 
     struct BrushSettings

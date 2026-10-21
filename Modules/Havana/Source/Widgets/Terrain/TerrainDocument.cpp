@@ -64,7 +64,7 @@ bool TerrainDocument::Load()
 {
     TerrainData::Heightfield field;
     uint64_t guid = 0; std::string text;
-    if( !TerrainData::LoadSource( Path( m_path ).FullPath, field, guid, text, m_error ) ) return false;
+    if( !TerrainData::LoadSource( Path( m_path ).FullPath, field, guid, text, m_error, TerrainData::MaxAuthoringSamples ) ) return false;
     // Sidecar identity agrees with runtime assets, including duplicated source manifests.
     try
     {
@@ -90,9 +90,7 @@ bool TerrainDocument::Load()
 
 bool TerrainDocument::CreateFlat( const TerrainData::Settings& settings, float height )
 {
-    if( !settings.Validate( m_error ) ) return false;
-    if( static_cast<uint64_t>( settings.TilesX ) * settings.TilesZ > 1024 * 1024 / settings.SamplesPerTile() )
-    { m_error = "The resident authoring prototype supports up to one million source samples"; return false; }
+    if( !TerrainData::ValidateAuthoringSettings( settings, m_error ) ) return false;
     TerrainData::Heightfield field( settings );
     for( uint32_t z = 0; z < settings.TilesZ; ++z ) for( uint32_t x = 0; x < settings.TilesX; ++x )
         if( !field.CreateFlatTile( { settings.MinTile.X + static_cast<int32_t>( x ), settings.MinTile.Z + static_cast<int32_t>( z ) }, height, m_error ) ) return false;
@@ -102,8 +100,7 @@ bool TerrainDocument::CreateFlat( const TerrainData::Settings& settings, float h
 bool TerrainDocument::CreateFromField( TerrainData::Heightfield field )
 {
     const auto& settings = field.GetSettings();
-    if( static_cast<uint64_t>( settings.TilesX ) * settings.TilesZ > 1024 * 1024 / settings.SamplesPerTile() )
-    { m_error = "The resident authoring prototype supports up to one million source samples"; return false; }
+    if( !TerrainData::ValidateAuthoringSettings( settings, m_error ) ) return false;
     const uint64_t guid = GUID::Generate(); std::string text;
     std::shared_ptr<const TerrainData::ResidentTerrain> preview;
     if( !TerrainData::BuildResidentTerrain( field, guid, preview, m_error ) ) return false;
@@ -190,8 +187,11 @@ bool TerrainDocument::SaveRecovery( const std::filesystem::path& path )
 bool TerrainDocument::RestoreRecovery( const std::filesystem::path& path )
 {
     if( IsDirty() ) { m_error = "Save, save a copy, or revert the open terrain before restoring a recovery snapshot"; return false; }
-    TerrainData::Heightfield field; TerrainData::RecoveryInfo info;
+    TerrainData::Heightfield field; TerrainData::RecoveryInfo info; TerrainData::Manifest base;
+    if( !TerrainData::InspectRecovery( path, info, m_error ) || !TerrainData::DeserializeManifest( info.BaseManifest, base, m_error ) ||
+        !TerrainData::ValidateAuthoringSettings( base.Config, m_error ) ) return false;
     if( !TerrainData::ReadRecovery( path, info, field, m_error ) ) return false;
+    if( !TerrainData::ValidateAuthoringSettings( field.GetSettings(), m_error ) ) return false;
     if( std::filesystem::path( Path( info.AssetPath ).FullPath ).lexically_normal() != std::filesystem::path( Path( m_path ).FullPath ).lexically_normal() )
     { m_error = "Recovery snapshot belongs to another terrain asset"; return false; }
     std::shared_ptr<const TerrainData::ResidentTerrain> preview;

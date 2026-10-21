@@ -6,6 +6,15 @@
 
 namespace TerrainData
 {
+    bool ValidateAuthoringSettings( const Settings& settings, std::string& error )
+    {
+        if( !settings.Validate( error ) ) return false;
+        if( uint64_t( settings.TilesX ) * settings.TilesZ > MaxAuthoringSamples / settings.SamplesPerTile() )
+        { error = "Resident terrain authoring supports up to one million source samples; split the source or use a cooked runtime archive"; return false; }
+        return true;
+    }
+
+
     bool BrushStroke::Begin( Heightfield& field, const BrushSettings& brush, double x, double z, std::string& error )
     {
         if( m_active ) { error = "Finish the current stroke first"; return false; }

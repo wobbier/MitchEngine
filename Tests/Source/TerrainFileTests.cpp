@@ -94,3 +94,16 @@ TEST_CASE( "Terrain: failed file transfers retain source data and reject conflic
     for( const auto& entry : std::filesystem::directory_iterator( files.Root / "Destination" ) )
         CHECK( entry.path().filename().string().rfind( ".terrain-transfer-", 0 ) != 0 );
 }
+
+
+TEST_CASE( "Terrain: authoring sample admission rejects oversized manifests before page reads and preserves outputs" )
+{
+    Files files; TerrainData::Heightfield loaded; uint64_t guid = 456; std::string text = "preserve", error;
+    const auto revision = loaded.GetRevision();
+    CHECK_FALSE( TerrainData::LoadSource( files.Source, loaded, guid, text, error, 99 ) );
+    CHECK( error.find( "sample budget" ) != std::string::npos ); CHECK( loaded.GetRevision() == revision ); CHECK( guid == 456 ); CHECK( text == "preserve" );
+    REQUIRE( TerrainData::LoadSource( files.Source, loaded, guid, text, error, 100 ) ); CHECK( guid == 123 );
+    for( const auto& [coord, tile] : files.Field.GetTiles() ) CHECK( loaded.FindTile( coord )->Heights == tile.Heights );
+    std::filesystem::remove_all( files.Root / "Original.terrain-data" );
+    CHECK_FALSE( TerrainData::LoadSource( files.Source, loaded, guid, text, error, 99 ) ); CHECK( error.find( "sample budget" ) != std::string::npos );
+}

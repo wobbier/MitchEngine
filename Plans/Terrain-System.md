@@ -1,6 +1,6 @@
 # Terrain system plan
 
-> Updated 2026-10-20. Repository integration points originally reviewed against engine commit `5e92b9b5`; navigation integration targets `ec76c4e2` and the current working tree. Milestones 1–4 are implemented, including source asset operations and stitched runtime LODs. Bounded detail/coverage streaming, painted pages, lossless compression, hierarchical distant coverage, canonical navigation bakes and a first scene-owned foliage painter are implemented.
+> Updated 2026-10-21. Repository integration points originally reviewed against engine commit `5e92b9b5`; navigation integration targets `ec76c4e2` and the current working tree. Milestones 1–4 are implemented, including source asset operations and stitched runtime LODs. Bounded detail/coverage streaming, painted pages, lossless compression, hierarchical distant coverage, canonical navigation bakes and a first scene-owned foliage painter are implemented.
 
 Build a tiled heightfield system with separate authoring data, runtime residency, and render patches. Start with a small, fully resident terrain that can be saved and edited, then add patch LODs and bounded streaming without changing how scenes reference terrain.
 
@@ -19,14 +19,14 @@ Navigation checkpoint validation (Linux, 2026-10-20): 333 editor tests and 330 g
 
 ## Base hardening finish line
 
-The next default work queue is user-selected menu tools. Advanced streaming scale is independent of this finish line.
+Base hardening is complete for the supported resident authoring workflow on Linux. The default work queue is now user-selected menu tools. Advanced streaming scale is independent of this finish line.
 
 1. **Authoring responsiveness — complete:** incremental preview comparison/geometry/LOD/collision arrays run on one cancellable worker per document, with coalesced edits, immutable snapshots, generation checks, retained valid previews and explicit failure retry. Canonical undo/save/recovery remain immediate and independent of preview lag. Play waits for the latest usable snapshot. Initial source open/create/restore and file I/O remain synchronous.
-2. **Combined stability sign-off — next:** sustained sculpt/paint/foliage history, save/reload/recovery, source conflicts, shared instances, Play/Stop and runtime travel/budget/failure regressions. Fix findings and record the supported resident authoring limits. Completion makes the base ready for menu-tool development.
+2. **Combined stability sign-off — complete:** sustained sculpt/paint/foliage history, save/reload/recovery, source conflicts, shared instances, Play/Stop and runtime travel/budget/failure regressions. Creation, source opening and recovery now consistently enforce the existing one-million-sample authoring limit, with preflight checks and transactional rejection. All 368 editor / 365 game tests, 20 native terrain/foliage flows and a standalone capture pass. A 990,735-sample incremental fixture retains 239 of 240 patch objects. Initial source preparation and file I/O remain synchronous. Win64/macOS validation remains unrun locally; menu-tool development can proceed on the verified Linux baseline.
 
 Noise, stamps, ramps, terraces, layer masks and slope/altitude painting can then be independent feature checkpoints. Holes, tile topology/resampling, grass and roads/rivers need larger feature milestones. Projected-error hierarchy selection, hierarchy hysteresis, directory paging, per-view cuts, GPU displacement and streamed foliage remain separate scaling improvements.
 
-## Near-term order: hierarchy refinement and foliage scale
+## Scale backlog after menu-tool development
 
 The existing source documents, sculpt/paint history, save/recovery, canonical collision, LODs and bounded runtime pages are enough to start a useful foliage authoring tool. Optional actor look-ahead and the first foliage painter are implemented. Hierarchical distant coverage is now implemented. Projected-error-driven page selection and runtime Detour tile streaming remain independent scale work.
 

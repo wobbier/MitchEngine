@@ -1,7 +1,9 @@
 #include <doctest/doctest.h>
 #include "Terrain/TerrainPreview.h"
+#include "Terrain/TerrainEditing.h"
 #include "Terrain/TerrainSurface.h"
 #include <chrono>
+#include <cstdio>
 #include <future>
 #include <stdexcept>
 #include <thread>
@@ -132,4 +134,34 @@ TEST_CASE( "Terrain preview: destruction cancels and joins its worker and cancel
         REQUIRE( entered.get_future().wait_for( std::chrono::seconds( 5 ) ) == std::future_status::ready ); CHECK_FALSE( exited );
     }
     CHECK( exited ); CHECK( preview == original );
+}
+
+
+TEST_CASE( "Terrain preview: resident authoring settings have one consistent checked sample limit" )
+{
+    TerrainData::Settings s; s.TileQuads = 32; s.PatchQuads = 16; s.TilesX = s.TilesZ = 31; std::string error;
+    CHECK( TerrainData::ValidateAuthoringSettings( s, error ) ); s.TilesX = s.TilesZ = 32;
+    CHECK_FALSE( TerrainData::ValidateAuthoringSettings( s, error ) ); CHECK( error.find( "one million" ) != std::string::npos );
+    s.TilesX = s.TilesZ = 1; s.PatchQuads = 3; CHECK_FALSE( TerrainData::ValidateAuthoringSettings( s, error ) );
+    s.TileQuads = s.PatchQuads = 1; s.TilesX = s.TilesZ = 512; CHECK( TerrainData::ValidateAuthoringSettings( s, error ) );
+    s.TilesX = 513; CHECK_FALSE( TerrainData::ValidateAuthoringSettings( s, error ) );
+}
+
+
+TEST_CASE( "Terrain preview: a near-limit source prepares one changed patch and collision tile while sharing the rest" )
+{
+    TerrainData::Settings settings; settings.TileQuads = 256; settings.PatchQuads = 64; settings.MinTile = { -1, -2 }; settings.TilesX = 3; settings.TilesZ = 5;
+    std::string error; REQUIRE( TerrainData::ValidateAuthoringSettings( settings, error ) );
+    const uint64_t samples = uint64_t( settings.TilesX ) * settings.TilesZ * settings.SamplesPerTile(); CHECK( samples == 990735 );
+    TerrainData::Heightfield field( settings );
+    for( int x = -1; x < 2; ++x ) for( int z = -2; z < 3; ++z ) REQUIRE( field.CreateFlatTile( { x, z }, 0, error ) );
+    auto preview = InitialPreview( field ); const auto original = preview; TerrainData::TerrainPreview worker;
+    REQUIRE( field.SetSample( { -200, -400 }, 2, error ) );
+    const auto started = std::chrono::steady_clock::now(); REQUIRE( worker.Request( field, 123, preview, error ) );
+    const double capture = std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - started ).count();
+    REQUIRE_MESSAGE( worker.Wait( field, 123, preview, error ), error );
+    CHECK( preview->BuiltPatches == 1 ); CHECK( preview->BuiltCollisionTiles == 1 ); CHECK( preview->Patches.size() == 240 );
+    size_t shared = 0; for( size_t i = 0; i < preview->Patches.size(); ++i ) shared += preview->Patches[i] == original->Patches[i]; CHECK( shared == 239 );
+    CHECK( preview->Heights->Query( -200, -400 ).Height == 2 ); CHECK( original->Heights->Query( -200, -400 ).Height == 0 );
+    std::printf( "[terrain-preview-limit] samples=%llu capture-ms=%.3f worker-ms=%.3f shared-patches=%zu/240\n", static_cast<unsigned long long>( samples ), capture, worker.GetStatistics().LastMilliseconds, shared );
 }
