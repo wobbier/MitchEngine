@@ -128,6 +128,11 @@ void Rigidbody::SetVelocity( const Vector3& InVelocity )
     {
         b3Body_SetLinearVelocity( Body( m_body ), ToB3( InVelocity ) );
     }
+    else
+    {
+        m_hasPendingVelocity = true;
+        m_pendingVelocity = InVelocity;
+    }
 }
 
 

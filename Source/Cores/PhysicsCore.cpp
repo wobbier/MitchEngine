@@ -873,6 +873,11 @@ void PhysicsCore::SyncBodies( float InPhysicsStepSeconds )
             ApplyBodySettings( record, rigidbody );
             record.BodySignature = bodySignature;
         }
+        if( rigidbody && rigidbody->m_hasPendingVelocity )
+        {
+            rigidbody->m_hasPendingVelocity = false;
+            b3Body_SetLinearVelocity( Body( record.Body ), ToB3( rigidbody->m_pendingVelocity ) );
+        }
     }
 
     // Bodies whose owner is gone, inactive or has nothing left to simulate.

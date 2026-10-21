@@ -61,6 +61,9 @@ public:
 private:
     uint64_t m_body = 0;            // b3BodyId (see Physics/Box3DUtils.h)
     bool m_hasPendingMove = false;
+    // Set before the body exists (e.g. right after spawning); applied when the core creates it.
+    bool m_hasPendingVelocity = false;
+    Vector3 m_pendingVelocity;
     Vector3 m_movePosition;
     Quaternion m_moveRotation;
 
