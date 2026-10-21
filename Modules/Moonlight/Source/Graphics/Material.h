@@ -144,6 +144,9 @@ namespace Moonlight
         std::vector<std::shared_ptr<Texture>>& GetTextures();
         RenderingMode RenderMode = RenderingMode::Opaque;
         bool SupportsInstancing = false;
+        // Runtime only: the camera (cache id) whose output the renderer binds to the diffuse slot,
+        // sampled in screen space (PortalMaterial). -1 = none.
+        int ScreenViewCamera = -1;
         Vector3 DiffuseColor;
         Vector2 Tiling;
         std::string ShaderName;

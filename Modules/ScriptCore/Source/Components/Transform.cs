@@ -43,6 +43,12 @@ public class Transform : Component
         unsafe { Engine._api.Transform_LookAt(Entity, &worldTarget); }
     }
 
+    // Turns to face a world direction, with up as close to the given up as possible.
+    public void LookDirection(Vector3 forward, Vector3 up)
+    {
+        unsafe { Engine._api.Transform_LookDirection(Entity, &forward, &up); }
+    }
+
     // The parent entity (Entity.Null at the scene root); setting it keeps the world pose.
     public Entity Parent
     {

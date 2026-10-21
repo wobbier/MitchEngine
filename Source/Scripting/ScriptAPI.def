@@ -160,3 +160,12 @@ bool Input_IsMouseCaptured()
 
 ## Overlap query: entities whose colliders touch a sphere (deduplicated); returns the total found
 int Physics_OverlapSphere( const Vector3* center, float radius, Entity* outEntities, int maxEntities )
+
+## Portals and screen-space camera views (Engine/Docs/Rendering-Pipeline.md)
+void Camera_SetClipPlane( Entity id, const Vector3* point, const Vector3* normal )
+void Camera_ClearClipPlane( Entity id )
+bool Mesh_ShowCameraView( Entity id, Entity camera )
+void Transform_LookDirection( Entity id, const Vector3* forward, const Vector3* up )
+void Character_SetVelocity( Entity id, const Vector3* velocity )
+void Character_Teleport( Entity id, const Vector3* position, const Vector3* forward )
+void Rigidbody_Teleport( Entity id, const Vector3* position, const Vector3* forward, const Vector3* up )

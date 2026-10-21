@@ -168,4 +168,13 @@ struct ScriptEngineAPI
 
     // Overlap query: entities whose colliders touch a sphere (deduplicated); returns the total found
     int ( *Physics_OverlapSphere )( const Vector3* center, float radius, EntityID* outEntities, int maxEntities );
+
+    // Portals and screen-space camera views (Engine/Docs/Rendering-Pipeline.md)
+    void ( *Camera_SetClipPlane )( EntityID id, const Vector3* point, const Vector3* normal );
+    void ( *Camera_ClearClipPlane )( EntityID id );
+    bool ( *Mesh_ShowCameraView )( EntityID id, EntityID camera );
+    void ( *Transform_LookDirection )( EntityID id, const Vector3* forward, const Vector3* up );
+    void ( *Character_SetVelocity )( EntityID id, const Vector3* velocity );
+    void ( *Character_Teleport )( EntityID id, const Vector3* position, const Vector3* forward );
+    void ( *Rigidbody_Teleport )( EntityID id, const Vector3* position, const Vector3* forward, const Vector3* up );
 };

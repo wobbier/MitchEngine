@@ -79,6 +79,20 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
         {
             CameraComponent.OutputSize = windowSize;
         }
+        else if( CameraComponent.MatchMainCamera && Camera::CurrentCamera )
+        {
+            // Screen-space views (PortalMaterial) line up pixel for pixel with the main camera and share
+            // its background.
+            CameraComponent.OutputSize = Camera::CurrentCamera->OutputSize;
+            CameraComponent.m_FOV = Camera::CurrentCamera->m_FOV;
+            CameraComponent.Far = Camera::CurrentCamera->Far;
+            CameraComponent.Projection = Camera::CurrentCamera->Projection;
+            CameraComponent.OrthographicSize = Camera::CurrentCamera->OrthographicSize;
+            CameraComponent.ClearType = Camera::CurrentCamera->ClearType;
+            CameraComponent.ClearColor = Camera::CurrentCamera->ClearColor;
+            CameraComponent.Skybox = Camera::CurrentCamera->Skybox;
+            CameraComponent.ProceduralSky = Camera::CurrentCamera->ProceduralSky;
+        }
         else if( CameraComponent.HasPartialViewport() )
         {
             // Split screen cameras share the main camera's output, so size from it.
@@ -136,9 +150,20 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
 
             Frustum& camFrustum = CameraComponent.CameraFrustum;
             //bx::mtxProj( &CameraComponent.WorldToCamera.GetInternalMatrix()[0][0], CameraComponent.GetFOV(), float( CameraComponent.OutputSize.x ) / float( CameraComponent.OutputSize.y ), std::max( CameraComponent.Near, 1.f ), CameraComponent.Far, bgfx::getCaps()->homogeneousDepth );
+            CamData->View = glm::lookAtLH( eye.InternalVector, at.InternalVector, up.InternalVector );
+            if( CameraComponent.m_hasClipPlane )
+            {
+                // The world plane in view space, visible side positive. A camera in front of the
+                // plane would clip what it should see, so it renders normally instead.
+                const glm::mat4& view = CamData->View.GetInternalMatrix();
+                const glm::vec3 normal = glm::normalize( glm::mat3( view ) * CameraComponent.m_clipNormal.InternalVector );
+                const glm::vec3 point = glm::vec3( view * glm::vec4( CameraComponent.m_clipPoint.InternalVector, 1.f ) );
+                const glm::vec4 plane( normal, -glm::dot( normal, point ) );
+                CameraComponent.isOblique = plane.w < 0.f;
+                CameraComponent.ObliqueMatData = plane;
+            }
             CamData->IsOblique = CameraComponent.isOblique;
             CamData->ObliqueData = CameraComponent.ObliqueMatData;
-            CamData->View = glm::lookAtLH( eye.InternalVector, at.InternalVector, up.InternalVector );
 
 
             //Matrix4 testMatrix;

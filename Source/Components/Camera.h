@@ -32,6 +32,9 @@ public:
     // Normalized screen rect (x, y from the top left, width, height) for split screen. A camera with
     // a partial rect draws into that part of the main camera's output instead of its own target.
     Vector4 Viewport = Vector4( 0.f, 0.f, 1.f, 1.f );
+    // Render at the main camera's output size, field of view and far plane, with its background, for
+    // views shown in screen space on a surface (PortalMaterial).
+    bool MatchMainCamera = false;
 
     Camera();
     ~Camera();
@@ -54,6 +57,12 @@ public:
 
     void SetObliqueMatrixData( const glm::vec4& inVec );
     void ClearObliqueMatrixData();
+
+    // Clips everything behind a world-space plane (the side the normal points away from) by
+    // replacing the near plane with it: what a camera looking out of a portal or mirror needs.
+    // Ignored while the camera itself is in front of the plane.
+    void SetClipPlane( const Vector3& InPoint, const Vector3& InNormal );
+    void ClearClipPlane();
 
     Frustum CameraFrustum;
     Moonlight::SkyBox* Skybox = nullptr;
@@ -84,6 +93,9 @@ private:
     unsigned int m_id = 0;
     glm::vec4 ObliqueMatData;
     bool isOblique = false;
+    bool m_hasClipPlane = false;
+    Vector3 m_clipPoint;
+    Vector3 m_clipNormal;
     virtual void OnDeserialize( const json& inJson ) final;
     virtual void OnSerialize( json& outJson ) final;
 };

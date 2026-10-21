@@ -634,6 +634,46 @@ static void Eng_Character_SetMaxSpeed( EntityID inId, float inSpeed )
 }
 
 
+static void Eng_Transform_LookDirection( EntityID inId, const Vector3* inForward, const Vector3* inUp )
+{
+    if( Transform* transform = TransformOf( inId ) )
+    {
+        transform->LookDirection( *inForward, *inUp );
+    }
+}
+
+
+static void Eng_Character_SetVelocity( EntityID inId, const Vector3* inVelocity )
+{
+    if( CharacterController* character = CharacterOf( inId ) )
+    {
+        character->SetVelocity( *inVelocity );
+    }
+}
+
+
+// Through physics, so interpolation restarts at the new place instead of pulling the body back.
+// Characters stay upright: forward is flattened. Velocity is kept for rigidbodies, cleared for characters.
+static void Eng_Character_Teleport( EntityID inId, const Vector3* inPosition, const Vector3* inForward )
+{
+    if( CharacterController* character = CharacterOf( inId ) )
+    {
+        Vector3 forward( inForward->x, 0.f, inForward->z );
+        const Quaternion rotation = forward.IsZero() ? TransformOf( inId )->GetWorldRotation() : Quaternion::LookRotation( forward.Normalized(), Vector3::Up );
+        character->Teleport( *inPosition, rotation );
+    }
+}
+
+
+static void Eng_Rigidbody_Teleport( EntityID inId, const Vector3* inPosition, const Vector3* inForward, const Vector3* inUp )
+{
+    if( Rigidbody* body = RigidbodyOf( inId ) )
+    {
+        body->Teleport( *inPosition, Quaternion::LookRotation( *inForward, *inUp ) );
+    }
+}
+
+
 void Register_GameplayBindings( ScriptEngineAPI& inAPI )
 {
     ScriptBindings::RegisterComponent<Rigidbody>( "Rigidbody" );
@@ -698,6 +738,10 @@ void Register_GameplayBindings( ScriptEngineAPI& inAPI )
     inAPI.Character_GetVelocity = Eng_Character_GetVelocity;
     inAPI.Character_GetMaxSpeed = Eng_Character_GetMaxSpeed;
     inAPI.Character_SetMaxSpeed = Eng_Character_SetMaxSpeed;
+    inAPI.Transform_LookDirection = Eng_Transform_LookDirection;
+    inAPI.Character_SetVelocity = Eng_Character_SetVelocity;
+    inAPI.Character_Teleport = Eng_Character_Teleport;
+    inAPI.Rigidbody_Teleport = Eng_Rigidbody_Teleport;
 }
 
 #endif

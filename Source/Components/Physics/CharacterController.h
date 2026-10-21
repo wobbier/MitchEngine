@@ -40,6 +40,8 @@ public:
 
     Vector3 GetPosition() const;
     Vector3 GetVelocity() const { return m_velocity; }
+    // Replaces the current velocity (e.g. turned to match a portal's exit).
+    void SetVelocity( const Vector3& InVelocity ) { m_velocity = InVelocity; }
     bool IsOnGround() const { return m_grounded; }
     Vector3 GetGroundNormal() const { return m_groundNormal; }
 

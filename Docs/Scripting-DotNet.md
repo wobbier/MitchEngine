@@ -39,7 +39,7 @@ The managed side has these parts:
 - **`ScriptRegistry.cs`** finds `IGameScript` implementors, keyed by `Type.Name` (`Find` also matches a `[FormerName]`), and declares `FormerNameAttribute` and `ExecutionOrderAttribute`.
 - **`Inspector.cs`** is the reflection-driven ImGui field editor and the JSON field serializer.
 - **`Core/`** holds `Entity`, `World`, `Time`, `Input`, `Audio`, `Physics` and `Debug`.
-- **`Components/`** holds `Transform`, `Rigidbody`, `Camera` and `BasicUIView`.
+- **`Components/`** holds `Transform`, `Rigidbody`, `CharacterController`, `NavMeshAgent`, `Camera`, `Mesh` and `BasicUIView`.
 
 ## How It Works
 
@@ -118,16 +118,16 @@ The API is about 87 functions. Strings cross as UTF-8 `byte*`, entities as the r
 | Debug draw | `Debug.DrawLine/DrawSphere(…, duration)` |
 | Time | `Time.DeltaTime` (scaled), `UnscaledDeltaTime`, `FixedDeltaTime`, `TimeScale` (get/set), `RealTime` (wall clock) |
 | Entity | `IsAlive`, `Name`, `Active`, `Destroy()`, `Has/Add/GetComponent<T>` |
-| Transform | Local `Position`/`Rotation`/`Scale`; `WorldPosition`; `Forward`/`Right`/`Up`; `LookAt`; `Parent` |
+| Transform | Local `Position`/`Rotation`/`Scale`; `WorldPosition`; `Forward`/`Right`/`Up`; `LookAt`, `LookDirection(forward, up)`; `Parent` |
 | World | `CreateEntity`, `Find(name)` (any depth), `Instantiate(prefab, parent)`, `LoadScene(path)` (queued to the end of the frame), `LoadSceneAdditive(path, async = true)` / `UnloadScene(id)` / `GetSceneState(id)` (`Docs/Serialization-and-Scenes.md`) |
 | Input | `IsKeyDown`, `WasKeyPressed`, `MouseDelta`, `GetAction`, `GetActionVector2`, `IsActionPressed`, `WasActionPressed`, `WasActionReleased` (actions from `Docs/Input.md`); local multiplayer: `PlayerCount`, `Player(n)` (a `PlayerInput` with the same action methods and its `Gamepad`), `SetJoining(maxPlayers)` |
 | Audio | `Audio.PlayOneShot(clip, volume)`, `PlayOneShotAt(clip, position, volume)` |
-| Physics | `Physics.Raycast(origin, dir, maxDistance, out RaycastHit)`; `Rigidbody.AddForce(force, ForceMode)` and `Velocity` |
-| Character | `CharacterController.SetMoveInput`, `Move`, `Jump`, `IsGrounded`, `Velocity`, `MaxSpeed` (`Docs/Physics.md`) |
+| Physics | `Physics.Raycast(origin, dir, maxDistance, out RaycastHit)`; `Rigidbody.AddForce(force, ForceMode)`, `Velocity` (set before the body exists applies when it is created) and `Teleport(position, forward, up)` (keeps velocity) |
+| Character | `CharacterController.SetMoveInput`, `Move`, `Jump`, `IsGrounded`, `Velocity` (get/set), `MaxSpeed`, `Teleport(position, forward)` (through physics; a Transform move is undone by interpolation between steps) (`Docs/Physics.md`) |
 | Math | `Vector3` (`Zero`/`Up`/`Forward`…, `Normalized`, `Dot`, `Cross`, `Distance`, `Lerp`), `Mathf` (`Clamp`, `Atan2`, `Deg2Rad`, frame-rate independent `Damp`) |
 | Any component | `Entity.GetField<T>( component, path, fallback )`, `SetField( component, path, value )` and the raw `GetFieldJson` / `SetFieldJson`: any reflected field by path (`"Light", "Intensity"`, `"Color.0"`), or any key of a hand-serialized component's JSON. Vectors are `[x, y, z]` arrays and enums are names. Setting calls the component's `OnPropertyChanged` |
 | Navigation | `NavMeshAgent.SetDestination`, `IsStopped`, `ResetPath`, `Warp`, `HasPath`, `HasArrived`, `RemainingDistance`, `Velocity`, `DesiredVelocity`, `Speed`; `Navigation.FindPath`, `SamplePosition`, `Raycast`, `GetRandomPoint` (`Docs/Navigation.md`) |
-| Camera / UI | Clear colour; `BasicUIView.ExecuteJS` |
+| Camera / UI | Clear colour; `Camera.SetClipPlane(point, normal)` / `ClearClipPlane()` (hide everything behind a world plane, for portals and mirrors); `Mesh.ShowCameraView(camera)` (the mesh becomes a screen-space window onto that camera's view, see `Rendering-Pipeline.md`); `BasicUIView.ExecuteJS` |
 | ImGui | A subset for `OnEditorInspect` |
 
 ### Platform status

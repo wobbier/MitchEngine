@@ -49,6 +49,7 @@ ME_REFLECT_BEGIN( Camera )
     ME_FIELD( ClearType ).Display( "Background" ).CustomInspector();
     ME_FIELD( ClearColor ).Color().CustomInspector();
     ME_FIELD( ProceduralSky ).Display( "Procedural Sky" ).CustomInspector();
+    ME_FIELD( MatchMainCamera ).Display( "Match Main Camera" ).Tooltip( "Render at the main camera's size, field of view, far plane and background (for portal and screen-space views)" );
     ME_FIELD( Zoom ).Hidden();
 ME_REFLECT_END()
 
@@ -185,46 +186,38 @@ void Camera::ClearObliqueMatrixData()
     isOblique = false;
 }
 
+void Camera::SetClipPlane( const Vector3& InPoint, const Vector3& InNormal )
+{
+    m_hasClipPlane = true;
+    m_clipPoint = InPoint;
+    m_clipNormal = InNormal;
+}
+
+
+void Camera::ClearClipPlane()
+{
+    m_hasClipPlane = false;
+    isOblique = false;
+}
+
+
+// Lengyel's oblique near plane: the near plane becomes clipPlane (view space, visible side
+// positive), the far plane tilts to keep depth in range.
 Matrix4 CalculateObliqueMatrix( const Matrix4& projection, const glm::vec4& clipPlane )
 {
-    Matrix4 returnMat = projection;
+    glm::mat4 m = projection.GetInternalMatrix();
+    const bool homogeneousDepth = bgfx::getCaps()->homogeneousDepth;
+    // The view-space corner of the frustum opposite the plane, on the far plane.
+    // (A zero component still picks a side: a centre row would tilt the far plane through the view.)
+    auto side = []( float value ) { return value < 0.f ? -1.f : 1.f; };
+    const glm::vec4 corner = glm::inverse( m ) * glm::vec4( side( clipPlane.x ), side( clipPlane.y ), 1.f, 1.f );
+    const glm::vec4 c = clipPlane * ( ( homogeneousDepth ? 2.f : 1.f ) / glm::dot( clipPlane, corner ) );
+    // Replace the projection's third row (glm is column-major: m[column][row]).
+    for( int column = 0; column < 4; ++column )
     {
-        glm::vec4 vCamera = {
-        ( Mathf::Sign( clipPlane.x ) + returnMat.GetInternalMatrix()[2][0] ) / returnMat.GetInternalMatrix()[0][0],
-        ( Mathf::Sign( clipPlane.y ) + returnMat.GetInternalMatrix()[2][1] ) / returnMat.GetInternalMatrix()[1][1],
-        1.f,
-        ( 1.f + returnMat.GetInternalMatrix()[2][2] ) / returnMat.GetInternalMatrix()[3][2]
-        };
-
-        float m = 2.f / glm::dot( clipPlane, vCamera );
-        returnMat.GetInternalMatrix()[0][2] = clipPlane.x * m;
-        returnMat.GetInternalMatrix()[1][2] = clipPlane.y * m;
-        returnMat.GetInternalMatrix()[2][2] = clipPlane.z * m;
-        returnMat.GetInternalMatrix()[3][2] = clipPlane.w * m;
+        m[column][2] = c[column] - ( homogeneousDepth ? m[column][3] : 0.f );
     }
-    /*{
-        glm::vec4 vCamera = {
-        (Mathf::Sign(clipPlane.x) - returnMat.GetInternalMatrix()[0][2]) / returnMat.GetInternalMatrix()[0][0],
-        (Mathf::Sign(clipPlane.y) - returnMat.GetInternalMatrix()[1][2]) / returnMat.GetInternalMatrix()[1][1],
-        1.f,
-        (1.f - returnMat.GetInternalMatrix()[2][2]) / returnMat.GetInternalMatrix()[2][3]
-        };
-
-        float m = 1.f / glm::dot(clipPlane, vCamera);
-        returnMat.GetInternalMatrix()[2][0] = m * clipPlane.x;
-        returnMat.GetInternalMatrix()[2][1] = m * clipPlane.y;
-        returnMat.GetInternalMatrix()[2][2] = m * clipPlane.z;
-        returnMat.GetInternalMatrix()[2][3] = m * clipPlane.w;
-    }*/
-    //{
-    //	glm::vec4 q = projection.Inverse().GetInternalMatrix() * glm::vec4(Mathf::Sign(clipPlane.x), Mathf::Sign(clipPlane.y), 1.f, 1.f);
-    //	glm::vec4 c = clipPlane * (2.f / glm::dot(clipPlane, q));
-    //	returnMat.GetInternalMatrix()[2][0] = c.x - returnMat.GetInternalMatrix()[3][0];
-    //	returnMat.GetInternalMatrix()[2][1] = c.y - returnMat.GetInternalMatrix()[3][1];
-    //	returnMat.GetInternalMatrix()[2][2] = c.z - returnMat.GetInternalMatrix()[3][2];
-    //	returnMat.GetInternalMatrix()[2][3] = c.w - returnMat.GetInternalMatrix()[3][3];
-    //}
-    return returnMat;
+    return Matrix4( m );
 }
 
 Matrix4 Camera::GetProjectionMatrix() const

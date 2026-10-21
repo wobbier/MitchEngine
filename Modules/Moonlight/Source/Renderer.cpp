@@ -15,6 +15,7 @@
 #include "Graphics/ShaderCommand.h"
 #include "Graphics/DefaultTextures.h"
 #include "Materials/ShaderGraphAsset.h"
+#include "Materials/PortalMaterial.h"
 #include <algorithm>
 #include <cstring>
 #include "Resource/ResourceCache.h"
@@ -185,6 +186,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         s_texNormal = bgfx::createUniform( "s_texNormal", bgfx::UniformType::Sampler );
         s_texAlpha = bgfx::createUniform( "s_texAlpha", bgfx::UniformType::Sampler );
         s_texUI = bgfx::createUniform( "s_texUI", bgfx::UniformType::Sampler );
+        u_screenView = bgfx::createUniform( "u_screenView", bgfx::UniformType::Vec4 );
         // Per-frame uniforms apply to every draw in the frame regardless of view/sort order.
 
         m_timeOffset = bx::getHPCounter();
@@ -533,7 +535,7 @@ void BGFXRenderer::Destroy()
     delete m_splitMainBuffer;
     m_splitMainBuffer = nullptr;
 
-    const bgfx::UniformHandle uniforms[] = { s_texDiffuse, s_texNormal, s_texAlpha, s_texUI, s_time,
+    const bgfx::UniformHandle uniforms[] = { s_texDiffuse, s_texNormal, s_texAlpha, s_texUI, s_time, u_screenView,
         u_lightParams, u_viewShading, u_dirLightDirection, u_dirLightColor, u_eclipseSun, u_eclipseMoon, u_eclipseParams, u_clusterParams, u_clusterGrid, u_ambientSky, u_ambientGround,
         s_lightData, s_clusterGrid, s_clusterIndices, s_texMetallicRoughness, s_texEmissive, s_texOcclusion, s_texMetallic, s_texRoughness,
         u_shadowMatrix, u_cascadeSplits, u_cascadeTexel, u_shadowParams, u_localShadowMatrix, u_spotShadowParams, u_pointShadowParams, u_shadowAlpha, s_shadowMap, s_spotShadowMap,
@@ -817,6 +819,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     {
         return;
     }
+    m_drawingBuffer = camera.Buffer;
 
     // Camera targets match the output size exactly: post passes process whole textures.
     const uint16_t width = static_cast<uint16_t>( std::max( 1.f, camera.OutputSize.x ) );
@@ -2170,7 +2173,28 @@ bgfx::ProgramHandle BGFXRenderer::BindMeshDrawState( const Moonlight::MeshComman
         const Moonlight::Texture* texture = mesh.MeshMaterial->GetTexture( type );
         return ( texture && bgfx::isValid( texture->TexHandle ) ) ? texture->TexHandle : fallback;
     };
-    bgfx::setTexture( 0, s_texDiffuse, textureOr( Moonlight::TextureType::Diffuse, m_whiteTexture ) );
+    // PortalMaterial: the linked camera's HDR image in the diffuse slot, sampled in screen space by
+    // the shader. A view cannot sample its own target, so there (and while that camera has no
+    // target) the material's tint shows instead.
+    const int screenViewCamera = mesh.MeshMaterial->ScreenViewCamera;
+    if( screenViewCamera >= 0 )
+    {
+        const Moonlight::CameraData* source = m_cameraCache.Get( static_cast<unsigned int>( screenViewCamera ) );
+        const Moonlight::FrameBuffer* buffer = source ? source->Buffer : nullptr;
+        bgfx::TextureHandle view = BGFX_INVALID_HANDLE;
+        if( buffer && buffer != m_drawingBuffer )
+        {
+            view = bgfx::isValid( buffer->PostInput ) ? buffer->PostInput : buffer->SceneColor;
+        }
+        const Vector3& tint = mesh.MeshMaterial->DiffuseColor;
+        const float params[4] = { tint.x, tint.y, tint.z, bgfx::isValid( view ) ? 1.f : 0.f };
+        bgfx::setTexture( 0, s_texDiffuse, bgfx::isValid( view ) ? view : m_blackTexture );
+        bgfx::setUniform( u_screenView, params );
+    }
+    else
+    {
+        bgfx::setTexture( 0, s_texDiffuse, textureOr( Moonlight::TextureType::Diffuse, m_whiteTexture ) );
+    }
     bgfx::setTexture( 1, s_texNormal, textureOr( Moonlight::TextureType::Normal, m_flatNormalTexture ) );
     bgfx::setTexture( 2, s_texAlpha, textureOr( Moonlight::TextureType::Opacity, m_whiteTexture ) );
     bgfx::setTexture( 3, s_texMetallicRoughness, textureOr( Moonlight::TextureType::MetallicRoughness, m_whiteTexture ) );

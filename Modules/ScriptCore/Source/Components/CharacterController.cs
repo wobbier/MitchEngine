@@ -15,6 +15,13 @@ public class CharacterController : Component
         unsafe { Engine._api.Character_Move(Entity, &displacement); }
     }
 
+    // Moves the character instantly, turned to face forward (flattened: characters stay upright).
+    // Clears its velocity; set Velocity afterwards to keep moving.
+    public void Teleport(Vector3 position, Vector3 forward)
+    {
+        unsafe { Engine._api.Character_Teleport(Entity, &position, &forward); }
+    }
+
     public void Jump()
     {
         unsafe { Engine._api.Character_Jump(Entity); }
@@ -25,6 +32,7 @@ public class CharacterController : Component
     public Vector3 Velocity
     {
         get { unsafe { Vector3 v; Engine._api.Character_GetVelocity(Entity, &v); return v; } }
+        set { unsafe { Engine._api.Character_SetVelocity(Entity, &value); } }
     }
 
     public float MaxSpeed

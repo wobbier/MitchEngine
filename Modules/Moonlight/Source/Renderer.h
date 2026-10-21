@@ -382,6 +382,10 @@ private:
     bgfx::UniformHandle s_texAlpha = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_texUI = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_time = BGFX_INVALID_HANDLE;
+    // PortalMaterial: tint rgb, w = 1 while the linked camera's image is bound.
+    bgfx::UniformHandle u_screenView = BGFX_INVALID_HANDLE;
+    // The target of the camera view being drawn: a material cannot sample it (PortalMaterial).
+    const Moonlight::FrameBuffer* m_drawingBuffer = nullptr;
     int32_t m_pt;
     int64_t m_timeOffset;
     Moonlight::CameraData DummyCameraData;

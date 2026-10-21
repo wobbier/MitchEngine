@@ -157,4 +157,13 @@ public unsafe struct EngineAPIBindings
 
     // Overlap query: entities whose colliders touch a sphere (deduplicated); returns the total found
     public delegate* unmanaged<Vector3*, float, Entity*, int, int> Physics_OverlapSphere;
+
+    // Portals and screen-space camera views (Engine/Docs/Rendering-Pipeline.md)
+    public delegate* unmanaged<Entity, Vector3*, Vector3*, void> Camera_SetClipPlane;
+    public delegate* unmanaged<Entity, void> Camera_ClearClipPlane;
+    public delegate* unmanaged<Entity, Entity, byte> Mesh_ShowCameraView;
+    public delegate* unmanaged<Entity, Vector3*, Vector3*, void> Transform_LookDirection;
+    public delegate* unmanaged<Entity, Vector3*, void> Character_SetVelocity;
+    public delegate* unmanaged<Entity, Vector3*, Vector3*, void> Character_Teleport;
+    public delegate* unmanaged<Entity, Vector3*, Vector3*, Vector3*, void> Rigidbody_Teleport;
 }
