@@ -942,7 +942,18 @@ void SDLWindow::CanMoveWindow( bool param1 )
 
 void SDLWindow::SetBorderless( bool isBorderless )
 {
-    if( isBorderless )
+    bool useCustomHitTest = isBorderless;
+#if USING( ME_PLATFORM_LINUX )
+    const char* videoDriver = SDL_GetCurrentVideoDriver();
+    const char* hyprlandInstance = SDL_getenv( "HYPRLAND_INSTANCE_SIGNATURE" );
+    if( videoDriver && SDL_strcmp( videoDriver, "x11" ) == 0 && hyprlandInstance && *hyprlandInstance )
+    {
+        // Hyprland's XWayland backend ignores SDL's _NET_WM_MOVERESIZE requests.
+        // Leave move/resize input to the compositor without changing our borderless chrome.
+        useCustomHitTest = false;
+    }
+#endif
+    if( useCustomHitTest )
     {
         SDL_SetWindowHitTest( WindowHandle, HitTestCallback, this );
     }
