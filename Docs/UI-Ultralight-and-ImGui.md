@@ -34,7 +34,7 @@ flowchart LR
     FB -->|"BGFXRenderer view 9<br/>premultiplied-alpha over"| Screen
 ```
 
-- Platform setup (`UICore` constructor): filesystem rooted at `Assets/UI` (`FileSystemBasic`), per-platform font loader (custom Win/Mac loaders; platform default elsewhere — on Linux this is what drags in the GTK dependency stack, see the game repo's `../flake.nix`), a `FileLogger`, and the custom `UIDriver` GPU backend.
+- Platform setup (`UICore` constructor): filesystem rooted at `Assets/UI` (`FileSystemBasic`), per-platform font loader (custom Win/Mac loaders; platform default elsewhere — on Linux this is what drags in the GTK dependency stack, see the engine's `nix/flake.nix`), a `FileLogger`, and the custom `UIDriver` GPU backend.
 - `UICore::Update` ticks the Ultralight renderer; `UICore::Render` calls `RefreshDisplay(0)` + `Render()` then flushes `UIDriver`'s accumulated command list into bgfx. Per `BasicUIView`, the view's render target is composited into `UICore`'s `m_uiFrameBuffer`; that texture becomes `camera.UITexture`, which the main renderer draws as a screen-space quad at **view 9** with the premultiplied-alpha blend (`Docs/Rendering-Pipeline.md`).
 - `UIDriver` allocates bgfx views starting at `kViewId` = 11 (one per Ultralight render buffer), manages texture/geometry maps keyed by Ultralight IDs, and there's an in-code warning about not sampling a render target while rendering into it.
 - Resize flows from the window through `Engine`'s resize lambda → `UICore::OnResize( Camera::CurrentCamera->OutputSize )` — UI resolution follows the main camera's output size, and is also re-checked every frame in the loop.
@@ -65,7 +65,7 @@ Don't — for Ultralight. New UI work should wait for (or be) the replacement. I
 - **Deprecation in progress**: expect `UICore`/`BasicUIView` internals to be deleted or rewritten; don't couple new systems to Ultralight types.
 - **View-ID budget**: each Ultralight render buffer takes a bgfx view from 11 upward, colliding with camera views in many-camera scenes (`Docs/Rendering-Pipeline.md`).
 - **UI follows `Camera::CurrentCamera`**: no main camera → `OnResize` is skipped and the composite doesn't run; UI silently disappears in camera-less scenes.
-- **Linux runtime deps are heavy**: the platform font loader path pulls the GTK3 stack — set up via the game repo's `../flake.nix` dev shell, fragile outside it.
+- **Linux runtime deps are heavy**: the platform font loader path pulls the GTK3 stack — set up via the engine's `nix/flake.nix` dev shell, fragile outside it.
 - **`UICore` must be re-added after world unloads** (`Engine::LoadScene` does it); a manually constructed world without that step has components but no ticking UI.
 - **JS console messages** are forwarded to the engine log (`OnAddConsoleMessage`) — UI script errors land in `Engine.txt`, easy to miss.
 

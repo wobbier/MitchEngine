@@ -12,6 +12,7 @@
 #include "EditorApp.h"
 #include "Havana.h"
 #include "Renderer.h"
+#include "Graphics/MeshData.h"
 #include "Widgets/SceneViewWidget.h"
 #include "World/Scene.h"
 #include "Utils/GUID.h"

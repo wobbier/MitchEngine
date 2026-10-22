@@ -50,7 +50,7 @@ The stated bar (per the game project's conventions) is: Win64/macOS/Linux must c
 
 | Item | Location | State | Verdict |
 |------|----------|-------|---------|
-| Ultralight | `Source/UI/`, `Source/Cores/UI/` | Removal declared in commit history; Vue/web direction visible in `../flake.nix` | **Finish the removal** |
+| Ultralight | `Source/UI/`, `Source/Cores/UI/` | Removal declared in commit history; SDK environment still includes the GTK runtime dependencies | **Finish the removal** |
 
 ## 4. Improvement Themes
 

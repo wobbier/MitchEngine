@@ -20,6 +20,11 @@ if [ -z "$id" ]; then
     id="EmptyProject"
 fi
 
+if [[ ! "$id" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+    echo "Use letters, digits and underscores for the project name (starting with a letter or underscore)." >&2
+    exit 2
+fi
+
 if [ -z "$branch" ]; then
     branch="master"
 fi
@@ -33,17 +38,12 @@ git submodule update --init
 git -C Engine submodule update --init
 
 cp -a Engine/Tools/ProjectTemplate/. ./
+sed "s/EmptyProject/$id/g" Game.sharpmake.cs > Game.sharpmake.cs.tmp
+mv Game.sharpmake.cs.tmp Game.sharpmake.cs
 
-# Stage the template so `nix develop` (which only sees files known to git) can
-# pick up the flake in the fresh repo.
-git add -A
-
-# Generation needs cmake + dotnet. When nix is available (and we aren't already
-# inside a shell), run those steps through the project's dev shell.
-if [ -z "$IN_NIX_SHELL" ] && command -v nix >/dev/null 2>&1; then
-    nix() { command nix --extra-experimental-features "nix-command flakes" "$@"; }
-    nix develop --command bash Engine/ThirdParty/GenerateSolutions.sh
-    nix develop --command bash Project/GenerateSolution.sh
+# Linux generation and F5 share the SDK's environment, even from another shell.
+if [ "$(uname -s)" = Linux ]; then
+    bash Engine/Tools/GenerateProject.sh
 else
     bash Engine/ThirdParty/GenerateSolutions.sh
     bash Project/GenerateSolution.sh

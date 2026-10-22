@@ -22,10 +22,10 @@ Nothing is built without regenerating projects first — adding files, changing 
 | `../Game.sharpmake.cs` (game repo) | `SharpGameProject` (game lib), `UserGameScript`, solution — includes the engine file |
 | `../Project/GenerateSolution.sh` / `.bat` / `.command` (game repo) | Generation entry points |
 | `ThirdParty/GenerateSolutions.sh` / `.bat` / `.command` | One-time third-party project generation (`.sh`: cmake configure only; `--build-bgfx` rebuilds the bgfx archives) |
-| `../flake.nix` (game repo; template ships it via `Tools/ProjectTemplate/flake.nix`) | Linux dev shell (all native deps + .NET + env exports) |
-| `Tools/NewProjectSetup.sh` / `.bat` / `.command` | New-project bootstrap (clone engine, copy template, generate); `.sh` wraps generation in `nix develop` when nix is present |
+| `nix/flake.nix` / `nix/mkDevShell.nix` | Engine-owned Linux environment; optional private game additions in `devshell.nix` |
+| `Tools/NewProjectSetup.sh` / `.bat` / `.command` | New-project bootstrap (clone engine, copy template, generate); `.sh` uses the engine-owned environment on Linux |
 | `Tools/PackageLinuxBuild.sh` | Packages a `.build/<Target>` folder into a relocatable tar.gz (bundled libs + `run.sh` launcher) |
-| `.github/workflows/Linux.yml` (+ `Windows.yml`, `macOS.yml`, `UWP.yml`) | CI: sets up an `EmptyProject` from the template and builds Editor/Game × Debug/Release; Linux builds inside the template's nix dev shell and uploads tar.gz artifacts |
+| `.github/workflows/Linux.yml` (+ `Windows.yml`, `macOS.yml`, `UWP.yml`) | CI: sets up an `EmptyProject` from the template and builds Editor/Game × Debug/Release; Linux builds inside the SDK environment and uploads tar.gz artifacts |
 
 ## How It Works
 
@@ -94,9 +94,9 @@ Because these are **generation-time filesystem checks**, two machines with diffe
 2. **Per change**: run the game repo's `Project/GenerateSolution.sh` (Linux — also runs `bear -- make …` to produce `compile_commands.json` for clangd/CLion), `.bat` (Windows → `.sln`), or `.command` (macOS → Xcode). All three invoke `dotnet Engine/Tools/Sharpmake/Sharpmake.Application.dll /sources('../Game.sharpmake.cs')`.
 3. Build in the IDE, or on Linux: `make -f <Game>.make <Project> config=<config> -j$(nproc)`.
 
-The local Linux binaries also need the dev shell at runtime. From a regular terminal at the game-repo root, launch with `nix develop --command ./.build/Editor_Release/Havana` (or the corresponding game executable). The shell supplies `LD_LIBRARY_PATH` for fontconfig/Wayland, Ultralight's GTK dependencies and graphics loaders; the executable's own RUNPATH does not cover all of these. A direct launch outside the shell can fail at the loader with `libfontconfig.so.1: cannot open shared object file`. The MitchGame VS Code launch configurations enter the same environment through `.vscode/nix-gdb.sh`.
+The local Linux binaries also need the dev shell at runtime. From a regular terminal at the game-repo root, launch with `Engine/Tools/NixEnv.sh ./.build/Editor_Release/Havana` (or the corresponding game executable). The shell supplies `LD_LIBRARY_PATH` for fontconfig/Wayland, Ultralight's GTK dependencies and graphics loaders; the executable's own RUNPATH does not cover all of these. A direct launch outside the shell can fail at the loader with `libfontconfig.so.1: cannot open shared object file`. The MitchGame VS Code launch configurations enter the same environment through `Tools/NixGdb.sh`.
 
-For example, from the MitchGame root inside `nix develop`, build and test the optimized configurations with:
+For example, from the MitchGame root inside `Engine/Tools/DevShell.sh`, build and test the optimized configurations with:
 
 ```bash
 for optimization in release retail; do
@@ -135,24 +135,26 @@ Engine/Tools/RunChecks.sh --only Nav    # only the editor flows whose path conta
 - `Tools/RunEditorFlows.py` finds every `*.edscript` under `Assets/Scenes`, opens the scene its header names (`--scene ...`) in the editor and reports which flows pass. Logs go to `.tmp/EditorFlows/`. While another Havana is open, it skips flows that edit files.
 - `Tools/Headless.sh <command>` runs a GUI program on a private virtual display (Xvfb, `:99`, started when needed) with software Vulkan (Mesa's lavapipe). Automated runs therefore never open windows on the desktop and render the same pixels on any machine. Both scripts above use it.
 
-### The Linux/Nix dev shell (game repo `../flake.nix`; template copy in `Tools/ProjectTemplate/flake.nix`)
+### The Linux/Nix development environment
 
-New projects get a flake (+ lock) from the template — same shell minus the game-specific extras (e.g. Drumsmith's nodejs for the Vue UI). CI (`Linux.yml`) runs generation and make through `nix develop` on this flake.
+The engine owns `nix/flake.nix`, its lock, and the shared shell definition. New projects get VS Code tasks/launch configuration that call `Tools/BuildProject.sh` and `Tools/NixGdb.sh`. Both enter the engine environment, so F5 works when VS Code starts outside a development terminal. Builds generate missing third-party headers and regenerate the project before invoking make.
 
-`nix develop` provides: gcc/cmake toolchain, SDL, `mesa`/`libglvnd`/`vulkan-loader`, Wayland + the X11 header set, `alsa-lib`, `curl`, `bzip2`, **dotnet-sdk_8** (exports `DOTNET_ROOT`, and sets `DOTNET_LINUX_NATIVE_DIR` to the host pack's `runtimes/linux-x64/native` directory, which holds `nethost.h` and `libnethost.so`), `fontconfig` + **gtk3/glib** (Ultralight's runtime deps), and **nodejs_20 + python3 — flagged in-file for the Vue HTML/JS UI**, i.e. the Ultralight replacement direction (`Docs/UI-Ultralight-and-ImGui.md`). The shellHook also sets `LD_LIBRARY_PATH` so bgfx can `dlopen` `libEGL` and Ultralight finds GTK.
+Run `Engine/Tools/DevShell.sh` from a game root for an interactive shell, or `Engine/Tools/NixEnv.sh <command>` for a command. Optional game-specific additions live in the game's `devshell.nix`; no project flake, copied lock, or engine-side game profile is needed. The base environment includes Python, bear, patchelf, Xvfb and the matching lavapipe ICD alongside the C++/.NET, SDL, graphics and GTK dependencies.
+
+See [Development-Environment.md](Development-Environment.md) for the extension API, CLI, SDK installation support, ownership, and maintenance. Linux CI uses the same launchers.
 
 ### .NET on Linux
 
-When `Globals.DOTNET_Linux_Dir` (from `DOTNET_LINUX_NATIVE_DIR`) exists at generation time, Sharpmake defines `DEFINE_ME_DOTNET`. `Tools/BaseProject.sharpmake.cs` then links every executable against `libnethost.so` from that directory, with an rpath to it. Sharpmake can't generate C# projects for makefiles, so `Engine.sharpmake.cs` adds the `ScriptCore`/`UserGameScript` dependencies only for Win64. Elsewhere the engine compiles the scripts itself with `dotnet build` (tools builds do it on startup when sources are newer). Generate from inside `nix develop`: outside it the variable is unset and scripting silently compiles out.
+When `Globals.DOTNET_Linux_Dir` (from `DOTNET_LINUX_NATIVE_DIR`) exists at generation time, Sharpmake defines `DEFINE_ME_DOTNET`. `Tools/BaseProject.sharpmake.cs` then links every executable against `libnethost.so` from that directory, with an rpath to it. Sharpmake can't generate C# projects for makefiles, so `Engine.sharpmake.cs` adds the `ScriptCore`/`UserGameScript` dependencies only for Win64. Elsewhere the engine compiles the scripts itself with `dotnet build` (tools builds do it on startup when sources are newer). Generate from inside `Engine/Tools/DevShell.sh`: outside it the variable is unset and scripting silently compiles out.
 
 ## Caveats & Fragility
 
-- **Feature variance by machine**: directory-existence defines mean a fresh clone without SDKs builds a reduced engine (no FMOD, no scripting). Generation prints a **feature report** (`BaseGameSolution.ReportFeatures`): each optional feature, on or OFF, with the directory it found or what to do (e.g. "generate inside `nix develop`"). Read it when a feature seems missing.
+- **Feature variance by machine**: directory-existence defines mean a fresh clone without SDKs builds a reduced engine (no FMOD, no scripting). Generation prints a **feature report** (`BaseGameSolution.ReportFeatures`): each optional feature, on or OFF, with the directory it found or what to do (e.g. "generate inside `Engine/Tools/DevShell.sh`"). Read it when a feature seems missing.
 - **Regeneration is mandatory** after adding/removing source files or SDKs — stale projects fail in confusing ways (missing defines rather than missing files).
 - **Prebuilt `ThirdParty/Lib` archives can drift from submodule headers**: the Linux BGFX *Release* archives sat stale for a long time (undefined `bgfx::setViewName`/`createTexture2D` at link) while Debug was current. If a `*_release` config fails with undefined bgfx symbols, refresh via `GenerateSolutions.sh --build-bgfx` and copy the `.a` files from `bgfx/.build/linux64_gcc/bin` into `Lib/BGFX/linux/Release` (only the already-tracked set — the shaderc-only deps like `spirv-opt`/`tint-*` are ~700MB and stay uncommitted).
 - **Hardcoded SDK paths on Windows** (e.g. FMOD under Program Files, the .NET host pack version in `Globals.DOTNET_Win64_Dir`) — version bumps of installed SDKs require editing `Engine.sharpmake.cs`.
 - **macOS scripting is unwired** (no `DEFINE_ME_DOTNET` path or host-pack link) and Optick is Win64-only — platform feature parity is uneven by construction (see the matrix in `Docs/State-of-the-Engine.md`).
-- **The dev shell is load-bearing on Linux**: outside `nix develop`, the .NET native dir, GTK stack, and EGL paths must be assembled by hand.
+- **The dev shell is load-bearing on Linux**: outside the SDK environment, the .NET native dir, GTK stack, and EGL paths must be assembled by hand.
 - **`ScriptCore`/`UserGameScript` sharpmake configs are near-duplicates** (in-code TODO: factor a common base "when there's a third one"), and the SDK-style `.csproj` files mirror them for CLI builds; a new script-side setting belongs in both.
 - **Retail game builds omit development tools**: compile code that depends on editor inspection, ImGui or profiling behind the corresponding feature flag. Retail editor targets still need editor tools.
 

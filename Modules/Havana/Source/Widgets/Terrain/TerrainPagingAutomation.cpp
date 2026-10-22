@@ -18,6 +18,7 @@
 #include "Terrain/TerrainSurface.h"
 #include "Materials/TerrainMaterial.h"
 #include "Renderer.h"
+#include "Graphics/MeshData.h"
 #include "Core/CommandLine.h"
 #include "World/Scene.h"
 #include "Utils/GUID.h"

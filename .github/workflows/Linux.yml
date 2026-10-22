@@ -43,12 +43,12 @@ jobs:
 
       - name: Compile Tools
         if: ${{ matrix.buildconfig == 'Game_linux' }}
-        run: nix develop --command make -f EmptyProject.make Havana config=editor_release -j"$(nproc)"
+        run: bash Engine/Tools/BuildProject.sh Havana editor_release
 
       - name: Compile Project
         run: |
           config=$(echo "${{ matrix.buildconfig }}_${{ matrix.configuration }}" | tr '[:upper:]' '[:lower:]')
-          nix develop --command make -f EmptyProject.make "${{ matrix.target }}" config="$config" -j"$(nproc)"
+          bash Engine/Tools/BuildProject.sh "${{ matrix.target }}" "$config"
 
       - name: Copy Assets
         run: bash CopyAssets.sh "${{ matrix.buildconfig }}_${{ matrix.configuration }}"
@@ -58,13 +58,12 @@ jobs:
         continue-on-error: true
         timeout-minutes: 20
         run: |
-          sudo apt-get update -q && sudo apt-get install -yq xvfb
           bash CopyAssets.sh Editor_Release
           # The cook resolves Engine/Tools/linux/shaderc relative to its
           # working directory and expects texturec on PATH.
           mkdir -p .build/Editor_Release/Engine/Tools
           cp -a Engine/Tools/linux .build/Editor_Release/Engine/Tools/
-          nix develop --command bash -c 'cd .build/Editor_Release && PATH="$PWD/Engine/Tools/linux:$PATH" LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a ./Havana -CompileAssets'
+          bash Engine/Tools/NixEnv.sh bash -c 'cd .build/Editor_Release && PATH="$PWD/Engine/Tools/linux:$PATH" LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a ./Havana -CompileAssets'
 
       - name: Copy Cooked Assets
         if: ${{ matrix.buildconfig == 'Game_linux' }}
@@ -72,7 +71,7 @@ jobs:
         run: cp -a .build/Editor_Release/Assets/. ".build/Game_linux_${{ matrix.configuration }}/Assets/"
 
       - name: Package
-        run: nix develop --command bash Engine/Tools/PackageLinuxBuild.sh "${{ matrix.buildconfig }}_${{ matrix.configuration }}" "${{ matrix.binary }}"
+        run: bash Engine/Tools/NixEnv.sh bash Engine/Tools/PackageLinuxBuild.sh "${{ matrix.buildconfig }}_${{ matrix.configuration }}" "${{ matrix.binary }}"
 
       - name: Archive Build
         uses: actions/upload-artifact@v4

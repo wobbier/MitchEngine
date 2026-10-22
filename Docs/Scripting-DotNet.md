@@ -135,7 +135,7 @@ The API is about 87 functions. Strings cross as UTF-8 `byte*`, entities as the r
 | Platform | Status |
 |----------|--------|
 | Win64 | `DEFINE_ME_DOTNET` when `Globals.DOTNET_Win64_Dir` (the `Microsoft.NETCore.App.Host.win-x64` native pack) exists. `nethost` is copied to the output, and the Sharpmake C# projects are in the solution. The CLI build and hot reload paths are written but untested there |
-| Linux | ✅ Verified. Needs `Globals.DOTNET_Linux_Dir`. The Nix shell (game repo `flake.nix`) exports `DOTNET_ROOT` and finds the host pack's `runtimes/linux-x64/native` directory. Executables link `libnethost.so` with an rpath to it (`Tools/BaseProject.sharpmake.cs`), and the scripts build with the CLI |
+| Linux | ✅ Verified. Needs `Globals.DOTNET_Linux_Dir`. The SDK environment (`nix/flake.nix`) exports `DOTNET_ROOT` and finds the host pack's `runtimes/linux-x64/native` directory. Executables link `libnethost.so` with an rpath to it (`Tools/BaseProject.sharpmake.cs`), and the scripts build with the CLI |
 | macOS | ❌ No `DEFINE_ME_DOTNET` path yet, so scripting compiles out. The CLI build would carry over; the host pack lookup and link are what's missing |
 | UWP | ❌ Not wired |
 
