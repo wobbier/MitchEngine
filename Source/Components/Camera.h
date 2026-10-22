@@ -15,8 +15,8 @@ class Camera
 {
     friend class CameraCore;
 public:
-    static Camera* CurrentCamera;
-    static Camera* EditorCamera;
+    inline static Camera* CurrentCamera = nullptr;
+    inline static Camera* EditorCamera = nullptr;
 
     Vector2 OutputSize;
     Vector3 ClearColor;

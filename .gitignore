@@ -213,3 +213,6 @@ imgui.ini
 *.assbin
 
 .DS_Store
+
+# compiled linux shaders
+*.bin.d

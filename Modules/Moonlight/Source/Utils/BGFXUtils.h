@@ -23,7 +23,7 @@ namespace Moonlight
         {
             String filePath( s_currentDir );
             filePath.append( _filePath );
-            return super::open( filePath.getPtr(), _err );
+            return super::open( filePath.getCPtr(), _err );
         }
     };
 
@@ -36,7 +36,7 @@ namespace Moonlight
         {
             String filePath( s_currentDir );
             filePath.append( _filePath );
-            return super::open( filePath.getPtr(), _append, _err );
+            return super::open( filePath.getCPtr(), _append, _err );
         }
     };
 

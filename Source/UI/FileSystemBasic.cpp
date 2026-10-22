@@ -46,11 +46,19 @@ namespace ultralight
 
         String8 utf8 = String( path ).utf8();
         std::string relPath( utf8.data(), utf8.length() );
-        relPath = Path( relPath ).GetLocalPathString();
 
+        Path resolved( relPath );
+        if( resolved.Exists )
+        {
+            std::string full = resolved.FullPath;
+            NormalizePath( full );
+            return full;
+        }
+
+        relPath = resolved.GetLocalPathString();
         NormalizePath( relPath );
         // Strip any slash from beginning of path:
-        if( relPath[0] == '/' )
+        if( !relPath.empty() && relPath[0] == '/' )
             relPath = relPath.substr( 1 );
 
         return baseDir_ + relPath;
@@ -98,6 +106,11 @@ namespace ultralight
     RefPtr<Buffer> FileSystemBasic::OpenFile( const String& file_path )
     {
         Path relativePath( getRelative( file_path ) );
+        if( !relativePath.IsFile )
+        {
+            return nullptr;
+        }
+        
         if( !relativePath.Exists )
         {
             String8 utf8 = file_path.utf8();

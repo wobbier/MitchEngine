@@ -1,536 +1,269 @@
 #include "PCH.h"
 #include "ScriptEngine.h"
+#include "ScriptHost.h"
 
 #if USING( ME_SCRIPTING )
 
-#include <mono/jit/jit.h>
-#include <mono/metadata/assembly.h>
-#include <mono/metadata/debug-helpers.h>
-#include <mono/metadata/attrdefs.h>
-#include "Utils/PlatformUtils.h"
-#include "MonoUtils.h"
-#include <mono/metadata/mono-debug.h>
-#include <mono/metadata/threads.h>
-#include "ECS/Entity.h"
-#include "Engine/Engine.h"
-#include "Cores/SceneCore.h"
+#include <ctime>   // Eng_GetTime: clock() / CLOCKS_PER_SEC
+#include "Generated/ScriptEngineAPI.generated.h"
 
-#include <mono/metadata/assembly.h>
-#include <mono/metadata/class.h>
-#include <mono/metadata/image.h>
-#include <mono/metadata/debug-helpers.h>
-#include <mono/metadata/tokentype.h>
-
+// per-domain binding registrars
+#include "Bindings/BindingContext.h"
+#include "Bindings/Entity.bindings.h"
 #include "Bindings/ImGui.bindings.h"
-#include "Bindings/World.bindings.h"
-#include "Bindings/Log.bindings.h"
+#include "Bindings/Components/Transform.bindings.h"
+#include "Bindings/Components/Camera.bindings.h"
+#include "Bindings/Components/BasicUIView.bindings.h"
+#include "Bindings/Systems/World.bindings.h"
+#include "Bindings/Systems/Input.bindings.h"
 
-//// forward declare internal Mono debugger agent functions
-//extern "C" {
-//    void mono_debugger_agent_send_assembly_load( MonoAssembly* assembly );
-//    void mono_debugger_agent_send_type_load( MonoClass* klass );
-//    void mono_debugger_agent_send_method( MonoMethod* method );
-//}
+#if USING( ME_EDITOR )
+#define build_prefix "editor_"
+#define build_platform ""
+#else
+#define build_prefix "game_"
 
-
-ScriptEngine::ScriptData ScriptEngine::sScriptData;
-
-std::vector<ScriptEngine::LoadedClassInfo> ScriptEngine::LoadedClasses;
-
-std::vector<ScriptEngine::LoadedClassInfo> ScriptEngine::LoadedEntityScripts;
-
-std::unordered_map<EntityID, uint32_t> ScriptEngine::entityInstanceCache;
-
-
-//void ResendDebugInfo( MonoAssembly* monoAssembly )
-//{
-//    //for( MonoAssembly* asm : allLoadedAssemblies )
-//    {
-//        mono_debugger_agent_send_assembly_load( monoAssembly );
-//
-//        MonoImage* img = mono_assembly_get_image( monoAssembly );
-//        int typeCount = mono_image_get_table_rows( img, MONO_TABLE_TYPEDEF );
-//
-//        for( int i = 1; i < typeCount; ++i )
-//        {
-//            MonoClass* klass = mono_class_get( img, ( i + 1 ) | MONO_TOKEN_TYPE_DEF );
-//            if( !klass ) continue;
-//
-//            mono_debugger_agent_send_type_load( klass );
-//
-//            void* iter = nullptr;
-//            while( MonoMethod* method = mono_class_get_methods( klass, &iter ) )
-//            {
-//                mono_debugger_agent_send_method( method );
-//            }
-//        }
-//    }
-//}
-//
-//void ResendDebugInfo()
-//{
-//    ResendDebugInfo( ScriptEngine::sScriptData.CoreAssembly );
-//    ResendDebugInfo( ScriptEngine::sScriptData.AppAssembly );
-//}
-
-
-
-MonoObject* ScriptEngine::ReturnEntityID( const EntityHandle& inEntity )
-{
-    if( !inEntity )
-    {
-        return nullptr;
-    }
-
-    EntityID id = inEntity.GetID();
-    auto it = ScriptEngine::entityInstanceCache.find( id );
-    if( it != ScriptEngine::entityInstanceCache.end() )
-    {
-        MonoObject* entityObj = mono_gchandle_get_target( it->second );
-        if( entityObj == nullptr )
-        {
-            YIKES( "MonoObject reference was lost (collected by GC)" );
-            return nullptr;
-        }
-        return entityObj;
-    }
-
-    MonoClass* entityClass = mono_class_from_name( ScriptEngine::sScriptData.CoreAssemblyImage, "", "Entity" );
-    MonoObject* entityObj = mono_object_new( mono_domain_get(), entityClass );
-
-    MonoMethod* ctor = mono_class_get_method_from_name( entityClass, ".ctor", 1 );
-    void* args[] = { &id };
-    mono_runtime_invoke( ctor, entityObj, args, nullptr );
-    // Create a GC handle to ensure object isn't collected
-    uint32_t gcHandle = mono_gchandle_new( entityObj, /*pinned=*/false );
-    ScriptEngine::entityInstanceCache[id] = gcHandle;
-
-    return entityObj;
-}
-
-
-ScriptClass::ScriptClass( const std::string& inNameSpace, const std::string& inName, bool isCore )
-{
-#if USING( ME_DEBUG )
-    Name = inName;
-    Namespace = inNameSpace;
+#if USING( ME_PLATFORM_WINDOWS )
+#define build_platform "win64_"
+#elif USING( ME_PLATFORM_LINUX )
+#define build_platform "linux_"
+#elif USING( ME_PLATFORM_MACOS )
+#define build_platform "macos_"
 #endif
 
-    Class = mono_class_from_name( isCore ? ScriptEngine::sScriptData.CoreAssemblyImage : ScriptEngine::sScriptData.AppAssemblyImage, inNameSpace.c_str(), inName.c_str() );
+#endif
+
+
+#if USING( ME_DEBUG )
+#define build_postfix "debug"
+#else
+#define build_postfix "release"
+#endif
+
+
+static ScriptHost gScriptHost;
+
+
+static void Eng_Log( const uint8_t* inMsg )
+{
+    DBG( "{}", reinterpret_cast<const char*>( inMsg ) );
+}
+static float Eng_GetTime()
+{
+    return static_cast<float>( clock() ) / CLOCKS_PER_SEC;
 }
 
 
-MonoObject* ScriptClass::Instantiate()
-{
-    MonoObject* instance = mono_object_new( ScriptEngine::sScriptData.RootDomain, Class );
+// script bindings
+using FnLoadGameAssembly = int  ( * )( const uint8_t* );
+using FnReloadGameAssembly = int  ( * )( const uint8_t* );
+using FnGetScriptCount = int  ( * )( );
+using FnGetScriptName = void ( * )( int, uint8_t*, int );
+using FnGetFieldCount = int  ( * )( const uint8_t* );
+using FnGetFieldInfo = void ( * )( const uint8_t*, int, uint8_t*, int, uint8_t*, int );
+using FnGetFieldValue = void ( * )( int, int, uint8_t*, int );
+using FnSetFieldValue = int  ( * )( int, int, const uint8_t* );
+using FnGetInstanceCount = int  ( * )( );
+using FnGetInstanceHandle = int  ( * )( int );
+using FnGetInstanceTypeName = void ( * )( int, uint8_t*, int );
+using FnCreateScript = int  ( * )( const uint8_t*, EntityID );
+using FnScriptOnStart = void ( * )( int );
+using FnScriptOnUpdate = void ( * )( int, float );
+using FnScriptOnDestroy = void ( * )( int );
+using FnGetMethodCount = int  ( * )( const uint8_t* );
+using FnGetMethodName = void ( * )( const uint8_t*, int, uint8_t*, int );
+using FnSetEngineAPI = int  ( * )( const ScriptEngineAPI*, int );
+using FnRestoreScript = int  ( * )( const uint8_t*, int );
+using FnOnEditorInspect = void  ( * )( int );
+using FnGetFieldsJson = void ( * )( int, uint8_t*, int );
+using FnSetFieldsJson = void ( * )( int, const uint8_t* );
 
-    if( !instance )
+struct ScriptAPI
+{
+    FnLoadGameAssembly    LoadGameAssembly = nullptr;
+    FnReloadGameAssembly  ReloadGameAssembly = nullptr;
+    FnGetScriptCount      GetScriptCount = nullptr;
+    FnGetScriptName       GetScriptName = nullptr;
+    FnGetFieldCount       GetFieldCount = nullptr;
+    FnGetFieldInfo        GetFieldInfo = nullptr;
+    FnGetFieldValue       GetFieldValue = nullptr;
+    FnSetFieldValue       SetFieldValue = nullptr;
+    FnGetInstanceCount    GetInstanceCount = nullptr;
+    FnGetInstanceHandle   GetInstanceHandle = nullptr;
+    FnGetInstanceTypeName GetInstanceTypeName = nullptr;
+    FnCreateScript        CreateScript = nullptr;
+    FnScriptOnStart       ScriptOnStart = nullptr;
+    FnScriptOnUpdate      ScriptOnUpdate = nullptr;
+    FnScriptOnDestroy     ScriptOnDestroy = nullptr;
+    FnGetMethodCount      GetMethodCount = nullptr;
+    FnGetMethodName       GetMethodName = nullptr;
+    FnSetEngineAPI        SetEngineAPI = nullptr;
+    FnRestoreScript       RestoreScript = nullptr;
+    FnOnEditorInspect     ScriptOnEditorInspect = nullptr;
+    FnGetFieldsJson       GetFieldsJson = nullptr;
+    FnSetFieldsJson       SetFieldsJson = nullptr;
+
+    bool IsValid() const
     {
-        YIKES( "mono_object_new failed" );
-        return nullptr;
+        return LoadGameAssembly && SetEngineAPI
+            && GetScriptCount && GetScriptName
+            && CreateScript && ScriptOnStart && ScriptOnUpdate && ScriptOnDestroy;
+    }
+};
+
+static ScriptAPI gDotnetAPI;
+
+static bool LoadAPI( ScriptHost& inHost, const std::string& inCoreDll, ScriptAPI& outApi )
+{
+    const std::string bridgeType = "ScriptCore.ScriptBridge, ScriptCore";
+    bool ok = true;
+    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "LoadGameAssembly", (void**)&outApi.LoadGameAssembly );
+    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "SetEngineAPI", (void**)&outApi.SetEngineAPI );
+    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetScriptCount", (void**)&outApi.GetScriptCount );
+    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetScriptName", (void**)&outApi.GetScriptName );
+    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "CreateScript", (void**)&outApi.CreateScript );
+    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptOnStart", (void**)&outApi.ScriptOnStart );
+    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptOnUpdate", (void**)&outApi.ScriptOnUpdate );
+    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptOnDestroy", (void**)&outApi.ScriptOnDestroy );
+    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptOnEditorInspect", (void**)&outApi.ScriptOnEditorInspect );
+    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetFieldsJson", (void**)&outApi.GetFieldsJson );
+    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "SetFieldsJson", (void**)&outApi.SetFieldsJson );
+    //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ReloadGameAssembly",  (void**)&outApi.ReloadGameAssembly );
+    //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetFieldCount",       (void**)&outApi.GetFieldCount );
+    //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetFieldInfo",        (void**)&outApi.GetFieldInfo );
+    //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetFieldValue",       (void**)&outApi.GetFieldValue );
+    //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "SetFieldValue",       (void**)&outApi.SetFieldValue );
+    //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetInstanceCount",    (void**)&outApi.GetInstanceCount );
+    //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetInstanceHandle",   (void**)&outApi.GetInstanceHandle );
+    //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetInstanceTypeName", (void**)&outApi.GetInstanceTypeName );
+    //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetMethodCount",      (void**)&outApi.GetMethodCount );
+    //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetMethodName",       (void**)&outApi.GetMethodName );
+    //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "RestoreScript",       (void**)&outApi.RestoreScript );
+    return ok;
+}
+
+int ScriptEngine::Init()
+{
+    if( gScriptHost.IsInitialized() )
+    {
+        DBG( "dotnet already up, skipping reinit" );
+        return 0;
     }
 
-    return instance;
-}
+    // TODO: make this less ugly, maybe derive from sharpmake or a config
+    const std::string buildDir = ".build/" + std::string( build_prefix ) + std::string( build_platform ) + std::string( build_postfix );
+    const std::string coreDll = buildDir + "/ScriptCore.dll";
+    const std::string gameDll = buildDir + "/Game.Script.dll";
+    const std::string runtimeConfig = "ScriptCore.runtimeconfig.json"; // lives in the root, not the build dir
 
-MonoMethod* ScriptClass::GetMethod( const std::string& inFuncName, int params ) const
-{
-    MonoMethod* method = mono_class_get_method_from_name( Class, inFuncName.c_str(), params );
-
-    if( method == nullptr )
+    if( !gScriptHost.Init( runtimeConfig ) )
     {
-        YIKES( "mono_class_get_method_from_name failed" );
-        return nullptr;
+        YIKES( "failed to init .NET runtime, scripting is dead" );
+        return 1;
     }
-    return method;
+
+    if( !LoadAPI( gScriptHost, coreDll, gDotnetAPI ) || !gDotnetAPI.IsValid() )
+    {
+        YIKES( "failed to load ScriptBridge API" );
+        return 1;
+    }
+
+    // bind the engine side before any script can call into it
+    ScriptEngineAPI engineApi{};
+    engineApi.Log = Eng_Log;
+    engineApi.GetTime = Eng_GetTime;
+    Register_EntityBindings( engineApi );
+    Register_TransformBindings( engineApi );
+    Register_CameraBindings( engineApi );
+    Register_BasicUIViewBindings( engineApi );
+    Register_ImGuiBindings( engineApi );
+    Register_InputBindings( engineApi );
+    Register_WorldBindings( engineApi );
+    if( gDotnetAPI.SetEngineAPI( &engineApi, sizeof( engineApi ) ) != 0 )
+    {
+        YIKES( "C# rejected our engine API, size mismatch? check EngineAPI vs EngineAPIBindings" );
+        return 1;
+    }
+
+    if( gDotnetAPI.LoadGameAssembly( reinterpret_cast<const uint8_t*>( gameDll.c_str() ) ) != 0 )
+    {
+        YIKES_NEW( "failed to load game scripts from {}", gameDll );
+        return 1;
+    }
+
+    int scriptCount = gDotnetAPI.GetScriptCount();
+    DBG( "dotnet ready: {} script(s) available", scriptCount );
+
+    return 0;
 }
 
-void ScriptClass::InvokeMethod( MonoObject* inInstance, MonoMethod* inMethod, void** inParams )
+void ScriptEngine::SetWorld( WeakPtr<World> inWorld )
 {
-    MonoObject* exception = nullptr;
-    ME_ASSERT_MSG( inInstance != nullptr, "ScriptClass::InvokeMethod instance is bad!!" );
-    mono_runtime_invoke( inMethod, inInstance, inParams, &exception );
+    ScriptBindings::SetWorld( inWorld );
 }
 
-
-void ScriptEngine::Init()
+int ScriptEngine::CreateScript( const std::string& inName, EntityID inEntity )
 {
-    if( sScriptData.RootDomain )
+    return gDotnetAPI.CreateScript( reinterpret_cast<const uint8_t*>( inName.c_str() ), inEntity );
+}
+
+std::string ScriptEngine::GetFieldsJson( int inHandle )
+{
+    if( inHandle < 0 || !gDotnetAPI.GetFieldsJson )
+    {
+        return {};
+    }
+
+    // #TODO: fixed buffer, fine for small shit
+    uint8_t buf[4096] = {};
+    gDotnetAPI.GetFieldsJson( inHandle, buf, sizeof( buf ) );
+    return reinterpret_cast<const char*>( buf );
+}
+
+void ScriptEngine::SetFieldsJson( int inHandle, const std::string& inJson )
+{
+    if( inHandle < 0 || inJson.empty() || !gDotnetAPI.SetFieldsJson )
     {
         return;
     }
 
-    InitMono();
-
-    // Register funcs
-    RegisterFunctions();
-
-    Path path( "ScriptCore.dll" );
-    Path appPath( "Game.Script.dll" );
-    // todo: fix path
-#if USING( ME_EDITOR )
-#if USING( ME_RELEASE )
-    if( !path.Exists )
-    {
-        path = Path( ".build/editor_release/ScriptCore.dll" );
-    }
-    if( !appPath.Exists )
-    {
-        appPath = Path( ".build/editor_release/Game.Script.dll" );
-    }
-#else
-    if( !path.Exists )
-    {
-        path = Path( ".build/editor_debug/ScriptCore.dll" );
-    }
-    if( !appPath.Exists )
-    {
-        appPath = Path( ".build/editor_debug/Game.Script.dll" );
-    }
-#endif
-#else
-    if( !path.Exists )
-    {
-        path = Path( ".build/editor_debug/ScriptCore.dll" );
-    }
-    if( !appPath.Exists )
-    {
-        appPath = Path( ".build/editor_debug/Game.Script.dll" );
-    }
-#endif // else
-
-    LoadAssembly( path );
-    LoadAppAssembly( appPath );
-
-    CacheAssemblyTypes();
-
-    sScriptData.entityClass = ScriptClass( "", "Entity", true );
-
-    // Tests
-    Tests();
+    gDotnetAPI.SetFieldsJson( inHandle, reinterpret_cast<const uint8_t*>( inJson.c_str() ) );
 }
 
-void ScriptEngine::InitDebug()
+void ScriptEngine::ScriptOnStart( int inHandle )
 {
-    if( sScriptData.EnableDebugging )
-    {
-        mono_debug_domain_create( sScriptData.RootDomain );
-    }
+    gDotnetAPI.ScriptOnStart( inHandle );
 }
 
-void ScriptEngine::InitMono()
+void ScriptEngine::ScriptOnUpdate( int inHandle, float inDt )
 {
-    mono_set_assemblies_path( MONO_PATH );
-    BRUH_FMT( "Mono version: %s", mono_get_runtime_build_info() );
-
-
-    if( sScriptData.EnableDebugging )
-    {
-        const char* argv[2] = {
-            "--debugger-agent=transport=dt_socket,address=127.0.0.1:55555,server=y,suspend=n,loglevel=3,logfile=MonoDebugger.log",
-            "--soft-breakpoints",
-        };
-        mono_jit_parse_options( 2, (char**)argv );
-        mono_debug_init( MONO_DEBUG_FORMAT_MONO );
-    }
-
-    //mono_set_dirs( MONO_HOME "/lib", MONO_HOME "/etc" );
-    sScriptData.RootDomain = mono_jit_init_version( "MEMonoRuntime", "v4.8" );
-    if( !sScriptData.RootDomain )
-    {
-        YIKES( "mono_jit_init failed" );
-    }
-    InitDebug();
-
-    mono_thread_set_main( mono_thread_current() );
+    gDotnetAPI.ScriptOnUpdate( inHandle, inDt );
 }
 
-void ScriptEngine::RegisterFunctions()
+void ScriptEngine::ScriptOnDestroy( int inHandle )
 {
-    Register_ImGuiBindings();
-    Register_WorldBindings();
-    Register_LogBindings();
+    gDotnetAPI.ScriptOnDestroy( inHandle );
 }
 
-
-void ScriptEngine::Tests()
+void ScriptEngine::ScriptOnEditorInspect( int inHandle )
 {
-#if 0
-    testClassInstance = ScriptClass( "", "TestScript" );
-    testClassInstance.Instantiate();
+    gDotnetAPI.ScriptOnEditorInspect( inHandle );
+}
 
-    testClassInstance.InvokeFull( "PrintFloatVar" );
+int ScriptEngine::GetScriptCount()
+{
+    return gDotnetAPI.GetScriptCount ? gDotnetAPI.GetScriptCount() : 0;
+}
 
-    float increment = 5.0f;
-    void* params[] =
+std::string ScriptEngine::GetScriptName( int inIndex )
+{
+    uint8_t buf[256] = {};
+    if( gDotnetAPI.GetScriptName )
     {
-        &increment
-    };
-    testClassInstance.InvokeFull( "IncrementFloatVar", 1, params );
-
-    testClassInstance.InvokeFull( "PrintFloatVar" );
-    MonoClass* testingClass = testClassInstance.Class;
-
-    // float property accessibility
-    floatField = mono_class_get_field_from_name( testingClass, "MyPublicFloatVar" );
-    uint8_t floatFieldAccessibility = MonoUtils::GetFieldAccessibility( floatField );
-
-    if( floatFieldAccessibility & MonoUtils::Accessibility::Public )
-    {
-        std::cout << "PUBLIC: MyPublicFloatVar" << std::endl;
+        gDotnetAPI.GetScriptName( inIndex, buf, sizeof( buf ) );
     }
 
-    // string field accessibility
-    MonoClassField* nameField = mono_class_get_field_from_name( testingClass, "m_Name" );
-    uint8_t nameFieldAccessibility = MonoUtils::GetFieldAccessibility( nameField );
-
-    if( nameFieldAccessibility & MonoUtils::Accessibility::Private )
-    {
-        std::cout << "PRIVATE: m_Name" << std::endl;
-    }
-
-    // string property accessibility
-    MonoProperty* nameProperty = mono_class_get_property_from_name( testingClass, "Name" );
-    uint8_t namePropertyAccessibility = MonoUtils::GetPropertyAccessibility( nameProperty );
-
-    if( namePropertyAccessibility & MonoUtils::Accessibility::Public )
-    {
-        std::cout << "PUBLIC: Name" << std::endl;
-    }
-
-    // float field
-    float value;
-    mono_field_get_value( testClassInstance.ClassObject, floatField, &value );
-
-    value += 10.0f;
-    mono_field_set_value( testClassInstance.ClassObject, floatField, &value );
-
-    // string property
-    MonoString* nameValue = (MonoString*)mono_property_get_value( nameProperty, testClassInstance.ClassObject, nullptr, nullptr );
-    std::string nameStr = MonoUtils::MonoStringToUTF8( nameValue );
-
-    nameStr += ", World!";
-    nameValue = mono_string_new( sScriptData.RootDomain, nameStr.c_str() );
-    mono_property_set_value( nameProperty, testClassInstance.ClassObject, (void**)&nameValue, nullptr );
-
-
-    // float property
-    MonoProperty* floatProperty = mono_class_get_property_from_name( testingClass, "TestFloatProperty" );
-
-    MonoObject* floatValueObj = mono_property_get_value( floatProperty, testClassInstance.ClassObject, nullptr, nullptr );
-    float floatValue = *(float*)mono_object_unbox( floatValueObj );
-    floatValue += 10.0f;
-
-    void* data[] = { &floatValue };
-    mono_property_set_value( nameProperty, testClassInstance.ClassObject, data, nullptr );
-#endif
-}
-
-
-ScriptClass& ScriptEngine::GetEntityClass( const std::string& name )
-{
-    return sScriptData.EntityClasses.at( name );
-}
-
-const ScriptFieldMap& ScriptEngine::GetScriptFieldMap( Entity ent )
-{
-    return sScriptData.EntityScriptFields.at( ent.GetId().Value() );
-}
-
-MonoImage* ScriptEngine::GetCoreImage()
-{
-    return sScriptData.CoreAssemblyImage;
-}
-
-SharedPtr<ScriptInstance> ScriptEngine::CreateScriptInstance( ScriptClass& script, EntityHandle entity )
-{
-    sScriptData.EntityInstances[entity->GetId().Value()] = MakeShared<ScriptInstance>( script, entity );
-    return sScriptData.EntityInstances[entity->GetId().Value()];
-}
-
-bool ScriptEngine::LoadAssembly( const Path& assemblyPath )
-{
-    char name[30] = "MEScriptRuntime\n";
-    sScriptData.AppDomain = mono_domain_create_appdomain( &name[0], nullptr );
-    mono_domain_set( sScriptData.AppDomain, true );
-
-    sScriptData.CoreAssembly = MonoUtils::LoadMonoAssembly( assemblyPath, sScriptData.EnableDebugging );
-    sScriptData.CoreAssemblyFilePath = assemblyPath;
-
-    sScriptData.CoreAssemblyImage = mono_assembly_get_image( sScriptData.CoreAssembly );
-
-    if( !sScriptData.CoreAssemblyImage )
-    {
-        YIKES( "mono_assembly_get_image failed" );
-        return false;
-    }
-
-    return true;
-}
-
-void ScriptEngine::ReloadAssembly()
-{
-    mono_domain_set( mono_get_root_domain(), false );
-    mono_domain_unload( sScriptData.AppDomain );
-
-    LoadAssembly( sScriptData.CoreAssemblyFilePath );
-    LoadAppAssembly( sScriptData.AppAssemblyFilePath );
-    CacheAssemblyTypes();
-
-    sScriptData.entityClass = ScriptClass( "", "Entity", true );
-}
-
-bool ScriptEngine::LoadAppAssembly( const Path& assemblyPath )
-{
-    sScriptData.AppAssembly = MonoUtils::LoadMonoAssembly( assemblyPath, sScriptData.EnableDebugging );
-    sScriptData.AppAssemblyFilePath = assemblyPath;
-
-    sScriptData.AppAssemblyImage = mono_assembly_get_image( sScriptData.AppAssembly );
-    if( !sScriptData.AppAssemblyImage )
-    {
-        YIKES( "mono_assembly_get_image failed" );
-        return false;
-    }
-
-    //#TODO: Listen for dll changes
-
-    return true;
-}
-
-void ScriptEngine::CacheAssemblyTypes()
-{
-    sScriptData.EntityClasses.clear();
-
-    const MonoTableInfo* typeDefinitionsTable = mono_image_get_table_info( sScriptData.AppAssemblyImage, MONO_TABLE_TYPEDEF );
-    int32_t numTypes = mono_table_info_get_rows( typeDefinitionsTable );
-
-    MonoClass* monoBase = mono_class_from_name( sScriptData.CoreAssemblyImage, "", "MEObject" );
-    for( int32_t i = 0; i < numTypes; i++ )
-    {
-        uint32_t cols[MONO_TYPEDEF_SIZE];
-        mono_metadata_decode_row( typeDefinitionsTable, i, cols, MONO_TYPEDEF_SIZE );
-
-        std::string nameSpace = mono_metadata_string_heap( sScriptData.AppAssemblyImage, cols[MONO_TYPEDEF_NAMESPACE] );
-        std::string name = mono_metadata_string_heap( sScriptData.AppAssemblyImage, cols[MONO_TYPEDEF_NAME] );
-        std::string fullName;
-        if( !nameSpace.empty() )
-        {
-            fullName = std::string( nameSpace + "." + name );
-        }
-        else
-        {
-            fullName = name;
-        }
-
-        LoadedClassInfo loadedClass;
-        loadedClass.Namespace = nameSpace;
-        loadedClass.Name = name;
-
-        MonoClass* monoClass = mono_class_from_name( sScriptData.AppAssemblyImage, nameSpace.c_str(), name.c_str() );
-        //if( monoClass == monoBase )
-        //    continue;
-
-        bool isEntity = mono_class_is_subclass_of( monoClass, monoBase, false );
-        if( isEntity )
-        {
-            sScriptData.EntityClasses[fullName] = ScriptClass( loadedClass.Namespace, loadedClass.Name );
-            ScriptClass& scriptClass = sScriptData.EntityClasses[fullName];
-            int fieldCount = mono_class_num_fields( monoClass );
-            void* it = nullptr;
-            while( MonoClassField* field = mono_class_get_fields( monoClass, &it ) )
-            {
-                const char* fieldName = mono_field_get_name( field );
-                uint32_t flags = mono_field_get_flags( field );
-                if( flags & MONO_FIELD_ATTR_PUBLIC )
-                {
-                    MonoType* type = mono_field_get_type( field );
-                    MonoUtils::ScriptFieldType fieldType = MonoUtils::MonoTypeToScriptFieldType( type );
-                    //BRUH_FMT( "%s, %i", MonoUtils::ScriptFieldTypeToString( fieldType ).c_str(), fieldType );
-                    scriptClass.m_fields[fieldName] = { fieldType, fieldName, field };
-                }
-            }
-            LoadedEntityScripts.push_back( loadedClass );
-        }
-        LoadedClasses.push_back( loadedClass );
-    }
-}
-
-MonoClass* ScriptInstance::GetMonoClass() const
-{
-    return mono_object_get_class( GetMonoObjectInstance() );
-}
-
-void ScriptInstance::OnCreate()
-{
-    MonoClass* klass = GetMonoClass();
-    MonoClassField* parentField = nullptr;
-
-    while( klass != nullptr )
-    {
-        parentField = mono_class_get_field_from_name( klass, "_parent" );
-        if( parentField != nullptr )
-            break;
-
-        klass = mono_class_get_parent( klass ); // walk up to base class
-    }
-
-    if( parentField )
-    {
-        MonoObject* managedEntity = ScriptEngine::ReturnEntityID( Owner );
-        if( managedEntity == nullptr )
-        {
-            YIKES( "MonoObject reference was lost (collected by GC)" );
-        }
-
-        if( managedEntity )
-            mono_field_set_value( GetMonoObject(), parentField, managedEntity );
-    }
-
-    if( OnCreateMethod )
-    {
-        ScriptRef.InvokeMethod( GetMonoObjectInstance(), OnCreateMethod, nullptr );
-    }
-}
-
-MonoObject* ScriptInstance::GetMonoObjectInstance() const
-{
-    return mono_gchandle_get_target( GCHandle );
-}
-
-
-void ScriptInstance::Init( int numParams /*= 0*/, void** params /*= nullptr*/ )
-{
-    if( numParams <= 0 )
-    {
-        mono_runtime_object_init( GetMonoObjectInstance() );
-    }
-    else
-    {
-        auto method = ScriptEngine::sScriptData.entityClass.GetMethod( ".ctor", numParams );
-        ScriptRef.InvokeMethod( GetMonoObjectInstance(), method, params );
-    }
-}
-
-bool ScriptInstance::GetFieldValueInternal( const std::string& name, void* outValue )
-{
-    const auto& fields = GetScriptClass().m_fields;
-    auto it = fields.find( name );
-    if( it == fields.end() )
-        return false;
-
-    mono_field_get_value( GetMonoObjectInstance(), it->second.Field, outValue );
-    return true;
-}
-
-bool ScriptInstance::SetFieldValueInternal( const std::string& name, void* inValue )
-{
-    const auto& fields = GetScriptClass().m_fields;
-    auto it = fields.find( name );
-    if( it == fields.end() )
-        return false;
-
-    mono_field_set_value( GetMonoObjectInstance(), it->second.Field, inValue );
-    return true;
+    return reinterpret_cast<const char*>( buf );
 }
 
 #endif

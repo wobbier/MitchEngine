@@ -72,10 +72,10 @@ private:
     Vector3 m_manualVelocity;
     std::vector<Vector3> m_surfaceHitNormals;
 
-    btVector3 m_previousPosition;
     float m_jumpTimer = 0.f;
 
 #if USING( ME_PHYSICS_3D )
+    btVector3 m_previousPosition;
     void ParseGhostContacts();
 
     void UpdatePosition();

@@ -37,7 +37,7 @@ public:
     void ConstructData( Args&&... args );
 
     template<typename Data>
-    std::enable_if_t<std::is_pod<Data>::value && ( sizeof( Data ) <= kPaddingSize )> SetData( const Data& InData )
+    std::enable_if_t<( std::is_trivially_copyable_v<Data> && std::is_trivially_default_constructible_v<Data> ) && ( sizeof( Data ) <= kPaddingSize )> SetData( const Data& InData )
     {
         std::memcpy( Padding.data(), &InData, sizeof( Data ) );
     }

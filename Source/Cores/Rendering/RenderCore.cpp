@@ -117,7 +117,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                 OPTICK_CATEGORY( "Mesh Job", Optick::Category::Debug );
                 for( int entIndex = batchBegin; entIndex < batchEnd; ++entIndex )
                 {
-                    OPTICK_CATEGORY( "Update Transform", Optick::Category::Scene );
+                    //OPTICK_CATEGORY( "Update Transform", Optick::Category::Scene );
                     auto& InEntity = Renderables[entIndex];
                     {
                         Transform& transform = InEntity.GetComponent<Transform>();
@@ -126,7 +126,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                         const glm::mat4& meshMatrix = transform.GetLocalToWorldMatrix().GetInternalMatrix();
 
                         {
-                            OPTICK_CATEGORY( "Culling", Optick::Category::Visibility );
+                            //OPTICK_CATEGORY( "Culling", Optick::Category::Visibility );
                             glm::vec4 point = glm::vec4( meshMatrix[3] );
                             for( Moonlight::CameraData& cam : cameras.Commands )
                             {
@@ -158,7 +158,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
 
                         if( isVisible )
                         {
-                            OPTICK_CATEGORY( "Submit", Optick::Category::Rendering );
+                            //OPTICK_CATEGORY( "Submit", Optick::Category::Rendering );
                             Moonlight::MeshCommand command;
                             command.SingleMesh = model.MeshReferece;
                             command.MeshMaterial = model.MeshMaterial;
@@ -166,6 +166,19 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                             command.Type = model.GetType();
                             command.VisibilityIndex = entIndex;
                             command.ID = InEntity.GetId().Value();
+
+                            if( model.MeshMaterial )
+                            {
+                                command.IsTransparent = model.MeshMaterial->IsTransparent();
+                                command.SupportsInstancing = model.MeshMaterial->SupportsInstancing;
+                                command.BatchKey = model.MeshMaterial->GetInstanceBatchKey();
+                            }
+                            if( model.MeshReferece )
+                            {
+                                command.VertexBufferIdx = model.MeshReferece->GetVertexBuffer().idx;
+                                command.IndexBufferIdx = model.MeshReferece->GetIndexuffer().idx;
+                            }
+
                             renderer.GetMeshCache().Update( model.GetId(), command);
                         }
                     }
@@ -216,6 +229,10 @@ void RenderCore::OnEditorInspect()
     if( ImGui::Button( "MSAA None" ) )
     {
         GetEngine().GetRenderer().SetMSAALevel( BGFXRenderer::MSAALevel::None );
+    }
+    if( ImGui::Button( "MSAA X8" ) )
+    {
+        GetEngine().GetRenderer().SetMSAALevel( BGFXRenderer::MSAALevel::X8 );
     }
     if( ImGui::Button( "MSAA X16" ) )
     {

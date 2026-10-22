@@ -1,6 +1,5 @@
 #include "JobEngine.h"
 #include <atomic>
-#include <random>
 
 JobEngine::JobEngine( std::size_t InNumThreads, std::size_t InJobsPerThread )
     : Workers( InNumThreads )
@@ -29,14 +28,17 @@ JobEngine::~JobEngine()
 
 Worker* JobEngine::GetRandomWorker()
 {
-    std::uniform_int_distribution<std::size_t> dist { 0, Workers.CurrentSize() - 1 };
-    std::default_random_engine randomEngine { std::random_device()( ) };
+    const std::size_t count = Workers.CurrentSize();
+    std::uniform_int_distribution<std::size_t> dist { 0, count - 1 };
+    const std::size_t start = dist( RandomEngine );
 
-    Worker* worker = &Workers[dist( randomEngine )];
-
-    if( worker->IsRunning() )
+    for( std::size_t i = 0; i < count; ++i )
     {
-        return worker;
+        Worker* worker = &Workers[( start + i ) % count];
+        if( worker->IsRunning() )
+        {
+            return worker;
+        }
     }
 
     return nullptr;

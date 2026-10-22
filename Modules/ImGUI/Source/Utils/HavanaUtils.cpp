@@ -143,61 +143,63 @@ bool HavanaUtils::EditableVector3Spring( const std::string& Name, Vector3& Vecto
     ImGui::PushStyleVar( ImGuiStyleVar_ItemSpacing, { 0.f, 0.f } );
     ImGui::PushStyleVar( ImGuiStyleVar_CellPadding, { 2.f, 2.f } );
     float paddingX = 0.f;// ImGui::GetStyle().WindowPadding.x;
-    ImGui::BeginTable( "##vec", 3, 0, { widgetWidth - paddingX, 0.f } );
-    ImGui::TableNextRow();
-
-    float lineHeight = GImGui->Font->FontSize + GImGui->Style.FramePadding.y * 2.f;
-    ImVec2 buttonSize = { lineHeight + 3.f, lineHeight };
-
-    float dragWidths = ( widgetWidth - ( buttonSize.x * 3 ) ) / 3.f;
-
     Vector3 tempVec = Vector;
+    if( ImGui::BeginTable( "##vec", 3, 0, { widgetWidth - paddingX, 0.f } ) )
     {
-        ImGui::TableSetColumnIndex( 0 );
-        ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 1.f, 51.f / 255.f, 82.f / 255.f, .66f ) );
-        ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 1.f, 51.f / 255.f, 82.f / 255.f, 1.f ) );
-        if( ImGui::Button( "X", buttonSize ) )
-        {
-            Vector.x = ResetValue;
-        }
-        ImGui::PopStyleColor( 2 );
-        ImGui::SameLine();
-        ImGui::PushItemWidth( dragWidths );
-        ImGui::DragFloat( "##X", &Vector.x, 0.1f );
-        ImGui::PopItemWidth();
-    }
+        ImGui::TableNextRow();
 
-    {
-        ImGui::TableSetColumnIndex( 1 );
-        ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 139.f / 255.f, 220.f / 255.f, 0.f, .66f ) );
-        ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 139.f / 255.f, 220.f / 255.f, 0.f, 1.f ) );
-        if( ImGui::Button( "Y", buttonSize ) )
-        {
-            Vector.y = ResetValue;
-        }
-        ImGui::PopStyleColor( 2 );
-        ImGui::SameLine();
-        ImGui::PushItemWidth( dragWidths );
-        ImGui::DragFloat( "##Y", &Vector.y, 0.1f );
-        ImGui::PopItemWidth();
-    }
+        float lineHeight = GImGui->Font->FontSize + GImGui->Style.FramePadding.y * 2.f;
+        ImVec2 buttonSize = { lineHeight + 3.f, lineHeight };
 
-    {
-        ImGui::TableSetColumnIndex( 2 );
-        ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 40.f / 255.f, 143.f / 255.f, 253.f / 255.f, .66f ) );
-        ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 40.f / 255.f, 143.f / 255.f, 253.f / 255.f, 1.f ) );
-        if( ImGui::Button( "Z", buttonSize ) )
-        {
-            Vector.z = ResetValue;
-        }
-        ImGui::PopStyleColor( 2 );
-        ImGui::SameLine();
-        ImGui::PushItemWidth( dragWidths );
-        ImGui::DragFloat( "##Z", &Vector.z, 0.1f );
-        ImGui::PopItemWidth();
-    }
+        float dragWidths = ( widgetWidth - ( buttonSize.x * 3 ) ) / 3.f;
 
-    ImGui::EndTable();
+        {
+            ImGui::TableSetColumnIndex( 0 );
+            ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 1.f, 51.f / 255.f, 82.f / 255.f, .66f ) );
+            ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 1.f, 51.f / 255.f, 82.f / 255.f, 1.f ) );
+            if( ImGui::Button( "X", buttonSize ) )
+            {
+                Vector.x = ResetValue;
+            }
+            ImGui::PopStyleColor( 2 );
+            ImGui::SameLine();
+            ImGui::PushItemWidth( dragWidths );
+            ImGui::DragFloat( "##X", &Vector.x, 0.1f );
+            ImGui::PopItemWidth();
+        }
+
+        {
+            ImGui::TableSetColumnIndex( 1 );
+            ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 139.f / 255.f, 220.f / 255.f, 0.f, .66f ) );
+            ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 139.f / 255.f, 220.f / 255.f, 0.f, 1.f ) );
+            if( ImGui::Button( "Y", buttonSize ) )
+            {
+                Vector.y = ResetValue;
+            }
+            ImGui::PopStyleColor( 2 );
+            ImGui::SameLine();
+            ImGui::PushItemWidth( dragWidths );
+            ImGui::DragFloat( "##Y", &Vector.y, 0.1f );
+            ImGui::PopItemWidth();
+        }
+
+        {
+            ImGui::TableSetColumnIndex( 2 );
+            ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 40.f / 255.f, 143.f / 255.f, 253.f / 255.f, .66f ) );
+            ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 40.f / 255.f, 143.f / 255.f, 253.f / 255.f, 1.f ) );
+            if( ImGui::Button( "Z", buttonSize ) )
+            {
+                Vector.z = ResetValue;
+            }
+            ImGui::PopStyleColor( 2 );
+            ImGui::SameLine();
+            ImGui::PushItemWidth( dragWidths );
+            ImGui::DragFloat( "##Z", &Vector.z, 0.1f );
+            ImGui::PopItemWidth();
+        }
+
+        ImGui::EndTable();
+    }
 
     ImGui::PopStyleVar( 2 );
 
@@ -216,44 +218,46 @@ bool HavanaUtils::EditableVector( const std::string& Name, Vector2& Vector, floa
     ImGui::PushStyleVar( ImGuiStyleVar_ItemSpacing, { 0.f, 0.f } );
     ImGui::PushStyleVar( ImGuiStyleVar_CellPadding, { 2.f, 2.f } );
 
-    ImGui::BeginTable( "##vec", 2, 0, { widgetSize, 0.f } );
-    ImGui::TableNextRow();
-
-    float lineHeight = GImGui->Font->FontSize + GImGui->Style.FramePadding.y * 2.f;
-    ImVec2 buttonSize = { lineHeight + 3.f, lineHeight };
-
     Vector2 tempVec = Vector;
+    if( ImGui::BeginTable( "##vec", 2, 0, { widgetSize, 0.f } ) )
     {
-        ImGui::TableSetColumnIndex( 0 );
-        ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 1.f, 51.f / 255.f, 82.f / 255.f, .66f ) );
-        ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 1.f, 51.f / 255.f, 82.f / 255.f, 1.f ) );
-        if( ImGui::Button( "X", buttonSize ) )
-        {
-            Vector.x = ResetValue;
-        }
-        ImGui::PopStyleColor( 2 );
-        ImGui::SameLine();
-        ImGui::PushItemWidth( -1 );
-        ImGui::DragFloat( "##X", &Vector.x, 0.1f );
-        ImGui::PopItemWidth();
-    }
+        ImGui::TableNextRow();
 
-    {
-        ImGui::TableSetColumnIndex( 1 );
-        ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 139.f / 255.f, 220.f / 255.f, 0.f, .66f ) );
-        ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 139.f / 255.f, 220.f / 255.f, 0.f, 1.f ) );
-        if( ImGui::Button( "Y", buttonSize ) )
-        {
-            Vector.y = ResetValue;
-        }
-        ImGui::PopStyleColor( 2 );
-        ImGui::SameLine();
-        ImGui::PushItemWidth( -1 );
-        ImGui::DragFloat( "##Y", &Vector.y, 0.1f );
-        ImGui::PopItemWidth();
-    }
+        float lineHeight = GImGui->Font->FontSize + GImGui->Style.FramePadding.y * 2.f;
+        ImVec2 buttonSize = { lineHeight + 3.f, lineHeight };
 
-    ImGui::EndTable();
+        {
+            ImGui::TableSetColumnIndex( 0 );
+            ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 1.f, 51.f / 255.f, 82.f / 255.f, .66f ) );
+            ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 1.f, 51.f / 255.f, 82.f / 255.f, 1.f ) );
+            if( ImGui::Button( "X", buttonSize ) )
+            {
+                Vector.x = ResetValue;
+            }
+            ImGui::PopStyleColor( 2 );
+            ImGui::SameLine();
+            ImGui::PushItemWidth( -1 );
+            ImGui::DragFloat( "##X", &Vector.x, 0.1f );
+            ImGui::PopItemWidth();
+        }
+
+        {
+            ImGui::TableSetColumnIndex( 1 );
+            ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 139.f / 255.f, 220.f / 255.f, 0.f, .66f ) );
+            ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 139.f / 255.f, 220.f / 255.f, 0.f, 1.f ) );
+            if( ImGui::Button( "Y", buttonSize ) )
+            {
+                Vector.y = ResetValue;
+            }
+            ImGui::PopStyleColor( 2 );
+            ImGui::SameLine();
+            ImGui::PushItemWidth( -1 );
+            ImGui::DragFloat( "##Y", &Vector.y, 0.1f );
+            ImGui::PopItemWidth();
+        }
+
+        ImGui::EndTable();
+    }
 
     ImGui::PopStyleVar( 2 );
 
@@ -435,3 +439,13 @@ void HavanaUtils::ColorButton( const std::string& Name, Vector3& arr )
     arr.z = color.z;
 }
 
+
+
+bool HavanaUtils::ToggleButton( const std::string& InName, bool& OutPressed )
+{
+    if (ImGui::Button("Toggle Fullscreen", ImVec2(150.f, 20.f)))
+    {
+        OutPressed = !OutPressed;
+    }
+    return false;
+}

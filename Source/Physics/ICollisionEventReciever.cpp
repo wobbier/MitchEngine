@@ -2,6 +2,7 @@
 #include "ICollisionEventReciever.h"
 #include "RigidBodyWithCollisionEvents.h"
 
+#if USING( ME_PHYSICS_3D )
 void ICollisionEvents::updateAction( btCollisionWorld* collisionWorld, btScalar deltaTimeStep )
 {
     const bool forceADiscreteCollisionDetection = false;	// true is useless
@@ -18,3 +19,4 @@ void ICollisionEvents::SetInstance( ICollisionEvents* instance, btDynamicsWorld*
     btRigidBodyWithEventsEventDelegates::eventDispatcher = instance;
     btWorld->addAction( instance );
 }
+#endif

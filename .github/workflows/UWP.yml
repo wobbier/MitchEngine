@@ -3,6 +3,7 @@ name: UWP
 on:
   push:
     branches: [master, motivation]
+
   pull_request:
     branches: [master, motivation]
 
@@ -10,57 +11,151 @@ on:
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-2022
+
     strategy:
+      fail-fast: false
       matrix:
-        os: [windows-2022]
         configuration:
           - Debug
           - Release
           - Retail
         type:
           - Game_UWP
-        include:
-          - os: windows-2022
-            shell: cmd
-            compiler: cl
-            target: Windows
 
     steps:
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v2
+        with:
+          msbuild-architecture: x64
 
       - name: Install Mono
         shell: cmd
-        run: choco install mono --ignore-checksums
+        run: choco install mono --ignore-checksums --no-progress
 
-      - name: Setup dotnet
-        uses: actions/setup-dotnet@v4
+      - name: Setup .NET 8
+        id: setup-dotnet
+        uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: "5.0.100"
+          dotnet-version: "8.0.x"
 
-      - uses: suisei-cn/actions-download-file@818d6b7dc8fe73f2f924b6241f2b1134ca1377d9 # 1.6.0
+      - name: Pin .NET SDK
+        shell: pwsh
+        run: |
+          @"
+          {
+            "sdk": {
+              "version": "${{ steps.setup-dotnet.outputs.dotnet-version }}",
+              "rollForward": "latestPatch",
+              "allowPrerelease": false
+            }
+          }
+          "@ | Set-Content -Path global.json -Encoding utf8
+
+          Write-Host "global.json:"
+          Get-Content global.json
+
+          Write-Host "`nSelected .NET SDK:"
+          dotnet --version
+
+          Write-Host "`nInstalled .NET SDKs:"
+          dotnet --list-sdks
+
+      - name: Download project setup
+        uses: suisei-cn/actions-download-file@818d6b7dc8fe73f2f924b6241f2b1134ca1377d9
         id: downloadfile
-        name: Grab the project setup file
         with:
-          url: "https://raw.githubusercontent.com/wobbier/MitchEngine/${{github.ref_name}}/Tools/NewProjectSetup.bat"
+          url: "https://raw.githubusercontent.com/${{ github.event.pull_request.head.repo.full_name || github.repository }}/${{ github.event.pull_request.head.sha || github.sha }}/Tools/NewProjectSetup.bat"
           target: ./
 
-      - name: Generate a new project
-        shell: cmd
-        run: call NewProjectSetup.bat EmptyProject ${{github.ref_name}}
+      - name: Verify project setup
+        shell: pwsh
+        run: |
+          if (!(Test-Path "NewProjectSetup.bat")) {
+            throw "NewProjectSetup.bat was not downloaded."
+          }
 
-      - name: Generate a new project
+          $contents = Get-Content "NewProjectSetup.bat" -Raw
+
+          if ($contents -match '^404:') {
+            throw "NewProjectSetup.bat download returned a GitHub 404 response."
+          }
+
+          Get-Content "NewProjectSetup.bat" -TotalCount 5
+
+      - name: Generate project
         shell: cmd
-        run: cd Project && call GenerateSolution.bat && cd ../
+        run: call NewProjectSetup.bat EmptyProject "${{ github.head_ref || github.ref_name }}"
+
+      - name: Verify generated solution
+        shell: pwsh
+        run: |
+          if (!(Test-Path "EmptyProject.sln")) {
+            throw "EmptyProject.sln was not generated."
+          }
+
+          $sharpmakeProject = Get-ChildItem `
+            -Path ".tmp\project" `
+            -Filter "SharpmakeProject_Win64.csproj" `
+            -Recurse `
+            -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+
+          if (!$sharpmakeProject) {
+            throw "SharpmakeProject_Win64.csproj was not generated."
+          }
+
+          Write-Host "Generated solution:"
+          Resolve-Path "EmptyProject.sln"
+
+          Write-Host "`nGenerated Sharpmake project:"
+          Write-Host $sharpmakeProject.FullName
+
+      - name: Restore generated Sharpmake project
+        shell: pwsh
+        run: |
+          $sharpmakeProject = Get-ChildItem `
+            -Path ".tmp\project" `
+            -Filter "SharpmakeProject_Win64.csproj" `
+            -Recurse |
+            Select-Object -First 1
+
+          if (!$sharpmakeProject) {
+            throw "Could not locate SharpmakeProject_Win64.csproj."
+          }
+
+          dotnet restore $sharpmakeProject.FullName --verbosity minimal
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Sharpmake project restore failed with exit code $LASTEXITCODE."
+          }
+
+          $assetsFile = Join-Path $sharpmakeProject.DirectoryName "obj\project.assets.json"
+
+          if (!(Test-Path $assetsFile)) {
+            throw "Restore completed without generating $assetsFile."
+          }
+
+          Write-Host "Generated NuGet assets file:"
+          Write-Host $assetsFile
 
       - name: Compile Tools
         shell: cmd
-        run: msbuild EmptyProject.sln /property:Configuration="Editor_Release"
+        run: >
+          msbuild EmptyProject.sln
+          /restore
+          /m
+          /property:Configuration="Editor_Release"
+          /verbosity:minimal
 
-      - name: Compile Project
+      - name: Compile UWP Project
         shell: cmd
-        run: msbuild EmptyProject.sln /property:Configuration="${{matrix.type}}_${{matrix.configuration}}"
+        run: >
+          msbuild EmptyProject.sln
+          /restore
+          /m
+          /property:Configuration="${{ matrix.type }}_${{ matrix.configuration }}"
+          /verbosity:minimal
 
       - name: Copy Assets
         shell: cmd
@@ -68,39 +163,75 @@ jobs:
 
       - name: Copy Editor Assets
         shell: pwsh
-        continue-on-error: true
         run: |
-          robocopy ".build/Release/Assets" ".build\\Editor_Release\\Assets" *.* /w:0 /r:1 /v /E ; if ($lastexitcode -lt 8) { $global:LASTEXITCODE = $null }
-          robocopy "Engine/Tools" ".build\\Editor_Release\\Tools" Optick.exe /w:0 /r:1 /v /E ; if ($lastexitcode -lt 8) { $global:LASTEXITCODE = $null }
-          robocopy "Engine/Tools/Win64" ".build\\Editor_Release\\Tools\\Win64" *.* /w:0 /r:1 /v /E ; if ($lastexitcode -lt 8) { $global:LASTEXITCODE = $null }
+          robocopy `
+            ".build\Release\Assets" `
+            ".build\Editor_Release\Assets" `
+            *.* /w:0 /r:1 /v /E
+
+          if ($LASTEXITCODE -ge 8) {
+            throw "Copying editor assets failed with robocopy exit code $LASTEXITCODE."
+          }
+
+          $global:LASTEXITCODE = 0
+
+          robocopy `
+            "Engine\Tools" `
+            ".build\Editor_Release\Tools" `
+            Optick.exe /w:0 /r:1 /v
+
+          if ($LASTEXITCODE -ge 8) {
+            throw "Copying Optick failed with robocopy exit code $LASTEXITCODE."
+          }
+
+          $global:LASTEXITCODE = 0
+
+          robocopy `
+            "Engine\Tools\Win64" `
+            ".build\Editor_Release\Tools\Win64" `
+            *.* /w:0 /r:1 /v /E
+
+          if ($LASTEXITCODE -ge 8) {
+            throw "Copying Win64 tools failed with robocopy exit code $LASTEXITCODE."
+          }
+
+          $global:LASTEXITCODE = 0
 
       - name: Cook Assets
         shell: cmd
         run: |
-          cd ".build/Editor_Release/"
+          cd ".build\Editor_Release"
           call Havana.exe -CompileAssets
-          cd ../../
+          cd ..\..
 
       - name: Copy Cooked Assets
         shell: pwsh
-        continue-on-error: true
         run: |
-          robocopy ".build/Editor_Release/Assets" ".build\\${{matrix.type}}_${{matrix.configuration}}\\Assets" *.* /w:0 /r:1 /v /E ; if ($lastexitcode -lt 8) { $global:LASTEXITCODE = $null }
+          robocopy `
+            ".build\Editor_Release\Assets" `
+            ".build\${{ matrix.type }}_${{ matrix.configuration }}\Assets" `
+            *.* /w:0 /r:1 /v /E
+
+          if ($LASTEXITCODE -ge 8) {
+            throw "Copying cooked assets failed with robocopy exit code $LASTEXITCODE."
+          }
+
+          $global:LASTEXITCODE = 0
 
       - name: Archive Build
         uses: actions/upload-artifact@v4
         with:
-          name: Heap v${{github.run_number}} - ${{matrix.type}} - ${{matrix.configuration}}
+          name: EmptyProject v${{ github.run_number }} - ${{ matrix.type }}_${{ matrix.configuration }}
+          if-no-files-found: error
           path: |
-            .build/${{matrix.type}}_${{matrix.configuration}}
-            .build/${{matrix.type}}_${{matrix.configuration}}/Assets
-            !.build/${{matrix.type}}_${{matrix.configuration}}/*.lib
-            !.build/${{matrix.type}}_${{matrix.configuration}}/*.pdb
-            !.build/${{matrix.type}}_${{matrix.configuration}}/*.exp
-            !.build/${{matrix.type}}_${{matrix.configuration}}/*.log
-            !.build/${{matrix.type}}_${{matrix.configuration}}/**/*.png
-            !.build/${{matrix.type}}_${{matrix.configuration}}/**/*.jpg
-            !.build/${{matrix.type}}_${{matrix.configuration}}/**/*.frag
-            !.build/${{matrix.type}}_${{matrix.configuration}}/**/*.vert
-            !.build/${{matrix.type}}_${{matrix.configuration}}/**/*.var
-            !.build/${{matrix.type}}_${{matrix.configuration}}/**/*.sh
+            .build/${{ matrix.type }}_${{ matrix.configuration }}
+            !.build/${{ matrix.type }}_${{ matrix.configuration }}/*.lib
+            !.build/${{ matrix.type }}_${{ matrix.configuration }}/*.pdb
+            !.build/${{ matrix.type }}_${{ matrix.configuration }}/*.exp
+            !.build/${{ matrix.type }}_${{ matrix.configuration }}/*.log
+            !.build/${{ matrix.type }}_${{ matrix.configuration }}/**/*.png
+            !.build/${{ matrix.type }}_${{ matrix.configuration }}/**/*.jpg
+            !.build/${{ matrix.type }}_${{ matrix.configuration }}/**/*.frag
+            !.build/${{ matrix.type }}_${{ matrix.configuration }}/**/*.vert
+            !.build/${{ matrix.type }}_${{ matrix.configuration }}/**/*.var
+            !.build/${{ matrix.type }}_${{ matrix.configuration }}/**/*.sh

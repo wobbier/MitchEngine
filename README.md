@@ -4,22 +4,23 @@
 ======
 The 3D game engine so good it has my name in it.
 
-Mitch Engine is a simple c++ component based game engine for creating games for Xbox One, macOS, and the Windows 10 Store.
+Mitch Engine is a simple c++ component based game engine for creating games for Xbox ( One & Series X/S ), Linux, macOS, Windows, and the Windows 10 Store ( UWP ).
 It's a great hobby project to keep me exploring the world of c++.
 
 Check out my [Notion][4] to view the current development status.
 
 |Platform|Game|
 |---|---|
+|Linux|[![Build status Linux](https://github.com/wobbier/MitchEngine/actions/workflows/Linux.yml/badge.svg)](https://github.com/wobbier/MitchEngine/actions/workflows/Linux.yml)|
 |Win64|[![Build status Win64](https://github.com/wobbier/MitchEngine/actions/workflows/Windows.yml/badge.svg)](https://github.com/wobbier/MitchEngine/actions/workflows/Windows.yml)|
 |UWP / Xbox|[![Build status UWP](https://github.com/wobbier/MitchEngine/actions/workflows/UWP.yml/badge.svg)](https://github.com/wobbier/MitchEngine/actions/workflows/UWP.yml)|
-|macOS|[![Build Status](https://github.com/wobbier/MitchEngine/actions/workflows/macOS.yml/badge.svg)](https://github.com/wobbier/MitchEngine/actions/workflows/macOS.yml)|
+|macOS|[![Build Status macOS](https://github.com/wobbier/MitchEngine/actions/workflows/macOS.yml/badge.svg)](https://github.com/wobbier/MitchEngine/actions/workflows/macOS.yml)|
 
 Main Features
 -------------
    * (ECS) Entity-Component System based design
-   * Supports Windows, Xbox, and macOS
-   * World Editor (Windows & macOS)
+   * Supports Linux, Windows, Xbox, and macOS
+   * World Editor
    * HTML UI with [Ultralight][5]
    * Language: C++
    * [Optick][6] Profiling

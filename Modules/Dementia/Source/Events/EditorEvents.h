@@ -11,7 +11,7 @@ public:
         : Event()
     {
     }
-    uint32_t RawEntityID = 0;
+    uint64_t RawEntityID = 0;
 };
 
 class PreviewResourceEvent

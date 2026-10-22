@@ -110,7 +110,7 @@ void Model::OnEditorInspect()
     {
         ImGui::Text( "Loaded Path" );
         ImGui::SameLine();
-        ImGui::Text( ModelPath.GetLocalPath().data() );
+        ImGui::Text("%s", ModelPath.GetLocalPath().data());
         RecursiveModelNode( ModelHandle, ModelHandle->RootNode );
         for( const Moonlight::AnimationClip& clip : ModelHandle->GetAnimations() )
         {
@@ -118,7 +118,7 @@ void Model::OnEditorInspect()
             {
                 for( const auto& nodeAnim : clip.NodeChannels )
                 {
-                    ImGui::Text( nodeAnim.NodeName.c_str() );
+                    ImGui::Text("%s", ModelPath.GetLocalPath().data());
                 }
             }
         }
@@ -141,8 +141,9 @@ void Model::OnEditorInspect()
         {
             if( const ImGuiPayload* payload = ImGui::AcceptDragDropPayload( AssetDescriptor::kDragAndDropPayload ) )
             {
-                IM_ASSERT( payload->DataSize == sizeof( AssetDescriptor ) );
-                const AssetDescriptor& payload_n = *static_cast<AssetDescriptor*>( payload->Data );
+                const AssetDescriptor* _p = AssetDescriptor::GetDragged();
+                if( !_p ) return;
+                const AssetDescriptor& payload_n = *_p;
 
                 if( payload_n.Type == AssetType::Model )
                 {

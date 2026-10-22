@@ -29,10 +29,10 @@ void Worker::Start()
             OPTICK_THREAD( "Burst Thread" );
             while( IsRunning() )
             {
-                OPTICK_EVENT( "GetJob" )
-                    Job* job = GetJob();
+                Job* job = GetJob();
                 if( job )
                 {
+                    OPTICK_EVENT( "RunJob" )
                     job->Run();
                 }
             }
@@ -72,24 +72,16 @@ void Worker::Wait( Job* InJob )
 {
     OPTICK_EVENT( "Wait" )
 
-        float failedAttempts = 0;
     while( !InJob->IsFinished() )
     {
         Job* job = GetJob();
-
         if( job )
         {
             job->Run();
         }
         else
         {
-            // I don't like this
-            failedAttempts++;
-            if( failedAttempts > 50 )
-            {
-                InJob->Run();
-                break;
-            }
+            std::this_thread::yield();
         }
     }
 }

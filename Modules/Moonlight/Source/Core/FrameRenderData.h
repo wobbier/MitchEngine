@@ -8,5 +8,5 @@ struct FrameRenderData
 
     // so specific atm
     bool WasLeftPressed = false;
-    uint32_t RequestedEntityID = 0;
+    uint64_t RequestedEntityID = 0;
 };

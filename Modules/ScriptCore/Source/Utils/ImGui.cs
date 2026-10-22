@@ -1,43 +1,31 @@
-using System.Runtime.CompilerServices;
+namespace ScriptCore;
 
-public class ImGui
+// Immediate-mode ImGui for game scripts (editor inspector widgets live on EngineAPI separately).
+public static unsafe class ImGui
 {
-    [MethodImplAttribute(MethodImplOptions.InternalCall)]
-    extern static bool ImGui_Begin(string Name);
-    public static bool Begin(string Name)
+    public static bool Begin(string name)
     {
-        return ImGui_Begin(Name);
+        fixed (byte* p = Engine.Utf8(name)) return Engine._api.ImGui_Begin(p) != 0;
     }
 
-
-    [MethodImplAttribute(MethodImplOptions.InternalCall)]
-    extern static void ImGui_End();
-    public static void End()
+    public static void Text(string text)
     {
-        ImGui_End();
+        fixed (byte* p = Engine.Utf8(text)) Engine._api.ImGui_Text(p);
     }
 
-
-    [MethodImplAttribute(MethodImplOptions.InternalCall)]
-    extern static void ImGui_Text(string inString);
-    public static void Text(string inString)
+    public static bool Checkbox(string label, ref bool value)
     {
-        ImGui_Text(inString);
+        byte v = value ? (byte)1 : (byte)0;
+        bool changed;
+        fixed (byte* p = Engine.Utf8(label)) changed = Engine._api.ImGui_Checkbox(p, &v) != 0;
+        value = v != 0;
+        return changed;
     }
 
-
-    [MethodImplAttribute(MethodImplOptions.InternalCall)]
-    extern static void ImGui_Checkbox(string inString, ref bool inValue);
-    public static void Checkbox(string inString, ref bool inValue)
+    public static bool Button(string label)
     {
-        ImGui_Checkbox(inString, ref inValue);
+        fixed (byte* p = Engine.Utf8(label)) return Engine._api.ImGui_Button(p) != 0;
     }
 
-
-    [MethodImplAttribute(MethodImplOptions.InternalCall)]
-    extern static bool ImGui_Button(string inString);
-    public static bool Button(string inString)
-    {
-        return ImGui_Button(inString);
-    }
+    public static void End() => Engine._api.ImGui_End();
 }

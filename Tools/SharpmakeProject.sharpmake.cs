@@ -9,7 +9,9 @@ public class SharpmakeProjectBase : CSharpProject
         RootPath = @"[project.SharpmakeCsPath]";
         SourceRootPath = @"[project.SharpmakeCsPath]";
 
-        ProjectSchema = CSharpProjectSchema.NetFramework;
+        ProjectSchema = CSharpProjectSchema.NetCore;
+        CustomProperties.Add("Configurations", ScriptCore.GetConfigurationsList());
+        CustomProperties.Add("Platforms", "x64");
 
         SourceFilesExcludeRegex.Add(@".*\.xml");
         SourceFilesExcludeRegex.Add(@".*\.map");

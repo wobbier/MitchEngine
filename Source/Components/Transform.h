@@ -99,8 +99,8 @@ private:
     std::vector<SharedPtr<Transform>> Children;
     bool m_isDirty = true;
 
-    bool IsLocalToWorldDirty = false;
-    bool IsWorldToLocalDirty = false;
+    bool IsLocalToWorldDirty = true;
+    bool IsWorldToLocalDirty = true;
 
 
     void SetDirty( bool Dirty );

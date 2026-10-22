@@ -75,7 +75,7 @@ public:
     std::size_t GetEntityCount() const;
     EntityHandle GetEntity( const EntityID& id );
     Entity* GetEntityRaw( const EntityID& id );
-    EntityHandle FindEntityByIDValue( uint32_t id );
+    EntityHandle FindEntityByIDValue( uint64_t id );
     const bool EntityExists( const EntityID& InEntity ) const;
     World();
     World( std::size_t InEntityPoolSize );

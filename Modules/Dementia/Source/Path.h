@@ -34,8 +34,8 @@ public:
     bool IsFile = false;
     bool IsFolder = false;
     bool Exists = false;
-    int8_t ExtensionPos;
-    int8_t DirectoryPos;
-    int8_t LocalPos;
+    size_t ExtensionPos = 0;
+    size_t DirectoryPos = 0;
+    size_t LocalPos = 0;
     std::string FullPath;
 };

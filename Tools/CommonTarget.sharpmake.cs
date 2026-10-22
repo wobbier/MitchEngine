@@ -31,6 +31,7 @@ public class CommonTarget : Sharpmake.ITarget
         Win64 = 1 << 0,
         macOS = 1 << 1,
         UWP   = 1 << 2,
+        linux = 1 << 3,
     }
     public SubPlatformType SubPlatform = SubPlatformType.Win64;
 
@@ -69,7 +70,7 @@ public class CommonTarget : Sharpmake.ITarget
                         Platform.win64,
                         DevEnv.vs2022,
                         Optimization.Debug | Optimization.Release | Optimization.Retail,
-                        DotNetFramework.v4_8,
+                        DotNetFramework.net8_0,
                         dotNetOS: 0);
                     baseTarget.SubPlatform = SubPlatformType.Win64;
 
@@ -80,7 +81,7 @@ public class CommonTarget : Sharpmake.ITarget
                             Platform.win64,
                             DevEnv.vs2022,
                             Optimization.Debug | Optimization.Release | Optimization.Retail,
-                            DotNetFramework.v4_8,
+                            DotNetFramework.net8_0,
                             dotNetOS: 0);
                         uwpTarget.SubPlatform = SubPlatformType.UWP;
                     }
@@ -89,7 +90,7 @@ public class CommonTarget : Sharpmake.ITarget
                         Platform.win64,
                         DevEnv.vs2022,
                         Optimization.Debug | Optimization.Release | Optimization.Retail,
-                        DotNetFramework.v4_8,
+                        DotNetFramework.net8_0,
                         dotNetOS: 0);
                     editorTarget.SubPlatform = SubPlatformType.Win64;
                     editorTarget.SelectedMode = Mode.Editor;
@@ -119,6 +120,26 @@ public class CommonTarget : Sharpmake.ITarget
                     macEditor.SubPlatform = SubPlatformType.macOS;
 
                     return new[] { macOSTarget, macEditor };
+                }
+            case Platform.linux:
+                {
+                    var linuxTarget = new CommonTarget(
+                        Platform.linux,
+                        DevEnv.make,
+                        Optimization.Debug | Optimization.Release,
+                        DotNetFramework.v4_8,
+                        dotNetOS: 0);
+                    linuxTarget.SubPlatform = SubPlatformType.linux;
+                    var linuxEditor = new CommonTarget(
+                        Platform.linux,
+                        DevEnv.make,
+                        Optimization.Debug | Optimization.Release,
+                        DotNetFramework.v4_8,
+                        dotNetOS: 0);
+                    linuxEditor.SelectedMode = Mode.Editor;
+                    linuxEditor.SubPlatform = SubPlatformType.linux;
+
+                    return new[] { linuxTarget, linuxEditor };
                 }
             default:
                 {

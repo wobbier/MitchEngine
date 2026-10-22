@@ -35,14 +35,26 @@ private:
 template<typename Data>
 Job* Pool::CreateJob( JobFunc InJobFunc, const Data& InData )
 {
-
+    Job* job = Allocate();
+    if( job )
+    {
+        new( job ) Job { InJobFunc };
+        job->SetData( InData );
+        return job;
+    }
     return nullptr;
 }
 
 template<typename Data>
 Job* Pool::CreateJobAsChild( JobFunc InJobFunc, const Data& InData, Job* InParent )
 {
-
+    Job* job = Allocate();
+    if( job )
+    {
+        new( job ) Job { InJobFunc, InParent };
+        job->SetData( InData );
+        return job;
+    }
     return nullptr;
 }
 

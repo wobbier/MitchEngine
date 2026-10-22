@@ -72,9 +72,8 @@ void Input::Resume()
 void Input::Stop()
 {
     RelativeMousePosition = Vector2();
-    //SDL_CaptureMouse(SDL_FALSE);
-    //SDL_SetRelativeMouseMode(SDL_FALSE);
-    //SDL_ShowCursor(SDL_ENABLE);
+    SDL_SetRelativeMouseMode( SDL_FALSE );
+    SDL_ShowCursor( SDL_ENABLE );
     CaptureInput = false;
 }
 

@@ -115,6 +115,7 @@ void Mesh::OnDeserialize( const json& inJson )
                 if( reg.find( matType ) != reg.end() )
                 {
                     MeshMaterial = reg[matType].CreateFunc();
+                    MeshMaterial->Init();
                 }
                 else
                 {

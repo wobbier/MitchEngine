@@ -57,8 +57,9 @@ void PropertiesWidget::Render()
 	}
 
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.f, 0.f });
-	ImGui::Begin("Properties", &IsOpen);
+	bool windowOpen = ImGui::Begin("Properties", &IsOpen);
 	ImGui::PopStyleVar();
+	if (windowOpen)
 	{
 		EntityHandle entity = SelectedEntity;
 		if (SelectedTransform.lock())

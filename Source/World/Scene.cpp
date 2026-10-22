@@ -38,6 +38,11 @@ void Scene::LoadSceneObject( const json& obj, Transform* parent )
         {
             continue;
         }
+        
+        const std::string compType  = comp["Type"].get<std::string>();
+        const std::string evDeser   = "Deserialize::" + compType;
+        const std::string evInit    = "Init::"        + compType;
+
         BaseComponent* addedComp = ent->AddComponentByName( comp["Type"] );
         if( comp["Type"] == "Transform" )
         {
@@ -50,8 +55,8 @@ void Scene::LoadSceneObject( const json& obj, Transform* parent )
         }
         if( addedComp )
         {
-            addedComp->Deserialize( comp );
-            addedComp->Init();
+            { OPTICK_EVENT( evDeser.c_str() ); addedComp->Deserialize( comp ); }
+            { OPTICK_EVENT( evInit.c_str()  ); addedComp->Init();              }
         }
     }
     ent->SetActive( true );
@@ -74,11 +79,13 @@ void Scene::LoadSceneObject( const json& obj, Transform* parent )
 
 bool Scene::Load( SharedPtr<World> InWorld )
 {
+    OPTICK_EVENT( "Scene::Load" );
     GameWorld = InWorld;
     GameWorld->IsLoading = true;
 
     if( CurrentLevel.FilePath.GetLocalPath().size() > 0 )
     {
+        OPTICK_EVENT( "Scene::Load::ReadFile" );
         CurrentLevel.Read();
     }
 
@@ -86,18 +93,27 @@ bool Scene::Load( SharedPtr<World> InWorld )
     {
         json level;
 
-        level = json::parse( CurrentLevel.Data );
-
-        json& cores = level["Cores"];
-        for( json& core : cores )
         {
-            LoadCore( core );
+            OPTICK_EVENT( "Scene::Load::JSONParse" );
+            level = json::parse( CurrentLevel.Data );
         }
 
-        json& scene = level["Scene"];
-        for( json& ent : scene )
         {
-            LoadSceneObject( ent, nullptr );
+            OPTICK_EVENT( "Scene::Load::Cores" );
+            json& cores = level["Cores"];
+            for( json& core : cores )
+            {
+                LoadCore( core );
+            }
+        }
+
+        {
+            OPTICK_EVENT( "Scene::Load::Entities" );
+            json& scene = level["Scene"];
+            for( json& ent : scene )
+            {
+                LoadSceneObject( ent, nullptr );
+            }
         }
     }
     else

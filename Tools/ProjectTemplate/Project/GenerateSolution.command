@@ -1,1 +1,5 @@
-"../Engine/Tools/Sharpmake/macOS/Sharpmake.Application" "/sources('../Game.sharpmake.cs')"
+#!/usr/bin/env bash
+set -euo pipefail
+
+dotnet "../Engine/Tools/Sharpmake/macOS/Sharpmake.Application.dll" \
+  "/sources('../Game.sharpmake.cs')"

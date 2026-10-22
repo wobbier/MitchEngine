@@ -457,19 +457,16 @@ void MainMenuWidget::Render()
 #endif
 
 #if USING( ME_SCRIPTING )
-        ImGui::Text( "MONO is set up correctly!\n\n" );
-        if( !MONOImage )
+        ImGui::Text( "C# is set up correctly! Enjoy!\n\n" );
+        if( !DOTNETImage)
         {
-            MONOImage = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/Legal/MONO.png" ) );
+            DOTNETImage = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/Legal/DOTNET.png" ) );
         }
-#endif
-
-#if USING( ME_SCRIPTING )
-        ImGui::SetCursorPosX( ImGui::GetCursorPos().x + ( ImGui::GetContentRegionAvail().x - ( MONOImage->mWidth / 2 ) ) * 0.5f );
-        ImGui::Image( MONOImage->TexHandle, { (float)MONOImage->mWidth / 2, (float)MONOImage->mHeight / 2 } );
+        ImGui::SetCursorPosX( ImGui::GetCursorPos().x + ( ImGui::GetContentRegionAvail().x - ( DOTNETImage->mWidth / 2 ) ) * 0.5f );
+        ImGui::Image( DOTNETImage->TexHandle, { (float)DOTNETImage->mWidth / 2, (float)DOTNETImage->mHeight / 2 } );
         ImGui::Text( "\n" );
 #else
-        ImGui::Text( "MONO is not installed! Please refer to Engine/README.md for instructions." );
+        ImGui::Text( "DOTNET is not installed! Please refer to Engine/README.md for instructions." );
 #endif
 
         ImGui::SetItemDefaultFocus();
