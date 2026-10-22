@@ -38,6 +38,7 @@
             gnumake
             cmake
             pkg-config
+            patchelf   # PackageLinuxBuild.sh rewrites absolute /nix/store NEEDED entries
 
             # SDL2 from Nix
             SDL2

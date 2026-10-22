@@ -129,6 +129,17 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
     Exists = true;
 #else
     Exists = std::filesystem::exists( FullPath );
+
+    // Same as the editor path above — without these flags every
+    // FileSystemBasic::OpenFile() call fails in Linux game builds.
+    if( std::filesystem::is_regular_file( FullPath ) )
+    {
+        IsFile = true;
+    }
+    else
+    {
+        IsFolder = true;
+    }
 #endif
 
 #endif
