@@ -25,7 +25,7 @@ A project picks a **hardware profile**: a target machine such as "Xbox 360", "20
 | `Modules/Dementia/Source/Utils/PlatformUtils.cpp` | `GetProcessMemoryBytes` (working set: Win64, macOS, Linux; 0 elsewhere) |
 | `Source/Cores/AudioCore.cpp` | `AudioCore::GetMemoryUsage` (FMOD's current allocation) |
 | `Modules/Havana/Source/Widgets/SettingsWidgets.cpp` | Project Settings > Hardware |
-| `Modules/Havana/Source/Widgets/SceneViewWidget.cpp` | The verdict under the scene view's stats overlay |
+| `Modules/Havana/Source/Widgets/SceneViewWidget.cpp` | The verdict under the World View's and Game View's stats overlay |
 | `Tests/Source/HardwareBudgetTests.cpp` | Profile parsing, replace / `Extends`, line statuses and peaks, formatting, the enforced texture cap, mip-skipping uploads |
 
 ## How It Works
@@ -96,7 +96,7 @@ Without enforcement the Hardware tab still reports what exceeds the target: came
 ### Where it shows
 
 - **Project Settings > Hardware** has the profile picker, the enforce checkbox, and live budget bars with peaks and limits. A Feature Caps table shows each cap, the target's value and the project's use. It also offers profile file actions: Reload, and Create or Edit Project Profiles (which writes a starter project profile that `Extends` the current one).
-- **Scene view stats overlay**: a box under the stats with the profile's verdict ("Xbox 360: 2 over budget") and only the lines that are near or over.
+- **Stats overlay** (World View and Game View): a box under the stats with the profile's verdict ("Xbox 360: 2 over budget") and only the lines that are near or over.
 - **Game builds**: `--budget-hud` draws the full overlay in the top-right corner (ImGui builds).
 - **Automation**: with a profile active, `--perf-report` gains a `"Budgets"` object with the profile, `Enforced`, `OverCount`, `PeakOverCount`, and each line's `Used`, `Peak`, `Limit`, `Unit` and `Status`. Peaks reset when the warm-up ends, so loading doesn't count.
 

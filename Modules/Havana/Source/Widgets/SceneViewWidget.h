@@ -91,6 +91,8 @@ private:
 	void DrawManipulator();
 	void DrawViewCube();
 	void DrawStatsOverlay();
+	// Per view: "Scene.ShowStats" or "GameView.ShowStats".
+	const char* GetStatsPreference() const;
 	void DrawIcons();
 	void HandleMouse();
 	void HandleAssetDrop();

@@ -550,9 +550,12 @@ void SceneViewWidget::Render()
 	IsFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
 
 	// Hidden behind another tab (e.g. a shader graph): no overlays, gizmos or input.
-	if (EnableSceneTools && MainCamera && shouldRender)
+	if (MainCamera && shouldRender)
 	{
 		DrawStatsOverlay();
+	}
+	if (EnableSceneTools && MainCamera && shouldRender)
+	{
 		if (m_viewOptions.DebugDraw) DrawIcons();
 		IsUsingGuizmo = false;
 		DrawViewCube();
@@ -614,15 +617,16 @@ void SceneViewWidget::DrawViewMenu()
 	ImGui::SetItemTooltip("Distance where the Depth view fades to black");
 	if (changed) SavePreferences();
 	if (ImGui::MenuItem("Reset View Options")) ResetViewOptions();
+	ImGui::Separator();
+	EditorConfig& config = EditorConfig::GetInstance();
+	bool showStats = config.GetPreference<bool>(GetStatsPreference(), true);
+	if (ImGui::MenuItem("Stats", nullptr, &showStats)) config.SetPreference(GetStatsPreference(), showStats);
+	ImGui::SetItemTooltip("Frame time, draws and triangles, and the hardware profile's verdict, over this view");
 	if (EnableSceneTools)
 	{
-		ImGui::Separator();
-		EditorConfig& config = EditorConfig::GetInstance();
 		bool showGrid = config.GetPreference<bool>("Scene.ShowGrid", true);
 		bool showGizmos = config.GetPreference<bool>("Scene.ShowGizmos", true);
 		bool showSelection = config.GetPreference<bool>("Scene.ShowSelection", true);
-		bool showStats = config.GetPreference<bool>("Scene.ShowStats", true);
-		if (ImGui::MenuItem("Stats", nullptr, &showStats)) config.SetPreference("Scene.ShowStats", showStats);
 		if (ImGui::MenuItem("Grid", nullptr, &showGrid)) config.SetPreference("Scene.ShowGrid", showGrid);
 		if (ImGui::MenuItem("Component Gizmos", nullptr, &showGizmos)) config.SetPreference("Scene.ShowGizmos", showGizmos);
 		if (ImGui::MenuItem("Selection Bounds", nullptr, &showSelection)) config.SetPreference("Scene.ShowSelection", showSelection);
@@ -851,9 +855,15 @@ void SceneViewWidget::DrawManipulator()
 }
 
 
+const char* SceneViewWidget::GetStatsPreference() const
+{
+	return EnableSceneTools ? "Scene.ShowStats" : "GameView.ShowStats";
+}
+
+
 void SceneViewWidget::DrawStatsOverlay()
 {
-	if (!EditorConfig::GetInstance().GetPreference<bool>("Scene.ShowStats", true))
+	if (!EditorConfig::GetInstance().GetPreference<bool>(GetStatsPreference(), true))
 	{
 		return;
 	}
