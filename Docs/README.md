@@ -26,6 +26,7 @@ Technical documentation for MitchEngine — a C++20, ECS-based game engine built
 | [UI-Ultralight-and-ImGui.md](UI-Ultralight-and-ImGui.md) | Ultralight HTML UI integration, GPU driver, view composite — **deprecation status: do not extend** |
 | [Editor-Havana.md](Editor-Havana.md) | `EditorApp`/`Havana`, widgets, command/undo system, entity picking, play-in-editor lifecycle |
 | [Input.md](Input.md) | Action maps (`.inputactions`): contexts with priority and consumption, control paths, composites, rebinding and overrides; gamepads (hotplug slots, deadzones, rumble) |
+| [Hardware-Profiles.md](Hardware-Profiles.md) | Target hardware profiles ("Xbox 360", "2004 PC"): frame, memory and draw budgets measured every frame, editor and HUD verdicts, enforced GPU feature caps, perf-report budgets |
 | [Platform-Window-Input-Config.md](Platform-Window-Input-Config.md) | `IWindow`/`SDLWindow`, dual input contexts, `EngineConfig` persistence — the OS boundary |
 | [Development-Environment.md](Development-Environment.md) | Engine-owned Linux SDK environment, private project extensions, VS Code F5 |
 | [Build-System.md](Build-System.md) | Sharpmake project graph, target matrix, ThirdParty-existence feature defines, flake.nix, tools |

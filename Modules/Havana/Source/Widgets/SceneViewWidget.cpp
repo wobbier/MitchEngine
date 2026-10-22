@@ -37,6 +37,7 @@
 #include <SDL_mouse.h>
 #include <SDL_video.h>
 #include "Profiling/FrameStats.h"
+#include "Engine/HardwareBudget.h"
 #include <algorithm>
 #include <cstdio>
 #include <cmath>
@@ -870,6 +871,8 @@ void SceneViewWidget::DrawStatsOverlay()
 	const ImVec2 size = ImGui::CalcTextSize(text);
 	drawList->AddRectFilled(ImVec2(position.x - padding.x, position.y - padding.y), ImVec2(position.x + size.x + padding.x, position.y + size.y + padding.y), IM_COL32(0, 0, 0, 140), ImGui::GetStyle().FrameRounding);
 	drawList->AddText(position, IM_COL32(230, 230, 230, 255), text);
+	// The hardware profile's verdict below it, with the budgets that are near or over.
+	HardwareBudget::Get().DrawOverlay(drawList, position.x - padding.x, position.y + size.y + padding.y + ImGui::GetStyle().ItemSpacing.y, true);
 }
 
 

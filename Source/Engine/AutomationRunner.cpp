@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "AutomationRunner.h"
 #include "Core/CommandLine.h"
+#include "Engine/HardwareBudget.h"
 #include "Profiling/FrameStats.h"
 #include "Renderer.h"
 #include "CLog.h"
@@ -55,6 +56,11 @@ bool AutomationRunner::OnFrameEnd( BGFXRenderer& renderer, double frameMilliseco
         m_wallFrameTimes.push_back( ( nowSeconds - m_lastFrameEndSeconds ) * 1000.0 );
     }
     m_lastFrameEndSeconds = nowSeconds;
+    if( m_frameIndex == static_cast<uint64_t>( m_warmupFrames ) )
+    {
+        // Budget peaks cover the measured frames only, not loading.
+        HardwareBudget::Get().ResetPeaks();
+    }
     if( !m_tracePath.empty() && !m_isTracing && m_frameIndex == static_cast<uint64_t>( m_warmupFrames ) )
     {
         OPTICK_START_CAPTURE();
@@ -157,6 +163,11 @@ void AutomationRunner::WritePerfReport() const
         views.push_back( { { "Name", view.Name }, { "GpuMs", view.GpuMilliseconds }, { "Triangles", view.Triangles } } );
     }
     report["Views"] = views;
+    // The hardware profile's budgets: last frame's values, and peaks over the measured frames.
+    if( HardwareBudget::Get().GetActiveProfile() )
+    {
+        report["Budgets"] = HardwareBudget::Get().ToJson();
+    }
 
     std::ofstream out( m_perfReportPath );
     out << report.dump( 4 ) << std::endl;

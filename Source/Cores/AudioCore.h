@@ -94,6 +94,8 @@ public:
     }
     bool IsAvailable() const;
     FMOD::System* GetSystem() const;
+    // FMOD's current memory use in bytes: loaded sounds, stream buffers, DSP (0 without FMOD).
+    static int64_t GetMemoryUsage();
 
     // Applies params to a playing voice (mode, bus, volume, pitch, 3D settings and position).
     void ApplyParams( AudioVoice& InVoice, const AudioPlayParams& InParams );

@@ -14,6 +14,8 @@ class BGFXRenderer;
 //   --trace <path>        record a profiler capture of the measured frames (Chrome trace JSON on Linux)
 //   --exit                exit once the above finish (implied by --frames)
 //   --frame-time S        every frame advances S seconds of game time (repeatable captures; Engine)
+//   --hardware-profile N  budget against hardware profile N; the perf report gains its "Budgets"
+//   --enforce-profile     apply that profile's feature caps (HardwareBudget)
 class AutomationRunner
 {
 public:

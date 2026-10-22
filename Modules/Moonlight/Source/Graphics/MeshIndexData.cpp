@@ -1,4 +1,5 @@
 #include "MeshIndexData.h"
+#include "MeshData.h"
 #include "Utils/BGFXUtils.h"
 #include <utility>
 
@@ -8,11 +9,13 @@ namespace Moonlight
     {
         if( IsGpuAlive() && !m_indices.empty() )
             m_buffer = bgfx::createIndexBuffer( bgfx::copy( m_indices.data(), static_cast<uint32_t>( m_indices.size() * sizeof( uint32_t ) ) ), BGFX_BUFFER_INDEX32 );
+        if( bgfx::isValid( m_buffer ) ) MeshData::TrackGpuBytes( static_cast<int64_t>( m_indices.size() * sizeof( uint32_t ) ) );
     }
 
 
     MeshIndexData::~MeshIndexData()
     {
+        if( bgfx::isValid( m_buffer ) ) MeshData::TrackGpuBytes( -static_cast<int64_t>( m_indices.size() * sizeof( uint32_t ) ) );
         if( !IsGpuAlive() ) return;
         if( bgfx::isValid( m_buffer ) ) bgfx::destroy( m_buffer );
         if( bgfx::isValid( m_wireframe ) ) bgfx::destroy( m_wireframe );

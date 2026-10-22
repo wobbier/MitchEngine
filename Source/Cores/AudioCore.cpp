@@ -337,6 +337,18 @@ bool AudioCore::IsAvailable() const
 }
 
 
+int64_t AudioCore::GetMemoryUsage()
+{
+#if USING( ME_FMOD )
+    int current = 0;
+    int peak = 0;
+    return FMOD::Memory_GetStats( &current, &peak, false ) == FMOD_OK ? static_cast<int64_t>( current ) : 0;
+#else
+    return 0;
+#endif
+}
+
+
 FMOD::System* AudioCore::GetSystem() const
 {
 #if USING( ME_FMOD )

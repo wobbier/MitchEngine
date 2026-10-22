@@ -18,6 +18,7 @@ namespace Moonlight
 
     MeshData::~MeshData()
     {
+        TrackGpuBytes( -m_gpuBytes );
         if( !IsGpuAlive() )
         {
             return;
@@ -58,6 +59,7 @@ namespace Moonlight
             {
                 break;
             }
+            AddGpuBytes( static_cast<int64_t>( sizeof( uint32_t ) * lod.Indices.size() ) );
             m_lodIbh.push_back( handle );
             m_lodIndices.push_back( lod.Indices );
             m_lodIndexCounts.push_back( static_cast<uint32_t>( lod.Indices.size() ) );
@@ -94,6 +96,10 @@ namespace Moonlight
             return;
         }
         m_skinVbh = bgfx::createVertexBuffer( bgfx::copy( InWeights.data(), static_cast<uint32_t>( sizeof( SkinWeightsVertex ) * InWeights.size() ) ), SkinWeightsVertex::ms_layout );
+        if( bgfx::isValid( m_skinVbh ) )
+        {
+            AddGpuBytes( static_cast<int64_t>( sizeof( SkinWeightsVertex ) * InWeights.size() ) );
+        }
     }
 
     void MeshData::InitMesh()
@@ -115,6 +121,8 @@ namespace Moonlight
 
         // 32-bit indices: unwelded imports can exceed 65535 vertices per mesh.
         m_ibh = bgfx::createIndexBuffer( bgfx::copy( Indices.data(), static_cast<uint32_t>( sizeof( uint32_t ) * Indices.size() ) ), BGFX_BUFFER_INDEX32 );
+        AddGpuBytes( ( bgfx::isValid( m_vbh ) ? static_cast<int64_t>( sizeof( Moonlight::PosNormTexTanBiVertex ) * Vertices.size() ) : 0 )
+            + ( bgfx::isValid( m_ibh ) ? static_cast<int64_t>( sizeof( uint32_t ) * Indices.size() ) : 0 ) );
 
         // bgfx owns copies of the geometry now; drop the CPU side.
         CollisionPositions.resize( Vertices.size() );

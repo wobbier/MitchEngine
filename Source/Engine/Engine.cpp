@@ -49,6 +49,7 @@
 #endif
 #include <Debug/DebugDrawer.h>
 #include <Debug/DebugDraw.h>
+#include "Engine/HardwareBudget.h"
 #include "Engine/ProjectSettings.h"
 #include "Profiling/FrameStats.h"
 #include "Events/PlatformEvents.h"
@@ -209,6 +210,8 @@ void Engine::Init( Game* game )
         settings.InitialSize = engineConfig.WindowSize;
         NewRenderer->Create( settings );
         NewRenderer->EnableUIComposite = !CommandLine::Has( "--no-ui" );
+        // The project's target hardware: budgets, and its feature caps when enforced.
+        HardwareBudget::Get().Init( *NewRenderer );
     }
     CLog::GetInstance().Log( CLog::LogType::Info, "After the Renderer." );
 #if USING( ME_IMGUI )
@@ -627,6 +630,14 @@ void Engine::Run()
                 m_game->PreRender();
 #if !USING( ME_EDITOR )
                 EditorCamera.OutputSize = GetWindow()->GetSize();
+#if USING( ME_IMGUI )
+                if( CommandLine::Has( "--budget-hud" ) )
+                {
+                    // Top right. ImGui positions are in screen space (multi-viewport), so offset from the window.
+                    ImGuiViewport* viewport = ImGui::GetMainViewport();
+                    HardwareBudget::Get().DrawOverlay( ImGui::GetForegroundDrawList( viewport ), viewport->Pos.x + viewport->Size.x - 10.f, viewport->Pos.y + 10.f, false, true );
+                }
+#endif
 #if USING( ME_BASIC_PROFILER )
                 FrameProfile::GetInstance().Render( { GameWindow->GetClientPosition().x + 10.f, ( GameWindow->GetClientPosition().y + GameWindow->GetClientSize().y - FrameProfile::kMinProfilerSize - 10.f ) }, { GameWindow->GetClientSize().x - 20, (float)FrameProfile::kMinProfilerSize } );
 #endif
@@ -648,6 +659,7 @@ void Engine::Run()
                 m_game->PostRender();
             }
             FrameStats::Get().EndFrame( std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - frameStartTime ).count() );
+            HardwareBudget::Get().Update();
 
             if( m_automation.IsActive() )
             {

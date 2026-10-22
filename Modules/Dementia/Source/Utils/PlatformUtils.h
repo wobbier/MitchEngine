@@ -36,4 +36,7 @@ namespace PlatformUtils
 
 
     Buffer ReadBytes( const Path& inFilePath );
+
+    // This process's resident memory (working set) in bytes, or 0 where the platform can't tell.
+    uint64_t GetProcessMemoryBytes();
 }

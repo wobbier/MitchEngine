@@ -117,6 +117,11 @@ void ProjectSettings::Load()
             }
         }
     }
+    if( auto profile = root.find( "HardwareProfile" ); profile != root.end() && profile->is_object() )
+    {
+        HardwareProfileName = profile->value( "Name", HardwareProfileName );
+        EnforceHardwareProfile = profile->value( "Enforce", EnforceHardwareProfile );
+    }
     if( root.contains( "AudioBusVolumes" ) && root["AudioBusVolumes"].is_array() )
     {
         const json& volumes = root["AudioBusVolumes"];
@@ -159,6 +164,7 @@ void ProjectSettings::Save() const
     {
         root["NavAgentTypes"].push_back( { { "Name", type.Name }, { "Radius", type.Radius }, { "Height", type.Height }, { "MaxClimb", type.MaxClimb }, { "MaxSlope", type.MaxSlope } } );
     }
+    root["HardwareProfile"] = { { "Name", HardwareProfileName }, { "Enforce", EnforceHardwareProfile } };
     File file{ Path( kSettingsPath ) };
     file.Write( root.dump( 4 ) );
 }

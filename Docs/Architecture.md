@@ -2,7 +2,7 @@
 
 MitchEngine is a C++20 game engine organized as a small set of static-library modules around an ECS runtime. A singleton `Engine` owns the window, renderer, job system, and `World`; games subclass `Game` and are wired in with the `ME_APPLICATION_MAIN` macro. This doc covers the module layout, the engine lifecycle (init → frame loop → shutdown), the split between engine-owned and scene-loaded cores, and the compile-time feature-flag system that gates everything else.
 
-> Verified against engine commit 7e869c6e, 2026-10-09; engine-owned cores and physics against 8fdd99b1, 2026-10-09; animation against 07617c5f, 2026-10-09; audio against afce7083, 2026-10-09; scripting against 6a4b006f, 2026-10-09; navigation against 8d6769a5, 2026-10-10; `--frame-time` and screenshot regression against 8ef02b56, 2026-10-10; `Engine::Collisions` against d6a8e92a plus the per-entity callbacks change, 2026-10-16; resident terrain and render ordering against `73fbac9d` plus the resident terrain change, 2026-10-18.
+> Verified against engine commit 7e869c6e, 2026-10-09; engine-owned cores and physics against 8fdd99b1, 2026-10-09; animation against 07617c5f, 2026-10-09; audio against afce7083, 2026-10-09; scripting against 6a4b006f, 2026-10-09; navigation against 8d6769a5, 2026-10-10; `--frame-time` and screenshot regression against 8ef02b56, 2026-10-10; `Engine::Collisions` against d6a8e92a plus the per-entity callbacks change, 2026-10-16; resident terrain and render ordering against `73fbac9d` plus the resident terrain change, 2026-10-18; hardware budgets in the frame loop against 3f04199c plus the hardware profiles change, 2026-10-22.
 
 ## Overview
 
@@ -149,7 +149,8 @@ Timing details worth knowing:
   
   Scenes are then exact run to run on lavapipe, except that the volumetric fog showcase can differ by a few levels in rare runs (well inside the regression's tolerance). `Tools/ScreenshotRegression.py` builds on it: it captures scenes and compares them with reference PNGs (`--update` refreshes them). `AutomationRunner::IsUnattendedRun()` (those flags, `--editor-exec` or `--transient`) suppresses writing the user's settings (`Engine.cfg` window state, editor preferences, ImGui layout) and makes audio silent (`--audio` overrides; `--no-audio` silences any run).
 - **Quitting**: when the window asks to close, `Game::OnQuitRequested()` may veto (the editor does while there are unsaved changes or play mode is running). It then calls `IWindow::CancelClose()` and quits later with `Engine::Quit( true )`, which forces the close.
-- **Frame statistics**: `ME_STAT_SCOPE( "Name" )` records named, nestable CPU scopes into `FrameStats` (`Modules/Dementia/Source/Profiling/FrameStats.h`). The engine scopes every phase above, and `World` scopes each scene-loaded core's update and fixed update. The renderer adds GPU and draw statistics. The editor's stats overlay and Profiler window display them.
+- **Frame statistics**: `ME_STAT_SCOPE( "Name" )` records named, nestable CPU scopes into `FrameStats` (`Modules/Dementia/Source/Profiling/FrameStats.h`). The engine scopes every phase above, and `World` scopes each scene-loaded core's update and fixed update. The renderer adds GPU, draw and memory statistics. The editor's stats overlay and Profiler window display them.
+- **Hardware budgets**: right after `FrameStats::EndFrame`, `HardwareBudget::Update` measures the frame against the project's hardware profile (`Docs/Hardware-Profiles.md`). `HardwareBudget::Init` runs right after the renderer is created and applies the profile's feature caps when it's enforced. `--hardware-profile "Name"` and `--enforce-profile` override the project's choice for one run; `--budget-hud` shows the budgets in game builds.
 
 ### Scene loading
 

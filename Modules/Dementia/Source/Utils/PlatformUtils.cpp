@@ -2,6 +2,7 @@
 
 #if USING( ME_PLATFORM_WIN64 )
 #include <processthreadsapi.h>
+#include <psapi.h>
 #endif
 
 #include <filesystem>
@@ -13,6 +14,11 @@
 
 #if USING( ME_PLATFORM_LINUX ) || USING( ME_PLATFORM_MACOS )
 #include <sys/wait.h>
+#include <unistd.h>
+#endif
+
+#if USING( ME_PLATFORM_MACOS )
+#include <mach/mach.h>
 #endif
 
 void PlatformUtils::RunProcess( const Path& inFilePath, const std::string& inArgs /*= ""*/ )
@@ -283,4 +289,32 @@ Buffer PlatformUtils::ReadBytes( const Path& inFilePath )
     stream.close();
 
     return buffer;
+}
+
+
+uint64_t PlatformUtils::GetProcessMemoryBytes()
+{
+#if USING( ME_PLATFORM_WIN64 )
+    PROCESS_MEMORY_COUNTERS counters{};
+    counters.cb = sizeof( counters );
+    // The kernel32 export (Windows 7+), so nothing extra links in.
+    return K32GetProcessMemoryInfo( GetCurrentProcess(), &counters, sizeof( counters ) ) ? static_cast<uint64_t>( counters.WorkingSetSize ) : 0;
+#elif USING( ME_PLATFORM_MACOS )
+    mach_task_basic_info_data_t info{};
+    mach_msg_type_number_t count = MACH_TASK_BASIC_INFO_COUNT;
+    return task_info( mach_task_self(), MACH_TASK_BASIC_INFO, reinterpret_cast<task_info_t>( &info ), &count ) == KERN_SUCCESS ? static_cast<uint64_t>( info.resident_size ) : 0;
+#elif USING( ME_PLATFORM_LINUX )
+    // statm: total and resident sizes in pages.
+    FILE* statm = std::fopen( "/proc/self/statm", "r" );
+    if( !statm )
+    {
+        return 0;
+    }
+    unsigned long long pages = 0, resident = 0;
+    const bool read = std::fscanf( statm, "%llu %llu", &pages, &resident ) == 2;
+    std::fclose( statm );
+    return read ? static_cast<uint64_t>( resident ) * static_cast<uint64_t>( sysconf( _SC_PAGESIZE ) ) : 0;
+#else
+    return 0;
+#endif
 }

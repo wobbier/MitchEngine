@@ -7,7 +7,7 @@
 
 // Project-wide settings stored in Assets/Config/ProjectSettings.json (timing lives in Engine.cfg):
 // the names of the 32 entity layers, which layers collide with which, gravity, the audio bus
-// volumes and the navigation areas.
+// volumes, the navigation areas and the hardware profile the project budgets for.
 class ProjectSettings
 {
 public:
@@ -60,6 +60,10 @@ public:
     std::vector<NavAgentType> NavAgentTypes;
     // Type N (1-based), or null.
     const NavAgentType* GetNavAgentType( int InType ) const;
+    // The hardware profile the project is held to ("" = none) and whether its feature caps apply
+    // (see HardwareBudget). --hardware-profile / --enforce-profile override them for a run.
+    std::string HardwareProfileName;
+    bool EnforceHardwareProfile = false;
 
 private:
     ProjectSettings();

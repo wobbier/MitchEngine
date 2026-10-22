@@ -7,6 +7,7 @@
 #include "Math/Bounds.h"
 #include "Graphics/MeshLod.h"
 #include "Graphics/MeshIndexData.h"
+#include <atomic>
 #include <memory>
 #include <bgfx/bgfx.h>
 #include <glm/mat4x4.hpp>
@@ -101,10 +102,19 @@ namespace Moonlight
 //void Draw(SharedPtr<Material> mat, ID3D11DeviceContext* context, bool depthOnly = false);
         std::string Name;
 
+        // Vertex and index buffer bytes of every live mesh and shared topology (hardware budgets).
+        // Wireframe views are inspection-only and not counted.
+        static int64_t GetTotalGpuBytes() { return s_totalGpuBytes.load( std::memory_order_relaxed ); }
+        static void TrackGpuBytes( int64_t InBytes ) { s_totalGpuBytes.fetch_add( InBytes, std::memory_order_relaxed ); }
+
     protected:
         void InitMesh();
 
     private:
+        void AddGpuBytes( int64_t InBytes ) { m_gpuBytes += InBytes; TrackGpuBytes( InBytes ); }
+
+        static inline std::atomic<int64_t> s_totalGpuBytes{ 0 };
+        int64_t m_gpuBytes = 0;
         std::shared_ptr<MeshIndexData> m_topology;
         uint32_t m_vertexCount = 0;
         uint32_t m_indexCount = 0;

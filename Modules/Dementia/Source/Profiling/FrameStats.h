@@ -40,6 +40,19 @@ public:
         uint32_t Instances = 0;
         int64_t GpuMemoryUsed = 0;
         int64_t GpuMemoryMax = 0;
+        // bgfx's estimates of texture and render-target memory (every backend reports these).
+        int64_t TextureMemoryUsed = 0;
+        int64_t RenderTargetMemoryUsed = 0;
+        // Vertex and index buffers of loaded meshes.
+        int64_t MeshMemoryUsed = 0;
+        // Mesh draws and triangles for the game's cameras and their shadows. The editor's own views
+        // are left out unless nothing else rendered this frame (then the scene view counts).
+        uint32_t SceneDrawCalls = 0;
+        uint64_t SceneTriangles = 0;
+        // Output size of the main game camera (else the scene view), and this frame's lights.
+        uint32_t SceneWidth = 0;
+        uint32_t SceneHeight = 0;
+        uint32_t Lights = 0;
         std::vector<GpuView> Views;
     };
 

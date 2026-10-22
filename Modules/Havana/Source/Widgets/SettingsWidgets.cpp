@@ -1,6 +1,7 @@
 #include "SettingsWidgets.h"
 #include "Editor/EditorActions.h"
 #include "Engine/Engine.h"
+#include "Engine/HardwareBudget.h"
 #include "Engine/Input.h"
 #include "Engine/ProjectSettings.h"
 #include "Cores/AudioCore.h"
@@ -15,6 +16,9 @@
 #include <Utils/HavanaUtils.h>
 #include <ImGui/ImGuiRenderer.h>
 #include <Renderer.h>
+#include <Graphics/Texture.h>
+#include <Resource/ResourceCache.h>
+#include <File.h>
 #include <Path.h>
 #include <cmath>
 #include <algorithm>
@@ -104,6 +108,235 @@ namespace
 			}
 		}
 		return 0;
+	}
+
+
+	ImVec4 BudgetColor(HardwareBudget::Status status)
+	{
+		switch (status)
+		{
+		case HardwareBudget::Status::Over:
+			return ImGuiTheme::ErrorText();
+		case HardwareBudget::Status::Near:
+			return ImGuiTheme::WarningText();
+		default:
+			return ImGui::GetStyleColorVec4(ImGuiCol_Text);
+		}
+	}
+
+
+	// Project Settings > Hardware: the target profile, its budgets live, and which of the target's
+	// missing features the project uses.
+	void DrawHardwareTab()
+	{
+		ProjectSettings& settings = ProjectSettings::Get();
+		HardwareBudget& budget = HardwareBudget::Get();
+		const HardwareProfile* profile = budget.GetActiveProfile();
+
+		HavanaUtils::Label("Target hardware");
+		const std::string& active = budget.GetActiveName();
+		const std::string preview = active.empty() ? "None" : (profile ? active : active + " (not defined)");
+		if (ImGui::BeginCombo("##HardwareProfile", preview.c_str()))
+		{
+			std::string chosen = active;
+			bool picked = false;
+			if (ImGui::Selectable("None", active.empty()))
+			{
+				chosen.clear();
+				picked = true;
+			}
+			for (const HardwareProfile& candidate : budget.GetProfiles())
+			{
+				if (ImGui::Selectable(candidate.Name.c_str(), candidate.Name == active))
+				{
+					chosen = candidate.Name;
+					picked = true;
+				}
+				if (!candidate.Description.empty())
+				{
+					ImGui::SetItemTooltip("%s", candidate.Description.c_str());
+				}
+			}
+			ImGui::EndCombo();
+			if (picked && chosen != active)
+			{
+				budget.SetActiveProfile(chosen);
+				settings.HardwareProfileName = chosen;
+				settings.Save();
+				profile = budget.GetActiveProfile();
+			}
+		}
+		bool enforced = budget.IsEnforced();
+		HavanaUtils::Label("Enforce feature caps");
+		if (ImGui::Checkbox("##EnforceProfile", &enforced))
+		{
+			budget.SetEnforced(enforced);
+			settings.EnforceHardwareProfile = enforced;
+			settings.Save();
+		}
+		ImGui::SetItemTooltip("Turn off the effects the target lacks and cap texture and shadow sizes, so the game shows the target's look. Off, the caps are only reported. Textures reload when the size cap changes.");
+		if (!profile)
+		{
+			ImGui::TextWrapped(active.empty()
+				? "Pick a target to hold the project to its frame time, memory and draw budgets."
+				: "This profile isn't defined in either profiles file.");
+		}
+		else
+		{
+			if (!profile->Description.empty())
+			{
+				ImGui::TextWrapped("%s", profile->Description.c_str());
+			}
+			if (!profile->ShaderModel.empty())
+			{
+				ImGui::TextDisabled("%s", profile->ShaderModel.c_str());
+			}
+
+			ImGui::SeparatorText("Budgets");
+			const auto& lines = budget.GetLines();
+			if (lines.empty())
+			{
+				ImGui::TextDisabled("This profile sets no budgets.");
+			}
+			else if (ImGui::BeginTable("##Budgets", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp))
+			{
+				ImGui::TableSetupColumn("Budget");
+				ImGui::TableSetupColumn("Used");
+				ImGui::TableSetupColumn("Peak");
+				ImGui::TableSetupColumn("Limit");
+				ImGui::TableHeadersRow();
+				for (const HardwareBudget::Line& line : lines)
+				{
+					ImGui::TableNextRow();
+					ImGui::TableNextColumn();
+					ImGui::TextUnformatted(line.Name);
+					ImGui::SetItemTooltip("%s", line.Tooltip);
+					ImGui::TableNextColumn();
+					const float fraction = line.Limit > 0.0 ? static_cast<float>(line.Used / line.Limit) : 0.f;
+					ImGui::PushStyleColor(ImGuiCol_PlotHistogram, line.State == HardwareBudget::Status::Ok ? ImGuiTheme::SuccessText() : BudgetColor(line.State));
+					ImGui::ProgressBar(std::clamp(fraction, 0.f, 1.f), ImVec2(-FLT_MIN, 0.f), HardwareBudget::FormatUsed(line).c_str());
+					ImGui::PopStyleColor();
+					ImGui::SetItemTooltip("%.0f%% of the budget", fraction * 100.f);
+					ImGui::TableNextColumn();
+					ImGui::AlignTextToFramePadding();
+					ImGui::TextColored(BudgetColor(line.Peak > line.Limit ? HardwareBudget::Status::Over : HardwareBudget::Status::Ok), "%s", HardwareBudget::FormatValue(line, line.Peak).c_str());
+					ImGui::TableNextColumn();
+					ImGui::AlignTextToFramePadding();
+					ImGui::TextUnformatted(HardwareBudget::FormatLimit(line).c_str());
+				}
+				ImGui::EndTable();
+			}
+			if (ImGui::Button("Reset Peaks"))
+			{
+				budget.ResetPeaks();
+			}
+			ImGui::SameLine();
+			ImGui::TextDisabled("Frame times are measured on this machine; in the editor they include the editor.");
+
+			// Each feature the target lacks, and whether the project uses it (live cameras' post
+			// settings, the renderer's settings, loaded textures).
+			ImGui::SeparatorText("Feature Caps");
+			BGFXRenderer& renderer = GetEngine().GetRenderer();
+			bool ao = false, bloom = false, dof = false, volumetric = false, taa = false;
+			for (const Moonlight::CameraData& camera : renderer.GetCameraCache().Commands)
+			{
+				if (!camera.Buffer || !camera.ShouldRender)
+				{
+					continue;
+				}
+				ao |= camera.Post.AmbientOcclusion;
+				bloom |= camera.Post.Bloom;
+				dof |= camera.Post.DepthOfField;
+				volumetric |= camera.Post.Fog && camera.Post.VolumetricFog;
+				taa |= camera.Post.TemporalAA;
+			}
+			const HardwareProfile::FeatureCaps& caps = profile->Caps;
+			const int shadowResolution = std::max({ int(renderer.Shadows.CascadeResolution), int(renderer.Shadows.SpotResolution), int(renderer.Shadows.PointResolution) });
+			int largeTextures = 0;
+			if (caps.MaxTextureSize > 0 && !enforced)
+			{
+				for (const auto& entry : ResourceCache::GetInstance().GetResouceStack())
+				{
+					const Moonlight::Texture* texture = dynamic_cast<const Moonlight::Texture*>(entry.second.get());
+					largeTextures += texture && bgfx::isValid(texture->TexHandle) && std::max(texture->mWidth, texture->mHeight) > caps.MaxTextureSize ? 1 : 0;
+				}
+			}
+			if (ImGui::BeginTable("##Caps", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp))
+			{
+				ImGui::TableSetupColumn("Feature");
+				ImGui::TableSetupColumn("Target");
+				ImGui::TableSetupColumn("Project");
+				ImGui::TableHeadersRow();
+				// exceeds: the project uses more than the target has.
+				const auto row = [&](const char* name, const std::string& target, bool exceeds, const std::string& usage) {
+					ImGui::TableNextRow();
+					ImGui::TableNextColumn();
+					ImGui::TextUnformatted(name);
+					ImGui::TableNextColumn();
+					ImGui::TextUnformatted(target.c_str());
+					ImGui::TableNextColumn();
+					if (!exceeds)
+					{
+						ImGui::TextDisabled("%s", usage.c_str());
+					}
+					else if (enforced)
+					{
+						ImGui::TextColored(ImGuiTheme::InfoText(), "%s (capped)", usage.c_str());
+					}
+					else
+					{
+						ImGui::TextColored(ImGuiTheme::WarningText(), "%s (over)", usage.c_str());
+					}
+				};
+				const auto feature = [&](const char* name, bool allowed, bool used) {
+					row(name, allowed ? "Yes" : "No", used && !allowed, used ? "In use" : "Not used");
+				};
+				const auto size = [](int texels) { return texels > 0 ? std::to_string(texels) : std::string("Any"); };
+				row("Texture size", size(caps.MaxTextureSize), largeTextures > 0, enforced ? std::string("Capped at load") : std::to_string(largeTextures) + " larger");
+				feature("Shadows", caps.Shadows, renderer.Shadows.Enabled);
+				row("Shadow resolution", size(caps.MaxShadowResolution), caps.MaxShadowResolution > 0 && shadowResolution > caps.MaxShadowResolution, std::to_string(shadowResolution));
+				feature("Ambient occlusion", caps.AmbientOcclusion, ao);
+				feature("Bloom", caps.Bloom, bloom);
+				feature("Depth of field", caps.DepthOfField, dof);
+				feature("Volumetric fog", caps.VolumetricFog, volumetric);
+				feature("Temporal AA", caps.TemporalAA, taa);
+				feature("Environment lighting", caps.EnvironmentLighting, renderer.EnableEnvironmentLighting);
+				feature("Instancing", caps.Instancing, true);
+				ImGui::EndTable();
+			}
+		}
+
+		ImGui::SeparatorText("Profiles");
+		ImGui::TextWrapped("Built in: %s. The project's %s adds profiles, replaces one with the same name, or starts one from another with \"Extends\".",
+			HardwareBudget::kEngineProfilesPath, HardwareBudget::kProjectProfilesPath);
+		if (ImGui::Button("Reload Profiles"))
+		{
+			budget.ReloadProfiles();
+		}
+		ImGui::SameLine();
+		const Path projectFile(HardwareBudget::kProjectProfilesPath, true);
+		if (ImGui::Button(projectFile.Exists ? "Edit Project Profiles" : "Create Project Profiles"))
+		{
+			if (!projectFile.Exists)
+			{
+				// A project profile to tune, starting from the current target.
+				json entry = { { "Name", profile ? profile->Name + " (Project)" : std::string("Project Target") }, { "Description", "This project's budgets." } };
+				if (profile)
+				{
+					entry["Extends"] = profile->Name;
+				}
+				else
+				{
+					entry["TargetFps"] = 60;
+				}
+				json root;
+				root["Profiles"] = json::array({ entry });
+				File file{ projectFile };
+				file.Write(root.dump(4));
+				budget.ReloadProfiles();
+			}
+			PlatformUtils::OpenInCodeEditor(projectFile.FullPath, 1);
+		}
 	}
 }
 
@@ -548,6 +781,12 @@ void ProjectSettingsWidget::Render()
 			config.Root["MaxFrameRate"] = engine.GetMaxFrameRate();
 			config.Save();
 		}
+		ImGui::EndTabItem();
+	}
+
+	if (ImGui::BeginTabItem("Hardware"))
+	{
+		DrawHardwareTab();
 		ImGui::EndTabItem();
 	}
 

@@ -65,6 +65,12 @@ namespace Moonlight
 
         void UpdateBuffer( FrameBuffer* NewBuffer );
 
+        // Longest side a loaded texture may upload at (0 = no cap; a hardware profile sets it).
+        // Bigger mipped textures upload from the first mip that fits and report that size;
+        // textures already loaded keep theirs until reloaded. Main thread.
+        static void SetMaxUploadSize( uint32_t InTexels ) { s_maxUploadSize = InTexels; }
+        static uint32_t GetMaxUploadSize() { return s_maxUploadSize; }
+
         template<typename T> static constexpr T NumMipmapLevels( T width, T height )
         {
             T levels = 1;
@@ -87,6 +93,7 @@ namespace Moonlight
         uint8_t m_mips = 0;
 
     private:
+        static inline uint32_t s_maxUploadSize = 0;
         WrapMode m_wrapMode = WrapMode::Wrap;
         // Parsed by LoadAsync, uploaded (and handed to bgfx) by FinishAsyncLoad.
         bimg::ImageContainer* m_pendingImage = nullptr;

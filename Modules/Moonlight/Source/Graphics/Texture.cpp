@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -158,9 +159,24 @@ namespace Moonlight
             m_flags |= BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
         else if( m_wrapMode == WrapMode::Mirror )
             m_flags |= BGFX_SAMPLER_U_MIRROR | BGFX_SAMPLER_V_MIRROR;
-        mWidth = imageContainer->m_width;
-        mHeight = imageContainer->m_height;
-        m_mips = imageContainer->m_numMips;
+        // A size cap starts the upload at the first mip that fits (single 2D images with mips).
+        uint8_t skip = 0;
+        if( s_maxUploadSize > 0 && imageContainer->m_numLayers == 1 && !imageContainer->m_cubeMap && imageContainer->m_depth <= 1 )
+        {
+            while( skip + 1 < imageContainer->m_numMips && std::max( imageContainer->m_width >> skip, imageContainer->m_height >> skip ) > s_maxUploadSize )
+            {
+                ++skip;
+            }
+        }
+        bimg::ImageMip firstMip{};
+        if( skip > 0 && !bimg::imageGetRawData( *imageContainer, 0, skip, imageContainer->m_data, imageContainer->m_size, firstMip ) )
+        {
+            skip = 0;
+        }
+        // The mip's own size (ImageMip reports block-aligned sizes).
+        mWidth = static_cast<int>( std::max( imageContainer->m_width >> skip, 1u ) );
+        mHeight = static_cast<int>( std::max( imageContainer->m_height >> skip, 1u ) );
+        m_mips = static_cast<uint8_t>( imageContainer->m_numMips - skip );
         if( !IsGpuAlive() )
         {
             bimg::imageFree( imageContainer );
@@ -177,9 +193,12 @@ namespace Moonlight
         }
         else if( bgfx::isTextureValid( 0, false, imageContainer->m_numLayers, bgfx::TextureFormat::Enum( imageContainer->m_format ), m_flags ) )
         {
-            // bgfx owns the image from here and frees it via ImageReleaseCb once uploaded.
-            const bgfx::Memory* mem = bgfx::makeRef( imageContainer->m_data, imageContainer->m_size, ImageReleaseCb, imageContainer );
-            TexHandle = bgfx::createTexture2D( imageContainer->m_width, imageContainer->m_height, 1 < imageContainer->m_numMips, imageContainer->m_numLayers, bgfx::TextureFormat::Enum( imageContainer->m_format ), m_flags, mem );
+            // bgfx owns the image from here and frees it via ImageReleaseCb once uploaded. Skipped
+            // mips come first in the data, so the upload is the tail from the first kept mip.
+            const uint8_t* data = skip > 0 ? firstMip.m_data : static_cast<const uint8_t*>( imageContainer->m_data );
+            const uint32_t size = imageContainer->m_size - static_cast<uint32_t>( data - static_cast<const uint8_t*>( imageContainer->m_data ) );
+            const bgfx::Memory* mem = bgfx::makeRef( data, size, ImageReleaseCb, imageContainer );
+            TexHandle = bgfx::createTexture2D( static_cast<uint16_t>( mWidth ), static_cast<uint16_t>( mHeight ), 1 < m_mips, imageContainer->m_numLayers, bgfx::TextureFormat::Enum( imageContainer->m_format ), m_flags, mem );
             if( bgfx::isValid( TexHandle ) )
             {
                 bgfx::setName( TexHandle, FilePath.GetLocalPath().data() );

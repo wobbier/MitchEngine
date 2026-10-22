@@ -328,8 +328,8 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
             m_decalProgram = Moonlight::ShaderCommand( "Assets/Shaders/Decal" );
         }
         // The lighting shader always declares the shadow samplers, so the atlases always exist.
-        EnsureShadowAtlas( m_sunShadowAtlas, Shadows.CascadeResolution, "Sun Shadow Atlas" );
-        EnsureLocalShadowAtlas( Shadows.SpotResolution, Shadows.PointResolution );
+        EnsureShadowAtlas( m_sunShadowAtlas, CapShadowResolution( Shadows.CascadeResolution ), "Sun Shadow Atlas" );
+        EnsureLocalShadowAtlas( CapShadowResolution( Shadows.SpotResolution ), CapShadowResolution( Shadows.PointResolution ) );
     }
     s_time = bgfx::createUniform( "u_time", bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4 );
     TransparentIndicies.reserve( kMeshTransparencyTempSize );
@@ -679,6 +679,8 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
 
     m_views.Reset();
     m_viewTriangles.assign( bgfx::getCaps()->limits.maxViews, 0 );
+    m_gameCounts = m_editorCounts = m_frameCounts = SceneCounts();
+    m_counting = &m_frameCounts;
     ++m_frameIndex;
     DebugDraw::CollectFrame( m_debugLines );
     PrepareFrameLighting();
@@ -760,6 +762,7 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
             inFrameData.m_currentFrame = m_currentFrame;
         }
     }
+    m_counting = nullptr;
     GatherFrameStats();
 }
 
@@ -780,6 +783,16 @@ void BGFXRenderer::GatherFrameStats()
     out.Triangles = stats->numPrims[bgfx::Topology::TriList] + stats->numPrims[bgfx::Topology::TriStrip];
     out.GpuMemoryUsed = stats->gpuMemoryUsed;
     out.GpuMemoryMax = stats->gpuMemoryMax;
+    out.TextureMemoryUsed = stats->textureMemoryUsed;
+    out.RenderTargetMemoryUsed = stats->rtMemoryUsed;
+    out.MeshMemoryUsed = Moonlight::MeshData::GetTotalGpuBytes();
+    // The game's cameras when any rendered, else the editor's views; local shadows serve both.
+    const SceneCounts& scene = m_gameCounts.Rendered ? m_gameCounts : m_editorCounts;
+    out.SceneDrawCalls = scene.Draws + m_frameCounts.Draws;
+    out.SceneTriangles = scene.Triangles + m_frameCounts.Triangles;
+    out.SceneWidth = scene.Width;
+    out.SceneHeight = scene.Height;
+    out.Lights = static_cast<uint32_t>( m_lights.size() );
     out.Views.clear();
     for( uint16_t i = 0; i < stats->numViews; ++i )
     {
@@ -824,6 +837,13 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     // Camera targets match the output size exactly: post passes process whole textures.
     const uint16_t width = static_cast<uint16_t>( std::max( 1.f, camera.OutputSize.x ) );
     const uint16_t height = static_cast<uint16_t>( std::max( 1.f, camera.OutputSize.y ) );
+    m_counting = camera.IsEditorView ? &m_editorCounts : &m_gameCounts;
+    if( !m_counting->Rendered || camera.IsMain )
+    {
+        m_counting->Width = width;
+        m_counting->Height = height;
+    }
+    m_counting->Rendered = true;
     if( camera.Buffer->Width != width || camera.Buffer->Height != height || !bgfx::isValid( camera.Buffer->SceneBuffer ) )
     {
         camera.Buffer->Width = width;
@@ -864,6 +884,12 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     }
     if( lit ) camera.Post.ExposureCompensation += options.Exposure;
     camera.Post.Fog = camera.Post.Fog && options.Fog && !overdraw;
+    // Effects the target hardware lacks (restored with the rest of the settings afterwards).
+    camera.Post.AmbientOcclusion = camera.Post.AmbientOcclusion && FeatureCaps.AmbientOcclusion;
+    camera.Post.Bloom = camera.Post.Bloom && FeatureCaps.Bloom;
+    camera.Post.DepthOfField = camera.Post.DepthOfField && FeatureCaps.DepthOfField;
+    camera.Post.VolumetricFog = camera.Post.VolumetricFog && FeatureCaps.VolumetricFog;
+    camera.Post.TemporalAA = camera.Post.TemporalAA && FeatureCaps.TemporalAA;
     {
         const glm::mat4 viewProjection = camera.ProjectionMatrix.GetInternalMatrix() * camera.View.GetInternalMatrix();
         std::copy( &viewProjection[0][0], &viewProjection[0][0] + 16, targets.ViewProjection );
@@ -893,14 +919,14 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     PrepareCameraLighting( camera );
 
     // Ambient: the camera's environment probe (captured and filtered on demand).
-    const Moonlight::EnvironmentLighting::Probe* probe = lit && EnableEnvironmentLighting ? m_environment->Prepare( m_views, camera, m_dynamicSky.get(), m_frameIndex ) : nullptr;
+    const Moonlight::EnvironmentLighting::Probe* probe = lit && EnableEnvironmentLighting && FeatureCaps.EnvironmentLighting ? m_environment->Prepare( m_views, camera, m_dynamicSky.get(), m_frameIndex ) : nullptr;
     m_lighting.EnvSpecular = probe ? probe->Specular : m_environment->GetFallbackCube();
     m_lighting.EnvIrradiance = probe ? probe->Irradiance : m_environment->GetFallbackCube();
     m_lighting.EnvParams[0] = EnvironmentIntensity;
     m_lighting.EnvParams[1] = static_cast<float>( Moonlight::EnvironmentLighting::kSpecularMips - 1 );
     m_lighting.EnvParams[2] = probe ? 1.f : 0.f;
 
-    if( lit && Shadows.Enabled && m_shadowsSupported )
+    if( lit && AreShadowsActive() )
     {
         RenderSunShadows( camera );
     }
@@ -1268,11 +1294,11 @@ void BGFXRenderer::SubmitDebugLines( const Moonlight::CameraData& camera, bgfx::
 void BGFXRenderer::PrepareFrameLighting()
 {
     OPTICK_EVENT( "Renderer::PrepareFrameLighting" );
-    const bool shadowsOn = Shadows.Enabled && m_shadowsSupported;
+    const bool shadowsOn = AreShadowsActive();
     if( shadowsOn )
     {
-        EnsureShadowAtlas( m_sunShadowAtlas, Shadows.CascadeResolution, "Sun Shadow Atlas" );
-        EnsureLocalShadowAtlas( Shadows.SpotResolution, Shadows.PointResolution );
+        EnsureShadowAtlas( m_sunShadowAtlas, CapShadowResolution( Shadows.CascadeResolution ), "Sun Shadow Atlas" );
+        EnsureLocalShadowAtlas( CapShadowResolution( Shadows.SpotResolution ), CapShadowResolution( Shadows.PointResolution ) );
     }
 
     // Directionals are resolved per camera, since each camera can have a different sky.
@@ -1411,7 +1437,7 @@ void BGFXRenderer::PrepareCameraLighting( Moonlight::CameraData& camera )
     m_lighting.EclipseParams[1] = 0.f;
     if( useSky ) m_dynamicSky->GetEclipse().Uniforms( m_lighting.EclipseSun, m_lighting.EclipseMoon, m_lighting.EclipseParams );
     m_hasSunShadow = false;
-    const bool shadowsOn = Shadows.Enabled && m_shadowsSupported;
+    const bool shadowsOn = AreShadowsActive();
     for( size_t i = 0; i < directionals.Count; ++i )
     {
         const Moonlight::LightCommand& light = directionals.Lights[i];
@@ -1770,7 +1796,7 @@ void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, uint32_t InViewIndex 
         uint32_t offset = 0;
         while( offset < count )
         {
-            const uint32_t available = bgfx::getAvailInstanceDataBuffer( count - offset, kInstanceStride );
+            const uint32_t available = std::min( bgfx::getAvailInstanceDataBuffer( count - offset, kInstanceStride ), FeatureCaps.Instancing ? count - offset : 1u );
             if( available == 0 )
             {
                 break;
@@ -2306,10 +2332,22 @@ void BGFXRenderer::RenderOverdrawMesh( bgfx::ViewId id, const Moonlight::MeshCom
 
 void BGFXRenderer::CountTriangles( bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint32_t instances )
 {
-    if( id < m_viewTriangles.size() && mesh.SingleMesh )
+    const uint64_t triangles = mesh.SingleMesh ? uint64_t( mesh.SingleMesh->GetIndexCount( mesh.Lod ) / 3 ) * instances : 0;
+    if( id < m_viewTriangles.size() )
     {
-        m_viewTriangles[id] += uint64_t( mesh.SingleMesh->GetIndexCount( mesh.Lod ) / 3 ) * instances;
+        m_viewTriangles[id] += triangles;
     }
+    if( m_counting )
+    {
+        ++m_counting->Draws;
+        m_counting->Triangles += triangles;
+    }
+}
+
+
+uint16_t BGFXRenderer::CapShadowResolution( uint16_t InResolution ) const
+{
+    return FeatureCaps.MaxShadowResolution > 0 ? std::min( InResolution, FeatureCaps.MaxShadowResolution ) : InResolution;
 }
 
 
@@ -2326,7 +2364,8 @@ void BGFXRenderer::RenderMeshInstanced( bgfx::ViewId id, const Moonlight::MeshCo
     uint32_t offset = 0;
     while( remaining > 0 )
     {
-        const uint32_t available = bgfx::getAvailInstanceDataBuffer( remaining, kInstanceStride );
+        // Without instancing every mesh is its own draw.
+        const uint32_t available = std::min( bgfx::getAvailInstanceDataBuffer( remaining, kInstanceStride ), FeatureCaps.Instancing ? remaining : 1u );
         if( available == 0 )
         {
             break;

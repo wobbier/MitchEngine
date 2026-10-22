@@ -144,6 +144,23 @@ public:
     bool EnableEnvironmentLighting = true;
     float EnvironmentIntensity = 1.f;
 
+    // What the target hardware can do (an enforced hardware profile sets these). They mask the
+    // settings above and every camera's post-processing as frames render, without changing them,
+    // so lifting a cap brings the authored look back.
+    struct FeatureCapSettings
+    {
+        bool Shadows = true;
+        uint16_t MaxShadowResolution = 0;    // texels per cascade, spot light or point light face (0 = no cap)
+        bool EnvironmentLighting = true;
+        bool AmbientOcclusion = true;
+        bool Bloom = true;
+        bool DepthOfField = true;
+        bool VolumetricFog = true;
+        bool TemporalAA = true;
+        bool Instancing = true;              // off: every instanced mesh is its own draw call
+    };
+    FeatureCapSettings FeatureCaps;
+
     // Captures the backbuffer at the end of the current frame and writes it as a PNG.
     void RequestScreenshot( const std::string& filePath );
     uint32_t GetScreenshotCount() const;
@@ -189,6 +206,25 @@ private:
     glm::mat4 ShadowAtlasMatrix( uint32_t tile, const glm::mat4& viewProjection ) const;
     // World -> atlas uv / depth for a pixel rectangle of an atlas (top-left origin).
     glm::mat4 AtlasRectMatrix( const ShadowAtlas& atlas, uint16_t x, uint16_t y, uint16_t size, const glm::mat4& viewProjection ) const;
+
+    // Shadow settings through the feature caps.
+    bool AreShadowsActive() const { return Shadows.Enabled && FeatureCaps.Shadows && m_shadowsSupported; }
+    uint16_t CapShadowResolution( uint16_t InResolution ) const;
+
+    // Mesh draws and triangles by who they were for: the game's cameras, the editor's views, and
+    // the frame's local shadow passes (shared by every camera). The frame stats report them.
+    struct SceneCounts
+    {
+        uint32_t Draws = 0;
+        uint64_t Triangles = 0;
+        uint32_t Width = 0;
+        uint32_t Height = 0;
+        bool Rendered = false;
+    };
+    SceneCounts m_gameCounts;
+    SceneCounts m_editorCounts;
+    SceneCounts m_frameCounts;
+    SceneCounts* m_counting = nullptr;
 
     ShadowAtlas m_sunShadowAtlas;
     ShadowAtlas m_spotShadowAtlas;
