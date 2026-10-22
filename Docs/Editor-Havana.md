@@ -158,7 +158,7 @@ A searchable project-wide table is the default: type icon, name, local path and 
     --editor-exec Assets/Scenes/Tests/EditorFlows.edscript --editor-exec-result .tmp/result.json
 ```
 
-The script runs one command per frame after a short warm-up and logs `[editor-exec] PASSED` or `FAILED (n)` (plus an optional JSON report), then quits. Unattended runs never write `Engine.cfg`, `.tmp/Havana.cfg` or the ImGui layout. Commands with two arguments use `a | b` when a name contains spaces.
+The script runs one command per frame after a short warm-up and logs `[editor-exec] PASSED` or `FAILED (n)` (plus an optional JSON report), then quits. With `--scene` the editor opens only that scene, not the last one opened (`Engine.cfg`'s `CurrentScene`), so a flow doesn't depend on what was last opened. Unattended runs never write `Engine.cfg`, `.tmp/Havana.cfg` or the ImGui layout. Commands with two arguments use `a | b` when a name contains spaces.
 
 | Command | Effect |
 |------|------|
