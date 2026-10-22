@@ -27,6 +27,7 @@ class PreferencesWidget;
 class ProjectSettingsWidget;
 class ShaderGraphWidget;
 class TerrainWidget;
+class SequenceWidget;
 
 #if USING( ME_EDITOR )
 
@@ -92,6 +93,7 @@ private:
 	// Open shader graph documents (not a single window, so not in RegisteredWidgets).
 	SharedPtr<ShaderGraphWidget> ShaderGraphs;
 	SharedPtr<TerrainWidget> TerrainPanel;
+    SharedPtr<SequenceWidget> Sequencer;
 
     std::vector<SharedPtr<HavanaWidget>> RegisteredWidgets;
     std::vector<SharedPtr<HavanaWidget>> CustomRegisteredWidgets;

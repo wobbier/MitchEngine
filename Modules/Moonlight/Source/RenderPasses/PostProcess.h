@@ -82,7 +82,9 @@ namespace Moonlight
         bgfx::UniformHandle s_dof1 = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_dof2 = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_dof3 = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_dof4 = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_dofLens = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_dofSplit = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_dofProjection = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_dofScreen = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_dofPass = BGFX_INVALID_HANDLE;

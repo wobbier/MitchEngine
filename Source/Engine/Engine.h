@@ -95,6 +95,7 @@ public:
     // Per-entity C++ collision callbacks (Physics/CollisionRouter.h).
     class CollisionRouter* Collisions = nullptr;
     class AnimationCore* Animation = nullptr;
+    class SequenceCore* Sequences = nullptr;
     class NavigationCore* Navigation = nullptr;
     class AudioCore* AudioThread = nullptr;
     // C# scripts (null without scripting).

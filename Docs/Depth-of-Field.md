@@ -13,6 +13,20 @@ effects; its own position and FOV still determine its focus and blur.
 | Sensor Height (mm) | Filmback height; focal length is inferred from the camera's vertical FOV |
 | Max Blur Radius (1080p px) | Pixel radius at 1080p; scales with height, bounded to 64 actual pixels |
 | Visualize Circle of Confusion | Red in front of focus, green behind, black at focus |
+| Split Diopter | Use the primary focus distance on the left and an independent far focus distance on the right |
+| Right Focus Distance (m) | Camera-forward focus depth for the right side; may be nearer or farther than the primary focus |
+| Split Position / Split Feather | Normalized horizontal boundary and full transition width; zero feather makes a hard split |
+
+Split diopter mode runs the existing layer-aware blur independently for both lenses, then blends
+the completed HDR images across the boundary. Blending signed CoCs before gathering would create
+false focus where opposite signs cancel, and break CoC-based foreground ordering across the split.
+The two chains share scratch targets in view order, with one extra full-resolution output allocated
+only when split mode is first used. Split mode costs fourteen draws instead of seven; ordinary DoF
+keeps its single chain. The extra target is released on resize/recreation/destruction.
+Positions 0 and 1 select the entire right and left image respectively, including with feather enabled.
+It is an image-space approximation; objects crossing the boundary show a focus transition. In
+MitchGame, `Assets/Scenes/Showcase/SplitDiopter.lvl` stages an Office Pack employee in a doorway
+on the left and his boss behind a desk on the right. See its companion `.md` for comparison settings.
 
 A wide field of view and a distant subject naturally produce little blur. For an obvious test,
 use the supplied 20-degree camera at f/1 and focus at 8 m. Narrowing the FOV changes both framing
@@ -56,8 +70,15 @@ Seven draws run after the HDR shader graphs and temporal AA, before bloom and to
 7. Composite near over far and the original HDR image, using full-resolution CoC to retain focused
    detail. The debug setting displays CoC instead.
 
-Both gathers use a deterministic 64-sample Vogel disk. There is no bokeh history, so the sampling
-pattern stays fixed even with TAA disabled. Each camera owns its targets. No DoF target allocation
+Both gathers integrate every half-resolution source texel in the circular footprint. This avoids
+the repeated outlines and point copies produced by a sparse, fixed 64-tap pattern at large radii.
+Each tap retains its own signed CoC and colour; bilinearly filtering them together would mix sharp
+HDR background into foreground layers. Foreground coverage uses the actual texel area divided by
+the circular source-disk area, including odd resolutions. The 64-pixel radius cap bounds the search
+to 33 half-resolution texels on each side; circular rejection skips taps outside the footprint.
+Large radii cost more texture reads than small radii. Hidden-background reconstruction still uses
+two deterministic 64-tap Vogel traversals for its robust colour estimate.
+There is no bokeh history, so the result stays stable even with TAA disabled. Each camera owns its targets. No DoF target allocation
 or draw occurs when disabled, at zero maximum radius, or for an orthographic camera. Targets are
 released with the other camera resources on resize/recreation/destruction.
 
@@ -75,6 +96,7 @@ From the game root, inside its development environment:
 ./.build/Game_linux_Debug/MitchEngine_Tests -tc='Depth of field:*'
 python3 Engine/Tools/RunEditorFlows.py --editor .build/Editor_Debug/Havana --wrapper Engine/Tools/Headless.sh --only DepthOfField
 python3 Tools/TestDepthOfField.py
+python3 Tools/TestDepthOfFieldBlur.py
 ```
 
 The unit tests check the physical focus/radius relationships, bounded lens parameters, defaults and
@@ -87,6 +109,12 @@ Far-focus HDR regressions compare otherwise identical scenes with point emission
 960×540 and 1600×900, checking for displaced highlights on the red bars while preserving the
 brightness of visible focused lights. An extended bright backdrop verifies that background filling
 still works behind the bars.
+
+`TestDepthOfFieldBlur.py` additionally measures a tiny HDR source against a coplanar black surface.
+Both foreground and background blur must produce a filled circular disk with a uniform interior,
+the expected radial energy profile, and no light outside the aperture footprint. It exercises odd
+and even targets and radii from 16 to the maximum 64 pixels. Narrow output windows keep the
+maximum-radius fixture inexpensive. Artifacts land in `.tmp/DepthOfFieldBlur/`.
 
 ## Comparison and limits
 
@@ -108,8 +136,8 @@ Current limits:
   visible colour; wide foreground objects can still show incomplete or stretched background.
 - Transparencies, particles and volumetrics use the opaque depth behind them, so their independent
   focus distances cannot be represented correctly.
-- Half-resolution filtering can lose subpixel detail and bright points. The fixed sample budget
-  can produce structured bokeh at large radii; no temporal bokeh accumulation or adaptive tiles exist.
+- Half-resolution filtering can lose subpixel detail and bright points. Large-radius gathers cost
+  proportionally more work; no temporal bokeh accumulation, mip acceleration or adaptive tiles exist.
 - Ordinary perspective depth is supported. Oblique portal clip planes need full inverse-projection
   reconstruction before their depth can be interpreted as a lens distance.
 - Vulkan, OpenGL and Metal shaders compile locally through bgfx shaderc. Runtime tests use Linux

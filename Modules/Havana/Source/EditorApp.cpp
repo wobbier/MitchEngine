@@ -17,6 +17,8 @@
 #include "Cores/EditorCore.h"
 #include "Engine/Engine.h"
 #include "Cores/AnimationCore.h"
+#include "Cores/SequenceCore.h"
+#include "Widgets/SequenceWidget.h"
 #include "Havana.h"
 #include "Cores/SceneCore.h"
 #include "Events/SceneEvents.h"
@@ -326,6 +328,7 @@ void EditorApp::StartGame()
     {
         GetEngine().Animation->StopAllPreviews();
     }
+    if( GetEngine().Sequences ) GetEngine().Sequences->StopAllPreviews();
     Scene* scene = GetEngine().CurrentScene;
     if( scene && EditorSceneManager && EditorSceneManager->RootTransform )
     {
@@ -417,6 +420,11 @@ void EditorApp::RunWithUnsavedCheck( std::function<void()> InAction )
         TerrainWidget::Get()->ConfirmUnsaved( [this, action = std::move( InAction )]() mutable { RunWithUnsavedCheck( std::move( action ) ); } );
         return;
     }
+    if( SequenceWidget::Get() && SequenceWidget::Get()->HasUnsaved() )
+    {
+        SequenceWidget::Get()->ConfirmUnsaved( [this, action = std::move( InAction )]() mutable { RunWithUnsavedCheck( std::move( action ) ); } );
+        return;
+    }
     if( !UndoStack::Get().IsDirty() )
     {
         InAction();
@@ -479,7 +487,7 @@ void EditorApp::RequestQuit()
 
 bool EditorApp::OnQuitRequested()
 {
-    if( !UndoStack::Get().IsDirty() && !m_isGameRunning && !( TerrainWidget::Get() && TerrainWidget::Get()->HasUnsaved() ) )
+    if( !UndoStack::Get().IsDirty() && !m_isGameRunning && !( TerrainWidget::Get() && TerrainWidget::Get()->HasUnsaved() ) && !( SequenceWidget::Get() && SequenceWidget::Get()->HasUnsaved() ) )
     {
         return true;
     }
@@ -600,6 +608,7 @@ void EditorApp::UpdateAutosave( float InDeltaSeconds )
     {
         GetEngine().Animation->RestorePreviewPoses();   // previews pose again next update
     }
+    if( GetEngine().Sequences ) GetEngine().Sequences->RestorePreviewValues();
     json scene = SceneSerializer::SerializeWorld( *GetEngine().GetWorld().lock(), EditorSceneManager->RootTransform );
     File( Path( kAutosaveScene ) ).Write( scene.dump() );
     json session;

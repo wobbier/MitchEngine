@@ -7,6 +7,7 @@
 #include "Components/Physics/CharacterController.h"
 #include "Components/Physics/Rigidbody.h"
 #include "Components/Transform.h"
+#include "Components/Animation/Sequence.h"
 #include "Cores/AudioCore.h"
 #include "Cores/PhysicsCore.h"
 #include "Cores/SceneCore.h"
@@ -674,8 +675,96 @@ static void Eng_Rigidbody_Teleport( EntityID inId, const Vector3* inPosition, co
 }
 
 
+static Sequence* SequenceOf( EntityID InId )
+{
+    EntityHandle handle = MakeHandle( InId );
+    return handle ? handle->TryGetComponent<Sequence>() : nullptr;
+}
+
+
+static void Eng_Sequence_Play( EntityID InId, bool InRestart )
+{
+    if( Sequence* sequence = SequenceOf( InId ) ) sequence->Play( InRestart );
+}
+
+
+static void Eng_Sequence_Pause( EntityID InId )
+{
+    if( Sequence* sequence = SequenceOf( InId ) ) sequence->Pause();
+}
+
+
+static void Eng_Sequence_Stop( EntityID InId )
+{
+    if( Sequence* sequence = SequenceOf( InId ) ) sequence->Stop();
+}
+
+
+static void Eng_Sequence_Seek( EntityID InId, float InSeconds )
+{
+    if( Sequence* sequence = SequenceOf( InId ) ) sequence->Seek( InSeconds );
+}
+
+
+static bool Eng_Sequence_IsPlaying( EntityID InId )
+{
+    Sequence* sequence = SequenceOf( InId );
+    return sequence && sequence->IsPlaying();
+}
+
+
+static float Eng_Sequence_GetTime( EntityID InId )
+{
+    Sequence* sequence = SequenceOf( InId );
+    return sequence ? sequence->GetTime() : 0.f;
+}
+
+
+static float Eng_Sequence_GetDuration( EntityID InId )
+{
+    Sequence* sequence = SequenceOf( InId );
+    return sequence ? sequence->GetDuration() : 0.f;
+}
+
+static bool Eng_Sequence_PlayClip( EntityID InId, const uint8_t* InName, bool InRestart )
+{
+    Sequence* sequence = SequenceOf( InId );
+    return sequence && sequence->PlayClip( Text( InName ), InRestart );
+}
+
+static bool Eng_Sequence_PlayAsset( EntityID InId, const uint8_t* InPath, bool InRestart )
+{
+    Sequence* sequence = SequenceOf( InId );
+    return sequence && sequence->PlayAsset( Text( InPath ), InRestart );
+}
+
+static bool Eng_Sequence_HasClip( EntityID InId, const uint8_t* InName )
+{
+    Sequence* sequence = SequenceOf( InId );
+    return sequence && sequence->HasClip( Text( InName ) );
+}
+
+static void Eng_Sequence_Bind( EntityID InId, const uint8_t* InSlot, EntityID InTarget )
+{
+    if( Sequence* sequence = SequenceOf( InId ); sequence && Text( InSlot )[0] )
+        sequence->SetBinding( Text( InSlot ), MakeHandle( InTarget ) );
+}
+
+
 void Register_GameplayBindings( ScriptEngineAPI& inAPI )
 {
+    ScriptBindings::RegisterComponent<Sequence>( "Sequence" );
+    inAPI.Sequence_Play = Eng_Sequence_Play;
+    inAPI.Sequence_Pause = Eng_Sequence_Pause;
+    inAPI.Sequence_Stop = Eng_Sequence_Stop;
+    inAPI.Sequence_Seek = Eng_Sequence_Seek;
+    inAPI.Sequence_IsPlaying = Eng_Sequence_IsPlaying;
+    inAPI.Sequence_GetTime = Eng_Sequence_GetTime;
+    inAPI.Sequence_GetDuration = Eng_Sequence_GetDuration;
+    inAPI.Sequence_PlayClip = Eng_Sequence_PlayClip;
+    inAPI.Sequence_PlayAsset = Eng_Sequence_PlayAsset;
+    inAPI.Sequence_HasClip = Eng_Sequence_HasClip;
+    inAPI.Sequence_Bind = Eng_Sequence_Bind;
     ScriptBindings::RegisterComponent<Rigidbody>( "Rigidbody" );
     ScriptBindings::RegisterComponent<CharacterController>( "CharacterController" );
     inAPI.LogWarning = Eng_LogWarning;

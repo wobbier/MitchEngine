@@ -166,4 +166,19 @@ public unsafe struct EngineAPIBindings
     public delegate* unmanaged<Entity, Vector3*, void> Character_SetVelocity;
     public delegate* unmanaged<Entity, Vector3*, Vector3*, void> Character_Teleport;
     public delegate* unmanaged<Entity, Vector3*, Vector3*, Vector3*, void> Rigidbody_Teleport;
+
+    // Authored object/property sequences (time in seconds)
+    public delegate* unmanaged<Entity, byte, void> Sequence_Play;
+    public delegate* unmanaged<Entity, void> Sequence_Pause;
+    public delegate* unmanaged<Entity, void> Sequence_Stop;
+    public delegate* unmanaged<Entity, float, void> Sequence_Seek;
+    public delegate* unmanaged<Entity, byte> Sequence_IsPlaying;
+    public delegate* unmanaged<Entity, float> Sequence_GetTime;
+    public delegate* unmanaged<Entity, float> Sequence_GetDuration;
+
+    // Named sequence clips and reusable asset playback
+    public delegate* unmanaged<Entity, byte*, byte, byte> Sequence_PlayClip;
+    public delegate* unmanaged<Entity, byte*, byte, byte> Sequence_PlayAsset;
+    public delegate* unmanaged<Entity, byte*, byte> Sequence_HasClip;
+    public delegate* unmanaged<Entity, byte*, Entity, void> Sequence_Bind;
 }

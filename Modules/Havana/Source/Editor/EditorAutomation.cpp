@@ -11,6 +11,7 @@
 #include "EditorApp.h"
 #include "Havana.h"
 #include "Widgets/AssetBrowser.h"
+#include "Widgets/SequenceWidget.h"
 #include "Widgets/SceneViewWidget.h"
 #include "Widgets/SettingsWidgets.h"
 #include "Utils/EditorConfig.h"
@@ -269,6 +270,11 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
     {
         std::string error;
         if( !TerrainAutomation::Execute( command, args, error ) ) Fail( command + ": " + error );
+    }
+    else if( command.rfind( "seq-", 0 ) == 0 )
+    {
+        std::string error;
+        if( !SequenceWidget::Get() || !SequenceWidget::Get()->ExecuteAutomation( command, args, error ) ) Fail( command + ": " + error );
     }
     else if( command.rfind( "sg-", 0 ) == 0 )
     {

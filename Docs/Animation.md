@@ -1,5 +1,8 @@
 # Animation
 
+For scripted game-object transforms and reflected camera/component properties, see
+[Object and property sequences](Sequences.md), authored with the ImSequencer window.
+
 Skeletal animation runs in three stages:
 
 - **Import:** `ModelResource` turns Assimp animations into `AnimationClip`s, and turns skin weights into a second vertex stream.

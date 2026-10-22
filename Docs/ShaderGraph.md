@@ -104,7 +104,7 @@ Asset fields have a picker (**..**) and a clear button (**x**). List fields (`Po
 1. **Nodes and pins.** `NodeDef::BuildPins` runs per node: the output node's pins come from the target; Custom Function, Property and Swizzle pins depend on settings. Unknown types and target-incompatible nodes are errors.
 2. **Links** resolve by pin name. Links to missing pins are dropped with a warning.
 3. **Order:** a depth-first sort. A back edge (a loop) is reported on its node and cut.
-4. **Types:** in dependency order. Pins in a dynamic group resolve to the widest vector connected to any of them, or to the group's declared width when none is. Each connection is checked with `CanConvert`, and truncation warns.
+4. **Types:** in dependency order. Pins in a dynamic group resolve to the widest vector connected to any of them, or to the group's declared width when none is. A group that would be a scalar widens to a vector typed inline on one of its unconnected inputs (a splat, as the editor stores a scalar edit, stays a scalar; trailing zero components don't count), so `Float × [0.03, 0.004, 0.002]` is a Vector3 rather than its `.x`. Each connection is checked with `CanConvert`, and truncation warns.
 5. **Slots:** properties get parameter slots (`u_sgParams[0..15]`, one vec4 each) and texture slots (`s_sgTex0..`, up to the target's `MaxTextures`).
 6. **Emit**, per generated file and stage:
    - The nodes that reach that file's output pins are emitted in order (CSE folds identical nodes).

@@ -71,7 +71,8 @@ namespace Moonlight
         Mip DoFNear;
         Mip DoFFar;
         Mip DoFOutput;
-        void EnsureDepthOfFieldTargets();
+        Mip DoFSplitOutput; // allocated only for the second split-diopter lens
+        void EnsureDepthOfFieldTargets( bool InSplit = false );
 
         // Procedural sky clouds (created on first use): half resolution, rgb in-scattering and a
         // transmittance, accumulated over frames (ping-pong with the history they blend).

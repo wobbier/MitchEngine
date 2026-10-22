@@ -101,7 +101,7 @@ void Moonlight::FrameBuffer::Release()
         DestroyIfValid( history.Color );
     }
     TemporalValid = false;
-    for( Mip* target : { &DoFCoC, &DoFPrefilter, &DoFRadius[0], &DoFRadius[1], &DoFNear, &DoFFar, &DoFOutput } )
+    for( Mip* target : { &DoFCoC, &DoFPrefilter, &DoFRadius[0], &DoFRadius[1], &DoFNear, &DoFFar, &DoFOutput, &DoFSplitOutput } )
     {
         DestroyIfValid( target->Buffer );
         DestroyIfValid( target->Color );
@@ -141,11 +141,13 @@ void Moonlight::FrameBuffer::EnsureTemporalTargets()
 }
 
 
-void Moonlight::FrameBuffer::EnsureDepthOfFieldTargets()
+void Moonlight::FrameBuffer::EnsureDepthOfFieldTargets( bool InSplit )
 {
-    if( bgfx::isValid( DoFOutput.Color ) ) return;
     const uint16_t width = static_cast<uint16_t>( std::max( Width, 1u ) );
     const uint16_t height = static_cast<uint16_t>( std::max( Height, 1u ) );
+    if( InSplit && !bgfx::isValid( DoFSplitOutput.Color ) )
+        DoFSplitOutput = CreateColorTarget( width, height, bgfx::TextureFormat::RGBA16F, "DoF Split Composite" );
+    if( bgfx::isValid( DoFOutput.Color ) ) return;
     const uint16_t halfWidth = (width + 1u) / 2u;
     const uint16_t halfHeight = (height + 1u) / 2u;
     DoFCoC = CreateColorTarget( width, height, bgfx::TextureFormat::R16F, "DoF Signed CoC" );

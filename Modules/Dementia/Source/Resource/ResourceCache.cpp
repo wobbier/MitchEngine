@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <thread>
+#include <filesystem>
 #include "optick.h"
 
 
@@ -748,13 +749,41 @@ SharedPtr<MetaBase> ResourceCache::LoadMetadata( const Path& filePath )
 
         metadata = it->second( filePath );
 
+        bool hasValidMeta = false;
         if( metaPath.Exists )
         {
-            j = json::parse( metaFile.Read() );
-            metadata->Deserialize( j );
+            // Sidecars that aren't ours (e.g. Unity YAML .meta files shipped with asset packs) or
+            // that were hand-edited badly fall back to default settings instead of aborting the load.
+            try
+            {
+                j = json::parse( metaFile.Read() );
+                metadata->Deserialize( j );
+                hasValidMeta = true;
+            }
+            catch( const json::exception& e )
+            {
+                YIKES_FMT( "[ResourceCache] Unreadable metadata %s (%s); using default import settings", metaPath.GetLocalPathString().c_str(), e.what() );
+                metadata = it->second( filePath );
+                j = json();
+#if USING( ME_TOOLS )
+                // Keep the original next to the asset and write a fresh one, so the settings (and
+                // the asset GUID) are stable from now on.
+                std::error_code ec;
+                std::filesystem::rename( metaPath.FullPath, metaPath.FullPath + ".invalid", ec );
+                if( ec )
+                {
+                    YIKES_FMT( "[ResourceCache] Could not move %s aside (%s)", metaPath.GetLocalPathString().c_str(), ec.message().c_str() );
+                    hasValidMeta = true; // Don't overwrite a file we couldn't preserve.
+                }
+                else
+                {
+                    INFO_FMT( "[ResourceCache]", "Moved the unreadable metadata to %s.invalid", metaPath.GetLocalPathString().c_str() );
+                }
+#endif
+            }
         }
 #if USING( ME_EDITOR )
-        else
+        if( !hasValidMeta )
         {
             metadata->Serialize( j );
             metaFile.Write( j.dump( 4 ) );

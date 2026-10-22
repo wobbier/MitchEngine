@@ -113,7 +113,7 @@ New model cooks store their effective import scale in the root node's `MitchEngi
 
 ### Metadata sidecars
 
-`LoadMetadata` looks up the file **extension** in the `MetaRegistry` and constructs the registered `MetaBase` subclass. If `<asset>.meta` exists it's parsed and deserialized; in **editor builds** a missing `.meta` is created on the spot and the asset is flagged for export. `FlaggedForExport` is also set when `AssetMetaCache` (a JSON timestamp cache, loaded at `ResourceCache` construction and saved at destruction) sees a different `LastModified` than the sidecar — and it defaults to *modified* for assets it has never seen.
+`LoadMetadata` looks up the file **extension** in the `MetaRegistry` and constructs the registered `MetaBase` subclass. If `<asset>.meta` exists it's parsed and deserialized; in **editor builds** a missing `.meta` is created on the spot and the asset is flagged for export. A sidecar that isn't valid JSON for its type (e.g. the Unity YAML `.meta` files that ship with asset packs) logs an error and loads with default settings instead of aborting; tools builds move it aside to `<asset>.meta.invalid`, so a fresh sidecar (and a stable GUID) is written in its place. `FlaggedForExport` is also set when `AssetMetaCache` (a JSON timestamp cache in `.tmp/MetadataCache.json`, loaded at `ResourceCache` construction and saved on every update and at destruction) sees a different `LastModified` than the sidecar — and it defaults to *modified* for assets it has never seen. The editor and game runs share that cache: it's written to a temp file and renamed into place, and an unreadable one is rebuilt rather than fatal.
 
 Registered metadata types:
 

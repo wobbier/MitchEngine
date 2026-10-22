@@ -169,3 +169,18 @@ void Transform_LookDirection( Entity id, const Vector3* forward, const Vector3* 
 void Character_SetVelocity( Entity id, const Vector3* velocity )
 void Character_Teleport( Entity id, const Vector3* position, const Vector3* forward )
 void Rigidbody_Teleport( Entity id, const Vector3* position, const Vector3* forward, const Vector3* up )
+
+## Authored object/property sequences (time in seconds)
+void Sequence_Play( Entity id, bool restart )
+void Sequence_Pause( Entity id )
+void Sequence_Stop( Entity id )
+void Sequence_Seek( Entity id, float seconds )
+bool Sequence_IsPlaying( Entity id )
+float Sequence_GetTime( Entity id )
+float Sequence_GetDuration( Entity id )
+
+## Named sequence clips and reusable asset playback
+bool Sequence_PlayClip( Entity id, cstr name, bool restart )
+bool Sequence_PlayAsset( Entity id, cstr path, bool restart )
+bool Sequence_HasClip( Entity id, cstr name )
+void Sequence_Bind( Entity id, cstr slot, Entity target )

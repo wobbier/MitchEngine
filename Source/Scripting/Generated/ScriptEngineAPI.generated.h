@@ -177,4 +177,19 @@ struct ScriptEngineAPI
     void ( *Character_SetVelocity )( EntityID id, const Vector3* velocity );
     void ( *Character_Teleport )( EntityID id, const Vector3* position, const Vector3* forward );
     void ( *Rigidbody_Teleport )( EntityID id, const Vector3* position, const Vector3* forward, const Vector3* up );
+
+    // Authored object/property sequences (time in seconds)
+    void ( *Sequence_Play )( EntityID id, bool restart );
+    void ( *Sequence_Pause )( EntityID id );
+    void ( *Sequence_Stop )( EntityID id );
+    void ( *Sequence_Seek )( EntityID id, float seconds );
+    bool ( *Sequence_IsPlaying )( EntityID id );
+    float ( *Sequence_GetTime )( EntityID id );
+    float ( *Sequence_GetDuration )( EntityID id );
+
+    // Named sequence clips and reusable asset playback
+    bool ( *Sequence_PlayClip )( EntityID id, const uint8_t* name, bool restart );
+    bool ( *Sequence_PlayAsset )( EntityID id, const uint8_t* path, bool restart );
+    bool ( *Sequence_HasClip )( EntityID id, const uint8_t* name );
+    void ( *Sequence_Bind )( EntityID id, const uint8_t* slot, EntityID target );
 };

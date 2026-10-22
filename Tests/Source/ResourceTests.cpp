@@ -445,6 +445,22 @@ TEST_CASE( "Resources: a background load cooks a new asset on its loader thread"
     CHECK( std::filesystem::exists( source + ".meta" ) );
 }
 
+TEST_CASE( "Resources: an unreadable .meta falls back to defaults and is kept aside" )
+{
+    using namespace FirstCookTest;
+    std::filesystem::create_directories( ".tmp/Tests/Resources" );
+    const std::string source = ".tmp/Tests/Resources/Unity.firstcook";
+    std::filesystem::remove( source + ".meta.invalid" );
+    std::ofstream( source ) << "source";
+    // A Unity sidecar shipped with an asset pack.
+    std::ofstream( source + ".meta" ) << "fileFormatVersion: 2\nguid: 0123456789abcdef\n";
+
+    SharedPtr<MetaBase> meta = ResourceCache::GetInstance().LoadMetadata( Path( source ) );
+    REQUIRE( meta );
+    CHECK( static_cast<CookMeta&>( *meta ).Version == 1 );
+    CHECK( std::filesystem::exists( source + ".meta.invalid" ) );
+}
+
 TEST_CASE( "Resources: metadata notifications during a first cook never block the main thread" )
 {
     using namespace FirstCookTest;

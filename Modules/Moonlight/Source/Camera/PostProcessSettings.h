@@ -46,6 +46,10 @@ namespace Moonlight
         float DoFSensorHeight = 24.f;      // mm; focal length follows the camera's vertical FOV
         float DoFMaxBlurRadius = 16.f;      // radius in pixels at 1080p (scales with output height)
         bool DoFDebugCoC = false;          // red foreground, green background, black in focus
+        bool DoFSplitDiopter = false;
+        float DoFSplitFocusDistance = 18.f;
+        float DoFSplitPosition = 0.5f;      // normalized screen X
+        float DoFSplitFeather = 0.015f;     // full transition width, normalized to image width
 
         // Exponential height fog (applied before transparents)
         bool Fog = false;

@@ -4,6 +4,8 @@
 #include <Path.h>
 
 #include "Pointers.h"
+#include <map>
+#include <mutex>
 
 struct MetaBase;
 
@@ -29,8 +31,9 @@ private:
         long LastModified = 0;
     };
 
-    std::map<std::string, CachedAssetInfo> m_cachedAssets;
+    void SaveLocked();
 
-    json Cache;
+    std::map<std::string, CachedAssetInfo> m_cachedAssets;
+    std::mutex m_mutex;
     ME_SINGLETON_DEFINITION( AssetMetaCache )
 };

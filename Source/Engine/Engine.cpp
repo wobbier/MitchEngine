@@ -7,6 +7,7 @@
 #include "Cores/TerrainCore.h"
 #include "Cores/Physics2DCore.h"
 #include "Cores/AnimationCore.h"
+#include "Cores/SequenceCore.h"
 #include "Cores/NavigationCore.h"
 #include "Cores/Cameras/CameraCore.h"
 #include "Cores/SceneCore.h"
@@ -235,6 +236,7 @@ void Engine::Init( Game* game )
         Physics2D = new Physics2DCore();
         Collisions = new CollisionRouter();
         Animation = new AnimationCore();
+        Sequences = new SequenceCore();
         Navigation = new NavigationCore();
         // Automated runs (captures, editor scripts) and --no-audio never play through the speakers.
         const bool silentAudio = CommandLine::Has( "--no-audio" ) || ( AutomationRunner::IsUnattendedRun() && !CommandLine::Has( "--audio" ) );
@@ -289,6 +291,7 @@ void Engine::InitGame()
         GameWorld->AddCore<PhysicsCore>( *Physics );
         GameWorld->AddCore<Physics2DCore>( *Physics2D );
         GameWorld->AddCore<AnimationCore>( *Animation );
+        GameWorld->AddCore<SequenceCore>( *Sequences );
         GameWorld->AddCore<NavigationCore>( *Navigation );
         GameWorld->AddCore<AudioCore>( *AudioThread );
         GameWorld->AddCore<UICore>( *UI );
@@ -538,6 +541,7 @@ void Engine::Run()
                 ME_FRAMEPROFILE_SCOPED( "Animation", ProfileCategory::Game );
                 ME_STAT_SCOPE( "Animation" );
                 Animation->Update( updateContext );
+                Sequences->Update( updateContext );
             }
 
             // Late update: game cores' LateUpdate and scripts' OnLateUpdate, after navigation and

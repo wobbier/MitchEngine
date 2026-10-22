@@ -52,14 +52,20 @@ TEST_CASE( "Depth of field: existing cameras stay disabled and authored settings
 {
     PostProcess original;
     CHECK_FALSE( original.DepthOfField );
+    CHECK_FALSE( original.DoFSplitDiopter );
     original.Deserialize( json{ { "Type", "PostProcess" }, { "Bloom", false } } );
     CHECK_FALSE( original.ToSettings().DepthOfField );
+    CHECK_FALSE( original.ToSettings().DoFSplitDiopter );
     original.DepthOfField = true;
     original.DoFFocusDistance = 3.5f;
     original.DoFAperture = 1.4f;
     original.DoFSensorHeight = 36.f;
     original.DoFMaxBlurRadius = 24.f;
     original.DoFDebugCoC = true;
+    original.DoFSplitDiopter = true;
+    original.DoFSplitFocusDistance = 18.f;
+    original.DoFSplitPosition = 0.42f;
+    original.DoFSplitFeather = 0.025f;
     json saved;
     original.Serialize( saved );
     PostProcess restored;
@@ -71,4 +77,8 @@ TEST_CASE( "Depth of field: existing cameras stay disabled and authored settings
     CHECK( settings.DoFSensorHeight == 36.f );
     CHECK( settings.DoFMaxBlurRadius == 24.f );
     CHECK( settings.DoFDebugCoC );
+    CHECK( settings.DoFSplitDiopter );
+    CHECK( settings.DoFSplitFocusDistance == 18.f );
+    CHECK( settings.DoFSplitPosition == 0.42f );
+    CHECK( settings.DoFSplitFeather == 0.025f );
 }

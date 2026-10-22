@@ -38,6 +38,7 @@
 #include "Editor/WidgetRegistry.h"
 #include "Window/IWindow.h"
 #include "Widgets/HistoryWidget.h"
+#include "Widgets/SequenceWidget.h"
 #include "Widgets/ProfilerWidget.h"
 #include "Widgets/SettingsWidgets.h"
 #include "Widgets/ShaderGraph/ShaderGraphWidget.h"
@@ -124,6 +125,9 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
 
     History.reset( new HistoryWidget() );
     RegisteredWidgets.push_back( History );
+
+    Sequencer.reset( new SequenceWidget() );
+    RegisteredWidgets.push_back( Sequencer );
 
     Profiler.reset( new ProfilerWidget() );
     RegisteredWidgets.push_back( Profiler );
@@ -238,6 +242,7 @@ void Havana::InitUI()
     }
 
     ShaderGraphs->Init();
+    Sequencer->InstallActionRouting();
     TerrainPanel->InstallActionRouting();
 
     Input& gameInput = GetEngine().GetInput();
@@ -300,6 +305,7 @@ void Havana::NewFrame()
     AssetBrowser->Render();
     ResourceMonitor->Render();
     History->Render();
+    Sequencer->Render();
     Profiler->Render();
     Preferences->Render();
     ProjectSettingsView->Render();

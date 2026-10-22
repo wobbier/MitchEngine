@@ -67,30 +67,40 @@ void main()
 	}
 	vec3 sum = vec3_splat(0.0);
 	float weights = 0.0;
-	// A fixed Vogel disk is stable without temporal AA and avoids separable square bokeh.
-	// Keep this deterministic: changing the pattern every frame after TAA would shimmer.
-	for (int i = 0; i < 64; ++i)
+	// Integrate each source texel in the disk exactly once. A sparse fixed pattern
+	// repeats hard edges and text inside large blurs. Keep colour and CoC together:
+	// bilinear filtering of signed CoC mixes foreground with sharp HDR background.
+	vec2 texel = u_dofScreen.xy / u_dofScreen.zw;
+	int extent = int(min(ceil((radius + 1.0) / min(texel.x, texel.y)), 33.0));
+	for (int y = -extent; y <= extent; ++y)
 	{
-		float distance = sqrt((float(i) + 0.5) / 64.0) * radius;
-		vec4 tap = diskTap(v_texcoord0, i, radius);
-		float w;
-		if (nearField)
+		for (int x = -extent; x <= extent; ++x)
 		{
-			float r = max(-tap.a, 0.0);
-			// Integrate source disks, including their area: a small foreground disk must not
-			// become opaque just because one tap found it. Output premultiplied coverage.
-			w = saturate(r - distance + 1.0) * smoothstep(0.5, 1.5, r) / max(r * r, 1.0);
+			vec2 offset = vec2(float(x), float(y));
+			float distance = length(offset * texel);
+			if (distance > radius + 1.0) continue;
+			vec4 tap = texture2D(s_dof0, v_texcoord0 + offset / u_dofScreen.zw);
+			float w;
+			if (nearField)
+			{
+				float r = max(-tap.a, 0.0);
+				// Integrate source disks, including their area: a small foreground disk must not
+				// become opaque just because one tap found it. Output premultiplied coverage.
+				w = saturate(r - distance + 1.0) * smoothstep(0.5, 1.5, r) / max(r * r, 1.0);
+			}
+			else
+			{
+				// A background source may only contribute within its own disk, and never blur
+				// across a sharp foreground target. Full-resolution CoC protects its final edge.
+				w = saturate(min(tap.a, centre.a) - distance + 1.0) * step(0.5, tap.a);
+			}
+			sum += tap.rgb * w;
+			weights += w;
 		}
-		else
-		{
-			// A background source may only contribute within its own disk, and never blur
-			// across a sharp foreground target. Full-resolution CoC protects its final edge.
-			w = saturate(min(tap.a, centre.a) - distance + 1.0) * step(0.5, tap.a);
-		}
-		sum += tap.rgb * w;
-		weights += w;
 	}
 	vec3 colour = weights > 1e-5 ? sum / weights : centre.rgb;
-	float coverage = nearField ? saturate(weights * radius * radius / 64.0) : 1.0;
+	// Each source texel covers this many full-resolution pixels; disk area is pi*r^2.
+	// Unlike sample-count normalisation, this also holds for odd-sized targets.
+	float coverage = nearField ? saturate(weights * texel.x * texel.y / 3.14159265) : 1.0;
 	gl_FragColor = vec4(colour * coverage, coverage);
 }

@@ -33,6 +33,8 @@ public class ImGui : BaseProject
 
         SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGuizmo/src/ImGuizmo.h"));
         SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGuizmo/src/ImGuizmo.cpp"));
+        SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGuizmo/src/ImSequencer.h"));
+        SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGuizmo/src/ImSequencer.cpp"));
 
         SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/imgui-node-editor/imgui_node_editor.h"));
         SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/imgui-node-editor/imgui_node_editor.cpp"));

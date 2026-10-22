@@ -6,6 +6,7 @@
 #include "Editor/EditorActions.h"
 #include "Editor/ReflectionUI.h"
 #include "Input/InputActions.h"
+#include "Animation/SequenceAsset.h"
 #include <filesystem>
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -162,6 +163,7 @@ namespace
         case AssetType::CS: return ".cs";
         case AssetType::ShaderGraph: return ".shadergraph";
         case AssetType::Terrain: return ".terrain";
+        case AssetType::Sequence: return ".sequence";
         default: return {};
         }
     }
@@ -239,6 +241,8 @@ AssetType AssetBrowserWidget::GetAssetType( const std::string& InPath )
         return AssetType::Material;
     if( EndsWith( path, ".shadergraph" ) )
         return AssetType::ShaderGraph;
+    if( EndsWith( path, ".sequence" ) )
+        return AssetType::Sequence;
     if( EndsWith( path, ".terrain" ) || EndsWith( path, ".terrainc" ) )
         return AssetType::Terrain;
     if( EndsWith( path, ".vert" ) || EndsWith( path, ".frag" ) || EndsWith( path, ".sh" ) || EndsWith( path, ".sc" ) )
@@ -513,6 +517,7 @@ SharedPtr<Moonlight::Texture> AssetBrowserWidget::GetIcon( const Entry& InEntry 
     case AssetType::Model: return Icons["Model"];
     case AssetType::Shader:
     case AssetType::ShaderGraph:
+    case AssetType::Sequence:
     case AssetType::Code: return Icons["Code"];
     case AssetType::Audio: return Icons["Audio"];
     case AssetType::Prefab: return Icons["Prefab"];
@@ -1439,6 +1444,13 @@ void AssetBrowserWidget::OpenEntry( Entry& InEntry )
         evt.Fire();
         return;
     }
+    if( InEntry.Type == AssetType::Sequence )
+    {
+        OpenSequenceEvent event;
+        event.ClipPath = LocalPath( InEntry.FullPath );
+        event.Fire();
+        return;
+    }
     if( InEntry.Type == AssetType::Level )
     {
         if( EditorApp* app = static_cast<EditorApp*>( GetEngine().GetGame() ) )
@@ -1606,6 +1618,7 @@ void AssetBrowserWidget::DrawCreateMenuItems()
         Reflection::ToJson( InputActionMap::StaticType(), &map, contents );
         CreateAsset( "New Input Actions", ".inputactions", contents.dump( 4 ) );
     }
+    if( ImGui::MenuItem( "Animation Sequence" ) ) CreateAsset( "New Sequence", ".sequence", SequenceClipData().ToJson().dump( 4 ) );
     if( ImGui::MenuItem( "C# Script" ) )
     {
         const std::string name = fs::path( UniquePath( m_currentFolder, "NewScript", ".cs" ) ).stem().string();

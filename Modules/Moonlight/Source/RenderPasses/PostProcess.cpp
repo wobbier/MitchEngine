@@ -92,7 +92,9 @@ namespace Moonlight
         s_dof1 = bgfx::createUniform( "s_dof1", bgfx::UniformType::Sampler );
         s_dof2 = bgfx::createUniform( "s_dof2", bgfx::UniformType::Sampler );
         s_dof3 = bgfx::createUniform( "s_dof3", bgfx::UniformType::Sampler );
+        s_dof4 = bgfx::createUniform( "s_dof4", bgfx::UniformType::Sampler );
         u_dofLens = bgfx::createUniform( "u_dofLens", bgfx::UniformType::Vec4 );
+        u_dofSplit = bgfx::createUniform( "u_dofSplit", bgfx::UniformType::Vec4 );
         u_dofProjection = bgfx::createUniform( "u_dofProjection", bgfx::UniformType::Vec4 );
         u_dofScreen = bgfx::createUniform( "u_dofScreen", bgfx::UniformType::Vec4 );
         u_dofPass = bgfx::createUniform( "u_dofPass", bgfx::UniformType::Vec4 );
@@ -135,7 +137,7 @@ namespace Moonlight
     {
         for( bgfx::UniformHandle* uniform : { &s_input0, &s_input1, &s_hdrColor, &s_bloom, &s_exposure, &s_ldrColor, &u_tonemap, &u_grading, &u_grading2, &u_exposure, &u_bloom, &u_ssao, &u_ssaoProjection, &u_ssaoScreen, &u_ssaoInvProjection, &u_adapt,
             &u_fogProjection, &u_fogProjection2, &u_fogScreen, &u_fogInvView, &s_taaCurrent, &s_taaHistory, &s_taaDepth, &u_taaParams, &u_taaJitter, &u_taaReproject, &u_graphSceneFilter,
-            &s_dof0, &s_dof1, &s_dof2, &s_dof3, &u_dofLens, &u_dofProjection, &u_dofScreen, &u_dofPass, &u_dofJitter } )
+            &s_dof0, &s_dof1, &s_dof2, &s_dof3, &s_dof4, &u_dofLens, &u_dofSplit, &u_dofProjection, &u_dofScreen, &u_dofPass, &u_dofJitter } )
         {
             DestroyUniform( *uniform );
         }
@@ -435,61 +437,74 @@ namespace Moonlight
         OPTICK_EVENT( "PostProcess::DepthOfField" );
         // Reserve the whole chain before submitting anything; an exhausted view budget must not
         // expose an unwritten target to bloom or tonemapping.
-        bgfx::ViewId views[7];
+        const int lensCount = settings.DoFSplitDiopter ? 2 : 1;
+        bgfx::ViewId views[14];
         const char* names[] = { "DoF CoC", "DoF Prefilter", "DoF Near Radius H", "DoF Near Radius V", "DoF Far Gather", "DoF Near Gather", "DoF Composite" };
-        for( int i = 0; i < 7; ++i )
+        for( int i = 0; i < 7 * lensCount; ++i )
         {
-            views[i] = InViews.Allocate( names[i] );
+            views[i] = InViews.Allocate( names[i % 7] );
             if( views[i] == UINT16_MAX ) return;
         }
-        InTargets.EnsureDepthOfFieldTargets();
+        InTargets.EnsureDepthOfFieldTargets( settings.DoFSplitDiopter );
         const glm::mat4& projection = InCamera.ProjectionMatrix.GetInternalMatrix();
-        const DepthOfFieldLens lens = MakeDepthOfFieldLens( settings, projection[1][1], InTargets.Height );
-        const float lensParams[4] = { lens.FocusDistance, lens.Scale, lens.MaxRadius, settings.DoFDebugCoC ? 1.f : 0.f };
         const float projectionParams[4] = { projection[2][2], projection[3][2], bgfx::getCaps()->homogeneousDepth ? 1.f : 0.f, InCamera.Far };
         const float screen[4] = { static_cast<float>( InTargets.Width ), static_cast<float>( InTargets.Height ), static_cast<float>( InTargets.DoFPrefilter.Width ), static_cast<float>( InTargets.DoFPrefilter.Height ) };
         // TAA returns an unjittered colour image; sample its corresponding current-frame depth.
         const float jitter[4] = { InCamera.Post.TemporalAA ? InTargets.TemporalJitter[0] * 0.5f : 0.f, InCamera.Post.TemporalAA ? -InTargets.TemporalJitter[1] * 0.5f : 0.f, 0.f, 0.f };
         const uint64_t clamp = BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
         const uint64_t point = clamp | BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT;
-        auto begin = [&]( int InIndex, const FrameBuffer::Mip& InTarget, float InPass ) {
-            SetupFullscreenView( views[InIndex], InTarget.Buffer, InTarget.Width, InTarget.Height );
-            const float pass[4] = { InPass, 0.f, 0.f, 0.f };
-            bgfx::setUniform( u_dofLens, lensParams );
-            bgfx::setUniform( u_dofProjection, projectionParams );
-            bgfx::setUniform( u_dofScreen, screen );
-            bgfx::setUniform( u_dofPass, pass );
-            bgfx::setUniform( u_dofJitter, jitter );
-        };
-        begin( 0, InTargets.DoFCoC, 0.f );
-        bgfx::setTexture( 0, s_dof0, InTargets.DepthTexture, point );
-        SubmitFullscreen( views[0], m_dofCoCProgram );
-
-        begin( 1, InTargets.DoFPrefilter, 0.f );
-        bgfx::setTexture( 0, s_dof0, InTargets.PostInput, point );
-        bgfx::setTexture( 1, s_dof1, InTargets.DoFCoC.Color, point );
-        SubmitFullscreen( views[1], m_dofPrefilterProgram );
-
-        for( int axis = 0; axis < 2; ++axis )
+        // Each lens must gather with a spatially consistent CoC/depth ordering. Reuse the
+        // scratch targets in view order, preserving the first completed image for composition.
+        for( int lensIndex = 0; lensIndex < lensCount; ++lensIndex )
         {
-            begin( 2 + axis, InTargets.DoFRadius[axis], static_cast<float>( axis ) );
-            bgfx::setTexture( 0, s_dof0, axis == 0 ? InTargets.DoFPrefilter.Color : InTargets.DoFRadius[0].Color, point );
-            SubmitFullscreen( views[2 + axis], m_dofDilateProgram );
+            PostProcessSettings lensSettings = settings;
+            if( lensIndex == 1 ) lensSettings.DoFFocusDistance = settings.DoFSplitFocusDistance;
+            const DepthOfFieldLens lens = MakeDepthOfFieldLens( lensSettings, projection[1][1], InTargets.Height );
+            const float lensParams[4] = { lens.FocusDistance, lens.Scale, lens.MaxRadius, settings.DoFDebugCoC ? 1.f : 0.f };
+            const float splitParams[4] = { std::clamp( settings.DoFSplitPosition, 0.f, 1.f ),
+                std::clamp( settings.DoFSplitFeather, 0.f, 0.25f ), static_cast<float>( lensIndex ), 0.f };
+            const bgfx::ViewId* lensViews = views + lensIndex * 7;
+            auto begin = [&]( int InIndex, const FrameBuffer::Mip& InTarget, float InPass ) {
+                SetupFullscreenView( lensViews[InIndex], InTarget.Buffer, InTarget.Width, InTarget.Height );
+                const float pass[4] = { InPass, 0.f, 0.f, 0.f };
+                bgfx::setUniform( u_dofLens, lensParams );
+                bgfx::setUniform( u_dofSplit, splitParams );
+                bgfx::setUniform( u_dofProjection, projectionParams );
+                bgfx::setUniform( u_dofScreen, screen );
+                bgfx::setUniform( u_dofPass, pass );
+                bgfx::setUniform( u_dofJitter, jitter );
+            };
+            begin( 0, InTargets.DoFCoC, 0.f );
+            bgfx::setTexture( 0, s_dof0, InTargets.DepthTexture, point );
+            SubmitFullscreen( lensViews[0], m_dofCoCProgram );
+
+            begin( 1, InTargets.DoFPrefilter, 0.f );
+            bgfx::setTexture( 0, s_dof0, InTargets.PostInput, point );
+            bgfx::setTexture( 1, s_dof1, InTargets.DoFCoC.Color, point );
+            SubmitFullscreen( lensViews[1], m_dofPrefilterProgram );
+
+            for( int axis = 0; axis < 2; ++axis )
+            {
+                begin( 2 + axis, InTargets.DoFRadius[axis], static_cast<float>( axis ) );
+                bgfx::setTexture( 0, s_dof0, axis == 0 ? InTargets.DoFPrefilter.Color : InTargets.DoFRadius[0].Color, point );
+                SubmitFullscreen( lensViews[2 + axis], m_dofDilateProgram );
+            }
+            for( int near = 0; near < 2; ++near )
+            {
+                begin( 4 + near, near ? InTargets.DoFNear : InTargets.DoFFar, static_cast<float>( near ) );
+                bgfx::setTexture( 0, s_dof0, InTargets.DoFPrefilter.Color, point );
+                bgfx::setTexture( 1, s_dof1, InTargets.DoFRadius[1].Color, point );
+                SubmitFullscreen( lensViews[4 + near], m_dofGatherProgram );
+            }
+            begin( 6, lensIndex == 0 ? InTargets.DoFOutput : InTargets.DoFSplitOutput, 0.f );
+            bgfx::setTexture( 0, s_dof0, InTargets.PostInput, clamp );
+            bgfx::setTexture( 1, s_dof1, InTargets.DoFCoC.Color, point );
+            bgfx::setTexture( 2, s_dof2, InTargets.DoFFar.Color, clamp );
+            bgfx::setTexture( 3, s_dof3, InTargets.DoFNear.Color, clamp );
+            bgfx::setTexture( 4, s_dof4, lensIndex == 0 ? InTargets.PostInput : InTargets.DoFOutput.Color, clamp );
+            SubmitFullscreen( lensViews[6], m_dofCompositeProgram );
         }
-        for( int near = 0; near < 2; ++near )
-        {
-            begin( 4 + near, near ? InTargets.DoFNear : InTargets.DoFFar, static_cast<float>( near ) );
-            bgfx::setTexture( 0, s_dof0, InTargets.DoFPrefilter.Color, point );
-            bgfx::setTexture( 1, s_dof1, InTargets.DoFRadius[1].Color, point );
-            SubmitFullscreen( views[4 + near], m_dofGatherProgram );
-        }
-        begin( 6, InTargets.DoFOutput, 0.f );
-        bgfx::setTexture( 0, s_dof0, InTargets.PostInput, clamp );
-        bgfx::setTexture( 1, s_dof1, InTargets.DoFCoC.Color, point );
-        bgfx::setTexture( 2, s_dof2, InTargets.DoFFar.Color, clamp );
-        bgfx::setTexture( 3, s_dof3, InTargets.DoFNear.Color, clamp );
-        SubmitFullscreen( views[6], m_dofCompositeProgram );
-        InTargets.PostInput = InTargets.DoFOutput.Color;
+        InTargets.PostInput = settings.DoFSplitDiopter ? InTargets.DoFSplitOutput.Color : InTargets.DoFOutput.Color;
     }
 
 

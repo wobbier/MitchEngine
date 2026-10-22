@@ -44,6 +44,10 @@ public:
     float DoFSensorHeight = 24.f;
     float DoFMaxBlurRadius = 16.f;
     bool DoFDebugCoC = false;
+    bool DoFSplitDiopter = false;
+    float DoFSplitFocusDistance = 18.f;
+    float DoFSplitPosition = 0.5f;
+    float DoFSplitFeather = 0.015f;
 
     // Fog
     bool Fog = false;

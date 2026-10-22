@@ -79,3 +79,10 @@ class OpenTerrainEvent : public Event<OpenTerrainEvent>
 public:
     std::string AssetPath;
 };
+
+class OpenSequenceEvent : public Event<OpenSequenceEvent>
+{
+public:
+    std::string ClipPath;
+    uint64_t PlayerGUID = 0;
+};

@@ -4,6 +4,7 @@
 #include "SceneSerializer.h"
 #include "Engine/Engine.h"
 #include "Cores/AnimationCore.h"
+#include "Cores/SequenceCore.h"
 #include "Cores/SceneCore.h"
 #include "CLog.h"
 
@@ -92,6 +93,7 @@ void Scene::SaveCopy( const std::string& fileName, Transform* root )
     {
         GetEngine().Animation->RestorePreviewPoses();
     }
+    if( GetEngine().Sequences ) GetEngine().Sequences->RestorePreviewValues();
     json world = SceneSerializer::SerializeWorld( *GetEngine().GetWorld().lock(), root );
     SceneSerializer::PrepareForSave( world, fileName, false );
     File worldFile{ Path( fileName ) };

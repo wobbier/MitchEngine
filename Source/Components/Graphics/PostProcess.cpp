@@ -28,6 +28,10 @@ ME_REFLECT_BEGIN( PostProcess )
     ME_FIELD( DoFSensorHeight ).Display( "Sensor Height (mm)" ).Category( "Depth of Field" ).Range( 1.f, 70.f ).Tooltip( "Focal length is inferred from this filmback height and the camera's vertical field of view" );
     ME_FIELD( DoFMaxBlurRadius ).Display( "Max Blur Radius (1080p px)" ).Category( "Depth of Field" ).Range( 0.f, 32.f ).Tooltip( "Scales with camera resolution, capped at 64 pixels; zero bypasses the effect" );
     ME_FIELD( DoFDebugCoC ).Display( "Visualize Circle of Confusion" ).Category( "Depth of Field" ).Tooltip( "Red = foreground, green = background, black = in focus (requires Depth of Field)" );
+    ME_FIELD( DoFSplitDiopter ).Display( "Split Diopter" ).Category( "Depth of Field" ).Tooltip( "Use a near focus plane on the left and an independent far focus plane on the right" );
+    ME_FIELD( DoFSplitFocusDistance ).Display( "Right Focus Distance (m)" ).Category( "Depth of Field" ).Range( 0.1f, 1000.f ).Drag( 0.001f ).Tooltip( "Camera-forward focus depth for the right side of the split" );
+    ME_FIELD( DoFSplitPosition ).Display( "Split Position" ).Category( "Depth of Field" ).Range( 0.f, 1.f );
+    ME_FIELD( DoFSplitFeather ).Display( "Split Feather" ).Category( "Depth of Field" ).Range( 0.f, 0.25f ).Tooltip( "Full transition width as a fraction of the image; zero makes a hard split" );
     ME_FIELD( Fog ).Category( "Fog" ).Tooltip( "Exponential height fog over the opaque scene" );
     ME_FIELD( FogColor ).Category( "Fog" ).HDR().Tooltip( "Ambient light scattered by the fog" );
     ME_FIELD( FogDensity ).Category( "Fog" ).Range( 0.f, 0.5f ).Speed( 0.001f ).Tooltip( "Extinction per metre at the base height" );
@@ -110,6 +114,10 @@ Moonlight::PostProcessSettings PostProcess::ToSettings() const
     settings.DoFSensorHeight = DoFSensorHeight;
     settings.DoFMaxBlurRadius = DoFMaxBlurRadius;
     settings.DoFDebugCoC = DoFDebugCoC;
+    settings.DoFSplitDiopter = DoFSplitDiopter;
+    settings.DoFSplitFocusDistance = DoFSplitFocusDistance;
+    settings.DoFSplitPosition = DoFSplitPosition;
+    settings.DoFSplitFeather = DoFSplitFeather;
     settings.Fog = Fog;
     settings.FogColor[0] = FogColor.x;
     settings.FogColor[1] = FogColor.y;

@@ -240,6 +240,33 @@ TEST_CASE( "ShaderGraph: dynamic vectors widen to the widest input" )
     CHECK( fragment.find( "vec3 n" + std::to_string( add ) + "_Out = vec3(1.0, 0.5, 0.25) + vec3_splat(2.0);" ) != std::string::npos );
 }
 
+TEST_CASE( "ShaderGraph: a scalar times an inline vector is a vector" )
+{
+    Graph graph = Graph::CreateDefault( Target::Unlit );
+    const uint32_t scalar = graph.AddNode( "Float" ).Id;
+    graph.FindNode( scalar )->Settings["Value"] = 2.f;
+    // An inline vector on a scalar group widens it; a splat (how the editor stores a scalar) and
+    // the leftovers past a vector group's width don't.
+    const uint32_t tint = graph.AddNode( "Multiply" ).Id;
+    graph.Connect( scalar, "Out", tint, "A" );
+    graph.FindNode( tint )->SetDefault( "B", Vector4( 0.5f, 0.25f, 0.125f, 0.f ) );
+    const uint32_t splat = graph.AddNode( "Multiply" ).Id;
+    graph.Connect( scalar, "Out", splat, "A" );
+    graph.FindNode( splat )->SetDefault( "B", Vector4( 3.f ) );
+    const uint32_t leftover = graph.AddNode( "Multiply" ).Id;
+    graph.Connect( tint, "Out", leftover, "A" );
+    graph.FindNode( leftover )->SetDefault( "B", Vector4( 4.f, 2.f, 2.f, 2.f ) );
+    graph.Connect( leftover, "Out", OutputOf( graph ).Id, "Color" );
+    graph.Connect( splat, "Out", OutputOf( graph ).Id, "Alpha" );
+
+    CompileResult result = Compile( graph );
+    DOCTEST_INFO( result.FormatDiagnostics( graph ) );
+    REQUIRE( result.Success );
+    CHECK( result.PinTypes[{ tint, "out:Out" }] == ValueType::Vec3 );
+    CHECK( result.PinTypes[{ splat, "out:Out" }] == ValueType::Float );
+    CHECK( result.PinTypes[{ leftover, "out:Out" }] == ValueType::Vec3 );
+}
+
 TEST_CASE( "ShaderGraph: loops, bad links and stage misuse are reported on their nodes" )
 {
     SUBCASE( "loop" )

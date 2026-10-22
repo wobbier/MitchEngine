@@ -53,6 +53,28 @@ namespace ShaderGraph
         }
 
 
+        // The width an inline default was typed at. The editor stores a value edited as a scalar on
+        // every component, so a splat is a scalar; otherwise the vector ends at its last non-zero
+        // component ([1, 1, 0, 0] is a Vector2, a colour with zero alpha a Vector3).
+        int GetInlineVectorWidth( const Vector4& InValue )
+        {
+            if( InValue.x == InValue.y && InValue.x == InValue.z && InValue.x == InValue.w )
+            {
+                return 1;
+            }
+            const float components[4] = { InValue.x, InValue.y, InValue.z, InValue.w };
+            int width = 1;
+            for( int i = 1; i < 4; ++i )
+            {
+                if( components[i] != 0.f )
+                {
+                    width = i + 1;
+                }
+            }
+            return width;
+        }
+
+
         std::string PinKey( bool InIsOutput, const std::string& InPin )
         {
             return ( InIsOutput ? "out:" : "in:" ) + InPin;
@@ -653,8 +675,11 @@ namespace ShaderGraph
             for( const int index : Order )
             {
                 NodeState& node = Nodes[index];
-                // Dynamic groups take the widest vector connected to any of their inputs.
+                // Dynamic groups take the widest vector connected to any of their inputs. A scalar
+                // group also widens to a vector typed inline on an unconnected input: a scalar times
+                // an inline [0.03, 0.004, 0.002] is a vector, not just its .x.
                 std::map<int, int> groupWidth;
+                std::map<int, int> inlineWidth;
                 for( size_t input = 0; input < node.Inputs.size(); ++input )
                 {
                     const PinDef& pin = node.Inputs[input];
@@ -667,6 +692,11 @@ namespace ShaderGraph
                     if( source.first >= 0 )
                     {
                         width = std::max( width, GetComponentCount( Nodes[source.first].OutputTypes[source.second] ) );
+                    }
+                    else if( const Vector4* value = node.Source->FindDefault( pin.Name ) )
+                    {
+                        int& typed = inlineWidth[pin.DynamicGroup];
+                        typed = std::max( typed, GetInlineVectorWidth( *value ) );
                     }
                 }
                 auto resolve = [&]( const PinDef& InPin ) {
@@ -690,6 +720,12 @@ namespace ShaderGraph
                         {
                             width = GetComponentCount( InPin.Type );
                         }
+                    }
+                    if( width == 1 )
+                    {
+                        // Only a scalar group widens: a vector group's inline values are edited at
+                        // its own width, and components past it are leftovers.
+                        width = std::max( width, inlineWidth[InPin.DynamicGroup] );
                     }
                     return GetVectorType( std::max( width, 1 ) );
                 };
