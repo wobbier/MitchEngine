@@ -7,6 +7,7 @@
 #include "Components/Transform.h"
 #include "Core/UpdateContext.h"
 #include "Cores/PhysicsCore.h"
+#include "Cores/SceneCore.h"
 #include "Engine/ProjectSettings.h"
 #include "Engine/World.h"
 #include "Events/EventReceiver.h"
@@ -508,6 +509,28 @@ TEST_CASE( "Physics: audio occlusion counts the objects between the listener and
     CHECK( CountAudioObstacles( scene.Physics, ear, Vector3( 8.f, 1.f, 0.f ), listener.Get(), *speaker.Get() ) == 0 );
     // Without the listener's entity its own collider would count.
     CHECK( CountAudioObstacles( scene.Physics, Vector3( 0.f, 1.f, -1.f ), PositionOf( speaker ), nullptr, *speaker.Get() ) == 3 );
+}
+
+
+TEST_CASE( "Physics: audio occlusion counts objects below the scene root" )
+{
+    // Loaded scenes hang every top-level entity off SceneCore's RootTransform: that root isn't
+    // one object shared by everything (otherwise each wall would count as the source's own).
+    SceneCore sceneCore;   // outlives the world, which tells it about every entity it destroys
+    Scene scene;
+    scene.GameWorld->AddCore( sceneCore );
+    sceneCore.Init();
+    EntityHandle listener = scene.Create( "Listener", Vector3( 0.f, 1.f, 0.f ) );
+    EntityHandle speaker = scene.Create( "Speaker", Vector3( 0.f, 1.f, 10.f ) );
+    EntityHandle wallA = scene.Create( "Wall A", Vector3( 0.f, 1.f, 3.f ) );
+    wallA->AddComponent<BoxCollider>().Size = Vector3( 4.f, 4.f, 0.5f );
+    EntityHandle wallB = scene.Create( "Wall B", Vector3( 0.f, 1.f, 6.f ) );
+    wallB->AddComponent<BoxCollider>().Size = Vector3( 4.f, 4.f, 0.5f );
+    scene.Start();
+    scene.Run( kStep );
+
+    REQUIRE( wallA->GetComponent<Transform>().GetParentTransform() == sceneCore.GetRootTransform() );
+    CHECK( CountAudioObstacles( scene.Physics, Vector3( 0.f, 1.f, 0.f ), PositionOf( speaker ), listener.Get(), *speaker.Get() ) == 2 );
 }
 
 

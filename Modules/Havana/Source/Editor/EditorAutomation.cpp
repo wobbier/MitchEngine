@@ -826,6 +826,24 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             Fail( name + " audio " + ( source ? ( source->IsPlaying() ? "playing" : "stopped" ) : std::string( "<no AudioSource>" ) ) + ", expected " + ( expected ? "playing" : "stopped" ) );
         }
     }
+    else if( command == "assert-occlusion" )
+    {
+        // assert-occlusion Name | 0.7 ~ 0.05   (the entity's AudioSource occlusion, within a tolerance; 0.05 by default)
+        auto [name, valueText] = SplitArgs( args );
+        double tolerance = 0.05;
+        if( const size_t tilde = valueText.find( " ~ " ); tilde != std::string::npos )
+        {
+            tolerance = std::atof( valueText.c_str() + tilde + 3 );
+            valueText = valueText.substr( 0, tilde );
+        }
+        EntityHandle entity = FindEntity( name );
+        AudioSource* source = entity ? entity->TryGetComponent<AudioSource>() : nullptr;
+        const double expected = std::atof( valueText.c_str() );
+        if( !source || std::abs( source->GetOcclusion() - expected ) > tolerance )
+        {
+            Fail( name + " occlusion " + ( source ? std::to_string( source->GetOcclusion() ) : std::string( "<no AudioSource>" ) ) + ", expected " + valueText );
+        }
+    }
     else if( command == "assert-sky-time" || command == "assert-sky-animation-time" )
     {
         // Observe the evaluated clock, which deliberately does not change the authored Time field.
