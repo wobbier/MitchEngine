@@ -1,0 +1,21 @@
+name: Linux
+
+# Register the manual-run button on the default branch. The build implementation
+# stays on overhaul so enabling the button does not merge the engine overhaul.
+on:
+  workflow_dispatch:
+    inputs:
+      engine_ref:
+        description: Engine branch, tag, or commit to build
+        required: true
+        default: overhaul
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: wobbier/MitchEngine/.github/workflows/Linux.yml@overhaul
+    with:
+      engine_ref: ${{ inputs.engine_ref }}
