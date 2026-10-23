@@ -1,0 +1,113 @@
+{
+    "Bark": {
+        "BaseColorMap": "",
+        "NormalMap": "",
+        "NormalStrength": 1.0,
+        "OrmMap": "",
+        "Roughness": 0.8999999761581421,
+        "TileHeight": 0.5,
+        "TileWidth": 0.699999988079071,
+        "Tint": [
+            0.800000011920929,
+            0.7200000286102295,
+            0.6200000047683716
+        ]
+    },
+    "Branches": [
+        {
+            "Collar": 0.5,
+            "Count": 16,
+            "CountVariance": 0.15000000596046448,
+            "Curve": -70.0,
+            "CurveVariance": 15.0,
+            "DownAngle": 50.0,
+            "DownAngleTip": 0.0,
+            "DownAngleVariance": 25.0,
+            "Enabled": true,
+            "End": 1.0,
+            "Flexibility": 1.5,
+            "ForkAngle": 30.0,
+            "ForkChance": 0.0,
+            "Gnarl": 0.05000000074505806,
+            "Gravity": -0.20000000298023224,
+            "Layout": "Spiral",
+            "Length": 0.44999998807907104,
+            "LengthAtTip": 0.4000000059604645,
+            "LengthVariance": 0.20000000298023224,
+            "Phototropism": 0.0,
+            "Radius": 0.11999999731779099,
+            "Rotation": 137.5,
+            "SegmentLength": 0.25,
+            "Start": 0.9700000286102295,
+            "Taper": 0.8999999761581421,
+            "WhorlSize": 4
+        }
+    ],
+    "Crown": "Cylindrical",
+    "Foliage": {
+        "AlphaCutoff": 0.44999998807907104,
+        "BaseColorMap": "",
+        "NormalMap": "",
+        "Roughness": 0.6499999761581421,
+        "Tint": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "Translucency": 0.5,
+        "Variation": 0.15000000596046448
+    },
+    "Format": "MitchTree",
+    "Leaves": {
+        "Crossed": false,
+        "Curl": 15.0,
+        "DownAngle": 50.0,
+        "DownAngleVariance": 15.0,
+        "FrondFold": 30.0,
+        "FrondWidth": 1.2999999523162842,
+        "Kind": "Frond",
+        "PerStem": 12,
+        "Regions": [],
+        "Roundness": 0.20000000298023224,
+        "Size": 0.3499999940395355,
+        "SizeVariance": 0.25,
+        "Start": 0.20000000298023224,
+        "UpBias": 0.4000000059604645,
+        "Width": 1.0
+    },
+    "Lod": {
+        "LeafKeep": 0.5,
+        "Levels": 3,
+        "Transition": 0.4000000059604645
+    },
+    "Name": "Palm",
+    "Occlusion": 0.75,
+    "Seed": 9,
+    "Trunk": {
+        "Bend": 18.0,
+        "Flare": 0.44999998807907104,
+        "FlareHeight": 0.03999999910593033,
+        "FlareLobes": 0,
+        "Gnarl": 0.029999999329447746,
+        "GnarlScale": 0.5,
+        "Height": 9.0,
+        "HeightVariance": 0.10000000149011612,
+        "Lean": 12.0,
+        "LobeDepth": 0.3499999940395355,
+        "Radius": 0.20000000298023224,
+        "SegmentLength": 0.3499999940395355,
+        "SinkDepth": 0.4000000059604645,
+        "SplitAngle": 22.0,
+        "SplitHeight": 0.550000011920929,
+        "Splits": 0,
+        "Taper": 0.30000001192092896,
+        "TaperPower": 1.0
+    },
+    "Version": 1,
+    "Wind": {
+        "Branches": 1.399999976158142,
+        "Frequency": 1.0,
+        "Leaves": 1.0,
+        "Trunk": 1.0
+    }
+}

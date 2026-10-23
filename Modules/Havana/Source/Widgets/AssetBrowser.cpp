@@ -1,4 +1,5 @@
 #include "AssetBrowser.h"
+#include "Procedural/Tree/TreePresets.h"
 #include "Widgets/Terrain/TerrainWidget.h"
 #include "Widgets/Terrain/TerrainAssetActions.h"
 #include "World/SceneSerializer.h"
@@ -231,7 +232,8 @@ AssetType AssetBrowserWidget::GetAssetType( const std::string& InPath )
         return AssetType::Prefab;
     if( EndsWith( path, ".wav" ) || EndsWith( path, ".mp3" ) || EndsWith( path, ".ogg" ) )
         return AssetType::Audio;
-    if( EndsWith( path, ".obj" ) || EndsWith( path, ".fbx" ) || EndsWith( path, ".gltf" ) || EndsWith( path, ".glb" ) || EndsWith( path, ".dae" ) )
+    // MitchTree recipes are models: they generate their geometry when loaded.
+    if( EndsWith( path, ".obj" ) || EndsWith( path, ".fbx" ) || EndsWith( path, ".gltf" ) || EndsWith( path, ".glb" ) || EndsWith( path, ".dae" ) || EndsWith( path, ".mtree" ) )
         return AssetType::Model;
     if( EndsWith( path, ".html" ) )
         return AssetType::UI;
@@ -1619,6 +1621,18 @@ void AssetBrowserWidget::DrawCreateMenuItems()
         CreateAsset( "New Input Actions", ".inputactions", contents.dump( 4 ) );
     }
     if( ImGui::MenuItem( "Animation Sequence" ) ) CreateAsset( "New Sequence", ".sequence", SequenceClipData().ToJson().dump( 4 ) );
+    if( ImGui::BeginMenu( "Tree" ) )
+    {
+        for( const std::string& preset : MitchTree::PresetNames() )
+        {
+            MitchTree::TreeRecipe recipe;
+            if( ImGui::MenuItem( preset.c_str() ) && MitchTree::MakePreset( preset, recipe ) )
+            {
+                CreateAsset( "New " + preset, ".mtree", recipe.ToJson().dump( 4 ) );
+            }
+        }
+        ImGui::EndMenu();
+    }
     if( ImGui::MenuItem( "C# Script" ) )
     {
         const std::string name = fs::path( UniquePath( m_currentFolder, "NewScript", ".cs" ) ).stem().string();

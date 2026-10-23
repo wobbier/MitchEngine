@@ -2,10 +2,16 @@
 
 #include "Procedural/Tree/TreeGenerator.h"
 #include "Procedural/Tree/TreePresets.h"
+#include "Procedural/Tree/TreeAsset.h"
 #include "Procedural/Tree/TreeSkeleton.h"
+#include "Path.h"
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <map>
+#include <sstream>
 #include <tuple>
 
 namespace TreeGeneratorTest
@@ -207,4 +213,34 @@ TEST_CASE( "MitchTree: recipes round-trip through .mtree JSON" )
     REQUIRE( recipe.FromJson( hostile, error ) );
     CHECK( recipe.Trunk.Height <= 80.f );
     CHECK( recipe.Lod.Levels <= 4 );
+}
+
+
+// Engine/Assets/Trees/Presets mirrors the code presets (the editor creates new trees from the code;
+// the files are there to open, place and build scenes with). Run with ME_TREE_PRESETS_UPDATE=1 to
+// rewrite them.
+TEST_CASE( "MitchTree: preset assets match the code presets" )
+{
+    const bool update = std::getenv( "ME_TREE_PRESETS_UPDATE" ) != nullptr;
+    const std::filesystem::path folder = std::filesystem::path( Path( "Engine/Assets" ).FullPath ) / "Trees" / "Presets";
+    if( !std::filesystem::exists( folder.parent_path().parent_path() ) )
+    {
+        return;
+    }
+    if( update ) std::filesystem::create_directories( folder );
+    for( const std::string& name : MitchTree::PresetNames() )
+    {
+        CAPTURE( name );
+        const MitchTree::TreeRecipe recipe = TreeGeneratorTest::Preset( name );
+        const std::filesystem::path file = folder / ( name + ".mtree" );
+        std::string error;
+        if( update )
+        {
+            CHECK_MESSAGE( MitchTree::SaveRecipe( file.string(), recipe, error ), error );
+            continue;
+        }
+        MitchTree::TreeRecipe saved;
+        REQUIRE_MESSAGE( MitchTree::LoadRecipe( file.string(), saved, error ), error );
+        CHECK_MESSAGE( saved.ToJson() == recipe.ToJson(), "out of date: run the tests with ME_TREE_PRESETS_UPDATE=1" );
+    }
 }

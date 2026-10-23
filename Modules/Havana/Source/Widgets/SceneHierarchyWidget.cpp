@@ -531,7 +531,7 @@ void SceneHierarchyWidget::HandleAssetDrop(Transform* parent)
 		data["Version"] = SceneSerializer::kVersion;
 		json entity;
 		entity["Name"] = descriptor->Name.substr(0, descriptor->Name.find_last_of('.'));
-		entity["Components"] = json::array({ json{ { "Type", "Transform" } }, json{ { "Type", "Model" }, { "ModelPath", descriptor->FullPath.GetLocalPathString() } } });
+		entity["Components"] = json::array({ json{ { "Type", "Transform" } }, json{ { "Type", "Model" }, { "ModelPath", descriptor->FullPath.GetLocalPathString() }, { "Compact", true } } });
 		data["Entities"] = json::array({ entity });
 		EditorOps::CreateFromData(data, parent, "Add Model");
 	}

@@ -739,6 +739,16 @@ void Engine::PollAssetChanges()
     {
         CLog::Log( CLog::LogType::Info, "Hot reloaded: " + reloaded );
     }
+    // MitchTree recipes regenerate: rebuild every instance (models hold raw geometry pointers, so
+    // instances are rebuilt from a fresh resource rather than updated in place).
+    for( const std::string& path : paths )
+    {
+        if( GameWorld && path.size() > 6 && path.compare( path.size() - 6, 6, ".mtree" ) == 0 )
+        {
+            Model::ReloadAll( *GameWorld, path );
+            CLog::Log( CLog::LogType::Info, "Regenerated tree: " + path );
+        }
+    }
     changedEvent.Fire();
 }
 #endif

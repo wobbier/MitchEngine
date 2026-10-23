@@ -28,6 +28,12 @@ namespace Moonlight
     class Material;
 }
 
+namespace MitchTree
+{
+    struct TreeMesh;
+    struct TreeRecipe;
+}
+
 class ModelResource
     : public Resource
 {
@@ -47,7 +53,17 @@ public:
     const std::vector<Moonlight::AnimationClip>& GetAnimations() const;
     // Zero for legacy cooks that did not record their scale.
     float GetBakedImportScale() const { return m_bakedImportScale; }
+    // A procedural MitchTree (`.mtree`): generated from its recipe on load instead of read from a cook.
+    bool IsTree() const { return m_isTree; }
+    // The recipe the tree was generated from (trees only).
+    const MitchTree::TreeRecipe* GetTreeRecipe() const { return m_treeRecipe.get(); }
 private:
+    std::unique_ptr<MitchTree::TreeRecipe> m_treeRecipe;
+    std::unique_ptr<MitchTree::TreeMesh> m_pendingTree;
+    bool m_isTree = false;
+    bool LoadTreeAsync();
+    bool FinishTreeLoad();
+
     // Read by LoadAsync, consumed by FinishAsyncLoad.
     std::unique_ptr<Assimp::Importer> m_importer;
     const aiScene* m_pendingScene = nullptr;

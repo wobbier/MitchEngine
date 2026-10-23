@@ -1120,7 +1120,7 @@ void SceneViewWidget::HandleAssetDrop()
 		{
 			json entity;
 			entity["Name"] = descriptor->Name.substr(0, descriptor->Name.find_last_of('.'));
-			entity["Components"] = json::array({ json{ { "Type", "Transform" } }, json{ { "Type", "Model" }, { "ModelPath", descriptor->FullPath.GetLocalPathString() } } });
+			entity["Components"] = json::array({ json{ { "Type", "Transform" } }, json{ { "Type", "Model" }, { "ModelPath", descriptor->FullPath.GetLocalPathString() }, { "Compact", true } } });
 			data["Version"] = SceneSerializer::kVersion;
 			data["Entities"] = json::array({ entity });
 		}

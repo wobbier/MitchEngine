@@ -18,6 +18,8 @@
 #include <unordered_set>
 #include "World/SceneSerializer.h"
 #include "Components/Animation/Animator.h"
+#include "Components/Graphics/TerrainFoliage.h"
+#include "Cores/Rendering/RenderCore.h"
 
 Model::Model( const std::string& path )
     : Component( "Model" )
@@ -124,6 +126,45 @@ void Model::ExpandPendingModels()
         }
         pending.erase( pending.begin() + i );
     }
+}
+
+
+void Model::Reload()
+{
+    if( m_compact && IsInitialized )
+    {
+        for( const auto& part : m_parts ) part.Renderer->Serialize( m_savedParts[part.Path] );
+        if( RenderCore* renderer = GetEngine().ModelRenderer ) renderer->ReleaseCompactParts( *Parent.Get() );
+        m_parts.clear();
+        for( auto it = m_nodes.rbegin(); it != m_nodes.rend(); ++it ) it->Pose->OnDestroy();
+        m_nodes.clear();
+        m_nodeLookup.clear();
+        IsInitialized = false;
+    }
+    else if( IsInitialized )
+    {
+        return;   // expanded hierarchies own entities; they pick up changes when the scene reopens
+    }
+    ModelHandle = ResourceCache::GetInstance().GetAsync<ModelResource>( ModelPath );
+    if( ModelHandle && ModelHandle->IsLoading() )
+    {
+        PendingModels().push_back( Parent );
+        return;
+    }
+    Expand();
+}
+
+
+void Model::ReloadAll( World& InWorld, const std::string& InFullPath )
+{
+    const std::string fullPath = Path( InFullPath ).FullPath;
+    ResourceCache::GetInstance().Evict( fullPath );
+    RenderCore* renderer = GetEngine().ModelRenderer;
+    InWorld.ForEachEntity( [&]( Entity& entity ) {
+        if( Model* model = entity.TryGetComponent<Model>(); model && model->ModelPath.FullPath == fullPath ) model->Reload();
+        // Foliage re-fetches its species models when its draw is rebuilt.
+        if( renderer && entity.HasComponent<TerrainFoliage>() ) renderer->RefreshFoliage( entity.GetId().Value() );
+    } );
 }
 
 

@@ -35,6 +35,13 @@ public:
     {
         return IsInitialized;
     }
+    // Rebuilds a compact instance from a fresh load of its model, keeping this instance's part and
+    // node edits (a regenerated MitchTree, for example).
+    void Reload();
+    // Evicts the cached model at InFullPath and reloads every instance of it in InWorld (and the
+    // terrain foliage that may draw it).
+    static void ReloadAll( World& InWorld, const std::string& InFullPath );
+    const Path& GetModelPath() const { return ModelPath; }
     // Expands the models whose background load finished (the engine calls this every frame, after
     // finishing loads and before the late update).
     static void ExpandPendingModels();

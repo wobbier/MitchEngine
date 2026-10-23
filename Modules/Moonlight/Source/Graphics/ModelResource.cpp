@@ -18,6 +18,9 @@
 #include <stack>
 #include "assimp/material.h"
 #include "Materials/DiffuseMaterial.h"
+#include "Materials/StandardMaterial.h"
+#include "Procedural/Tree/TreeAsset.h"
+#include "Procedural/Tree/TreeGenerator.h"
 #include "Core/Assert.h"
 #include "Utils/HavanaUtils.h"
 #include <algorithm>
@@ -188,6 +191,12 @@ ModelResource::ModelResource( const Path& path )
 
 ModelResource::~ModelResource()
 {
+    // Trees regenerate on every recipe save; their geometry belongs to the resource. (Imported models
+    // keep the engine-lifetime behaviour.)
+    if( m_isTree )
+    {
+        for( Moonlight::MeshData* mesh : m_allMeshData ) delete mesh;
+    }
 }
 
 
@@ -205,6 +214,10 @@ bool ModelResource::SupportsAsyncLoad() const
 
 bool ModelResource::LoadAsync()
 {
+    if( std::string( FilePath.GetExtension() ) == "mtree" )
+    {
+        return LoadTreeAsync();
+    }
     // The cooked model (tools builds cook it from the source on first use, see Export).
     Path cooked = Path( FilePath.FullPath + ".assbin" );
     if( !cooked.Exists )
@@ -327,6 +340,10 @@ void ModelResource::BuildLods( const aiScene* inScene )
 
 bool ModelResource::FinishAsyncLoad()
 {
+    if( m_isTree )
+    {
+        return FinishTreeLoad();
+    }
     if( !m_pendingScene )
     {
         return false;
@@ -346,6 +363,98 @@ bool ModelResource::FinishAsyncLoad()
     m_pendingScene = nullptr;
     m_importer.reset();
     std::vector<std::vector<Moonlight::MeshLod>>().swap( m_pendingLods );
+    return true;
+}
+
+
+bool ModelResource::LoadTreeAsync()
+{
+    m_isTree = true;
+    auto recipe = std::make_unique<MitchTree::TreeRecipe>();
+    std::string error;
+    if( !MitchTree::LoadRecipe( FilePath.FullPath, *recipe, error ) )
+    {
+        CLog::Log( CLog::LogType::Error, "Tree " + FilePath.GetLocalPathString() + ": " + error );
+        return false;
+    }
+    m_pendingTree = std::make_unique<MitchTree::TreeMesh>( MitchTree::Generate( *recipe ) );
+    m_treeRecipe = std::move( recipe );
+    m_bakedImportScale = 1.f;
+    CLog::Log( CLog::LogType::Debug, "Tree " + FilePath.GetLocalPathString() + ": " + std::to_string( m_pendingTree->Statistics.Triangles.front() ) + " triangles in "
+        + std::to_string( static_cast<int>( m_pendingTree->Statistics.Milliseconds ) ) + " ms" );
+    return true;
+}
+
+
+bool ModelResource::FinishTreeLoad()
+{
+    if( !m_pendingTree || !m_treeRecipe )
+    {
+        return false;
+    }
+    const MitchTree::TreeMesh& tree = *m_pendingTree;
+    const MitchTree::TreeRecipe& recipe = *m_treeRecipe;
+    RootNode = Moonlight::Node();
+    RootNode.Name = "MitchTree";
+    // Every part shares the whole tree's bounds so bark and leaves switch levels of detail together
+    // (padded for wind sway).
+    const Vector3 size = tree.BoundsMax - tree.BoundsMin;
+    const float pad = std::max( 0.1f, 0.08f * std::max( { size.x, size.y, size.z } ) );
+    AABB bounds( tree.BoundsMin - Vector3( pad, 0.f, pad ), tree.BoundsMax + Vector3( pad, pad, pad ) );
+    for( const MitchTree::TreePart& part : tree.Parts )
+    {
+        const bool leaves = part.Name == "Leaves";
+        auto material = MakeShared<StandardMaterial>();
+        material->Init();
+        if( leaves )
+        {
+            material->DiffuseColor = recipe.Foliage.Tint;
+            material->Roughness = recipe.Foliage.Roughness;
+            material->AlphaCutoff = recipe.Foliage.AlphaCutoff;
+            material->FaceMode = Moonlight::RenderFaceMode::Both;
+            LoadMaterialTexture( material, recipe.Foliage.BaseColorMap, Moonlight::TextureType::Diffuse, aiTextureMapMode_Clamp );
+            LoadMaterialTexture( material, recipe.Foliage.NormalMap, Moonlight::TextureType::Normal, aiTextureMapMode_Clamp );
+        }
+        else
+        {
+            material->DiffuseColor = recipe.Bark.Tint;
+            material->Roughness = recipe.Bark.Roughness;
+            material->NormalStrength = recipe.Bark.NormalStrength;
+            LoadMaterialTexture( material, recipe.Bark.BaseColorMap, Moonlight::TextureType::Diffuse, aiTextureMapMode_Wrap );
+            LoadMaterialTexture( material, recipe.Bark.NormalMap, Moonlight::TextureType::Normal, aiTextureMapMode_Wrap );
+            if( LoadMaterialTexture( material, recipe.Bark.OrmMap, Moonlight::TextureType::MetallicRoughness, aiTextureMapMode_Wrap ) )
+            {
+                LoadMaterialTexture( material, recipe.Bark.OrmMap, Moonlight::TextureType::Occlusion, aiTextureMapMode_Wrap );
+                material->Roughness = 1.f;
+            }
+        }
+        RootNode.MaterialCache.push_back( material );
+
+        std::vector<Moonlight::PosNormTexTanBiVertex> vertices;
+        vertices.reserve( part.Vertices.size() );
+        for( const MitchTree::TreeVertex& source : part.Vertices )
+        {
+            Moonlight::PosNormTexTanBiVertex vertex;
+            vertex.Position = source.Position;
+            vertex.Normal = source.Normal;
+            vertex.TextureCoord = source.UV;
+            vertex.Tangent = source.Tangent;
+            vertex.BiTangent = source.Bitangent;
+            vertices.push_back( vertex );
+        }
+        Moonlight::MeshData* mesh = new Moonlight::MeshData( vertices, part.Lods.front(), material );
+        mesh->Name = part.Name;
+        std::vector<Moonlight::MeshLod> lods;
+        for( size_t level = 1; level < part.Lods.size() && level - 1 < tree.LodScreenHeights.size(); ++level )
+        {
+            lods.push_back( { part.Lods[level], tree.LodScreenHeights[level - 1] } );
+        }
+        mesh->SetLods( lods );
+        mesh->Bounds = bounds;
+        m_allMeshData.push_back( mesh );
+        RootNode.Meshes.push_back( mesh );
+    }
+    m_pendingTree.reset();
     return true;
 }
 

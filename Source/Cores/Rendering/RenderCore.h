@@ -30,6 +30,10 @@ public:
     virtual void OnEntityAdded( Entity& NewEntity ) final;
     virtual void OnEntityRemoved( Entity& InEntity ) final;
     void OnRemovedFromWorld() override;
+    // Releases a compact model's part commands (before its parts are rebuilt or destroyed).
+    void ReleaseCompactParts( Entity& InEntity );
+    // Drops an entity's foliage draw; the next frame rebuilds it, re-fetching its species models.
+    void RefreshFoliage( uint64_t InEntityID ) { RemoveFoliageDraw( InEntityID ); }
 
     // Levels of detail: the relative screen height of each imported mesh is scaled by this before its level
     // is picked (above 1 keeps detail longer, 0 always draws the coarsest level). --lod-bias sets it.
