@@ -42,6 +42,8 @@ namespace MitchTree
     // A mipmapped RGBA8 image for one channel of the recipe at InRecipePath (used by Texture loads of
     // "<recipe>#<channel>" paths). Alpha-tested leaf mips keep their coverage.
     bimg::ImageContainer* BakeChannel( const std::string& InRecipePath, const std::string& InChannel, std::string& OutError );
+    // The same from a recipe in memory (the MitchTree editor previews unsaved texture settings).
+    bimg::ImageContainer* BakeChannel( const TreeRecipe& InRecipe, const std::string& InChannel, std::string& OutError );
 
     // Writes an image as PNG (exporting textures for editing elsewhere).
     bool WritePng( const Image& InImage, const std::string& InFullPath, std::string& OutError );

@@ -15,6 +15,8 @@
 #include "Utils/EditorConfig.h"
 #include "Utils/HavanaUtils.h"
 #include "Utils/ImGuiUtils.h"
+#include "Procedural/Tree/TreeAsset.h"
+#include "Procedural/Tree/TreePresets.h"
 #include "ImGuiTheme.h"
 #include "imgui_internal.h"
 #include "misc/cpp/imgui_stdlib.h"
@@ -22,13 +24,15 @@
 #include <bx/allocator.h>
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 #include <fstream>
 
 namespace
 {
     TerrainWidget* s_terrainWidget = nullptr;
-    const char* kCategories[] = { "Sculpt", "Paint", "Tiles", "Foliage", "Splines", "Inspect" };
-    const char* kCategoryIcons[] = { "mountain", "paint", "layout-grid", "plant", "route", "eye" };
+    const char* kCategories[] = { "Sculpt", "Paint", "Tiles", "Foliage", "Splines", "Inspect", "Trees" };
+    const char* kCategoryIcons[] = { "mountain", "paint", "layout-grid", "plant", "route", "eye", "tree" };
+    static_assert( std::size( kCategories ) == TerrainWidget::kCategoryCount && std::size( kCategoryIcons ) == TerrainWidget::kCategoryCount );
     const char* kToolNames[] = { "Raise", "Lower", "Smooth", "Flatten", "Paint", "Erase" };
     const char* kToolIcons[] = { "arrow-up", "arrow-down", "blur", "equal" };
     std::string Key( const std::string& path ) { return std::filesystem::path( Path( path ).FullPath ).lexically_normal().generic_string(); }
@@ -290,6 +294,54 @@ void TerrainWidget::Planned( const char* icon, const char* label, const char* de
     Button( icon, label, ( std::string( "Planned: " ) + description ).c_str(), false );
 }
 
+void TerrainWidget::DrawTrees()
+{
+    if( m_treeListStale )
+    {
+        m_treeListStale = false;
+        m_treeList.clear();
+        std::error_code code;
+        const std::filesystem::path root = Path( "Assets" ).FullPath;
+        for( auto it = std::filesystem::recursive_directory_iterator( root, std::filesystem::directory_options::skip_permission_denied, code ); !code && it != std::filesystem::recursive_directory_iterator(); it.increment( code ) )
+        {
+            if( it->is_regular_file( code ) && it->path().extension() == ".mtree" ) m_treeList.push_back( Path( it->path().string() ).GetLocalPathString() );
+        }
+        std::sort( m_treeList.begin(), m_treeList.end() );
+    }
+    ImGui::SeparatorText( "Project Trees" );
+    if( m_treeList.empty() )
+    {
+        ImGui::TextWrapped( "No tree recipes yet. New Tree makes one from a preset (Oak, Pine, Palm...)." );
+        return;
+    }
+    auto target = Selection::Get().GetActive();
+    const bool canPlant = target && target->GetComponentByName( "TerrainFoliage" ) && !IsPlaying();
+    if( !canPlant ) ImGui::TextDisabled( "Select a terrain with foliage to plant trees." );
+    for( const std::string& path : m_treeList )
+    {
+        ImGui::PushID( path.c_str() );
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted( std::filesystem::path( path ).stem().string().c_str() );
+        if( ImGui::IsItemHovered() ) ImGui::SetTooltip( "%s", path.c_str() );
+        const float buttons = ImGui::CalcTextSize( "Edit" ).x + ImGui::CalcTextSize( "Add to Foliage" ).x + ImGui::GetStyle().FramePadding.x * 4.f + ImGui::GetStyle().ItemSpacing.x;
+        ImGui::SameLine( std::max( ImGui::GetContentRegionAvail().x + ImGui::GetCursorPosX() - buttons, ImGui::GetCursorPosX() ) );
+        if( ImGui::SmallButton( "Edit" ) )
+        {
+            OpenTreeEvent open;
+            open.TreePath = path;
+            open.Fire();
+        }
+        if( ImGui::IsItemHovered() ) ImGui::SetTooltip( "Open in MitchTree." );
+        ImGui::SameLine();
+        ImGui::BeginDisabled( !canPlant );
+        if( ImGui::SmallButton( "Add to Foliage" ) && !AddFoliageModel( path ) ) m_error = "Couldn't add " + path + " to the foliage palette";
+        ImGui::EndDisabled();
+        if( ImGui::IsItemHovered( ImGuiHoveredFlags_AllowWhenDisabled ) ) ImGui::SetTooltip( "Add as a species of the selected terrain's foliage, then paint it in the Foliage workspace." );
+        ImGui::PopID();
+    }
+}
+
+
 void TerrainWidget::DrawTools()
 {
     ImGui::SeparatorText( kCategories[m_category] );
@@ -372,6 +424,38 @@ void TerrainWidget::DrawTools()
             Planned( "plant", "Grass", "Dense grass rendering and wind." );
             Planned( "mask", "Masks", "Paint using terrain layers and exclusion masks." );
             Planned( "refresh", "Reseed", "Regenerate procedural scattering rules." );
+        }
+        else if( m_category == kTreesCategory )
+        {
+            ImGui::TableNextColumn();
+            if( Button( "plus", "New Tree", "Create a tree recipe from a preset and edit it in MitchTree.", !IsPlaying() ) ) ImGui::OpenPopup( "NewTreePreset" );
+            if( ImGui::BeginPopup( "NewTreePreset" ) )
+            {
+                for( const std::string& preset : MitchTree::PresetNames() )
+                {
+                    if( !ImGui::Selectable( preset.c_str() ) ) continue;
+                    // Assets/Trees/<Preset>.mtree, numbered when taken.
+                    const std::filesystem::path folder = Path( "Assets/Trees" ).FullPath;
+                    std::error_code code;
+                    std::filesystem::create_directories( folder, code );
+                    std::filesystem::path file = folder / ( preset + ".mtree" );
+                    for( int n = 2; std::filesystem::exists( file ); ++n ) file = folder / ( preset + " " + std::to_string( n ) + ".mtree" );
+                    MitchTree::TreeRecipe recipe;
+                    std::string error;
+                    if( MitchTree::MakePreset( preset, recipe ) && MitchTree::SaveRecipe( file.string(), recipe, error ) )
+                    {
+                        OpenTreeEvent open;
+                        open.TreePath = Path( file.string() ).GetLocalPathString();
+                        open.Fire();
+                        m_treeListStale = true;
+                    }
+                    else m_error = "Couldn't create " + file.string() + ": " + error;
+                }
+                ImGui::EndPopup();
+            }
+            ImGui::TableNextColumn();
+            if( Button( "refresh", "Refresh", "Find the project's tree recipes again." ) ) m_treeListStale = true;
+            Planned( "trees", "Scatter", "Scatter trees over the terrain by altitude and slope, with a treeline." );
         }
         else if( m_category == 4 )
         {
@@ -511,12 +595,14 @@ void TerrainWidget::Render()
     if( m_active && !m_active->GetError().empty() ) ImGui::TextWrapped( "%s", m_active->GetError().c_str() );
     if( !editing ) ImGui::TextColored( ImGuiTheme::WarningText(), "Stop Play to edit terrain." );
     ImGuiTheme::SectionGap();
-    if( ImGui::BeginTable( "Modes", 3, ImGuiTableFlags_SizingStretchSame ) )
+    // Two rows whatever the count, so the tools below keep their place.
+    if( ImGui::BeginTable( "Modes", ( kCategoryCount + 1 ) / 2, ImGuiTableFlags_SizingStretchSame ) )
     {
-        for( int i = 0; i < 6; ++i )
+        for( int i = 0; i < kCategoryCount; ++i )
         {
             ImGui::TableNextColumn();
-            if( Button( kCategoryIcons[i], kCategories[i], i ? "Browse the planned tools in this workspace." : "Sculpt source heights in World View.", true, m_category == i ) ) SetCategory( i );
+            const char* tooltip = i == 0 ? "Sculpt source heights in World View." : i == kTreesCategory ? "Generated trees (MitchTree): edit them and plant them as foliage." : "Browse the planned tools in this workspace.";
+            if( Button( kCategoryIcons[i], kCategories[i], tooltip, true, m_category == i ) ) SetCategory( i );
         }
         ImGui::EndTable();
     }
@@ -525,6 +611,7 @@ void TerrainWidget::Render()
     if( m_category == 0 ) DrawBrush();
     if( m_category == 1 ) DrawPaint();
     if( m_category == 3 ) DrawFoliage();
+    if( m_category == kTreesCategory ) DrawTrees();
     if( ImGui::CollapsingHeader( "Asset & Build" ) )
     {
         if( ImGui::Button( "Save All Terrains", ImVec2( -1, 0 ) ) && editing ) SaveAll();

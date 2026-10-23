@@ -52,6 +52,11 @@ namespace Moonlight
         glm::mat4 Transform;
     };
 
+    // Render groups keep separate scenes in one renderer: a camera draws only the meshes of its own
+    // group. Group 0 is the world (its lights, local shadows, decals, particles and debug drawing);
+    // other groups (editor previews) are lit by their camera's sky and CameraData::GroupLights.
+    constexpr uint8_t kMaxRenderGroups = 8;
+
     // The scene's wind this frame (a WindZone, else a light breeze), read by the foliage shaders.
     struct WindCommand
     {
@@ -100,7 +105,12 @@ namespace Moonlight
         const glm::mat4* SkinPalette = nullptr;
         uint16_t SkinBoneCount = 0;
         bgfx::DynamicVertexBufferHandle PosedVertices = BGFX_INVALID_HANDLE;
+        uint8_t RenderGroup = 0;
     };
+
+    // Fills the geometry and material fields of a static mesh's command (what RenderCore does for
+    // Mesh components; editor previews fill their own). InLod is clamped to the mesh's levels.
+    void FillMeshCommand( MeshCommand& OutCommand, MeshData* InMesh, const SharedPtr<Material>& InMaterial, uint8_t InLod = 0 );
 
     enum class LightType : uint8_t
     {

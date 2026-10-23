@@ -73,6 +73,18 @@ public:
     std::string GraphPath;
 };
 
+// Opens a MitchTree recipe (project path to a .mtree) in the editor's tree editor.
+class OpenTreeEvent
+    : public Event<OpenTreeEvent>
+{
+public:
+    OpenTreeEvent()
+        : Event()
+    {
+    }
+    std::string TreePath;
+};
+
 // Opens a source terrain asset in Havana's terrain authoring panel.
 class OpenTerrainEvent : public Event<OpenTerrainEvent>
 {

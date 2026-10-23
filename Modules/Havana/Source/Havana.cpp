@@ -43,6 +43,7 @@
 #include "Widgets/SettingsWidgets.h"
 #include "Widgets/ShaderGraph/ShaderGraphWidget.h"
 #include "Widgets/Terrain/TerrainWidget.h"
+#include "Widgets/Tree/TreeWidget.h"
 #include "Editor/EditorActions.h"
 #include "Editor/EditorOperations.h"
 #include "Editor/DefaultEditorActions.h"
@@ -141,6 +142,7 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
     TerrainPanel.reset( new TerrainWidget() );
     RegisteredWidgets.push_back( TerrainPanel );
     ShaderGraphs.reset( new ShaderGraphWidget() );
+    Trees.reset( new TreeWidget() );
 
     EditorActions& actions = EditorActions::Get();
     actions.IsContextActive = [this]( ActionContext context ) {
@@ -244,6 +246,7 @@ void Havana::InitUI()
     ShaderGraphs->Init();
     Sequencer->InstallActionRouting();
     TerrainPanel->InstallActionRouting();
+    Trees->Init();
 
     Input& gameInput = GetEngine().GetInput();
     gameInput.Stop();
@@ -310,6 +313,7 @@ void Havana::NewFrame()
     Preferences->Render();
     ProjectSettingsView->Render();
     ShaderGraphs->Render();
+    Trees->Render();
     TerrainPanel->Render();
     EditorActions::Get().DrawPalette();
 }
@@ -484,6 +488,7 @@ void Havana::Save()
 
 void Havana::Destroy()
 {
+    Trees->Destroy();
     ShaderGraphs->Destroy();
     for( const auto& widget : RegisteredWidgets )
     {

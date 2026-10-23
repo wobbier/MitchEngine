@@ -170,7 +170,12 @@ void PickingPass::Render( BGFXRenderer* inRenderer, CameraData* inCamData, Frame
         for( size_t i = 0; i < inRenderer->GetMeshCache().Commands.size(); ++i )
         {
             const Moonlight::MeshCommand& mesh = inRenderer->GetMeshCache().Commands[i];
-            if( hasCullingInfo && !inCamData->VisibleFlags[mesh.VisibilityIndex] )
+            // Only the camera's own render group can be picked (editor previews aren't the scene).
+            if( mesh.RenderGroup != inCamData->RenderGroup )
+            {
+                continue;
+            }
+            if( hasCullingInfo && ( mesh.VisibilityIndex < 0 || static_cast<size_t>( mesh.VisibilityIndex ) >= inCamData->VisibleFlags.size() || !inCamData->VisibleFlags[mesh.VisibilityIndex] ) )
             {
                 continue;
             }

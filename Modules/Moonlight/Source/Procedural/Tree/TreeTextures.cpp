@@ -774,6 +774,14 @@ namespace MitchTree
     {
         TreeRecipe recipe;
         if( !LoadRecipe( Path( InRecipePath ).FullPath, recipe, OutError ) ) return nullptr;
+        return BakeChannel( recipe, InChannel, OutError );
+    }
+
+
+    bimg::ImageContainer* BakeChannel( const TreeRecipe& InRecipe, const std::string& InChannel, std::string& OutError )
+    {
+        TreeRecipe recipe = InRecipe;
+        recipe.Sanitize();
         const bool bark = InChannel.rfind( "bark-", 0 ) == 0;
         std::shared_ptr<const BarkImages> barkImages;
         std::shared_ptr<const LeafImages> leafImages;

@@ -157,6 +157,18 @@ namespace Moonlight
     }
 
 
+    SharedPtr<Texture> Texture::CreateFromImage( const std::string& InName, bimg::ImageContainer* InImage, WrapMode InMode )
+    {
+        auto texture = MakeShared<Texture>( Path( InName ), InMode );
+        texture->m_pendingImage = InImage;
+        if( !texture->FinishAsyncLoad() )
+        {
+            return nullptr;
+        }
+        return texture;
+    }
+
+
     bool Texture::FinishAsyncLoad()
     {
         bimg::ImageContainer* imageContainer = m_pendingImage;

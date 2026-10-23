@@ -444,7 +444,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
     // Terrain honors every rendering camera plus World View, using the current late-update snapshot.
     std::vector<TerrainData::LodView> terrainViews;
     const auto addTerrainView = [&]( const Moonlight::CameraData& camera ) {
-        if( !camera.ShouldRender || camera.OutputSize.x <= 0 || camera.OutputSize.y <= 0 ) return;
+        if( !camera.ShouldRender || camera.RenderGroup != 0 || camera.OutputSize.x <= 0 || camera.OutputSize.y <= 0 ) return;
         const auto& projection = camera.ProjectionMatrix.GetInternalMatrix();
         TerrainData::LodView view;
         view.Position = camera.Position; view.Forward = camera.Front; view.Up = camera.Up;
@@ -626,7 +626,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
 #endif
     for( const Moonlight::CameraData& cam : cameras.Commands )
     {
-        if( !lodCamera && cam.IsMain && cam.ShouldRender )
+        if( !lodCamera && cam.IsMain && cam.ShouldRender && cam.RenderGroup == 0 )
         {
             lodCamera = &cam;
         }
@@ -678,6 +678,11 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                         {
                             for( Moonlight::CameraData& cam : cameras.Commands )
                             {
+                                // Editor previews draw their own meshes only.
+                                if( cam.RenderGroup != 0 )
+                                {
+                                    continue;
+                                }
                                 if( !cam.ShouldCull )
                                 {
                                     isVisible = true;
@@ -719,14 +724,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                             command.VisibilityIndex = entIndex;
                             command.ID = item.Owner->GetId().Value();
 
-                            if( model.MeshMaterial )
-                            {
-                                command.IsTransparent = model.MeshMaterial->IsTransparent();
-                                command.SupportsInstancing = model.MeshMaterial->SupportsInstancing;
-                                command.BatchKey = model.MeshMaterial->GetInstanceBatchKey();
-                                command.AlphaCutoff = model.MeshMaterial->GetAlphaCutoff();
-                                command.CustomShadow = bgfx::isValid( model.MeshMaterial->GetShadowProgram( false ) );
-                            }
+                            uint8_t lod = 0;
                             if( model.MeshReferece )
                             {
                                 const uint8_t lodCount = model.MeshReferece->GetLodCount();
@@ -735,11 +733,10 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                                     const float radius = worldBounds.GetExtents().Length();
                                     const float distance = ( worldBounds.GetCenter() - lodCamera->Position ).Length();
                                     const float height = Moonlight::RelativeScreenHeight( radius, distance, lodCamera->FOV, lodCamera->Projection == Moonlight::ProjectionType::Orthographic, lodCamera->OrthographicSize );
-                                    command.Lod = Moonlight::SelectLod( height, model.MeshReferece->GetLodHeights(), lodCount, lodBias );
+                                    lod = Moonlight::SelectLod( height, model.MeshReferece->GetLodHeights(), lodCount, lodBias );
                                 }
-                                command.VertexBufferIdx = model.MeshReferece->GetVertexBuffer().idx;
-                                command.IndexBufferIdx = model.MeshReferece->GetIndexBuffer( command.Lod ).idx;
                             }
+                            Moonlight::FillMeshCommand( command, model.MeshReferece, model.MeshMaterial, lod );
                             if( model.HasVertexAnimation() )
                             {
                                 command.PosedVertices = model.m_posedVertices;

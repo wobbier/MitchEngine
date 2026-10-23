@@ -846,7 +846,8 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     // Camera targets match the output size exactly: post passes process whole textures.
     const uint16_t width = static_cast<uint16_t>( std::max( 1.f, camera.OutputSize.x ) );
     const uint16_t height = static_cast<uint16_t>( std::max( 1.f, camera.OutputSize.y ) );
-    m_counting = camera.IsEditorView ? &m_editorCounts : &m_gameCounts;
+    // Editor previews (other render groups) aren't part of the scene's statistics.
+    m_counting = camera.RenderGroup != 0 ? &m_previewCounts : camera.IsEditorView ? &m_editorCounts : &m_gameCounts;
     if( !m_counting->Rendered || camera.IsMain )
     {
         m_counting->Width = width;
@@ -1076,7 +1077,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
             const Moonlight::MeshCommand& mesh = m_meshCache.Commands[i];
             // Resident foliage can retain a hidden command whose old visibility index
             // exceeds this frame's smaller draw list. Ignore it before reading that list.
-            if( !mesh.Visible || !mesh.MeshMaterial ) continue;
+            if( !mesh.Visible || !mesh.MeshMaterial || mesh.RenderGroup != camera.RenderGroup ) continue;
             if( hasCullingInfo && ( mesh.VisibilityIndex >= camera.VisibleFlags.size() || !camera.VisibleFlags[mesh.VisibilityIndex] ) )
             {
                 continue;
@@ -1152,7 +1153,9 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
 
     // Decals land on the opaque surfaces; ambient occlusion then darkens both before transparents
     // are composited on top, and fog covers it all.
-    if( sceneEffects && options.Decals ) RenderDecals( camera );
+    // Decals, particles and debug drawing belong to the world.
+    const bool world = camera.RenderGroup == 0;
+    if( sceneEffects && options.Decals && world ) RenderDecals( camera );
     m_postProcess->RenderAmbientOcclusion( m_views, camera, *camera.Buffer );
     m_postProcess->RenderFog( m_views, camera, *camera.Buffer, [this]() { BindLighting(); } );
     // Everything drawn from here on (transparents, particles) is in front of the fogged scene.
@@ -1222,8 +1225,8 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
 
         m_debugDraw->End();
     }
-    if( options.DebugDraw ) SubmitDebugLines( camera, transparentView );
-    if( sceneEffects && options.Particles ) RenderParticles( camera );
+    if( options.DebugDraw && world ) SubmitDebugLines( camera, transparentView );
+    if( sceneEffects && options.Particles && world ) RenderParticles( camera );
 
     // HDR -> final image (bloom, exposure, tonemapping, grading, FXAA), with any Post Process shader
     // graphs on the HDR scene (they replace the image bloom and tonemapping read) and on the display
@@ -1440,9 +1443,15 @@ void BGFXRenderer::PrepareCameraLighting( Moonlight::CameraData& camera )
     // A procedural sky drives every directional (or creates sun and moon lights). Explicit Sun/Moon
     // sources share this path, including CSM, fog, decals and particles. Solid/skybox cameras
     // retain authored directionals and the legacy sky fallback when no light exists.
-    const bool useSky = m_dynamicSky && ( camera.ClearType == Moonlight::ClearColorType::Procedural || m_directionalLightCount == 0 );
+    // Other render groups light with their own lights (directional only), never the world's.
+    const bool world = camera.RenderGroup == 0;
+    const std::vector<Moonlight::LightCommand>& lights = world ? m_lights : camera.GroupLights;
+    const int directionalCount = world ? m_directionalLightCount : static_cast<int>( std::count_if( lights.begin(), lights.end(), []( const Moonlight::LightCommand& InLight ) {
+        return InLight.Type == Moonlight::LightType::Directional;
+    } ) );
+    const bool useSky = m_dynamicSky && ( camera.ClearType == Moonlight::ClearColorType::Procedural || directionalCount == 0 );
     const Moonlight::SkyDirectionalLights* skyLights = useSky ? &m_dynamicSky->GetDirectionalLights() : nullptr;
-    const Moonlight::DirectionalLighting directionals = Moonlight::ResolveDirectionalLighting( m_lights, skyLights );
+    const Moonlight::DirectionalLighting directionals = Moonlight::ResolveDirectionalLighting( lights, skyLights );
     m_lighting.EclipseParams[1] = 0.f;
     if( useSky ) m_dynamicSky->GetEclipse().Uniforms( m_lighting.EclipseSun, m_lighting.EclipseMoon, m_lighting.EclipseParams );
     m_hasSunShadow = false;
@@ -1467,7 +1476,9 @@ void BGFXRenderer::PrepareCameraLighting( Moonlight::CameraData& camera )
     Moonlight::FogUniforms( camera.Post, m_lighting.FogParams, m_lighting.FogColor, m_lighting.FogVolume );
     m_lighting.FogForward[0] = 0.f;
 
-    if( !m_localLights.empty() )
+    const bool localLights = world && !m_localLights.empty();
+    m_lighting.Params[1] = localLights ? static_cast<float>( m_localLights.size() ) : 0.f;
+    if( localLights )
     {
         m_clusterBuilder->Build( m_localLights, camera.View, camera.ProjectionMatrix, camera.Near, camera.Far, static_cast<float>( buffer.Width ), static_cast<float>( buffer.Height ) );
         const std::vector<float>& grid = m_clusterBuilder->GetGrid();
@@ -1637,7 +1648,7 @@ void BGFXRenderer::GatherShadowCasters()
     }
     m_activeShadowBatchCount = 0;
     m_shadowBatchLookup.clear();
-    m_casterBounds = AABB();
+    m_casterBounds.fill( AABB() );
 
     // Scan the (large) mesh commands in parallel chunks, keeping the casters compactly in order.
     constexpr uint32_t kChunk = 2048;
@@ -1664,6 +1675,7 @@ void BGFXRenderer::GatherShadowCasters()
                 }
                 ShadowCaster caster;
                 caster.Command = i;
+                caster.Group = std::min<uint8_t>( mesh.RenderGroup, Moonlight::kMaxRenderGroups - 1 );
                 // Opaque casters only differ by geometry; alpha-tested ones and materials with their
                 // own caster program also by their material.
                 caster.MaterialKey = ( mesh.AlphaCutoff > 0.f || mesh.CustomShadow ) ? mesh.BatchKey : 0u;
@@ -1685,13 +1697,13 @@ void BGFXRenderer::GatherShadowCasters()
         m_shadowCasterCount += static_cast<uint32_t>( m_shadowCasterChunks[chunk].size() );
         for( ShadowCaster& caster : m_shadowCasterChunks[chunk] )
         {
-            m_casterBounds.Encapsulate( caster.Bounds );
+            m_casterBounds[caster.Group].Encapsulate( caster.Bounds );
             if( !caster.Skinned )
             {
                 auto matches = [&caster]( const InstanceBatch& InBatch ) {
-                    return InBatch.vertexBuffer == caster.VertexBuffer && InBatch.indexBuffer == caster.IndexBuffer && InBatch.materialKey == caster.MaterialKey;
+                    return InBatch.vertexBuffer == caster.VertexBuffer && InBatch.indexBuffer == caster.IndexBuffer && InBatch.materialKey == caster.MaterialKey && InBatch.group == caster.Group;
                 };
-                const uint64_t lookup = caster.MaterialKey * 0x9E3779B97F4A7C15ull ^ ( static_cast<uint64_t>( caster.VertexBuffer ) << 16 | caster.IndexBuffer );
+                const uint64_t lookup = caster.MaterialKey * 0x9E3779B97F4A7C15ull ^ ( static_cast<uint64_t>( caster.Group ) << 32 | static_cast<uint64_t>( caster.VertexBuffer ) << 16 | caster.IndexBuffer );
                 // Runs of the same mesh are common (scattered copies of a prop): skip the lookup for them.
                 if( previousBatch != UINT32_MAX && matches( m_shadowBatches[previousBatch] ) )
                 {
@@ -1712,6 +1724,7 @@ void BGFXRenderer::GatherShadowCasters()
                     batch.vertexBuffer = caster.VertexBuffer;
                     batch.indexBuffer = caster.IndexBuffer;
                     batch.materialKey = caster.MaterialKey;
+                    batch.group = caster.Group;
                     batch.representativeIndex = caster.Command;
                     m_shadowBatchLookup.emplace( lookup, caster.Batch );
                 }
@@ -1762,7 +1775,7 @@ void BGFXRenderer::BindStockShadowCaster( const Moonlight::MeshCommand& InMesh, 
 }
 
 
-void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, uint32_t InViewIndex )
+void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, uint32_t InViewIndex, uint8_t InGroup )
 {
     OPTICK_EVENT( "Renderer::SubmitShadowCasters" );
     for( size_t b = 0; b < m_activeShadowBatchCount; ++b )
@@ -1776,7 +1789,7 @@ void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, uint32_t InViewIndex 
     {
         for( const ShadowCaster& caster : m_shadowCasterChunks[chunk] )
         {
-            if( *views++ & bit )
+            if( ( *views++ & bit ) && caster.Group == InGroup )
             {
                 if( caster.Batch == UINT32_MAX )
                 {
@@ -1900,7 +1913,7 @@ void BGFXRenderer::RenderLocalShadows()
         bgfx::setViewClear( view, BGFX_CLEAR_DEPTH, 0, 1.f, 0 );
         bgfx::setViewTransform( view, &shadow.View[0][0], &shadow.Projection[0][0] );
         bgfx::touch( view );
-        SubmitShadowCasters( view, static_cast<uint32_t>( i ) );
+        SubmitShadowCasters( view, static_cast<uint32_t>( i ), 0 );
     }
 }
 
@@ -1927,7 +1940,7 @@ void BGFXRenderer::RenderSunShadows( Moonlight::CameraData& camera )
     input.LightDirection = m_sunShadowLight.Direction;
     input.Resolution = m_sunShadowAtlas.TileSize;
     input.HomogeneousDepth = bgfx::getCaps()->homogeneousDepth;
-    input.CasterBounds = m_casterBounds;
+    input.CasterBounds = m_casterBounds[std::min<uint8_t>( camera.RenderGroup, Moonlight::kMaxRenderGroups - 1 )];
     Moonlight::CascadeSetup cascades[Moonlight::kMaxCascades];
     Moonlight::ComputeCascades( input, cascades );
     Frustum frustums[Moonlight::kMaxCascades];
@@ -1953,7 +1966,7 @@ void BGFXRenderer::RenderSunShadows( Moonlight::CameraData& camera )
         bgfx::setViewClear( view, BGFX_CLEAR_DEPTH, 0, 1.f, 0 );
         bgfx::setViewTransform( view, &cascade.View[0][0], &cascade.Projection[0][0] );
         bgfx::touch( view );
-        SubmitShadowCasters( view, i );
+        SubmitShadowCasters( view, i, camera.RenderGroup );
 
         m_lighting.ShadowMatrix[i] = ShadowAtlasMatrix( i, cascade.ViewProjection );
         m_lighting.CascadeSplits[i] = cascade.SplitFar;
@@ -2457,6 +2470,7 @@ void BGFXRenderer::UpdateMeshMatrix( unsigned int Id, const glm::mat4& matrix )
 
 void BGFXRenderer::ClearMeshes()
 {
+    ++m_meshCacheGeneration;
     m_meshCache.Commands.clear();
     while( !m_meshCache.FreeIndicies.empty() )
     {
@@ -2549,4 +2563,25 @@ ImGuiRenderer* BGFXRenderer::GetImGuiRenderer() const
 void BGFXRenderer::SetDebugDrawEnabled( bool inEnabled )
 {
     EnableDebugDraw = inEnabled;
+}
+
+
+void Moonlight::FillMeshCommand( MeshCommand& OutCommand, MeshData* InMesh, const SharedPtr<Material>& InMaterial, uint8_t InLod )
+{
+    OutCommand.SingleMesh = InMesh;
+    OutCommand.MeshMaterial = InMaterial;
+    if( InMaterial )
+    {
+        OutCommand.IsTransparent = InMaterial->IsTransparent();
+        OutCommand.SupportsInstancing = InMaterial->SupportsInstancing;
+        OutCommand.BatchKey = InMaterial->GetInstanceBatchKey();
+        OutCommand.AlphaCutoff = InMaterial->GetAlphaCutoff();
+        OutCommand.CustomShadow = bgfx::isValid( InMaterial->GetShadowProgram( false ) );
+    }
+    if( InMesh )
+    {
+        OutCommand.Lod = std::min<uint8_t>( InLod, InMesh->GetLodCount() );
+        OutCommand.VertexBufferIdx = InMesh->GetVertexBuffer().idx;
+        OutCommand.IndexBufferIdx = InMesh->GetIndexBuffer( OutCommand.Lod ).idx;
+    }
 }

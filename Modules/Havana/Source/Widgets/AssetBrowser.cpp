@@ -1439,6 +1439,13 @@ void AssetBrowserWidget::OpenEntry( Entry& InEntry )
         if( TerrainWidget::Get() ) TerrainWidget::Get()->Open( LocalPath( InEntry.FullPath ) );
         return;
     }
+    if( EndsWith( InEntry.FullPath, ".mtree" ) )
+    {
+        OpenTreeEvent evt;
+        evt.TreePath = LocalPath( InEntry.FullPath );
+        evt.Fire();
+        return;
+    }
     if( InEntry.Type == AssetType::ShaderGraph )
     {
         OpenShaderGraphEvent evt;

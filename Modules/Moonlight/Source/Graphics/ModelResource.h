@@ -86,6 +86,8 @@ private:
     Moonlight::MeshData* ProcessMesh( aiMesh* mesh, Moonlight::Node& inParent, const aiScene* scene );
 
     bool LoadMaterialTexture( SharedPtr<Moonlight::Material> newMaterial, const std::string& InReference, Moonlight::TextureType InType, aiTextureMapMode InWrap );
+    // A texture the model references (relative to it, absolute, or found nearby by name).
+    SharedPtr<Moonlight::Texture> FindMaterialTexture( const std::string& InReference, Moonlight::WrapMode InWrap ) const;
 };
 
 struct ModelResourceMetadata

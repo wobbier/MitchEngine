@@ -26,6 +26,7 @@ class ProfilerWidget;
 class PreferencesWidget;
 class ProjectSettingsWidget;
 class ShaderGraphWidget;
+class TreeWidget;
 class TerrainWidget;
 class SequenceWidget;
 
@@ -92,6 +93,8 @@ private:
 	SharedPtr<ProjectSettingsWidget> ProjectSettingsView;
 	// Open shader graph documents (not a single window, so not in RegisteredWidgets).
 	SharedPtr<ShaderGraphWidget> ShaderGraphs;
+	// Open MitchTree documents (likewise).
+	SharedPtr<TreeWidget> Trees;
 	SharedPtr<TerrainWidget> TerrainPanel;
     SharedPtr<SequenceWidget> Sequencer;
 

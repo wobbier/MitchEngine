@@ -42,8 +42,10 @@ namespace Moonlight::RenderView
     constexpr bgfx::ViewId EditorOffscreenFirst = UIComposite + 1;
     constexpr bgfx::ViewId EditorOffscreenCount = 16;
     // The browser inspector has its own preview, including while graph documents are open.
-    constexpr bgfx::ViewId AssetPreviewTiles = EditorOffscreenFirst + EditorOffscreenCount - 2;
+    constexpr bgfx::ViewId AssetPreviewTiles = EditorOffscreenFirst + EditorOffscreenCount - 3;
     constexpr bgfx::ViewId AssetPreviewMain = AssetPreviewTiles + 1;
+    // Copies editor preview images to the CPU (after the cameras that render them).
+    constexpr bgfx::ViewId EditorCapture = AssetPreviewMain + 1;
 
     // Stable IDs for detached ImGui windows; the main ImGui pass is last.
     constexpr bgfx::ViewId ImGuiPlatformFirst = EditorOffscreenFirst + EditorOffscreenCount;

@@ -65,6 +65,10 @@ namespace Moonlight
 
         void UpdateBuffer( FrameBuffer* NewBuffer );
 
+        // A texture from an image built in memory, uploaded now (main thread). Takes ownership of
+        // InImage; InName only labels it (nothing is read from or cached under it).
+        static SharedPtr<Texture> CreateFromImage( const std::string& InName, bimg::ImageContainer* InImage, WrapMode InMode = WrapMode::Wrap );
+
         // Longest side a loaded texture may upload at (0 = no cap; a hardware profile sets it).
         // Bigger mipped textures upload from the first mip that fits and report that size;
         // textures already loaded keep theirs until reloaded. Main thread.

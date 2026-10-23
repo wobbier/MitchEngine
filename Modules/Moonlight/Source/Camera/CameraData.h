@@ -6,6 +6,7 @@
 #include "Math/Frustrum.h"
 #include "Camera/PostProcessSettings.h"
 #include "Camera/ProceduralSkySettings.h"
+#include "RenderCommands.h"
 
 #include <vector>
 
@@ -103,6 +104,11 @@ namespace Moonlight
         ViewRenderOptions ViewOptions;
 
         PostProcessSettings Post;
+
+        // The meshes this camera draws (RenderCommands.h). Cameras of other groups than the world's
+        // light with their sky and GroupLights only (directional lights: no local lights or shadows).
+        uint8_t RenderGroup = 0;
+        std::vector<LightCommand> GroupLights;
 
         // One byte per renderable (not vector<bool>): mesh jobs write these concurrently.
         std::vector<uint8_t> VisibleFlags;

@@ -97,7 +97,8 @@ bgfx runs views in ascending ID order, so producers must have lower IDs than the
 | 34–223 | **Dynamic band**: `ViewAllocator` hands these out per frame in submission order |
 | 224–225 | Picking ID pass + readback blit (editor) |
 | 226 | UI composite |
-| 227–255 | ImGui (platform windows count down from 254; main pass is 255) |
+| 227–242 | Editor offscreen work sampled by ImGui: shader graph previews, the asset browser's preview (240–241), `EditorCapture` (242) copying preview images to the CPU |
+| 243–255 | ImGui (platform windows count down from 254; main pass is 255) |
 
 `ViewAllocator::Allocate(name)` names each view for RenderDoc and returns `UINT16_MAX` when the band is exhausted; callers skip that pass. Allocation order per frame:
 
@@ -115,6 +116,15 @@ bgfx runs views in ascending ID order, so producers must have lower IDs than the
    10. Luminance + adaptation.
    11. Tonemap.
    12. FXAA.
+
+### Render groups
+
+`MeshCommand::RenderGroup` and `CameraData::RenderGroup` keep separate scenes in one renderer. A camera draws, shadows and picks only the meshes of its own group (`kMaxRenderGroups`). Group 0 is the world: `RenderCore`'s commands, its lights, the local shadow atlas, decals, particles and debug drawing. Other groups are editor previews (the MitchTree window, `Docs/MitchTree.md`). A preview pushes its own mesh commands, filled with `Moonlight::FillMeshCommand`, and its own camera into the camera cache.
+
+- **Lighting**: other groups light with their camera's `GroupLights`, directional only, which a procedural sky still drives, plus their sky's ambient.
+- **Shadows**: casters are gathered once per frame and batched per group. `SubmitShadowCasters` submits one group, and cascades fit that group's caster bounds.
+- **Statistics**: preview cameras aren't counted in the scene's statistics. RenderCore skips them for culling, LOD selection and terrain views.
+- **Mesh IDs**: `ClearMeshes` empties the cache on scene changes and bumps `GetMeshCacheGeneration()`; holders of command IDs push again when it changes.
 
 ### Inside `RenderCameraView`
 

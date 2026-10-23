@@ -58,11 +58,15 @@ public:
     bool ReprojectFoliage();
     Foliage::Brush FoliageBrush;
     void SetFoliageBrush( const Foliage::Brush& InBrush, bool InRecord = true );
+    // Sculpt, Paint, Tiles, Foliage, Splines, Inspect, Trees (MitchTree assets).
+    static constexpr int kCategoryCount = 7;
+    static constexpr int kTreesCategory = 6;
     void SetCategory( int InCategory )
     {
         EndFoliageStroke();
         if( m_active ) m_active->EndStroke();
-        m_category = InCategory >= 0 && InCategory < 6 ? InCategory : 0;
+        m_category = InCategory >= 0 && InCategory < kCategoryCount ? InCategory : 0;
+        if( m_category == kTreesCategory ) m_treeListStale = true;
         if( m_category == 1 && Brush.Tool < TerrainData::BrushTool::Paint ) Brush.Tool = TerrainData::BrushTool::Paint;
         if( m_category == 0 && Brush.Tool >= TerrainData::BrushTool::Paint ) Brush.Tool = TerrainData::BrushTool::Raise;
     }
@@ -104,6 +108,10 @@ private:
     void DrawLayerMap( unsigned InKind, const char* InLabel, std::string& InPath );
     void RecordBrushParameter( BrushParameter InParameter, float InBefore );
     void DrawTools();
+    // Trees workspace: the project's .mtree recipes (edit in MitchTree, add as foliage, new from a preset).
+    void DrawTrees();
+    std::vector<std::string> m_treeList;
+    bool m_treeListStale = true;
     void DrawLodButtons();
     void DrawLodControls();
     void DrawStreamingControls();

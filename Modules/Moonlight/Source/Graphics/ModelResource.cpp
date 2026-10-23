@@ -22,6 +22,7 @@
 #include "Materials/FoliageMaterial.h"
 #include "Procedural/Tree/TreeAsset.h"
 #include "Procedural/Tree/TreeGenerator.h"
+#include "Procedural/Tree/TreeModel.h"
 #include "Procedural/Tree/TreeTextures.h"
 #include "Core/Assert.h"
 #include "Utils/HavanaUtils.h"
@@ -394,108 +395,17 @@ bool ModelResource::FinishTreeLoad()
     {
         return false;
     }
-    const MitchTree::TreeMesh& tree = *m_pendingTree;
-    const MitchTree::TreeRecipe& recipe = *m_treeRecipe;
     RootNode = Moonlight::Node();
     RootNode.Name = "MitchTree";
-    // Every part shares the whole tree's bounds so bark and leaves switch levels of detail together
-    // (padded for wind sway).
-    const Vector3 size = tree.BoundsMax - tree.BoundsMin;
-    const float pad = std::max( 0.1f, 0.08f * std::max( { size.x, size.y, size.z } ) );
-    AABB bounds( tree.BoundsMin - Vector3( pad, 0.f, pad ), tree.BoundsMax + Vector3( pad, pad, pad ) );
-    for( const MitchTree::TreePart& part : tree.Parts )
-    {
-        const bool leaves = part.Name == "Leaves";
-        auto material = MakeShared<FoliageMaterial>();
-        material->Init();
-        FoliageSettings& foliage = material->Foliage;
-        foliage.Mode = leaves ? FoliageSettings::Part::Leaves : FoliageSettings::Part::Bark;
-        foliage.TreeHeight = std::max( tree.Height, 0.1f );
-        // Wind response in metres: a flexible twig on a 12 m tree swings about 0.3 m in a strong breeze.
-        foliage.TrunkLean = 0.015f * recipe.Wind.Trunk;
-        foliage.BranchSway = 0.025f * recipe.Wind.Branches * foliage.TreeHeight * std::max( tree.MaxSway, 0.f );
-        foliage.LeafFlutter = recipe.Wind.Leaves * std::min( 0.12f * recipe.Leaves.Size, 0.08f );
-        foliage.WindFrequency = recipe.Wind.Frequency;
-        foliage.Variation = recipe.Foliage.Variation;
-        if( leaves ) foliage.Translucency = recipe.Foliage.Translucency;
+    const std::string recipePath = FilePath.GetLocalPathString();
+    auto textures = [this, &recipePath]( const std::string& InSource, bool InGenerated, Moonlight::WrapMode InWrap ) -> SharedPtr<Moonlight::Texture> {
         // Generated maps are sub-assets of the recipe ("<tree>.mtree#bark-color"), baked on load.
-        const std::string recipePath = FilePath.GetLocalPathString();
-        auto generated = [&]( const char* InChannel, Moonlight::TextureType InType, Moonlight::WrapMode InWrap ) {
-            auto texture = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( Path( MitchTree::ChannelPath( recipePath, InChannel ) ), InWrap );
-            if( !texture ) return;
-            texture->Type = InType;
-            material->SetTexture( InType, texture );
-        };
-        if( leaves )
-        {
-            material->DiffuseColor = recipe.Foliage.Tint;
-            material->Roughness = recipe.Foliage.Roughness;
-            material->AlphaCutoff = recipe.Foliage.AlphaCutoff;
-            material->FaceMode = Moonlight::RenderFaceMode::Both;
-            if( recipe.LeafTextures.Generate )
-            {
-                generated( "leaf-color", Moonlight::TextureType::Diffuse, Moonlight::WrapMode::Clamp );
-                generated( "leaf-normal", Moonlight::TextureType::Normal, Moonlight::WrapMode::Clamp );
-            }
-            else
-            {
-                LoadMaterialTexture( material, recipe.Foliage.BaseColorMap, Moonlight::TextureType::Diffuse, aiTextureMapMode_Clamp );
-                LoadMaterialTexture( material, recipe.Foliage.NormalMap, Moonlight::TextureType::Normal, aiTextureMapMode_Clamp );
-            }
-        }
-        else
-        {
-            material->DiffuseColor = recipe.Bark.Tint;
-            material->Roughness = recipe.Bark.Roughness;
-            material->NormalStrength = recipe.Bark.NormalStrength;
-            if( recipe.BarkTextures.Generate )
-            {
-                generated( "bark-color", Moonlight::TextureType::Diffuse, Moonlight::WrapMode::Wrap );
-                generated( "bark-normal", Moonlight::TextureType::Normal, Moonlight::WrapMode::Wrap );
-                generated( "bark-orm", Moonlight::TextureType::MetallicRoughness, Moonlight::WrapMode::Wrap );
-                generated( "bark-orm", Moonlight::TextureType::Occlusion, Moonlight::WrapMode::Wrap );
-                material->Roughness = 1.f;
-            }
-            else
-            {
-                LoadMaterialTexture( material, recipe.Bark.BaseColorMap, Moonlight::TextureType::Diffuse, aiTextureMapMode_Wrap );
-                LoadMaterialTexture( material, recipe.Bark.NormalMap, Moonlight::TextureType::Normal, aiTextureMapMode_Wrap );
-                if( LoadMaterialTexture( material, recipe.Bark.OrmMap, Moonlight::TextureType::MetallicRoughness, aiTextureMapMode_Wrap ) )
-                {
-                    LoadMaterialTexture( material, recipe.Bark.OrmMap, Moonlight::TextureType::Occlusion, aiTextureMapMode_Wrap );
-                    material->Roughness = 1.f;
-                }
-            }
-        }
-        RootNode.MaterialCache.push_back( material );
-
-        std::vector<Moonlight::PosNormTexTanBiVertex> vertices;
-        vertices.reserve( part.Vertices.size() );
-        for( const MitchTree::TreeVertex& source : part.Vertices )
-        {
-            Moonlight::PosNormTexTanBiVertex vertex;
-            vertex.Position = source.Position;
-            vertex.Normal = source.Normal;
-            vertex.TextureCoord = source.UV;
-            vertex.Tangent = source.Tangent;
-            vertex.BiTangent = source.Bitangent;
-            vertices.push_back( vertex );
-        }
-        Moonlight::MeshData* mesh = new Moonlight::MeshData( vertices, part.Lods.front(), material );
-        mesh->Name = part.Name;
-        std::vector<Moonlight::WindVertex> wind( part.Vertices.size() );
-        for( size_t v = 0; v < part.Vertices.size(); ++v )
-        {
-            std::memcpy( wind[v].Data, part.Vertices[v].Wind.data(), sizeof( wind[v].Data ) );
-        }
-        mesh->InitWindStream( wind );
-        std::vector<Moonlight::MeshLod> lods;
-        for( size_t level = 1; level < part.Lods.size() && level - 1 < tree.LodScreenHeights.size(); ++level )
-        {
-            lods.push_back( { part.Lods[level], tree.LodScreenHeights[level - 1] } );
-        }
-        mesh->SetLods( lods );
-        mesh->Bounds = bounds;
+        if( InGenerated ) return ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( Path( MitchTree::ChannelPath( recipePath, InSource ) ), InWrap );
+        return FindMaterialTexture( InSource, InWrap );
+    };
+    for( Moonlight::MeshData* mesh : MitchTree::BuildMeshes( *m_pendingTree, *m_treeRecipe, textures ) )
+    {
+        RootNode.MaterialCache.push_back( mesh->MeshMaterial );
         m_allMeshData.push_back( mesh );
         RootNode.Meshes.push_back( mesh );
     }
@@ -900,20 +810,33 @@ Moonlight::MeshData* ModelResource::ProcessMesh( aiMesh* mesh, Moonlight::Node& 
 
 bool ModelResource::LoadMaterialTexture( SharedPtr<Moonlight::Material> InMaterial, const std::string& InReference, Moonlight::TextureType InType, aiTextureMapMode InWrap )
 {
-    if( InReference.empty() || InReference == "." ) return false;
     Moonlight::WrapMode wrap = Moonlight::WrapMode::Wrap;
     if( InWrap == aiTextureMapMode_Clamp ) wrap = Moonlight::WrapMode::Clamp;
     else if( InWrap == aiTextureMapMode_Mirror ) wrap = Moonlight::WrapMode::Mirror;
     else if( InWrap == aiTextureMapMode_Decal ) wrap = Moonlight::WrapMode::Decal;
+    std::shared_ptr<Moonlight::Texture> texture = FindMaterialTexture( InReference, wrap );
+    if( !texture )
+    {
+        return false;
+    }
+    texture->Type = InType;
+    InMaterial->SetTexture( InType, texture );
+    return true;
+}
+
+
+SharedPtr<Moonlight::Texture> ModelResource::FindMaterialTexture( const std::string& InReference, Moonlight::WrapMode InWrap ) const
+{
+    if( InReference.empty() || InReference == "." ) return nullptr;
     std::shared_ptr<Moonlight::Texture> texture;
     const Path absolute( InReference );
     const Path relative( FilePath.GetDirectoryString() + InReference );
-    if( relative.Exists ) texture = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( relative, wrap );
-    else if( absolute.Exists ) texture = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( absolute, wrap );
+    if( relative.Exists ) texture = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( relative, InWrap );
+    else if( absolute.Exists ) texture = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( absolute, InWrap );
     if( !texture )
     {
         const std::string found = FindTextureNear( FilePath.FullPath, InReference );
-        if( !found.empty() ) texture = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( Path( found ), wrap );
+        if( !found.empty() ) texture = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( Path( found ), InWrap );
     }
 #if USING( ME_TOOLS )
     if( !texture )
@@ -922,17 +845,14 @@ bool ModelResource::LoadMaterialTexture( SharedPtr<Moonlight::Material> InMateri
         std::replace( name.begin(), name.end(), '\\', '/' );
         name = name.substr( name.find_last_of( '/' ) + 1 );
         const Path found = ResourceCache::GetInstance().FindByName( Path( "Assets" ), name );
-        if( found.Exists ) texture = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( found, wrap );
+        if( found.Exists ) texture = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( found, InWrap );
     }
 #endif
     if( !texture )
     {
         BRUH( "Model " + FilePath.GetLocalPathString() + ": texture '" + InReference + "' not found" );
-        return false;
     }
-    texture->Type = InType;
-    InMaterial->SetTexture( InType, texture );
-    return true;
+    return texture;
 }
 
 

@@ -14,6 +14,7 @@
 #endif
 #include <Debug/DebugDrawer.h>
 #include <Utils/CommandCache.h>
+#include <array>
 #include "Core/ISystem.h"
 #include "Math/Vector4.h"
 #include "Core/FrameRenderData.h"
@@ -100,6 +101,8 @@ public:
     // Caches
     CommandCache<Moonlight::CameraData>& GetCameraCache();
     CommandCache<Moonlight::MeshCommand>& GetMeshCache();
+    // Changes whenever ClearMeshes drops every command (holders of mesh command IDs push again).
+    uint32_t GetMeshCacheGeneration() const { return m_meshCacheGeneration; }
     CommandCache<Moonlight::DebugColliderCommand>& GetDebugDrawCache();
 
     // Meshes
@@ -205,7 +208,8 @@ private:
     void CullShadowCasters( const Frustum* InFrustums, uint32_t InCount );
     // The renderer's own depth-only caster: alpha cutoff, tiling and the diffuse/opacity maps.
     void BindStockShadowCaster( const Moonlight::MeshCommand& InMesh, const float InAlpha[4] );
-    void SubmitShadowCasters( bgfx::ViewId InView, uint32_t InViewIndex );
+    // The casters of one render group inside pass view InViewIndex (see CullShadowCasters).
+    void SubmitShadowCasters( bgfx::ViewId InView, uint32_t InViewIndex, uint8_t InGroup );
     // World -> atlas uv / depth for one tile of a 2x2 atlas.
     glm::mat4 ShadowAtlasMatrix( uint32_t tile, const glm::mat4& viewProjection ) const;
     // World -> atlas uv / depth for a pixel rectangle of an atlas (top-left origin).
@@ -228,6 +232,7 @@ private:
     SceneCounts m_gameCounts;
     SceneCounts m_editorCounts;
     SceneCounts m_frameCounts;
+    SceneCounts m_previewCounts;    // other render groups (not reported)
     SceneCounts* m_counting = nullptr;
 
     ShadowAtlas m_sunShadowAtlas;
@@ -247,6 +252,7 @@ private:
         uint64_t MaterialKey = 0;
         uint16_t VertexBuffer = 0;
         uint16_t IndexBuffer = 0;
+        uint8_t Group = 0;
         bool Skinned = false;
         AABB Bounds;
     };
@@ -261,7 +267,8 @@ private:
     int m_directionalLightCount = 0;
     bool m_hasSunShadow = false;
     Moonlight::LightCommand m_sunShadowLight;
-    AABB m_casterBounds;
+    // Per render group (cascades extend towards the light to include them).
+    std::array<AABB, Moonlight::kMaxRenderGroups> m_casterBounds;
     static constexpr uint32_t kMaxSpotShadows = 4;
     static constexpr uint32_t kMaxPointShadows = 2;
     struct SpotShadow
@@ -389,6 +396,7 @@ private:
         uint16_t vertexBuffer = 0;
         uint16_t indexBuffer = 0;
         uint64_t materialKey = 0;
+        uint8_t group = 0;                  // shadow batches: the casters' render group
         size_t representativeIndex = 0;
         std::vector<glm::mat4> transforms;
         std::vector<uint32_t> commands;     // shadow batches: the casters' mesh command indices
@@ -426,6 +434,7 @@ private:
     bgfx::UniformHandle u_wind = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_windParams = BGFX_INVALID_HANDLE;
     Moonlight::WindCommand m_wind;
+    uint32_t m_meshCacheGeneration = 0;
     // PortalMaterial: tint rgb, w = 1 while the linked camera's image is bound.
     bgfx::UniformHandle u_screenView = BGFX_INVALID_HANDLE;
     // The target of the camera view being drawn: a material cannot sample it (PortalMaterial).

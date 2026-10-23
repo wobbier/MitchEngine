@@ -12,6 +12,10 @@
 #include "Renderer.h"
 #include "World/SceneSerializer.h"
 #include "Widgets/Terrain/TerrainWidget.h"
+#include "TreeDocument.h"
+#include "TreePreview.h"
+#include "TreeWidget.h"
+#include <algorithm>
 #include <filesystem>
 #include <map>
 
@@ -21,6 +25,9 @@ namespace TreeAutomation
     {
         std::map<std::string, const ModelResource*> s_marks;
         int s_waitFrames = 0;
+        // tree-wait-preview: rendered frames when the document finished generating (0 = not yet).
+        uint32_t s_previewSettled = 0;
+        bool s_captureRequested = false;
 
 
         std::vector<std::string> Split( const std::string& InArgs )
@@ -87,6 +94,123 @@ namespace TreeAutomation
             if( !MitchTree::SaveRecipe( path.FullPath, recipe, OutError ) ) return false;
             Model::ReloadAll( EditorOps::GetWorld(), path.FullPath );
             return true;
+        }
+        if( InCommand == "tree-open" )
+        {
+            if( args.empty() || !TreeWidget::Get() || !TreeWidget::Get()->Open( args[0] ) ) { OutError = "Could not open " + ( args.empty() ? std::string() : args[0] ); return false; }
+            s_previewSettled = 0;
+            return true;
+        }
+        if( InCommand == "tree-close" )
+        {
+            if( args.empty() || !TreeWidget::Get() || !TreeWidget::Get()->Close( args[0] ) ) { OutError = "No open tree " + ( args.empty() ? std::string() : args[0] ); return false; }
+            return true;
+        }
+        const bool documentAssert = InCommand.rfind( "tree-assert-", 0 ) == 0 && InCommand != "tree-assert-regenerated";
+        if( documentAssert || InCommand == "tree-edit" || InCommand == "tree-preset" || InCommand == "tree-seed" || InCommand == "tree-undo" || InCommand == "tree-redo"
+            || InCommand == "tree-save" || InCommand == "tree-preview" || InCommand == "tree-wait-preview" || InCommand == "tree-screenshot" )
+        {
+            TreeDocument* document = TreeWidget::Get() ? TreeWidget::Get()->GetActive() : nullptr;
+            if( !document ) { OutError = "No tree is open in MitchTree"; return false; }
+            TreePreview& preview = document->GetPreview();
+            if( InCommand == "tree-edit" )
+            {
+                if( args.size() < 2 ) { OutError = "Usage: tree-edit <field> | <json>"; return false; }
+                const json value = json::parse( args[1], nullptr, false );
+                if( value.is_discarded() || !document->SetField( args[0], value ) ) { OutError = "Can't set " + args[0]; return false; }
+                s_previewSettled = 0;
+                return true;
+            }
+            if( InCommand == "tree-preset" )
+            {
+                const std::vector<std::string>& names = MitchTree::PresetNames();
+                if( args.empty() || std::find( names.begin(), names.end(), args[0] ) == names.end() ) { OutError = "Unknown preset"; return false; }
+                document->ApplyPreset( args[0] );
+                s_previewSettled = 0;
+                return true;
+            }
+            if( InCommand == "tree-seed" ) { document->RandomizeSeed(); s_previewSettled = 0; return true; }
+            if( InCommand == "tree-undo" ) { document->GetUndo().Undo(); s_previewSettled = 0; return true; }
+            if( InCommand == "tree-redo" ) { document->GetUndo().Redo(); s_previewSettled = 0; return true; }
+            if( InCommand == "tree-save" )
+            {
+                if( !document->Save() ) { OutError = "Save failed"; return false; }
+                return true;
+            }
+            if( InCommand == "tree-preview" )
+            {
+                if( args.empty() ) { OutError = "Usage: tree-preview <option> | <value>"; return false; }
+                const std::string& option = args[0];
+                const float value = args.size() > 1 && !args[1].empty() ? std::stof( args[1] ) : 0.f;
+                if( option == "wind" ) preview.Wind = value != 0.f;
+                else if( option == "lod" ) preview.ForcedLod = static_cast<int>( value );
+                else if( option == "wireframe" ) preview.Wireframe = value != 0.f;
+                else if( option == "ground" ) preview.ShowGround = value != 0.f;
+                else if( option == "yaw" ) preview.Yaw = value;
+                else if( option == "pitch" ) preview.Pitch = value;
+                else if( option == "distance" ) preview.Distance = value;
+                else if( option == "frame" ) preview.Frame();
+                else if( option == "scene" ) preview.SceneLighting = value != 0.f;
+                else if( option == "sun" ) preview.SunAzimuth = value;
+                else if( option == "sun-height" ) preview.SunElevation = value;
+                else { OutError = "Unknown preview option " + option; return false; }
+                return true;
+            }
+            if( InCommand == "tree-wait-preview" )
+            {
+                // Generated, then shown for a few frames (textures, shadows and exposure settle).
+                if( !document->IsGenerating() && preview.HasMeshes() )
+                {
+                    if( s_previewSettled == 0 ) s_previewSettled = preview.GetRenderedFrames() + 1;
+                    if( preview.GetRenderedFrames() >= s_previewSettled + 8 ) { s_waitFrames = 0; return true; }
+                }
+                if( ++s_waitFrames > 3600 ) { s_waitFrames = 0; OutError = "Timed out waiting for the MitchTree preview"; return false; }
+                OutRetry = true;
+                return true;
+            }
+            if( InCommand == "tree-assert-stats" )
+            {
+                if( args.size() < 2 ) { OutError = "Usage: tree-assert-stats <min> | <max>"; return false; }
+                const std::vector<uint32_t>& triangles = document->GetStatistics().Triangles;
+                if( triangles.empty() ) { OutError = "No statistics yet"; return false; }
+                const uint32_t low = static_cast<uint32_t>( std::stoul( args[0] ) ), high = static_cast<uint32_t>( std::stoul( args[1] ) );
+                if( triangles[0] < low || triangles[0] > high ) { OutError = "Full detail has " + std::to_string( triangles[0] ) + " triangles"; return false; }
+                for( size_t lod = 1; lod < triangles.size(); ++lod )
+                {
+                    if( triangles[lod] >= triangles[lod - 1] ) { OutError = "LOD " + std::to_string( lod ) + " is not smaller than LOD " + std::to_string( lod - 1 ); return false; }
+                }
+                return true;
+            }
+            if( InCommand == "tree-assert-dirty" )
+            {
+                const bool expected = !args.empty() && args[0] == "1";
+                if( document->IsDirty() != expected ) { OutError = expected ? "The tree should have unsaved changes" : "The tree should be saved"; return false; }
+                return true;
+            }
+            if( InCommand == "tree-assert-lod" )
+            {
+                if( args.empty() || preview.GetDrawnLod() != static_cast<uint8_t>( std::stoul( args[0] ) ) ) { OutError = "The preview drew LOD " + std::to_string( preview.GetDrawnLod() ); return false; }
+                return true;
+            }
+            if( InCommand == "tree-screenshot" )
+            {
+                if( args.empty() ) { OutError = "Usage: tree-screenshot <path.png>"; return false; }
+                if( !s_captureRequested )
+                {
+                    std::error_code error;
+                    std::filesystem::create_directories( std::filesystem::path( Path( args[0] ).FullPath ).parent_path(), error );
+                    preview.RequestCapture( Path( args[0] ).FullPath );
+                    s_captureRequested = true;
+                    OutRetry = true;
+                    return true;
+                }
+                if( !preview.IsCaptureDone() ) { OutRetry = true; return true; }
+                s_captureRequested = false;
+                if( !preview.GetCaptureError().empty() ) { OutError = preview.GetCaptureError(); return false; }
+                return true;
+            }
+            OutError = "Unknown command";
+            return false;
         }
         if( InCommand == "tree-foliage" )
         {

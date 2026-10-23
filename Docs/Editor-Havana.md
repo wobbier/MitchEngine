@@ -139,7 +139,8 @@ A searchable project-wide table is the default: type icon, name, local path and 
 - **Navigation**: back/forward/up, clickable breadcrumbs, recursive search and a type filter.
 - **Thumbnails**: textures that are already compiled, at most two loaded per frame.
 - **Details pane**: texture and shader graph previews, plus registered import settings (Apply re-exports and reloads). Graph previews compile in the background without exporting or changing the graph; target/surface settings are summarized beside an Open Shader Graph button. Shader graphs have no separate import settings. Data assets (metadata that exposes a reflected object, e.g. `.inputactions`) show their contents in the reflection inspector with a Save button.
-- **File operations**: create folder/scene/prefab/material/input actions/C# script, rename (F2, moves the `.meta`), duplicate (Ctrl+D), move (Alt-drag files, or drag folders, onto folders or breadcrumbs), delete to `.tmp/Trash` after confirmation, show in file manager, copy path, reimport.
+- **Opening**: double-click opens terrains in the Terrain panel, shader graphs in their editor, sequences in the sequencer, `.mtree` trees in MitchTree (`Docs/MitchTree.md`) and scenes in place.
+- **File operations**: create folder/scene/prefab/material/input actions/C# script/tree (Create > Tree > preset), rename (F2, moves the `.meta`), duplicate (Ctrl+D), move (Alt-drag files, or drag folders, onto folders or breadcrumbs), delete to `.tmp/Trash` after confirmation, show in file manager, copy path, reimport.
 - **Picker mode**: the same window serves `RequestAssetSelectionEvent`. Double-click selects; save dialogs save into the browsed folder with the right extension.
 - `AssetsChangedEvent` from the asset watcher refreshes it.
 

@@ -186,8 +186,9 @@ namespace TerrainAutomation
         }
         else if( command == "terrain-mode" )
         {
-            const char* modes[] = { "Sculpt", "Paint", "Tiles", "Foliage", "Splines", "Inspect" };
-            for( int i = 0; i < 6; ++i ) if( args == modes[i] ) { widget->SetCategory( i ); return true; }
+            const char* modes[] = { "Sculpt", "Paint", "Tiles", "Foliage", "Splines", "Inspect", "Trees" };
+            static_assert( std::size( modes ) == TerrainWidget::kCategoryCount );
+            for( int i = 0; i < TerrainWidget::kCategoryCount; ++i ) if( args == modes[i] ) { widget->SetCategory( i ); return true; }
             error = "Unknown terrain workspace"; return false;
         }
         else if( command == "terrain-brush" ) widget->BrushEnabled = args == "true";
