@@ -133,7 +133,7 @@ A 3D source whose line to the listener is blocked sounds muffled. FMOD's 3D occl
 - **Inspector.** `AudioSource` fields are reflected: an asset picker for the clip, and a "3D Sound" category. Edits are undoable and multi-editable. Below the fields are Play / Stop / Pause / One-Shot preview buttons, a seek bar and an audibility meter.
 - **Scene view.** It shows audio icons. Selected 3D sources draw their `MinDistance` and `MaxDistance` spheres.
 - **Project Settings.** The **Audio** section has a slider per bus. Changes apply live and save on release.
-- **Regression script.** `../Assets/Scenes/Tests/AudioFlows.edscript` runs against `AudioTest.lvl`, using `assert-audio Name | 0/1`.
+- **Regression script.** `../Assets/Scenes/Tests/AudioFlows.edscript` runs against `AudioTest.lvl`, using `assert-audio Name | 0/1`. `assert-occlusion Name | value ~ tolerance` checks a source's occlusion from wherever the listener is (for example an entity given an `AudioListener` during play).
 
 ## How to Extend
 

@@ -17,6 +17,7 @@
 #include "Utils/EditorConfig.h"
 #include "Widgets/ShaderGraph/ShaderGraphAutomation.h"
 #include "Widgets/Terrain/TerrainAutomation.h"
+#include "Widgets/Tree/TreeAutomation.h"
 #include "Widgets/ShaderGraph/ShaderGraphPreview.h"
 #include "Components/Audio/AudioSource.h"
 #include "Components/Transform.h"
@@ -270,6 +271,13 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
     {
         std::string error;
         if( !TerrainAutomation::Execute( command, args, error ) ) Fail( command + ": " + error );
+    }
+    else if( command.rfind( "tree-", 0 ) == 0 )
+    {
+        std::string error;
+        bool retry = false;
+        if( !TreeAutomation::Execute( command, args, error, retry ) ) Fail( command + ": " + error );
+        else if( retry ) --m_nextLine;
     }
     else if( command.rfind( "seq-", 0 ) == 0 )
     {
@@ -824,6 +832,24 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         if( !source || source->IsPlaying() != expected )
         {
             Fail( name + " audio " + ( source ? ( source->IsPlaying() ? "playing" : "stopped" ) : std::string( "<no AudioSource>" ) ) + ", expected " + ( expected ? "playing" : "stopped" ) );
+        }
+    }
+    else if( command == "assert-occlusion" )
+    {
+        // assert-occlusion Name | 0.7 ~ 0.05   (the entity's AudioSource occlusion, within a tolerance; 0.05 by default)
+        auto [name, valueText] = SplitArgs( args );
+        double tolerance = 0.05;
+        if( const size_t tilde = valueText.find( " ~ " ); tilde != std::string::npos )
+        {
+            tolerance = std::atof( valueText.c_str() + tilde + 3 );
+            valueText = valueText.substr( 0, tilde );
+        }
+        EntityHandle entity = FindEntity( name );
+        AudioSource* source = entity ? entity->TryGetComponent<AudioSource>() : nullptr;
+        const double expected = std::atof( valueText.c_str() );
+        if( !source || std::abs( source->GetOcclusion() - expected ) > tolerance )
+        {
+            Fail( name + " occlusion " + ( source ? std::to_string( source->GetOcclusion() ) : std::string( "<no AudioSource>" ) ) + ", expected " + valueText );
         }
     }
     else if( command == "assert-sky-time" || command == "assert-sky-animation-time" )

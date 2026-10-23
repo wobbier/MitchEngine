@@ -1,0 +1,198 @@
+{
+    "Bark": {
+        "BaseColorMap": "",
+        "NormalMap": "",
+        "NormalStrength": 1.0,
+        "OrmMap": "",
+        "Roughness": 0.8999999761581421,
+        "TileHeight": 1.399999976158142,
+        "TileWidth": 0.800000011920929,
+        "Tint": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "BarkTextures": {
+        "Color": [
+            0.550000011920929,
+            0.33000001311302185,
+            0.2199999988079071
+        ],
+        "CrevasseColor": [
+            0.11999999731779099,
+            0.07999999821186066,
+            0.05999999865889549
+        ],
+        "Depth": 1.5,
+        "Generate": true,
+        "Moss": 0.10000000149011612,
+        "MossColor": [
+            0.2800000011920929,
+            0.36000001430511475,
+            0.11999999731779099
+        ],
+        "Resolution": 512,
+        "Roughness": 0.8799999952316284,
+        "Scale": 5.0,
+        "Seed": 11,
+        "Stretch": 1.600000023841858,
+        "Style": "Plated"
+    },
+    "Branches": [
+        {
+            "Collar": 0.30000001192092896,
+            "Count": 25,
+            "CountVariance": 0.15000000596046448,
+            "Curve": 25.0,
+            "CurveVariance": 12.0,
+            "DownAngle": 80.0,
+            "DownAngleTip": -40.0,
+            "DownAngleVariance": 10.0,
+            "Enabled": true,
+            "End": 0.9700000286102295,
+            "Flexibility": 0.800000011920929,
+            "ForkAngle": 30.0,
+            "ForkChance": 0.0,
+            "Gnarl": 0.30000001192092896,
+            "Gravity": 0.0,
+            "Layout": "Whorled",
+            "Length": 0.30000001192092896,
+            "LengthAtTip": 0.4000000059604645,
+            "LengthVariance": 0.20000000298023224,
+            "Phototropism": 0.0,
+            "Radius": 0.4000000059604645,
+            "Rotation": 137.5,
+            "SegmentLength": 0.30000001192092896,
+            "Start": 0.6000000238418579,
+            "Taper": 0.800000011920929,
+            "WhorlSize": 4
+        },
+        {
+            "Collar": 0.30000001192092896,
+            "Count": 10,
+            "CountVariance": 0.15000000596046448,
+            "Curve": 10.0,
+            "CurveVariance": 12.0,
+            "DownAngle": 60.0,
+            "DownAngleTip": 0.0,
+            "DownAngleVariance": 10.0,
+            "Enabled": true,
+            "End": 0.9700000286102295,
+            "Flexibility": 1.2999999523162842,
+            "ForkAngle": 30.0,
+            "ForkChance": 0.0,
+            "Gnarl": 0.20000000298023224,
+            "Gravity": 0.0,
+            "Layout": "Spiral",
+            "Length": 0.44999998807907104,
+            "LengthAtTip": 0.4000000059604645,
+            "LengthVariance": 0.20000000298023224,
+            "Phototropism": 0.0,
+            "Radius": 0.5,
+            "Rotation": 137.5,
+            "SegmentLength": 0.15000000596046448,
+            "Start": 0.20000000298023224,
+            "Taper": 0.800000011920929,
+            "WhorlSize": 4
+        }
+    ],
+    "Crown": "TendFlame",
+    "Foliage": {
+        "AlphaCutoff": 0.44999998807907104,
+        "BaseColorMap": "",
+        "NormalMap": "",
+        "Roughness": 0.6499999761581421,
+        "Tint": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "Translucency": 0.3499999940395355,
+        "Variation": 0.15000000596046448
+    },
+    "Format": "MitchTree",
+    "LeafTextures": {
+        "Aspect": 0.44999998807907104,
+        "Color": [
+            0.10000000149011612,
+            0.2199999988079071,
+            0.07999999821186066
+        ],
+        "Columns": 2,
+        "Generate": true,
+        "Leaves": 5,
+        "LobeDepth": 0.30000001192092896,
+        "Lobes": 7,
+        "NeedleLength": 0.25,
+        "Resolution": 1024,
+        "Rows": 2,
+        "Seed": 11,
+        "Serration": 0.15000000596046448,
+        "Shape": "Needles",
+        "TipColor": [
+            0.18000000715255737,
+            0.30000001192092896,
+            0.10000000149011612
+        ],
+        "TwigColor": [
+            0.25,
+            0.18000000715255737,
+            0.11999999731779099
+        ],
+        "Variation": 0.20000000298023224,
+        "Veins": 0.5
+    },
+    "Leaves": {
+        "Crossed": true,
+        "Curl": 8.0,
+        "DownAngle": 30.0,
+        "DownAngleVariance": 15.0,
+        "FrondFold": 25.0,
+        "FrondWidth": 0.8999999761581421,
+        "Kind": "Needles",
+        "PerStem": 8,
+        "Regions": [],
+        "Roundness": 0.5,
+        "Size": 0.3400000035762787,
+        "SizeVariance": 0.25,
+        "Start": 0.20000000298023224,
+        "UpBias": 0.6000000238418579,
+        "Width": 1.0
+    },
+    "Lod": {
+        "LeafKeep": 0.5,
+        "Levels": 3,
+        "Transition": 0.4000000059604645
+    },
+    "Name": "Pine",
+    "Occlusion": 0.75,
+    "Seed": 11,
+    "Trunk": {
+        "Bend": 8.0,
+        "Flare": 0.4000000059604645,
+        "FlareHeight": 0.05999999865889549,
+        "FlareLobes": 4,
+        "Gnarl": 0.07999999821186066,
+        "GnarlScale": 0.5,
+        "Height": 18.0,
+        "HeightVariance": 0.10000000149011612,
+        "Lean": 4.0,
+        "LobeDepth": 0.3499999940395355,
+        "Radius": 0.30000001192092896,
+        "SegmentLength": 0.3499999940395355,
+        "SinkDepth": 0.4000000059604645,
+        "SplitAngle": 22.0,
+        "SplitHeight": 0.550000011920929,
+        "Splits": 0,
+        "Taper": 0.8999999761581421,
+        "TaperPower": 1.2000000476837158
+    },
+    "Version": 1,
+    "Wind": {
+        "Branches": 1.0,
+        "Frequency": 1.0,
+        "Leaves": 0.5,
+        "Trunk": 1.0
+    }
+}

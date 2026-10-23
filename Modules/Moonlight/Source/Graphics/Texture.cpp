@@ -15,6 +15,7 @@
 #include <Utils/HavanaUtils.h>
 #include <ImGuiTheme.h>
 #include <Device/FrameBuffer.h>
+#include "Procedural/Tree/TreeTextures.h"
 
 
 namespace
@@ -128,6 +129,16 @@ namespace Moonlight
 
     bool Texture::LoadAsync()
     {
+        // Generated sub-assets ("<tree>.mtree#bark-color") are baked from their recipe, not read.
+        const std::string local = FilePath.GetLocalPathString();
+        const size_t tree = local.find( ".mtree#" );
+        if( tree != std::string::npos )
+        {
+            std::string error;
+            m_pendingImage = MitchTree::BakeChannel( local.substr( 0, tree + 6 ), local.substr( tree + 7 ), error );
+            if( !m_pendingImage ) CLog::Log( CLog::LogType::Error, "Tree texture " + local + ": " + error );
+            return m_pendingImage != nullptr;
+        }
         Path compiledTexture( FilePath.FullPath + ".dds" );
         if( !compiledTexture.Exists )
         {

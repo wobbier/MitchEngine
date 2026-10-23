@@ -382,10 +382,8 @@ void RenderCore::OnEntityAdded( Entity& NewEntity )
     }
 }
 
-void RenderCore::OnEntityRemoved( Entity& InEntity )
+void RenderCore::ReleaseCompactParts( Entity& InEntity )
 {
-    RemoveTerrainDraw( InEntity.GetId().Value() );
-    RemoveFoliageDraw( InEntity.GetId().Value() );
     auto parts = m_compactCommands.find( InEntity.GetId().Value() );
     if( parts != m_compactCommands.end() )
     {
@@ -394,6 +392,14 @@ void RenderCore::OnEntityRemoved( Entity& InEntity )
         if( Model* model = InEntity.TryGetComponent<Model>() )
             for( auto& part : model->GetRenderParts() ) part.Renderer->Id = std::numeric_limits<unsigned int>::max();
     }
+}
+
+
+void RenderCore::OnEntityRemoved( Entity& InEntity )
+{
+    RemoveTerrainDraw( InEntity.GetId().Value() );
+    RemoveFoliageDraw( InEntity.GetId().Value() );
+    ReleaseCompactParts( InEntity );
     auto direct = m_meshCommands.find( InEntity.GetId().Value() );
     if( direct != m_meshCommands.end() )
     {

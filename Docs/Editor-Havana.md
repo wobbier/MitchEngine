@@ -159,7 +159,7 @@ A searchable project-wide table is the default: type icon, name, local path and 
     --editor-exec Assets/Scenes/Tests/EditorFlows.edscript --editor-exec-result .tmp/result.json
 ```
 
-The script runs one command per frame after a short warm-up and logs `[editor-exec] PASSED` or `FAILED (n)` (plus an optional JSON report), then quits. Unattended runs never write `Engine.cfg`, `.tmp/Havana.cfg` or the ImGui layout. Commands with two arguments use `a | b` when a name contains spaces.
+The script runs one command per frame after a short warm-up and logs `[editor-exec] PASSED` or `FAILED (n)` (plus an optional JSON report), then quits. With `--scene` the editor opens only that scene, not the last one opened (`Engine.cfg`'s `CurrentScene`), so a flow doesn't depend on what was last opened. Unattended runs never write `Engine.cfg`, `.tmp/Havana.cfg` or the ImGui layout. Commands with two arguments use `a | b` when a name contains spaces.
 
 | Command | Effect |
 |------|------|
@@ -180,7 +180,7 @@ The script runs one command per frame after a short warm-up and logs `[editor-ex
 | `preference Key | <json>` | Set an editor preference for this run (never saved by unattended runs); `Appearance.*` keys re-apply the theme, e.g. `preference Appearance.FontSize | 28` or `preference Appearance.Theme | "Light"` |
 | `mark-count`, `assert-count N`, `assert-count-delta N` | Entity counts |
 | `assert-exists/-missing Name`, `assert-selected N`, `assert-active Name`, `assert-parent Child | Parent`, `assert-children Name | N`, `assert-near A | B | metres` (world positions) | Scene structure |
-| `assert-field Name | Type.Field | <json>` (numbers within 1e-3; append `~ tolerance` to widen; prefix `!=` to require a different value; `Type.Field.N` indexes arrays), `assert-dirty 0/1`, `assert-playing 0/1`, `assert-audio Name | 0/1` (its AudioSource is playing), `assert-prefab Name | path/none`, `assert-overridden Name | Type.Field | 0/1` | State |
+| `assert-field Name | Type.Field | <json>` (numbers within 1e-3; append `~ tolerance` to widen; prefix `!=` to require a different value; `Type.Field.N` indexes arrays), `assert-dirty 0/1`, `assert-playing 0/1`, `assert-audio Name | 0/1` (its AudioSource is playing), `assert-occlusion Name | 0.7 ~ 0.05` (its AudioSource's current occlusion, within 0.05 unless `~` widens it), `assert-prefab Name | path/none`, `assert-overridden Name | Type.Field | 0/1` | State |
 | `assert-sky-time Camera | 17.2` (or `!= 17.2`), `assert-sky-animation-time Camera | 0` | Check evaluated sky clocks. `@scene-view` reads the rendered viewport settings; `@editor-camera` reads the persistent editor camera. |
 
 `Assets/Scenes/Tests/EditorFlows.edscript` and `PrefabFlows.edscript` (run with `HierarchyTest.lvl`) `PhysicsFlows.edscript` (run with `PhysicsTest.lvl`) and `Physics2DFlows.edscript` (run with `Physics2DTest.lvl`) in the game repository are the regression scripts.

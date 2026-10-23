@@ -236,7 +236,12 @@ void EditorApp::OnInitialize()
         NewSceneEvent evt;
         evt.Fire();
         GetEngine().GetWorld().lock()->AddCore<EditorCore>( *EditorSceneManager );
-        GetEngine().LoadScene( InitialLevel );
+        // With --scene the engine loads that scene right after OnStart: don't load (and stream in)
+        // the last opened one first.
+        if( !CommandLine::Has( "--scene" ) )
+        {
+            GetEngine().LoadScene( InitialLevel );
+        }
     }
     else
     {
