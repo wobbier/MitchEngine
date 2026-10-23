@@ -85,6 +85,7 @@ ME_REFLECT_BEGIN( MitchTree::LeafSettings )
     ME_FIELD( SizeVariance ).Range( 0.f, 1.f );
     ME_FIELD( Width ).Range( 0.2f, 3.f ).Tooltip( "Width scale over the texture's own aspect." );
     ME_FIELD( PerStem ).Range( 0.f, 100.f ).Tooltip( "Leaves on each outermost stem." );
+    ME_FIELD( ParentCoverage ).Range( 0.f, 2.f ).Tooltip( "Leaves also along the stems one level in (conifer limbs, the inner crown), at this density relative to the outermost stems." );
     ME_FIELD( Start ).Range( 0.f, 1.f );
     ME_FIELD( DownAngle ).Range( 0.f, 180.f ).Category( "Orientation" );
     ME_FIELD( DownAngleVariance ).Range( 0.f, 90.f ).Category( "Orientation" );

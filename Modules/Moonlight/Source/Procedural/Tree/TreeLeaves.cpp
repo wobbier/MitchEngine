@@ -269,11 +269,25 @@ namespace MitchTree::Detail
         const std::vector<RegionFrame> regions = MakeRegions( leaves );
         const float maxSway = InContext.Tree.MaxSway > 0.f ? InContext.Tree.MaxSway : 1.f;
         const int outermost = InContext.Tree.DeepestLevel;
+        // Stems one level in carry leaves at the outermost stems' spacing (scaled by ParentCoverage).
+        const bool parents = leaves.ParentCoverage > 0.f && outermost >= 2 && leaves.Kind != LeafKind::Frond;
+        float outerLength = 0.f;
+        int outerCount = 0;
+        if( parents )
+        {
+            for( const Stem& stem : InContext.Tree.Stems )
+            {
+                if( stem.Level == outermost ) { outerLength += stem.Length; ++outerCount; }
+            }
+        }
+        const float spacing = outerCount > 0 && leaves.PerStem > 0 ? outerLength / static_cast<float>( outerCount ) / static_cast<float>( leaves.PerStem ) : 0.f;
 
         for( const Stem& stem : InContext.Tree.Stems )
         {
-            if( stem.Level != outermost || stem.Nodes.size() < 2 ) continue;
-            Pcg32 rng( Hash::Of( stem.Id, 0x1EAFu ) );
+            const bool outer = stem.Level == outermost;
+            const bool parent = parents && spacing > 0.f && stem.Level == outermost - 1;
+            if( ( !outer && !parent ) || stem.Nodes.size() < 2 ) continue;
+            Pcg32 rng( Hash::Of( stem.Id, outer ? 0x1EAFu : 0x9A7Eu ) );
             const uint8_t phase = ToByte( stem.Phase );
             if( leaves.Kind == LeafKind::Frond )
             {
@@ -282,7 +296,8 @@ namespace MitchTree::Detail
             }
             if( leaves.PerStem <= 0 ) continue;
             const float lengthRatio = stem.Nominal > 0.f ? stem.Length / stem.Nominal : 1.f;
-            const int count = std::clamp( static_cast<int>( std::lround( static_cast<float>( leaves.PerStem ) * lengthRatio ) ), 1, leaves.PerStem * 4 );
+            const int count = outer ? std::clamp( static_cast<int>( std::lround( static_cast<float>( leaves.PerStem ) * lengthRatio ) ), 1, leaves.PerStem * 4 )
+                : std::clamp( static_cast<int>( std::lround( leaves.ParentCoverage * stem.Length * ( 1.f - leaves.Start ) / spacing ) ), 0, leaves.PerStem * 12 );
             float azimuth = rng.Unit() * 2.f * kPi;
             for( int i = 0; i < count && OutCards.size() < kMaxCards; ++i )
             {

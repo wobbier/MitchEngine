@@ -102,6 +102,7 @@ namespace MitchTree
         float SizeVariance = 0.25f;
         float Width = 1.f;              // width scale over the texture's own aspect
         int PerStem = 12;               // on each outermost stem
+        float ParentCoverage = 0.f;     // leaves also along the next-to-outermost stems (conifer limbs), relative density
         float Start = 0.2f;             // along the stem
         float DownAngle = 50.f;
         float DownAngleVariance = 15.f;

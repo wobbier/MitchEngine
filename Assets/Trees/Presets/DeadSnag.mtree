@@ -151,6 +151,7 @@
         "FrondFold": 25.0,
         "FrondWidth": 0.8999999761581421,
         "Kind": "None",
+        "ParentCoverage": 0.0,
         "PerStem": 12,
         "Regions": [],
         "Roundness": 0.6000000238418579,

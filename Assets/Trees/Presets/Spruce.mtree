@@ -151,6 +151,7 @@
         "FrondFold": 25.0,
         "FrondWidth": 0.8999999761581421,
         "Kind": "Needles",
+        "ParentCoverage": 0.0,
         "PerStem": 6,
         "Regions": [],
         "Roundness": 0.3499999940395355,
