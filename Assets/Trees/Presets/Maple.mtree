@@ -149,7 +149,7 @@
         ],
         "Columns": 2,
         "Generate": true,
-        "Leaves": 4,
+        "Leaves": 9,
         "LobeDepth": 0.44999998807907104,
         "Lobes": 7,
         "NeedleLength": 0.20000000298023224,

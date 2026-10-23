@@ -41,7 +41,7 @@ namespace MitchTree
             r.Bark.TileWidth = 0.9f; r.Bark.TileHeight = 1.6f;
             r.BarkTextures.Style = BarkStyle::Furrowed; r.BarkTextures.Color = Vector3( 0.4f, 0.33f, 0.26f ); r.BarkTextures.CrevasseColor = Vector3( 0.1f, 0.08f, 0.06f );
             r.BarkTextures.Scale = 7.f; r.BarkTextures.Stretch = 2.5f; r.BarkTextures.Depth = 1.3f; r.BarkTextures.Moss = 0.25f; r.BarkTextures.Seed = 7;
-            r.LeafTextures.Shape = LeafShape::Lobed; r.LeafTextures.Leaves = 5; r.LeafTextures.Aspect = 0.55f; r.LeafTextures.Lobes = 7; r.LeafTextures.LobeDepth = 0.35f;
+            r.LeafTextures.Shape = LeafShape::Lobed; r.LeafTextures.Leaves = 12; r.LeafTextures.Aspect = 0.55f; r.LeafTextures.Lobes = 7; r.LeafTextures.LobeDepth = 0.35f;
             r.LeafTextures.Color = Vector3( 0.14f, 0.27f, 0.06f ); r.LeafTextures.TipColor = Vector3( 0.26f, 0.36f, 0.08f ); r.LeafTextures.Seed = 7;
             return r;
         }
@@ -64,7 +64,7 @@ namespace MitchTree
             r.Leaves.Kind = LeafKind::Broadleaf; r.Leaves.Size = 0.36f; r.Leaves.PerStem = 6; r.Leaves.Roundness = 0.7f; r.Leaves.UpBias = 0.45f;
             r.BarkTextures.Style = BarkStyle::Furrowed; r.BarkTextures.Color = Vector3( 0.42f, 0.38f, 0.34f ); r.BarkTextures.CrevasseColor = Vector3( 0.14f, 0.12f, 0.1f );
             r.BarkTextures.Scale = 9.f; r.BarkTextures.Stretch = 4.f; r.BarkTextures.Depth = 0.8f; r.BarkTextures.Seed = 21;
-            r.LeafTextures.Shape = LeafShape::Palmate; r.LeafTextures.Leaves = 4; r.LeafTextures.Aspect = 0.9f; r.LeafTextures.LobeDepth = 0.45f; r.LeafTextures.Serration = 0.15f;
+            r.LeafTextures.Shape = LeafShape::Palmate; r.LeafTextures.Leaves = 9; r.LeafTextures.Aspect = 0.9f; r.LeafTextures.LobeDepth = 0.45f; r.LeafTextures.Serration = 0.15f;
             r.LeafTextures.Color = Vector3( 0.18f, 0.34f, 0.07f ); r.LeafTextures.TipColor = Vector3( 0.4f, 0.42f, 0.1f ); r.LeafTextures.Seed = 21;
             return r;
         }
@@ -87,7 +87,7 @@ namespace MitchTree
             r.Leaves.UpBias = 0.2f; r.Leaves.Roundness = 0.5f; r.Leaves.Curl = 10.f;
             r.Bark.TileWidth = 0.6f; r.Bark.TileHeight = 1.2f;
             r.BarkTextures.Style = BarkStyle::Birch; r.BarkTextures.CrevasseColor = Vector3( 0.08f, 0.07f, 0.07f ); r.BarkTextures.Scale = 4.f; r.BarkTextures.Stretch = 2.f; r.BarkTextures.Depth = 0.6f; r.BarkTextures.Seed = 3;
-            r.LeafTextures.Shape = LeafShape::Serrated; r.LeafTextures.Leaves = 6; r.LeafTextures.Aspect = 0.6f; r.LeafTextures.Serration = 0.15f;
+            r.LeafTextures.Shape = LeafShape::Serrated; r.LeafTextures.Leaves = 11; r.LeafTextures.Aspect = 0.6f; r.LeafTextures.Serration = 0.15f;
             r.LeafTextures.Color = Vector3( 0.2f, 0.36f, 0.08f ); r.LeafTextures.TipColor = Vector3( 0.38f, 0.48f, 0.12f ); r.LeafTextures.Seed = 3;
             r.Wind.Leaves = 1.4f;
             return r;
@@ -112,7 +112,7 @@ namespace MitchTree
             r.Bark.TileWidth = 0.8f; r.Bark.TileHeight = 1.4f;
             r.BarkTextures.Style = BarkStyle::Plated; r.BarkTextures.Color = Vector3( 0.55f, 0.33f, 0.22f ); r.BarkTextures.CrevasseColor = Vector3( 0.12f, 0.08f, 0.06f );
             r.BarkTextures.Scale = 5.f; r.BarkTextures.Stretch = 1.6f; r.BarkTextures.Depth = 1.5f; r.BarkTextures.Seed = 11;
-            r.LeafTextures.Shape = LeafShape::Needles; r.LeafTextures.NeedleLength = 0.25f;
+            r.LeafTextures.Shape = LeafShape::Needles; r.LeafTextures.Leaves = 3; r.LeafTextures.NeedleLength = 0.22f;
             r.LeafTextures.Color = Vector3( 0.1f, 0.22f, 0.08f ); r.LeafTextures.TipColor = Vector3( 0.18f, 0.3f, 0.1f ); r.LeafTextures.Seed = 11;
             r.Foliage.Translucency = 0.35f;
             r.Wind.Leaves = 0.5f;
@@ -136,7 +136,7 @@ namespace MitchTree
             r.Leaves.Kind = LeafKind::Needles; r.Leaves.Size = 0.3f; r.Leaves.PerStem = 6; r.Leaves.Crossed = true;
             r.Leaves.DownAngle = 20.f; r.Leaves.UpBias = 0.3f; r.Leaves.Roundness = 0.35f; r.Leaves.Curl = 5.f;
             r.BarkTextures.Style = BarkStyle::Plated; r.BarkTextures.Color = Vector3( 0.38f, 0.28f, 0.22f ); r.BarkTextures.Scale = 10.f; r.BarkTextures.Stretch = 1.4f; r.BarkTextures.Seed = 5;
-            r.LeafTextures.Shape = LeafShape::Needles; r.LeafTextures.NeedleLength = 0.12f;
+            r.LeafTextures.Shape = LeafShape::Needles; r.LeafTextures.Leaves = 8; r.LeafTextures.NeedleLength = 0.09f;
             r.LeafTextures.Color = Vector3( 0.07f, 0.17f, 0.09f ); r.LeafTextures.TipColor = Vector3( 0.12f, 0.24f, 0.12f ); r.LeafTextures.Seed = 5;
             r.Foliage.Translucency = 0.25f;
             r.Wind.Leaves = 0.4f;
@@ -205,7 +205,7 @@ namespace MitchTree
             r.Branches = { stems, twigs };
             r.Leaves.Kind = LeafKind::Broadleaf; r.Leaves.Size = 0.22f; r.Leaves.PerStem = 8; r.Leaves.Roundness = 0.7f;
             r.BarkTextures.Style = BarkStyle::Smooth; r.BarkTextures.Color = Vector3( 0.35f, 0.28f, 0.22f ); r.BarkTextures.Seed = 17;
-            r.LeafTextures.Shape = LeafShape::Round; r.LeafTextures.Leaves = 6; r.LeafTextures.Aspect = 0.8f;
+            r.LeafTextures.Shape = LeafShape::Round; r.LeafTextures.Leaves = 10; r.LeafTextures.Aspect = 0.8f;
             r.LeafTextures.Color = Vector3( 0.12f, 0.26f, 0.07f ); r.LeafTextures.TipColor = Vector3( 0.22f, 0.34f, 0.08f ); r.LeafTextures.Seed = 17;
             r.Lod.Transition = 0.3f;
             return r;
