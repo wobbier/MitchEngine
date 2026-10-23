@@ -1,7 +1,3 @@
-[submodule "ThirdParty/Bullet"]
-	path = ThirdParty/Bullet
-	url = https://github.com/bulletphysics/bullet3.git
-	ignore = dirty
 [submodule "ThirdParty/Assimp"]
 	path = ThirdParty/Assimp
 	url = https://github.com/assimp/assimp

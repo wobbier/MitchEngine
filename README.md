@@ -75,7 +75,7 @@ Third Party Libraries
 
   * [Ultralight][5]
   * [Optick][6]
-  * [Bullet Physics][7]
+  * [Box3D][7] and [Box2D][12]
   * [BGFX][9]
   * [FMOD][10]
   * [MONO][11]
@@ -132,8 +132,9 @@ Activity
 [4]: https://www.notion.so/fc1126e1f8f54a9a8e0daf2735dc59ed?v=fb36a4a955b44efa8dda9fc84d743b43 "Notion"
 [5]: https://github.com/ultralight-ux/Ultralight "Ultralight"
 [6]: https://github.com/bombomby/optick "Optick"
-[7]: https://github.com/bulletphysics/bullet3 "Bullet 3D"
+[7]: https://github.com/erincatto/box3d "Box3D"
 [8]: https://raw.githubusercontent.com/wobbier/MitchEngine/master/NewProjectSetup.bat "Project Creator"
 [9]: https://github.com/bkaradzic/bgfx "BGFX"
 [10]: https://www.fmod.com/ "FMOD Audio"
 [11]: https://www.mono-project.com/ "MONO Scripting"
+[12]: https://github.com/erincatto/box2d "Box2D"

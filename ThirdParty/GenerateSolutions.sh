@@ -2,7 +2,7 @@
 # Generates the third-party build files needed to compile the engine on Linux.
 #
 # The engine links the prebuilt static libraries committed under ThirdParty/Lib
-# (BGFX, Bullet, Assimp — see Tools/BaseProject.sharpmake.cs ConfigureLinux), so
+# (BGFX and Assimp — see Tools/BaseProject.sharpmake.cs ConfigureLinux), so
 # a normal project setup only needs the cmake configure step below to produce
 # the generated headers (assimp/config.h and friends) in the submodule trees.
 #
@@ -12,8 +12,6 @@
 set -e
 cd "$(dirname "$0")"
 
-# CMAKE_POLICY_VERSION_MINIMUM: Bullet's cmake_minimum_required(2.4.3) predates
-# what cmake 4.x accepts; the flag is ignored (with a warning) on older cmake.
 (
     cd Assimp
     cmake . -G "Unix Makefiles" \
@@ -28,13 +26,6 @@ cd "$(dirname "$0")"
         -DASSIMP_BUILD_OBJ_IMPORTER=true \
         -DASSIMP_BUILD_ASSBIN_IMPORTER=true \
         -DASSIMP_BUILD_ASSBIN_EXPORTER=true
-)
-
-(
-    cd Bullet
-    cmake . -G "Unix Makefiles" \
-        -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-        -DUSE_MSVC_RUNTIME_LIBRARY_DLL=true
 )
 
 if [ "$1" = "--build-bgfx" ]; then

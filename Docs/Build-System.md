@@ -118,7 +118,7 @@ dotnet build Project/Game.Script.csproj -c Release -o .build/Game_linux_Retail \
 
 ### ThirdParty inventory
 
-`ThirdParty/`: `Assimp`, `bgfx` + `bimg` + `bx`, `box3d` + `box2d` + `recastnavigation` (submodules), `FMOD`, `glm`, `ImGui`, `JSON` (nlohmann), `Optick`, `RenderDoc`, `SDL`, `UltralightSDK`, `ChromeTrace`, plus prebuilt outputs under `ThirdParty/Lib/` and runtime binaries under `ThirdParty/Bin/`. Some are source-built (bgfx family; Box3D and Box2D as the `Box3D` / `Box2D` C17 static-library projects in `ThirdParty/Box3D.sharpmake.cs` / `ThirdParty/Box2D.sharpmake.cs`, and Recast + Detour + DetourCrowd as the `RecastNavigation` C++ library in `ThirdParty/RecastNavigation.sharpmake.cs`, all public dependencies of the engine and optimized even in debug builds), some prebuilt SDK drops (FMOD, Ultralight, Optick libs). Bullet is no longer built or linked.
+`ThirdParty/`: `Assimp`, `bgfx` + `bimg` + `bx`, `box3d` + `box2d` + `recastnavigation` (submodules), `FMOD`, `glm`, `ImGui`, `JSON` (nlohmann), `Optick`, `RenderDoc`, `SDL`, `UltralightSDK`, `ChromeTrace`, plus prebuilt outputs under `ThirdParty/Lib/` and runtime binaries under `ThirdParty/Bin/`. Some are source-built (bgfx family; Box3D and Box2D as the `Box3D` / `Box2D` C17 static-library projects in `ThirdParty/Box3D.sharpmake.cs` / `ThirdParty/Box2D.sharpmake.cs`, and Recast + Detour + DetourCrowd as the `RecastNavigation` C++ library in `ThirdParty/RecastNavigation.sharpmake.cs`, all public dependencies of the engine and optimized even in debug builds), some prebuilt SDK drops (FMOD, Ultralight, Optick libs).
 
 ### Tools (`Tools/` at engine root)
 

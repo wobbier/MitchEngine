@@ -13,10 +13,4 @@ cmake . \
   -DASSIMP_BUILD_ASSBIN_IMPORTER=true \
   -DASSIMP_BUILD_ASSBIN_EXPORTER=true
 
-cd ../Bullet
-cmake . \
-  -G "Xcode" \
-  -DUSE_MSVC_RUNTIME_LIBRARY_DLL=true \
-  -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-
 cd ..
