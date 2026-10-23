@@ -14,6 +14,14 @@ ME_REFLECT_ENUM( MitchTree::LeafKind, {
     { "None", MitchTree::LeafKind::None }, { "Broadleaf", MitchTree::LeafKind::Broadleaf },
     { "Needles", MitchTree::LeafKind::Needles }, { "Frond", MitchTree::LeafKind::Frond } } )
 
+ME_REFLECT_ENUM( MitchTree::BarkStyle, {
+    { "Furrowed", MitchTree::BarkStyle::Furrowed }, { "Plated", MitchTree::BarkStyle::Plated }, { "Smooth", MitchTree::BarkStyle::Smooth },
+    { "Birch", MitchTree::BarkStyle::Birch }, { "Ringed", MitchTree::BarkStyle::Ringed }, { "Weathered", MitchTree::BarkStyle::Weathered } } )
+ME_REFLECT_ENUM( MitchTree::LeafShape, {
+    { "Oval", MitchTree::LeafShape::Oval }, { "Lobed", MitchTree::LeafShape::Lobed }, { "Palmate", MitchTree::LeafShape::Palmate },
+    { "Serrated", MitchTree::LeafShape::Serrated }, { "Round", MitchTree::LeafShape::Round }, { "Needles", MitchTree::LeafShape::Needles },
+    { "Frond", MitchTree::LeafShape::Frond } } )
+
 ME_REFLECT_BEGIN( MitchTree::TrunkSettings )
     ME_FIELD( Height ).Range( 0.5f, 80.f ).Tooltip( "Metres above the ground." );
     ME_FIELD( HeightVariance ).Range( 0.f, 0.5f ).Tooltip( "Random height change per seed, as a fraction." );
@@ -110,6 +118,41 @@ ME_REFLECT_BEGIN( MitchTree::LeafMaterial )
     ME_FIELD( Variation ).Range( 0.f, 1.f ).Tooltip( "Per-branch tint variation." );
 ME_REFLECT_END()
 
+ME_REFLECT_BEGIN( MitchTree::BarkTexture )
+    ME_FIELD( Generate ).Tooltip( "Generate the bark maps from these settings (off: use the Bark material's maps)." );
+    ME_FIELD( Style );
+    ME_FIELD( Color ).Color();
+    ME_FIELD( CrevasseColor ).Color();
+    ME_FIELD( Scale ).Range( 1.f, 24.f ).Tooltip( "Ridges or plates around one texture repeat." );
+    ME_FIELD( Stretch ).Range( 0.5f, 12.f ).Tooltip( "Vertical elongation of the pattern." );
+    ME_FIELD( Depth ).Range( 0.f, 4.f ).Tooltip( "Relief strength (normal map and occlusion)." );
+    ME_FIELD( Roughness ).Range( 0.f, 1.f );
+    ME_FIELD( Moss ).Range( 0.f, 1.f );
+    ME_FIELD( MossColor ).Color();
+    ME_FIELD( Resolution ).Range( 64.f, 2048.f );
+    ME_FIELD( Seed );
+ME_REFLECT_END()
+
+ME_REFLECT_BEGIN( MitchTree::LeafTexture )
+    ME_FIELD( Generate ).Tooltip( "Generate the leaf atlas from these settings (off: use the Foliage material's maps and the leaf regions)." );
+    ME_FIELD( Shape );
+    ME_FIELD( Leaves ).Range( 1.f, 12.f ).Tooltip( "Leaves on each twig picture (1 = a single leaf)." );
+    ME_FIELD( Aspect ).Range( 0.05f, 1.5f ).Tooltip( "Leaf width over length." );
+    ME_FIELD( Lobes ).Range( 2.f, 15.f );
+    ME_FIELD( LobeDepth ).Range( 0.f, 0.9f );
+    ME_FIELD( Serration ).Range( 0.f, 0.5f );
+    ME_FIELD( NeedleLength ).Range( 0.03f, 0.5f ).Tooltip( "(Needles) needle length as a fraction of a picture." );
+    ME_FIELD( Color ).Color();
+    ME_FIELD( TipColor ).Color();
+    ME_FIELD( Variation ).Range( 0.f, 1.f );
+    ME_FIELD( Veins ).Range( 0.f, 1.f );
+    ME_FIELD( TwigColor ).Color();
+    ME_FIELD( Columns ).Range( 1.f, 4.f );
+    ME_FIELD( Rows ).Range( 1.f, 4.f );
+    ME_FIELD( Resolution ).Range( 128.f, 2048.f );
+    ME_FIELD( Seed );
+ME_REFLECT_END()
+
 ME_REFLECT_BEGIN( MitchTree::WindSettings )
     ME_FIELD( Trunk ).Range( 0.f, 4.f ).Tooltip( "Sway of the whole tree." );
     ME_FIELD( Branches ).Range( 0.f, 4.f );
@@ -133,6 +176,8 @@ ME_REFLECT_BEGIN( MitchTree::TreeRecipe )
     ME_FIELD( Occlusion ).Range( 0.f, 1.f ).Tooltip( "Strength of the baked crown self-shadowing." );
     ME_FIELD( Bark );
     ME_FIELD( Foliage );
+    ME_FIELD( BarkTextures ).Tooltip( "Generated bark maps." );
+    ME_FIELD( LeafTextures ).Tooltip( "Generated leaf atlas." );
     ME_FIELD( Wind );
     ME_FIELD( Lod );
 ME_REFLECT_END()
@@ -228,6 +273,8 @@ namespace MitchTree
         }
         ClampFields( BarkMaterial::StaticType(), &Bark );
         ClampFields( LeafMaterial::StaticType(), &Foliage );
+        ClampFields( BarkTexture::StaticType(), &BarkTextures );
+        ClampFields( LeafTexture::StaticType(), &LeafTextures );
         ClampFields( WindSettings::StaticType(), &Wind );
         ClampFields( LodSettings::StaticType(), &Lod );
         Occlusion = Clamp( Occlusion, 0.f, 1.f );

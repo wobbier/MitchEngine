@@ -20,6 +20,7 @@
 #include "Components/Animation/Animator.h"
 #include "Components/Graphics/TerrainFoliage.h"
 #include "Cores/Rendering/RenderCore.h"
+#include "Procedural/Tree/TreeTextures.h"
 
 Model::Model( const std::string& path )
     : Component( "Model" )
@@ -157,8 +158,14 @@ void Model::Reload()
 
 void Model::ReloadAll( World& InWorld, const std::string& InFullPath )
 {
-    const std::string fullPath = Path( InFullPath ).FullPath;
+    const Path path( InFullPath );
+    const std::string fullPath = path.FullPath;
     ResourceCache::GetInstance().Evict( fullPath );
+    // Generated tree textures are sub-assets of the recipe.
+    for( const std::string& channel : MitchTree::TextureChannels() )
+    {
+        ResourceCache::GetInstance().Evict( Path( MitchTree::ChannelPath( path.GetLocalPathString(), channel ) ).FullPath );
+    }
     RenderCore* renderer = GetEngine().ModelRenderer;
     InWorld.ForEachEntity( [&]( Entity& entity ) {
         if( Model* model = entity.TryGetComponent<Model>(); model && model->ModelPath.FullPath == fullPath ) model->Reload();

@@ -1,5 +1,6 @@
 #include "TreeGenerator.h"
 #include "TreeBuild.h"
+#include "TreeTextures.h"
 #include <glm/geometric.hpp>
 #include <algorithm>
 #include <chrono>
@@ -92,6 +93,8 @@ namespace MitchTree
         const auto start = std::chrono::steady_clock::now();
         TreeRecipe recipe = InRecipe;
         recipe.Sanitize();
+        // A generated atlas decides where its leaf pictures are.
+        if( recipe.LeafTextures.Generate && recipe.Leaves.Kind != LeafKind::Frond ) recipe.Leaves.Regions = GeneratedLeafRegions( recipe.LeafTextures );
         TreeMesh mesh;
         const Detail::Skeleton skeleton = Detail::BuildSkeleton( recipe );
         Detail::BuildContext context{ recipe, skeleton };

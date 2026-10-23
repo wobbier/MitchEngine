@@ -20,6 +20,10 @@ namespace MitchTree
     // How siblings are arranged around their parent.
     enum class Arrangement { Spiral, Alternate, Opposite, Whorled };
     enum class LeafKind { None, Broadleaf, Needles, Frond };
+    // Generated bark patterns.
+    enum class BarkStyle { Furrowed, Plated, Smooth, Birch, Ringed, Weathered };
+    // Generated leaf pictures.
+    enum class LeafShape { Oval, Lobed, Palmate, Serrated, Round, Needles, Frond };
 
     struct TrunkSettings
     {
@@ -124,6 +128,50 @@ namespace MitchTree
         float TileHeight = 1.6f;        // metres along a stem per texture repeat
     };
 
+    // A generated, tiling bark texture set (used instead of BarkMaterial's maps when Generate is on).
+    struct BarkTexture
+    {
+        ME_REFLECTABLE( BarkTexture )
+    public:
+        bool Generate = true;
+        BarkStyle Style = BarkStyle::Furrowed;
+        Vector3 Color = Vector3( 0.42f, 0.34f, 0.27f );
+        Vector3 CrevasseColor = Vector3( 0.11f, 0.08f, 0.06f );
+        float Scale = 6.f;              // ridges or plates around one tile
+        float Stretch = 3.f;            // vertical elongation
+        float Depth = 1.f;              // relief (normal map and occlusion)
+        float Roughness = 0.88f;
+        float Moss = 0.1f;
+        Vector3 MossColor = Vector3( 0.28f, 0.36f, 0.12f );
+        int Resolution = 512;
+        uint32_t Seed = 1;
+    };
+
+    // A generated leaf atlas (used instead of LeafMaterial's maps and LeafSettings regions when
+    // Generate is on). Each cell pictures a twig with leaves, a needle spray or (Frond) a palm frond.
+    struct LeafTexture
+    {
+        ME_REFLECTABLE( LeafTexture )
+    public:
+        bool Generate = true;
+        LeafShape Shape = LeafShape::Oval;
+        int Leaves = 5;                 // leaves per twig picture (1 = a single leaf)
+        float Aspect = 0.45f;           // leaf width over length
+        int Lobes = 7;
+        float LobeDepth = 0.3f;
+        float Serration = 0.15f;
+        float NeedleLength = 0.2f;      // (Needles) fraction of a cell
+        Vector3 Color = Vector3( 0.16f, 0.3f, 0.07f );
+        Vector3 TipColor = Vector3( 0.3f, 0.4f, 0.09f );
+        float Variation = 0.2f;
+        float Veins = 0.5f;
+        Vector3 TwigColor = Vector3( 0.25f, 0.18f, 0.12f );
+        int Columns = 2;
+        int Rows = 2;
+        int Resolution = 1024;
+        uint32_t Seed = 1;
+    };
+
     struct LeafMaterial
     {
         ME_REFLECTABLE( LeafMaterial )
@@ -169,6 +217,8 @@ namespace MitchTree
         float Occlusion = 0.75f;        // strength of the baked crown self-shadowing
         BarkMaterial Bark;
         LeafMaterial Foliage;
+        BarkTexture BarkTextures;
+        LeafTexture LeafTextures;
         WindSettings Wind;
         LodSettings Lod;
 

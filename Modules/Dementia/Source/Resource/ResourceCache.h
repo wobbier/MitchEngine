@@ -195,7 +195,8 @@ SharedPtr<T> ResourceCache::Load( const Path& InFilePath, bool InAsync, Args&& .
         return {};
     }
 
-    if( !InFilePath.Exists )
+    // Generated sub-assets ("<owner>#<name>") have no file of their own.
+    if( !InFilePath.Exists && InFilePath.GetLocalPathString().find( '#' ) == std::string::npos )
     {
         BRUH( "Resource source file is missing (using compiled data if present): " + InFilePath.FullPath );
     }

@@ -21,6 +21,7 @@
 #include "Materials/StandardMaterial.h"
 #include "Procedural/Tree/TreeAsset.h"
 #include "Procedural/Tree/TreeGenerator.h"
+#include "Procedural/Tree/TreeTextures.h"
 #include "Core/Assert.h"
 #include "Utils/HavanaUtils.h"
 #include <algorithm>
@@ -406,26 +407,53 @@ bool ModelResource::FinishTreeLoad()
         const bool leaves = part.Name == "Leaves";
         auto material = MakeShared<StandardMaterial>();
         material->Init();
+        // Generated maps are sub-assets of the recipe ("<tree>.mtree#bark-color"), baked on load.
+        const std::string recipePath = FilePath.GetLocalPathString();
+        auto generated = [&]( const char* InChannel, Moonlight::TextureType InType, Moonlight::WrapMode InWrap ) {
+            auto texture = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( Path( MitchTree::ChannelPath( recipePath, InChannel ) ), InWrap );
+            if( !texture ) return;
+            texture->Type = InType;
+            material->SetTexture( InType, texture );
+        };
         if( leaves )
         {
             material->DiffuseColor = recipe.Foliage.Tint;
             material->Roughness = recipe.Foliage.Roughness;
             material->AlphaCutoff = recipe.Foliage.AlphaCutoff;
             material->FaceMode = Moonlight::RenderFaceMode::Both;
-            LoadMaterialTexture( material, recipe.Foliage.BaseColorMap, Moonlight::TextureType::Diffuse, aiTextureMapMode_Clamp );
-            LoadMaterialTexture( material, recipe.Foliage.NormalMap, Moonlight::TextureType::Normal, aiTextureMapMode_Clamp );
+            if( recipe.LeafTextures.Generate )
+            {
+                generated( "leaf-color", Moonlight::TextureType::Diffuse, Moonlight::WrapMode::Clamp );
+                generated( "leaf-normal", Moonlight::TextureType::Normal, Moonlight::WrapMode::Clamp );
+            }
+            else
+            {
+                LoadMaterialTexture( material, recipe.Foliage.BaseColorMap, Moonlight::TextureType::Diffuse, aiTextureMapMode_Clamp );
+                LoadMaterialTexture( material, recipe.Foliage.NormalMap, Moonlight::TextureType::Normal, aiTextureMapMode_Clamp );
+            }
         }
         else
         {
             material->DiffuseColor = recipe.Bark.Tint;
             material->Roughness = recipe.Bark.Roughness;
             material->NormalStrength = recipe.Bark.NormalStrength;
-            LoadMaterialTexture( material, recipe.Bark.BaseColorMap, Moonlight::TextureType::Diffuse, aiTextureMapMode_Wrap );
-            LoadMaterialTexture( material, recipe.Bark.NormalMap, Moonlight::TextureType::Normal, aiTextureMapMode_Wrap );
-            if( LoadMaterialTexture( material, recipe.Bark.OrmMap, Moonlight::TextureType::MetallicRoughness, aiTextureMapMode_Wrap ) )
+            if( recipe.BarkTextures.Generate )
             {
-                LoadMaterialTexture( material, recipe.Bark.OrmMap, Moonlight::TextureType::Occlusion, aiTextureMapMode_Wrap );
+                generated( "bark-color", Moonlight::TextureType::Diffuse, Moonlight::WrapMode::Wrap );
+                generated( "bark-normal", Moonlight::TextureType::Normal, Moonlight::WrapMode::Wrap );
+                generated( "bark-orm", Moonlight::TextureType::MetallicRoughness, Moonlight::WrapMode::Wrap );
+                generated( "bark-orm", Moonlight::TextureType::Occlusion, Moonlight::WrapMode::Wrap );
                 material->Roughness = 1.f;
+            }
+            else
+            {
+                LoadMaterialTexture( material, recipe.Bark.BaseColorMap, Moonlight::TextureType::Diffuse, aiTextureMapMode_Wrap );
+                LoadMaterialTexture( material, recipe.Bark.NormalMap, Moonlight::TextureType::Normal, aiTextureMapMode_Wrap );
+                if( LoadMaterialTexture( material, recipe.Bark.OrmMap, Moonlight::TextureType::MetallicRoughness, aiTextureMapMode_Wrap ) )
+                {
+                    LoadMaterialTexture( material, recipe.Bark.OrmMap, Moonlight::TextureType::Occlusion, aiTextureMapMode_Wrap );
+                    material->Roughness = 1.f;
+                }
             }
         }
         RootNode.MaterialCache.push_back( material );
