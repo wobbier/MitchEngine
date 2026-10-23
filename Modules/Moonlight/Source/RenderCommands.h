@@ -52,6 +52,16 @@ namespace Moonlight
         glm::mat4 Transform;
     };
 
+    // The scene's wind this frame (a WindZone, else a light breeze), read by the foliage shaders.
+    struct WindCommand
+    {
+        Vector3 Direction = Vector3( 0.94f, 0.f, 0.33f );   // horizontal unit vector, blowing towards
+        float Strength = 0.3f;          // 0 calm, 1 a strong breeze, 2+ a storm
+        float Gusts = 0.4f;             // how much gusts add on top of the strength
+        float GustFrequency = 0.15f;    // gust fronts per second
+        float Turbulence = 0.3f;        // crosswise, irregular motion
+    };
+
     struct MeshCommand
     {
         MeshCommand() = default;

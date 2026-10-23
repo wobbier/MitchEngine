@@ -35,8 +35,10 @@ public:
     bool InvertRoughness = false;
 
 protected:
-    // Subclasses that keep their own registry name (e.g. the legacy DiffuseMaterial).
+    // Subclasses that keep their own registry name (e.g. the legacy DiffuseMaterial), or also draw
+    // with their own program (FoliageMaterial).
     StandardMaterial( const std::string& InTypeName );
+    StandardMaterial( const std::string& InTypeName, const std::string& InShaderPath );
 
 private:
     // StandardSkinned.vert + Standard.frag, created on first use (shared through the program registry).

@@ -95,6 +95,23 @@ namespace Moonlight
         static bgfx::VertexLayout ms_layout;
     };
 
+    // Wind stream (vertex buffer 1 of generated trees, read as a_color0 by the foliage shaders):
+    // R leaf flutter, G branch phase, B branch sway, A baked crown occlusion.
+    struct WindVertex
+    {
+        uint8_t Data[4] = { 0, 0, 0, 255 };
+
+        static void Init()
+        {
+            ms_layout
+                .begin()
+                .add( bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true )
+                .end();
+        };
+
+        static bgfx::VertexLayout ms_layout;
+    };
+
     struct ShaderProgram
     {
         float test;

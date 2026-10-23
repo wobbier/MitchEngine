@@ -21,7 +21,22 @@ struct SurfaceInput
 	float occlusion;
 	vec3 emissive;    // linear radiance
 	vec2 uv;          // for the UV checker view
+#ifdef SURFACE_TRANSLUCENCY
+	vec3 translucency;     // linear: light passed through a thin surface lit from behind (leaves)
+	float directOcclusion; // baked occlusion also applied to direct light
+#endif
 };
+
+#ifdef SURFACE_TRANSLUCENCY
+// A thin surface lit from behind: diffuse transmission plus a forward-scattering lobe toward the
+// viewer (looking into the sun through leaves).
+vec3 shadeTranslucency(Surface _s, vec3 _L, vec3 _radiance, vec3 _transmission)
+{
+	float back = clamp(-dot(_s.normal, _L), 0.0, 1.0);
+	float forward = pow(clamp(dot(_s.view, -_L), 0.0, 1.0), 6.0);
+	return _transmission * _radiance * ((back + forward * 2.0) * (1.0 / PI));
+}
+#endif
 
 // _vertexNormal: the interpolated (unmapped) world normal. gl_FragCoord and gl_FrontFacing are only
 // readable in main() on some backends, so they come in as parameters.
@@ -113,8 +128,14 @@ vec4 shadeStandardSurface(SurfaceInput _in, vec3 _worldPos, vec3 _vertexNormal, 
 			visibility = sunShadow(s, L, _viewPos.z);
 		}
 		color += shadeLight(s, L, directionalRadiance(i, s.position)) * visibility;
+#ifdef SURFACE_TRANSLUCENCY
+		color += shadeTranslucency(s, L, directionalRadiance(i, s.position), _in.translucency) * visibility;
+#endif
 	}
 	color += shadeClusteredLights(s, _fragCoord, _viewPos.z);
+#ifdef SURFACE_TRANSLUCENCY
+	color *= _in.directOcclusion;
+#endif
 	color += ambientLighting(s, occlusion);
 	color += lightingOnly ? vec3_splat(0.0) : emissive;
 

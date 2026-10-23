@@ -32,6 +32,9 @@ namespace Moonlight
         if( bgfx::isValid( m_skinVbh ) )
             bgfx::destroy( m_skinVbh );
 
+        if( bgfx::isValid( m_windVbh ) )
+            bgfx::destroy( m_windVbh );
+
         for( bgfx::IndexBufferHandle lod : m_lodIbh )
         {
             if( bgfx::isValid( lod ) )
@@ -99,6 +102,19 @@ namespace Moonlight
         if( bgfx::isValid( m_skinVbh ) )
         {
             AddGpuBytes( static_cast<int64_t>( sizeof( SkinWeightsVertex ) * InWeights.size() ) );
+        }
+    }
+
+    void MeshData::InitWindStream( const std::vector<WindVertex>& InWind )
+    {
+        if( InWind.empty() || InWind.size() != m_vertexCount || bgfx::isValid( m_windVbh ) )
+        {
+            return;
+        }
+        m_windVbh = bgfx::createVertexBuffer( bgfx::copy( InWind.data(), static_cast<uint32_t>( sizeof( WindVertex ) * InWind.size() ) ), WindVertex::ms_layout );
+        if( bgfx::isValid( m_windVbh ) )
+        {
+            AddGpuBytes( static_cast<int64_t>( sizeof( WindVertex ) * InWind.size() ) );
         }
     }
 

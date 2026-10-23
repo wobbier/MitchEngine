@@ -19,6 +19,9 @@ A material type *is* a C++ class that knows its shader pair, its uniforms, and h
 | `Modules/Moonlight/Source/Materials/DiffuseMaterial.h` | Legacy names `DiffuseMaterial` / `WhiteMaterial`, now `StandardMaterial` subclasses so old scenes load |
 | `Modules/Moonlight/Source/Shaders/UnlitMaterial.h` | Unlit material (note: under `Shaders/`, not `Materials/`) |
 | `Modules/Moonlight/Source/Materials/ShaderGraphMaterial.h` | Node-graph material: per-material values for a compiled graph (`ShaderGraphAsset`) |
+| `Modules/Moonlight/Source/Materials/FoliageMaterial.h` | Bark and leaves of generated trees (MitchTree): Standard plus wind, baked crown occlusion and leaf translucency |
+| `Assets/Shaders/Foliage.vert` / `.frag`, `FoliageShadow.vert` / `.frag`, `Wind.sh` | The foliage programs and the shared vertex wind |
+| `Source/Components/Graphics/WindZone.h` | The scene's wind (direction, strength, gusts, turbulence) |
 | `Source/ShaderGraph/` | Shader graph model, node library and compiler (bgfx shader sources from `.shadergraph` files) |
 | `Assets/Shaders/StandardSurface.sh` | `shadeStandardSurface`: the forward shading shared by `Standard.frag` and Lit graphs |
 | `Modules/Moonlight/Source/Graphics/ShaderCommand.h` | A shader pair's program; shares a hot-reloadable `ProgramRef` |
@@ -40,6 +43,7 @@ classDiagram
     StandardMaterial <|-- WhiteMaterial
     Material <|-- UnlitMaterial
     Material <|-- ShaderGraphMaterial
+    StandardMaterial <|-- FoliageMaterial
     class Material {
         RenderingMode RenderMode
         BlendMode AlphaBlendMode
@@ -64,7 +68,7 @@ classDiagram
     }
 ```
 
-`ME_REGISTER_MATERIAL_NAME(Type, "Display name")` registers a material under its **class name**. Scene JSON stores that name as `"Type"`, and the material's constructor `TypeName` must match it. The registered names are `StandardMaterial`, `DiffuseMaterial`, `WhiteMaterial`, `UnlitMaterial` and `ShaderGraphMaterial`. The display names ("Standard (PBR)", "Diffuse (legacy)", …) appear in the editor's material dropdown.
+`ME_REGISTER_MATERIAL_NAME(Type, "Display name")` registers a material under its **class name**. Scene JSON stores that name as `"Type"`, and the material's constructor `TypeName` must match it. The registered names are `StandardMaterial`, `DiffuseMaterial`, `WhiteMaterial`, `UnlitMaterial`, `ShaderGraphMaterial` and `FoliageMaterial`. The display names ("Standard (PBR)", "Diffuse (legacy)", …) appear in the editor's material dropdown.
 
 ### StandardMaterial
 
@@ -89,6 +93,16 @@ Max Physical FBX materials also retain their raw `3dsMax|Parameters` properties.
 
 Model meshes save `ImportedMaterialDefaults` alongside their material. Reopening rebases values that still equal those defaults and retains user edits, including removed texture slots. Older scenes compare against the former importer's defaults so newly supported maps and corrected factors apply without resetting authored materials.
 
+### FoliageMaterial
+
+`.mtree` trees load with one `FoliageMaterial` per part (`Part` Bark or Leaves), filled from the recipe; the Model component's imported-material merge keeps per-part edits across regenerations. Their meshes carry a second vertex stream (`WindVertex`, bound by `MeshData::BindVertexBuffer` as stream 1 and read as `a_color0`): R leaf flutter, G branch phase, B branch sway weight, A baked crown occlusion.
+
+- **Wind** (`Wind.sh`, in the colour and the shadow vertex shaders): branches sway on their own phase, leaves flutter along their normal, then the whole tree leans from its base, keeping each vertex's distance to it. `FoliageSettings` scales each motion for the tree (`TrunkLean`, `BranchSway` and `LeafFlutter` in metres, from the recipe's Wind settings and the tree's flexibility). The scene's wind comes from the first active `WindZone` (frame uniforms `u_wind`, `u_windParams`); with none, foliage moves in a light breeze. Gust fronts roll downwind across a forest, and each instance's position offsets its phase.
+- **Leaves**: alpha tested on both faces (`AlphaCutoff`, `FaceMode`), with light passing through when back-lit (`Translucency`: diffuse transmission plus a forward lobe toward the viewer, shadowed like the sun). `Foliage.frag` enables it with `SURFACE_TRANSLUCENCY` in `StandardSurface.sh`; other shaders compile unchanged.
+- **Crown occlusion** darkens ambient light fully and direct light partly. `Variation` tints each branch slightly differently per tree.
+- **Shadows**: `GetShadowProgram` is `FoliageShadow`, which applies the same wind; `UseShadowCaster()` binds its uniforms and the leaf alpha.
+- A mesh without the wind stream doesn't suit it: unbound attributes read the position stream.
+
 ### The material contract
 
 - **`Init()`**: create uniform handles. Convention: `inline static` handles guarded with `bgfx::isValid`, shared by all instances.
@@ -96,6 +110,7 @@ Model meshes save `ImportedMaterialDefaults` alongside their material. Reopening
 - **`CreateInstance()`**: clone. Every mesh gets its own material object, which is why instancing can't key on material pointers.
 - **`GetRenderState(state)`**: merges blend mode (transparent only) and face mode into the base state bits.
 - **`GetAlphaCutoff()`**: > 0 for alpha-tested materials, so the shadow depth pass discards the same texels.
+- **`GetShadowProgram()`** / **`UseShadowCaster()`**: an optional caster program of the material's own, and the call that binds its uniforms and textures (the renderer binds none for it; the default calls `Use()`).
 
 ### The instancing batch key
 

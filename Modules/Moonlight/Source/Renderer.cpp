@@ -161,6 +161,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         Moonlight::PosColorVertex::Init();
         Moonlight::PosNormTexTanBiVertex::Init();
         Moonlight::SkinWeightsVertex::Init();
+        Moonlight::WindVertex::Init();
         Moonlight::PosTexCoordVertex::Init();
         Moonlight::Vertex_2f_4ub_2f::Init();
         Moonlight::Vertex_2f_4ub_2f_2f_28f::Init();
@@ -332,6 +333,8 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         EnsureLocalShadowAtlas( CapShadowResolution( Shadows.SpotResolution ), CapShadowResolution( Shadows.PointResolution ) );
     }
     s_time = bgfx::createUniform( "u_time", bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4 );
+    u_wind = bgfx::createUniform( "u_wind", bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4 );
+    u_windParams = bgfx::createUniform( "u_windParams", bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4 );
     TransparentIndicies.reserve( kMeshTransparencyTempSize );
 
 #if USING( ME_IMGUI )
@@ -535,7 +538,7 @@ void BGFXRenderer::Destroy()
     delete m_splitMainBuffer;
     m_splitMainBuffer = nullptr;
 
-    const bgfx::UniformHandle uniforms[] = { s_texDiffuse, s_texNormal, s_texAlpha, s_texUI, s_time, u_screenView,
+    const bgfx::UniformHandle uniforms[] = { s_texDiffuse, s_texNormal, s_texAlpha, s_texUI, s_time, u_wind, u_windParams, u_screenView,
         u_lightParams, u_viewShading, u_dirLightDirection, u_dirLightColor, u_eclipseSun, u_eclipseMoon, u_eclipseParams, u_clusterParams, u_clusterGrid, u_ambientSky, u_ambientGround,
         s_lightData, s_clusterGrid, s_clusterIndices, s_texMetallicRoughness, s_texEmissive, s_texOcclusion, s_texMetallic, s_texRoughness,
         u_shadowMatrix, u_cascadeSplits, u_cascadeTexel, u_shadowParams, u_localShadowMatrix, u_spotShadowParams, u_pointShadowParams, u_shadowAlpha, s_shadowMap, s_spotShadowMap,
@@ -676,6 +679,12 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
     }
 
     bgfx::setFrameUniform( s_time, &m_time.x );
+    {
+        const float wind[4] = { m_wind.Direction.x, m_wind.Direction.y, m_wind.Direction.z, m_wind.Strength };
+        const float windParams[4] = { m_wind.Gusts, m_wind.GustFrequency, m_wind.Turbulence, 0.f };
+        bgfx::setFrameUniform( u_wind, wind );
+        bgfx::setFrameUniform( u_windParams, windParams );
+    }
 
     m_views.Reset();
     m_viewTriangles.assign( bgfx::getCaps()->limits.maxViews, 0 );
@@ -1816,7 +1825,7 @@ void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, uint32_t InViewIndex 
             const bgfx::ProgramHandle custom = mesh.CustomShadow ? mesh.MeshMaterial->GetShadowProgram( false ) : bgfx::ProgramHandle( BGFX_INVALID_HANDLE );
             if( bgfx::isValid( custom ) )
             {
-                mesh.MeshMaterial->Use();
+                mesh.MeshMaterial->UseShadowCaster();
             }
             else
             {
@@ -1851,7 +1860,7 @@ void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, uint32_t InViewIndex 
         if( skinned ) bgfx::setUniform( u_bones, mesh.SkinPalette, mesh.SkinBoneCount );
         if( bgfx::isValid( custom ) )
         {
-            mesh.MeshMaterial->Use();
+            mesh.MeshMaterial->UseShadowCaster();
         }
         else
         {

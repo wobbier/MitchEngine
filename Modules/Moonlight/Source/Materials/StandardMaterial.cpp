@@ -41,7 +41,13 @@ StandardMaterial::StandardMaterial()
 
 
 StandardMaterial::StandardMaterial( const std::string& InTypeName )
-    : Moonlight::Material( InTypeName, "Assets/Shaders/Standard" )
+    : StandardMaterial( InTypeName, "Assets/Shaders/Standard" )
+{
+}
+
+
+StandardMaterial::StandardMaterial( const std::string& InTypeName, const std::string& InShaderPath )
+    : Moonlight::Material( InTypeName, InShaderPath )
 {
     SupportsInstancing = true;
 }

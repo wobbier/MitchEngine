@@ -44,10 +44,18 @@ namespace Moonlight
         const bgfx::IndexBufferHandle& GetIndexuffer() const {
             return m_ibh;
         }
-        // A baked animation instance supplies its posed buffer to every render pass.
+        // A baked animation instance supplies its posed buffer to every render pass. The wind stream
+        // rides along as stream 1 (skinned draws replace it with their weights afterwards).
         void BindVertexBuffer( bgfx::DynamicVertexBufferHandle InPosed ) const {
             if( bgfx::isValid( InPosed ) ) bgfx::setVertexBuffer( 0, InPosed );
             else bgfx::setVertexBuffer( 0, m_vbh );
+            if( bgfx::isValid( m_windVbh ) ) bgfx::setVertexBuffer( 1, m_windVbh );
+        }
+
+        // Generated trees: one WindVertex per vertex (vertex buffer stream 1, see FoliageMaterial).
+        void InitWindStream( const std::vector<WindVertex>& InWind );
+        bool HasWindStream() const {
+            return bgfx::isValid( m_windVbh );
         }
 
         // Skinning. Bone i deforms vertices through inverse(meshWorld) * boneWorld * BoneOffsets[i]
@@ -121,6 +129,7 @@ namespace Moonlight
         bgfx::VertexBufferHandle m_vbh = BGFX_INVALID_HANDLE;
         bgfx::IndexBufferHandle m_ibh = BGFX_INVALID_HANDLE;
         bgfx::VertexBufferHandle m_skinVbh = BGFX_INVALID_HANDLE;
+        bgfx::VertexBufferHandle m_windVbh = BGFX_INVALID_HANDLE;
         std::vector<bgfx::IndexBufferHandle> m_lodIbh;
         std::vector<std::vector<uint32_t>> m_lodIndices;
         std::vector<bgfx::IndexBufferHandle> m_wireframeIbh;

@@ -10,6 +10,8 @@ namespace Moonlight
 
     bgfx::VertexLayout SkinWeightsVertex::ms_layout;
 
+    bgfx::VertexLayout WindVertex::ms_layout;
+
     bgfx::VertexLayout PosTexCoordVertex::ms_layout;
 
     bgfx::VertexLayout Vertex_2f_4ub_2f::ms_layout;

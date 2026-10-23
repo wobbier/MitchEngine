@@ -128,6 +128,10 @@ public:
     // Skips compositing the HTML UI over the main camera (used by unattended captures).
     bool EnableUIComposite = true;
 
+    // Global wind for the foliage shaders (RenderCore gathers it from the scene's WindZone).
+    void SetWind( const Moonlight::WindCommand& InWind ) { m_wind = InWind; }
+    const Moonlight::WindCommand& GetWind() const { return m_wind; }
+
     // Cascaded sun shadows (4 cascades in a 2x2 atlas), spot light shadows (up to 4) and point light
     // shadows (up to 2, six cube faces each) sharing the local shadow atlas.
     struct ShadowSettings
@@ -418,6 +422,10 @@ private:
     bgfx::UniformHandle s_texAlpha = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_texUI = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_time = BGFX_INVALID_HANDLE;
+    // Frame uniforms: xyz wind direction, w strength; x gusts, y gust frequency, z turbulence.
+    bgfx::UniformHandle u_wind = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_windParams = BGFX_INVALID_HANDLE;
+    Moonlight::WindCommand m_wind;
     // PortalMaterial: tint rgb, w = 1 while the linked camera's image is bound.
     bgfx::UniformHandle u_screenView = BGFX_INVALID_HANDLE;
     // The target of the camera view being drawn: a material cannot sample it (PortalMaterial).

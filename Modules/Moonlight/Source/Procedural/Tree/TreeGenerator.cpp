@@ -133,6 +133,7 @@ namespace MitchTree
         mesh.BoundsMin = Vector3( low.x, low.y, low.z );
         mesh.BoundsMax = Vector3( high.x, high.y, high.z );
         mesh.Height = high.y;
+        mesh.MaxSway = skeleton.MaxSway;
         for( int level = 1; level <= context.LodLevels; ++level )
         {
             mesh.LodScreenHeights.push_back( recipe.Lod.Transition / static_cast<float>( 1 << ( level - 1 ) ) );

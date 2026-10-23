@@ -17,6 +17,7 @@
 #include "RenderCommands.h"
 #include "Components/Lighting/Light.h"
 #include "Components/Graphics/Decal.h"
+#include "Components/Graphics/WindZone.h"
 #include "Components/Graphics/Mesh.h"
 #include "Components/Graphics/Terrain.h"
 #include "Components/Graphics/TerrainFoliage.h"
@@ -523,6 +524,20 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         if( entity ) if( Model* model = entity->TryGetComponent<Model>() )
             for( auto& part : model->GetRenderParts() ) part.Renderer->Id = std::numeric_limits<unsigned int>::max();
         it = m_compactCommands.erase( it );
+    }
+
+    // The first active WindZone blows (else the renderer's default breeze).
+    {
+        Moonlight::WindCommand wind;
+        bool found = false;
+        GetWorld().Each<Transform, WindZone>( [&]( Entity& entity, Transform& transform, WindZone& zone ) {
+            if( !found && entity.IsActiveInHierarchy() && zone.IsEnabled() )
+            {
+                wind = zone.BuildCommand( transform );
+                found = true;
+            }
+        } );
+        renderer.SetWind( wind );
     }
 
     // Lights are rebuilt every frame (cheap: a handful of POD commands).

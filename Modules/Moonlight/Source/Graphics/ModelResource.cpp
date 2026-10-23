@@ -19,6 +19,7 @@
 #include "assimp/material.h"
 #include "Materials/DiffuseMaterial.h"
 #include "Materials/StandardMaterial.h"
+#include "Materials/FoliageMaterial.h"
 #include "Procedural/Tree/TreeAsset.h"
 #include "Procedural/Tree/TreeGenerator.h"
 #include "Procedural/Tree/TreeTextures.h"
@@ -405,8 +406,18 @@ bool ModelResource::FinishTreeLoad()
     for( const MitchTree::TreePart& part : tree.Parts )
     {
         const bool leaves = part.Name == "Leaves";
-        auto material = MakeShared<StandardMaterial>();
+        auto material = MakeShared<FoliageMaterial>();
         material->Init();
+        FoliageSettings& foliage = material->Foliage;
+        foliage.Mode = leaves ? FoliageSettings::Part::Leaves : FoliageSettings::Part::Bark;
+        foliage.TreeHeight = std::max( tree.Height, 0.1f );
+        // Wind response in metres: a flexible twig on a 12 m tree swings about 0.3 m in a strong breeze.
+        foliage.TrunkLean = 0.015f * recipe.Wind.Trunk;
+        foliage.BranchSway = 0.025f * recipe.Wind.Branches * foliage.TreeHeight * std::max( tree.MaxSway, 0.f );
+        foliage.LeafFlutter = recipe.Wind.Leaves * std::min( 0.12f * recipe.Leaves.Size, 0.08f );
+        foliage.WindFrequency = recipe.Wind.Frequency;
+        foliage.Variation = recipe.Foliage.Variation;
+        if( leaves ) foliage.Translucency = recipe.Foliage.Translucency;
         // Generated maps are sub-assets of the recipe ("<tree>.mtree#bark-color"), baked on load.
         const std::string recipePath = FilePath.GetLocalPathString();
         auto generated = [&]( const char* InChannel, Moonlight::TextureType InType, Moonlight::WrapMode InWrap ) {
@@ -472,6 +483,12 @@ bool ModelResource::FinishTreeLoad()
         }
         Moonlight::MeshData* mesh = new Moonlight::MeshData( vertices, part.Lods.front(), material );
         mesh->Name = part.Name;
+        std::vector<Moonlight::WindVertex> wind( part.Vertices.size() );
+        for( size_t v = 0; v < part.Vertices.size(); ++v )
+        {
+            std::memcpy( wind[v].Data, part.Vertices[v].Wind.data(), sizeof( wind[v].Data ) );
+        }
+        mesh->InitWindStream( wind );
         std::vector<Moonlight::MeshLod> lods;
         for( size_t level = 1; level < part.Lods.size() && level - 1 < tree.LodScreenHeights.size(); ++level )
         {

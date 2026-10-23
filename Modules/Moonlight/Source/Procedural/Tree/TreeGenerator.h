@@ -42,6 +42,9 @@ namespace MitchTree
         Vector3 BoundsMin;
         Vector3 BoundsMax;
         float Height = 0.f;
+        // The branch sway weight a full wind-stream B channel stands for (sways scale with it, so
+        // stiff trees move less than flexible ones).
+        float MaxSway = 0.f;
         // Relative screen heights below which each simplified level draws (levels 1..n).
         std::vector<float> LodScreenHeights;
         TreeStatistics Statistics;
