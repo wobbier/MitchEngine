@@ -155,7 +155,7 @@ namespace MitchTree
     public:
         bool Generate = true;
         LeafShape Shape = LeafShape::Oval;
-        int Leaves = 5;                 // leaves per twig picture (1 = a single leaf)
+        int Leaves = 5;                 // leaves per twig picture (1 = a single leaf, 7+ a spray); needles: shoots
         float Aspect = 0.45f;           // leaf width over length
         int Lobes = 7;
         float LobeDepth = 0.3f;

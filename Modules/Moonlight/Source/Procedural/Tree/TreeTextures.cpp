@@ -1,4 +1,5 @@
 #include "TreeTextures.h"
+#include <cstdint>
 #include "TreeAsset.h"
 #include "Math/Hash.h"
 #include "Math/Noise.h"
@@ -104,9 +105,12 @@ namespace MitchTree
 
             size_t At( int InX, int InY ) const { return static_cast<size_t>( InY ) * Width + InX; }
 
+            // Paint lands only inside [ClipX0, ClipX1) x [ClipY0, ClipY1) (an atlas cell).
+            int ClipX0 = 0, ClipY0 = 0, ClipX1 = INT32_MAX, ClipY1 = INT32_MAX;
+
             void Paint( int InX, int InY, float InCoverage, const Color& InColor, float InRelief )
             {
-                if( InX < 0 || InY < 0 || InX >= Width || InY >= Height || InCoverage <= 0.f ) return;
+                if( InX < std::max( 0, ClipX0 ) || InY < std::max( 0, ClipY0 ) || InX >= std::min( Width, ClipX1 ) || InY >= std::min( Height, ClipY1 ) || InCoverage <= 0.f ) return;
                 const size_t i = At( InX, InY );
                 const float c = Saturate( InCoverage );
                 R[i] = Lerp( R[i], InColor.R, c );
@@ -435,8 +439,67 @@ namespace MitchTree
         }
 
 
-        // One atlas cell: a twig with leaves (or a needle spray) whose stalk sits at the cell's
-        // bottom centre, pointing up.
+        // A shoot of needles from (InX, InY) along InAngle, angled toward its tip on both sides.
+        void PaintShoot( Canvas& InCanvas, const LeafStyle& InStyle, float InX, float InY, float InAngle, float InLength, float InNeedle, Pcg32& InRng, float InLayer )
+        {
+            const LeafTexture& settings = *InStyle.Settings;
+            const float size = InLength;
+            const float bend = 0.15f * InRng.Signed();
+            const int tufts = std::max( 8, static_cast<int>( 26.f * InLength / std::max( InNeedle * 6.f, 1.f ) ) );
+            for( int i = 0; i <= tufts; ++i )
+            {
+                const float t = static_cast<float>( i ) / tufts;
+                const float along = InAngle + bend * t;
+                const float tx = InX + std::sin( InAngle + bend * t * 0.5f ) * size * t, ty = InY - std::cos( InAngle + bend * t * 0.5f ) * size * t;
+                for( int side = -1; side <= 1; side += 2 )
+                {
+                    for( int k = 0; k < 2; ++k )
+                    {
+                        const float angle = along + static_cast<float>( side ) * ( 0.55f + 0.35f * InRng.Unit() );
+                        const float length = InNeedle * ( 1.f - 0.45f * t ) * InRng.Range( 0.75f, 1.f );
+                        const float ex = tx + std::sin( angle ) * length, ey = ty - std::cos( angle ) * length;
+                        const Color color = Scale( Mix( InStyle.Base, InStyle.Tip, InRng.Unit() * 0.6f + 0.3f * t ), 1.f + settings.Variation * InRng.Signed() );
+                        PaintCapsule( InCanvas, tx, ty, ex, ey, std::max( 0.9f, InNeedle * 0.03f ), color, InLayer + 0.2f * InRng.Unit() );
+                    }
+                }
+            }
+            PaintCapsule( InCanvas, InX, InY, InX + std::sin( InAngle + bend * 0.5f ) * size, InY - std::cos( InAngle + bend * 0.5f ) * size, std::max( 1.2f, InNeedle * 0.05f ), InStyle.Twig, InLayer + 0.1f );
+        }
+
+
+        // Leaves alternating along a gently curved twig from (InX, InY), shrinking toward its tip;
+        // one ends it.
+        void PaintTwig( Canvas& InCanvas, const LeafStyle& InStyle, float InX, float InY, float InAngle, float InLength, int InLeaves, float InLeafLength, Pcg32& InRng, float InLayer )
+        {
+            const float bend = 0.2f * InRng.Signed();
+            auto twigPoint = [&]( float t, float& x, float& y ) {
+                const float angle = InAngle + bend * t * 0.5f;
+                x = InX + std::sin( angle ) * InLength * t;
+                y = InY - std::cos( angle ) * InLength * t;
+            };
+            for( int i = 0; i < InLeaves; ++i )
+            {
+                const bool terminal = i == InLeaves - 1;
+                const float t = terminal ? 1.f : 0.18f + 0.78f * static_cast<float>( i ) / static_cast<float>( std::max( InLeaves - 1, 1 ) );
+                float x = 0.f, y = 0.f;
+                twigPoint( t, x, y );
+                const float sideSign = ( i % 2 == 0 ) ? -1.f : 1.f;
+                const float angle = terminal ? InAngle + bend : InAngle + bend * t + sideSign * ( 0.65f + 0.35f * InRng.Unit() );
+                const float length = InLeafLength * ( terminal ? 1.f : 1.f - 0.25f * t ) * InRng.Range( 0.85f, 1.05f );
+                const float stalk = length * 0.12f;
+                const float sx = x + std::sin( angle ) * stalk, sy = y - std::cos( angle ) * stalk;
+                PaintCapsule( InCanvas, x, y, sx, sy, std::max( 0.8f, InLeafLength * 0.012f ), InStyle.Twig, InLayer );
+                PaintBlade( InCanvas, InStyle, sx, sy, angle, length, InRng, InLayer + 0.1f * static_cast<float>( i ) / InLeaves );
+            }
+            float tipX = 0.f, tipY = 0.f;
+            twigPoint( 1.f, tipX, tipY );
+            PaintCapsule( InCanvas, InX, InY, tipX, tipY, std::max( 1.2f, InLeafLength * 0.02f ), InStyle.Twig, InLayer + 0.35f );
+        }
+
+
+        // One atlas cell whose stalk sits at the cell's bottom centre, pointing up: a single leaf, a
+        // twig with leaves, or (more than six leaves) a spray with side twigs; for needles, a shoot or
+        // (Leaves > 1) a spray of shoots. Sprays fill the cell so leaf cards read as dense foliage.
         void PaintCell( Canvas& InCanvas, const LeafStyle& InStyle, int InX0, int InY0, int InSize, uint32_t InSeed )
         {
             const LeafTexture& settings = *InStyle.Settings;
@@ -445,27 +508,25 @@ namespace MitchTree
             const float baseX = static_cast<float>( InX0 ) + size * 0.5f, baseY = static_cast<float>( InY0 ) + size * 0.985f;
             if( settings.Shape == LeafShape::Needles )
             {
-                // A twig with needles along both sides, angled toward its tip.
-                const float twigLength = size * 0.88f;
-                const float bend = 0.15f * rng.Signed();
-                const int tufts = 22;
-                for( int i = 0; i <= tufts; ++i )
+                const float needle = size * settings.NeedleLength;
+                const int shoots = std::max( 1, settings.Leaves );
+                if( shoots == 1 )
                 {
-                    const float t = static_cast<float>( i ) / tufts;
-                    const float tx = baseX + std::sin( bend * t ) * twigLength * t, ty = baseY - twigLength * t;
-                    for( int side = -1; side <= 1; side += 2 )
-                    {
-                        for( int k = 0; k < 2; ++k )
-                        {
-                            const float angle = bend * t + static_cast<float>( side ) * ( 0.55f + 0.35f * rng.Unit() );
-                            const float length = size * settings.NeedleLength * ( 1.f - 0.45f * t ) * rng.Range( 0.75f, 1.f );
-                            const float ex = tx + std::sin( angle ) * length, ey = ty - std::cos( angle ) * length;
-                            const Color color = Scale( Mix( InStyle.Base, InStyle.Tip, rng.Unit() * 0.6f + 0.3f * t ), 1.f + settings.Variation * rng.Signed() );
-                            PaintCapsule( InCanvas, tx, ty, ex, ey, std::max( 0.9f, size * 0.004f ), color, 0.4f + 0.2f * rng.Unit() );
-                        }
-                    }
+                    PaintShoot( InCanvas, InStyle, baseX, baseY, 0.f, size * 0.88f, needle, rng, 0.4f );
+                    return;
                 }
-                PaintCapsule( InCanvas, baseX, baseY, baseX + std::sin( bend ) * twigLength, baseY - twigLength, std::max( 1.2f, size * 0.008f ), InStyle.Twig, 0.5f );
+                // A branchlet: side shoots alternate off a leading one, shorter toward its tip.
+                const float lead = size * 0.9f;
+                const int sides = shoots - 1;
+                for( int i = 0; i < sides; ++i )
+                {
+                    const float t = 0.12f + 0.7f * static_cast<float>( i ) / static_cast<float>( std::max( sides, 1 ) );
+                    const float side = ( i % 2 == 0 ) ? -1.f : 1.f;
+                    const float angle = side * ( 0.75f + 0.25f * rng.Unit() );
+                    const float length = size * ( 0.52f - 0.3f * t ) * rng.Range( 0.85f, 1.05f );
+                    PaintShoot( InCanvas, InStyle, baseX, baseY - lead * t, angle, length, needle * 0.85f, rng, 0.3f );
+                }
+                PaintShoot( InCanvas, InStyle, baseX, baseY, 0.f, lead, needle, rng, 0.5f );
                 return;
             }
             const int count = std::max( 1, settings.Leaves + ( settings.Leaves > 2 ? static_cast<int>( rng.Below( 3 ) ) - 1 : 0 ) );
@@ -476,28 +537,26 @@ namespace MitchTree
                 PaintBlade( InCanvas, InStyle, baseX, baseY - stalk, 0.05f * rng.Signed(), size * 0.86f, rng, 0.2f );
                 return;
             }
-            // Leaves alternate along a gently curved twig, shrinking toward its tip; one ends it.
-            const float twigLength = size * 0.62f;
-            const float bend = 0.2f * rng.Signed();
-            auto twigPoint = [&]( float t, float& x, float& y ) { x = baseX + std::sin( bend * t ) * twigLength * t; y = baseY - twigLength * t; };
-            const float leafLength = size * ( count <= 3 ? 0.42f : 0.36f ) / std::max( 0.6f, std::sqrt( settings.Aspect * 2.f ) );
-            for( int i = 0; i < count; ++i )
+            const float aspect = std::max( 0.6f, std::sqrt( settings.Aspect * 2.f ) );
+            if( count <= 6 )
             {
-                const bool terminal = i == count - 1;
-                const float t = terminal ? 1.f : 0.18f + 0.78f * static_cast<float>( i ) / static_cast<float>( count - 1 );
-                float x = 0.f, y = 0.f;
-                twigPoint( t, x, y );
-                const float sideSign = ( i % 2 == 0 ) ? -1.f : 1.f;
-                const float angle = terminal ? bend : bend * t + sideSign * ( 0.65f + 0.35f * rng.Unit() );
-                const float length = leafLength * ( terminal ? 1.f : 1.f - 0.25f * t ) * rng.Range( 0.85f, 1.05f );
-                const float stalk = length * 0.12f;
-                const float sx = x + std::sin( angle ) * stalk, sy = y - std::cos( angle ) * stalk;
-                PaintCapsule( InCanvas, x, y, sx, sy, std::max( 0.8f, size * 0.004f ), InStyle.Twig, 0.3f );
-                PaintBlade( InCanvas, InStyle, sx, sy, angle, length, rng, 0.1f + 0.1f * static_cast<float>( i ) / count );
+                PaintTwig( InCanvas, InStyle, baseX, baseY, 0.f, size * 0.62f, count, size * ( count <= 3 ? 0.42f : 0.36f ) / aspect, rng, 0.1f );
+                return;
             }
-            float tipX = 0.f, tipY = 0.f;
-            twigPoint( 1.f, tipX, tipY );
-            PaintCapsule( InCanvas, baseX, baseY, tipX, tipY, std::max( 1.2f, size * 0.007f ), InStyle.Twig, 0.45f );
+            // A spray: side twigs fork off the lower part of a leading twig.
+            const int sides = std::clamp( ( count - 2 ) / 4, 1, 4 );
+            const int perSide = std::max( 2, ( count * 2 ) / ( 3 * sides + 2 ) );
+            const int leading = std::max( 3, count - perSide * sides );
+            const float leafLength = size * 0.34f / aspect;
+            for( int i = 0; i < sides; ++i )
+            {
+                const float t = 0.12f + 0.4f * static_cast<float>( i ) / static_cast<float>( std::max( sides - 1, 1 ) );
+                const float side = ( i % 2 == 0 ) ? -1.f : 1.f;
+                const float angle = side * ( 0.62f + 0.25f * rng.Unit() );
+                PaintTwig( InCanvas, InStyle, baseX, baseY - size * 0.7f * t, angle, size * ( 0.3f - 0.08f * t ), perSide, leafLength * 0.85f, rng, 0.05f );
+            }
+            // The leading twig stops short of the top so its last leaf stays in the picture.
+            PaintTwig( InCanvas, InStyle, baseX, baseY, 0.f, size * 0.6f, leading, leafLength, rng, 0.25f );
         }
 
 
@@ -736,10 +795,16 @@ namespace MitchTree
                 {
                     // Cells are square pictures; a non-square cell centres one.
                     const int cell = std::min( cellWidth, cellHeight );
+                    // Each picture stays inside its cell (a margin keeps filtering from bleeding).
+                    const int margin = std::max( 2, cell / 128 );
+                    canvas.ClipX0 = c * cellWidth + margin; canvas.ClipX1 = ( c + 1 ) * cellWidth - margin;
+                    canvas.ClipY0 = r * cellHeight + margin; canvas.ClipY1 = ( r + 1 ) * cellHeight - margin;
                     PaintCell( canvas, style, c * cellWidth + ( cellWidth - cell ) / 2, r * cellHeight + ( cellHeight - cell ), cell, Hash::Mix32( InSettings.Seed * 131u + static_cast<uint32_t>( r * columns + c ) ) );
                 }
             }
         }
+        canvas.ClipX0 = canvas.ClipY0 = 0;
+        canvas.ClipX1 = canvas.ClipY1 = INT32_MAX;
         FillTransparent( canvas );
         LeafImages out;
         out.Color.Width = size;

@@ -136,7 +136,7 @@ ME_REFLECT_END()
 ME_REFLECT_BEGIN( MitchTree::LeafTexture )
     ME_FIELD( Generate ).Tooltip( "Generate the leaf atlas from these settings (off: use the Foliage material's maps and the leaf regions)." );
     ME_FIELD( Shape );
-    ME_FIELD( Leaves ).Range( 1.f, 12.f ).Tooltip( "Leaves on each twig picture (1 = a single leaf)." );
+    ME_FIELD( Leaves ).Range( 1.f, 24.f ).Tooltip( "Leaves on each twig picture (1 = a single leaf; more than six make a spray with side twigs). Needles: shoots in each spray." );
     ME_FIELD( Aspect ).Range( 0.05f, 1.5f ).Tooltip( "Leaf width over length." );
     ME_FIELD( Lobes ).Range( 2.f, 15.f );
     ME_FIELD( LobeDepth ).Range( 0.f, 0.9f );
