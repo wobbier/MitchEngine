@@ -38,6 +38,10 @@ public class SharpmakeProjectBase : CSharpProject
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Modules/Moonlight/Moonlight.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Modules/ImGui/ImGui.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Modules/ScriptCore/ScriptCore.sharpmake.cs");
+        SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Tests/Tests.sharpmake.cs");
+        SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/ThirdParty/Box2D.sharpmake.cs");
+        SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/ThirdParty/Box3D.sharpmake.cs");
+        SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/ThirdParty/RecastNavigation.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Tools/BaseProject.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Tools/CommonTarget.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Tools/SharpmakeProject.sharpmake.cs");
@@ -66,6 +70,7 @@ public class SharpmakeProjectBase : CSharpProject
         conf.ProjectPath = @"[project.SharpmakeCsPath]/.tmp/project/[target.Framework]";
         CSharpProjectExtensions.AddAspNetReferences(conf);
         conf.ReferencesByPath.Add(@"[project.SharpmakeCsPath]/Engine/Tools/Sharpmake/Sharpmake.dll");
+        conf.ReferencesByPath.Add(@"[project.SharpmakeCsPath]/Engine/Tools/Sharpmake/Sharpmake.CommonPlatforms.dll");
         conf.ReferencesByPath.Add(@"[project.SharpmakeCsPath]/Engine/Tools/Sharpmake/Sharpmake.Generators.dll");
     }
 }

@@ -102,6 +102,22 @@ New-project setup and Linux CI use the same SDK launchers. Game repositories
 and the project template no longer carry copied flakes or locks. Bare
 `nix develop` in a game root is replaced by `Engine/Tools/DevShell.sh`.
 
+## GitHub Actions
+
+The workflows belong to `wobbier/MitchEngine`; pushing a game repository does
+not run the engine submodule's workflows. Pushes and PRs targeting `master`,
+`motivation`, or `overhaul` run the platform builds. CI checks out the event's
+engine repository and commit before creating an `EmptyProject` from its template.
+Setup preserves this checkout, including detached commits and fork revisions.
+
+For a manual build, open the engine repository's Actions tab, select a platform,
+and choose **Run workflow**, then select `overhaul` in the branch dropdown.
+The Linux workflow on `master` is a manual launcher for the reusable Linux
+workflow on `overhaul`. Its `engine_ref` field defaults to `overhaul` and also
+accepts a tag or commit. Direct Linux runs on `overhaul` use the selected branch's
+event commit unless an `engine_ref` override is supplied. Windows and macOS use
+the same portable Sharpmake bundle as Linux.
+
 Integration checks for the launcher and private extensions:
 
 ```bash

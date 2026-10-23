@@ -2,12 +2,15 @@ name: UWP
 
 on:
   push:
-    branches: [master, motivation]
+    branches: [master, motivation, overhaul]
 
   pull_request:
-    branches: [master, motivation]
+    branches: [master, motivation, overhaul]
 
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -24,6 +27,15 @@ jobs:
           - Game_UWP
 
     steps:
+      - name: Check out the engine revision
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: Engine
+          submodules: true
+          persist-credentials: false
+
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v2
         with:
@@ -61,31 +73,9 @@ jobs:
           Write-Host "`nInstalled .NET SDKs:"
           dotnet --list-sdks
 
-      - name: Download project setup
-        uses: suisei-cn/actions-download-file@818d6b7dc8fe73f2f924b6241f2b1134ca1377d9
-        id: downloadfile
-        with:
-          url: "https://raw.githubusercontent.com/${{ github.event.pull_request.head.repo.full_name || github.repository }}/${{ github.event.pull_request.head.sha || github.sha }}/Tools/NewProjectSetup.bat"
-          target: ./
-
-      - name: Verify project setup
-        shell: pwsh
-        run: |
-          if (!(Test-Path "NewProjectSetup.bat")) {
-            throw "NewProjectSetup.bat was not downloaded."
-          }
-
-          $contents = Get-Content "NewProjectSetup.bat" -Raw
-
-          if ($contents -match '^404:') {
-            throw "NewProjectSetup.bat download returned a GitHub 404 response."
-          }
-
-          Get-Content "NewProjectSetup.bat" -TotalCount 5
-
       - name: Generate project
         shell: cmd
-        run: call NewProjectSetup.bat EmptyProject "${{ github.head_ref || github.ref_name }}"
+        run: call Engine\Tools\NewProjectSetup.bat EmptyProject
 
       - name: Verify generated solution
         shell: pwsh

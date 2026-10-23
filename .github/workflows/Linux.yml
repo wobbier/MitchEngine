@@ -2,18 +2,30 @@ name: Linux
 
 on:
   push:
-    branches: [master, motivation]
+    branches: [master, motivation, overhaul]
   pull_request:
-    branches: [master, motivation]
+    branches: [master, motivation, overhaul]
 
   workflow_dispatch:
+    inputs:
+      engine_ref:
+        description: Optional engine branch, tag, or commit override
+        required: false
+        type: string
+  workflow_call:
+    inputs:
+      engine_ref:
+        description: Engine branch, tag, or commit selected by the manual launcher
+        required: true
+        type: string
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    env:
-      ENGINE_REF: ${{ github.head_ref || github.ref_name }}
     strategy:
       fail-fast: false
       matrix:
@@ -28,6 +40,15 @@ jobs:
             binary: Game_EntryPoint_x64
 
     steps:
+      - name: Check out the engine revision
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ inputs.engine_ref || github.event.pull_request.head.sha || github.sha }}
+          path: Engine
+          submodules: true
+          persist-credentials: false
+
       - name: Install Nix
         uses: cachix/install-nix-action@v31
         with:
@@ -35,11 +56,8 @@ jobs:
           extra_nix_config: |
             experimental-features = nix-command flakes
 
-      - name: Grab the project setup file
-        run: curl -fsSLO "https://raw.githubusercontent.com/wobbier/MitchEngine/${ENGINE_REF}/Tools/NewProjectSetup.sh"
-
       - name: Generate a new project
-        run: bash NewProjectSetup.sh EmptyProject "$ENGINE_REF"
+        run: bash Engine/Tools/NewProjectSetup.sh EmptyProject
 
       - name: Compile Tools
         if: ${{ matrix.buildconfig == 'Game_linux' }}

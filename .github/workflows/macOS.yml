@@ -2,12 +2,15 @@ name: macOS
 
 on:
   push:
-    branches: [master, motivation]
+    branches: [master, motivation, overhaul]
 
   pull_request:
-    branches: [master, motivation]
+    branches: [master, motivation, overhaul]
 
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -23,26 +26,15 @@ jobs:
           - Editor
           - Game_macOS
 
-    env:
-      ENGINE_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-      ENGINE_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
-      ENGINE_BRANCH: ${{ github.head_ref || github.ref_name }}
-
     steps:
-      - name: Download project setup
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          curl \
-            --fail \
-            --location \
-            --show-error \
-            --output NewProjectSetup.command \
-            "https://raw.githubusercontent.com/${ENGINE_REPOSITORY}/${ENGINE_REVISION}/Tools/NewProjectSetup.command"
-
-          echo "Downloaded setup script:"
-          head -n 5 NewProjectSetup.command
+      - name: Check out the engine revision
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: Engine
+          submodules: true
+          persist-credentials: false
 
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v5
@@ -54,8 +46,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          echo "Generating from branch: ${ENGINE_BRANCH}"
-          bash NewProjectSetup.command EmptyProject "${ENGINE_BRANCH}"
+          bash Engine/Tools/NewProjectSetup.command EmptyProject
 
           echo "Generated workspace:"
           find . -maxdepth 2 \

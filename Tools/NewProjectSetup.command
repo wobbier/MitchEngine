@@ -1,46 +1,32 @@
-#!/bin/bash
-# Run this from either an already checked out git repo or an empty folder 
+#!/usr/bin/env bash
+# Creates a macOS project, preserving an Engine checkout supplied by CI.
+set -euo pipefail
 
-if [[ ! -f ".git" ]]
-then
+id=${1:-}
+branch=${2:-master}
+
+if [ -z "$id" ]; then
+    read -r -p "Enter project name (Used for the project files): " id
+fi
+id=${id:-EmptyProject}
+branch=${branch:-master}
+
+if [[ ! "$id" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+    echo "Use letters, digits and underscores for the project name (starting with a letter or underscore)." >&2
+    exit 2
+fi
+
+if [ ! -e .git ]; then
     git init
 fi
-
-id=$1;
-if [[ $1 == "" ]]
-then
-echo Enter a project name \(Used for the project files\):
-read id
+if [ ! -e Engine/.git ]; then
+    git submodule add -b "$branch" --force --name Engine https://github.com/wobbier/MitchEngine Engine
 fi
-
-if [[ $id == "" ]]
-then
-id="EmptyProject";
-fi
-
-branch=$2;
-if [[ $branch == "" ]]
-then
-branch="master";
-fi
-
-echo $id
-echo 2> .gitmodules
-
-git submodule add -b $branch --force --name Engine https://github.com/wobbier/MitchEngine Engine
-
-git submodule init
-git submodule update
-
-cd Engine
-git submodule init
-git submodule update
-cd ThirdParty
-sh GenerateSolutions.command
-cd ../../
+git -C Engine submodule update --init
 
 cp -a Engine/Tools/ProjectTemplate/. ./
+sed "s/EmptyProject/$id/g" Game.sharpmake.cs > Game.sharpmake.cs.tmp
+mv Game.sharpmake.cs.tmp Game.sharpmake.cs
 
-cd Project
-sh GenerateSolution.command
-cd ..
+(cd Engine/ThirdParty && bash GenerateSolutions.command)
+(cd Project && bash GenerateSolution.command)

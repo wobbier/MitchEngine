@@ -1,36 +1,36 @@
 @echo off
+setlocal
 
-IF NOT EXIST .git (
-git init
+set "id=%~1"
+set "branch=%~2"
+if "%id%"=="" set /P id=Enter project name (Used for the .sln):
+if "%id%"=="" set "id=EmptyProject"
+if "%branch%"=="" set "branch=master"
+
+if not exist .git (
+    git init || exit /b 1
 )
 
-set id=%1
-set branch=%2
+rem CI supplies the exact event checkout. Keep its revision and repository.
+if not exist Engine\.git (
+    git submodule add -b "%branch%" --force --name Engine https://github.com/wobbier/MitchEngine Engine || exit /b 1
+)
+git -C Engine submodule update --init || exit /b 1
 
-if "%1"=="" set /P id=Enter project name (Used for the .sln): 
-
-if "%id%"=="" set id=ExampleProject
-
-if "%2"=="" set branch=master
-
-echo 2> .gitmodules
-
-git submodule add -b %branch% --force --name Engine https://github.com/wobbier/MitchEngine Engine
-
-git submodule init
-git submodule update
-
-cd Engine
-git submodule init
-git submodule update
-cd ThirdParty
+pushd Engine\ThirdParty
 call GenerateSolutions.bat
-cd ../../
+if errorlevel 1 goto failed
+popd
 
-mkdir Assets
+robocopy "Engine\Tools\ProjectTemplate" "." *.* /w:0 /r:1 /E /XC /XN /XO /log:"ProjectTemplate.log"
+if errorlevel 8 exit /b 1
 
-robocopy "Engine\\Tools\\ProjectTemplate" "./" *.* /w:0 /r:1 /v /E /XC /XN /XO /log:"ProjectTemplate.log"
-
-cd Project
+pushd Project
 call GenerateSolution.bat
-cd ..
+if errorlevel 1 goto failed
+popd
+exit /b 0
+
+:failed
+popd
+exit /b 1

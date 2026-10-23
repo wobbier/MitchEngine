@@ -3,14 +3,14 @@
 # Run this from either an already checked out git repo or an empty folder.
 #
 # Usage: NewProjectSetup.sh [ProjectName] [EngineBranch]
-set -e
+set -euo pipefail
 
 if [ ! -e .git ]; then
     git init
 fi
 
-id=$1
-branch=$2
+id=${1:-}
+branch=${2:-master}
 
 if [ -z "$id" ]; then
     read -r -p "Enter a project name (Used for the project files): " id
@@ -30,11 +30,11 @@ if [ -z "$branch" ]; then
 fi
 
 echo "$id"
-: > .gitmodules
-
-git submodule add -b "$branch" --force --name Engine https://github.com/wobbier/MitchEngine Engine
-
-git submodule update --init
+# CI checks out the exact event repository and revision into Engine first.
+# Preserve that checkout instead of cloning the current upstream branch tip.
+if [ ! -e Engine/.git ]; then
+    git submodule add -b "$branch" --force --name Engine https://github.com/wobbier/MitchEngine Engine
+fi
 git -C Engine submodule update --init
 
 cp -a Engine/Tools/ProjectTemplate/. ./
@@ -45,6 +45,6 @@ mv Game.sharpmake.cs.tmp Game.sharpmake.cs
 if [ "$(uname -s)" = Linux ]; then
     bash Engine/Tools/GenerateProject.sh
 else
-    bash Engine/ThirdParty/GenerateSolutions.sh
-    bash Project/GenerateSolution.sh
+    (cd Engine/ThirdParty && bash GenerateSolutions.command)
+    (cd Project && bash GenerateSolution.command)
 fi
