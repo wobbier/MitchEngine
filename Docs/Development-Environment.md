@@ -118,6 +118,14 @@ accepts a tag or commit. Direct Linux runs on `overhaul` use the selected branch
 event commit unless an `engine_ref` override is supplied. Windows and macOS use
 the same portable Sharpmake bundle as Linux.
 
+Submodule pins must be available from the URLs in `.gitmodules` before an engine
+commit is pushed. Engine-specific ImGui and UltralightSDK changes are published
+on the `mitchengine` branches of the `wobbier` forks. bgfx stays pinned to its
+published upstream commit; `ThirdParty/Patches/bgfx-vulkan-program-samplers.patch`
+preserves the Vulkan fix and is applied by `GenerateSolutions.sh --build-bgfx`.
+To reproduce CI's dependency checkout from a fresh clone, run
+`git submodule update --init --depth=1` inside the engine repository.
+
 Integration checks for the launcher and private extensions:
 
 ```bash

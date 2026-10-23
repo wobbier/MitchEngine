@@ -5,7 +5,8 @@
 	ignore = dirty
 [submodule "ThirdParty/ImGui"]
 	path = ThirdParty/ImGui
-	url = https://github.com/ocornut/imgui
+	url = https://github.com/wobbier/imgui
+	branch = mitchengine
 	ignore = dirty
 [submodule "ThirdParty/JSON"]
 	path = ThirdParty/JSON
@@ -18,6 +19,7 @@
 [submodule "ThirdParty/UltralightSDK"]
 	path = ThirdParty/UltralightSDK
 	url = https://github.com/wobbier/UltralightSDK
+	branch = mitchengine
 	ignore = dirty
 [submodule "ThirdParty/glm"]
 	path = ThirdParty/glm
