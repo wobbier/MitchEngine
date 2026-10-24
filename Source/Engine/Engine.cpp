@@ -265,6 +265,7 @@ void Engine::Init( Game* game )
 #if USING( ME_GAME_TOOLS )
     m_debugTools.Init();
 #endif
+    m_debugOverlayVisible = CommandLine::Has( "--debug-overlay" ) && !CommandLine::Has( "--no-debug-overlay" );
 
     InitGame();
 
@@ -461,8 +462,17 @@ void Engine::Run()
             }
             
 
+#if !USING( ME_EDITOR ) && USING( ME_IMGUI )
+        if( GetInput().WasKeyPressed( KeyCode::F3 ) && !CommandLine::Has( "--no-debug-overlay" ) )
+        {
+            m_debugOverlayVisible = !m_debugOverlayVisible;
+        }
+#endif
 #if USING( ME_GAME_TOOLS )
-        m_debugTools.Render();
+        if( m_debugOverlayVisible )
+        {
+            m_debugTools.Render();
+        }
 #endif
 
             Terrains->Update( updateContext );
@@ -639,7 +649,10 @@ void Engine::Run()
                 }
 #endif
 #if USING( ME_BASIC_PROFILER )
-                FrameProfile::GetInstance().Render( { GameWindow->GetClientPosition().x + 10.f, ( GameWindow->GetClientPosition().y + GameWindow->GetClientSize().y - FrameProfile::kMinProfilerSize - 10.f ) }, { GameWindow->GetClientSize().x - 20, (float)FrameProfile::kMinProfilerSize } );
+                if( m_debugOverlayVisible )
+                {
+                    FrameProfile::GetInstance().Render( { GameWindow->GetClientPosition().x + 10.f, ( GameWindow->GetClientPosition().y + GameWindow->GetClientSize().y - FrameProfile::kMinProfilerSize - 10.f ) }, { GameWindow->GetClientSize().x - 20, (float)FrameProfile::kMinProfilerSize } );
+                }
 #endif
 #endif
                 ME_FRAMEPROFILE_START( "UI Render", ProfileCategory::UI );

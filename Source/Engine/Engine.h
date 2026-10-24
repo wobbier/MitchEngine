@@ -140,6 +140,9 @@ private:
     float m_timeScale = 1.f;
     float m_maxFrameRate = 0.f;
     bool m_isPaused = false;
+    // Game builds: the ImGui debug overlay (Debug Tools window, profiler bar). F3 toggles it;
+    // --debug-overlay starts with it shown, --no-debug-overlay keeps it hidden.
+    bool m_debugOverlayVisible = false;
     bool m_forceQuit = false;
     bool m_stepRequested = false;
     bool m_isInitialized = false;
