@@ -31,11 +31,11 @@ flowchart LR
     L -->|"UICore::Render →<br/>RefreshDisplay + Render"| D["UIDriver command list<br/>(bgfx views 11+N)"]
     D --> RT["view render targets"]
     RT -->|composite| FB["UICore m_uiFrameBuffer<br/>→ camera.UITexture"]
-    FB -->|"BGFXRenderer view 9<br/>premultiplied-alpha over"| Screen
+    FB -->|"BGFXRenderer UIComposite view<br/>premultiplied-alpha over"| Screen
 ```
 
 - Platform setup (`UICore` constructor): filesystem rooted at `Assets/UI` (`FileSystemBasic`), per-platform font loader (custom Win/Mac loaders; platform default elsewhere — on Linux this is what drags in the GTK dependency stack, see the engine's `nix/flake.nix`), a `FileLogger`, and the custom `UIDriver` GPU backend.
-- `UICore::Update` ticks the Ultralight renderer; `UICore::Render` calls `RefreshDisplay(0)` + `Render()` then flushes `UIDriver`'s accumulated command list into bgfx. Per `BasicUIView`, the view's render target is composited into `UICore`'s `m_uiFrameBuffer`; that texture becomes `camera.UITexture`, which the main renderer draws as a screen-space quad at **view 9** with the premultiplied-alpha blend (`Docs/Rendering-Pipeline.md`).
+- `UICore::Update` ticks the Ultralight renderer; `UICore::Render` calls `RefreshDisplay(0)` + `Render()` then flushes `UIDriver`'s accumulated command list into bgfx. Per `BasicUIView`, the view's render target is composited into `UICore`'s `m_uiFrameBuffer`; that texture becomes `camera.UITexture`, which the main renderer draws as a screen-space quad in the `RenderView::UIComposite` view (`RenderViews.h`) with the premultiplied-alpha blend (`Docs/Rendering-Pipeline.md`).
 - `UIDriver` allocates bgfx views starting at `kViewId` = 11 (one per Ultralight render buffer), manages texture/geometry maps keyed by Ultralight IDs, and there's an in-code warning about not sampling a render target while rendering into it.
 - Resize flows from the window through `Engine`'s resize lambda → `UICore::OnResize( Camera::CurrentCamera->OutputSize )` — UI resolution follows the main camera's output size, and is also re-checked every frame in the loop.
 

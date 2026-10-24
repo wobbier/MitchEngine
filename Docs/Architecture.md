@@ -80,7 +80,7 @@ Games implement the pure-virtual `Game` interface (`Source/Game.h`): `OnInitiali
 6. ImGui SDL2 backend init, chosen per platform: D3D (Win64), Metal (macOS), Vulkan (Linux).
 7. `World` is created, then the **engine-owned cores** are `new`ed: `CameraCore`, `SceneCore`, `RenderCore`, `ParticleCore`, `TerrainCore`, `PhysicsCore`, `Physics2DCore`, `AnimationCore`, `NavigationCore`, `AudioCore`, `UICore`, and in scripting builds `ScriptCore` (held as raw public members `Cameras`, `SceneNodes`, `ModelRenderer`, `Particles`, `Terrains`, `Physics`, `Physics2D`, `Animation`, `Navigation`, `AudioThread`, `UI`, `Scripts`). .NET starts on a worker thread at the top of `Engine::Init` (`ScriptEngine::StartInitAsync`, which also rebuilds stale scripts in tools builds), overlapping window and renderer creation; constructing `ScriptCore` waits for it (`ScriptEngine::Init`, `Docs/Scripting-DotNet.md`). Next to the physics cores the engine also creates `Collisions`, a `CollisionRouter` (not a core) that turns `CollisionEvent`s into per-entity C++ callbacks (`Docs/Physics.md`).
 8. A gizmo-draw callback is registered on the renderer that iterates every core's `OnDrawGuizmo`.
-9. `Engine::InitGame` adds those cores to the world via `World::AddCore<T>` and calls `Game::OnInitialize()`. (It also unconditionally logs the error-level marker `YIKES("Engine::InitGame")` — a leftover.)
+9. `Engine::InitGame` adds those cores to the world via `World::AddCore<T>` and calls `Game::OnInitialize()`.
 10. `ResizeFunc` is fired once manually, and `SystemRegistry` registers `Engine`, the renderer, and the `Jobs::JobSystem` so they are reachable through `UpdateContext`.
 
 ### Engine-owned vs scene-loaded cores
@@ -199,9 +199,8 @@ Flags are driven by `DEFINE_ME_*` preprocessor defines that Sharpmake sets per t
 
 ## Caveats & Fragility
 
-- **Partial teardown.** `Engine::Shutdown` destroys the World and jobs, but not the renderer, window or engine cores, and never calls `bgfx::shutdown`. `Engine::IsRunning()` is hardcoded to return `true`.
+- **Partial teardown.** `Engine::Shutdown` destroys the World, the jobs and the renderer (`BGFXRenderer::Destroy` shuts bgfx down), but leaves the window and the engine cores to process exit. `Engine::IsRunning()` is hardcoded to return `true`.
 - **Two core-update paths.** Engine-owned cores are updated by explicit member calls in a hardcoded order; scene-loaded cores through `UpdateLoadedCores` in priority order. Adding an engine-level core means editing the frame loop by hand.
-- **`YIKES("Engine::InitGame")`** logs an error-level line on every boot — noise, not an actual error.
 - **`UICore` is re-added on every scene load** in `Engine::LoadScene`; if you add another engine-owned core that must survive scene loads, it needs the same treatment (or `DestroyOnLoad = false`).
 - **Non-editor scene load runs `Simulate()` twice** (once unconditionally, once in the non-editor block) — harmless today but easy to trip over when reasoning about `OnEntityAdded` timing.
 - **`Camera::CurrentCamera` static global** is consulted by the resize path and UI sizing every frame; a scene without a main camera skips UI resize silently.

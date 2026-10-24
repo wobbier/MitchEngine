@@ -19,18 +19,19 @@ Check out my [Notion][4] to view the current development status.
 Main Features
 -------------
    * (ECS) Entity-Component System based design
-   * Supports Linux, Windows, Xbox, and macOS
-   * World Editor
-   * HTML UI with [Ultralight][5]
-   * Language: C++
-   * [Optick][6] Profiling
+   * Supports Linux, Windows and macOS (UWP / Xbox builds are kept compiling)
+   * Havana, the world editor: undo, prefabs, play-in-editor snapshots, scripted regression flows
+   * PBR renderer on [BGFX][9]: clustered lights, cascaded shadows, image-based lighting, fog, decals, TAA, shader graphs
+   * [Box3D][7] and [Box2D][12] physics, Recast / Detour navigation, skeletal animation, terrain
+   * C# scripting on .NET 8 with hot reload (See Below)
+   * Language: C++20
    * Optional [FMOD][10] Audio (See Below)
-   * Optional/Experimental [MONO][11] Scripting Support (See Below)
+   * HTML UI with [Ultralight][5] (being replaced)
 
 How to make a Mitch game
 -----------------------
 
-1. Download the [Project Setup][8] batch file (Windows only atm, but generates macOS .command) and run within an empty folder or your premade git repo.
+1. Run the project setup script from `Tools/` (`NewProjectSetup.bat`, `.command` or `.sh`) in an empty folder or your git repo, or start from the [MitchGame][13] example project.
 2. Think of an awesome game idea.
 3. ????
 4. Profit
@@ -61,13 +62,13 @@ ModelEntity->AddComponent<Model>("Assets/Models/SuperAwesome.fbx");
 Build Requirements
 ------------------
 
-* Windows 10 or macOS
-* Visual Studio 2019 for Windows / Xbox
+* Windows 10/11 with Visual Studio 2022
 	* Desktop Development with C++
-	* Universal Windows Platform development
 	* Game development with C++
-	* C++ Universal Windows Platform tools
-* XCode for macOS
+	* Universal Windows Platform development (UWP builds only)
+* Xcode for macOS
+* Linux: Nix, which provides the whole toolchain and libraries (see [Docs/Development-Environment.md](Docs/Development-Environment.md))
+* .NET 8 SDK for C# scripting
 * CMake - 3.12.0 (Required if you wish to update ThirdParty projects)
 
 Third Party Libraries
@@ -78,7 +79,8 @@ Third Party Libraries
   * [Box3D][7] and [Box2D][12]
   * [BGFX][9]
   * [FMOD][10]
-  * [MONO][11]
+  * .NET 8 (hostfxr / nethost)
+  * Recast / Detour, Assimp, SDL2, Dear ImGui
 
 Enabling FMOD
 --------------------------------
@@ -100,13 +102,11 @@ public class SharpGameSolution : BaseGameSolution
 ```
 * You can check the status of the FMOD plugin in the 'Help > About' menu in the editor.
 
-Enabling MONO Scripting (Experimental)
+C# Scripting (.NET 8)
 --------------------------------
 
-* Download and install the SDK from the [MONO][11] website.
-* Edit your project's `Game.sharpmake.cs` file in the root of your project and set the global field for `Globals.MONO_****_Dir`
-	* The default value for Windows is: `MONO_Win64_Dir = "C:/Program Files/Mono/"`
-	* The default value for macOS is: `MONO_macOS_Dir = "/Library/Frameworks/Mono.framework"`
+* Install the .NET 8 SDK. Game scripts are any `.cs` under your project's `Assets/`; the editor builds them and hot reloads them while you play.
+* Windows: set `Globals.DOTNET_Win64_Dir` in your project's `Game.sharpmake.cs` to the `runtimes/win-x64/native` folder of the installed `Microsoft.NETCore.App.Host.win-x64` pack.
 ```cpp
 [Generate]
 public class SharpGameSolution : BaseGameSolution
@@ -115,12 +115,12 @@ public class SharpGameSolution : BaseGameSolution
         : base()
     {
         Name = "MyProjectName";
-        Globals.MONO_Win64_Dir = "C:/Program Files/Mono/";
-	Globals.MONO_macOS_Dir = "/Library/Frameworks/Mono.framework";
+        Globals.DOTNET_Win64_Dir = "C:\\Program Files\\dotnet\\packs\\Microsoft.NETCore.App.Host.win-x64\\8.0.27\\runtimes\\win-x64\\native";
     }
 }
 ```
-* You can check the status of the MONO plugin in the 'Help > About' menu in the editor.
+* Linux: the Nix development shell sets everything up.
+* See [Docs/Scripting-DotNet.md](Docs/Scripting-DotNet.md) for the API, the script lifecycle and hot reload.
 
 Activity
 --------------------------------
@@ -133,8 +133,7 @@ Activity
 [5]: https://github.com/ultralight-ux/Ultralight "Ultralight"
 [6]: https://github.com/bombomby/optick "Optick"
 [7]: https://github.com/erincatto/box3d "Box3D"
-[8]: https://raw.githubusercontent.com/wobbier/MitchEngine/master/NewProjectSetup.bat "Project Creator"
 [9]: https://github.com/bkaradzic/bgfx "BGFX"
 [10]: https://www.fmod.com/ "FMOD Audio"
-[11]: https://www.mono-project.com/ "MONO Scripting"
 [12]: https://github.com/erincatto/box2d "Box2D"
+[13]: https://github.com/wobbier/MitchGame "MitchGame example project"

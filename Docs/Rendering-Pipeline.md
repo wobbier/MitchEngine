@@ -21,7 +21,7 @@ Ambient light comes from per-camera image-based-lighting probes. This doc maps t
 
 ## Overview
 
-The hot-path design goal is **no virtual calls in the submit loop**. Everything the renderer needs per mesh is precomputed into the `MeshCommand` by the parallel mesh job:
+The hot-path design goal is a submit loop with **almost no virtual calls**. Everything the renderer needs to sort, batch and cull a mesh is precomputed into the `MeshCommand` by the parallel mesh job; binding its material (`Material::Use`, `GetRenderState`) is the one virtual step per draw or instance batch:
 
 - `BatchKey`, `VertexBufferIdx` and `IndexBufferIdx`
 - `IsTransparent` and `SupportsInstancing`

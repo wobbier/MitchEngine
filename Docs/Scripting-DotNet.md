@@ -112,7 +112,7 @@ Only public fields survive. Private state, statics and references are rebuilt in
 
 ### Calling the engine from C#
 
-The API is about 87 functions. Strings cross as UTF-8 `byte*`, entities as the raw 64-bit `EntityID`, and vectors by pointer.
+The API is 120 functions (`ScriptAPI.def`). Strings cross as UTF-8 `byte*`, entities as the raw 64-bit `EntityID`, and vectors by pointer.
 
 | Area | C# surface |
 |------|------------|
