@@ -81,6 +81,7 @@ public:
     // Reads/writes what a Path already resolved to. The one seam loaders go through, so pak
     // sources can slot in without touching call sites again.
     bool ReadText( const Path& InPath, std::string& OutText ) const;
+    bool ReadBytes( const Path& InPath, std::vector<uint8_t>& OutBytes ) const;
     bool WriteText( const Path& InPath, const std::string& InText ) const;
 
     // Resolve-then-IO conveniences for logical paths.

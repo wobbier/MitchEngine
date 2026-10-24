@@ -66,3 +66,9 @@
 	url = https://github.com/thedmd/imgui-node-editor.git
 	branch = develop
 	ignore = dirty
+[submodule "ThirdParty/RmlUi"]
+	path = ThirdParty/RmlUi
+	url = https://github.com/mikke89/RmlUi.git
+[submodule "ThirdParty/freetype"]
+	path = ThirdParty/freetype
+	url = https://github.com/freetype/freetype.git

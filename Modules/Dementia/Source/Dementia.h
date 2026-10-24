@@ -165,6 +165,12 @@ Class& operator=(Class&&) = delete;
 #define ME_ULTRALIGHT NOT_IN_USE
 #endif
 
+#if defined( DEFINE_ME_RMLUI )
+#define ME_RMLUI IN_USE
+#else
+#define ME_RMLUI NOT_IN_USE
+#endif
+
 #define ME_PLATFORM_WINDOWS USE_IF( USING( ME_PLATFORM_WIN64 ) || USING( ME_PLATFORM_UWP ) )
 #define ME_EDITOR_WIN64     USE_IF( USING( ME_EDITOR ) && USING( ME_PLATFORM_WIN64 ) )
 #define ME_EDITOR_MACOS     USE_IF( USING( ME_EDITOR ) && USING( ME_PLATFORM_MACOS ) )

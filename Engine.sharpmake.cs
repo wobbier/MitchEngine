@@ -17,6 +17,8 @@ using Sharpmake;
 [module: Sharpmake.Include("ThirdParty/Box2D.sharpmake.cs")]
 [module: Sharpmake.Include("ThirdParty/Box3D.sharpmake.cs")]
 [module: Sharpmake.Include("ThirdParty/RecastNavigation.sharpmake.cs")]
+[module: Sharpmake.Include("ThirdParty/Freetype.sharpmake.cs")]
+[module: Sharpmake.Include("ThirdParty/RmlUi.sharpmake.cs")]
 
 public abstract class BaseGameProject : BaseProject
 {
@@ -172,6 +174,7 @@ public class Engine : BaseProject
         conf.AddPublicDependency<Box2D>(target);
         conf.AddPublicDependency<Box3D>(target);
         conf.AddPublicDependency<RecastNavigation>(target);
+        conf.AddPublicDependency<RmlUiLib>(target);
 
         // Box3D (3D) and Box2D (2D) physics are built from source and always available.
         if (Globals.IsPhysicsEnabled3D)

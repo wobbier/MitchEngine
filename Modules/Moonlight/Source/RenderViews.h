@@ -38,8 +38,11 @@ namespace Moonlight::RenderView
     // Composites the UI texture over the main camera's output.
     constexpr bgfx::ViewId UIComposite = PickingBlit + 1;
 
+    // RmlUi documents, drawn over the composited frame (the Ultralight replacement, UI-1..5).
+    constexpr bgfx::ViewId RmlUi = UIComposite + 1;
+
     // Editor offscreen work submitted from the UI (shader graph node previews), sampled by ImGui.
-    constexpr bgfx::ViewId EditorOffscreenFirst = UIComposite + 1;
+    constexpr bgfx::ViewId EditorOffscreenFirst = RmlUi + 1;
     constexpr bgfx::ViewId EditorOffscreenCount = 16;
     // The browser inspector has its own preview, including while graph documents are open.
     constexpr bgfx::ViewId AssetPreviewTiles = EditorOffscreenFirst + EditorOffscreenCount - 3;

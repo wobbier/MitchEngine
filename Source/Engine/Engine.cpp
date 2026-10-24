@@ -28,6 +28,7 @@
 #include "Audio/AudioOcclusion.h"
 #include "Input/Gamepads.h"
 #include "Cores/UI/UICore.h"
+#include "Cores/UI/RmlUiCore.h"
 #include "Cores/Scripting/ScriptCore.h"
 
 #if USING( ME_EDITOR_WIN64 )
@@ -290,6 +291,7 @@ void Engine::Init( Game* game )
         {
             OPTICK_EVENT( "Engine::Init::CreateUI" );
             UI = new UICore( GameWindow, NewRenderer );
+            RmlUi = new RmlUiCore( NewRenderer );
         }
     }
 
@@ -368,6 +370,7 @@ void Engine::InitGame()
         GameWorld->AddCore<NavigationCore>( *Navigation );
         GameWorld->AddCore<AudioCore>( *AudioThread );
         GameWorld->AddCore<UICore>( *UI );
+        GameWorld->AddCore<RmlUiCore>( *RmlUi );
         if( Scripts )
         {
             GameWorld->AddCore<ScriptCore>( *Scripts );
@@ -691,6 +694,10 @@ void Engine::Run()
                     }
                     UI->Update( updateContext );
                 }
+                if( RmlUi )
+                {
+                    RmlUi->Update( updateContext );
+                }
             }
 
             // Finish background loads (GPU uploads) before this frame's render commands are built.
@@ -901,6 +908,10 @@ void Engine::Shutdown()
         AudioThread->Shutdown();
     }
 #if USING( ME_SCRIPTING )
+    if( RmlUi )
+    {
+        RmlUi->ReleaseRml();
+    }
     ScriptEngine::Shutdown();
 #endif
     Gamepads::Get().CloseAll();
@@ -1123,6 +1134,7 @@ void Engine::LoadSceneInternal( const std::string& SceneFile, const json* InData
 #endif
 
     GameWorld->AddCore<UICore>(*UI);
+    GameWorld->AddCore<RmlUiCore>(*RmlUi);
 
     GameWorld->Simulate();
 

@@ -2,6 +2,8 @@
 
 Two UI systems coexist. **Ultralight** renders HTML/CSS/JS game UI (`BasicUIView` components driven by `UICore`) into a texture the renderer composites over the main camera. **ImGui** renders editor chrome, debug tools, and profiling overlays. Ultralight is **on its way out** — its hard 60 fps cap and licensing friction have the author replacing it (recent commits: "Remaining UI work that WILL be deleted") — so the guidance here is: understand it, ship with it if you must, **don't build new features on it**.
 
+**The replacement is RmlUi** (UI-1 landed the spike; Ultralight stays until UI-5): `ThirdParty/RmlUi` + `ThirdParty/freetype` build from source behind `ME_RMLUI`, a `UIDocument` component names an `.rml` file, and `RmlUiCore` (added beside `UICore`, including the scene-load re-add) runs one `Rml::Context` per world. The bgfx `RmlRenderInterface` (`Source/UI/Rml/`) draws compiled geometry with premultiplied alpha into `RenderView::RmlUi` — straight onto the backbuffer in game builds; the editor draws nothing until the UI-2 composite path — with stencil clip masks for `border-radius` (inverse masks fall back until UI-2) and per-draw `transform` support. Files resolve through the VFS, time is fed simulated (deterministic captures), shaders live in `Assets/Shaders/UI/Rml.*`. Proof: `Assets/Scenes/Tests/UITest.lvl` screenshot regression (text, image, rounded clip, transform) and the `RmlUiTests.cpp` handle-leak doctest on the Noop backend.
+
 > Verified against engine commit 047f57b8, 2026-07-10.
 
 ## Overview

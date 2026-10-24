@@ -53,6 +53,10 @@ public abstract class BaseProject : Project
             conf.Defines.Add("DEFINE_ME_ULTRALIGHT");
         }
 
+        // RmlUi + FreeType build from source on every platform (the Ultralight replacement
+        // grows behind ME_RMLUI until UI-5 removes the SDK).
+        conf.Defines.Add("DEFINE_ME_RMLUI");
+
         // RenderDoc DLL
         // TODO: Is this a chocolatey package? cross platform?
         // Shitty detection atm, but it works without this?

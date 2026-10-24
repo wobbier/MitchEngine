@@ -72,6 +72,19 @@ if [[ -d Assets/Scenes/Showcase/Reference ]]; then
     fi
 fi
 
+# Test scenes with a committed reference (UITest and friends) regress the same way.
+if compgen -G "Assets/Scenes/Tests/Reference/*.png" > /dev/null; then
+    step "Test-scene screenshots"
+    test_scenes=()
+    for reference in Assets/Scenes/Tests/Reference/*.png; do
+        scene="Assets/Scenes/Tests/$(basename "${reference%.png}").lvl"
+        [[ -f $scene ]] && test_scenes+=("$scene")
+    done
+    if ! python3 "$here/ScreenshotRegression.py" --game .build/Game_linux_Debug/Game_EntryPoint_x64 --reference Assets/Scenes/Tests/Reference --wrapper "$here/Headless.sh" "${test_scenes[@]}"; then
+        failed+=("test screenshots")
+    fi
+fi
+
 echo
 if [[ ${#failed[@]} -gt 0 ]]; then
     echo "FAILED: ${failed[*]}"

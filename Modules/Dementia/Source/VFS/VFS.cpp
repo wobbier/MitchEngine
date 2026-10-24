@@ -253,6 +253,25 @@ bool VFS::ReadText( const Path& InPath, std::string& OutText ) const
 }
 
 
+bool VFS::ReadBytes( const Path& InPath, std::vector<uint8_t>& OutBytes ) const
+{
+    std::ifstream stream( InPath.FullPath, std::ios::in | std::ios::binary );
+    if( !stream )
+    {
+        return false;
+    }
+    stream.seekg( 0, std::ios::end );
+    const std::streamoff size = stream.tellg();
+    stream.seekg( 0, std::ios::beg );
+    OutBytes.resize( size > 0 ? static_cast<size_t>( size ) : 0 );
+    if( !OutBytes.empty() )
+    {
+        stream.read( reinterpret_cast<char*>( OutBytes.data() ), OutBytes.size() );
+    }
+    return stream.good() || stream.eof();
+}
+
+
 bool VFS::WriteText( const Path& InPath, const std::string& InText ) const
 {
     return WritePhysicalText( InPath.FullPath, InText );
