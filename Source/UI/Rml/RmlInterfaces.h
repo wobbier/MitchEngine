@@ -17,11 +17,16 @@ class RmlSystemInterface final
 public:
     double GetElapsedTime() override;
     bool LogMessage( Rml::Log::Type InType, const Rml::String& InMessage ) override;
+    void SetMouseCursor( const Rml::String& InCursorName ) override;
 
     void AdvanceTime( double InDeltaSeconds );
 
+    // The cursor the UI wants ("" = default); RmlUiCore applies it through SDL.
+    const Rml::String& GetRequestedCursor() const { return m_cursor; }
+
 private:
     double m_elapsedTime = 0.0;
+    Rml::String m_cursor;
 };
 
 // Documents, stylesheets and fonts read through the VFS, so overlays (and later paks and mods)

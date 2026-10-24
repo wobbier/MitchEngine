@@ -24,8 +24,9 @@ public:
     bool Init( bool InLoadProgram = true );
     void Shutdown();
 
-    // Points the interface at its view for this frame and resets per-frame state.
-    void BeginFrame( bgfx::ViewId InView, uint16_t InWidth, uint16_t InHeight );
+    // Points the interface at its view and render target for this frame and resets per-frame
+    // state. An invalid target means the backbuffer (tests).
+    void BeginFrame( bgfx::ViewId InView, uint16_t InWidth, uint16_t InHeight, bgfx::FrameBufferHandle InTarget = BGFX_INVALID_HANDLE );
 
     Rml::CompiledGeometryHandle CompileGeometry( Rml::Span<const Rml::Vertex> InVertices, Rml::Span<const int> InIndices ) override;
     void RenderGeometry( Rml::CompiledGeometryHandle InGeometry, Rml::Vector2f InTranslation, Rml::TextureHandle InTexture ) override;

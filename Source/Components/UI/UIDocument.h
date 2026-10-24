@@ -25,6 +25,8 @@ public:
 
     Path DocumentPath;
     bool Visible = true;
+    // Stacks documents (applied as the document's z-index on load).
+    int SortOrder = 0;
 
 private:
     // The loaded document, owned by the context (RmlUiCore closes it on remove).

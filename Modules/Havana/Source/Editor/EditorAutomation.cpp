@@ -17,6 +17,7 @@
 #include "Utils/EditorConfig.h"
 #include "Widgets/ShaderGraph/ShaderGraphAutomation.h"
 #include "Widgets/Terrain/TerrainAutomation.h"
+#include "Editor/UIAutomation.h"
 #include "Widgets/Tree/TreeAutomation.h"
 #include "Widgets/ShaderGraph/ShaderGraphPreview.h"
 #include "Components/Audio/AudioSource.h"
@@ -271,6 +272,11 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
     {
         std::string error;
         if( !TerrainAutomation::Execute( command, args, error ) ) Fail( command + ": " + error );
+    }
+    else if( command.rfind( "ui-", 0 ) == 0 )
+    {
+        std::string error;
+        if( !UIAutomation::Execute( command, args, error ) ) Fail( command + ": " + error );
     }
     else if( command.rfind( "tree-", 0 ) == 0 )
     {

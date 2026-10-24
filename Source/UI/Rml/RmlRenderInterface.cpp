@@ -112,7 +112,7 @@ void RmlRenderInterface::Shutdown()
 }
 
 
-void RmlRenderInterface::BeginFrame( bgfx::ViewId InView, uint16_t InWidth, uint16_t InHeight )
+void RmlRenderInterface::BeginFrame( bgfx::ViewId InView, uint16_t InWidth, uint16_t InHeight, bgfx::FrameBufferHandle InTarget )
 {
     m_view = InView;
     m_width = InWidth;
@@ -125,9 +125,12 @@ void RmlRenderInterface::BeginFrame( bgfx::ViewId InView, uint16_t InWidth, uint
 
     bgfx::setViewName( m_view, "RmlUi" );
     bgfx::setViewRect( m_view, 0, 0, m_width, m_height );
+    bgfx::setViewFrameBuffer( m_view, InTarget );
     // Documents paint back-to-front; submission order is the draw order.
     bgfx::setViewMode( m_view, bgfx::ViewMode::Sequential );
-    bgfx::setViewClear( m_view, BGFX_CLEAR_STENCIL, 0, 1.f, 0 );
+    // Into an offscreen target: start from transparent black so the composite only adds the UI.
+    const uint16_t clearFlags = bgfx::isValid( InTarget ) ? uint16_t( BGFX_CLEAR_COLOR | BGFX_CLEAR_STENCIL ) : uint16_t( BGFX_CLEAR_STENCIL );
+    bgfx::setViewClear( m_view, clearFlags, 0x00000000, 1.f, 0 );
 
     float proj[16];
     bx::mtxOrtho( proj, 0.f, static_cast<float>( m_width ), static_cast<float>( m_height ), 0.f,

@@ -1280,25 +1280,37 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     }
 
     float m_texelHalf = 0.0f;
-    if( EnableUIComposite && options.GameUI && camera.IsMain && bgfx::isValid( camera.UITexture ) )
+    const bool compositeUltralight = bgfx::isValid( camera.UITexture );
+    const bool compositeRml = bgfx::isValid( camera.RmlTexture );
+    if( EnableUIComposite && options.GameUI && camera.IsMain && ( compositeUltralight || compositeRml ) )
     {
-        // Runs after the UI resolve and all camera views, so the UI texture is from this frame.
+        // Runs after the UI resolve and all camera views, so the UI textures are from this frame.
         const bgfx::ViewId view = Moonlight::RenderView::UIComposite;
         bgfx::setViewName( view, "UI Composite" );
+        // Two quads at most (Ultralight, then RmlUi on top): submission order is the paint order.
+        bgfx::setViewMode( view, bgfx::ViewMode::Sequential );
 
         // The UI covers the whole display, even when the main camera only fills part of it.
         bgfx::setViewRect( view, 0, 0, split ? displayWidth : uint16_t( camera.OutputSize.x ), split ? displayHeight : uint16_t( camera.OutputSize.y ) );
         bgfx::setViewTransform( view, NULL, orthoProj );
         bgfx::setViewFrameBuffer( view, target );
-        bgfx::setState( 0
+        constexpr uint64_t kCompositeState = 0
             | BGFX_STATE_WRITE_RGB
-            //| BGFX_STATE_BLEND_ALPHA // - Not it, creates artifacts
-            //| BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA) // - Almost there
-            | BGFX_STATE_BLEND_FUNC_SEPARATE( BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA, BGFX_STATE_BLEND_INV_DST_ALPHA, BGFX_STATE_BLEND_ONE )
-        );
-        bgfx::setTexture( 0, s_texUI, camera.UITexture );
-        Moonlight::screenSpaceQuad( camera.OutputSize.x, camera.OutputSize.y, m_texelHalf, bgfx::getCaps()->originBottomLeft );
-        bgfx::submit( view, UIProgram );
+            | BGFX_STATE_BLEND_FUNC_SEPARATE( BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA, BGFX_STATE_BLEND_INV_DST_ALPHA, BGFX_STATE_BLEND_ONE );
+        if( compositeUltralight )
+        {
+            bgfx::setState( kCompositeState );
+            bgfx::setTexture( 0, s_texUI, camera.UITexture );
+            Moonlight::screenSpaceQuad( camera.OutputSize.x, camera.OutputSize.y, m_texelHalf, bgfx::getCaps()->originBottomLeft );
+            bgfx::submit( view, UIProgram );
+        }
+        if( compositeRml )
+        {
+            bgfx::setState( kCompositeState );
+            bgfx::setTexture( 0, s_texUI, camera.RmlTexture );
+            Moonlight::screenSpaceQuad( camera.OutputSize.x, camera.OutputSize.y, m_texelHalf, bgfx::getCaps()->originBottomLeft );
+            bgfx::submit( view, UIProgram );
+        }
     }
 }
 

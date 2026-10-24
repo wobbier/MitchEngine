@@ -19,6 +19,12 @@ void RmlSystemInterface::AdvanceTime( double InDeltaSeconds )
 }
 
 
+void RmlSystemInterface::SetMouseCursor( const Rml::String& InCursorName )
+{
+    m_cursor = InCursorName;
+}
+
+
 bool RmlSystemInterface::LogMessage( Rml::Log::Type InType, const Rml::String& InMessage )
 {
     switch( InType )

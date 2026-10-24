@@ -29,6 +29,7 @@ void UIDocument::OnSerialize( json& outJson )
 {
     outJson["FilePath"] = DocumentPath.GetLocalPath();
     outJson["Visible"] = Visible;
+    outJson["SortOrder"] = SortOrder;
 }
 
 
@@ -41,6 +42,10 @@ void UIDocument::OnDeserialize( const json& inJson )
     if( inJson.contains( "Visible" ) )
     {
         Visible = inJson["Visible"];
+    }
+    if( inJson.contains( "SortOrder" ) )
+    {
+        SortOrder = inJson["SortOrder"];
     }
 }
 
@@ -56,5 +61,7 @@ void UIDocument::OnEditorInspect()
     }
     HavanaUtils::Label( "Visible" );
     ImGui::Checkbox( "##UIDocumentVisible", &Visible );
+    HavanaUtils::Label( "Sort order" );
+    ImGui::InputInt( "##UIDocumentSortOrder", &SortOrder );
 }
 #endif
