@@ -409,6 +409,14 @@ void Engine::Run()
     {
         LoadScene( CommandLine::GetString( "--scene" ) );
     }
+#if !USING( ME_EDITOR )
+    // The project's boot scene (Project Settings -> Project); --scene overrides it, and
+    // the editor reopens its own last scene instead.
+    else if( !ProjectSettings::Get().StartupScene.empty() )
+    {
+        LoadScene( ProjectSettings::Get().StartupScene );
+    }
+#endif
 
     GameClock.Reset();
     m_fixedAccumulator = 0.0;

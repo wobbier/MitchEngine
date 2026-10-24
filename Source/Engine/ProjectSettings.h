@@ -15,8 +15,14 @@ public:
 
     static ProjectSettings& Get();
 
+    // Local instances are allowed (tests round-trip them); the game reads the singleton.
+    ProjectSettings();
+
     void Load();
     void Save() const;
+    // The project file lives at Assets/Config/ProjectSettings.json; tests point these elsewhere.
+    void LoadFrom( const std::string& InPath );
+    void SaveTo( const std::string& InPath ) const;
 
     const std::string& GetLayerName( int InLayer ) const;
     void SetLayerName( int InLayer, const std::string& InName );
@@ -64,14 +70,23 @@ public:
     // (see HardwareBudget). --hardware-profile / --enforce-profile override them for a run.
     std::string HardwareProfileName;
     bool EnforceHardwareProfile = false;
-    // Product identity (SHIP-1 grows this): names the user:// pref dir of shipped builds,
-    // so changing either orphans players' saved state.
+    // Product identity: names the user:// pref dir of shipped builds, so changing Org or
+    // Name orphans players' saved state.
     std::string ProductOrg = "MitchEngine";
     std::string ProductName = "MitchGame";
+    std::string ProductVersion = "0.1.0";
+    // Window/taskbar icon, resolved through the VFS ("" = the engine default).
+    std::string ProductIcon;
+    // The scene a game build boots when no --scene overrides it ("" = none; the editor
+    // never auto-boots it).
+    std::string StartupScene;
+    // Build settings, consumed by the SHIP-2 cooker: the scenes a shipped build includes,
+    // assets always packed even when nothing references them, and path prefixes to exclude.
+    std::vector<std::string> BuildScenes;
+    std::vector<std::string> BuildAlwaysInclude;
+    std::vector<std::string> BuildExclude;
 
 private:
-    ProjectSettings();
-
     std::array<std::string, kLayerCount> m_layerNames;
     std::array<uint32_t, kLayerCount> m_collisionMasks;
 };

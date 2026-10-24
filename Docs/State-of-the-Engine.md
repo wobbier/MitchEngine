@@ -11,7 +11,7 @@ Ratings: **Solid** (rely on it) · **Usable** (works, know the sharp edges) · *
 | Subsystem | Rating | Why (one line) | Doc |
 |-----------|--------|----------------|-----|
 | Input | **Usable** | Action maps with prioritized, consuming contexts, composites, modifiers, interactive rebinding with persisted overrides, gamepads with deadzones and rumble, editable in the asset browser, local multiplayer (a map per player, pad pairing, join on button press, scriptable), unit tested; gamepad I/O unverified on hardware, pairing is by slot | [Input.md](Input.md) |
-| Platform/Window/Input/Config | **Solid** | SDL2 everywhere, boring in the good way; DPI + crash-safe config are the gaps | [Platform-Window-Input-Config.md](Platform-Window-Input-Config.md) |
+| Platform/Window/Input/Config | **Solid** | SDL2 everywhere, boring in the good way; project settings carry the product identity (name/org/version/icon), the startup scene game builds boot, and the SHIP-2 build lists, all on a Project tab with a round-trip test; DPI + crash-safe config are the gaps | [Platform-Window-Input-Config.md](Platform-Window-Input-Config.md) |
 | ECS core | **Solid** | Generational ids, paged pools, deferred structural changes, lifecycle hooks, O(1) membership, unit tested | [ECS.md](ECS.md) |
 | Frame loop & timing | **Usable** | Fixed timestep + pause/step/time scale/frame cap, deterministic `--frame-time`, full GPU teardown on exit; game code picks a stage (fixed / update / late update after animation), core dependencies, script `[ExecutionOrder]`; the engine's own stage order is fixed by design | [Architecture.md](Architecture.md) |
 | Jobs | **Solid** | Work stealing, helping waits, allocation-free ParallelFor, stress tested | [Jobs-and-Events.md](Jobs-and-Events.md) |

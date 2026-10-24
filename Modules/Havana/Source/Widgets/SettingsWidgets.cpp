@@ -125,6 +125,66 @@ namespace
 	}
 
 
+	// Project Settings > Project: the product identity, the scene game builds boot, and the
+	// build lists the cooker (SHIP-2) consumes.
+	void DrawProjectTab()
+	{
+		ProjectSettings& settings = ProjectSettings::Get();
+
+		HavanaUtils::Label("Product name");
+		ImGui::InputText("##ProductName", &settings.ProductName);
+		HavanaUtils::Label("Organization");
+		ImGui::InputText("##ProductOrg", &settings.ProductOrg);
+		HavanaUtils::Label("Version");
+		ImGui::InputText("##ProductVersion", &settings.ProductVersion);
+		HavanaUtils::Label("Icon");
+		ImGui::InputText("##ProductIcon", &settings.ProductIcon);
+		HavanaUtils::Label("Startup scene");
+		ImGui::InputText("##StartupScene", &settings.StartupScene);
+		HavanaUtils::SkipLabel();
+		ImGui::TextDisabled("Game builds boot the startup scene when no --scene is given.");
+
+		ImGui::SeparatorText("Build");
+		auto drawList = [](const char* label, const char* id, std::vector<std::string>& list)
+		{
+			ImGui::PushID(id);
+			HavanaUtils::Label(label);
+			if (ImGui::SmallButton("Add"))
+			{
+				list.emplace_back();
+			}
+			for (size_t i = 0; i < list.size();)
+			{
+				ImGui::PushID(static_cast<int>(i));
+				HavanaUtils::SkipLabel();
+				ImGui::SetNextItemWidth(-ImGuiTheme::Em(2.5f));
+				ImGui::InputText("##entry", &list[i]);
+				ImGui::SameLine();
+				const bool removed = ImGui::SmallButton("X");
+				ImGui::PopID();
+				if (removed)
+				{
+					list.erase(list.begin() + i);
+				}
+				else
+				{
+					++i;
+				}
+			}
+			ImGui::PopID();
+		};
+		drawList("Build scenes", "BuildScenes", settings.BuildScenes);
+		drawList("Always include", "BuildAlwaysInclude", settings.BuildAlwaysInclude);
+		drawList("Exclude", "BuildExclude", settings.BuildExclude);
+
+		HavanaUtils::SkipLabel();
+		if (ImGui::Button("Save Project Settings"))
+		{
+			settings.Save();
+		}
+	}
+
+
 	// Project Settings > Hardware: the target profile, its budgets live, and which of the target's
 	// missing features the project uses.
 	void DrawHardwareTab()
@@ -786,6 +846,12 @@ void ProjectSettingsWidget::Render()
 		{
 			engine.GetConfig().SaveProjectValues({ { "FixedTimeStep", engine.GetFixedTimeStep() }, { "MaxFrameRate", engine.GetMaxFrameRate() } });
 		}
+		ImGui::EndTabItem();
+	}
+
+	if (ImGui::BeginTabItem("Project"))
+	{
+		DrawProjectTab();
 		ImGui::EndTabItem();
 	}
 

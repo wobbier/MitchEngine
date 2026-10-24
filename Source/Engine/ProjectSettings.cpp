@@ -33,7 +33,13 @@ ProjectSettings::ProjectSettings()
 
 void ProjectSettings::Load()
 {
-    const Path path( kSettingsPath );
+    LoadFrom( kSettingsPath );
+}
+
+
+void ProjectSettings::LoadFrom( const std::string& InPath )
+{
+    const Path path( InPath );
     if( !path.Exists )
     {
         return;   // defaults (a project without settings is fine)
@@ -144,11 +150,50 @@ void ProjectSettings::Load()
         {
             ProductName = product["Name"].get<std::string>();
         }
+        if( product.contains( "Version" ) && product["Version"].is_string() )
+        {
+            ProductVersion = product["Version"].get<std::string>();
+        }
+        if( product.contains( "Icon" ) && product["Icon"].is_string() )
+        {
+            ProductIcon = product["Icon"].get<std::string>();
+        }
+        if( product.contains( "StartupScene" ) && product["StartupScene"].is_string() )
+        {
+            StartupScene = product["StartupScene"].get<std::string>();
+        }
+    }
+    if( root.contains( "Build" ) && root["Build"].is_object() )
+    {
+        const json& build = root["Build"];
+        auto readList = [&build]( const char* InKey, std::vector<std::string>& OutList )
+        {
+            if( build.contains( InKey ) && build[InKey].is_array() )
+            {
+                OutList.clear();
+                for( const json& entry : build[InKey] )
+                {
+                    if( entry.is_string() )
+                    {
+                        OutList.push_back( entry.get<std::string>() );
+                    }
+                }
+            }
+        };
+        readList( "Scenes", BuildScenes );
+        readList( "AlwaysInclude", BuildAlwaysInclude );
+        readList( "Exclude", BuildExclude );
     }
 }
 
 
 void ProjectSettings::Save() const
+{
+    SaveTo( kSettingsPath );
+}
+
+
+void ProjectSettings::SaveTo( const std::string& InPath ) const
 {
     json root;
     root["Layers"] = json::array();
@@ -177,8 +222,10 @@ void ProjectSettings::Save() const
         root["NavAgentTypes"].push_back( { { "Name", type.Name }, { "Radius", type.Radius }, { "Height", type.Height }, { "MaxClimb", type.MaxClimb }, { "MaxSlope", type.MaxSlope } } );
     }
     root["HardwareProfile"] = { { "Name", HardwareProfileName }, { "Enforce", EnforceHardwareProfile } };
-    root["Product"] = { { "Org", ProductOrg }, { "Name", ProductName } };
-    File file{ Path( kSettingsPath ) };
+    root["Product"] = { { "Org", ProductOrg }, { "Name", ProductName }, { "Version", ProductVersion },
+        { "Icon", ProductIcon }, { "StartupScene", StartupScene } };
+    root["Build"] = { { "Scenes", BuildScenes }, { "AlwaysInclude", BuildAlwaysInclude }, { "Exclude", BuildExclude } };
+    File file{ Path( InPath, true ) };
     file.Write( root.dump( 4 ) );
 }
 
