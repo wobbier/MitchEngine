@@ -36,6 +36,7 @@
 #include "Input/Gamepads.h"
 #include "Engine/Input.h"
 #include "optick.h"
+#include <algorithm>
 #include "Events/PlatformEvents.h"
 
 #define RESIZE_BORDER 10
@@ -912,7 +913,112 @@ void SDLWindow::InitDeferredSubsystems()
 
 bool SDLWindow::IsFullscreen()
 {
-    return false;
+    return GetWindowMode() != WindowMode::Windowed;
+}
+
+
+WindowMode SDLWindow::GetWindowMode() const
+{
+    const Uint32 flags = WindowHandle ? SDL_GetWindowFlags( WindowHandle ) : 0;
+    if( ( flags & SDL_WINDOW_FULLSCREEN_DESKTOP ) == SDL_WINDOW_FULLSCREEN_DESKTOP )
+    {
+        return WindowMode::Borderless;
+    }
+    return ( flags & SDL_WINDOW_FULLSCREEN ) ? WindowMode::Fullscreen : WindowMode::Windowed;
+}
+
+
+void SDLWindow::SetWindowMode( WindowMode InMode, const Vector2& InResolution )
+{
+    if( !WindowHandle )
+    {
+        return;
+    }
+    // The window's size events follow, and resize the renderer.
+    switch( InMode )
+    {
+    case WindowMode::Windowed:
+        SDL_SetWindowFullscreen( WindowHandle, 0 );
+        if( InResolution.x > 0.f && InResolution.y > 0.f )
+        {
+            SDL_SetWindowSize( WindowHandle, static_cast<int>( InResolution.x ), static_cast<int>( InResolution.y ) );
+        }
+        break;
+    case WindowMode::Borderless:
+        SDL_SetWindowFullscreen( WindowHandle, SDL_WINDOW_FULLSCREEN_DESKTOP );
+        break;
+    case WindowMode::Fullscreen:
+    {
+        const int display = std::max( 0, SDL_GetWindowDisplayIndex( WindowHandle ) );
+        SDL_DisplayMode wanted{};
+        SDL_DisplayMode closest{};
+        SDL_GetDesktopDisplayMode( display, &wanted );
+        if( InResolution.x > 0.f && InResolution.y > 0.f )
+        {
+            wanted.w = static_cast<int>( InResolution.x );
+            wanted.h = static_cast<int>( InResolution.y );
+        }
+        if( SDL_GetClosestDisplayMode( display, &wanted, &closest ) )
+        {
+            SDL_SetWindowDisplayMode( WindowHandle, &closest );
+        }
+        SDL_SetWindowFullscreen( WindowHandle, SDL_WINDOW_FULLSCREEN );
+        break;
+    }
+    }
+}
+
+
+int SDLWindow::GetDisplayCount() const
+{
+    return std::max( 1, SDL_GetNumVideoDisplays() );
+}
+
+
+int SDLWindow::GetDisplay() const
+{
+    return WindowHandle ? std::max( 0, SDL_GetWindowDisplayIndex( WindowHandle ) ) : 0;
+}
+
+
+void SDLWindow::MoveToDisplay( int InDisplay )
+{
+    if( !WindowHandle || InDisplay < 0 || InDisplay >= GetDisplayCount() || InDisplay == GetDisplay() )
+    {
+        return;
+    }
+    // Fullscreen windows move by leaving fullscreen, moving and coming back.
+    const WindowMode mode = GetWindowMode();
+    if( mode != WindowMode::Windowed )
+    {
+        SDL_SetWindowFullscreen( WindowHandle, 0 );
+    }
+    SDL_SetWindowPosition( WindowHandle, SDL_WINDOWPOS_CENTERED_DISPLAY( InDisplay ), SDL_WINDOWPOS_CENTERED_DISPLAY( InDisplay ) );
+    if( mode != WindowMode::Windowed )
+    {
+        SetWindowMode( mode );
+    }
+}
+
+
+std::vector<Vector2> SDLWindow::GetResolutions( int InDisplay ) const
+{
+    std::vector<Vector2> sizes;
+    const int count = SDL_GetNumDisplayModes( InDisplay );
+    for( int i = 0; i < count; ++i )
+    {
+        SDL_DisplayMode mode{};
+        if( SDL_GetDisplayMode( InDisplay, i, &mode ) == 0 )
+        {
+            const Vector2 size( static_cast<float>( mode.w ), static_cast<float>( mode.h ) );
+            if( std::find( sizes.begin(), sizes.end(), size ) == sizes.end() )
+            {
+                sizes.push_back( size );
+            }
+        }
+    }
+    // SDL lists modes largest first already; keep that order.
+    return sizes;
 }
 
 void SDLWindow::Maximize()

@@ -144,7 +144,11 @@ void Engine::Init( Game* game )
                 UI->OnResize( Camera::CurrentCamera->OutputSize );
             }
         }
-        engineConfig.WindowSize = NewSize;
+        // Remember the windowed size: going fullscreen and back restores it.
+        if( !GameWindow || GameWindow->GetWindowMode() == WindowMode::Windowed )
+        {
+            engineConfig.WindowSize = NewSize;
+        }
         WindowResizedEvent evt;
         evt.NewSize = NewSize;
         evt.Fire();
@@ -288,6 +292,35 @@ void Engine::Init( Game* game )
     InitGame();
 
     ResizeFunc( engineConfig.WindowSize );
+
+#if !USING( ME_EDITOR )
+    // The player's window mode: --window-mode for this run, else the saved one (automated runs
+    // stay windowed at their --width x --height unless asked).
+    {
+        WindowMode mode = engineConfig.Mode;
+        m_windowModeFromCommandLine = CommandLine::Has( "--window-mode" );
+        if( m_windowModeFromCommandLine )
+        {
+            if( !ParseWindowMode( CommandLine::GetString( "--window-mode" ), mode ) )
+            {
+                BRUH( "--window-mode: expected windowed, borderless or fullscreen" );
+            }
+        }
+        else if( AutomationRunner::IsUnattendedRun() )
+        {
+            mode = WindowMode::Windowed;
+        }
+        if( !m_windowModeFromCommandLine && !AutomationRunner::IsUnattendedRun() )
+        {
+            GameWindow->MoveToDisplay( engineConfig.Display );
+        }
+        if( mode != WindowMode::Windowed )
+        {
+            GameWindow->SetWindowMode( mode, engineConfig.FullscreenResolution );
+            CLog::Log( CLog::LogType::Info, std::string( "Window mode: " ) + ToString( mode ) );
+        }
+    }
+#endif
 
     // Register systems
     {
@@ -484,6 +517,21 @@ void Engine::Run()
         if( GetInput().WasKeyPressed( KeyCode::F3 ) && !CommandLine::Has( "--no-debug-overlay" ) )
         {
             m_debugOverlayVisible = !m_debugOverlayVisible;
+        }
+#endif
+#if !USING( ME_EDITOR )
+        // Alt+Enter: windowed <-> fullscreen (the saved fullscreen mode, borderless by default).
+        if( GetInput().WasKeyPressed( KeyCode::Enter ) && ( GetInput().IsKeyDown( KeyCode::LeftAlt ) || GetInput().IsKeyDown( KeyCode::RightAlt ) ) )
+        {
+            if( GameWindow->GetWindowMode() == WindowMode::Windowed )
+            {
+                const WindowMode fullscreen = engineConfig.Mode == WindowMode::Fullscreen ? WindowMode::Fullscreen : WindowMode::Borderless;
+                GameWindow->SetWindowMode( fullscreen, engineConfig.FullscreenResolution );
+            }
+            else
+            {
+                GameWindow->SetWindowMode( WindowMode::Windowed, engineConfig.WindowSize );
+            }
         }
 #endif
 #if USING( ME_GAME_TOOLS )
@@ -747,6 +795,13 @@ void Engine::Run()
     {
         m_automation.Shutdown();
     }
+#if !USING( ME_EDITOR )
+    if( !m_windowModeFromCommandLine )
+    {
+        engineConfig.Mode = GameWindow->GetWindowMode();
+        engineConfig.Display = GameWindow->GetDisplay();
+    }
+#endif
     // Window placement and the open scene are per-user state (never written by unattended runs).
     engineConfig.SaveUserState();
     Shutdown();

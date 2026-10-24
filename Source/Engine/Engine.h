@@ -144,6 +144,7 @@ private:
     // --debug-overlay starts with it shown, --no-debug-overlay keeps it hidden.
     bool m_debugOverlayVisible = false;
     bool m_deferredSubsystemsStarted = false;
+    bool m_windowModeFromCommandLine = false;   // --window-mode isn't saved as the player's choice
     bool m_forceQuit = false;
     bool m_stepRequested = false;
     bool m_isInitialized = false;

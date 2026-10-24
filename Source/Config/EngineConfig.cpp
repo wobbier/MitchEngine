@@ -24,6 +24,10 @@ void EngineConfig::OnSave( json& outJson )
     window["X"] = Mathf::Min( 0.f, WindowPosition.x );
     window["Y"] = Mathf::Min( 0.f, WindowPosition.y );
     window["Title"] = WindowTitle;
+    window["Mode"] = ToString( Mode );
+    window["FullscreenWidth"] = FullscreenResolution.x;
+    window["FullscreenHeight"] = FullscreenResolution.y;
+    window["Display"] = Display;
 }
 
 void EngineConfig::OnLoadConfig( const json& inJson )
@@ -56,6 +60,14 @@ void EngineConfig::OnLoadConfig( const json& inJson )
         {
             WindowTitle = WindowConfig["Title"];
         }
+
+        if( WindowConfig.contains( "Mode" ) && WindowConfig["Mode"].is_string() )
+        {
+            ParseWindowMode( WindowConfig["Mode"].get<std::string>(), Mode );
+        }
+        FullscreenResolution.x = WindowConfig.value( "FullscreenWidth", FullscreenResolution.x );
+        FullscreenResolution.y = WindowConfig.value( "FullscreenHeight", FullscreenResolution.y );
+        Display = WindowConfig.value( "Display", Display );
     }
 }
 

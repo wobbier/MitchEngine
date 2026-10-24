@@ -44,6 +44,7 @@ flowchart LR
 - Window events fire **synchronously inside `ParseMessageQueue`**, i.e. before this frame's `Input::Update` and everything else.
 - `Engine::Quit()` = `GameWindow->Exit()` → close request → normal shutdown path.
 - `SDL_Init` starts every subsystem except the joystick, game-controller, haptic and sensor ones. Probing HID devices took about half a second, so those start after the first frame (`IWindow::InitDeferredSubsystems`, called once by `Engine::Run`); pads already plugged in then arrive as `SDL_CONTROLLERDEVICEADDED`, like hotplugged ones. Unattended runs (`AutomationRunner::IsUnattendedRun`) never start them, so automated runs never probe the machine's HID devices.
+- **Window modes** (`WindowMode` in `Window/IWindow.h`): `Windowed`, `Borderless` (fullscreen at the desktop resolution) and `Fullscreen` (exclusive, at the display mode closest to a requested resolution), set with `IWindow::SetWindowMode` and read with `GetWindowMode` / `IsFullscreen`. `GetDisplayCount`, `GetDisplay` and `MoveToDisplay` pick the monitor, and `GetResolutions` lists a display's fullscreen sizes. Game builds apply the player's saved mode at startup (`Mode`, `FullscreenWidth`/`Height` and `Display` under `"Window"` in the per-user config); `--window-mode windowed|borderless|fullscreen` overrides it for one run without saving it; **Alt+Enter** toggles windowed and fullscreen; the mode and display are saved at exit. The saved `Width`/`Height` stay the windowed size, so leaving fullscreen restores it. Automated runs stay windowed unless given `--window-mode`. VSync is `BGFXRenderer::SetVSyncEnabled` and the frame cap `Engine::SetMaxFrameRate` (`--max-fps`).
 
 ### Input
 
@@ -64,6 +65,7 @@ Lifecycle: loaded in `Engine::Init` from the project's `Assets\Config\Engine.cfg
 - **Both Input instances see everything** — gating is by `Pause`/`Stop` state per instance, not by routing; new tooling must remember to check the right instance (game vs editor) or keys will double-trigger.
 - **Event-vs-poll duality**: key *events* fire during the pump; polled state updates later in `Input::Update`. Code mixing `Listen<KeyPressEvent>` with `IsKeyDown` in the same frame can see them disagree for one frame.
 - **No high-DPI handling** — sizes are raw pixels; scale factors aren't queried anywhere.
+- **Fullscreen needs a window manager on X11.** SDL asks the window manager to make the window fullscreen; a bare X server (the headless Xvfb used by automation) has none, so there the mode is requested but the window keeps its size (exclusive fullscreen times out and reverts).
 - **UWP runs through `SDLWindow`** + `SDL_WinRTRunApp` (`Docs/Architecture.md`); the old dedicated `UWPWindow` was removed.
 - **`GetKeyCodeName` does an uncached lookup** (in-code TODO "Cache this :/") — fine for tooling, don't call per-frame per-key.
 - Resize behavior is split between the `ResizeFunc` lambda (renderer/UI/config pokes) and `WindowResizedEvent` receivers — two mechanisms for one concern; check both when debugging resize issues.

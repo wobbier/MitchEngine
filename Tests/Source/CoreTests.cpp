@@ -187,12 +187,36 @@ TEST_CASE( "EngineConfig keeps window and scene state out of the project's Engin
         CHECK( config.WindowSize.x == doctest::Approx( 1024.f ) );
         CHECK( config.GetValue( "Title" ) == "Game" );
 
+        CHECK( config.Mode == WindowMode::Windowed );
+
         // Deliberate project edits (Project Settings > Time) leave the user's state out.
         config.SaveProjectValues( { { "FixedTimeStep", 0.01 } } );
         const json saved = json::parse( readFile( projectPath ) );
         CHECK( saved["FixedTimeStep"].get<double>() == doctest::Approx( 0.01 ) );
         CHECK( saved["Window"]["Width"].get<double>() == doctest::Approx( 800.0 ) );
         CHECK_FALSE( saved.contains( "CurrentScene" ) );
+
+        // The player's window mode, fullscreen resolution and display are user state too.
+        config.Mode = WindowMode::Fullscreen;
+        config.FullscreenResolution = Vector2( 2560.f, 1440.f );
+        config.Display = 1;
+        config.SaveUserState();
+    }
+    {
+        EngineConfig config( Path( projectPath, true ), userPath );
+        config.OnLoadConfig( config.Root );
+        config.LoadUserState();
+        CHECK( config.Mode == WindowMode::Fullscreen );
+        CHECK( config.FullscreenResolution.x == doctest::Approx( 2560.f ) );
+        CHECK( config.Display == 1 );
+        CHECK_FALSE( json::parse( readFile( projectPath ) )["Window"].contains( "Mode" ) );
     }
     std::filesystem::remove_all( folder );
+
+    WindowMode mode = WindowMode::Windowed;
+    CHECK( ParseWindowMode( "BORDERLESS", mode ) );
+    CHECK( mode == WindowMode::Borderless );
+    CHECK_FALSE( ParseWindowMode( "maximized", mode ) );
+    CHECK( mode == WindowMode::Borderless );
+    CHECK( std::string( ToString( WindowMode::Fullscreen ) ) == "Fullscreen" );
 }

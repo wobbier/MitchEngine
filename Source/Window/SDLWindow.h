@@ -35,6 +35,13 @@ public:
 
     void CanMoveWindow(bool param1);
     void SetBorderless(bool isBorderless) final;
+
+    WindowMode GetWindowMode() const override;
+    void SetWindowMode( WindowMode InMode, const Vector2& InResolution = Vector2() ) override;
+    int GetDisplayCount() const override;
+    int GetDisplay() const override;
+    void MoveToDisplay( int InDisplay ) override;
+    std::vector<Vector2> GetResolutions( int InDisplay ) const override;
     bool IsMaximized() final;
 
     void SetCustomDragCallback(std::function<std::optional<SDL_HitTestResult>(const Vector2&)> cb);

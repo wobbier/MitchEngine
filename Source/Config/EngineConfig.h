@@ -1,5 +1,6 @@
 #pragma once
 #include "Config.h"
+#include "Window/IWindow.h"
 #include <stdio.h>
 
 class EngineConfig
@@ -22,9 +23,14 @@ public:
     // Writes InValues into the project's Engine.cfg, keeping its other keys and none of the user state.
     void SaveProjectValues( const json& InValues );
 
+    // The windowed size (fullscreen sizes aren't saved over it).
     Vector2 WindowSize = { 1280.f, 720.f };
     Vector2 WindowPosition = { 0.f, 0.f };
     std::string WindowTitle;
+    // The player's window mode, fullscreen resolution (zero = the desktop's) and display.
+    WindowMode Mode = WindowMode::Windowed;
+    Vector2 FullscreenResolution = { 0.f, 0.f };
+    int Display = 0;
 
 private:
     std::string m_userStatePath = ".tmp/Engine.user.cfg";

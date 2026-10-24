@@ -1,6 +1,39 @@
 #pragma once
+#include <cstdint>
 #include <string>
+#include <vector>
 #include <Math/Vector2.h>
+
+// How the game window covers its display.
+enum class WindowMode : uint8_t
+{
+    Windowed,
+    Borderless,   // fullscreen at the desktop's resolution (fast alt-tab; the usual choice)
+    Fullscreen,   // exclusive fullscreen at a chosen resolution
+};
+
+inline const char* ToString( WindowMode InMode )
+{
+    switch( InMode )
+    {
+    case WindowMode::Borderless: return "Borderless";
+    case WindowMode::Fullscreen: return "Fullscreen";
+    default: return "Windowed";
+    }
+}
+
+// "Windowed", "Borderless" or "Fullscreen", any case; false (and OutMode untouched) otherwise.
+inline bool ParseWindowMode( std::string InText, WindowMode& OutMode )
+{
+    for( char& c : InText )
+    {
+        c = static_cast<char>( c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c );
+    }
+    if( InText == "windowed" ) { OutMode = WindowMode::Windowed; return true; }
+    if( InText == "borderless" ) { OutMode = WindowMode::Borderless; return true; }
+    if( InText == "fullscreen" ) { OutMode = WindowMode::Fullscreen; return true; }
+    return false;
+}
 
 class IWindow
 {
@@ -28,4 +61,15 @@ public:
     virtual void* GetWindowPtr() = 0;
 
     virtual void SetBorderless( bool isBorderless ) = 0;
+
+    // Window modes (player settings). Windowed: InResolution is the window's size (zero keeps it).
+    // Fullscreen: the display mode closest to InResolution (zero = the desktop's). Borderless ignores it.
+    virtual WindowMode GetWindowMode() const { return WindowMode::Windowed; }
+    virtual void SetWindowMode( WindowMode InMode, const Vector2& InResolution = Vector2() ) {}
+    // Displays: how many, which one the window is on, and moving it there (centered, same mode).
+    virtual int GetDisplayCount() const { return 1; }
+    virtual int GetDisplay() const { return 0; }
+    virtual void MoveToDisplay( int InDisplay ) {}
+    // The fullscreen resolutions a display offers, largest first.
+    virtual std::vector<Vector2> GetResolutions( int InDisplay ) const { return {}; }
 };
