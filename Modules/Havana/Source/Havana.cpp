@@ -44,6 +44,7 @@
 #include "Widgets/ShaderGraph/ShaderGraphWidget.h"
 #include "Widgets/Terrain/TerrainWidget.h"
 #include "Widgets/Tree/TreeWidget.h"
+#include "Utils/EditorIcons.h"
 #include "Editor/EditorActions.h"
 #include "Editor/EditorOperations.h"
 #include "Editor/DefaultEditorActions.h"
@@ -494,6 +495,7 @@ void Havana::Destroy()
     {
         widget->Destroy();
     }
+    EditorIcons::Shutdown();
 }
 
 #endif

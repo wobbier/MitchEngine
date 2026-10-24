@@ -14,18 +14,17 @@
 #include "Widgets/SceneViewWidget.h"
 #include "Utils/EditorConfig.h"
 #include "Utils/HavanaUtils.h"
+#include "Utils/EditorIcons.h"
 #include "Utils/ImGuiUtils.h"
 #include "Procedural/Tree/TreeAsset.h"
 #include "Procedural/Tree/TreePresets.h"
+#include "Widgets/Tree/TreeWidget.h"
 #include "ImGuiTheme.h"
 #include "imgui_internal.h"
 #include "misc/cpp/imgui_stdlib.h"
-#include <bimg/decode.h>
-#include <bx/allocator.h>
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
-#include <fstream>
 
 namespace
 {
@@ -76,6 +75,7 @@ void TerrainWidget::Init()
     Brush.Spacing = std::clamp( config.GetPreference<float>( "Terrain.Spacing", 0.2f ), 0.05f, 1.f );
     auto& actions = EditorActions::Get();
     actions.Register( { "View.Terrain", "Terrain", "View", 0, 0, [this]() { IsOpen = true; m_focusRequested = true; } } );
+    actions.Register( { "View.TreesWorkspace", "Trees Workspace (MitchTree)", "View", 0, 0, [this]() { IsOpen = true; m_focusRequested = true; SetCategory( kTreesCategory ); } } );
     actions.Register( { "Terrain.New", "New Terrain...", "Terrain", 0, 0, [this]() { NewDialog(); }, [this]() { return !IsPlaying(); } } );
     actions.Register( { "Terrain.Import", "Import Terrain Heightmap...", "Terrain", 0, 0, [this]() { ImportDialog(); }, [this]() { return !IsPlaying(); } } );
     actions.Register( { "Terrain.Export", "Export Terrain Heightmap...", "Terrain", 0, 0, [this]() { ExportDialog(); }, [this]() { return m_active && !IsPlaying(); } } );
@@ -133,8 +133,6 @@ void TerrainWidget::Destroy()
     if( AutomaticRecoveryEnabled() ) WriteRecoveries();
     m_active = nullptr; m_documents.clear();
     m_recoveryDirtyDocuments.clear();
-    for( const auto& [name, handle] : m_icons ) if( bgfx::isValid( handle ) ) bgfx::destroy( handle );
-    m_icons.clear();
 }
 
 TerrainDocument* TerrainWidget::Open( const std::string& requested )
@@ -229,29 +227,6 @@ void TerrainWidget::MakeUniqueDialog()
     RequestAssetSelectionEvent event( [this, guid]( Path path ) { MakeUnique( path.GetLocalPathString(), guid ); }, AssetType::Terrain, true ); event.Fire();
 }
 
-bgfx::TextureHandle TerrainWidget::Icon( const char* name )
-{
-    auto found = m_icons.find( name );
-    if( found != m_icons.end() ) return found->second;
-    bgfx::TextureHandle handle = BGFX_INVALID_HANDLE;
-    std::ifstream file( Path( std::string( "Assets/Icons/outline/" ) + name + ".svg" ).FullPath );
-    if( file )
-    {
-        std::string svg( ( std::istreambuf_iterator<char>( file ) ), std::istreambuf_iterator<char>() );
-        size_t pos = 0;
-        while( ( pos = svg.find( "currentColor", pos ) ) != std::string::npos ) { svg.replace( pos, 12, "#ffffff" ); pos += 7; }
-        static bx::DefaultAllocator allocator;
-        if( auto* image = bimg::imageParseSvg( &allocator, svg.data(), static_cast<uint32_t>( svg.size() ), 64, 64 ) )
-        {
-            handle = bgfx::createTexture2D( static_cast<uint16_t>( image->m_width ), static_cast<uint16_t>( image->m_height ), false, 1,
-                bgfx::TextureFormat::RGBA8, BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP, bgfx::copy( image->m_data, image->m_size ) );
-            bimg::imageFree( image );
-        }
-    }
-    m_icons.emplace( name, handle );
-    return handle;
-}
-
 bool TerrainWidget::Button( const char* icon, const char* label, const char* description, bool enabled, bool selected, bool compact )
 {
     ImGui::PushID( label );
@@ -265,13 +240,9 @@ bool TerrainWidget::Button( const char* icon, const char* label, const char* des
     if( selected ) ImGui::PopStyleColor();
     const float iconSize = compact ? ImGuiTheme::Em( 1.05f ) : ImGuiTheme::Em( 1.5f );
     const float iconY = start.y + ( compact ? ( size.y - iconSize ) * 0.5f : ImGui::GetStyle().FramePadding.y );
-    const auto texture = Icon( icon );
     ImDrawList* draw = ImGui::GetWindowDrawList();
     const ImU32 color = ImGui::GetColorU32( ImGuiCol_Text );
-    if( bgfx::isValid( texture ) )
-        draw->AddImage( ImGui::toId( texture, IMGUI_FLAGS_ALPHA_BLEND, 0 ), ImVec2( start.x + ( size.x - iconSize ) * 0.5f, iconY ),
-            ImVec2( start.x + ( size.x + iconSize ) * 0.5f, iconY + iconSize ), ImVec2( 0, 0 ), ImVec2( 1, 1 ), color );
-    else draw->AddText( ImVec2( start.x + size.x * 0.4f, iconY ), color, "?" );
+    EditorIcons::Draw( draw, icon, ImVec2( start.x + ( size.x - iconSize ) * 0.5f, iconY ), iconSize, color );
     if( !compact )
     {
         const float textWidth = ImGui::CalcTextSize( label ).x;
@@ -280,11 +251,7 @@ bool TerrainWidget::Button( const char* icon, const char* label, const char* des
         draw->PopClipRect();
     }
     ImGui::EndDisabled();
-    if( ImGui::IsItemHovered( ImGuiHoveredFlags_AllowWhenDisabled ) )
-    {
-        ImGui::BeginTooltip(); ImGui::TextUnformatted( label );
-        ImGui::PushTextWrapPos( ImGuiTheme::Em( 22 ) ); ImGui::TextUnformatted( description ); ImGui::PopTextWrapPos(); ImGui::EndTooltip();
-    }
+    if( ImGui::IsItemHovered( ImGuiHoveredFlags_AllowWhenDisabled ) ) EditorIcons::Tooltip( label, description );
     ImGui::PopID();
     return clicked;
 }
@@ -304,7 +271,11 @@ void TerrainWidget::DrawTrees()
         const std::filesystem::path root = Path( "Assets" ).FullPath;
         for( auto it = std::filesystem::recursive_directory_iterator( root, std::filesystem::directory_options::skip_permission_denied, code ); !code && it != std::filesystem::recursive_directory_iterator(); it.increment( code ) )
         {
-            if( it->is_regular_file( code ) && it->path().extension() == ".mtree" ) m_treeList.push_back( Path( it->path().string() ).GetLocalPathString() );
+            if( !it->is_regular_file( code ) || it->path().extension() != ".mtree" ) continue;
+            MitchTree::TreeRecipe recipe;
+            std::string error;
+            const char* icon = MitchTree::LoadRecipe( it->path().string(), recipe, error ) ? TreeWidget::IconFor( recipe ) : "alert-triangle";
+            m_treeList.emplace_back( Path( it->path().string() ).GetLocalPathString(), icon );
         }
         std::sort( m_treeList.begin(), m_treeList.end() );
     }
@@ -317,26 +288,28 @@ void TerrainWidget::DrawTrees()
     auto target = Selection::Get().GetActive();
     const bool canPlant = target && target->GetComponentByName( "TerrainFoliage" ) && !IsPlaying();
     if( !canPlant ) ImGui::TextDisabled( "Select a terrain with foliage to plant trees." );
-    for( const std::string& path : m_treeList )
+    for( const auto& [path, icon] : m_treeList )
     {
         ImGui::PushID( path.c_str() );
+        const ImVec2 at = ImGui::GetCursorScreenPos();
+        const float line = ImGui::GetTextLineHeight();
+        EditorIcons::Draw( ImGui::GetWindowDrawList(), icon, ImVec2( at.x, at.y + std::round( ( ImGui::GetFrameHeight() - line ) * 0.5f ) ), line, ImGui::GetColorU32( ImGuiCol_Text ) );
+        ImGui::Dummy( ImVec2( line, ImGui::GetFrameHeight() ) );
+        ImGui::SameLine( 0, ImGuiTheme::InnerGap() * 1.5f );
         ImGui::AlignTextToFramePadding();
         ImGui::TextUnformatted( std::filesystem::path( path ).stem().string().c_str() );
         if( ImGui::IsItemHovered() ) ImGui::SetTooltip( "%s", path.c_str() );
-        const float buttons = ImGui::CalcTextSize( "Edit" ).x + ImGui::CalcTextSize( "Add to Foliage" ).x + ImGui::GetStyle().FramePadding.x * 4.f + ImGui::GetStyle().ItemSpacing.x;
+        const float buttons = ImGuiTheme::IconButtonsWidth( 2 ) - ImGuiTheme::InnerGap();
         ImGui::SameLine( std::max( ImGui::GetContentRegionAvail().x + ImGui::GetCursorPosX() - buttons, ImGui::GetCursorPosX() ) );
-        if( ImGui::SmallButton( "Edit" ) )
+        if( Button( "pencil", "Edit", "Open in MitchTree.", true, false, true ) )
         {
             OpenTreeEvent open;
             open.TreePath = path;
             open.Fire();
         }
-        if( ImGui::IsItemHovered() ) ImGui::SetTooltip( "Open in MitchTree." );
-        ImGui::SameLine();
-        ImGui::BeginDisabled( !canPlant );
-        if( ImGui::SmallButton( "Add to Foliage" ) && !AddFoliageModel( path ) ) m_error = "Couldn't add " + path + " to the foliage palette";
-        ImGui::EndDisabled();
-        if( ImGui::IsItemHovered( ImGuiHoveredFlags_AllowWhenDisabled ) ) ImGui::SetTooltip( "Add as a species of the selected terrain's foliage, then paint it in the Foliage workspace." );
+        ImGui::SameLine( 0, ImGuiTheme::InnerGap() );
+        if( Button( "plant", "Add to Foliage", "Add as a species of the selected terrain's foliage, then paint it in the Foliage workspace.", canPlant, false, true ) && !AddFoliageModel( path ) )
+            m_error = "Couldn't add " + path + " to the foliage palette";
         ImGui::PopID();
     }
 }

@@ -110,7 +110,8 @@ private:
     void DrawTools();
     // Trees workspace: the project's .mtree recipes (edit in MitchTree, add as foliage, new from a preset).
     void DrawTrees();
-    std::vector<std::string> m_treeList;
+    // Project recipes with the icon for their kind of tree.
+    std::vector<std::pair<std::string, std::string>> m_treeList;
     bool m_treeListStale = true;
     void DrawLodButtons();
     void DrawLodControls();
@@ -119,14 +120,12 @@ private:
     void StreamCookDialog();
     void DrawStreamCook();
     void PlaceInScene();
-    bgfx::TextureHandle Icon( const char* InName );
     bool Button( const char* InIcon, const char* InLabel, const char* InDescription, bool InEnabled = true, bool InSelected = false, bool InCompact = false );
     void Planned( const char* InIcon, const char* InLabel, const char* InDescription );
 
     std::vector<std::unique_ptr<TerrainDocument>> m_documents;
     TerrainDocument* m_active = nullptr;
     TerrainDocument* m_revertTarget = nullptr;
-    std::map<std::string, bgfx::TextureHandle> m_icons;
     std::function<void()> m_pending;
     bool m_focusRequested = false, m_focused = false, m_viewportOwnsActions = false;
     bool m_newRequested = false, m_confirmRequested = false;

@@ -8,6 +8,8 @@
 #include "Editor/SceneTools.h"
 #include "Engine/World.h"
 #include "Widgets/SceneViewWidget.h"
+#include "Widgets/Tree/TreeWidget.h"
+#include "Utils/EditorIcons.h"
 #include "Events/EditorEvents.h"
 #include "Types/AssetDescriptor.h"
 #include "ImGuiTheme.h"
@@ -189,7 +191,22 @@ void TerrainWidget::DrawFoliage()
     if( foliage )
     {
         const auto& data = foliage->GetData();
-        for( unsigned s = 0; s < data.Palette.size(); ++s ) if( ImGui::Selectable( data.Palette[s].Name.c_str(), FoliageBrush.SpeciesIndex == s ) ) FoliageBrush.SpeciesIndex = s;
+        for( unsigned s = 0; s < data.Palette.size(); ++s )
+        {
+            ImGui::PushID( static_cast<int>( s ) );
+            if( ImGui::Selectable( data.Palette[s].Name.c_str(), FoliageBrush.SpeciesIndex == s, ImGuiSelectableFlags_AllowDoubleClick ) ) FoliageBrush.SpeciesIndex = s;
+            // MitchTree species open in the tree editor (double-click or the context menu).
+            const bool isTree = TreeWidget::IsTreePath( data.Palette[s].Model );
+            if( isTree ) ImGui::SetItemTooltip( "%s\nDouble-click to edit in MitchTree.", data.Palette[s].Model.c_str() );
+            bool edit = isTree && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked( ImGuiMouseButton_Left );
+            if( isTree && ImGui::BeginPopupContextItem( "Species" ) )
+            {
+                edit = EditorIcons::MenuItem( "pencil", "Edit in MitchTree" ) || edit;
+                ImGui::EndPopup();
+            }
+            if( edit ) { OpenTreeEvent open; open.TreePath = data.Palette[s].Model; open.Fire(); }
+            ImGui::PopID();
+        }
         ImGui::Text( "%zu / %zu instances", data.Instances.size(), Foliage::MaxInstances );
         if( ImGui::Button( "Clear selected" ) ) ClearFoliage( false ); ImGui::SameLine(); if( ImGui::Button( "Clear all" ) ) ClearFoliage( true );
         if( !foliage->GetError().empty() ) ImGui::TextWrapped( "%s", foliage->GetError().c_str() );
