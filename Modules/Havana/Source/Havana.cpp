@@ -173,17 +173,23 @@ Havana::~Havana()
 
 void Havana::InitUI()
 {
-    EngineConfigFilePath = Path( "Assets/Config/imgui.cfg" );
-    //ConfigFilePath = Path("Assets/Config/imgui.ini", true);
+    // The dock layout is per user (.tmp/imgui.ini, never committed). The project's
+    // Assets/Config/imgui.cfg is the default layout a fresh checkout starts from; it's never written.
+    std::error_code ec;
+    std::filesystem::create_directories( ".tmp", ec );
+    EngineConfigFilePath = Path( ".tmp/imgui.ini", true );
+    const Path defaultLayout( "Assets/Config/imgui.cfg" );
     ImGuiIO& io = ImGui::GetIO(); (void)io;
-    //ImGui::LoadIniSettingsFromDisk(EngineConfigFilePath.FullPath.c_str());
-    io.IniFilename = EngineConfigFilePath.FullPath.c_str();
-    if( AutomationRunner::IsUnattendedRun() )
+    if( EngineConfigFilePath.Exists )
     {
-        // Use the user's dock layout without ever writing it back.
-        ImGui::LoadIniSettingsFromDisk( io.IniFilename );
-        io.IniFilename = nullptr;
+        ImGui::LoadIniSettingsFromDisk( EngineConfigFilePath.FullPath.c_str() );
     }
+    else if( defaultLayout.Exists )
+    {
+        ImGui::LoadIniSettingsFromDisk( defaultLayout.FullPath.c_str() );
+    }
+    // Unattended runs use the layout without ever writing it back.
+    io.IniFilename = AutomationRunner::IsUnattendedRun() ? nullptr : EngineConfigFilePath.FullPath.c_str();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     //io.MouseDrawCursor = true;
 

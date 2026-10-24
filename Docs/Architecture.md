@@ -23,7 +23,7 @@ One world unit is one metre throughout transforms, rendering, camera clipping, l
 | `Source/Engine/World.h` / `Source/Engine/World.cpp` | ECS world — entities, cores, `Simulate()` (details in `Docs/ECS.md`) |
 | `Source/Engine/Clock.h` | Frame clock (float seconds; `Update()` computes delta) |
 | `Modules/Dementia/Source/Dementia.h` | Feature-flag definitions (`USING`, `IN_USE`, `USE_IF`) |
-| `Source/Config/EngineConfig.h` | Window size/position/title persistence (`Assets\Config\Engine.cfg`) |
+| `Source/Config/EngineConfig.h` | Project config (`Assets\Config\Engine.cfg`) plus per-user window placement and open scene (`.tmp/Engine.user.cfg`) |
 | `Source/Engine/Input.h` | Input state (two instances in editor builds — game + editor) |
 
 ## How It Works
@@ -147,7 +147,7 @@ Timing details worth knowing:
   - **Time is held still** from the screenshot request until the renderer delivers it (`AutomationRunner::IsCaptureFrozen`), so GPU latency can't shift the captured frame.
   - **Background loads finish in request order** in deterministic runs (`ResourceCache::WaitForAsyncLoads`), so GPU objects and their handles come out the same every run.
   
-  Scenes are then exact run to run on lavapipe, except that the volumetric fog showcase can differ by a few levels in rare runs (well inside the regression's tolerance). `Tools/ScreenshotRegression.py` builds on it: it captures scenes and compares them with reference PNGs (`--update` refreshes them). `AutomationRunner::IsUnattendedRun()` (those flags, `--editor-exec` or `--transient`) suppresses writing the user's settings (`Engine.cfg` window state, editor preferences, ImGui layout) and makes audio silent (`--audio` overrides; `--no-audio` silences any run).
+  Scenes are then exact run to run on lavapipe, except that the volumetric fog showcase can differ by a few levels in rare runs (well inside the regression's tolerance). `Tools/ScreenshotRegression.py` builds on it: it captures scenes and compares them with reference PNGs (`--update` refreshes them). `AutomationRunner::IsUnattendedRun()` (those flags, `--editor-exec` or `--transient`) suppresses writing the user's settings (`.tmp/Engine.user.cfg` window and scene state, editor preferences, ImGui layout) and makes audio silent (`--audio` overrides; `--no-audio` silences any run).
 - **Quitting**: when the window asks to close, `Game::OnQuitRequested()` may veto (the editor does while there are unsaved changes or play mode is running). It then calls `IWindow::CancelClose()` and quits later with `Engine::Quit( true )`, which forces the close.
 - **Frame statistics**: `ME_STAT_SCOPE( "Name" )` records named, nestable CPU scopes into `FrameStats` (`Modules/Dementia/Source/Profiling/FrameStats.h`). The engine scopes every phase above, and `World` scopes each scene-loaded core's update and fixed update. The renderer adds GPU, draw and memory statistics. The editor's stats overlay and Profiler window display them.
 - **Hardware budgets**: right after `FrameStats::EndFrame`, `HardwareBudget::Update` measures the frame against the project's hardware profile (`Docs/Hardware-Profiles.md`). `HardwareBudget::Init` runs right after the renderer is created and applies the profile's feature caps when it's enforced. `--hardware-profile "Name"` and `--enforce-profile` override the project's choice for one run; `--budget-hud` shows the budgets in game builds.

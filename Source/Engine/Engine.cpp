@@ -149,6 +149,7 @@ void Engine::Init( Game* game )
         OPTICK_EVENT( "Engine::Init::LoadConfig" );
         engineConfig = EngineConfig( engineCfg );
         engineConfig.OnLoadConfig( engineConfig.Root );
+        engineConfig.LoadUserState();
         ProjectSettings::Get().Load();
 
         m_automation.Init();
@@ -714,11 +715,8 @@ void Engine::Run()
     {
         m_automation.Shutdown();
     }
-    // Unattended runs must not clobber the user's window config.
-    if( !AutomationRunner::IsUnattendedRun() )
-    {
-        engineConfig.Save();
-    }
+    // Window placement and the open scene are per-user state (never written by unattended runs).
+    engineConfig.SaveUserState();
     Shutdown();
 }
 

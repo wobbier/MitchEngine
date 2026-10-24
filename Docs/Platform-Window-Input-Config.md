@@ -55,7 +55,7 @@ API surface: `IsKeyDown` / `WasKeyPressed` / `WasKeyReleased` (`KeyState` tracke
 
 `ConfigFile` (Dementia) wraps a JSON file: `Load` parses into `Root`, `GetValue(key)`/`SetValue` for ad-hoc strings, `Save` calls your `OnSave(json&)` override then writes. `EngineConfig` persists `WindowSize`, `WindowPosition`, `WindowTitle`; other consumers stash free-form keys in the same file — notably the editor's `"CurrentScene"` (`Docs/Editor-Havana.md`) and the window `"Title"`.
 
-Lifecycle: loaded in `Engine::Init` from `Assets\Config\Engine.cfg`; **saved once at clean exit** (`engineConfig.Save()` after the main loop); window position updates flow in live via `WindowMovedEvent`. Editor builds bootstrap a game-local copy of the engine's default config on first run (directory creation Win64-only — `Docs/Architecture.md`).
+Lifecycle: loaded in `Engine::Init` from the project's `Assets\Config\Engine.cfg`, then `LoadUserState` layers the per-user `.tmp/Engine.user.cfg` over it (the `"Window"` placement and `"CurrentScene"`). Only that user file is written: once at clean exit and whenever the editor saves a scene (`SaveUserState`; never in unattended runs), so running the editor or the game leaves `Engine.cfg` untouched. Project values are written on purpose with `SaveProjectValues` (Project Settings > Time). Window position updates flow in live via `WindowMovedEvent`. Editor builds bootstrap a game-local copy of the engine's default config on first run (directory creation Win64-only — `Docs/Architecture.md`).
 
 ## Caveats & Fragility
 

@@ -5,6 +5,7 @@
 #include "Core/CommandLine.h"
 #include "Core/CrashHandler.h"
 #include "Core/StackTrace.h"
+#include "Config/EngineConfig.h"
 #include "Math/Quaternion.h"
 #include "Math/Vector3.h"
 #include <glm/gtc/quaternion.hpp>
@@ -148,3 +149,50 @@ TEST_CASE( "CrashHandler writes a report when the process crashes" )
     CHECK( foundReport );
 }
 #endif
+
+
+TEST_CASE( "EngineConfig keeps window and scene state out of the project's Engine.cfg" )
+{
+    char program[] = "MitchEngine_Tests";
+    char* argv[] = { program };
+    CommandLine::Set( 1, argv );   // not an unattended run, so user state is written
+
+    const std::filesystem::path folder = std::filesystem::temp_directory_path() / "MitchEngineConfigTest";
+    std::filesystem::remove_all( folder );
+    std::filesystem::create_directories( folder );
+    const std::string projectPath = ( folder / "Engine.cfg" ).generic_string();
+    const std::string userPath = ( folder / "User" / "Engine.user.cfg" ).generic_string();
+    const std::string project = R"({ "Title": "Game", "FixedTimeStep": 0.02, "Window": { "Width": 800.0, "Height": 600.0 } })";
+    std::ofstream( projectPath ) << project;
+    auto readFile = []( const std::string& InPath ) {
+        std::ifstream in( InPath );
+        return std::string( std::istreambuf_iterator<char>( in ), std::istreambuf_iterator<char>() );
+    };
+
+    {
+        EngineConfig config( Path( projectPath, true ), userPath );
+        config.OnLoadConfig( config.Root );
+        config.LoadUserState();
+        CHECK( config.WindowSize.x == doctest::Approx( 800.f ) );
+        config.SetValue( "CurrentScene", "Assets/Scenes/Test.lvl" );
+        config.WindowSize = Vector2( 1024.f, 768.f );
+        config.SaveUserState();
+    }
+    CHECK( readFile( projectPath ) == project );   // running never rewrites the project file
+    {
+        EngineConfig config( Path( projectPath, true ), userPath );
+        config.OnLoadConfig( config.Root );
+        config.LoadUserState();
+        CHECK( config.GetValue( "CurrentScene" ) == "Assets/Scenes/Test.lvl" );
+        CHECK( config.WindowSize.x == doctest::Approx( 1024.f ) );
+        CHECK( config.GetValue( "Title" ) == "Game" );
+
+        // Deliberate project edits (Project Settings > Time) leave the user's state out.
+        config.SaveProjectValues( { { "FixedTimeStep", 0.01 } } );
+        const json saved = json::parse( readFile( projectPath ) );
+        CHECK( saved["FixedTimeStep"].get<double>() == doctest::Approx( 0.01 ) );
+        CHECK( saved["Window"]["Width"].get<double>() == doctest::Approx( 800.0 ) );
+        CHECK_FALSE( saved.contains( "CurrentScene" ) );
+    }
+    std::filesystem::remove_all( folder );
+}

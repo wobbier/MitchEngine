@@ -239,7 +239,7 @@ void EditorCore::OnSaveScene( const SaveSceneEvent& event )
             GetEngine().CurrentScene->Save( inPath.GetLocalPath().data(), RootTransform );
             UndoStack::Get().MarkSaved();
             GetEngine().GetConfig().SetValue( std::string( "CurrentScene" ), inPath.GetLocalPath().data() );
-            GetEngine().GetConfig().Save();
+            GetEngine().GetConfig().SaveUserState();
             EditorConfig::GetInstance().AddRecentScene( std::string( inPath.GetLocalPath() ) );
             }, AssetType::Level, true );
         evt.Fire();
@@ -249,7 +249,7 @@ void EditorCore::OnSaveScene( const SaveSceneEvent& event )
         GetEngine().CurrentScene->Save( GetEngine().CurrentScene->FilePath.GetLocalPath().data(), RootTransform );
         UndoStack::Get().MarkSaved();
         GetEngine().GetConfig().SetValue( std::string( "CurrentScene" ), GetEngine().CurrentScene->FilePath.GetLocalPath().data() );
-        GetEngine().GetConfig().Save();
+        GetEngine().GetConfig().SaveUserState();
     }
 }
 

@@ -784,10 +784,7 @@ void ProjectSettingsWidget::Render()
 		HavanaUtils::SkipLabel();
 		if (ImGui::Button("Save to Engine.cfg"))
 		{
-			EngineConfig& config = engine.GetConfig();
-			config.Root["FixedTimeStep"] = engine.GetFixedTimeStep();
-			config.Root["MaxFrameRate"] = engine.GetMaxFrameRate();
-			config.Save();
+			engine.GetConfig().SaveProjectValues({ { "FixedTimeStep", engine.GetFixedTimeStep() }, { "MaxFrameRate", engine.GetMaxFrameRate() } });
 		}
 		ImGui::EndTabItem();
 	}
