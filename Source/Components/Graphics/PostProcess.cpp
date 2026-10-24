@@ -34,6 +34,11 @@ ME_REFLECT_BEGIN( PostProcess )
     ME_FIELD( DoFSplitFocusDistance ).Display( "Right Focus Distance (m)" ).Category( "Depth of Field" ).Range( 0.1f, 1000.f ).Drag( 0.001f ).Tooltip( "Camera-forward focus depth for the right side of the split" );
     ME_FIELD( DoFSplitPosition ).Display( "Split Position" ).Category( "Depth of Field" ).Range( 0.f, 1.f );
     ME_FIELD( DoFSplitFeather ).Display( "Split Feather" ).Category( "Depth of Field" ).Range( 0.f, 0.25f ).Tooltip( "Full transition width as a fraction of the image; zero makes a hard split" );
+    ME_FIELD( Outline ).Category( "Outline" ).Tooltip( "Ink the opaque scene's silhouettes and creases, detected from the depth buffer; fog covers the lines" );
+    ME_FIELD( OutlineColor ).Category( "Outline" ).Color();
+    ME_FIELD( OutlineThickness ).Category( "Outline" ).Range( 0.5f, 4.f ).Tooltip( "Edge sample offset in pixels" );
+    ME_FIELD( OutlineDepthThreshold ).Display( "Depth Threshold" ).Category( "Outline" ).Range( 0.01f, 1.f ).Speed( 0.005f ).Tooltip( "Metres of depth gap (per metre of distance) that reads as a silhouette" );
+    ME_FIELD( OutlineNormalThreshold ).Display( "Crease Threshold" ).Category( "Outline" ).Range( 0.01f, 2.f ).Speed( 0.01f ).Tooltip( "How sharp a fold must be to ink: lower catches gentler creases" );
     ME_FIELD( Fog ).Category( "Fog" ).Tooltip( "Exponential height fog over the opaque scene" );
     ME_FIELD( FogColor ).Category( "Fog" ).HDR().Tooltip( "Ambient light scattered by the fog" );
     ME_FIELD( FogDensity ).Category( "Fog" ).Range( 0.f, 0.5f ).Speed( 0.001f ).Tooltip( "Extinction per metre at the base height" );
@@ -122,6 +127,13 @@ Moonlight::PostProcessSettings PostProcess::ToSettings() const
     settings.DoFSplitFocusDistance = DoFSplitFocusDistance;
     settings.DoFSplitPosition = DoFSplitPosition;
     settings.DoFSplitFeather = DoFSplitFeather;
+    settings.Outline = Outline;
+    settings.OutlineColor[0] = OutlineColor.x;
+    settings.OutlineColor[1] = OutlineColor.y;
+    settings.OutlineColor[2] = OutlineColor.z;
+    settings.OutlineThickness = OutlineThickness;
+    settings.OutlineDepthThreshold = OutlineDepthThreshold;
+    settings.OutlineNormalThreshold = OutlineNormalThreshold;
     settings.Fog = Fog;
     settings.FogColor[0] = FogColor.x;
     settings.FogColor[1] = FogColor.y;

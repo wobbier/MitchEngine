@@ -26,6 +26,10 @@ namespace Moonlight
         // Ambient occlusion from the scene depth, applied to the HDR colour before transparents.
         void RenderAmbientOcclusion( ViewAllocator& InViews, const CameraData& InCamera, FrameBuffer& InTargets );
 
+        // Edge outlines (PostProcessSettings::Outline): depth and reconstructed-normal
+        // discontinuities drawn over the opaque HDR colour, after SSAO so fog covers them too.
+        void RenderOutlineEdges( ViewAllocator& InViews, const CameraData& InCamera, FrameBuffer& InTargets );
+
         // Height fog over the opaque HDR colour (after SSAO, before transparents). InBindLighting
         // binds the renderer's lighting state for each fog draw: the lights, clusters and shadow
         // atlases volumetric fog raymarches, and the fog uniforms themselves (FogUniforms).
@@ -65,6 +69,7 @@ namespace Moonlight
         ShaderCommand m_ssaoProgram;
         ShaderCommand m_ssaoBlurProgram;
         ShaderCommand m_ssaoApplyProgram;
+        ShaderCommand m_outlineProgram;
         ShaderCommand m_luminanceProgram;
         ShaderCommand m_adaptProgram;
         ShaderCommand m_fogScatterProgram;
@@ -117,6 +122,8 @@ namespace Moonlight
         bgfx::UniformHandle u_taaJitter = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_taaReproject = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_graphSceneFilter = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_outline = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_outlineParams = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_lut = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_lutStrip = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_lut = BGFX_INVALID_HANDLE;

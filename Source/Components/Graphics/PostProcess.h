@@ -50,6 +50,13 @@ public:
     float DoFSplitFeather = 0.015f;
 
     // Fog
+    // Edge outlines (toon ink): depth silhouettes and crease folds over the opaque scene.
+    bool Outline = false;
+    Vector3 OutlineColor = Vector3( 0.f, 0.f, 0.f );
+    float OutlineThickness = 1.f;
+    float OutlineDepthThreshold = 0.1f;
+    float OutlineNormalThreshold = 0.5f;
+
     bool Fog = false;
     Vector3 FogColor = Vector3( 0.55f, 0.62f, 0.72f );
     float FogDensity = 0.02f;

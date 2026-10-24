@@ -5,9 +5,9 @@ Rendering is split into CPU **producers** and a serial **consumer**:
 - **Producers** are `RenderCore` and `ParticleCore`. `RenderCore` runs a parallel job that fills one POD `MeshCommand` per mesh and gathers a `LightCommand` per light and a `DecalCommand` per decal; `ParticleCore` simulates particle systems into per-system batches.
 - **The consumer** is `BGFXRenderer`. It renders every camera through the same chain into HDR targets:
   1. Shadow cascades.
-  2. Clustered-forward PBR opaque pass.
+  2. Clustered-forward PBR opaque pass (the sky behind it, then per-object outline hulls).
   3. Decals, projected onto the opaque surfaces and lit like them.
-  4. SSAO.
+  4. SSAO, then screen-space edge outlines (optional toon ink).
   5. Height fog, optionally volumetric (light shafts, lit by every light).
   6. Transparent meshes.
   7. Particles.
@@ -300,6 +300,7 @@ Per camera, from `CameraData::Post`, which `CameraCore` copies from a `PostProce
 - **Depth of field** (`DepthOfField`, off by default; perspective cameras): thin-lens signed CoC at full resolution, layer-aware colour downsample, conservative foreground-radius dilation, separate 64-tap circular near/far gathers at half resolution, then composition with full-resolution focal-plane edges. Runs after TAA and HDR shader graphs, before bloom/exposure/tonemapping. Targets are allocated on first use and released on resize/destruction. `DoFFocusDistance` is in metres; `DoFAperture` is an f-number; focal length follows vertical FOV and `DoFSensorHeight`. See [Depth of Field](Depth-of-Field.md) for controls, verification and limitations.
 - **Bloom**: thresholded downsample chain (up to 6 RGBA16F mips) and additive tent upsample.
 - **Eye adaptation**: log-average luminance into 1×1, adapted over time between min/max EV (`AutoExposure`).
+- **Edge outlines** (`PostProcess.Outline`): a fullscreen pass over the opaque depth, before fog, inking view-depth silhouettes and crease folds (`OutlineThickness`, `OutlineDepthThreshold`, `OutlineNormalThreshold`, `OutlineColor`). **Per-object outlines** use the `Outline` component instead (colour + width in metres): the mesh is re-drawn inflated along its normals with the opposite cull after the sky — an inverted hull, so occlusion, skinning and vertex animation all apply. On a compact model's root the component outlines every part.
 - **Tonemap**:
   - Exposure (manual stops or adapted), bloom mix and white balance.
   - ACES / AgX / Reinhard / none.

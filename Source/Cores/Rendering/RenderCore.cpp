@@ -17,6 +17,7 @@
 #include "RenderCommands.h"
 #include "Components/Lighting/Light.h"
 #include "Components/Graphics/Decal.h"
+#include "Components/Graphics/Outline.h"
 #include "Components/Graphics/WindZone.h"
 #include "Components/Graphics/Mesh.h"
 #include "Components/Graphics/Terrain.h"
@@ -437,8 +438,22 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         Mesh* Instance;
         Matrix4 World;
         EntityHandle Owner;
+        bool Outlined = false;
+        Vector3 OutlineColor;
+        float OutlineWidth = 0.f;
     };
     std::vector<RenderItem> items;
+    // The Outline component sits on the mesh's entity, or on a compact model's root for its parts.
+    const auto applyOutline = []( RenderItem& InItem, Entity& InRoot ) {
+        const Outline* outline = InItem.Owner ? InItem.Owner->TryGetComponent<Outline>() : nullptr;
+        if( !outline || !outline->IsEnabled() ) outline = InRoot.TryGetComponent<Outline>();
+        if( outline && outline->IsEnabled() )
+        {
+            InItem.Outlined = true;
+            InItem.OutlineColor = outline->Color;
+            InItem.OutlineWidth = outline->Width;
+        }
+    };
     std::unordered_set<uint64_t> compactModels;
     std::unordered_set<uint64_t> terrains;
     // Terrain honors every rendering camera plus World View, using the current late-update snapshot.
@@ -479,6 +494,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
             if( mesh->Id == std::numeric_limits<unsigned int>::max() ) mesh->Id = renderer.GetMeshCache().Push( Moonlight::MeshCommand() );
             m_meshCommands[entity.GetId().Value()] = mesh->Id;
             items.push_back( { mesh, entity.GetComponent<Transform>().GetLocalToWorldMatrix(), entity.GetHandle() } );
+            applyOutline( items.back(), entity );
         }
         else
         {
@@ -504,6 +520,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                 ids.push_back( mesh.Id );
             }
             items.push_back( { &mesh, model->GetPartWorld( part ), model->GetNodeEntity( part.NodeIndex ) } );
+            applyOutline( items.back(), entity );
         }
     }
     for( auto it = m_terrainDraws.begin(); it != m_terrainDraws.end(); )
@@ -723,6 +740,9 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                             command.Type = model.GetType();
                             command.VisibilityIndex = entIndex;
                             command.ID = item.Owner->GetId().Value();
+                            command.Outlined = item.Outlined;
+                            command.OutlineColor = item.OutlineColor;
+                            command.OutlineWidth = item.OutlineWidth;
 
                             uint8_t lod = 0;
                             if( model.MeshReferece )

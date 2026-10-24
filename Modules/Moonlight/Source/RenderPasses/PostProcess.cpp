@@ -77,6 +77,7 @@ namespace Moonlight
         m_ssaoProgram = LoadPost( "SSAO" );
         m_ssaoBlurProgram = LoadPost( "SSAOBlur" );
         m_ssaoApplyProgram = LoadPost( "SSAOApply" );
+        m_outlineProgram = LoadPost( "Outline" );
         m_luminanceProgram = LoadPost( "Luminance" );
         m_adaptProgram = LoadPost( "Adapt" );
         m_fogScatterProgram = LoadPost( "FogScatter" );
@@ -132,6 +133,8 @@ namespace Moonlight
         s_lut = bgfx::createUniform( "s_lut", bgfx::UniformType::Sampler );
         s_lutStrip = bgfx::createUniform( "s_lutStrip", bgfx::UniformType::Sampler );
         u_lut = bgfx::createUniform( "u_lut", bgfx::UniformType::Vec4 );
+        u_outline = bgfx::createUniform( "u_outline", bgfx::UniformType::Vec4 );
+        u_outlineParams = bgfx::createUniform( "u_outlineParams", bgfx::UniformType::Vec4 );
 
         m_blackTexture = MakeSolid( 0.f );
         m_whiteTexture = MakeSolid( 1.f );
@@ -145,7 +148,7 @@ namespace Moonlight
     {
         for( bgfx::UniformHandle* uniform : { &s_input0, &s_input1, &s_hdrColor, &s_bloom, &s_exposure, &s_ldrColor, &u_tonemap, &u_grading, &u_grading2, &u_exposure, &u_bloom, &u_ssao, &u_ssaoProjection, &u_ssaoScreen, &u_ssaoInvProjection, &u_adapt,
             &u_fogProjection, &u_fogProjection2, &u_fogScreen, &u_fogInvView, &s_taaCurrent, &s_taaHistory, &s_taaDepth, &u_taaParams, &u_taaJitter, &u_taaReproject, &u_graphSceneFilter,
-            &s_dof0, &s_dof1, &s_dof2, &s_dof3, &s_dof4, &u_dofLens, &u_dofSplit, &u_dofProjection, &u_dofScreen, &u_dofPass, &u_dofJitter, &s_lut, &s_lutStrip, &u_lut } )
+            &s_dof0, &s_dof1, &s_dof2, &s_dof3, &s_dof4, &u_dofLens, &u_dofSplit, &u_dofProjection, &u_dofScreen, &u_dofPass, &u_dofJitter, &s_lut, &s_lutStrip, &u_lut, &u_outline, &u_outlineParams } )
         {
             DestroyUniform( *uniform );
         }
@@ -238,6 +241,41 @@ namespace Moonlight
         bgfx::setTexture( 0, s_input0, InTargets.AOBlurBuffer.Color, pointClamp );
         bgfx::setTexture( 1, s_input1, InTargets.DepthTexture, pointClamp );
         SubmitFullscreen( applyView, m_ssaoApplyProgram, BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_FUNC( BGFX_STATE_BLEND_DST_COLOR, BGFX_STATE_BLEND_ZERO ) );
+    }
+
+
+    void PostProcess::RenderOutlineEdges( ViewAllocator& InViews, const CameraData& InCamera, FrameBuffer& InTargets )
+    {
+        const PostProcessSettings& settings = InCamera.Post;
+        if( !settings.Outline || !bgfx::isValid( InTargets.DepthTexture ) || !bgfx::isValid( InTargets.ParticleBuffer ) )
+        {
+            return;
+        }
+        OPTICK_EVENT( "PostProcess::OutlineEdges" );
+        const bgfx::ViewId view = InViews.Allocate( "Outline Edges" );
+        if( view == UINT16_MAX )
+        {
+            return;
+        }
+        const glm::mat4& projection = InCamera.ProjectionMatrix.GetInternalMatrix();
+        const glm::mat4 invProjection = glm::inverse( projection );
+        // The SSAO uniforms carry the depth-linearization state SSAOCommon.sh expects.
+        const float ssao[4] = { 0.f, 0.f, 0.f, bgfx::getCaps()->originBottomLeft ? 1.f : -1.f };
+        const float ssaoProjection[4] = { projection[0][0], projection[1][1], InCamera.Projection == ProjectionType::Orthographic ? 1.f : 0.f, bgfx::getCaps()->homogeneousDepth ? 1.f : 0.f };
+        const float ssaoScreen[4] = { 1.f / std::max<float>( InTargets.Width, 1.f ), 1.f / std::max<float>( InTargets.Height, 1.f ), static_cast<float>( InTargets.Width ), static_cast<float>( InTargets.Height ) };
+        const float color[4] = { SrgbToLinear( settings.OutlineColor[0] ), SrgbToLinear( settings.OutlineColor[1] ), SrgbToLinear( settings.OutlineColor[2] ), 1.f };
+        const float params[4] = { std::max( settings.OutlineThickness, 0.5f ), std::max( settings.OutlineDepthThreshold, 0.001f ), std::clamp( settings.OutlineNormalThreshold, 0.01f, 2.f ), 0.f };
+        const uint64_t pointClamp = BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
+
+        SetupFullscreenView( view, InTargets.ParticleBuffer, static_cast<uint16_t>( InTargets.Width ), static_cast<uint16_t>( InTargets.Height ) );
+        bgfx::setUniform( u_ssao, ssao );
+        bgfx::setUniform( u_ssaoProjection, ssaoProjection );
+        bgfx::setUniform( u_ssaoScreen, ssaoScreen );
+        bgfx::setUniform( u_ssaoInvProjection, glm::value_ptr( invProjection ) );
+        bgfx::setUniform( u_outline, color );
+        bgfx::setUniform( u_outlineParams, params );
+        bgfx::setTexture( 0, s_input0, InTargets.DepthTexture, pointClamp );
+        SubmitFullscreen( view, m_outlineProgram, BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_ALPHA );
     }
 
 

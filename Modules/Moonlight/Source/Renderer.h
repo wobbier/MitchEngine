@@ -83,6 +83,8 @@ public:
     void RenderSkinnedMesh( bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint64_t state );
     // Overdraw view: any mesh (static, instanced or skinned) as one additive layer.
     void RenderOverdrawMesh( bgfx::ViewId id, const Moonlight::MeshCommand& mesh );
+    // Per-object outline: the mesh inflated along its normals with the opposite cull (Outline component).
+    void RenderOutlineHull( bgfx::ViewId id, const Moonlight::MeshCommand& mesh );
     // Per-view mesh triangle counts for the frame stats (bgfx only reports frame totals).
     void CountTriangles( bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint32_t instances = 1 );
     std::vector<uint64_t> m_viewTriangles;
@@ -242,6 +244,10 @@ private:
     // Overdraw view: the shadow casters' vertex shaders with an additive fragment.
     Moonlight::ShaderCommand m_overdrawProgram;
     Moonlight::ShaderCommand m_overdrawSkinnedProgram;
+    // Inverted-hull outlines (Outline component).
+    Moonlight::ShaderCommand m_outlineHullProgram;
+    Moonlight::ShaderCommand m_outlineHullSkinnedProgram;
+    bgfx::UniformHandle u_outlineHull = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_bones = BGFX_INVALID_HANDLE;
     std::vector<size_t> m_skinnedShadowCasters;
     // What the cull and the batching need of a caster, copied compactly out of its mesh command.

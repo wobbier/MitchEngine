@@ -77,6 +77,7 @@ namespace Moonlight
             Transform = glm::mat4( 1.f );
             ID = 0u;
             PosedVertices = BGFX_INVALID_HANDLE;
+            Outlined = false;
         }
         MeshData* SingleMesh = nullptr;
         SharedPtr<Material> MeshMaterial = nullptr;
@@ -94,6 +95,10 @@ namespace Moonlight
         bool IsTransparent = false;
         bool SupportsInstancing = false;
         bool CastShadows = true;
+        // Per-object outline (Outline component): an inverted-hull draw after the opaque scene.
+        bool Outlined = false;
+        Vector3 OutlineColor;
+        float OutlineWidth = 0.f;
         // Shadow passes: casters are culled per cascade / spot light by their world bounds, and
         // alpha-tested materials discard in the depth pass too.
         float AlphaCutoff = 0.f;

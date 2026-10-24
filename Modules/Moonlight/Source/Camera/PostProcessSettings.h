@@ -68,6 +68,13 @@ namespace Moonlight
         float VolumetricDistance = 60.f;    // metres raymarched (analytic beyond)
         int VolumetricSteps = 24;
 
+        // Edge outlines over the opaque scene: depth silhouettes and crease folds, from depth alone.
+        bool Outline = false;
+        float OutlineColor[3] = { 0.f, 0.f, 0.f };  // sRGB
+        float OutlineThickness = 1.f;               // sample offset in pixels
+        float OutlineDepthThreshold = 0.1f;         // view-depth gap per metre of depth
+        float OutlineNormalThreshold = 0.5f;        // crease fold (0 everything .. 2 nothing)
+
         // Colour grading
         float Saturation = 1.f;
         float Contrast = 1.f;

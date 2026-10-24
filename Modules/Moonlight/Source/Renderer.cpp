@@ -255,6 +255,9 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         m_shadowSkinnedProgram = Moonlight::ShaderCommand( "Assets/Shaders/ShadowDepthSkinned", "Assets/Shaders/ShadowDepth" );
         m_overdrawProgram = Moonlight::ShaderCommand( "Assets/Shaders/ShadowDepth", "Assets/Shaders/Overdraw" );
         m_overdrawSkinnedProgram = Moonlight::ShaderCommand( "Assets/Shaders/ShadowDepthSkinned", "Assets/Shaders/Overdraw" );
+        m_outlineHullProgram = Moonlight::ShaderCommand( "Assets/Shaders/OutlineHull", "Assets/Shaders/OutlineHull" );
+        m_outlineHullSkinnedProgram = Moonlight::ShaderCommand( "Assets/Shaders/OutlineHullSkinned", "Assets/Shaders/OutlineHull" );
+        u_outlineHull = bgfx::createUniform( "u_outlineHull", bgfx::UniformType::Vec4 );
         u_bones = bgfx::createUniform( "u_bones", bgfx::UniformType::Mat4, Moonlight::MeshData::kMaxBones );
         m_shadowsSupported = m_shadowProgram.IsLoaded();
         if( !m_shadowsSupported )
@@ -543,7 +546,7 @@ void BGFXRenderer::Destroy()
         s_lightData, s_clusterGrid, s_clusterIndices, s_texMetallicRoughness, s_texEmissive, s_texOcclusion, s_texMetallic, s_texRoughness,
         u_shadowMatrix, u_cascadeSplits, u_cascadeTexel, u_shadowParams, u_localShadowMatrix, u_spotShadowParams, u_pointShadowParams, u_shadowAlpha, s_shadowMap, s_spotShadowMap,
         s_envSpecular, s_envIrradiance, s_brdfLut, u_envParams, u_fogParams, u_fogColor, u_fogVolume, u_fogForward,
-        u_particleParams, u_particleParams2, u_particleDepth, s_texParticle, s_sceneDepth, u_bones,
+        u_particleParams, u_particleParams2, u_particleDepth, s_texParticle, s_sceneDepth, u_bones, u_outlineHull,
         s_decalAlbedo, s_decalNormal, u_decalColor, u_decalEmissive, u_decalSurface, u_decalDepth, u_decalTexSize, u_decalWorldToLocal, u_decalAxes };
     m_particleProgram = Moonlight::ShaderCommand();
     m_decalProgram = Moonlight::ShaderCommand();
@@ -586,6 +589,8 @@ void BGFXRenderer::Destroy()
     m_shadowSkinnedProgram = Moonlight::ShaderCommand();
     m_overdrawProgram = Moonlight::ShaderCommand();
     m_overdrawSkinnedProgram = Moonlight::ShaderCommand();
+    m_outlineHullProgram = Moonlight::ShaderCommand();
+    m_outlineHullSkinnedProgram = Moonlight::ShaderCommand();
     if( bgfx::isValid( m_lightDataTexture ) )
     {
         bgfx::destroy( m_lightDataTexture );
@@ -1136,6 +1141,21 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         m_dynamicSky->Draw( id, camera );
     }
 
+    // Per-object outlines: outlined meshes re-drawn as hulls after the sky so the ring also reads
+    // against the background; no depth write, so the scene's depth hides occluded sections.
+    if( sceneEffects && !overdraw )
+    {
+        OPTICK_CATEGORY( "Outline Hulls", Optick::Category::GPU_Scene );
+        const bool hasCullingInfo = camera.ShouldCull && !camera.VisibleFlags.empty();
+        for( size_t i = 0; i < m_meshCache.Commands.size(); ++i )
+        {
+            const Moonlight::MeshCommand& mesh = m_meshCache.Commands[i];
+            if( !mesh.Outlined || mesh.OutlineWidth <= 0.f || !mesh.Visible || !mesh.MeshMaterial || mesh.RenderGroup != camera.RenderGroup ) continue;
+            if( hasCullingInfo && ( mesh.VisibilityIndex >= camera.VisibleFlags.size() || !camera.VisibleFlags[mesh.VisibilityIndex] ) ) continue;
+            RenderOutlineHull( id, mesh );
+        }
+    }
+
     {
         OPTICK_CATEGORY( "Transparent Sorting", Optick::Category::Camera );
         ME_ASSERT_MSG( TransparentIndicies.size() < kMeshTransparencyTempSize, "Transparent Indicies vector was resized, consider upping the cached size." );
@@ -1157,6 +1177,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     const bool world = camera.RenderGroup == 0;
     if( sceneEffects && options.Decals && world ) RenderDecals( camera );
     m_postProcess->RenderAmbientOcclusion( m_views, camera, *camera.Buffer );
+    m_postProcess->RenderOutlineEdges( m_views, camera, *camera.Buffer );
     m_postProcess->RenderFog( m_views, camera, *camera.Buffer, [this]() { BindLighting(); } );
     // Everything drawn from here on (transparents, particles) is in front of the fogged scene.
     m_lighting.FogForward[0] = camera.Post.Fog && camera.Post.FogDensity > 0.f && camera.Post.FogMaxOpacity > 0.f ? 1.f : 0.f;
@@ -2348,6 +2369,40 @@ void BGFXRenderer::RenderOverdrawMesh( bgfx::ViewId id, const Moonlight::MeshCom
     if( m_lighting.BackfaceCulling ) state |= mesh.MeshMaterial->GetRenderState( 0 ) & BGFX_STATE_CULL_MASK;
     bgfx::setState( state );
     bgfx::submit( id, skinned ? m_overdrawSkinnedProgram.GetProgram() : m_overdrawProgram.GetProgram() );
+    CountTriangles( id, mesh );
+}
+
+
+void BGFXRenderer::RenderOutlineHull( bgfx::ViewId id, const Moonlight::MeshCommand& mesh )
+{
+    constexpr uint16_t kInstanceStride = sizeof( glm::mat4 );
+    if( !mesh.SingleMesh || !bgfx::isValid( mesh.SingleMesh->GetVertexBuffer() ) || bgfx::getAvailInstanceDataBuffer( 1, kInstanceStride ) == 0 )
+    {
+        return;
+    }
+    const bool skinned = mesh.SkinBoneCount > 0 && bgfx::isValid( mesh.SingleMesh->GetSkinBuffer() ) && m_outlineHullSkinnedProgram.IsLoaded();
+    if( skinned ? false : !m_outlineHullProgram.IsLoaded() )
+    {
+        return;
+    }
+    bgfx::InstanceDataBuffer idb;
+    bgfx::allocInstanceDataBuffer( &idb, 1, kInstanceStride );
+    std::memcpy( idb.data, &mesh.Transform, kInstanceStride );
+
+    mesh.SingleMesh->BindVertexBuffer( mesh.PosedVertices );
+    if( skinned )
+    {
+        bgfx::setVertexBuffer( 1, mesh.SingleMesh->GetSkinBuffer() );
+        bgfx::setUniform( u_bones, mesh.SkinPalette, mesh.SkinBoneCount );
+    }
+    bgfx::setIndexBuffer( mesh.SingleMesh->GetIndexBuffer( mesh.Lod ) );
+    bgfx::setInstanceDataBuffer( &idb );
+    const auto srgbToLinear = []( float c ) { return c <= 0.04045f ? c / 12.92f : std::pow( ( c + 0.055f ) / 1.055f, 2.4f ); };
+    const float hull[4] = { srgbToLinear( mesh.OutlineColor.x ), srgbToLinear( mesh.OutlineColor.y ), srgbToLinear( mesh.OutlineColor.z ), mesh.OutlineWidth };
+    bgfx::setUniform( u_outlineHull, hull );
+    // The opposite cull to the scene draw, no depth write: only the silhouette ring survives.
+    bgfx::setState( BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CW | BGFX_STATE_MSAA );
+    bgfx::submit( id, skinned ? m_outlineHullSkinnedProgram.GetProgram() : m_outlineHullProgram.GetProgram() );
     CountTriangles( id, mesh );
 }
 
