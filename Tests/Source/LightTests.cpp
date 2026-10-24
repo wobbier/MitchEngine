@@ -186,6 +186,94 @@ TEST_CASE( "Directional lights: celestial source survives component serializatio
     }
 }
 
+TEST_CASE( "Directional lights: Manual keeps its authored aim and colour alongside the sky" )
+{
+    Moonlight::SkyDirectionalLights sky;
+    sky.Sun = { Vector3( 0.6f, 0.8f, 0.f ), Vector3( 2.f, 2.f, 2.f ) };
+    sky.Moon = { Vector3( -0.8f, 0.6f, 0.f ), Vector3( 0.1f, 0.1f, 0.1f ) };
+    Moonlight::LightCommand manual;
+    manual.Type = Moonlight::LightType::Directional;
+    manual.Source = Moonlight::DirectionalSource::Manual;
+    manual.Direction = Vector3( 0.f, 0.f, 1.f );
+    manual.Color = Vector3( 2.f, 0.f, 0.f );
+    Moonlight::LightCommand automatic;
+    automatic.Type = Moonlight::LightType::Directional;
+    automatic.CastShadows = true;
+
+    // Alongside an Automatic sun: the sun and its duplicated moon follow the sky, Manual doesn't.
+    auto both = Moonlight::ResolveDirectionalLighting( { automatic, manual }, &sky );
+    REQUIRE( both.Count == 3 );
+    size_t suns = 0, moons = 0, manuals = 0;
+    for( size_t i = 0; i < both.Count; ++i )
+    {
+        auto& light = both.Lights[i];
+        if( light.Source == Moonlight::DirectionalSource::Manual )
+        {
+            ++manuals;
+            CHECK( ( light.Direction == manual.Direction ) );
+            CHECK( ( light.Color == manual.Color ) );
+            CHECK_FALSE( light.SkySun );
+        }
+        else if( light.SkySun ) { ++suns; CHECK( ( light.Direction == sky.Sun.Direction * -1.f ) ); }
+        else { ++moons; CHECK( ( light.Direction == sky.Moon.Direction * -1.f ) ); }
+    }
+    CHECK( suns == 1 );
+    CHECK( moons == 1 );
+    CHECK( manuals == 1 );
+
+    // A full budget never sacrifices a Manual light for the duplicated moon.
+    auto full = Moonlight::ResolveDirectionalLighting( { manual, manual, manual, automatic }, &sky );
+    REQUIRE( full.Count == 4 );
+    manuals = 0;
+    for( size_t i = 0; i < full.Count; ++i )
+    {
+        if( full.Lights[i].Source == Moonlight::DirectionalSource::Manual )
+        {
+            ++manuals;
+            CHECK( ( full.Lights[i].Direction == manual.Direction ) );
+        }
+        else
+        {
+            CHECK( full.Lights[i].SkySun ); // no slot was free for a moon copy
+        }
+    }
+    CHECK( manuals == 3 );
+
+    // An all-Manual scene under the sky still gets the automatic sun (and its moon).
+    auto lone = Moonlight::ResolveDirectionalLighting( { manual }, &sky );
+    REQUIRE( lone.Count == 3 );
+    CHECK( lone.Lights[0].SkySun ); // the fabricated caster takes the cascades
+    CHECK( lone.Lights[0].CastShadows );
+    size_t kept = 0;
+    for( size_t i = 0; i < lone.Count; ++i )
+    {
+        if( lone.Lights[i].Source == Moonlight::DirectionalSource::Manual )
+        {
+            ++kept;
+            CHECK( ( lone.Lights[i].Direction == manual.Direction ) );
+            CHECK( ( lone.Lights[i].Color == manual.Color ) );
+        }
+    }
+    CHECK( kept == 1 );
+
+    // Without a sky, Manual behaves like any authored directional.
+    auto solid = Moonlight::ResolveDirectionalLighting( { manual }, nullptr );
+    REQUIRE( solid.Count == 1 );
+    CHECK( ( solid.Lights[0].Direction == manual.Direction ) );
+    CHECK( ( solid.Lights[0].Color == manual.Color ) );
+
+    // The component value round-trips by name.
+    Light source;
+    source.LightType = Moonlight::LightType::Directional;
+    source.DirectionalSource = Moonlight::DirectionalSource::Manual;
+    json saved;
+    source.Serialize( saved );
+    CHECK( saved["DirectionalSource"] == "Manual" );
+    Light restored;
+    restored.Deserialize( saved );
+    CHECK( restored.BuildCommand( Transform() ).Source == Moonlight::DirectionalSource::Manual );
+}
+
 TEST_CASE( "Solar eclipse: disc overlap covers clear, partial, annular and total contacts" )
 {
     using Moonlight::ComputeDiscVisibility;

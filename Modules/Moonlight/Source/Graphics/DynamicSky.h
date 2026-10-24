@@ -52,8 +52,9 @@ namespace Moonlight
     //     with the Milky Way turning with the sidereal time;
     //   - raymarched volumetric clouds (Schneider 2015 style noise, generated at start-up on worker
     //     threads) accumulated over frames at half resolution.
-    // World directions: +Y up, +Z north, +X east. Every directional light follows these
-    // bodies for procedural skies; scenes without one get automatic shadow-casting lights.
+    // World directions: +Y up, +Z north, +X east. Directional lights follow these bodies for
+    // procedural skies unless their source is Manual (authored rotation and colour apply);
+    // scenes without a sky-driven directional get automatic shadow-casting lights.
     class DynamicSky
     {
     public:

@@ -5,11 +5,11 @@
 #include <cmath>
 
 ME_REFLECT_ENUM( Moonlight::LightType, { { "Directional", Moonlight::LightType::Directional }, { "Point", Moonlight::LightType::Point }, { "Spot", Moonlight::LightType::Spot }, { "Bar", Moonlight::LightType::Bar }, { "Box", Moonlight::LightType::Box }, { "Rectangle", Moonlight::LightType::Rectangle } } )
-ME_REFLECT_ENUM( Moonlight::DirectionalSource, { { "Automatic", Moonlight::DirectionalSource::Automatic }, { "Sun", Moonlight::DirectionalSource::Sun }, { "Moon", Moonlight::DirectionalSource::Moon } } )
+ME_REFLECT_ENUM( Moonlight::DirectionalSource, { { "Automatic", Moonlight::DirectionalSource::Automatic }, { "Sun", Moonlight::DirectionalSource::Sun }, { "Moon", Moonlight::DirectionalSource::Moon }, { "Manual", Moonlight::DirectionalSource::Manual } } )
 
 ME_REFLECT_BEGIN( Light )
     ME_FIELD( LightType ).Display( "Type" );
-    ME_FIELD( DirectionalSource ).Display( "Directional Source" ).Tooltip( "With a procedural sky, direction and radiance always follow the sky. Automatic supplies sun and moon together; Sun/Moon follow that body explicitly. Color and intensity tint/scale the sky light; shadow controls still apply. Without a procedural sky, directional lights use the entity rotation." );
+    ME_FIELD( DirectionalSource ).Display( "Directional Source" ).Tooltip( "With a procedural sky, direction and radiance follow the sky. Automatic supplies sun and moon together; Sun/Moon follow that body explicitly; Manual keeps the entity rotation, color and intensity even under the sky (a rig or fill light — the sun disc, probes and sky stay astronomical). Color and intensity tint/scale sky-driven lights; shadow controls always apply, and the first visible shadow caster in entity order takes the cascades. Without a procedural sky, directional lights use the entity rotation." );
     ME_FIELD( Color ).Color();
     ME_FIELD( Intensity ).Range( 0.f, 100.f ).Speed( 0.05f );
     ME_FIELD( Range ).Display( "Range (m)" ).Range( 0.01f, 1000.f ).Tooltip( "Local lights: fade distance from the source; bar/box/rectangle: measured from the emitter surface" );

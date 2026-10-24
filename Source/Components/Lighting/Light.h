@@ -4,8 +4,9 @@
 #include "RenderCommands.h"
 
 // A light source. Directional lights follow procedural sky bodies through DirectionalSource;
-// Automatic supplies sun and moon together. Without a procedural sky they use the entity's
-// forward axis. The first visible shadow caster uses cascaded shadows. Point lights radiate from
+// Automatic supplies sun and moon together, and Manual opts a light out — it keeps the entity's
+// forward axis, colour and intensity alongside the sky. Without a procedural sky they use the
+// entity's forward axis. The first visible shadow caster uses cascaded shadows. Point lights radiate from
 // the entity's position out to
 // Range; spot lights are cones along forward with inner/outer angles. Bars emit along a capsule on
 // local X (for fluorescent tubes); boxes emit from a local cuboid; rectangles emit from a local XY

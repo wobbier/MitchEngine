@@ -128,6 +128,7 @@ namespace Moonlight
         Transform,     // legacy serialized value; resolves as Automatic with a procedural sky
         Sun,
         Moon,
+        Manual,        // keeps the entity rotation, colour and intensity even under a procedural sky
     };
 
     // One decal for this frame, gathered from Decal components by RenderCore: a unit box (-0.5..0.5)
