@@ -31,7 +31,7 @@ flowchart LR
 | `Modules/Moonlight/Source/Procedural/Tree/TreeModel.h` / `.cpp` | `BuildMeshes`: GPU meshes and FoliageMaterials for a `TreeMesh` (model loads and the editor preview) |
 | `Modules/Moonlight/Source/Procedural/Tree/TreeAsset.h` / `.cpp`, `TreePresets.h` / `.cpp` | `.mtree` load/save and `TreeMetadata`; the built-in presets (Oak, Maple, Birch, Pine, Spruce, Palm, DeadSnag, Bush) |
 | `Modules/Moonlight/Source/Graphics/ModelResource.cpp` | `.mtree` loads: generation on the loader thread, `BuildMeshes` on the main thread |
-| `Modules/Havana/Source/Widgets/Tree/TreeWidget.h` / `.cpp` | The MitchTree editor: open documents, File menu actions, Save / Undo / Redo routing |
+| `Modules/Havana/Source/Widgets/Tree/TreeWidget.h` / `.cpp` | The MitchTree editor: open documents, the File / View menu items and actions, recent trees, Save / Undo / Redo routing |
 | `Modules/Havana/Source/Widgets/Tree/TreeDocument.h` / `.cpp` | One open recipe: sections and parameters, undo, background regeneration, save, OBJ export |
 | `Modules/Havana/Source/Widgets/Tree/TreePreview.h` / `.cpp` | The 3D preview: a render-group camera, orbit controls, studio or scene lighting, capture |
 | `Modules/Havana/Source/Widgets/Tree/TreeAutomation.h` / `.cpp` | `tree-*` editor automation commands |
@@ -51,24 +51,33 @@ The wind stream (`TreeVertex::Wind`, uploaded as `WindVertex`) carries R leaf fl
 
 ### The MitchTree editor
 
-Double-click a `.mtree` in the asset browser, use File > Open Tree / New Tree, or use the Terrain panel's **Trees** workspace. Each recipe opens in its own **MitchTree** window, docked beside the World View when that panel is big enough, else floating.
+Each recipe opens in its own **MitchTree** window, docked beside the World View when that panel is big enough, else floating. Every way in fires `OpenTreeEvent`:
 
-- **Side panel**: sections (Tree, Trunk, each branch level, Leaves, Leaf Material, Bark, Bark Texture, Leaf Texture, Wind, Levels of Detail) drawn from reflection (`ReflectionUI::DrawType`, with ranges and tooltips). Add Level / Remove Level change the branch levels. The Tree section shows stems, leaf cards and triangles per level.
-- **Toolbar**: Save, Undo, Redo, Preset (replaces the recipe and keeps its name), New Seed, Export OBJ. Export writes full detail as OBJ + MTL, plus the generated textures as PNGs, into `<Name>.export/` beside the recipe.
+- **File**: **New Tree** (a preset, then where to save it), **Open Tree...** and **Open Recent Tree** (kept in `.tmp/Havana.cfg` as `RecentTrees`).
+- **View > MitchTree**: the open tree windows (picking one focuses it), recent trees, New Tree, Open Tree, **Edit Selected Tree** and **Trees Workspace** (the Terrain panel's Trees list).
+- **Asset browser**: double-click a `.mtree`, or its context menu's **Edit in MitchTree**. The details pane shows the tree's kind, branch levels and seed above an **Edit in MitchTree** button.
+- **A placed tree**: the **Edit in MitchTree** button at the top of its Model component, or the hierarchy context menu's **Edit in MitchTree**.
+- **Terrain panel**: the Trees workspace's **Edit** and **New Tree**, and in the Foliage workspace a tree species' context menu (or a double-click).
+- **Command palette**: New <Preset> Tree, Open Tree, Edit Selected Tree, Trees Workspace (actions `Tree.New.<Preset>`, `Tree.Open`, `Tree.EditSelected`, `View.TreesWorkspace`).
+
+- **Layout**: a toolbar, a rail of pages, the page's settings, and the preview. All icons are the editor's Tabler set through `EditorIcons` (`Modules/Havana/Source/Utils/EditorIcons.h`). Greyed-out icons are planned features, and their tooltips start "Planned:".
+- **Rail**: pages grouped as Structure (Tree, Trunk, one page per branch level with its number, Add Level), Foliage (Leaves, Leaf Material, Leaf Texture), Bark (Bark Material, Bark Texture), and Motion & Detail (Wind, Levels of Detail). In a narrow window the rail shows only icons, with tooltips; it shows labels and group headings once the window is about 62 ems wide. Pages that have no effect as the recipe is set up are dimmed: switched-off levels, leaf pages without leaves, and texture pages with Generate off. The planned entries are Roots, Flowers & Fruit, Seasons, Collision and Impostor.
+- **Page**: a header (icon, title, what the page controls), then the fields drawn from reflection (`ReflectionUI::DrawType`, with ranges and tooltips). A branch level's header switches it off or on, and removes it; the levels below then grow from the one above. The texture pages show the planned Scanned Sets (CC0 scans, P4b). The Tree page holds name, seed (with New Seed), crown and occlusion, plus statistics: generation time, stems, leaf cards, and triangles per level as bars, with the level the preview draws highlighted.
+- **Toolbar**: Save, Undo, Redo (tooltips name the step), Presets (replaces the recipe and keeps its name), New Seed, Export OBJ, and Bake Textures (planned). On the right: generation time or status, then full-detail triangles, stems and leaf cards. Export writes full detail as OBJ + MTL, plus the generated textures as PNGs, into `<Name>.export/` beside the recipe.
 - **Editing**: every change is one step on the document's own `UndoStack` (`RecipeEdit` before/after snapshots; drags of one control fold into one step). The tree regenerates on a worker thread (`std::async`), and the last good tree stays on screen meanwhile. Texture channels are re-baked only when their settings change (`BakeChannel` from the in-memory recipe, uploaded with `Texture::CreateFromImage`), so unsaved texture edits show too.
-- **Preview** (`TreePreview`): the tree drawn by the game renderer (shadows, image-based light, translucency, wind) in a render group of its own (`CameraData::RenderGroup`, see `Docs/Rendering-Pipeline.md`), so the open scene never shows in it and it never shows in the scene. Left drag orbits, middle or Shift drag pans, the wheel zooms and F frames the tree. The controls are Wind, the level of detail (Auto, picked by screen size as in the game, or forced), Wireframe, Ground and Scene Lighting. Studio lighting has a sun direction; Scene Lighting borrows the scene camera's sky, exposure and post settings, without fog or depth of field. The preview renders only while its window is shown.
+- **Preview** (`TreePreview`): the tree drawn by the game renderer (shadows, image-based light, translucency, wind) in a render group of its own (`CameraData::RenderGroup`, see `Docs/Rendering-Pipeline.md`), so the open scene never shows in it and it never shows in the scene. Left drag orbits, middle or Shift drag pans, the wheel zooms and F frames the tree. Its toolbar has toggles for Wind, Wireframe and Ground, Studio or Scene lighting, the level of detail (Auto, picked by screen size as in the game, or forced), the planned Bounds and Skeleton overlays, and Frame. The controls wrap onto more rows when the pane is narrow. Over the image are the drawn level and its triangles, a Generating badge, and the mouse controls while hovered. Studio lighting has a sun direction and height; Scene Lighting borrows the scene camera's sky, exposure and post settings, without fog or depth of field. The preview renders only while its window is shown.
 
 ### Terrain panel: Trees workspace
 
-The seventh workspace lists the project's `.mtree` files (under `Assets/`), each with **Edit** (opens MitchTree) and **Add to Foliage** (a species of the selected terrain's foliage, painted in the Foliage workspace). **New Tree** writes `Assets/Trees/<Preset>.mtree` and opens it.
+The seventh workspace lists the project's `.mtree` files (under `Assets/`). Each shows an icon for its kind of foliage (broadleaf, needles, fronds or bare), with **Edit** (opens MitchTree) and **Add to Foliage** (a species of the selected terrain's foliage, painted in the Foliage workspace). **New Tree** writes `Assets/Trees/<Preset>.mtree` and opens it.
 
 ### Automation
 
 `tree-*` commands in `--editor-exec` scripts (full list in `TreeAutomation.h`):
 
 - **Assets**: `tree-new`, `tree-place`, `tree-wait`, `tree-assert`, `tree-set`, `tree-foliage`.
-- **The editor's active document**: `tree-open`, `tree-close`, `tree-edit <field> | <json>`, `tree-preset`, `tree-seed`, `tree-undo`, `tree-redo`, `tree-save`, `tree-preview <option> | <value>`.
-- **Checks**: `tree-wait-preview`, `tree-assert-stats <min> | <max>`, `tree-assert-dirty`, `tree-assert-lod`, `tree-screenshot <path.png>` (the preview's own image, read back from the GPU).
+- **The editor's active document**: `tree-open`, `tree-close`, `tree-assert-open <path> | <0|1>`, `tree-edit <field> | <json>`, `tree-preset`, `tree-seed`, `tree-undo`, `tree-redo`, `tree-save`, `tree-preview <option> | <value>`, `tree-page <page> [| level]` (shows a rail page), `tree-level <add|remove|toggle> [| level]`.
+- **Checks**: `tree-wait-preview`, `tree-assert-stats <min> | <max>`, `tree-assert-dirty`, `tree-assert-lod`, `tree-assert-levels <levels> [| <on>]`, `tree-screenshot <path.png>` (the preview's own image, read back from the GPU).
 
 The flows are `../Assets/Scenes/Tests/TreeFlows.edscript` and `../Assets/Scenes/Tests/TreeEditorFlows.edscript`.
 

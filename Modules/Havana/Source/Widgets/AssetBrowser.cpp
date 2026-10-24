@@ -1,7 +1,9 @@
 #include "AssetBrowser.h"
+#include "Procedural/Tree/TreeAsset.h"
 #include "Procedural/Tree/TreePresets.h"
 #include "Widgets/Terrain/TerrainWidget.h"
 #include "Widgets/Terrain/TerrainAssetActions.h"
+#include "Widgets/Tree/TreeWidget.h"
 #include "World/SceneSerializer.h"
 #include "Editor/PrefabTools.h"
 #include "Editor/EditorActions.h"
@@ -39,6 +41,7 @@
 #include <ImGuiTheme.h>
 #include <Utils/HavanaUtils.h>
 #include "Utils/ImGuiUtils.h"
+#include "Utils/EditorIcons.h"
 #include <algorithm>
 #include <cctype>
 #include <chrono>
@@ -1486,7 +1489,7 @@ void AssetBrowserWidget::DrawEntryContextMenu( Entry& InEntry )
     {
         OpenEntry( InEntry );
     }
-    if( ImGui::MenuItem( InEntry.IsDirectory ? "Open Folder" : "Open" ) )
+    if( ImGui::MenuItem( InEntry.IsDirectory ? "Open Folder" : EndsWith( InEntry.FullPath, ".mtree" ) ? "Edit in MitchTree" : "Open" ) )
     {
         OpenEntry( InEntry );
     }
@@ -1679,6 +1682,10 @@ void AssetBrowserWidget::DrawDetails()
     {
         DrawShaderGraphDetails();
     }
+    if( EndsWith( m_detailsPath, ".mtree" ) )
+    {
+        DrawTreeDetails();
+    }
 
     if( m_focusedResource )
     {
@@ -1796,6 +1803,45 @@ void AssetBrowserWidget::DrawShaderGraphDetails()
             HavanaUtils::Label( "Cast Shadows" );
             ImGui::TextUnformatted( settings.CastShadows ? "On" : "Off" );
         }
+    }
+}
+
+
+void AssetBrowserWidget::DrawTreeDetails()
+{
+    std::error_code error;
+    const auto written = fs::last_write_time( m_detailsPath, error );
+    const std::string key = m_detailsPath + "@" + std::to_string( error ? 0 : written.time_since_epoch().count() );
+    if( key != m_treeInfoKey )
+    {
+        m_treeInfoKey = key;
+        MitchTree::TreeRecipe recipe;
+        std::string loadError;
+        if( MitchTree::LoadRecipe( m_detailsPath, recipe, loadError ) )
+        {
+            static const char* kKinds[] = { "No leaves", "Broadleaf", "Needles", "Fronds" };
+            const int levels = static_cast<int>( std::count_if( recipe.Branches.begin(), recipe.Branches.end(), []( const auto& InLevel ) { return InLevel.Enabled; } ) );
+            m_treeIcon = TreeWidget::IconFor( recipe );
+            m_treeInfo = std::string( kKinds[static_cast<int>( recipe.Leaves.Kind )] ) + ", " + std::to_string( levels ) + ( levels == 1 ? " branch level" : " branch levels" ) + ", seed " + std::to_string( recipe.Seed );
+        }
+        else
+        {
+            m_treeIcon = "alert-triangle";
+            m_treeInfo = loadError;
+        }
+    }
+    const float icon = ImGuiTheme::Em( 1.6f );
+    const ImVec2 at = ImGui::GetCursorScreenPos();
+    EditorIcons::Image( m_treeIcon, icon, ImGui::GetColorU32( ImGuiCol_Text ) );
+    ImGui::SameLine();
+    ImGui::SetCursorScreenPos( ImVec2( ImGui::GetCursorScreenPos().x, at.y + ( icon - ImGui::GetTextLineHeight() ) * 0.5f ) );
+    ImGui::TextWrapped( "%s", m_treeInfo.c_str() );
+    ImGui::SetCursorScreenPos( ImVec2( at.x, std::max( ImGui::GetCursorScreenPos().y, at.y + icon + ImGui::GetStyle().ItemSpacing.y ) ) );
+    if( ImGui::Button( "Edit in MitchTree", ImVec2( -1.f, 0.f ) ) )
+    {
+        OpenTreeEvent event;
+        event.TreePath = LocalPath( m_detailsPath );
+        event.Fire();
     }
 }
 

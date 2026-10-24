@@ -106,9 +106,17 @@ namespace TreeAutomation
             if( args.empty() || !TreeWidget::Get() || !TreeWidget::Get()->Close( args[0] ) ) { OutError = "No open tree " + ( args.empty() ? std::string() : args[0] ); return false; }
             return true;
         }
+        if( InCommand == "tree-assert-open" )
+        {
+            if( args.size() < 2 || !TreeWidget::Get() ) { OutError = "Usage: tree-assert-open <path.mtree> | <0|1>"; return false; }
+            const bool open = TreeWidget::Get()->Find( args[0] ) != nullptr;
+            if( open != ( args[1] == "1" ) ) { OutError = args[0] + ( open ? " is open in MitchTree" : " isn't open in MitchTree" ); return false; }
+            return true;
+        }
         const bool documentAssert = InCommand.rfind( "tree-assert-", 0 ) == 0 && InCommand != "tree-assert-regenerated";
         if( documentAssert || InCommand == "tree-edit" || InCommand == "tree-preset" || InCommand == "tree-seed" || InCommand == "tree-undo" || InCommand == "tree-redo"
-            || InCommand == "tree-save" || InCommand == "tree-preview" || InCommand == "tree-wait-preview" || InCommand == "tree-screenshot" )
+            || InCommand == "tree-save" || InCommand == "tree-preview" || InCommand == "tree-wait-preview" || InCommand == "tree-screenshot" || InCommand == "tree-page"
+            || InCommand == "tree-level" )
         {
             TreeDocument* document = TreeWidget::Get() ? TreeWidget::Get()->GetActive() : nullptr;
             if( !document ) { OutError = "No tree is open in MitchTree"; return false; }
@@ -132,6 +140,36 @@ namespace TreeAutomation
             if( InCommand == "tree-seed" ) { document->RandomizeSeed(); s_previewSettled = 0; return true; }
             if( InCommand == "tree-undo" ) { document->GetUndo().Undo(); s_previewSettled = 0; return true; }
             if( InCommand == "tree-redo" ) { document->GetUndo().Redo(); s_previewSettled = 0; return true; }
+            if( InCommand == "tree-page" )
+            {
+                const int level = args.size() > 1 ? std::stoi( args[1] ) - 1 : 0;
+                if( args.empty() || !document->ShowPage( args[0], level ) ) { OutError = "Usage: tree-page <Tree|Trunk|Branches|Leaves|...> [| level]"; return false; }
+                return true;
+            }
+            if( InCommand == "tree-level" )
+            {
+                const int levels = static_cast<int>( document->GetRecipe().Branches.size() );
+                const int level = args.size() > 1 ? std::stoi( args[1] ) - 1 : levels - 1;
+                if( args.empty() || ( args[0] != "add" && ( level < 0 || level >= levels ) ) ) { OutError = "Usage: tree-level <add|remove|toggle> [| level]"; return false; }
+                if( args[0] == "add" ) document->AddLevel();
+                else if( args[0] == "remove" ) document->RemoveLevel( level );
+                else if( args[0] == "toggle" ) document->ToggleLevel( level );
+                else { OutError = "Unknown tree-level action " + args[0]; return false; }
+                s_previewSettled = 0;
+                return true;
+            }
+            if( InCommand == "tree-assert-levels" )
+            {
+                // tree-assert-levels <levels> [| <enabled>]
+                const std::vector<MitchTree::BranchLevel>& branches = document->GetRecipe().Branches;
+                const int enabled = static_cast<int>( std::count_if( branches.begin(), branches.end(), []( const MitchTree::BranchLevel& InLevel ) { return InLevel.Enabled; } ) );
+                if( args.empty() || static_cast<int>( branches.size() ) != std::stoi( args[0] ) || ( args.size() > 1 && enabled != std::stoi( args[1] ) ) )
+                {
+                    OutError = "The recipe has " + std::to_string( branches.size() ) + " branch levels (" + std::to_string( enabled ) + " on)";
+                    return false;
+                }
+                return true;
+            }
             if( InCommand == "tree-save" )
             {
                 if( !document->Save() ) { OutError = "Save failed"; return false; }

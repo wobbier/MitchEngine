@@ -13,11 +13,11 @@
 #include <vector>
 
 // Per-user editor state and preferences (.tmp/Havana.cfg): camera, panel visibility, recent
-// scenes and a free-form preference table used by the Preferences window.
+// scenes and trees, and a free-form preference table used by the Preferences window.
 class EditorConfig
 {
 	static constexpr const char* kConfigPath = ".tmp/Havana.cfg";
-	static constexpr size_t kMaxRecentScenes = 10;
+	static constexpr size_t kMaxRecent = 10;
 
 public:
 	Vector3 CameraPosition;
@@ -32,6 +32,8 @@ public:
 
 	std::map<std::string, EditorWidgetProperties> PanelVisibility;
 	std::vector<std::string> RecentScenes;
+	// MitchTree recipes, most recently opened first.
+	std::vector<std::string> RecentTrees;
 	json Preferences = json::object();
 
 	template<typename T>
@@ -60,16 +62,12 @@ public:
 
 	void AddRecentScene(const std::string& scenePath)
 	{
-		if (scenePath.empty())
-		{
-			return;
-		}
-		RecentScenes.erase(std::remove(RecentScenes.begin(), RecentScenes.end(), scenePath), RecentScenes.end());
-		RecentScenes.insert(RecentScenes.begin(), scenePath);
-		if (RecentScenes.size() > kMaxRecentScenes)
-		{
-			RecentScenes.resize(kMaxRecentScenes);
-		}
+		AddRecent(RecentScenes, scenePath);
+	}
+
+	void AddRecentTree(const std::string& treePath)
+	{
+		AddRecent(RecentTrees, treePath);
 	}
 
 	void Init()
@@ -116,17 +114,8 @@ public:
 				PanelVisibility[i.key()] = { i.value().value("IsVisible", false) };
 			}
 		}
-		if (inJson.contains("RecentScenes") && inJson["RecentScenes"].is_array())
-		{
-			RecentScenes.clear();
-			for (const json& entry : inJson["RecentScenes"])
-			{
-				if (entry.is_string())
-				{
-					RecentScenes.push_back(entry.get<std::string>());
-				}
-			}
-		}
+		ReadRecent(inJson, "RecentScenes", RecentScenes);
+		ReadRecent(inJson, "RecentTrees", RecentTrees);
 		if (inJson.contains("Preferences") && inJson["Preferences"].is_object())
 		{
 			Preferences = inJson["Preferences"];
@@ -154,6 +143,7 @@ public:
 			widgets[panel.first] = { { "Name", panel.first }, { "IsVisible", panel.second.IsVisible } };
 		}
 		config["RecentScenes"] = RecentScenes;
+		config["RecentTrees"] = RecentTrees;
 		config["Preferences"] = Preferences;
 
 		File configFile(configPath);
@@ -161,4 +151,36 @@ public:
 	}
 
 	ME_SINGLETON_DEFINITION(EditorConfig)
+
+private:
+	static void AddRecent(std::vector<std::string>& recent, const std::string& path)
+	{
+		if (path.empty())
+		{
+			return;
+		}
+		recent.erase(std::remove(recent.begin(), recent.end(), path), recent.end());
+		recent.insert(recent.begin(), path);
+		if (recent.size() > kMaxRecent)
+		{
+			recent.resize(kMaxRecent);
+		}
+	}
+
+	static void ReadRecent(const json& inJson, const char* key, std::vector<std::string>& out)
+	{
+		auto it = inJson.find(key);
+		if (it == inJson.end() || !it->is_array())
+		{
+			return;
+		}
+		out.clear();
+		for (const json& entry : *it)
+		{
+			if (entry.is_string())
+			{
+				out.push_back(entry.get<std::string>());
+			}
+		}
+	}
 };

@@ -22,6 +22,7 @@
 #include "Editor/EditorOperations.h"
 #include "Editor/EditorActions.h"
 #include "Editor/UndoStack.h"
+#include "Widgets/Tree/TreeWidget.h"
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
@@ -576,6 +577,13 @@ void SceneHierarchyWidget::DrawEntityContextMenu(Entity& entity, Transform* tran
 	{
 		CommonUtils::DrawAddComponentList(handle);
 		ImGui::EndMenu();
+	}
+	const std::string tree = TreeWidget::GetTreePath(entity);
+	if (!tree.empty() && ImGui::MenuItem("Edit in MitchTree"))
+	{
+		OpenTreeEvent open;
+		open.TreePath = tree;
+		open.Fire();
 	}
 	ImGui::Separator();
 	EditorActions::Get().MenuItem("Edit.Rename");

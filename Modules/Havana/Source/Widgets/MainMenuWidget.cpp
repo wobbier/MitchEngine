@@ -17,6 +17,7 @@
 #include <Window/SDLWindow.h>
 #include "Config.h"
 #include "Events/EditorEvents.h"
+#include "Widgets/Tree/TreeWidget.h"
 #include <ImGuiTheme.h>
 
 #if USING( ME_EDITOR )
@@ -149,6 +150,11 @@ void MainMenuWidget::Render()
                 ImGui::EndMenu();
             }
             actions.MenuItem( "ShaderGraph.Open" );
+            if( TreeWidget* trees = TreeWidget::Get() )
+            {
+                ImGui::Separator();
+                trees->DrawFileMenuItems();
+            }
             ImGui::Separator();
             actions.MenuItem( "File.Save" );
             actions.MenuItem( "File.SaveAs" );
@@ -211,6 +217,11 @@ void MainMenuWidget::Render()
                         ImGui::MenuItem( i->Name.c_str(), i->Hotkey.c_str(), &i->IsOpen );
                     }
                 }
+            }
+            if( TreeWidget* trees = TreeWidget::Get() )
+            {
+                ImGui::Separator();
+                trees->DrawViewMenu();
             }
             ImGui::EndMenu();
         }

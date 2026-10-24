@@ -86,6 +86,7 @@ private:
     void DrawCreateMenuItems();
     void DrawDetails();
     void DrawShaderGraphDetails();
+    void DrawTreeDetails();
     void DrawPickerFooter();
     void DrawModals();
 
@@ -170,6 +171,10 @@ private:
     std::unique_ptr<ShaderGraphPreview> m_graphPreview;
     bool m_graphPreviewDirty = true;
     std::string m_graphPreviewError;
+    // The selected tree recipe's summary, read again when the file changes (path + write time).
+    std::string m_treeInfoKey;
+    const char* m_treeIcon = "tree";
+    std::string m_treeInfo;
 
     // Picker / save dialog
     std::function<void( Path )> m_pickCallback;

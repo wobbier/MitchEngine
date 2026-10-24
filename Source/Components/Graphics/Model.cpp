@@ -677,6 +677,14 @@ void Model::RecursiveLoadMesh( Moonlight::Node& root, EntityHandle& parentEnt, f
 
 void Model::OnEditorInspect()
 {
+    // A MitchTree recipe is edited in the tree editor (saving there regenerates this instance).
+    const std::string path = ModelPath.GetLocalPathString();
+    if( path.size() > 6 && path.compare( path.size() - 6, 6, ".mtree" ) == 0 && ImGui::Button( "Edit in MitchTree", ImVec2( -1.f, 0.f ) ) )
+    {
+        OpenTreeEvent open;
+        open.TreePath = path;
+        open.Fire();
+    }
     if( ModelHandle )
     {
         HavanaUtils::Label( "Loaded Path" );

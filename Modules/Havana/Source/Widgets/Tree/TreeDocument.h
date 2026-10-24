@@ -57,6 +57,12 @@ public:
     bool SetField( const std::string& InPath, const json& InValue );
     void ApplyPreset( const std::string& InPreset );
     void RandomizeSeed();
+    // Branch levels: AddLevel appends a finer copy of the deepest one; InLevel counts from 0.
+    void AddLevel();
+    void RemoveLevel( int InLevel );
+    void ToggleLevel( int InLevel );
+    // Shows a side panel page by its title ("Trunk", "Leaf Texture"...; "Branches" with InLevel).
+    bool ShowPage( const std::string& InName, int InLevel = 0 );
     UndoStack& GetUndo()
     {
         return m_undo;
@@ -86,14 +92,19 @@ private:
         std::map<std::string, bimg::ImageContainer*> Images;   // re-baked texture channels
     };
 
+    // The side panel's pages, in the rail's order. Branch is one page per level (m_level).
+    enum class Section { Tree, Trunk, Branch, Leaves, LeafMaterial, LeafTexture, Bark, BarkTexture, Wind, Lod };
+
     // Records the recipe's current state as one undo step (InKey merges continuous drags).
     void Commit( const std::string& InName, const std::string& InKey );
     void RequestRegenerate();
     void StartJob();
     void FinishJob();
     void DrawToolbar();
-    void DrawSections();
+    void DrawRail( bool InLabels );
+    void DrawSectionHeader();
     void DrawProperties();
+    void DrawTreeSection();
     void DrawPreviewPane();
     void DrawClosePrompt();
 
@@ -113,7 +124,8 @@ private:
     std::map<std::string, SharedPtr<Moonlight::Texture>> m_textures;
     std::map<std::string, std::string> m_textureKeys;
 
-    int m_section = 0;
+    Section m_section = Section::Tree;
+    int m_level = 0;
     float m_sidePanelWidth = 0.f;
     bool m_isOpen = true;
     bool m_isFocused = false;
