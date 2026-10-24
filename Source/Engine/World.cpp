@@ -38,6 +38,7 @@ namespace
 
 World::World()
 {
+    m_pools.resize( kMaxComponentTypes );
 }
 
 

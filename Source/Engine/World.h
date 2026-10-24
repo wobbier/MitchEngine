@@ -78,8 +78,12 @@ public:
     void Each( Fn&& fn );
 
     // ------------------------------------------------------------------ Components
+    // T's pool, created on first use. Main thread only: use FindComponentPool to read.
     template<typename T>
     ComponentPool<T>& GetComponentPool();
+    // T's pool, or null while no T was ever added. Never creates one, so jobs may call it.
+    template<typename T>
+    ComponentPool<T>* FindComponentPool() const;
     IComponentPool* GetComponentPool( TypeId InTypeId ) const;
 
     template<typename T, typename... Args>
@@ -182,7 +186,8 @@ private:
     std::unordered_map<uint64_t, uint32_t> m_guidToIndex;
     uint16_t m_loadingScene = 0;
 
-    std::vector<std::unique_ptr<IComponentPool>> m_pools;   // indexed by component TypeId
+    // Indexed by component TypeId; sized once (kMaxComponentTypes) so lookups never race a resize.
+    std::vector<std::unique_ptr<IComponentPool>> m_pools;
 
     CoreArray Cores;
     std::vector<BaseCore*> m_sortedCores;
@@ -203,15 +208,19 @@ ComponentPool<T>& World::GetComponentPool()
 {
     const TypeId typeId = T::GetStaticTypeId();
     ME_ASSERT_MSG( typeId < kMaxComponentTypes, "Too many component types: raise kMaxComponentTypes." );
-    if( typeId >= m_pools.size() )
-    {
-        m_pools.resize( typeId + 1 );
-    }
     if( !m_pools[typeId] )
     {
         m_pools[typeId] = std::make_unique<ComponentPool<T>>();
     }
     return static_cast<ComponentPool<T>&>( *m_pools[typeId] );
+}
+
+
+template<typename T>
+ComponentPool<T>* World::FindComponentPool() const
+{
+    const TypeId typeId = T::GetStaticTypeId();
+    return typeId < m_pools.size() ? static_cast<ComponentPool<T>*>( m_pools[typeId].get() ) : nullptr;
 }
 
 
@@ -296,18 +305,35 @@ void World::Each( Fn&& fn )
     required.set( First::GetStaticTypeId() );
     ( required.set( Rest::GetStaticTypeId() ), ... );
 
-    ComponentPool<First>& pool = GetComponentPool<First>();
-    ++m_iterationDepth;
-    // Iterate a snapshot of the entries: components added inside fn must not invalidate iteration.
-    const std::vector<IComponentPool::Entry> entries = pool.GetEntries();
-    for( const IComponentPool::Entry& entry : entries )
+    // Walk the smallest requested pool: Each<Transform, Light> visits the lights, not every transform.
+    const IComponentPool* pools[] = { FindComponentPool<First>(), FindComponentPool<Rest>()... };
+    const IComponentPool* driver = nullptr;
+    for( const IComponentPool* pool : pools )
     {
-        EntityRecord& record = m_records[entry.EntityIndex];
+        if( !pool )
+        {
+            return;   // a type nobody has: nothing matches
+        }
+        if( !driver || pool->Count() < driver->Count() )
+        {
+            driver = pool;
+        }
+    }
+    ComponentPool<First>& first = *FindComponentPool<First>();
+
+    ++m_iterationDepth;
+    // By index over the entries present at the start, without copying them: components added
+    // inside fn append (and may reallocate) and aren't visited; removals wait for the sync point.
+    const size_t count = driver->Count();
+    for( size_t i = 0; i < count; ++i )
+    {
+        const uint32_t entityIndex = driver->GetEntries()[i].EntityIndex;
+        EntityRecord& record = m_records[entityIndex];
         if( !record.Alive || !record.ActiveInHierarchy || ( record.EnabledMask & required ) != required )
         {
             continue;
         }
-        fn( record.Facade, *static_cast<First*>( entry.Component ), *GetComponentPool<Rest>().Find( entry.EntityIndex )... );
+        fn( record.Facade, *first.Find( entityIndex ), *FindComponentPool<Rest>()->Find( entityIndex )... );
     }
     --m_iterationDepth;
 }
@@ -336,7 +362,8 @@ template <typename T>
 T& Entity::GetComponent() const
 {
     static_assert( std::is_base_of<BaseComponent, T>(), "T is not a component, cannot get T from Entity" );
-    T* component = GameWorld->GetComponentPool<T>().Find( Id.Index );
+    ComponentPool<T>* pool = GameWorld->FindComponentPool<T>();
+    T* component = pool ? pool->Find( Id.Index ) : nullptr;
     ME_ASSERT_MSG( component, "Entity does not have the requested component." );
     return *component;
 }
@@ -346,7 +373,8 @@ template <typename T>
 T* Entity::TryGetComponent() const
 {
     static_assert( std::is_base_of<BaseComponent, T>(), "T is not a component" );
-    return IsValid() ? GameWorld->GetComponentPool<T>().Find( Id.Index ) : nullptr;
+    ComponentPool<T>* pool = IsValid() ? GameWorld->FindComponentPool<T>() : nullptr;
+    return pool ? pool->Find( Id.Index ) : nullptr;
 }
 
 

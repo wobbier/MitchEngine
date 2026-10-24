@@ -72,7 +72,8 @@ Structural changes queue the entity; `Simulate` then, for each queued entity: re
 
 ### Queries
 
-- `World::Each<A, B>( fn( Entity&, A&, B& ) )` — every live, active entity with all listed components enabled; iterates the first type's pool.
+- `World::Each<A, B>( fn( Entity&, A&, B& ) )` — every live, active entity with all listed components enabled. It walks the smallest of the listed pools by index, without copying it (`Each<Transform, Light>` visits the lights, not every transform); components added inside `fn` aren't visited, and removals wait for the sync point.
+- `World::FindComponentPool<T>()` returns T's pool or null and never creates one, so jobs may use it (as `Entity::GetComponent` / `TryGetComponent` do). `GetComponentPool<T>()` creates the pool on first use and is main-thread only.
 - `World::ForEachEntity`, `FindEntityByGUID`, `FindEntityByName`, `GetEntity`.
 
 ## How to Extend

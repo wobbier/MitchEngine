@@ -339,6 +339,28 @@ TEST_CASE( "ECS: World::Each visits matching active entities" )
     } );
     CHECK( visited == 4 );                  // 0, 2, 6, 8 (4 is inactive)
     CHECK( sum == 0 + 2 + 6 + 8 );
+
+    // Either order of the types visits the same entities (the smaller pool drives the walk).
+    int reversed = 0;
+    world->Each<Shield, Health>( [&]( Entity&, Shield&, Health& ) { ++reversed; } );
+    CHECK( reversed == 4 );
+
+    // Components added during the walk aren't visited, and the walk survives the pool growing.
+    int added = 0;
+    world->Each<Health>( [&]( Entity& entity, Health& ) {
+        ++added;
+        EntityHandle extra = world->CreateEntity();
+        extra->AddComponent<Health>( 100 );
+        CHECK( entity.HasComponent<Health>() );
+    } );
+    CHECK( added == 9 );                    // the 10 entities minus the inactive one
+
+    // Reading a type nobody has never creates its pool (reads may run on jobs).
+    CHECK( world->FindComponentPool<Frozen>() == nullptr );
+    world->Each<Health, Frozen>( [&]( Entity&, Health&, Frozen& ) { FAIL( "nothing has Frozen" ); } );
+    EntityHandle probe = world->CreateEntity();
+    CHECK( probe->TryGetComponent<Frozen>() == nullptr );
+    CHECK( world->FindComponentPool<Frozen>() == nullptr );
 }
 
 
