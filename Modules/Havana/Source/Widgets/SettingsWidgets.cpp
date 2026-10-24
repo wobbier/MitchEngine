@@ -591,6 +591,14 @@ void PreferencesWidget::DrawGeneral()
 	}
 	ImGui::SetItemTooltip("Command used to open file:line references from the console. {file} and {line} are substituted.");
 
+	bool showPlanned = config.GetPreference<bool>("Editor.ShowPlannedTools", false);
+	HavanaUtils::Label("Show planned tools");
+	if (ImGui::Checkbox("##ShowPlanned", &showPlanned))
+	{
+		config.SetPreference("Editor.ShowPlannedTools", showPlanned);
+	}
+	ImGui::SetItemTooltip("Also show dimmed buttons for tools that aren't built yet (Terrain, MitchTree), with what they will do.");
+
 	HavanaUtils::SkipLabel();
 	if (ImGui::Button("Save Preferences"))
 	{

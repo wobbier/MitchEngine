@@ -21,7 +21,10 @@ namespace EditorIcons
     // A square toolbar button as tall as a field. InChecked fills it like a pressed toggle. The
     // tooltip (InLabel, then InDescription) also shows while it's disabled.
     bool Button( const char* InIcon, const char* InLabel, const char* InDescription = nullptr, bool InEnabled = true, bool InChecked = false );
-    // A disabled button for a feature that isn't built yet; its tooltip starts "Planned:".
+    // Whether unbuilt features are shown (Preferences > General > Show planned tools; off by default).
+    bool ShowPlanned();
+    // A disabled button for a feature that isn't built yet; its tooltip starts "Planned:". Draws
+    // nothing unless ShowPlanned().
     void Planned( const char* InIcon, const char* InLabel, const char* InDescription );
     // The tooltip the buttons use: a title line and a wrapped description.
     void Tooltip( const char* InLabel, const char* InDescription );

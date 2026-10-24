@@ -638,8 +638,11 @@ void TreeDocument::DrawToolbar()
         std::string error;
         if( !ExportObj( &error ) ) YIKES( "MitchTree export: " + error );
     }
-    ImGui::SameLine( 0.f, gap );
-    EditorIcons::Planned( "photo-down", "Bake Textures", "Write the generated bark and leaf maps to PNGs beside the recipe, to paint over." );
+    if( EditorIcons::ShowPlanned() )
+    {
+        ImGui::SameLine( 0.f, gap );
+        EditorIcons::Planned( "photo-down", "Bake Textures", "Write the generated bark and leaf maps to PNGs beside the recipe, to paint over." );
+    }
 
     // Generation status and the tree's size, right-aligned.
     struct Chip
@@ -755,6 +758,7 @@ void TreeDocument::DrawRail( bool InLabels )
         if( row( info.Icon, info.Name, description, m_section == InSection, true, InUnused != nullptr, 0 ) ) m_section = InSection;
     };
     auto planned = [&]( const char* InIcon, const char* InName, const char* InDescription ) {
+        if( !EditorIcons::ShowPlanned() ) return;
         row( InIcon, InName, std::string( "Planned: " ) + InDescription, false, false, false, 0 );
     };
 
@@ -1015,10 +1019,13 @@ void TreeDocument::DrawPreviewPane()
     }
     if( ImGui::IsItemHovered() ) ImGui::SetTooltip( "Level of detail: by screen size like the game, or forced." );
 
-    next( button * 2.f + gap, spacing );
-    EditorIcons::Planned( "box-model-2", "Bounds", "Draw the tree's bounding box and pivot." );
-    next( button, gap );
-    EditorIcons::Planned( "bone", "Skeleton", "Overlay the stems the mesh is grown from." );
+    if( EditorIcons::ShowPlanned() )
+    {
+        next( button * 2.f + gap, spacing );
+        EditorIcons::Planned( "box-model-2", "Bounds", "Draw the tree's bounding box and pivot." );
+        next( button, gap );
+        EditorIcons::Planned( "bone", "Skeleton", "Overlay the stems the mesh is grown from." );
+    }
     next( button, spacing );
     if( EditorIcons::Button( "focus-centered", "Frame", "Fit the tree in view (F). Left drag orbits, middle or Shift drag pans, the wheel zooms." ) ) m_preview->Frame();
 

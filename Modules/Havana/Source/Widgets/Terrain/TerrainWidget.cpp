@@ -31,7 +31,16 @@ namespace
     TerrainWidget* s_terrainWidget = nullptr;
     const char* kCategories[] = { "Sculpt", "Paint", "Tiles", "Foliage", "Splines", "Inspect", "Trees" };
     const char* kCategoryIcons[] = { "mountain", "paint", "layout-grid", "plant", "route", "eye", "tree" };
-    static_assert( std::size( kCategories ) == TerrainWidget::kCategoryCount && std::size( kCategoryIcons ) == TerrainWidget::kCategoryCount );
+    const char* kCategoryTooltips[] = {
+        "Sculpt source heights in World View.",
+        "Paint surface layers in World View.",
+        "Import, export and cook terrain tiles.",
+        "Paint foliage models onto the terrain.",
+        "Roads, rivers and paths (planned).",
+        "Visualize levels of detail, residency and budgets.",
+        "Generated trees (MitchTree): edit them and plant them as foliage." };
+    constexpr int kSplinesCategory = 4;
+    static_assert( std::size( kCategories ) == TerrainWidget::kCategoryCount && std::size( kCategoryIcons ) == TerrainWidget::kCategoryCount && std::size( kCategoryTooltips ) == TerrainWidget::kCategoryCount );
     const char* kToolNames[] = { "Raise", "Lower", "Smooth", "Flatten", "Paint", "Erase" };
     const char* kToolIcons[] = { "arrow-up", "arrow-down", "blur", "equal" };
     std::string Key( const std::string& path ) { return std::filesystem::path( Path( path ).FullPath ).lexically_normal().generic_string(); }
@@ -257,6 +266,7 @@ bool TerrainWidget::Button( const char* icon, const char* label, const char* des
 }
 void TerrainWidget::Planned( const char* icon, const char* label, const char* description )
 {
+    if( !EditorIcons::ShowPlanned() ) return;
     ImGui::TableNextColumn();
     Button( icon, label, ( std::string( "Planned: " ) + description ).c_str(), false );
 }
@@ -460,7 +470,7 @@ void TerrainWidget::DrawTools()
         }
         ImGui::EndTable();
     }
-    ImGui::TextDisabled( "Dimmed tools are planned. Hover for details." );
+    if( EditorIcons::ShowPlanned() ) ImGui::TextDisabled( "Dimmed tools are planned. Hover for details." );
     if( m_category == 5 ) { DrawStreamingControls(); DrawLodControls(); }
 }
 
@@ -571,11 +581,14 @@ void TerrainWidget::Render()
     // Two rows whatever the count, so the tools below keep their place.
     if( ImGui::BeginTable( "Modes", ( kCategoryCount + 1 ) / 2, ImGuiTableFlags_SizingStretchSame ) )
     {
+        // Splines has no working tools yet, so it only shows with the planned ones.
+        const bool showPlanned = EditorIcons::ShowPlanned();
+        if( !showPlanned && m_category == kSplinesCategory ) SetCategory( 0 );
         for( int i = 0; i < kCategoryCount; ++i )
         {
+            if( !showPlanned && i == kSplinesCategory ) continue;
             ImGui::TableNextColumn();
-            const char* tooltip = i == 0 ? "Sculpt source heights in World View." : i == kTreesCategory ? "Generated trees (MitchTree): edit them and plant them as foliage." : "Browse the planned tools in this workspace.";
-            if( Button( kCategoryIcons[i], kCategories[i], tooltip, true, m_category == i ) ) SetCategory( i );
+            if( Button( kCategoryIcons[i], kCategories[i], kCategoryTooltips[i], true, m_category == i ) ) SetCategory( i );
         }
         ImGui::EndTable();
     }

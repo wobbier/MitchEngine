@@ -2,6 +2,7 @@
 
 #if USING( ME_EDITOR )
 #include "ImGuiTheme.h"
+#include "Utils/EditorConfig.h"
 #include "Path.h"
 #include "Utils/ImGuiUtils.h"
 #include "imgui_internal.h"
@@ -106,8 +107,18 @@ bool EditorIcons::Button( const char* InIcon, const char* InLabel, const char* I
 }
 
 
+bool EditorIcons::ShowPlanned()
+{
+    return EditorConfig::GetInstance().GetPreference<bool>( "Editor.ShowPlannedTools", false );
+}
+
+
 void EditorIcons::Planned( const char* InIcon, const char* InLabel, const char* InDescription )
 {
+    if( !ShowPlanned() )
+    {
+        return;
+    }
     Button( InIcon, InLabel, ( std::string( "Planned: " ) + InDescription ).c_str(), false );
 }
 
