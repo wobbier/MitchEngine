@@ -7,6 +7,8 @@
 namespace Moonlight
 {
     class ShaderGraphAsset;
+    class ColorLut;
+    class Texture;
 
     enum class Tonemapper : uint8_t
     {
@@ -74,6 +76,10 @@ namespace Moonlight
         float Gamma = 1.f;
         float Lift = 0.f;
         float Gain = 1.f;
+        // Display-referred grading LUT: a .cube volume, or an image strip of N slices of NxN.
+        SharedPtr<ColorLut> Lut;
+        SharedPtr<Texture> LutStrip;
+        float LutContribution = 1.f;
 
         float VignetteIntensity = 0.2f;
         float VignetteSmoothness = 0.6f;

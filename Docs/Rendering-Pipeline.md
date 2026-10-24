@@ -304,7 +304,7 @@ Per camera, from `CameraData::Post`, which `CameraCore` copies from a `PostProce
   - Exposure (manual stops or adapted), bloom mix and white balance.
   - ACES / AgX / Reinhard / none.
   - Saturation, contrast, lift/gamma/gain and vignette.
-  - Accurate gamma encode with ±0.5 LSB dither.
+  - Accurate gamma encode, then an optional display-referred grading LUT (`Lut` on PostProcess): a `.cube` file parsed to an RGBA16F volume, or an unmipped image strip of N slices of N×N; `LutContribution` blends it. Stock grades ship in `Engine/Assets/Textures/LUTs` and `.cube` files hot reload. ±0.5 LSB dither last.
   - Writes luma to alpha only when FXAA follows.
 - **FXAA** into the final target.
 

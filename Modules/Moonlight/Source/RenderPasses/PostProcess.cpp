@@ -2,6 +2,8 @@
 #include "Camera/CameraData.h"
 #include "Camera/DepthOfField.h"
 #include "Device/FrameBuffer.h"
+#include "Graphics/ColorLut.h"
+#include "Graphics/Texture.h"
 #include "Primitives/Cube.h"
 #include "RenderViews.h"
 #include "Utils/BGFXUtils.h"
@@ -127,9 +129,15 @@ namespace Moonlight
         u_taaJitter = bgfx::createUniform( "u_taaJitter", bgfx::UniformType::Vec4 );
         u_taaReproject = bgfx::createUniform( "u_taaReproject", bgfx::UniformType::Mat4 );
         u_graphSceneFilter = bgfx::createUniform( "u_graphSceneFilter", bgfx::UniformType::Vec4 );
+        s_lut = bgfx::createUniform( "s_lut", bgfx::UniformType::Sampler );
+        s_lutStrip = bgfx::createUniform( "s_lutStrip", bgfx::UniformType::Sampler );
+        u_lut = bgfx::createUniform( "u_lut", bgfx::UniformType::Vec4 );
 
         m_blackTexture = MakeSolid( 0.f );
         m_whiteTexture = MakeSolid( 1.f );
+        const uint16_t volumeTexel[4] = {};
+        m_identityVolume = bgfx::createTexture3D( 1, 1, 1, false, bgfx::TextureFormat::RGBA16F,
+            BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP | BGFX_SAMPLER_W_CLAMP, bgfx::copy( volumeTexel, sizeof( volumeTexel ) ) );
     }
 
 
@@ -137,12 +145,13 @@ namespace Moonlight
     {
         for( bgfx::UniformHandle* uniform : { &s_input0, &s_input1, &s_hdrColor, &s_bloom, &s_exposure, &s_ldrColor, &u_tonemap, &u_grading, &u_grading2, &u_exposure, &u_bloom, &u_ssao, &u_ssaoProjection, &u_ssaoScreen, &u_ssaoInvProjection, &u_adapt,
             &u_fogProjection, &u_fogProjection2, &u_fogScreen, &u_fogInvView, &s_taaCurrent, &s_taaHistory, &s_taaDepth, &u_taaParams, &u_taaJitter, &u_taaReproject, &u_graphSceneFilter,
-            &s_dof0, &s_dof1, &s_dof2, &s_dof3, &s_dof4, &u_dofLens, &u_dofSplit, &u_dofProjection, &u_dofScreen, &u_dofPass, &u_dofJitter } )
+            &s_dof0, &s_dof1, &s_dof2, &s_dof3, &s_dof4, &u_dofLens, &u_dofSplit, &u_dofProjection, &u_dofScreen, &u_dofPass, &u_dofJitter, &s_lut, &s_lutStrip, &u_lut } )
         {
             DestroyUniform( *uniform );
         }
         if( bgfx::isValid( m_blackTexture ) ) bgfx::destroy( m_blackTexture );
         if( bgfx::isValid( m_whiteTexture ) ) bgfx::destroy( m_whiteTexture );
+        if( bgfx::isValid( m_identityVolume ) ) bgfx::destroy( m_identityVolume );
     }
 
 
@@ -545,13 +554,40 @@ namespace Moonlight
         const float grading[4] = { settings.Saturation, settings.Contrast, settings.Temperature, settings.Tint };
         const float grading2[4] = { settings.VignetteSmoothness, settings.Gamma, settings.Lift, settings.Gain };
         const float exposure[4] = { settings.AutoExposure ? 1.f : 0.f, compensation, fxaa ? 1.f : 0.f, 0.f };
+        // The grading LUT: a .cube volume, else an image strip of N slices of NxN (height N,
+        // width NxN; anything else is ignored rather than sampled wrongly).
+        float lutMode = 0.f;
+        float lutSize = 0.f;
+        bgfx::TextureHandle lutVolume = m_identityVolume;
+        bgfx::TextureHandle lutStrip = m_blackTexture;
+        const float lutContribution = std::clamp( settings.LutContribution, 0.f, 1.f );
+        if( lutContribution > 0.f )
+        {
+            if( settings.Lut && settings.Lut->IsReady() )
+            {
+                lutMode = 1.f;
+                lutSize = static_cast<float>( settings.Lut->GetSize() );
+                lutVolume = settings.Lut->GetHandle();
+            }
+            else if( settings.LutStrip && bgfx::isValid( settings.LutStrip->TexHandle )
+                && settings.LutStrip->mHeight > 1 && settings.LutStrip->mWidth == settings.LutStrip->mHeight * settings.LutStrip->mHeight )
+            {
+                lutMode = 2.f;
+                lutSize = static_cast<float>( settings.LutStrip->mHeight );
+                lutStrip = settings.LutStrip->TexHandle;
+            }
+        }
+        const float lut[4] = { lutSize, lutContribution, lutMode, 0.f };
         bgfx::setUniform( u_tonemap, tonemap );
         bgfx::setUniform( u_grading, grading );
         bgfx::setUniform( u_grading2, grading2 );
         bgfx::setUniform( u_exposure, exposure );
+        bgfx::setUniform( u_lut, lut );
         bgfx::setTexture( 0, s_hdrColor, InTargets.PostInput );
         bgfx::setTexture( 1, s_bloom, bloom ? InTargets.BloomMips[0].Color : m_blackTexture );
         bgfx::setTexture( 2, s_exposure, exposureTexture );
+        bgfx::setTexture( 3, s_lut, lutVolume, BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP | BGFX_SAMPLER_W_CLAMP );
+        bgfx::setTexture( 4, s_lutStrip, lutStrip, BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP );
         SubmitFullscreen( tonemapView, m_tonemapProgram );
 
         if( fxaa )

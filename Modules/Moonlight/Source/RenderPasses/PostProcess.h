@@ -117,8 +117,13 @@ namespace Moonlight
         bgfx::UniformHandle u_taaJitter = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_taaReproject = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_graphSceneFilter = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_lut = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_lutStrip = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_lut = BGFX_INVALID_HANDLE;
 
         bgfx::TextureHandle m_blackTexture = BGFX_INVALID_HANDLE;
         bgfx::TextureHandle m_whiteTexture = BGFX_INVALID_HANDLE;
+        // Bound to the volume LUT slot when no LUT is active (samplers must always be bound).
+        bgfx::TextureHandle m_identityVolume = BGFX_INVALID_HANDLE;
     };
 }

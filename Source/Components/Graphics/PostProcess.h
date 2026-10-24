@@ -71,6 +71,10 @@ public:
     float Gamma = 1.f;
     float Lift = 0.f;
     float Gain = 1.f;
+    // Display-referred LUT: a .cube file, or an image strip of N slices of NxN (give a strip
+    // Format None, no mips). Stock grades ship in Engine/Assets/Textures/LUTs.
+    Path Lut;
+    float LutContribution = 1.f;
 
     // Vignette
     float VignetteIntensity = 0.2f;
@@ -97,6 +101,10 @@ private:
 
     // Loaded graphs by path (resolved on the main thread in ToSettings).
     mutable std::vector<std::pair<std::string, SharedPtr<Moonlight::ShaderGraphAsset>>> m_graphs;
+    // The loaded LUT, by extension: .cube volumes, otherwise an image strip (main thread).
+    mutable SharedPtr<Moonlight::ColorLut> m_lut;
+    mutable SharedPtr<Moonlight::Texture> m_lutStrip;
+    mutable std::string m_loadedLut;
 };
 
 ME_REGISTER_COMPONENT_FOLDER( PostProcess, "Rendering" )

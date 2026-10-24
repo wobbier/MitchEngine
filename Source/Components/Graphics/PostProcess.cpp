@@ -1,5 +1,7 @@
 #include "PCH.h"
 #include "PostProcess.h"
+#include "Graphics/ColorLut.h"
+#include "Graphics/Texture.h"
 #include "Materials/ShaderGraphAsset.h"
 #include "Resource/ResourceCache.h"
 
@@ -51,6 +53,8 @@ ME_REFLECT_BEGIN( PostProcess )
     ME_FIELD( Gamma ).Category( "Color Grading" ).Range( 0.2f, 3.f );
     ME_FIELD( Lift ).Category( "Color Grading" ).Range( -0.5f, 0.5f );
     ME_FIELD( Gain ).Category( "Color Grading" ).Range( 0.f, 2.f );
+    ME_FIELD( Lut ).Display( "LUT" ).Category( "Color Grading" ).Tooltip( "Display-referred lookup table: a .cube file (Resolve/Photoshop export), or an image strip of N slices of NxN with Format None and no mips. Stock grades: Engine/Assets/Textures/LUTs" );
+    ME_FIELD( LutContribution ).Display( "LUT Contribution" ).Category( "Color Grading" ).Range( 0.f, 1.f ).Tooltip( "Blend between the graded and ungraded image" );
     ME_FIELD( VignetteIntensity ).Category( "Vignette" ).Range( 0.f, 1.f );
     ME_FIELD( VignetteSmoothness ).Category( "Vignette" ).Range( 0.01f, 2.f );
     ME_FIELD( Graphs ).Category( "Shader Graphs" ).Asset( "ShaderGraph" ).Tooltip( "Post Process shader graphs, applied in order (each before or after tonemapping, per the graph)" );
@@ -139,6 +143,21 @@ Moonlight::PostProcessSettings PostProcess::ToSettings() const
     settings.Gamma = Gamma;
     settings.Lift = Lift;
     settings.Gain = Gain;
+    const std::string& lut = Lut.GetLocalPathString();
+    if( lut != m_loadedLut )
+    {
+        m_loadedLut = lut;
+        m_lut = nullptr;
+        m_lutStrip = nullptr;
+        if( !lut.empty() && Lut.Exists )
+        {
+            if( lut.ends_with( ".cube" ) ) m_lut = ResourceCache::GetInstance().GetAsync<Moonlight::ColorLut>( Lut );
+            else m_lutStrip = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( Lut );
+        }
+    }
+    settings.Lut = m_lut;
+    settings.LutStrip = m_lutStrip;
+    settings.LutContribution = std::clamp( LutContribution, 0.f, 1.f );
     settings.VignetteIntensity = VignetteIntensity;
     settings.VignetteSmoothness = VignetteSmoothness;
     settings.FXAA = FXAA;
