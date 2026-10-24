@@ -88,11 +88,13 @@ public:
     std::size_t GetPendingReimportCount() const;
 
     SharedPtr<MetaBase> LoadMetadata( const Path& filePath );
+    // Tools builds: cooks the asset (Export, then saves its metadata and records the cook) when
+    // its metadata asks for it, or always with InForce. Safe on any thread.
+    void ExportIfNeeded( const Path& InFilePath, const SharedPtr<MetaBase>& InMetaFile, bool InForce );
 
 private:
     template<class T, typename... Args>
     SharedPtr<T> Load( const Path& InFilePath, bool InAsync, Args&& ... args );
-    void ExportIfNeeded( const Path& InFilePath, const SharedPtr<MetaBase>& InMetaFile, bool InForce );
     // The background part of an async load: a deferred first-time cook, then Resource::LoadAsync.
     static bool RunBackgroundLoad( Resource& InResource );
     void QueueAsyncLoad( const SharedPtr<Resource>& InResource );

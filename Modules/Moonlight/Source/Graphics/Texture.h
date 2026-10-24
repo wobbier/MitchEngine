@@ -125,13 +125,16 @@ struct TextureResourceMetadata
 
     enum class OutputTextureFormat : uint8_t
     {
+        // Picked per texture when it's cooked (ChooseAutoFormat): BC5 for normal maps, BC3 when
+        // the image has transparency, BC1 otherwise; HDR images stay uncompressed.
+        Auto,
         None,
-        BC1,          //!< DXT1
+        BC1,          //!< DXT1: RGB, 4 bits per pixel
         //BC2,          //!< DXT3
-        BC3,          //!< DXT5
-        //BC4,          //!< LATC1/ATI1
-        //BC5,          //!< LATC2/ATI2
-        //BC6H,         //!< BC6H
+        BC3,          //!< DXT5: RGBA, 8 bits per pixel
+        BC4,          //!< LATC1/ATI1: one channel (masks, heights)
+        BC5,          //!< LATC2/ATI2: two channels (normal maps; shaders rebuild z)
+        //BC6H,         //!< BC6H (bimg's texturec can't encode BC6H or BC7)
         //BC7,          //!< BC7
         //ETC1,         //!< ETC1 RGB8
         //ETC2,         //!< ETC2 RGB8
@@ -165,7 +168,14 @@ struct TextureResourceMetadata
     // I haven't seen much difference in final images with changing this setting, it just takes longer?
     // Might not apply to the formats I'm using based off the source code
     OutputTextureQuality OutputQuality = OutputTextureQuality::Default;
-    OutputTextureFormat OutputFormat = OutputTextureFormat::None;
+    OutputTextureFormat OutputFormat = OutputTextureFormat::Auto;
+
+    // The format a cook writes: OutputFormat, with Auto resolved for this image.
+    OutputTextureFormat ResolveOutputFormat() const;
+    // Type NormalMap, or a file named like a normal map (Brick_N.png, rock_normal.png, wall_nrm.tga).
+    bool IsNormalMap() const;
+    static bool LooksLikeNormalMap( const std::string& InFileName );
+    static OutputTextureFormat ChooseAutoFormat( bool InNormalMap, bool InHasAlpha, bool InHighDynamicRange );
 
 #if USING( ME_EDITOR )
     virtual void OnEditorInspect() final;

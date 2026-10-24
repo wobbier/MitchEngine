@@ -391,16 +391,18 @@ std::string TextureResourceMetadata::OutputFormatFromEnum( OutputTextureFormat i
 {
     switch( inType )
     {
+    case OutputTextureFormat::Auto:
+        return "Auto";
     case OutputTextureFormat::BC1:
         return "BC1";
     //case OutputTextureFormat::BC2:
     //    return "BC2";
     case OutputTextureFormat::BC3:
         return "BC3";
-    //case OutputTextureFormat::BC4:
-    //    return "BC4";
-    //case OutputTextureFormat::BC5:
-    //    return "BC5";
+    case OutputTextureFormat::BC4:
+        return "BC4";
+    case OutputTextureFormat::BC5:
+        return "BC5";
     //case OutputTextureFormat::BC6H:
     //    return "BC6H";
     //case OutputTextureFormat::BC7:
@@ -451,6 +453,122 @@ TextureResourceMetadata::OutputTextureFormat TextureResourceMetadata::OutputForm
     return OutputTextureFormat::None;
 }
 
+namespace
+{
+    // True if any pixel of the image isn't fully opaque. Images that can't be read count as
+    // transparent, so they get a format that keeps alpha.
+    bool ImageHasTransparency( const std::string& InPath )
+    {
+        std::ifstream file( InPath, std::ios::binary );
+        if( !file )
+        {
+            return true;
+        }
+        const std::vector<char> data( ( std::istreambuf_iterator<char>( file ) ), std::istreambuf_iterator<char>() );
+        bx::DefaultAllocator allocator;
+        bimg::ImageContainer* image = bimg::imageParse( &allocator, data.data(), static_cast<uint32_t>( data.size() ) );
+        if( !image )
+        {
+            return true;
+        }
+        const uint64_t pixels = uint64_t( image->m_width ) * image->m_height;
+        bool transparent = true;
+        switch( image->m_format )
+        {
+        case bimg::TextureFormat::R8:
+        case bimg::TextureFormat::RG8:
+        case bimg::TextureFormat::RGB8:
+        case bimg::TextureFormat::R16:
+        case bimg::TextureFormat::RG16:
+            transparent = false;
+            break;
+        case bimg::TextureFormat::RGBA8:
+        case bimg::TextureFormat::BGRA8:
+        {
+            const uint8_t* rgba = static_cast<const uint8_t*>( image->m_data );
+            transparent = false;
+            for( uint64_t i = 0; i < pixels && !transparent; ++i )
+            {
+                transparent = rgba[i * 4 + 3] != 255;
+            }
+            break;
+        }
+        case bimg::TextureFormat::RGBA16:
+        {
+            const uint16_t* rgba = static_cast<const uint16_t*>( image->m_data );
+            transparent = false;
+            for( uint64_t i = 0; i < pixels && !transparent; ++i )
+            {
+                transparent = rgba[i * 4 + 3] != 0xFFFF;
+            }
+            break;
+        }
+        default:
+            break;
+        }
+        bimg::imageFree( image );
+        return transparent;
+    }
+}
+
+
+bool TextureResourceMetadata::LooksLikeNormalMap( const std::string& InFileName )
+{
+    std::string stem = std::filesystem::path( InFileName ).stem().string();
+    std::transform( stem.begin(), stem.end(), stem.begin(), []( unsigned char c ) { return static_cast<char>( std::tolower( c ) ); } );
+    if( stem.find( "normal" ) != std::string::npos )
+    {
+        return true;
+    }
+    // Not a bare "_n": that also names letters and numbers (Decal_Letter_N.png).
+    for( const char* suffix : { "_nrm", "_nor", "_ddn", "_nm" } )
+    {
+        const std::string ending( suffix );
+        if( stem.size() > ending.size() && stem.compare( stem.size() - ending.size(), ending.size(), ending ) == 0 )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+
+TextureResourceMetadata::OutputTextureFormat TextureResourceMetadata::ChooseAutoFormat( bool InNormalMap, bool InHasAlpha, bool InHighDynamicRange )
+{
+    if( InHighDynamicRange )
+    {
+        return OutputTextureFormat::None;   // BC6H would be the format, but texturec can't encode it
+    }
+    if( InNormalMap )
+    {
+        return OutputTextureFormat::BC5;
+    }
+    return InHasAlpha ? OutputTextureFormat::BC3 : OutputTextureFormat::BC1;
+}
+
+
+bool TextureResourceMetadata::IsNormalMap() const
+{
+    return OutputType == OutputTextureType::NormalMap || LooksLikeNormalMap( FilePath.FullPath );
+}
+
+
+TextureResourceMetadata::OutputTextureFormat TextureResourceMetadata::ResolveOutputFormat() const
+{
+    if( OutputFormat != OutputTextureFormat::Auto )
+    {
+        return OutputFormat;
+    }
+    std::string extension = std::filesystem::path( FilePath.FullPath ).extension().string();
+    std::transform( extension.begin(), extension.end(), extension.begin(), []( unsigned char c ) { return static_cast<char>( std::tolower( c ) ); } );
+    const bool highDynamicRange = extension == ".hdr" || extension == ".exr";
+    const bool normalMap = IsNormalMap();
+    // Normal maps and HDR images don't need the (full-image) transparency check.
+    const bool hasAlpha = !normalMap && !highDynamicRange && ImageHasTransparency( FilePath.FullPath );
+    return ChooseAutoFormat( normalMap, hasAlpha, highDynamicRange );
+}
+
+
 std::string TextureResourceMetadata::GetExtension2() const
 {
     return std::string( "dds" );
@@ -494,6 +612,7 @@ void TextureResourceMetadata::OnEditorInspect()
         }
         ImGui::EndCombo();
     }
+    ImGui::SetItemTooltip( "Auto: BC5 for normal maps, BC3 for images with transparency, BC1 otherwise (HDR stays uncompressed).\nNone keeps every pixel exact, for pixel art, UI and data textures." );
 
     if( OutputFormat != OutputTextureFormat::None )
     {
@@ -528,13 +647,15 @@ void TextureResourceMetadata::Export()
     {
         exportType += " -m";
     }
-    if( OutputType == OutputTextureType::NormalMap )
+    const OutputTextureFormat format = ResolveOutputFormat();
+    // -n renormalizes normal maps (each mip too) and keeps x, y in the two channels BC5 stores.
+    if( OutputType == OutputTextureType::NormalMap || ( OutputFormat == OutputTextureFormat::Auto && format == OutputTextureFormat::BC5 ) )
     {
         exportType += " -n";
     }
-    if( OutputFormat != OutputTextureFormat::None )
+    if( format != OutputTextureFormat::None )
     {
-        exportType += " -t " + OutputFormatFromEnum( OutputFormat );
+        exportType += " -t " + OutputFormatFromEnum( format );
         exportType += " -q " + OutputQualityFromEnum( OutputQuality );
     }
     /*

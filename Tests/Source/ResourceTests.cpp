@@ -5,6 +5,9 @@
 #include "Resource/AssetDatabase.h"
 #include "Resource/MetaFile.h"
 #include "Resource/MetaRegistry.h"
+#include "Graphics/Texture.h"
+#include <bimg/bimg.h>
+#include <bx/file.h>
 #include <atomic>
 #include <chrono>
 #include <filesystem>
@@ -538,3 +541,50 @@ TEST_CASE( "Resources: runtime loads compiled assets without running a cook" )
     CHECK( s_exports.load() == exportsBefore );
 }
 #endif
+
+
+TEST_CASE( "Textures: Auto picks BC5 for normal maps, BC3 for transparency, BC1 otherwise" )
+{
+    using Format = TextureResourceMetadata::OutputTextureFormat;
+    CHECK( TextureResourceMetadata::LooksLikeNormalMap( "Assets/Textures/T_Brick_Wall_101_4K_TGA_Normal.tga" ) );
+    CHECK( TextureResourceMetadata::LooksLikeNormalMap( "Generic_Rock_Normals.png" ) );
+    CHECK( TextureResourceMetadata::LooksLikeNormalMap( "sponza_column_a_ddn.tga" ) );
+    CHECK( TextureResourceMetadata::LooksLikeNormalMap( "Wall_NRM.png" ) );
+    CHECK_FALSE( TextureResourceMetadata::LooksLikeNormalMap( "Generic_Decal_Letter_N.png" ) );
+    CHECK_FALSE( TextureResourceMetadata::LooksLikeNormalMap( "Brick_Albedo.png" ) );
+    CHECK( TextureResourceMetadata::ChooseAutoFormat( true, true, false ) == Format::BC5 );
+    CHECK( TextureResourceMetadata::ChooseAutoFormat( false, true, false ) == Format::BC3 );
+    CHECK( TextureResourceMetadata::ChooseAutoFormat( false, false, false ) == Format::BC1 );
+    CHECK( TextureResourceMetadata::ChooseAutoFormat( false, false, true ) == Format::None );
+
+    // The cook reads the image: a single translucent pixel is enough for BC3.
+    const std::filesystem::path folder = std::filesystem::temp_directory_path() / "MitchTextureFormatTest";
+    std::filesystem::remove_all( folder );
+    std::filesystem::create_directories( folder );
+    auto writePng = [&folder]( const std::string& InName, uint8_t InFirstAlpha ) {
+        std::vector<uint8_t> pixels( 8 * 8 * 4, 200 );
+        for( size_t i = 3; i < pixels.size(); i += 4 )
+        {
+            pixels[i] = 255;
+        }
+        pixels[3] = InFirstAlpha;
+        const std::string path = ( folder / InName ).generic_string();
+        bx::FileWriter writer;
+        bx::Error error;
+        if( bx::open( &writer, path.c_str(), false, &error ) )
+        {
+            bimg::imageWritePng( &writer, 8, 8, 8 * 4, pixels.data(), bimg::TextureFormat::RGBA8, false, &error );
+            bx::close( &writer );
+        }
+        return path;
+    };
+    TextureResourceMetadata opaque( Path( writePng( "Opaque.png", 255 ), true ) );
+    TextureResourceMetadata cutout( Path( writePng( "Cutout.png", 0 ), true ) );
+    TextureResourceMetadata normal( Path( writePng( "Rock_Normal.png", 0 ), true ) );
+    CHECK( opaque.ResolveOutputFormat() == Format::BC1 );
+    CHECK( cutout.ResolveOutputFormat() == Format::BC3 );
+    CHECK( normal.ResolveOutputFormat() == Format::BC5 );
+    opaque.OutputFormat = Format::None;
+    CHECK( opaque.ResolveOutputFormat() == Format::None );
+    std::filesystem::remove_all( folder );
+}
