@@ -4,6 +4,8 @@
 #include <bit>
 #include <cmath>
 #include <fstream>
+#include "Path.h"
+#include "VFS/VFS.h"
 #include <limits>
 #if USING( ME_PLATFORM_WINDOWS )
 #include <Windows.h>
@@ -102,11 +104,9 @@ namespace TerrainData
         if( !Validate( settings, format, size, error ) ) return false;
         try
         {
-            std::ifstream file( path, std::ios::binary | std::ios::ate );
-            if( !file ) { error = "Could not open RAW heightmap"; return false; }
-            if( file.tellg() != static_cast<std::streamoff>( size ) ) { error = "RAW file size does not match its dimensions and encoding"; return false; }
-            std::vector<uint8_t> bytes( size ); file.seekg( 0 );
-            if( !file.read( reinterpret_cast<char*>( bytes.data() ), size ) ) { error = "Could not read complete RAW heightmap"; return false; }
+            std::vector<uint8_t> bytes;
+            if( !VFS::Get().ReadBytes( Path( path.string(), true ), bytes ) ) { error = "Could not open RAW heightmap"; return false; }
+            if( bytes.size() != size ) { error = "RAW file size does not match its dimensions and encoding"; return false; }
             return ImportHeightmap( bytes, settings, format, out, error );
         }
         catch( const std::exception& e ) { error = e.what(); return false; }

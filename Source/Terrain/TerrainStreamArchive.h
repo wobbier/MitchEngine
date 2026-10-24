@@ -68,5 +68,7 @@ namespace TerrainData
     // Canonical heights only: checked worker read without coverage, patch LODs or collision builds.
     bool ReadStreamHeights( const StreamArchive& InArchive, TileCoord InTile, std::vector<float>& OutHeights, std::string& OutError );
     bool IsStreamArchive( std::span<const uint8_t> InPrefix );
+    // Sniffs the file's 4-byte magic without loading it (archives stream; see VFS-3).
+    bool IsStreamArchiveFile( const std::string& InFullPath );
     void BuildPatchNeighbors( ResidentTerrain& InTerrain );
 }

@@ -51,6 +51,11 @@ else
     tail -3 .tmp/RunChecks.tests.log | head -2
 fi
 
+step "Runtime I/O lint"
+if ! python3 "$here/LintRuntimeIO.py"; then
+    failed+=("runtime io lint")
+fi
+
 step "Source generator tests"
 if ! { dotnet build Engine/Modules/ScriptCore/Generators.Tests/MitchEngine.Generators.Tests.csproj --artifacts-path .tmp/DotNet/GeneratorTests -v quiet --nologo \
         && dotnet test .tmp/DotNet/GeneratorTests/bin/MitchEngine.Generators.Tests/debug/MitchEngine.Generators.Tests.dll --nologo; } > .tmp/RunChecks.generators.log 2>&1; then

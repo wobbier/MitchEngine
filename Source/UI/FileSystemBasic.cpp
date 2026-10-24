@@ -5,6 +5,7 @@
 
 #include <Ultralight/String.h>
 #include <fstream>
+#include "VFS/VFS.h"
 #include <memory>
 #include <vector>
 #include <cstring>
@@ -66,15 +67,13 @@ namespace ultralight
 
     bool FileSystemBasic::FileExists( const String& path )
     {
-        std::ifstream filestream( getRelative( path ) );
-        if( !filestream.good() )
+        if( Path( getRelative( path ), true ).Exists )
         {
-            String8 utf8 = path.utf8();
-            std::string filepath( utf8.data(), utf8.length() );
-            Path filePath( filepath );
-            return filePath.Exists;
+            return true;
         }
-        return true;
+        String8 utf8 = path.utf8();
+        std::string filepath( utf8.data(), utf8.length() );
+        return Path( filepath ).Exists;
     }
 
     String FileSystemBasic::GetFileMimeType( const String& file_path )
@@ -118,20 +117,12 @@ namespace ultralight
             relativePath = Path( filepath );
         }
 
-        std::ifstream file = std::ifstream( relativePath.FullPath, std::ifstream::ate | std::ifstream::binary );
-        if( !file.good() )
+        std::vector<uint8_t> bytes;
+        if( !VFS::Get().ReadBytes( relativePath, bytes ) || bytes.empty() )
             return nullptr;
 
-        file.seekg( 0, file.end );
-        int64_t file_size = (int64_t) file.tellg();
-
-        if( file_size <= 0 )
-            return nullptr;
-
-        std::unique_ptr<std::vector<char>> buffer( new std::vector<char>( file_size ) );
-
-        file.seekg( 0, file.beg );
-        file.read( buffer->data(), (std::streamsize) file_size );
+        const int64_t file_size = static_cast<int64_t>( bytes.size() );
+        std::unique_ptr<std::vector<char>> buffer( new std::vector<char>( bytes.begin(), bytes.end() ) );
 
         FileSystemBasic_BufferData* buffer_data = new FileSystemBasic_BufferData();
         buffer_data->file_size = file_size;
@@ -139,7 +130,6 @@ namespace ultralight
 
         RefPtr<Buffer> loadedFile = Buffer::Create( buffer_data->file_contents->data(), buffer_data->file_size,
             buffer_data, FileSystemBasic_DestroyBufferCallback );
-        file.close();
 
         return loadedFile;
     }

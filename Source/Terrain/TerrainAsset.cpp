@@ -3,6 +3,8 @@
 #include "TerrainSurface.h"
 #include "Utils/GUID.h"
 #include <fstream>
+#include "Path.h"
+#include "VFS/VFS.h"
 #include <iomanip>
 #include <sstream>
 #if USING( ME_PLATFORM_WINDOWS )
@@ -15,13 +17,9 @@ namespace TerrainData
     {
         std::vector<uint8_t> Read( const std::filesystem::path& path )
         {
-            std::ifstream file( path, std::ios::binary | std::ios::ate );
-            if( !file ) throw std::runtime_error( "Could not read " + path.string() );
-            const auto size = file.tellg();
-            if( size < 0 || static_cast<uint64_t>( size ) > 1024ull * 1024 * 1024 ) throw std::runtime_error( "Terrain source file is too large" );
-            std::vector<uint8_t> bytes( static_cast<size_t>( size ) );
-            file.seekg( 0 );
-            if( !bytes.empty() && !file.read( reinterpret_cast<char*>( bytes.data() ), size ) ) throw std::runtime_error( "Incomplete terrain source read" );
+            std::vector<uint8_t> bytes;
+            if( !VFS::Get().ReadBytes( Path( path.string(), true ), bytes ) ) throw std::runtime_error( "Could not read " + path.string() );
+            if( bytes.size() > 1024ull * 1024 * 1024 ) throw std::runtime_error( "Terrain source file is too large" );
             return bytes;
         }
         std::string ReadText( const std::filesystem::path& path )

@@ -1,6 +1,7 @@
 #pragma once
 #include "Resource/Resource.h"
 #include <fstream>
+#include "VFS/VFS.h"
 #include <sstream>
 #include <iostream>
 #include "Resource/MetaRegistry.h"
@@ -43,15 +44,14 @@ namespace Moonlight
         bool LoadAsync() override
         {
             const Path binary = BinaryPath();
-            std::ifstream file( binary.FullPath, std::ios::binary | std::ios::ate );
-            if( !file )
+            std::vector<uint8_t> bytes;
+            if( !VFS::Get().ReadBytes( binary, bytes ) )
             {
                 YIKES( "Shader binary is missing: " + binary.FullPath );
                 return false;
             }
-            m_pendingBinary.resize( static_cast<size_t>( file.tellg() ) );
-            file.seekg( 0 );
-            return !m_pendingBinary.empty() && static_cast<bool>( file.read( m_pendingBinary.data(), static_cast<std::streamsize>( m_pendingBinary.size() ) ) );
+            m_pendingBinary.assign( bytes.begin(), bytes.end() );
+            return !m_pendingBinary.empty();
         }
 
         bool FinishAsyncLoad() override
@@ -121,12 +121,9 @@ namespace Moonlight
 
         inline std::vector<char> ReadToByteArray( const char* filename )
         {
-            std::vector<char> data;
-            std::ifstream file( filename, std::ios::in | std::ios::binary | std::ios::ate );
-            data.resize( file.tellg() );
-            file.seekg( 0, std::ios::beg );
-            file.read( &data[0], data.size() );
-            return data;
+            std::vector<uint8_t> bytes;
+            VFS::Get().ReadBytes( Path( filename, true ), bytes );
+            return std::vector<char>( bytes.begin(), bytes.end() );
         }
 
         bgfx::ShaderHandle Handle = BGFX_INVALID_HANDLE;

@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include "VFS/VFS.h"
 #include <functional>
 #include <regex>
 #include <set>
@@ -17,14 +18,13 @@ namespace ShaderGraph
     {
         std::string ReadTextFile( const std::string& InPath, bool* OutOk = nullptr )
         {
-            std::ifstream file( InPath, std::ios::binary );
+            std::vector<uint8_t> bytes;
+            const bool ok = VFS::Get().ReadBytes( Path( InPath, true ), bytes );
             if( OutOk )
             {
-                *OutOk = static_cast<bool>( file );
+                *OutOk = ok;
             }
-            std::stringstream contents;
-            contents << file.rdbuf();
-            return contents.str();
+            return std::string( bytes.begin(), bytes.end() );
         }
 
 

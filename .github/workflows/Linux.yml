@@ -114,6 +114,9 @@ jobs:
       - name: Check the generated script API
         run: python3 Engine/Tools/GenerateScriptAPI.py --check
 
+      - name: Runtime I/O lint
+        run: python3 Engine/Tools/LintRuntimeIO.py
+
       - name: Install Nix
         uses: cachix/install-nix-action@v31
         with:

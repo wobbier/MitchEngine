@@ -1,4 +1,5 @@
 #include "PCH.h"
+#include "VFS/VFS.h"
 #include "AudioCore.h"
 #include "Components/Audio/AudioListener.h"
 #include "Components/Audio/AudioSource.h"
@@ -235,6 +236,53 @@ float AudioVoice::GetAudibility() const
 }
 
 
+#if USING( ME_FMOD )
+namespace
+{
+    // FMOD file I/O through the VFS: sound paths resolve like every other asset (and pak
+    // entries slot in at VFS-3). Streams pull chunks through VfsFileStream; nothing preloads.
+    FMOD_RESULT F_CALL VfsFmodOpen( const char* InName, unsigned int* OutSize, void** OutHandle, void* )
+    {
+        const Path resolved( InName ? InName : "" );
+        if( !resolved.Exists )
+        {
+            return FMOD_ERR_FILE_NOTFOUND;
+        }
+        auto* stream = new VfsFileStream();
+        if( !stream->Open( resolved ) )
+        {
+            delete stream;
+            return FMOD_ERR_FILE_NOTFOUND;
+        }
+        *OutSize = static_cast<unsigned int>( stream->Size() );
+        *OutHandle = stream;
+        return FMOD_OK;
+    }
+
+
+    FMOD_RESULT F_CALL VfsFmodClose( void* InHandle, void* )
+    {
+        delete static_cast<VfsFileStream*>( InHandle );
+        return FMOD_OK;
+    }
+
+
+    FMOD_RESULT F_CALL VfsFmodRead( void* InHandle, void* OutBuffer, unsigned int InSize, unsigned int* OutRead, void* )
+    {
+        VfsFileStream* stream = static_cast<VfsFileStream*>( InHandle );
+        *OutRead = static_cast<unsigned int>( stream->Read( OutBuffer, InSize ) );
+        return *OutRead < InSize ? FMOD_ERR_FILE_EOF : FMOD_OK;
+    }
+
+
+    FMOD_RESULT F_CALL VfsFmodSeek( void* InHandle, unsigned int InPosition, void* )
+    {
+        return static_cast<VfsFileStream*>( InHandle )->Seek( InPosition ) ? FMOD_OK : FMOD_ERR_FILE_COULDNOTSEEK;
+    }
+}
+#endif
+
+
 AudioCore::AudioCore( AudioOutput InOutput )
     : Base( ComponentFilter().RequiresOneOf<AudioSource>().RequiresOneOf<AudioReverbZone>() )
     , m_output( InOutput )
@@ -285,6 +333,8 @@ AudioCore::AudioCore( AudioOutput InOutput )
     if( m_system )
     {
         CLog::Log( CLog::LogType::Info, std::string( "Audio: FMOD output " ) + ( m_output == AudioOutput::Device ? "device" : m_output == AudioOutput::Silent ? "silent" : "manual" ) );
+        // All sound file opens (loads and streams) go through the VFS from here on.
+        m_system->setFileSystem( VfsFmodOpen, VfsFmodClose, VfsFmodRead, VfsFmodSeek, nullptr, nullptr, -1 );
         // Metres: doppler and rolloff use world units directly.
         m_system->set3DSettings( 1.f, 1.f, 1.f );
         m_system->getMasterChannelGroup( &m_buses[static_cast<size_t>( AudioBus::Master )] );

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <fstream>
+#include "VFS/VFS.h"
 #include <filesystem>
 #include <set>
 #include <limits>
@@ -70,9 +71,13 @@ bool SequenceClipData::FromJson( const json& InData, std::string& OutError )
 
 bool SequenceClipData::Load( const std::string& InPath, std::string& OutError )
 {
-    std::ifstream file( Path( InPath ).FullPath );
-    if( !file ) { OutError = "Cannot open sequence asset: " + InPath; return false; }
-    return FromJson( json::parse( file, nullptr, false ), OutError );
+    std::string text;
+    if( !VFS::Get().ReadText( Path( InPath ), text ) || text.empty() )
+    {
+        OutError = "Cannot open sequence asset: " + InPath;
+        return false;
+    }
+    return FromJson( json::parse( text, nullptr, false ), OutError );
 }
 
 

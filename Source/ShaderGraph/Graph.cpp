@@ -2,6 +2,8 @@
 #include "Graph.h"
 #include <algorithm>
 #include <fstream>
+#include "Path.h"
+#include "VFS/VFS.h"
 #include <sstream>
 
 namespace ShaderGraph
@@ -550,8 +552,8 @@ namespace ShaderGraph
 
     bool Graph::Load( const std::string& InFullPath, std::string* OutError )
     {
-        std::ifstream file( InFullPath );
-        if( !file )
+        std::string contents;
+        if( !VFS::Get().ReadText( Path( InFullPath, true ), contents ) )
         {
             if( OutError )
             {
@@ -559,9 +561,7 @@ namespace ShaderGraph
             }
             return false;
         }
-        std::stringstream contents;
-        contents << file.rdbuf();
-        json parsed = json::parse( contents.str(), nullptr, false );
+        json parsed = json::parse( contents, nullptr, false );
         if( parsed.is_discarded() )
         {
             if( OutError )

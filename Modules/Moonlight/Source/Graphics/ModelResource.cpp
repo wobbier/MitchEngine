@@ -31,6 +31,8 @@
 #include <cctype>
 #include <filesystem>
 #include <fstream>
+#include "VFS/VFS.h"
+#include <sstream>
 #include <cstring>
 #include <limits>
 #include <stdexcept>
@@ -246,9 +248,12 @@ bool ModelResource::LoadAsync()
     ProcessAnimations( m_pendingScene );
     // Optional baked vertex cache (e.g. a USD/Alembic animation whose FBX has only rig controls).
     // Stored in metres in right-handed source space; the OBJ cook uses ConvertToLeftHanded.
-    std::ifstream cacheFile( FilePath.FullPath + ".vertexcache", std::ios::binary );
-    if( cacheFile )
+    std::vector<uint8_t> cacheBytes;
+    std::istringstream cacheFile;
+    if( VFS::Get().ReadBytes( Path( FilePath.FullPath + ".vertexcache", true ), cacheBytes ) )
     {
+        cacheFile.str( std::string( cacheBytes.begin(), cacheBytes.end() ) );
+        cacheBytes = {};
         char magic[8];
         uint32_t headerSize = 0;
         cacheFile.read( magic, sizeof( magic ) );

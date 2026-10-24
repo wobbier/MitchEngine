@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <cmath>
 #include <fstream>
+#include "VFS/VFS.h"
+#include "Path.h"
 #include <ImGui/Resources/vs_ocornut_imgui.bin.hpp>
 #include <ImGui/Resources/fs_ocornut_imgui.bin.hpp>
 #include <ImGui/Resources/vs_imgui_image.bin.hpp>
@@ -99,17 +101,14 @@ void ImGuiRenderer::BuildFontAtlas()
     ImFont* font = nullptr;
     if( !FontPath.empty() )
     {
-        std::ifstream file( FontPath, std::ios::binary | std::ios::ate );
-        const std::streamsize size = file ? static_cast<std::streamsize>( file.tellg() ) : 0;
-        if( size > 0 )
+        std::vector<uint8_t> bytes;
+        VFS::Get().ReadBytes( Path( FontPath, true ), bytes );
+        if( !bytes.empty() )
         {
             // The atlas takes ownership and frees this with ImGui::MemFree.
-            void* data = ImGui::MemAlloc( static_cast<size_t>( size ) );
-            file.seekg( 0 );
-            if( file.read( static_cast<char*>( data ), size ) )
-                font = io.Fonts->AddFontFromMemoryTTF( data, static_cast<int>( size ), FontSize, &config );
-            else
-                ImGui::MemFree( data );
+            void* data = ImGui::MemAlloc( bytes.size() );
+            memcpy( data, bytes.data(), bytes.size() );
+            font = io.Fonts->AddFontFromMemoryTTF( data, static_cast<int>( bytes.size() ), FontSize, &config );
         }
     }
     if( !font )

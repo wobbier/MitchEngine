@@ -6,6 +6,7 @@
 #include "Resource/MetaRegistry.h"
 #include <filesystem>
 #include <fstream>
+#include "VFS/VFS.h"
 #include <limits>
 #include <stdexcept>
 
@@ -13,13 +14,8 @@ namespace
 {
     std::vector<uint8_t> ReadBytes( const std::filesystem::path& InPath )
     {
-        std::ifstream file( InPath, std::ios::binary | std::ios::ate );
-        if( !file ) throw std::runtime_error( "Could not open terrain file: " + InPath.string() );
-        const auto size = file.tellg();
-        if( size < 0 || static_cast<uint64_t>( size ) > std::numeric_limits<size_t>::max() ) throw std::runtime_error( "Invalid terrain file size" );
-        std::vector<uint8_t> bytes( static_cast<size_t>( size ) );
-        file.seekg( 0 );
-        if( !bytes.empty() && !file.read( reinterpret_cast<char*>( bytes.data() ), size ) ) throw std::runtime_error( "Could not read terrain file: " + InPath.string() );
+        std::vector<uint8_t> bytes;
+        if( !VFS::Get().ReadBytes( Path( InPath.string(), true ), bytes ) ) throw std::runtime_error( "Could not open terrain file: " + InPath.string() );
         return bytes;
     }
 }
@@ -49,9 +45,7 @@ bool TerrainResource::LoadAsync()
         uint64_t guid = 0;
         if( std::string_view( FilePath.GetExtension() ) == "terrainc" )
         {
-            std::ifstream file( FilePath.FullPath, std::ios::binary );
-            std::array<uint8_t, 4> prefix{}; file.read( reinterpret_cast<char*>( prefix.data() ), prefix.size() );
-            if( TerrainData::IsStreamArchive( prefix ) )
+            if( TerrainData::IsStreamArchiveFile( FilePath.FullPath ) )
             {
                 if( !TerrainData::OpenStreamArchive( FilePath.FullPath, m_pendingArchive, m_error ) ) return false;
                 m_pending = m_pendingArchive->Coverage;

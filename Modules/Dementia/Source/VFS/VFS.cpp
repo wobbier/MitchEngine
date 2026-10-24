@@ -49,6 +49,61 @@ namespace
     }
 }
 
+bool VfsFileStream::Open( const Path& InPath )
+{
+    Close();
+    m_stream.open( InPath.FullPath, std::ios::in | std::ios::binary | std::ios::ate );
+    if( !m_stream )
+    {
+        return false;
+    }
+    m_size = static_cast<uint64_t>( m_stream.tellg() );
+    m_stream.seekg( 0 );
+    m_open = true;
+    return true;
+}
+
+
+void VfsFileStream::Close()
+{
+    if( m_open )
+    {
+        m_stream.close();
+        m_stream.clear();
+        m_open = false;
+        m_size = 0;
+    }
+}
+
+
+size_t VfsFileStream::Read( void* OutBuffer, size_t InSize )
+{
+    if( !m_open || InSize == 0 )
+    {
+        return 0;
+    }
+    m_stream.read( static_cast<char*>( OutBuffer ), static_cast<std::streamsize>( InSize ) );
+    const std::streamsize count = m_stream.gcount();
+    if( m_stream.eof() )
+    {
+        m_stream.clear();
+    }
+    return static_cast<size_t>( count );
+}
+
+
+bool VfsFileStream::Seek( uint64_t InPosition )
+{
+    if( !m_open )
+    {
+        return false;
+    }
+    m_stream.clear();
+    m_stream.seekg( static_cast<std::streamoff>( InPosition ) );
+    return static_cast<bool>( m_stream );
+}
+
+
 VFS::VFS()
 {
     InstallDefaults();

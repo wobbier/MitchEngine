@@ -56,6 +56,13 @@ public:
     std::size_t GetPendingLoadCount() const;
 
     SharedPtr<Resource> GetCached( const Path& InFilePath );
+
+    // The cache identity of a path: its project-local spelling trimmed to the last "Assets",
+    // so a logical request and any mount's resolution of it (game tree, engine fallback, later
+    // mods) share one entry - an override replaces the cached resource instead of duplicating
+    // it. Accepts physical full paths too (the FileWatcher's change events map back this way).
+    static std::string CacheKey( const Path& InPath );
+    static std::string CacheKey( const std::string& InFullOrLocalPath );
 #if USING( ME_TOOLS )
     Path FindByName( const Path& inRoot, const std::string& InFileName );
 #endif
@@ -141,7 +148,7 @@ template<class T, typename... Args>
 SharedPtr<T> ResourceCache::Load( const Path& InFilePath, bool InAsync, Args&& ... args )
 {
     std::unique_lock<std::recursive_mutex> lock( m_mutex );
-    auto I = m_resourceStack.find( InFilePath.FullPath );
+    auto I = m_resourceStack.find( CacheKey( InFilePath ) );
     if( I != m_resourceStack.end() )
     {
         SharedPtr<T> Res = std::dynamic_pointer_cast<T>( I->second );
@@ -215,7 +222,7 @@ SharedPtr<T> ResourceCache::Load( const Path& InFilePath, bool InAsync, Args&& .
         {
             Res->m_pendingExport = metaFile;
         }
-        m_resourceStack[InFilePath.FullPath] = Res;
+        m_resourceStack[CacheKey( InFilePath )] = Res;
         QueueAsyncLoad( Res );
         return Res;
     }
@@ -228,6 +235,6 @@ SharedPtr<T> ResourceCache::Load( const Path& InFilePath, bool InAsync, Args&& .
         YIKES( "Resource failed to load: " + InFilePath.FullPath );
         Res->m_loadState = Resource::LoadState::Failed;
     }
-    m_resourceStack[InFilePath.FullPath] = Res;
+    m_resourceStack[CacheKey( InFilePath )] = Res;
     return Res;
 }

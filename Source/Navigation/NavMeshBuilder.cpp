@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstring>
 #include <fstream>
+#include "VFS/VFS.h"
 #include <mutex>
 #include <thread>
 
@@ -782,11 +783,10 @@ bool NavMeshData::Save( const std::string& InFullPath ) const
 
 bool NavMeshData::Load( const std::string& InFullPath )
 {
-    std::ifstream file( InFullPath, std::ios::binary );
-    if( !file )
+    std::vector<uint8_t> bytes;
+    if( !VFS::Get().ReadBytes( Path( InFullPath, true ), bytes ) )
     {
         return false;
     }
-    const std::vector<uint8_t> bytes( ( std::istreambuf_iterator<char>( file ) ), std::istreambuf_iterator<char>() );
     return Deserialize( bytes.data(), bytes.size() );
 }

@@ -1,5 +1,6 @@
 #pragma once
 #include <mutex>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -46,6 +47,26 @@ struct VfsResolved
     // False when no mount serves the path's prefix (an unknown scheme).
     bool Resolved = false;
     bool Writable = false;
+};
+
+// Chunked reads over a resolved Path: for consumers that stream instead of loading whole
+// files (FMOD, large caches). Backed by the physical file today; pak-backed entries arrive
+// with VFS-3 behind the same surface.
+class VfsFileStream
+{
+public:
+    bool Open( const Path& InPath );
+    void Close();
+    bool IsOpen() const { return m_open; }
+    uint64_t Size() const { return m_size; }
+    // Returns the bytes actually read (short reads at end of file).
+    size_t Read( void* OutBuffer, size_t InSize );
+    bool Seek( uint64_t InPosition );
+
+private:
+    std::ifstream m_stream;
+    uint64_t m_size = 0;
+    bool m_open = false;
 };
 
 // The virtual filesystem: logical paths in, bytes or physical locations out.

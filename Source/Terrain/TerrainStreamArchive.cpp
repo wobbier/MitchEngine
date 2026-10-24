@@ -120,6 +120,18 @@ namespace TerrainData
     }
 
 
+    bool IsStreamArchiveFile( const std::string& InFullPath )
+    {
+        std::ifstream file( InFullPath, std::ios::binary );
+        std::array<uint8_t, 4> prefix {};
+        if( !file.read( reinterpret_cast<char*>( prefix.data() ), prefix.size() ) )
+        {
+            return false;
+        }
+        return IsStreamArchive( prefix );
+    }
+
+
     bool IsStreamArchive( std::span<const uint8_t> prefix )
     {
         return prefix.size() >= 4 && prefix[0] == 'M' && prefix[1] == 'T' && prefix[2] == 'S' && ( prefix[3] == '2' || prefix[3] == '3' || prefix[3] == '4' || prefix[3] == '5' || prefix[3] == '6' );

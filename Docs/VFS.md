@@ -72,17 +72,28 @@ it for every file in both `Assets` trees, in both spellings.
 
 ## Reads and writes
 
-`File::Read` / `File::Write` go through `VFS::ReadText` / `VFS::WriteText` — the seam where
-pak sources will slot in. Most loaders still open `Path::FullPath` physically; routing them
-through the VFS (and keying `ResourceCache` on logical paths) is VFS-2.
+`File::Read` / `File::Write` go through `VFS::ReadText` / `VFS::WriteText`, and every runtime
+loader reads through the same seam (VFS-2): textures, models (and their vertex caches),
+shader binaries, terrain assets/heightmaps/sources, navmeshes, sequences, trees, shader
+graphs, ImGui fonts, Ultralight's file system, and FMOD (system-level file callbacks pulling
+chunks through `VfsFileStream`). `VfsFileStream` is the chunked-read surface for consumers
+that stream instead of loading whole files; it is physically backed today and grows a pak
+backend with VFS-3. The deliberate exceptions — the terrain stream archive and texture cache
+(random access over huge files) and editor/diagnostic I/O — are allowlisted with reasons in
+`Engine/Tools/LintRuntimeIO.py`, which RunChecks and CI run to ban new raw `ifstream`/`fopen`
+reads in runtime code.
+
+`ResourceCache` keys on logical paths (`ResourceCache::CacheKey`: the local spelling trimmed
+to the last `Assets`), so a logical request and any mount's resolution of it share one cache
+entry — an override replaces the resource instead of duplicating it, and the FileWatcher's
+physical change paths map back through the same normalization.
 
 `VFS::Enumerate( dir, recursive, visitor )` merges entries across mounts: higher priority
 wins duplicates, and the visit is sorted.
 
 ## Roadmap
 
-- **VFS-2** — every runtime read through the VFS; logical cache keys; a lint banning raw
-  `ifstream`/`fopen` in runtime dirs.
 - **VFS-3** — `.mpak` reader and thread-safe `PakMount`; retail reads only paks, mods and
-  `user://`.
+  `user://`; a stream-capable mount source adopts `VfsFileStream`, the terrain archives and
+  the FMOD callbacks.
 - **Mods** mount at priority 200 + load order (MOD-1).

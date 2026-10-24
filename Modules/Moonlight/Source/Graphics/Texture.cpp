@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <iostream>
 #include <fstream>
+#include "VFS/VFS.h"
 #include <vector>
 #include <filesystem>
 #include <assert.h>
@@ -73,15 +74,12 @@ namespace
     // Thread safe (loader threads call it), unlike the shared bx reader.
     bool ReadFileBytes( const Path& inPath, std::vector<uint8_t>& outData )
     {
-        std::ifstream file( inPath.FullPath, std::ios::binary | std::ios::ate );
-        if( !file )
+        if( !VFS::Get().ReadBytes( inPath, outData ) )
         {
             YIKES_FMT( "[%s]: can't open the file", inPath.GetLocalPathString().c_str() );
             return false;
         }
-        outData.resize( static_cast<size_t>( file.tellg() ) );
-        file.seekg( 0 );
-        return static_cast<bool>( file.read( reinterpret_cast<char*>( outData.data() ), static_cast<std::streamsize>( outData.size() ) ) );
+        return true;
     }
 }
 
@@ -459,12 +457,11 @@ namespace
     // transparent, so they get a format that keeps alpha.
     bool ImageHasTransparency( const std::string& InPath )
     {
-        std::ifstream file( InPath, std::ios::binary );
-        if( !file )
+        std::vector<uint8_t> data;
+        if( !VFS::Get().ReadBytes( Path( InPath, true ), data ) )
         {
             return true;
         }
-        const std::vector<char> data( ( std::istreambuf_iterator<char>( file ) ), std::istreambuf_iterator<char>() );
         bx::DefaultAllocator allocator;
         bimg::ImageContainer* image = bimg::imageParse( &allocator, data.data(), static_cast<uint32_t>( data.size() ) );
         if( !image )

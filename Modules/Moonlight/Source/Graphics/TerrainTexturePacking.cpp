@@ -7,6 +7,8 @@
 #include <cmath>
 #include <filesystem>
 #include <fstream>
+#include "VFS/VFS.h"
+#include "Path.h"
 #include <memory>
 #include <stdexcept>
 
@@ -97,12 +99,9 @@ namespace Moonlight
         {
             if( path.empty() ) return Image{ side, side, std::vector<Pixel>( size_t( side ) * side, kind == 1 ? Pixel{ 0, 0, 1, 1 } : Pixel{ 1, 1, 1, 1 } ) };
             const auto selected = Selected( path );
-            std::ifstream file( selected, std::ios::binary | std::ios::ate );
-            if( !file ) throw std::runtime_error( "Cannot read terrain texture: " + selected.string() );
-            const auto size = file.tellg();
-            if( size <= 0 || size > 128 * 1024 * 1024 ) throw std::runtime_error( "Terrain texture file exceeds 128 MiB: " + selected.string() );
-            std::vector<uint8_t> bytes( static_cast<size_t>( size ) ); file.seekg( 0 );
-            if( !file.read( reinterpret_cast<char*>( bytes.data() ), size ) ) throw std::runtime_error( "Incomplete terrain texture read" );
+            std::vector<uint8_t> bytes;
+            if( !VFS::Get().ReadBytes( Path( selected.string(), true ), bytes ) ) throw std::runtime_error( "Cannot read terrain texture: " + selected.string() );
+            if( bytes.empty() || bytes.size() > 128u * 1024u * 1024u ) throw std::runtime_error( "Terrain texture file exceeds 128 MiB: " + selected.string() );
             bx::DefaultAllocator allocator; bimg::ImageContainer info{}; bx::Error decodeError;
             if( !bimg::imageParseInfo( &allocator, info, bytes.data(), static_cast<uint32_t>( bytes.size() ), &decodeError ) ||
                 !info.m_width || !info.m_height || info.m_width > 4096 || info.m_height > 4096 || info.m_cubeMap || info.m_numLayers != 1 || info.m_depth > 1 )

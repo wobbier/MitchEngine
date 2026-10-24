@@ -2,21 +2,20 @@
 #include "CLog.h"
 #include <filesystem>
 #include <fstream>
+#include "VFS/VFS.h"
 #include <sstream>
 
 namespace MitchTree
 {
     bool LoadRecipe( const std::string& InFullPath, TreeRecipe& OutRecipe, std::string& OutError )
     {
-        std::ifstream file( InFullPath, std::ios::binary );
-        if( !file )
+        std::vector<uint8_t> bytes;
+        if( !VFS::Get().ReadBytes( Path( InFullPath, true ), bytes ) )
         {
             OutError = "Can't open " + InFullPath;
             return false;
         }
-        std::stringstream text;
-        text << file.rdbuf();
-        const json parsed = json::parse( text.str(), nullptr, false );
+        const json parsed = json::parse( bytes.begin(), bytes.end(), nullptr, false );
         if( parsed.is_discarded() )
         {
             OutError = InFullPath + " is not valid JSON.";

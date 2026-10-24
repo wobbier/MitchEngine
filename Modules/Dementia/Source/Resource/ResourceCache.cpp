@@ -184,10 +184,43 @@ std::size_t ResourceCache::GetCacheSize() const
     return m_resourceStack.size();
 }
 
+std::string ResourceCache::CacheKey( const Path& InPath )
+{
+    return CacheKey( InPath.GetLocalPathString() );
+}
+
+
+std::string ResourceCache::CacheKey( const std::string& InFullOrLocalPath )
+{
+    std::string key = InFullOrLocalPath;
+    std::replace( key.begin(), key.end(), '\\', '/' );
+    // Physical paths (the FileWatcher, reimports) become project-relative first, so they meet
+    // the relative spellings Load() inserts - also for paths outside any Assets tree (.tmp
+    // test assets, caches).
+    static const std::string s_root = []
+    {
+        std::string root = std::filesystem::current_path().generic_string();
+        std::replace( root.begin(), root.end(), '\\', '/' );
+        return root + "/";
+    }();
+    if( key.rfind( s_root, 0 ) == 0 )
+    {
+        key = key.substr( s_root.size() );
+    }
+    // The same trim Path uses for its local display: everything from the last "Assets" on.
+    const size_t assets = key.rfind( "Assets" );
+    if( assets != std::string::npos )
+    {
+        key = key.substr( assets );
+    }
+    return key;
+}
+
+
 SharedPtr<Resource> ResourceCache::GetCached( const Path& InFilePath )
 {
     std::lock_guard<std::recursive_mutex> lock( m_mutex );
-    auto i = m_resourceStack.find( InFilePath.FullPath );
+    auto i = m_resourceStack.find( CacheKey( InFilePath ) );
     if( i != m_resourceStack.end() )
     {
         return i->second;
@@ -199,7 +232,7 @@ void ResourceCache::TryToDestroy( Resource* resource )
 {
     std::lock_guard<std::recursive_mutex> lock( m_mutex );
     std::map<std::string, std::shared_ptr<Resource>>::iterator I;
-    I = m_resourceStack.find( resource->FilePath.FullPath );
+    I = m_resourceStack.find( CacheKey( resource->FilePath ) );
     if( I != m_resourceStack.end() )
     {
         if( I->second.use_count() == 1 )
@@ -213,7 +246,8 @@ void ResourceCache::TryToDestroy( Resource* resource )
 void ResourceCache::Evict( const std::string& InFullPath )
 {
     std::lock_guard<std::recursive_mutex> lock( m_mutex );
-    auto entry = m_resourceStack.find( InFullPath );
+    const std::string key = CacheKey( InFullPath );
+    auto entry = m_resourceStack.find( key );
     if( entry != m_resourceStack.end() )
     {
         if( entry->second )
@@ -222,7 +256,7 @@ void ResourceCache::Evict( const std::string& InFullPath )
         }
         m_resourceStack.erase( entry );
     }
-    m_unreferencedSince.erase( InFullPath );
+    m_unreferencedSince.erase( key );
 }
 
 
@@ -523,7 +557,7 @@ std::vector<std::string> ResourceCache::OnFilesChanged( const std::vector<std::s
         SharedPtr<Resource> resource;
         {
             std::lock_guard<std::recursive_mutex> lock( m_mutex );
-            auto found = m_resourceStack.find( sourcePath );
+            auto found = m_resourceStack.find( CacheKey( sourcePath ) );
             if( found != m_resourceStack.end() )
             {
                 resource = found->second;
