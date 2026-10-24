@@ -133,6 +133,18 @@ void ProjectSettings::Load()
             }
         }
     }
+    if( root.contains( "Product" ) && root["Product"].is_object() )
+    {
+        const json& product = root["Product"];
+        if( product.contains( "Org" ) && product["Org"].is_string() )
+        {
+            ProductOrg = product["Org"].get<std::string>();
+        }
+        if( product.contains( "Name" ) && product["Name"].is_string() )
+        {
+            ProductName = product["Name"].get<std::string>();
+        }
+    }
 }
 
 
@@ -165,6 +177,7 @@ void ProjectSettings::Save() const
         root["NavAgentTypes"].push_back( { { "Name", type.Name }, { "Radius", type.Radius }, { "Height", type.Height }, { "MaxClimb", type.MaxClimb }, { "MaxSlope", type.MaxSlope } } );
     }
     root["HardwareProfile"] = { { "Name", HardwareProfileName }, { "Enforce", EnforceHardwareProfile } };
+    root["Product"] = { { "Org", ProductOrg }, { "Name", ProductName } };
     File file{ Path( kSettingsPath ) };
     file.Write( root.dump( 4 ) );
 }

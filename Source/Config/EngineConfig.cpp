@@ -1,7 +1,6 @@
 #include "PCH.h"
 #include "EngineConfig.h"
 #include "Engine/AutomationRunner.h"
-#include <filesystem>
 
 namespace
 {
@@ -14,6 +13,16 @@ EngineConfig::EngineConfig( const Path& inPath, const std::string& InUserStatePa
     , WindowTitle( "MitchEngine" )
     , m_userStatePath( InUserStatePath )
 {
+}
+
+
+const char* EngineConfig::DefaultUserStatePath()
+{
+#if USING( ME_EDITOR )
+    return ".tmp/Engine.user.cfg";
+#else
+    return "user://Engine.cfg";
+#endif
 }
 
 void EngineConfig::OnSave( json& outJson )
@@ -74,6 +83,14 @@ void EngineConfig::OnLoadConfig( const json& inJson )
 
 void EngineConfig::LoadUserState()
 {
+#if !USING( ME_EDITOR )
+    // Automated game runs stay deterministic: whatever the player's machine has saved under
+    // user:// must not leak into captures. The editor keeps reading its repo-local state.
+    if( AutomationRunner::IsUnattendedRun() )
+    {
+        return;
+    }
+#endif
     Path userPath( m_userStatePath, true );
     if( !userPath.Exists )
     {
@@ -111,8 +128,7 @@ void EngineConfig::SaveUserState()
             user[key] = Root[key];
         }
     }
-    std::error_code ec;
-    std::filesystem::create_directories( std::filesystem::path( m_userStatePath ).parent_path(), ec );
+    // File::Write creates missing directories through the VFS (user:// paths resolve there).
     File userFile( Path( m_userStatePath, true ) );
     userFile.Write( user.dump( 4 ) );
 }

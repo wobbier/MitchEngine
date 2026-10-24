@@ -2,6 +2,7 @@
 #include "Path.h"
 #include <fstream>
 #include "CLog.h"
+#include "VFS/VFS.h"
 
 class File
 {
@@ -18,7 +19,6 @@ public:
         {
             return Data;
         }
-        std::fstream FileStream;
 
         if( !FilePath.Exists )
         {
@@ -26,24 +26,13 @@ public:
             return Data;
         }
 
-        FileStream.open( FilePath.FullPath.c_str(), std::ios::in );
-
-        if( !FileStream )
+        if( !VFS::Get().ReadText( FilePath, Data ) )
         {
             YIKES_FMT( "[File IO] Failed to load file: %s", FilePath.GetLocalPath().data() );
-            FileStream.close();
-
             return Data;
         }
 
         INFO_FMT("[File IO]", "Loaded File : %s", FilePath.GetLocalPathString().c_str() );
-
-        IsOpen = true;
-
-        Data.assign( ( std::istreambuf_iterator<char>( FileStream ) ), ( std::istreambuf_iterator<char>() ) );
-
-        FileStream.close();
-        IsOpen = false;
 
         return Data;
     }
@@ -55,9 +44,11 @@ public:
 
     void Write()
     {
-        std::ofstream out( FilePath.FullPath );
-        out << Data;
-        out.close();
+        // Creates missing parent directories: user:// writes land in dirs that don't exist yet.
+        if( !VFS::Get().WriteText( FilePath, Data ) )
+        {
+            YIKES_FMT( "[File IO] Failed to write file: %s", FilePath.GetLocalPath().data() );
+        }
     }
 
     void Write( const std::string& inContents )
@@ -73,7 +64,4 @@ public:
 
     std::string Data;
     Path FilePath;
-private:
-
-    bool IsOpen = false;
 };

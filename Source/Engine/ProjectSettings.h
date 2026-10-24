@@ -64,6 +64,10 @@ public:
     // (see HardwareBudget). --hardware-profile / --enforce-profile override them for a run.
     std::string HardwareProfileName;
     bool EnforceHardwareProfile = false;
+    // Product identity (SHIP-1 grows this): names the user:// pref dir of shipped builds,
+    // so changing either orphans players' saved state.
+    std::string ProductOrg = "MitchEngine";
+    std::string ProductName = "MitchGame";
 
 private:
     ProjectSettings();

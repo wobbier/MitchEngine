@@ -40,6 +40,7 @@
 #include "Renderer.h"
 #include "Window/SDLWindow.h"
 #include "Path.h"
+#include "VFS/VFS.h"
 #include "SDL.h"
 #include "SDL_video.h"
 #include <imgui.h>
@@ -112,6 +113,24 @@ void Engine::Init( Game* game )
     ScriptEngine::StartInitAsync();
 #endif
     CLog::GetInstance().Log( CLog::LogType::Info, "Starting the MitchEngine." );
+
+    // Project settings load first: the product identity names the user:// root.
+    ProjectSettings::Get().Load();
+#if !USING( ME_EDITOR ) && !USING( ME_TOOLS ) && ( USING( ME_PLATFORM_WIN64 ) || USING( ME_PLATFORM_MACOS ) || USING( ME_PLATFORM_LINUX ) )
+    // Shipped builds keep user state (Engine.cfg, saves, settings) in the OS per-user dir.
+    // Unattended runs stay on the hermetic .tmp/User default, and SDL_GetPrefPath creates
+    // the directory, so they must not even ask for it.
+    if( !AutomationRunner::IsUnattendedRun() )
+    {
+        char* prefPath = SDL_GetPrefPath( ProjectSettings::Get().ProductOrg.c_str(), ProjectSettings::Get().ProductName.c_str() );
+        if( prefPath )
+        {
+            VFS::Get().SetUserRoot( prefPath );
+            SDL_free( prefPath );
+        }
+    }
+#endif
+
     Path engineCfg( "Assets\\Config\\Engine.cfg" );
 
 #if USING( ME_EDITOR )
@@ -159,7 +178,6 @@ void Engine::Init( Game* game )
         engineConfig = EngineConfig( engineCfg );
         engineConfig.OnLoadConfig( engineConfig.Root );
         engineConfig.LoadUserState();
-        ProjectSettings::Get().Load();
 
         m_automation.Init();
 

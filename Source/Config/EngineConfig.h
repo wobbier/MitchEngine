@@ -9,7 +9,11 @@ class EngineConfig
 public:
     EngineConfig() = default;
     // InUserStatePath: where the per-user state lives (tests point it elsewhere).
-    EngineConfig( const Path& inPath, const std::string& InUserStatePath = ".tmp/Engine.user.cfg" );
+    EngineConfig( const Path& inPath, const std::string& InUserStatePath = DefaultUserStatePath() );
+
+    // The editor keeps user state repo-local; shipped builds write it under user://, the only
+    // place an installed game can write.
+    static const char* DefaultUserStatePath();
 
     virtual void OnSave( json& outJson ) final;
 

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include "Dementia.h"
 #include "CLog.h"
+#include "VFS/VFS.h"
 
 #if USING( ME_PLATFORM_UWP )
 #include <wrl/client.h>
@@ -15,8 +16,9 @@
 Path::Path( const std::string& InFile, bool Raw /*= false*/ )
 {
     OPTICK_CATEGORY( "Path", Optick::Category::IO );
-    std::string LocalPath;
 #if USING( ME_PLATFORM_UWP )
+    // UWP keeps the pre-VFS flow: package-relative paths, no filesystem probing.
+    std::string LocalPath;
     size_t pos;
     char buf[1024];
     GetModuleFileNameA( NULL, buf, 1024 );
@@ -24,31 +26,8 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
     std::replace( ProgramPath.begin(), ProgramPath.end(), '\\', '/' );
     pos = ProgramPath.find_last_of( "/" );
     ProgramPath = ProgramPath.substr( 0, pos + 1 );
-#else
-    // The working directory is fixed for the life of the engine; querying it for every Path
-    // was a syscall per construction.
-    static const std::string s_programPath = []() {
-        std::string path = std::filesystem::current_path().generic_string();
-        std::replace( path.begin(), path.end(), '\\', '/' );
-        return path;
-    }();
-    const std::string& ProgramPath = s_programPath;
-#endif
 
     std::string assetPrefix;
-#if USING( ME_EDITOR ) && USING( ME_PLATFORM_WIN64 )
-    assetPrefix = "/";
-#elif USING( ME_PLATFORM_UWP )
-#elif USING( ME_PLATFORM_MACOS )
-#if USING( ME_EDITOR )
-    // #TODO: WTF
-    assetPrefix = "/";
-#else
-    assetPrefix = "/";
-#endif
-#else
-    assetPrefix = "/";
-#endif
     LocalPath = InFile;
 
     std::replace( LocalPath.begin(), LocalPath.end(), '\\', '/' );
@@ -59,18 +38,14 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
     }
 
     auto remove_duplicate_slashes = []( std::string& str ) {
-        std::string::size_type pos = 0;
-        while( ( pos = str.find( "//", pos ) ) != std::string::npos ) {
-            str.replace( pos, 2, "/" );
+        std::string::size_type slashPos = 0;
+        while( ( slashPos = str.find( "//", slashPos ) ) != std::string::npos ) {
+            str.replace( slashPos, 2, "/" );
         }
         };
     remove_duplicate_slashes( LocalPath );
 
-#if USING( ME_PLATFORM_MACOS ) || USING( ME_PLATFORM_LINUX )
-    size_t path = LocalPath[0] == '/' ? 0 : std::string::npos;
-#else
     size_t path = LocalPath.find( ':' );
-#endif
     if( path != std::string::npos )
     {
         FullPath = LocalPath;
@@ -83,69 +58,85 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
     const size_t extensionPos = LocalPath.rfind( '.' );
     ExtensionPos = extensionPos == std::string::npos ? 0 : LocalPath.size() - extensionPos - 1;
 
-    // yeah don't do this
     path = LocalPath.rfind( "Assets" );
     if( path != std::string::npos )
     {
         LocalPath = LocalPath.substr( path, LocalPath.size() );
     }
 
-#if USING( ME_EDITOR ) || USING( ME_PLATFORM_MACOS ) || USING( ME_PLATFORM_WIN64 ) || USING( ME_PLATFORM_LINUX )
-    if( !std::filesystem::exists( FullPath ) )
-    {
-        if( !Raw )
-        {
-            std::string tempPath = ProgramPath + assetPrefix + "Engine/" + LocalPath;
-            if( std::filesystem::exists( tempPath ) )
-            {
-                FullPath = std::move( tempPath );
-                assetPrefix = assetPrefix.append( "Engine/" );
-                LocalPath = "Engine/" + LocalPath;
-                Exists = true;
-            }
-            else
-            {
-                auto pos = FullPath.rfind( "Engine/Assets" );
-                if( pos != std::string::npos )
-                {
-                    // Gross
-                    FullPath.replace( pos, 13, "Assets" );
-                }
-            }
-        }
-    }
-    else
-    {
-        Exists = true;
-    }
-
-    if( std::filesystem::is_regular_file( FullPath ) )
-    {
-        IsFile = true;
-    }
-    else
-    {
-        IsFolder = true;
-    }
-#else
-
-#if USING( ME_PLATFORM_UWP )
-        // Rough till I look up how UWP validates files
+    // Rough till I look up how UWP validates files
     Exists = true;
-#else
-    Exists = std::filesystem::exists( FullPath );
-#endif
 
-#endif
     const size_t localPos = FullPath.rfind( LocalPath );
     LocalPos = localPos == std::string::npos ? 0 : localPos;
 
     const size_t directoryEnd = FullPath.find_last_of( "/" );
     DirectoryPos = directoryEnd == std::string::npos ? FullPath.size() : FullPath.size() - directoryEnd - 1;
 
-#if USING( ME_PLATFORM_UWP )
-        //std::replace(LocalPath.begin(), LocalPath.end(), '/', '\\');
     FullPath = LocalPath;
+#else
+    std::string LocalPath = InFile;
+
+    std::replace( LocalPath.begin(), LocalPath.end(), '\\', '/' );
+
+    if( LocalPath.empty() )
+    {
+        return;
+    }
+
+    // Collapse duplicate slashes, keeping a scheme's "://" intact.
+    const std::string scheme = VFS::GetScheme( LocalPath );
+    std::string::size_type slashPos = scheme.size();
+    while( ( slashPos = LocalPath.find( "//", slashPos ) ) != std::string::npos )
+    {
+        LocalPath.replace( slashPos, 2, "/" );
+    }
+
+    const size_t extensionPos = LocalPath.rfind( '.' );
+    ExtensionPos = extensionPos == std::string::npos ? 0 : LocalPath.size() - extensionPos - 1;
+
+#if USING( ME_PLATFORM_MACOS ) || USING( ME_PLATFORM_LINUX )
+    const bool absolute = scheme.empty() && LocalPath[0] == '/';
+#else
+    const bool absolute = scheme.empty() && LocalPath.find( ':' ) != std::string::npos;
+#endif
+    if( absolute )
+    {
+        // Absolute paths bypass the mounts.
+        FullPath = LocalPath;
+        std::error_code ec;
+        const std::filesystem::file_status status = std::filesystem::status( FullPath, ec );
+        Exists = !ec && std::filesystem::exists( status );
+        IsFile = Exists && std::filesystem::is_regular_file( status );
+        IsFolder = !IsFile;
+
+        const size_t assetsPos = LocalPath.rfind( "Assets" );
+        if( assetsPos != std::string::npos )
+        {
+            LocalPath = LocalPath.substr( assetsPos );
+        }
+    }
+    else
+    {
+        VfsResolved resolved = VFS::Get().Resolve( LocalPath, Raw );
+        // Legacy: a missing engine-assets path redirects into the game tree, so writes
+        // against engine content land in the project instead of the engine.
+        if( resolved.Resolved && !resolved.Exists && !Raw && LocalPath.rfind( "Engine/Assets", 0 ) == 0 )
+        {
+            resolved = VFS::Get().Resolve( LocalPath.substr( 7 ), Raw );
+        }
+        FullPath = std::move( resolved.PhysicalPath );
+        Exists = resolved.Exists;
+        IsFile = resolved.IsFile;
+        IsFolder = !IsFile;
+        LocalPath = std::move( resolved.DisplayPath );
+    }
+
+    const size_t localPos = FullPath.rfind( LocalPath );
+    LocalPos = localPos == std::string::npos ? 0 : localPos;
+
+    const size_t directoryEnd = FullPath.find_last_of( "/" );
+    DirectoryPos = directoryEnd == std::string::npos ? FullPath.size() : FullPath.size() - directoryEnd - 1;
 #endif
 }
 
