@@ -136,6 +136,15 @@ public:
     // Reads every action from this frame's device state.
     void Update( const InputDeviceState& InDevices, float InDeltaSeconds );
 
+    // Fixed steps run zero or more times per frame. Between BeginFixedStep and EndFixedStep,
+    // WasPressed/WasReleased report the edges since the previous step instead of this frame's,
+    // so a step sees each press and release exactly once: edges from frames without a step carry
+    // over, and a frame's later steps don't repeat them. EndFixedStep restores this frame's edges.
+    void BeginFixedStep();
+    void EndFixedStep();
+    // Drops carried-over edges (frames that can't run a step, e.g. while paused).
+    void DiscardFixedStepEdges();
+
     // The action's state in the highest-priority enabled context that has it (a zero state if none).
     const InputActionState& GetAction( const std::string& InName ) const;
     bool HasAction( const std::string& InName ) const;
@@ -249,6 +258,14 @@ private:
     InputActionMap m_map;
     std::vector<ResolvedContext> m_contexts;     // sorted by priority, highest first
     std::vector<InputActionState> m_states;
+    struct LatchedEdges
+    {
+        bool Pressed = false;   // since the last fixed step
+        bool Released = false;
+        bool FramePressed = false;   // this frame's, put back by EndFixedStep
+        bool FrameReleased = false;
+    };
+    std::vector<LatchedEdges> m_latched;   // parallel to m_states
     std::unordered_map<std::string, std::vector<size_t>> m_statesByName;   // in context priority order
     std::map<std::string, bool> m_contextEnabled;
     std::map<std::string, std::string> m_overrides;

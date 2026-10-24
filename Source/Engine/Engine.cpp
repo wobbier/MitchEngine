@@ -488,12 +488,15 @@ void Engine::Run()
                 while( m_fixedAccumulator >= m_fixedTimeStep && steps < m_maxFixedStepsPerFrame )
                 {
                     updateContext.IsFixedStepActive = true;
+                    // Gameplay in a step sees each press and release once, whatever the frame rate.
+                    GetInput().BeginFixedStep();
                     GameWorld->FixedUpdateLoadedCores( updateContext );
                     if( Scripts )
                     {
                         Scripts->FixedUpdate( updateContext );
                     }
                     m_game->OnFixedUpdate( updateContext );
+                    GetInput().EndFixedStep();
                     // Gameplay applied its forces; now the world steps.
                     Physics->FixedUpdate( updateContext );
                     Physics2D->FixedUpdate( updateContext );
@@ -501,6 +504,11 @@ void Engine::Run()
                     GameWorld->Simulate();
                     m_fixedAccumulator -= m_fixedTimeStep;
                     ++steps;
+                }
+                if( steps == 0 && scaledSeconds <= 0.0 )
+                {
+                    // Paused: presses made now shouldn't fire once the simulation resumes.
+                    GetInput().DiscardFixedStepEdges();
                 }
                 if( steps == m_maxFixedStepsPerFrame && m_fixedAccumulator >= m_fixedTimeStep )
                 {

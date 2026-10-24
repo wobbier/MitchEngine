@@ -88,7 +88,7 @@ sequenceDiagram
 |------|-----------|
 | Scene load / spawn (`ScriptComponent::Init`) | `CreateScript(name, entity)` returns a handle; saved field JSON is applied. **No `OnStart` yet** |
 | Play / game start (`ScriptCore::OnStart`), and each later frame for newly spawned scripts | `PhysicsCore::SyncNow` + `Physics2DCore::SyncNow` (so bodies and colliders exist), then `OnStart` for every created, unstarted script on an active entity |
-| Each fixed step, before physics steps | `OnFixedUpdate(fixedDt)` |
+| Each fixed step, before physics steps | `OnFixedUpdate(fixedDt)`. Input edges here (`Input.WasActionPressed`, `WasKeyPressed`) are per step, so each press is seen exactly once at any frame rate (`Docs/Input.md`) |
 | Each frame, after the scene cores | `OnUpdate(dt)` (scaled; zero while paused) |
 | Each frame, after navigation and animation, before audio and rendering | `OnLateUpdate(dt)`: follow cameras, IK targets, props on bones. A script started mid-frame gets its first one after its first `OnUpdate` |
 

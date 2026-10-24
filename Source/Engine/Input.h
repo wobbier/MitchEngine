@@ -7,6 +7,8 @@
 #include "Input/InputPlayers.h"
 #include "Input/InputTypes.h"
 #include "Pointers.h"
+#include <array>
+#include <bitset>
 #include <chrono>
 
 class IWindow;
@@ -514,6 +516,17 @@ public:
 
     void Update();
     void PostUpdate();
+
+    // Fixed steps run zero or more times per frame. Between BeginFixedStep and EndFixedStep the
+    // Was*Pressed / Was*Released queries (keys, mouse, gamepads and every player's actions) report
+    // the edges since the previous step instead of this frame's, so a step sees each press and
+    // release exactly once: edges from frames without a step carry over to the next one, and a
+    // frame's later steps don't repeat them.
+    void BeginFixedStep();
+    void EndFixedStep();
+    // Drops carried-over edges (frames that can't run a step, e.g. while paused).
+    void DiscardFixedStepEdges();
+
     std::vector<KeyPressEvent> m_keyEventsThisFrame;
 private:
     Vector2 MousePosition;
@@ -535,6 +548,18 @@ private:
 
     InputDeviceState m_devices;
     InputDeviceState m_previousDevices;
+
+    struct Edges
+    {
+        std::bitset<kKeyCount> KeysPressed;
+        std::bitset<kKeyCount> KeysReleased;
+        uint32_t MousePressed = 0;
+        std::array<uint32_t, kMaxGamepads> PadsPressed{};
+        std::array<uint32_t, kMaxGamepads> PadsReleased{};
+    };
+    Edges m_pendingEdges;   // since the last fixed step
+    Edges m_stepEdges;      // what the running fixed step sees
+    bool m_inFixedStep = false;
     InputActionSystem m_actions;
     InputPlayers m_players{ m_actions };
     SharedPtr<InputActionsResource> m_actionAsset;

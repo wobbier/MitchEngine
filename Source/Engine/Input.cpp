@@ -39,7 +39,7 @@ Input::Input()
         }
     } );
 
-    PreviousKeyboardState = static_cast<const uint8_t*>( malloc( sizeof( uint8_t ) * SDL_NUM_SCANCODES ) );
+    PreviousKeyboardState = static_cast<const uint8_t*>( calloc( SDL_NUM_SCANCODES, sizeof( uint8_t ) ) );
     PostUpdate();
 }
 
@@ -99,6 +99,72 @@ void Input::Update()
     m_lastUpdate = now;
     m_hasUpdated = true;
     m_players.Update( m_devices, m_previousDevices, deltaSeconds );
+
+    // Carry this frame's edges to the next fixed step (BeginFixedStep).
+    if( CaptureInput )
+    {
+        for( size_t key = 0; key < static_cast<size_t>( kKeyCount ); ++key )
+        {
+            if( KeyboardState[key] && !PreviousKeyboardState[key] )
+            {
+                m_pendingEdges.KeysPressed.set( key );
+            }
+            else if( !KeyboardState[key] && PreviousKeyboardState[key] )
+            {
+                m_pendingEdges.KeysReleased.set( key );
+            }
+        }
+        m_pendingEdges.MousePressed |= MouseState & ~PreviousMouseState;
+    }
+    for( int slot = 0; slot < kMaxGamepads; ++slot )
+    {
+        const auto& buttons = m_devices.Gamepads[slot].Buttons;
+        const auto& previous = m_previousDevices.Gamepads[slot].Buttons;
+        for( size_t button = 0; button < buttons.size() && button < 32; ++button )
+        {
+            if( buttons[button] && !previous[button] )
+            {
+                m_pendingEdges.PadsPressed[slot] |= 1u << button;
+            }
+            else if( !buttons[button] && previous[button] )
+            {
+                m_pendingEdges.PadsReleased[slot] |= 1u << button;
+            }
+        }
+    }
+}
+
+
+void Input::BeginFixedStep()
+{
+    m_stepEdges = m_pendingEdges;
+    m_pendingEdges = Edges();
+    m_inFixedStep = true;
+    for( int player = 0; player < m_players.GetPlayerCount(); ++player )
+    {
+        m_players.GetActions( player ).BeginFixedStep();
+    }
+}
+
+
+void Input::EndFixedStep()
+{
+    m_stepEdges = Edges();
+    m_inFixedStep = false;
+    for( int player = 0; player < m_players.GetPlayerCount(); ++player )
+    {
+        m_players.GetActions( player ).EndFixedStep();
+    }
+}
+
+
+void Input::DiscardFixedStepEdges()
+{
+    m_pendingEdges = Edges();
+    for( int player = 0; player < m_players.GetPlayerCount(); ++player )
+    {
+        m_players.GetActions( player ).DiscardFixedStepEdges();
+    }
 }
 
 void Input::PostUpdate()
@@ -127,11 +193,19 @@ bool Input::IsKeyDown( KeyCode key )
 
 bool Input::WasKeyPressed( KeyCode key )
 {
+    if( m_inFixedStep )
+    {
+        return CaptureInput && (uint32_t)key < static_cast<uint32_t>( kKeyCount ) && m_stepEdges.KeysPressed.test( (uint32_t)key );
+    }
     return CaptureInput && !PreviousKeyboardState[(uint32_t)key] && KeyboardState[(uint32_t)key];
 }
 
 bool Input::WasKeyReleased( KeyCode key )
 {
+    if( m_inFixedStep )
+    {
+        return CaptureInput && (uint32_t)key < static_cast<uint32_t>( kKeyCount ) && m_stepEdges.KeysReleased.test( (uint32_t)key );
+    }
     return CaptureInput && PreviousKeyboardState[(uint32_t)key] && !KeyboardState[(uint32_t)key];
 }
 
@@ -221,12 +295,20 @@ bool Input::IsGamepadButtonDown( GamepadButton InButton, int InSlot ) const
 
 bool Input::WasGamepadButtonPressed( GamepadButton InButton, int InSlot ) const
 {
+    if( m_inFixedStep )
+    {
+        return InSlot >= 0 && InSlot < kMaxGamepads && ( m_stepEdges.PadsPressed[InSlot] >> static_cast<uint32_t>( InButton ) & 1u );
+    }
     return IsGamepadButtonDown( InButton, InSlot ) && !m_previousDevices.Gamepads[InSlot].Buttons[static_cast<size_t>( InButton )];
 }
 
 
 bool Input::WasGamepadButtonReleased( GamepadButton InButton, int InSlot ) const
 {
+    if( m_inFixedStep )
+    {
+        return InSlot >= 0 && InSlot < kMaxGamepads && ( m_stepEdges.PadsReleased[InSlot] >> static_cast<uint32_t>( InButton ) & 1u );
+    }
     return InSlot >= 0 && InSlot < kMaxGamepads && !m_devices.Gamepads[InSlot].Buttons[static_cast<size_t>( InButton )] && m_previousDevices.Gamepads[InSlot].Buttons[static_cast<size_t>( InButton )];
 }
 
@@ -370,6 +452,10 @@ bool Input::IsMouseButtonDown( MouseButton mouseButton )
 
 bool Input::WasMouseButtonPressed( MouseButton mouseButton )
 {
+    if( m_inFixedStep )
+    {
+        return ( m_stepEdges.MousePressed & SDL_BUTTON( (uint32_t)mouseButton ) ) != 0;
+    }
     return IsMouseButtonDown( mouseButton ) && !( PreviousMouseState & SDL_BUTTON( (uint32_t)mouseButton ) );
 }
 

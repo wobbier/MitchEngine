@@ -119,6 +119,53 @@ TEST_CASE( "Input: buttons press, hold and release across frames" )
     CHECK_FALSE( actions.GetAction( "Jump" ).IsPressed() );
 }
 
+TEST_CASE( "Input: fixed steps see each press and release once, at any frame rate" )
+{
+    InputActionSystem actions;
+    actions.SetMap( GameMap() );
+    InputDeviceState devices;
+    actions.Update( devices, 0.004f );
+
+    // 240 fps: a tap is pressed and released in frames that run no fixed step; the next step sees both once.
+    Key( devices, "Space", true );
+    actions.Update( devices, 0.004f );
+    Key( devices, "Space", false );
+    actions.Update( devices, 0.004f );
+    actions.Update( devices, 0.004f );
+    actions.BeginFixedStep();
+    CHECK( actions.GetAction( "Jump" ).WasPressed() );
+    CHECK( actions.GetAction( "Jump" ).WasReleased() );
+    CHECK_FALSE( actions.GetAction( "Jump" ).IsPressed() );
+    actions.EndFixedStep();
+    CHECK_FALSE( actions.GetAction( "Jump" ).WasPressed() );
+    actions.BeginFixedStep();
+    CHECK_FALSE( actions.GetAction( "Jump" ).WasPressed() );
+    actions.EndFixedStep();
+
+    // 20 fps: three steps in the frame of a press; only the first sees it, and the frame keeps its own edge.
+    Key( devices, "Space", true );
+    actions.Update( devices, 0.05f );
+    int seen = 0;
+    for( int step = 0; step < 3; ++step )
+    {
+        actions.BeginFixedStep();
+        seen += actions.GetAction( "Jump" ).WasPressed() ? 1 : 0;
+        CHECK( actions.GetAction( "Jump" ).IsPressed() );
+        actions.EndFixedStep();
+    }
+    CHECK( seen == 1 );
+    CHECK( actions.GetAction( "Jump" ).WasPressed() );
+
+    // Discarded edges (frames that can't step, e.g. while paused) never reach a step.
+    Key( devices, "Space", false );
+    actions.Update( devices, 0.05f );
+    actions.DiscardFixedStepEdges();
+    actions.BeginFixedStep();
+    CHECK_FALSE( actions.GetAction( "Jump" ).WasReleased() );
+    actions.EndFixedStep();
+}
+
+
 TEST_CASE( "Input: composites normalize, sticks have deadzones, the strongest binding wins" )
 {
     InputActionSystem actions;

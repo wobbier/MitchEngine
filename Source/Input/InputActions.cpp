@@ -411,6 +411,7 @@ void InputActionSystem::SetMap( const InputActionMap& InMap )
         m_contextEnabled.emplace( context.Name, context.EnabledByDefault );
     }
     m_states.clear();
+    m_latched.clear();
     Resolve();
 }
 
@@ -559,6 +560,51 @@ void InputActionSystem::Update( const InputDeviceState& InDevices, float InDelta
         }
     }
     m_previous = InDevices;
+
+    // Carry this frame's edges to the next fixed step.
+    m_latched.resize( m_states.size() );
+    for( size_t i = 0; i < m_states.size(); ++i )
+    {
+        m_latched[i].Pressed |= m_states[i].PressedThisFrame;
+        m_latched[i].Released |= m_states[i].ReleasedThisFrame;
+    }
+}
+
+
+void InputActionSystem::BeginFixedStep()
+{
+    m_latched.resize( m_states.size() );
+    for( size_t i = 0; i < m_states.size(); ++i )
+    {
+        InputActionState& state = m_states[i];
+        LatchedEdges& latched = m_latched[i];
+        latched.FramePressed = state.PressedThisFrame;
+        latched.FrameReleased = state.ReleasedThisFrame;
+        state.PressedThisFrame = latched.Pressed;
+        state.ReleasedThisFrame = latched.Released;
+        latched.Pressed = false;
+        latched.Released = false;
+    }
+}
+
+
+void InputActionSystem::EndFixedStep()
+{
+    for( size_t i = 0; i < m_states.size() && i < m_latched.size(); ++i )
+    {
+        m_states[i].PressedThisFrame = m_latched[i].FramePressed;
+        m_states[i].ReleasedThisFrame = m_latched[i].FrameReleased;
+    }
+}
+
+
+void InputActionSystem::DiscardFixedStepEdges()
+{
+    for( LatchedEdges& latched : m_latched )
+    {
+        latched.Pressed = false;
+        latched.Released = false;
+    }
 }
 
 
