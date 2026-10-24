@@ -43,6 +43,8 @@
 #include "World/SceneSerializer.h"
 #include <imgui.h>
 #include <filesystem>
+#include <algorithm>
+#include "Core/CommandLine.h"
 #include "File.h"
 #include "CLog.h"
 #include "Types/AssetType.h"
@@ -50,6 +52,49 @@
 #include <ImGuiTheme.h>
 
 #if USING( ME_EDITOR )
+
+namespace
+{
+    // Profiler captures stay out of the project root: they can reach gigabytes each.
+    constexpr const char* kCaptureFolder = ".tmp/Captures";
+    constexpr size_t kCapturesKept = 5;
+
+
+    std::string CapturePath( const std::string& InFileName )
+    {
+        std::error_code ec;
+        std::filesystem::create_directories( kCaptureFolder, ec );
+        return std::string( kCaptureFolder ) + "/" + InFileName;
+    }
+
+
+    // Deletes all but the newest kCapturesKept F9 captures (.opt on Optick builds, .json on the trace shim).
+    void PruneCaptures()
+    {
+        std::error_code ec;
+        std::vector<std::filesystem::directory_entry> captures;
+        for( const auto& entry : std::filesystem::directory_iterator( kCaptureFolder, ec ) )
+        {
+            if( entry.is_regular_file( ec ) && entry.path().filename().string().rfind( "capture_", 0 ) == 0 )
+            {
+                captures.push_back( entry );
+            }
+        }
+        if( captures.size() <= kCapturesKept )
+        {
+            return;
+        }
+        std::sort( captures.begin(), captures.end(), []( const auto& a, const auto& b ) {
+            std::error_code timeError;
+            return a.last_write_time( timeError ) > b.last_write_time( timeError );
+        } );
+        for( size_t i = kCapturesKept; i < captures.size(); ++i )
+        {
+            std::filesystem::remove( captures[i].path(), ec );
+        }
+    }
+}
+
 
 EditorApp::EditorApp( int argc, char** argv )
     : Game( argc, argv )
@@ -86,14 +131,15 @@ void EditorApp::OnUpdate( const UpdateContext& inUpdateContext )
 
 #if USING( ME_EDITOR )
     {
-        static int s_startupFramesLeft = 10;
+        // --capture-startup records the first 10 frames (main() starts the capture).
+        static int s_startupFramesLeft = CommandLine::Has( "--capture-startup" ) ? 10 : 0;
         if( s_startupFramesLeft > 0 )
         {
             --s_startupFramesLeft;
             if( s_startupFramesLeft == 0 )
             {
                 OPTICK_STOP_CAPTURE();
-                OPTICK_SAVE_CAPTURE( "startup.opt" );
+                OPTICK_SAVE_CAPTURE( CapturePath( "startup.opt" ).c_str() );
             }
         }
 
@@ -116,8 +162,10 @@ void EditorApp::OnUpdate( const UpdateContext& inUpdateContext )
                 char filename[64];
                 std::time_t t = std::time( nullptr );
                 std::strftime( filename, sizeof( filename ), "capture_%Y%m%d_%H%M%S.opt", std::localtime( &t ) );
-                OPTICK_SAVE_CAPTURE( filename );
-                CLog::GetInstance().Log( CLog::LogType::Info, std::string( "Optick capture saved: " ) + filename );
+                const std::string path = CapturePath( filename );
+                OPTICK_SAVE_CAPTURE( path.c_str() );
+                PruneCaptures();
+                CLog::GetInstance().Log( CLog::LogType::Info, "Optick capture saved: " + path );
             }
         }
     }

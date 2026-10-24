@@ -22,7 +22,10 @@ int main( int argc, char** argv )
         }
     }
 
-    OPTICK_START_CAPTURE();
+    if( CommandLine::Has( "--capture-startup" ) )
+    {
+        OPTICK_START_CAPTURE();
+    }
     EditorApp app( argc, argv );
     GetEngine().Init( &app );
     GetEngine().Run();
