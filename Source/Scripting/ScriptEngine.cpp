@@ -156,6 +156,12 @@ namespace
     bool gAvailable = false;
     std::string gGameDll;
 
+    // Startup: StartInitAsync runs the runtime start on gInitThread; Init joins it. Either way the
+    // start runs once and later calls return its result.
+    std::thread gInitThread;
+    std::mutex gInitMutex;
+    int gInitResult = -1;   // -1 = not started
+
     // Hot reload: a rebuild runs on a worker thread; the swap happens on the main thread.
     std::thread gBuildThread;
     std::atomic<bool> gBuildRunning{ false };
@@ -295,7 +301,9 @@ bool ScriptEngine::BuildScripts( std::string* OutLog )
 }
 
 
-int ScriptEngine::Init()
+// Starts .NET and loads the script assemblies (Init's body). Safe on a worker thread: nothing in
+// it touches engine state, and the managed side keeps no thread affinity.
+static int StartRuntime()
 {
     if( gScriptHost.IsInitialized() )
     {
@@ -309,11 +317,11 @@ int ScriptEngine::Init()
 
 #if USING( ME_TOOLS )
     // Tools builds compile the scripts when they're missing or older than their sources.
-    if( NeedsBuild() )
+    if( ScriptEngine::NeedsBuild() )
     {
-        CLog::Log( CLog::LogType::Info, "Scripts: building " + std::string( kScriptProject ) );
+        CLog::Log( CLog::LogType::Info, "Scripts: building " + std::string( ScriptEngine::kScriptProject ) );
         std::string log;
-        if( !BuildScripts( &log ) )
+        if( !ScriptEngine::BuildScripts( &log ) )
         {
             YIKES( "Scripts: build failed\n" + log );
         }
@@ -381,6 +389,36 @@ int ScriptEngine::Init()
     DBG( "dotnet ready: {} script(s) available", scriptCount );
 
     return 0;
+}
+
+
+void ScriptEngine::StartInitAsync()
+{
+    std::lock_guard<std::mutex> lock( gInitMutex );
+    if( gInitResult >= 0 || gInitThread.joinable() )
+    {
+        return;
+    }
+    gInitThread = std::thread( []() {
+        const int result = StartRuntime();
+        std::lock_guard<std::mutex> lock( gInitMutex );
+        gInitResult = result;
+    } );
+}
+
+
+int ScriptEngine::Init()
+{
+    if( gInitThread.joinable() )
+    {
+        gInitThread.join();
+    }
+    std::lock_guard<std::mutex> lock( gInitMutex );
+    if( gInitResult < 0 )
+    {
+        gInitResult = StartRuntime();
+    }
+    return gInitResult;
 }
 
 
@@ -490,6 +528,10 @@ bool ScriptEngine::IsHandleAlive( int inHandle )
 
 void ScriptEngine::Shutdown()
 {
+    if( gInitThread.joinable() )
+    {
+        gInitThread.join();
+    }
     if( gBuildThread.joinable() )
     {
         gBuildThread.join();

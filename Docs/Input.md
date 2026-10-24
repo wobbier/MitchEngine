@@ -92,7 +92,7 @@ Gamepad shaping:
 - **Events.** Each change logs and fires `GamepadConnectionEvent { Slot, Connected, Name }`.
 - **Rumble.** `Input::Rumble( low, high, seconds, slot )` drives the motors, and `Gamepads::RumbleTriggers` drives trigger motors where the pad has them. `Input::Rumble` only works while that `Input` is capturing.
 - **Order.** Buttons and axes follow SDL's order. Stick Y is flipped so up is +1.
-- **Unattended runs.** Automated runs (`AutomationRunner::IsUnattendedRun`) don't initialize SDL's joystick, game-controller, haptic or sensor subsystems at all. SDL probes HID devices when those start, so automated runs leave the user's hardware alone, and no pads are seen.
+- **Unattended runs.** Automated runs (`AutomationRunner::IsUnattendedRun`) don't initialize SDL's joystick, game-controller, haptic or sensor subsystems at all. SDL probes HID devices when those start, so automated runs leave the user's hardware alone, and no pads are seen. Other runs start them after the first frame (the probe took about half a second of startup), so pads that were already plugged in connect then, as hotplug events.
 
 ### Local multiplayer
 

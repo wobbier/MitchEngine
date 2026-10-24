@@ -43,7 +43,7 @@ flowchart LR
 - On Linux the window extracts X11 vs Wayland handles via `SDL_SYSWM` and hands bgfx the display pointer + window type (`RendererCreationSettings` — `Docs/Rendering-Pipeline.md`).
 - Window events fire **synchronously inside `ParseMessageQueue`**, i.e. before this frame's `Input::Update` and everything else.
 - `Engine::Quit()` = `GameWindow->Exit()` → close request → normal shutdown path.
-- `SDL_Init` starts every subsystem, except that unattended runs (`AutomationRunner::IsUnattendedRun`) skip the joystick, game-controller, haptic and sensor subsystems, so automated runs never probe the machine's HID devices.
+- `SDL_Init` starts every subsystem except the joystick, game-controller, haptic and sensor ones. Probing HID devices took about half a second, so those start after the first frame (`IWindow::InitDeferredSubsystems`, called once by `Engine::Run`); pads already plugged in then arrive as `SDL_CONTROLLERDEVICEADDED`, like hotplugged ones. Unattended runs (`AutomationRunner::IsUnattendedRun`) never start them, so automated runs never probe the machine's HID devices.
 
 ### Input
 

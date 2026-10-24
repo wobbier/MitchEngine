@@ -97,13 +97,12 @@ SDL_HitTestResult HitTestCallback( SDL_Window* window, const SDL_Point* area, vo
 SDLWindow::SDLWindow( const std::string& title, std::function<void( const Vector2& )> resizeFunc, int X, int Y, Vector2 windowSize )
     : ResizeCB( resizeFunc )
 {
-    // Automated runs (captures, editor scripts) never touch game controllers: SDL's joystick drivers
-    // probe and initialize HID devices, which can disturb the hardware of whoever is at the machine.
-    Uint32 subsystems = SDL_INIT_EVERYTHING;
-    if( AutomationRunner::IsUnattendedRun() )
-    {
-        subsystems &= ~( SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER | SDL_INIT_HAPTIC | SDL_INIT_SENSOR );
-    }
+    // Game controllers start after the first frame (InitDeferredSubsystems): probing the HID
+    // devices took about half a second of startup. Automated runs (captures, editor scripts) never
+    // start them, since the probe can disturb the hardware of whoever is at the machine.
+    constexpr Uint32 kControllerSubsystems = SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER | SDL_INIT_HAPTIC | SDL_INIT_SENSOR;
+    const Uint32 subsystems = SDL_INIT_EVERYTHING & ~kControllerSubsystems;
+    m_deferredSubsystems = AutomationRunner::IsUnattendedRun() ? 0 : kControllerSubsystems;
 #if USING( ME_EDITOR ) && USING( ME_PLATFORM_LINUX )
     // ImGui needs global coordinates to detach panels, which native Wayland cannot provide.
     // Prefer X11/XWayland for the editor, falling back to Wayland when X11 is unavailable.
@@ -898,6 +897,18 @@ Vector2 SDLWindow::GetClientPosition()
     int titleHeight = ( windowHeight - clientHeight ) - borderWidth;
     return Vector2(windowX + borderWidth, windowY + titleHeight);
 }
+
+void SDLWindow::InitDeferredSubsystems()
+{
+    if( m_deferredSubsystems )
+    {
+        OPTICK_EVENT( "SDLWindow::InitDeferredSubsystems" );
+        // Pads already plugged in arrive as SDL_CONTROLLERDEVICEADDED, like hotplugged ones.
+        SDL_InitSubSystem( m_deferredSubsystems );
+        m_deferredSubsystems = 0;
+    }
+}
+
 
 bool SDLWindow::IsFullscreen()
 {

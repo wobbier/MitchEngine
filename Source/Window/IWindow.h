@@ -22,6 +22,9 @@ public:
     virtual void Exit() = 0;
     // Withdraws a pending close request (the game vetoed quitting, e.g. to ask about unsaved work).
     virtual void CancelClose() {}
+    // Starts the platform services that would delay the first frame (game controllers); the engine
+    // calls it once, after that frame.
+    virtual void InitDeferredSubsystems() {}
     virtual void* GetWindowPtr() = 0;
 
     virtual void SetBorderless( bool isBorderless ) = 0;

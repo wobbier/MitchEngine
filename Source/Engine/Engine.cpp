@@ -106,6 +106,11 @@ void Engine::Init( Game* game )
     CLog::GetInstance().SetLogVerbosity( CLog::LogType::Trace );
 #endif
     CrashHandler::Install( ".tmp/Crashes" );
+#if USING( ME_SCRIPTING )
+    // .NET starts (and tools builds rebuild stale scripts) while the window and renderer come up;
+    // ScriptCore's ScriptEngine::Init waits for it.
+    ScriptEngine::StartInitAsync();
+#endif
     CLog::GetInstance().Log( CLog::LogType::Info, "Starting the MitchEngine." );
     Path engineCfg( "Assets\\Config\\Engine.cfg" );
 
@@ -236,22 +241,34 @@ void Engine::Init( Game* game )
         ModelRenderer = new RenderCore();
         Particles = new ParticleCore();
         Terrains = new TerrainCore();
-        Physics = new PhysicsCore();
-        Physics2D = new Physics2DCore();
+        {
+            OPTICK_EVENT( "Engine::Init::CreatePhysics" );
+            Physics = new PhysicsCore();
+            Physics2D = new Physics2DCore();
+        }
         Collisions = new CollisionRouter();
         Animation = new AnimationCore();
         Sequences = new SequenceCore();
         Navigation = new NavigationCore();
         // Automated runs (captures, editor scripts) and --no-audio never play through the speakers.
         const bool silentAudio = CommandLine::Has( "--no-audio" ) || ( AutomationRunner::IsUnattendedRun() && !CommandLine::Has( "--audio" ) );
-        AudioThread = new AudioCore( silentAudio ? AudioOutput::Silent : AudioOutput::Device );
+        {
+            OPTICK_EVENT( "Engine::Init::CreateAudio" );
+            AudioThread = new AudioCore( silentAudio ? AudioOutput::Silent : AudioOutput::Device );
+        }
         AudioThread->SetOcclusionQuery( [this]( const Vector3& InListener, const Vector3& InSource, Entity* InListenerEntity, Entity& InSourceEntity ) {
             return Physics ? CountAudioObstacles( *Physics, InListener, InSource, InListenerEntity, InSourceEntity ) : 0;
         } );
 #if USING( ME_SCRIPTING )
-        Scripts = new ScriptCore();
+        {
+            OPTICK_EVENT( "Engine::Init::CreateScripts" );
+            Scripts = new ScriptCore();
+        }
 #endif
-        UI = new UICore( GameWindow, NewRenderer );
+        {
+            OPTICK_EVENT( "Engine::Init::CreateUI" );
+            UI = new UICore( GameWindow, NewRenderer );
+        }
     }
 
     NewRenderer->SetGuizmoDrawCallback( [this]( DebugDrawer* drawer )
@@ -715,6 +732,13 @@ void Engine::Run()
 #endif
         }
         ResourceCache::GetInstance().Dump();
+
+        if( !m_deferredSubsystemsStarted )
+        {
+            // After the first frame, so the window shows up without waiting for them.
+            m_deferredSubsystemsStarted = true;
+            GameWindow->InitDeferredSubsystems();
+        }
 
         LimitFrameRate( frameStartTime );
     }

@@ -17,6 +17,7 @@ public:
 
     bool ShouldClose() override;
     void ParseMessageQueue() override;
+    void InitDeferredSubsystems() override;
 
     Vector2 GetSize() const override;
     Vector2 GetPosition() override;
@@ -54,6 +55,8 @@ private:
     void* NativeDisplay = nullptr;
     bgfx::NativeWindowHandleType::Enum NativeWindowType = bgfx::NativeWindowHandleType::Default;
     std::function<void(const Vector2&)> ResizeCB;
+    // SDL subsystems InitDeferredSubsystems starts (game controllers), none in automated runs.
+    uint32_t m_deferredSubsystems = 0;
 
     void SetWindow(SDL_Window* window);
     void HandleWindowEvent(const SDL_WindowEvent& event);

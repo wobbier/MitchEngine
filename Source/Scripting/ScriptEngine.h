@@ -18,8 +18,11 @@ public:
     static constexpr const char* kScriptProject = "Project/Game.Script.csproj";
 
     // Starts .NET and loads ScriptCore + Game.Script from the executable's directory; tools builds
-    // first rebuild them when their sources changed. Returns 0 on success.
+    // first rebuild them when their sources changed. Returns 0 on success. The start runs once:
+    // later calls return its result, waiting for a StartInitAsync still under way.
     static int Init();
+    // Runs the start on a worker thread, so .NET comes up while the window and renderer are created.
+    static void StartInitAsync();
     static bool IsAvailable();
     static void Shutdown();
 
