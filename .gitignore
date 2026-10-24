@@ -235,3 +235,7 @@ desktop.ini
 # Existing checked-in third-party libraries remain tracked.
 /ThirdParty/genie/
 /ThirdParty/Lib/BGFX/linux/*/*.a
+
+# dotnet CLI bin/obj from ad-hoc builds (RunChecks and the engine build with --artifacts-path)
+Modules/ScriptCore/**/bin/
+Modules/ScriptCore/**/obj/

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The CS-9 Roslyn source generator: per-type field schemas and serializers for game scripts,
+    with zero runtime reflection. Consumed as an analyzer via MitchEngine.Generators.targets
+    (Project/Game.Script.csproj and the Sharpmake-generated Visual Studio project import it).
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AssemblyName>MitchEngine.Generators</AssemblyName>
+    <RootNamespace>MitchEngine.Generators</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- Release tracking is for published analyzer packages; this one ships with the engine. -->
+    <NoWarn>$(NoWarn);RS2008</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

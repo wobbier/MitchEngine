@@ -1,0 +1,12 @@
+<Project>
+  <!--
+    Adds the MitchEngine source generator to a script project. Imported by
+    Project/Game.Script.csproj and by the Sharpmake-generated Visual Studio project
+    (GameScript's CustomTargetsFiles), so both build paths run the same codegen.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="$(MSBuildThisFileDirectory)MitchEngine.Generators.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+</Project>

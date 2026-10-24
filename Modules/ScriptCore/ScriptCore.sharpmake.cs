@@ -89,6 +89,10 @@ public abstract class GameScript : CSharpProject
         CustomProperties.Add("Configurations", ScriptCore.GetConfigurationsList());
         CustomProperties.Add("Platforms", "x64");
 
+        // The CS-9 source generator runs in every script build; the dotnet CLI path
+        // (Project/Game.Script.csproj) imports the same targets file directly.
+        CustomTargetsFiles.Add(Path.Combine(SharpmakeCsPath, "Engine/Modules/ScriptCore/Generators/MitchEngine.Generators.targets"));
+
         AddTargets(CommonTarget.GetDefaultTargets());
     }
 

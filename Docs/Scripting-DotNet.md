@@ -180,6 +180,18 @@ Save it anywhere under `Assets/`. The editor builds it on the next start, or hot
 
 `Transform.Rotate` composes a rotation in degrees about the entity's local axes directly with its quaternion. Use it for continuous rotation. `Transform.Rotation` sets an absolute local rotation in Euler degrees; its getter can return an equivalent Euler representation (for example, `(0, 100, 0)` becomes `(180, 80, 180)`). Reading that representation and replacing just one axis can make rotation alternate between different poses.
 
+### Generate field schemas and serializers (`[GenerateSchema]`)
+
+Mark a **partial**, non-nested, non-generic script class with `[ScriptCore.Generation.GenerateSchema]` and the CS-9 Roslyn source generator (`Modules/ScriptCore/Generators/`, wired into every script build by `MitchEngine.Generators.targets`: `Project/Game.Script.csproj` imports it, the Sharpmake `GameScript` project pulls it in via `CustomTargetsFiles`) emits into the class at compile time:
+
+- `static TypeSchema Schema` — field names, kinds and boxed accessor lambdas (no reflection), registered into `SchemaRegistry` by a module initializer. The registry holds types weakly, so hot-reloaded assemblies still unload.
+- `SaveFields(Utf8JsonWriter)` / `LoadFields(JsonElement)` — the same JSON object shape `ScriptSerializer` produces via reflection (tested byte-for-byte), with tolerant loads that skip unknown or mistyped entries.
+- `Schema.Hash` — a stable FNV-1a over names and kinds; two builds agree exactly when their fields agree (net handshakes, save versioning later).
+
+Supported field kinds: `bool`, `int`, `float`, `double`, `string`, int-backed enums, `Vector2`, `Vector3`. Public instance fields only; `[HideInInspector]` fields stay unpersisted like the reflection path. Misuse gets diagnostics: **MEGEN001** type not partial (error), **MEGEN002** unsupported or readonly field skipped (warning), **MEGEN003** nested or generic type (error). Everything generated is reflection-free, keeping shipped C# AOT-friendly.
+
+Tests: `Modules/ScriptCore/Generators.Tests/` (xunit, run by RunChecks and CI with build artifacts under `.tmp/`) snapshots generated source, checks the diagnostics, compiles the output in-memory, and runs a live `[GenerateSchema]` probe against `ScriptSerializer` for shape parity. The game's `Assets/Scripts/Tests/ScriptProbe.cs` uses it in a real script build, asserted by `ScriptFlows.edscript`.
+
 ## Caveats & Fragility
 
 - **The ABI guard is `sizeof` plus the generator.** The struct is append-only. Never hand-edit the generated files; `--check` catches drift between the manifest and the outputs.

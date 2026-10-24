@@ -137,3 +137,8 @@ jobs:
 
       - name: Run the unit tests
         run: bash Engine/Tools/NixEnv.sh ./.build/Game_linux_Debug/MitchEngine_Tests
+
+      - name: Run the source generator tests
+        run: |
+          bash Engine/Tools/NixEnv.sh dotnet build Engine/Modules/ScriptCore/Generators.Tests/MitchEngine.Generators.Tests.csproj --artifacts-path .tmp/DotNet/GeneratorTests -v quiet --nologo
+          bash Engine/Tools/NixEnv.sh dotnet test .tmp/DotNet/GeneratorTests/bin/MitchEngine.Generators.Tests/debug/MitchEngine.Generators.Tests.dll --nologo
