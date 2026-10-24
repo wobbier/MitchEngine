@@ -42,7 +42,7 @@
     "Branches": [
         {
             "Collar": 0.30000001192092896,
-            "Count": 4,
+            "Count": 30,
             "CountVariance": 0.15000000596046448,
             "Curve": 15.0,
             "CurveVariance": 12.0,
@@ -94,11 +94,11 @@
             "SegmentLength": 0.20000000298023224,
             "Start": 0.20000000298023224,
             "Taper": 0.800000011920929,
-            "WhorlSize": 12
+            "WhorlSize": 4
         },
         {
             "Collar": 0.30000001192092896,
-            "Count": 15,
+            "Count": 6,
             "CountVariance": 0.15000000596046448,
             "Curve": 0.0,
             "CurveVariance": 12.0,
@@ -125,7 +125,7 @@
             "WhorlSize": 4
         }
     ],
-    "Crown": "InverseConical",
+    "Crown": "TendFlame",
     "Foliage": {
         "AlphaCutoff": 0.44999998807907104,
         "BaseColorMap": "",
@@ -137,7 +137,7 @@
             1.0
         ],
         "Translucency": 0.6000000238418579,
-        "Variation": 1.0
+        "Variation": 0.15000000596046448
     },
     "Format": "MitchTree",
     "LeafTextures": {
@@ -149,7 +149,7 @@
         ],
         "Columns": 2,
         "Generate": true,
-        "Leaves": 4,
+        "Leaves": 9,
         "LobeDepth": 0.44999998807907104,
         "Lobes": 7,
         "NeedleLength": 0.20000000298023224,
@@ -179,11 +179,12 @@
         "FrondFold": 25.0,
         "FrondWidth": 0.8999999761581421,
         "Kind": "Broadleaf",
+        "ParentCoverage": 0.0,
         "PerStem": 6,
         "Regions": [],
         "Roundness": 0.699999988079071,
-        "Size": 3.6740000247955322,
-        "SizeVariance": 0.6899999976158142,
+        "Size": 0.36000001430511475,
+        "SizeVariance": 0.25,
         "Start": 0.20000000298023224,
         "UpBias": 0.44999998807907104,
         "Width": 1.0
@@ -195,32 +196,32 @@
     },
     "Name": "Maple",
     "Occlusion": 0.75,
-    "Seed": 67,
+    "Seed": 21,
     "Trunk": {
-        "Bend": 0.0,
-        "Flare": 0.3109999895095825,
-        "FlareHeight": 0.07400000095367432,
+        "Bend": 5.0,
+        "Flare": 0.550000011920929,
+        "FlareHeight": 0.05999999865889549,
         "FlareLobes": 5,
-        "Gnarl": 0.23600000143051147,
+        "Gnarl": 0.07999999821186066,
         "GnarlScale": 0.5,
-        "Height": 80.0,
-        "HeightVariance": 0.5,
-        "Lean": 0.0,
+        "Height": 13.0,
+        "HeightVariance": 0.10000000149011612,
+        "Lean": 3.0,
         "LobeDepth": 0.3499999940395355,
-        "Radius": 3.0,
+        "Radius": 0.30000001192092896,
         "SegmentLength": 0.3499999940395355,
         "SinkDepth": 0.4000000059604645,
         "SplitAngle": 22.0,
-        "SplitHeight": 0.3370000123977661,
-        "Splits": 4,
-        "Taper": 1.0,
-        "TaperPower": 1.7400000095367432
+        "SplitHeight": 0.550000011920929,
+        "Splits": 0,
+        "Taper": 0.8500000238418579,
+        "TaperPower": 1.2999999523162842
     },
     "Version": 1,
     "Wind": {
-        "Branches": 0.0,
-        "Frequency": 0.10000000149011612,
-        "Leaves": 0.0,
-        "Trunk": 0.0
+        "Branches": 1.0,
+        "Frequency": 1.0,
+        "Leaves": 1.0,
+        "Trunk": 1.0
     }
 }
