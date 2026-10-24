@@ -218,3 +218,20 @@ imgui.ini
 *.bin.d
 ThirdParty/FMOD/
 capture*.json
+
+# Local tool output, runtime dumps and import backups
+/.tmp/
+__pycache__/
+*.py[cod]
+*.meta.invalid
+/Engine.txt
+/fmod_log.txt
+/startup.json
+.mayaSwatches/
+Thumbs.db
+desktop.ini
+
+# Downloaded build-tool checkout and archives emitted by local bgfx builds.
+# Existing checked-in third-party libraries remain tracked.
+/ThirdParty/genie/
+/ThirdParty/Lib/BGFX/linux/*/*.a

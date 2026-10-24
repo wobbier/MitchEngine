@@ -44,18 +44,23 @@
 [submodule "ThirdParty/doctest"]
 	path = ThirdParty/doctest
 	url = https://github.com/doctest/doctest
+	ignore = dirty
 [submodule "ThirdParty/ImGuizmo"]
 	path = ThirdParty/ImGuizmo
 	url = https://github.com/CedricGuillemet/ImGuizmo
+	ignore = dirty
 [submodule "ThirdParty/box2d"]
 	path = ThirdParty/box2d
 	url = https://github.com/erincatto/box2d
+	ignore = dirty
 [submodule "ThirdParty/box3d"]
 	path = ThirdParty/box3d
 	url = https://github.com/erincatto/box3d
+	ignore = dirty
 [submodule "ThirdParty/recastnavigation"]
 	path = ThirdParty/recastnavigation
 	url = https://github.com/recastnavigation/recastnavigation
+	ignore = dirty
 [submodule "ThirdParty/imgui-node-editor"]
 	path = ThirdParty/imgui-node-editor
 	url = https://github.com/thedmd/imgui-node-editor.git
