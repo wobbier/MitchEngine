@@ -46,6 +46,22 @@ Sharpmake project templates still expect an `Engine/` directory; changing that
 build-system convention is separate work. The SDK's Nix support files can ship
 with a binary SDK and do not require access to its C++ source repository.
 
+### Build speed: mold and ccache
+
+The shell links with **mold** (`LDFLAGS=-fuse-ld=mold`, which the generated makefiles
+append to) and compiles through **ccache**: `.tmp/ccache-bin` holds `gcc`/`g++`/`cc`/`c++`
+links to ccache and goes first in `PATH`, because the makefiles name the compiler directly.
+`CCACHE_BASEDIR` is the project root (so cache hits survive moving the checkout), the
+sloppiness settings let the precompiled-header builds cache too, and the cache lives in
+ccache's default directory (`~/.cache/ccache`, 20 GB unless `CCACHE_MAXSIZE` says
+otherwise). Set `MITCH_NO_CCACHE=1` before entering the shell to compile without it.
+
+Measured on a 32-core machine (2026-10-24, editor Debug): relinking Havana takes 0.75 s
+instead of 4.4 s; a clean build of every editor module takes 44 s with an empty cache and
+4.6 s with a warm one, so regenerating projects or switching branches no longer costs a
+full rebuild. A precompiled header for Havana was tried and dropped: at `-O0` most of a
+file's compile time is code generation, and the header made clean builds slower.
+
 ## Private project extensions
 
 Create `devshell.nix` in the **game's** repository only when extra dependencies

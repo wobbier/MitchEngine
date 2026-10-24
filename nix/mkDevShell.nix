@@ -13,6 +13,10 @@ pkgs.mkShell ((config.env or { }) // {
     git
     xorg-server
     xvfb-run
+    # Faster iteration: mold links in a fraction of ld.bfd's time; ccache reuses objects
+    # across clean builds, regenerations and branch switches.
+    mold
+    ccache
   ] ++ (config.packages or [ ]);
 
   nativeBuildInputs = config.nativeBuildInputs or [ ];
@@ -125,6 +129,30 @@ pkgs.mkShell ((config.env or { }) // {
         fi
       done
       unset sdk_lib
+    fi
+    # Link with mold. The generated makefiles append to LDFLAGS, so this reaches every link.
+    case " ''${LDFLAGS:-} " in
+      *" -fuse-ld=mold "*) ;;
+      *) export LDFLAGS="''${LDFLAGS:+$LDFLAGS }-fuse-ld=mold" ;;
+    esac
+
+    # Compile through ccache (MITCH_NO_CCACHE=1 opts out). The makefiles name the compiler
+    # (CXX = g++), so a directory of g++/gcc links to ccache goes first in PATH; ccache then
+    # runs the real compiler found after it. The sloppiness lets PCH builds cache too.
+    if [ -z "''${MITCH_NO_CCACHE:-}" ] && [ -n "''${MITCH_PROJECT_ROOT:-}" ]; then
+      ccache_bin="$MITCH_PROJECT_ROOT/.tmp/ccache-bin"
+      mkdir -p "$ccache_bin"
+      for tool in gcc g++ cc c++; do
+        ln -sf "${pkgs.ccache}/bin/ccache" "$ccache_bin/$tool"
+      done
+      case ":$PATH:" in
+        *":$ccache_bin:"*) ;;
+        *) export PATH="$ccache_bin:$PATH" ;;
+      esac
+      export CCACHE_BASEDIR="$MITCH_PROJECT_ROOT"
+      export CCACHE_SLOPPINESS="pch_defines,time_macros,include_file_mtime,include_file_ctime"
+      export CCACHE_MAXSIZE="''${CCACHE_MAXSIZE:-20G}"
+      unset ccache_bin tool
     fi
     echo "MitchEngine development environment ready."
   '' + (config.shellHook or "");
