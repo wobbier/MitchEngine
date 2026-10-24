@@ -1,4 +1,5 @@
 #include "LogWidget.h"
+#include "Utils/SourceLocation.h"
 #include <optick.h>
 #include <Utils/PlatformUtils.h>
 #include <imgui_internal.h>
@@ -44,21 +45,6 @@ namespace
 		return it != haystack.end();
 	}
 
-	// First "path/file.ext:line" reference in a message.
-	bool FindSourceLocation(const std::string& text, std::string& outFile, int& outLine)
-	{
-		static const std::regex pattern(R"(([A-Za-z]:)?[\w./\\-]+\.(cpp|cc|c|hpp|h|inl|cs|sc|sh|lvl|prefab|json):(\d+))");
-		std::smatch match;
-		if (!std::regex_search(text, match, pattern))
-		{
-			return false;
-		}
-		const std::string whole = match.str(0);
-		const size_t colon = whole.find_last_of(':');
-		outFile = whole.substr(0, colon);
-		outLine = std::atoi(whole.c_str() + colon + 1);
-		return true;
-	}
 
 	void FormatTime(double seconds, char* buffer, size_t size)
 	{

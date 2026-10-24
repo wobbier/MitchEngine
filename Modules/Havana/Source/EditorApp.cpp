@@ -45,6 +45,7 @@
 #include <filesystem>
 #include <algorithm>
 #include "Core/CommandLine.h"
+#include "Scripting/ScriptEngine.h"
 #include "File.h"
 #include "CLog.h"
 #include "Types/AssetType.h"
@@ -375,6 +376,14 @@ void EditorApp::StartGame()
     {
         return;
     }
+#if USING( ME_SCRIPTING )
+    if( ScriptEngine::HasBuildErrors() )
+    {
+        // Like a compiler, Play waits for code that builds: the last good scripts would run instead.
+        YIKES( "Can't play: the C# scripts don't compile. Fix the errors in the Log, then press Play again." );
+        return;
+    }
+#endif
     m_playSnapshot = json();
     // Animation previews end, so the snapshot (and play's bind pose) is the authored pose.
     if( GetEngine().Animation )

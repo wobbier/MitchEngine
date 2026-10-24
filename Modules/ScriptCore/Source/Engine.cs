@@ -92,8 +92,21 @@ public static class ScriptBridge
     // Nothing managed is allowed to throw back across the native boundary - CoreCLR turns an
     // escaped exception into a process kill. Every [UnmanagedCallersOnly] that touches user
     // script code or reflection funnels its failures through here instead.
-    private static void ReportException(string where, Exception ex)
-        => Console.WriteLine($"[ScriptBridge] {where} threw {ex.GetType().Name}: {ex.Message}");
+    // The whole exception (type, message and the stack with file:line wherever symbols loaded) goes
+    // to the engine log, so the editor's Log panel shows it and opens the throwing line; before the
+    // engine API is bound there's only stdout.
+    private static unsafe void ReportException(string where, Exception ex)
+    {
+        var text = $"[ScriptBridge] {where} threw {ex}";
+        if (Engine._api.LogError != null)
+        {
+            Debug.Error(text);
+        }
+        else
+        {
+            Console.WriteLine(text);
+        }
+    }
 
     // Loads from memory, not the file: the file stays unlocked so a rebuild can replace it while
     // the game runs (hot reload).
@@ -122,7 +135,7 @@ public static class ScriptBridge
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ScriptBridge] LoadGameAssembly failed: {ex.Message}");
+            ReportException("LoadGameAssembly", ex);
             return -1;
         }
     }

@@ -5,6 +5,7 @@
 #if USING( ME_SCRIPTING )
 
 #include <string>
+#include <vector>
 #include "Pointers.h"
 #include "ECS/EntityID.h"
 #include "Math/Vector3.h"
@@ -24,6 +25,21 @@ public:
     // Runs the start on a worker thread, so .NET comes up while the window and renderer are created.
     static void StartInitAsync();
     static bool IsAvailable();
+    // The last script build failed: its errors are in the log, and the editor won't Play until they're fixed.
+    static bool HasBuildErrors();
+
+    // One compiler diagnostic from dotnet build's output, its path relative to the project root.
+    struct BuildDiagnostic
+    {
+        std::string File;
+        int Line = 0;
+        int Column = 0;
+        bool IsError = false;
+        std::string Code;
+        std::string Message;
+    };
+    // Every diagnostic in a build's output, once each, with paths under InRoot made relative to it.
+    static std::vector<BuildDiagnostic> ParseBuildDiagnostics( const std::string& InOutput, const std::string& InRoot );
     static void Shutdown();
 
     // dotnet build of kScriptProject into the executable's directory (tools builds).

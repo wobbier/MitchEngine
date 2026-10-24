@@ -108,6 +108,8 @@ Scripts run only while the game runs: in the editor that means Play mode, while 
 
 Only public fields survive. Private state, statics and references are rebuilt in `OnReload`. The log line `Scripts: hot reloaded (N live script(s) kept their fields)` marks a finished swap, and `ScriptFlows.edscript` asserts on it.
 
+**Errors.** A failed build logs each compiler diagnostic as its own entry, `Assets/File.cs:line:col: error CS1002: ; expected` (warnings at warning level; `ScriptEngine::ParseBuildDiagnostics`), then a summary line; the Log panel opens the line on double-click. While the last build failed (`ScriptEngine::HasBuildErrors`), Play is refused with a message, since the last good scripts would run instead. An exception thrown by a script callback is logged at error level with the whole exception, its stack included, down to the throwing `File.cs:line N` when symbols loaded (Debug builds). `ScriptFlows.edscript` covers both.
+
 ### Calling the engine from C#
 
 The API is about 87 functions. Strings cross as UTF-8 `byte*`, entities as the raw 64-bit `EntityID`, and vectors by pointer.

@@ -9,6 +9,9 @@
 #include <cstdio>
 #include <filesystem>
 #include <mutex>
+#include <regex>
+#include <set>
+#include <sstream>
 #include <thread>
 #include <SDL_filesystem.h>
 #include "CLog.h"
@@ -161,6 +164,41 @@ namespace
     std::thread gInitThread;
     std::mutex gInitMutex;
     int gInitResult = -1;   // -1 = not started
+
+    // The last script build failed (Play waits until the scripts compile).
+    std::atomic<bool> gHasBuildErrors{ false };
+
+
+    // Logs each diagnostic as its own entry, "Assets/File.cs:line:col: error CODE: text", so the Log
+    // panel shows and opens every one. Returns the number of errors; the summary line is the caller's.
+    int LogBuildDiagnostics( const std::string& InOutput )
+    {
+        int errors = 0;
+        for( const ScriptEngine::BuildDiagnostic& diagnostic : ScriptEngine::ParseBuildDiagnostics( InOutput, fs::current_path().generic_string() ) )
+        {
+            const std::string text = diagnostic.File + ":" + std::to_string( diagnostic.Line ) + ":" + std::to_string( diagnostic.Column ) + ": "
+                + ( diagnostic.IsError ? "error " : "warning " ) + diagnostic.Code + ": " + diagnostic.Message;
+            CLog::Log( diagnostic.IsError ? CLog::LogType::Error : CLog::LogType::Warning, text );
+            errors += diagnostic.IsError ? 1 : 0;
+        }
+        return errors;
+    }
+
+
+    // A failed build's report: each diagnostic, then a summary (the raw output when nothing parsed).
+    void ReportBuildFailure( const std::string& InOutput, const std::string& InWhat )
+    {
+        gHasBuildErrors = true;
+        const int errors = LogBuildDiagnostics( InOutput );
+        if( errors > 0 )
+        {
+            CLog::Log( CLog::LogType::Error, "Scripts: " + InWhat + " (" + std::to_string( errors ) + ( errors == 1 ? " error" : " errors" ) + ", listed above)" );
+        }
+        else
+        {
+            CLog::Log( CLog::LogType::Error, "Scripts: " + InWhat + "\n" + InOutput );
+        }
+    }
 
     // Hot reload: a rebuild runs on a worker thread; the swap happens on the main thread.
     std::thread gBuildThread;
@@ -323,7 +361,7 @@ static int StartRuntime()
         std::string log;
         if( !ScriptEngine::BuildScripts( &log ) )
         {
-            YIKES( "Scripts: build failed\n" + log );
+            ReportBuildFailure( log, "build failed" );
         }
     }
 #endif
@@ -422,6 +460,51 @@ int ScriptEngine::Init()
 }
 
 
+std::vector<ScriptEngine::BuildDiagnostic> ScriptEngine::ParseBuildDiagnostics( const std::string& InOutput, const std::string& InRoot )
+{
+    // "<path>(line,col): error|warning CODE: text [project]", once per diagnostic (MSBuild can repeat them).
+    static const std::regex pattern( R"(^\s*(.+?\.cs)\((\d+),(\d+)\): (error|warning) (\w+): (.*?)( \[[^\]]*\])?\s*$)" );
+    std::string root = InRoot;
+    std::replace( root.begin(), root.end(), '\\', '/' );
+    if( !root.empty() && root.back() != '/' )
+    {
+        root += '/';
+    }
+    std::vector<BuildDiagnostic> diagnostics;
+    std::set<std::string> seen;
+    std::istringstream lines( InOutput );
+    std::string line;
+    while( std::getline( lines, line ) )
+    {
+        std::smatch match;
+        if( !std::regex_match( line, match, pattern ) || !seen.insert( match.str( 1 ) + match.str( 2 ) + match.str( 3 ) + match.str( 5 ) + match.str( 6 ) ).second )
+        {
+            continue;
+        }
+        BuildDiagnostic diagnostic;
+        diagnostic.File = match.str( 1 );
+        std::replace( diagnostic.File.begin(), diagnostic.File.end(), '\\', '/' );
+        if( !root.empty() && diagnostic.File.rfind( root, 0 ) == 0 )
+        {
+            diagnostic.File = diagnostic.File.substr( root.size() );
+        }
+        diagnostic.Line = std::stoi( match.str( 2 ) );
+        diagnostic.Column = std::stoi( match.str( 3 ) );
+        diagnostic.IsError = match.str( 4 ) == "error";
+        diagnostic.Code = match.str( 5 );
+        diagnostic.Message = match.str( 6 );
+        diagnostics.push_back( std::move( diagnostic ) );
+    }
+    return diagnostics;
+}
+
+
+bool ScriptEngine::HasBuildErrors()
+{
+    return gHasBuildErrors;
+}
+
+
 bool ScriptEngine::IsAvailable()
 {
     return gAvailable;
@@ -484,10 +567,11 @@ bool ScriptEngine::PollReload()
     bool reloaded = false;
     if( !succeeded )
     {
-        YIKES( "Scripts: build failed; the running scripts are unchanged\n" + log );
+        ReportBuildFailure( log, "build failed; the running scripts are unchanged" );
     }
     else
     {
+        gHasBuildErrors = false;
         reloaded = Reload();
     }
     if( gReloadQueued )
