@@ -865,6 +865,7 @@ void ModelResourceMetadata::OnSerialize( json& inJson )
     // Always store this setting: old sidecars omitted it when conversion was opt-in.
     inJson["ConvertUnits"] = ConvertUnits;
     if( !TextureRemaps.empty() ) inJson["TextureRemaps"] = TextureRemaps;
+    if( DoubleSided ) inJson["DoubleSided"] = true;
     if( GenerateLODs )
     {
         // Rounded, so a float like 0.02 isn't saved as 0.019999999552965164.
@@ -886,10 +887,11 @@ void ModelResourceMetadata::OnDeserialize( const json& inJson )
     // remain valid for files with incorrect unit metadata.
     FlaggedForExport = FlaggedForExport || !inJson.contains( "ConvertUnits" );
     TextureRemaps = inJson.value( "TextureRemaps", std::map<std::string, std::string>() );
-    if( !TextureRemaps.empty() )
+    DoubleSided = inJson.value( "DoubleSided", false );
+    if( !TextureRemaps.empty() || DoubleSided )
     {
         // Sidecars can be edited while the editor is closed; the asset timestamp cache only
-        // tracks the source model. Rebuild an existing cook when its remaps have changed.
+        // tracks the source model. Rebuild an existing cook when its cooked-in settings changed.
         std::error_code error;
         const auto metaTime = std::filesystem::last_write_time( FilePath.FullPath + ".meta", error );
         if( !error )
@@ -933,6 +935,12 @@ void ModelResourceMetadata::OnEditorInspect()
     if( ImGui::IsItemHovered() )
     {
         ImGui::SetTooltip( "Use the file's unit (FBX UnitScaleFactor): centimetre assets import at metre size" );
+    }
+    HavanaUtils::Label( "Double Sided" );
+    ImGui::Checkbox( "##DoubleSided", &DoubleSided );
+    if( ImGui::IsItemHovered() )
+    {
+        ImGui::SetTooltip( "Render every material in this file from both sides, for sources without back faces (Synty walls)" );
     }
     HavanaUtils::Label( "Generate LODs" );
     ImGui::Checkbox( "##GenerateLODs", &GenerateLODs );
@@ -1071,6 +1079,16 @@ void ModelResourceMetadata::Export()
             // AddProperty replaces the existing property; copy its identity before that deletes it.
             const unsigned int semantic = property.mSemantic, index = property.mIndex;
             material.AddProperty( &replacement, key.c_str(), semantic, index );
+        }
+    }
+
+    if( DoubleSided )
+    {
+        // Stored as a float because the load path reads $mat.twosided as a scalar.
+        const float twoSided = 1.f;
+        for( unsigned int m = 0; m < scene->mNumMaterials; ++m )
+        {
+            scene->mMaterials[m]->AddProperty( &twoSided, 1, AI_MATKEY_TWOSIDED );
         }
     }
 

@@ -115,6 +115,11 @@ struct ModelResourceMetadata
     // Baked into the cook so renamed textures work without filename guessing at runtime.
     std::map<std::string, std::string> TextureRemaps;
 
+    // Cook every material in the file two-sided, for sources that don't declare it themselves
+    // (Synty walls render only one face). Baked into the cooked materials as $mat.twosided, which
+    // the load path maps onto FaceMode Both per material.
+    bool DoubleSided = false;
+
     // Levels of detail, simplified from each mesh when the model loads (not baked into the cook, so
     // changes apply the next time the model loads).
     bool GenerateLODs = false;

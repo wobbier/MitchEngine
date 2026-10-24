@@ -313,6 +313,87 @@ TEST_CASE( "Models: texture remaps survive metadata saves and repair cooked mate
     fs::remove_all( directory );
 }
 
+TEST_CASE( "Models: the double-sided import option cooks every material two-sided" )
+{
+    namespace fs = std::filesystem;
+    const fs::path directory = ".tmp/Tests/DoubleSided";
+    fs::create_directories( directory );
+    const std::string source = ( directory / "Model.assbin" ).string();
+    aiScene scene;
+    scene.mRootNode = new aiNode( "RootNode" );
+    scene.mRootNode->mNumMeshes = 1;
+    scene.mRootNode->mMeshes = new unsigned int[1]{ 0 };
+    scene.mNumMeshes = 1;
+    scene.mMeshes = new aiMesh*[1]{ new aiMesh() };
+    aiMesh& mesh = *scene.mMeshes[0];
+    mesh.mPrimitiveTypes = aiPrimitiveType_TRIANGLE;
+    mesh.mNumVertices = 3;
+    mesh.mVertices = new aiVector3D[3]{ { 0.f, 0.f, 0.f }, { 1.f, 0.f, 0.f }, { 0.f, 1.f, 0.f } };
+    mesh.mNumFaces = 1;
+    mesh.mFaces = new aiFace[1];
+    mesh.mFaces[0].mNumIndices = 3;
+    mesh.mFaces[0].mIndices = new unsigned int[3]{ 0, 1, 2 };
+    scene.mNumMaterials = 2;
+    scene.mMaterials = new aiMaterial*[2]{ new aiMaterial(), new aiMaterial() };
+    Assimp::Exporter exporter;
+    REQUIRE( exporter.Export( &scene, "assbin", source ) == AI_SUCCESS );
+
+    // Without the option, the cook leaves the materials single-sided.
+    ModelResourceMetadata meta{ Path( source ) };
+    meta.Export();
+    {
+        Assimp::Importer importer;
+        const aiScene* cooked = importer.ReadFile( source + ".assbin", 0 );
+        REQUIRE( cooked );
+        REQUIRE( cooked->mNumMaterials == 2 );
+        CHECK_FALSE( Moonlight::ReadImportedMaterial( *cooked->mMaterials[0] ).DoubleSided );
+        CHECK_FALSE( Moonlight::ReadImportedMaterial( *cooked->mMaterials[1] ).DoubleSided );
+    }
+
+    // The option round-trips the sidecar (omitted while off) and stamps every cooked material.
+    meta.DoubleSided = true;
+    json saved;
+    meta.OnSerialize( saved );
+    CHECK( saved.value( "DoubleSided", false ) );
+    ModelResourceMetadata loaded{ Path( source ) };
+    loaded.OnDeserialize( saved );
+    CHECK( loaded.DoubleSided );
+    loaded.Export();
+    {
+        Assimp::Importer importer;
+        const aiScene* cooked = importer.ReadFile( source + ".assbin", 0 );
+        REQUIRE( cooked );
+        REQUIRE( cooked->mNumMaterials == 2 );
+        for( unsigned int m = 0; m < cooked->mNumMaterials; ++m )
+        {
+            CHECK( Moonlight::ReadImportedMaterial( *cooked->mMaterials[m] ).DoubleSided );
+            // The legacy baseline ignores two-sided, so scenes saved before the flip rebase to it.
+            CHECK_FALSE( Moonlight::ReadImportedMaterial( *cooked->mMaterials[m], true ).DoubleSided );
+        }
+    }
+
+    // A sidecar edited offline must invalidate an older cook even without texture remaps.
+    { std::ofstream file( source + ".meta" ); file << saved.dump( 4 ); }
+    const auto time = fs::file_time_type::clock::now();
+    fs::last_write_time( source + ".assbin", time - std::chrono::seconds( 2 ) );
+    fs::last_write_time( source + ".meta", time );
+    loaded.FlaggedForExport = false;
+    loaded.OnDeserialize( saved );
+    CHECK( loaded.FlaggedForExport );
+    fs::last_write_time( source + ".assbin", time + std::chrono::seconds( 2 ) );
+    loaded.FlaggedForExport = false;
+    loaded.OnDeserialize( saved );
+    CHECK_FALSE( loaded.FlaggedForExport );
+    // Absent from old sidecars: stays off with no forced recook, and stays out of fresh saves.
+    loaded.OnDeserialize( json{ { "ConvertUnits", true } } );
+    CHECK_FALSE( loaded.DoubleSided );
+    CHECK_FALSE( loaded.FlaggedForExport );
+    json defaults;
+    loaded.OnSerialize( defaults );
+    CHECK_FALSE( defaults.contains( "DoubleSided" ) );
+    fs::remove_all( directory );
+}
+
 TEST_CASE( "Models: material splits have distinct stable names, including empty and duplicate names" )
 {
     Moonlight::Node node;
