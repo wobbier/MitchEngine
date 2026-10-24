@@ -126,6 +126,14 @@ not run the engine submodule's workflows. Pushes and PRs targeting `master`,
 engine repository and commit before creating an `EmptyProject` from its template.
 Setup preserves this checkout, including detached commits and fork revisions.
 
+The Linux workflow's **Unit tests** job checks the generated script API
+(`Tools/GenerateScriptAPI.py --check`), then builds and runs `MitchEngine_Tests` in that
+`EmptyProject`, with ccache restored between runs. Tests that need a game's content
+(MitchGame's example scenes) skip themselves when it isn't there. The editor flows and
+the screenshot regression need a game's scenes, so they run in the game repository:
+MitchGame's `.github/workflows/Checks.yml` runs `Tools/RunChecks.sh` on a fresh shallow
+checkout and keeps the logs, flow logs and captures as an artifact.
+
 For a manual build, open the engine repository's Actions tab, select a platform,
 and choose **Run workflow**, then select `overhaul` in the branch dropdown.
 The Linux workflow on `master` is a manual launcher for the reusable Linux

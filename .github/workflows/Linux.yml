@@ -96,3 +96,44 @@ jobs:
         with:
           name: EmptyProject v${{ github.run_number }} - ${{ matrix.buildconfig }}_${{ matrix.configuration }} (Linux)
           path: ${{ matrix.buildconfig }}_${{ matrix.configuration }}.tar.gz
+
+  tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check out the engine revision
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ inputs.engine_ref || github.event.pull_request.head.sha || github.sha }}
+          path: Engine
+          submodules: true
+          persist-credentials: false
+
+      - name: Check the generated script API
+        run: python3 Engine/Tools/GenerateScriptAPI.py --check
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      # The dev shell compiles through ccache (Docs/Development-Environment.md).
+      - name: Restore the compiler cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-linux-tests-${{ github.sha }}
+          restore-keys: ccache-linux-tests-
+
+      - name: Generate a new project
+        run: bash Engine/Tools/NewProjectSetup.sh EmptyProject
+
+      - name: Build the unit tests
+        run: bash Engine/Tools/BuildProject.sh MitchEngine_Tests game_linux_debug
+
+      - name: Run the unit tests
+        run: bash Engine/Tools/NixEnv.sh ./.build/Game_linux_Debug/MitchEngine_Tests

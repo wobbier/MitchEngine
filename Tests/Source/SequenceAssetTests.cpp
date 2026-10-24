@@ -47,6 +47,9 @@ TEST_CASE( "Sequence asset: export separates shared keys from instance GUIDs and
 {
     ClipRig rig;
     std::string error;
+    // No leftovers from earlier runs: the clip's metadata must come from this export.
+    std::error_code removeError;
+    std::filesystem::remove( ".tmp/Tests/Sequence/Export.sequence.meta", removeError );
     REQUIRE( rig.Player().ExportClip( ".tmp/Tests/Sequence/Export.sequence", error ) );
     SequenceClipData clip;
     REQUIRE( clip.Load( rig.Player().Clip, error ) );
@@ -59,7 +62,12 @@ TEST_CASE( "Sequence asset: export separates shared keys from instance GUIDs and
     CHECK_FALSE( player.contains( "Tracks" ) );
     CHECK_FALSE( player.contains( "FrameRate" ) );
     CHECK( player["Bindings"][0]["Target"] == SceneSerializer::GUIDToString( rig.Owner->GetGUID() ) );
-    CHECK( ResourceCache::GetInstance().LoadMetadata( Path( rig.Player().Clip ) )->GUID != 0 );
+    SharedPtr<MetaBase> metadata = ResourceCache::GetInstance().LoadMetadata( Path( rig.Player().Clip ) );
+    REQUIRE( metadata );
+#if USING( ME_EDITOR )
+    // Editor builds write the new asset's metadata, and with it the GUID scenes reference it by.
+    CHECK( metadata->GUID != 0 );
+#endif
 }
 
 
