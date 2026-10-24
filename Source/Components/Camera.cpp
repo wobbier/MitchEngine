@@ -28,7 +28,7 @@ ME_REFLECT_BEGIN( Moonlight::ProceduralSkySettings )
     ME_FIELD( MoonOrbitInclination ).Display( "Moon Orbit Inclination" ).Range( 0.f, 10.f ).Tooltip( "Degrees from the ecliptic. Set to 0 with Moon Phase 0 for a solar eclipse; relative Sun/Moon Size controls partial, total or annular coverage." );
     ME_FIELD( MoonAscendingNode ).Display( "Moon Ascending Node" ).Range( 0.f, 360.f ).Tooltip( "Degrees along the ecliptic where the tilted lunar orbit crosses it; eclipses occur near a node." );
     ME_FIELD( SunSize ).Display( "Sun Size" ).Range( 0.1f, 10.f );
-    ME_FIELD( MoonSize ).Display( "Moon Size" ).Range( 0.1f, 10.f );
+    ME_FIELD( MoonSize ).Display( "Moon Size" ).Range( 0.1f, 100.f );
     ME_FIELD( MoonBrightness ).Display( "Moon Brightness" ).Range( 0.f, 10.f );
     ME_FIELD( StarBrightness ).Display( "Star Brightness" ).Range( 0.f, 10.f );
     ME_FIELD( CloudCoverage ).Display( "Cloud Coverage" ).Range( 0.f, 1.f );
@@ -400,7 +400,7 @@ void Camera::OnEditorInspect()
         changed |= ImGui::DragFloat( "##SkySunSize", &ProceduralSky.SunSize, 0.01f, 0.1f, 10.f, "%.2fx", ImGuiSliderFlags_AlwaysClamp );
         CameraTooltip( "Angular size of the sun's disc; 1 is the real sun." );
         HavanaUtils::Label( "Moon Size" );
-        changed |= ImGui::DragFloat( "##SkyMoonSize", &ProceduralSky.MoonSize, 0.01f, 0.1f, 10.f, "%.2fx", ImGuiSliderFlags_AlwaysClamp );
+        changed |= ImGui::DragFloat( "##SkyMoonSize", &ProceduralSky.MoonSize, 0.01f, 0.1f, 100.f, "%.2f", ImGuiSliderFlags_AlwaysClamp );
         CameraTooltip( "Angular size of the moon's disc; 1 is the real moon." );
         HavanaUtils::Label( "Moon Brightness" );
         changed |= ImGui::DragFloat( "##SkyMoonBrightness", &ProceduralSky.MoonBrightness, 0.01f, 0.f, 10.f, "%.2f", ImGuiSliderFlags_AlwaysClamp );
