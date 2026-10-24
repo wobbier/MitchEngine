@@ -38,6 +38,7 @@
 #include <Utils/EditorConfig.h>
 #include <CLog.h>
 #include "Utils/PlatformUtils.h"
+#include "Utils/ScriptNaming.h"
 #include <ImGuiTheme.h>
 #include <Utils/HavanaUtils.h>
 #include "Utils/ImGuiUtils.h"
@@ -45,6 +46,8 @@
 #include <algorithm>
 #include <cctype>
 #include <chrono>
+#include <fstream>
+#include <regex>
 #include <cstdio>
 #include <ctime>
 
@@ -100,6 +103,47 @@ namespace
         static const std::string root = fs::path( Path( "Assets" ).FullPath ).parent_path().generic_string();
         return root;
     }
+
+    // True if a script named InName.cs exists anywhere under Assets, other than InExcept
+    // (Game.Script compiles them all into one assembly, so script names are project-wide).
+    bool ScriptNameTaken( const std::string& InName, const fs::path& InExcept = {} )
+    {
+        std::error_code error;
+        for( fs::recursive_directory_iterator it( Path( "Assets" ).FullPath, fs::directory_options::skip_permission_denied, error ), end; it != end; it.increment( error ) )
+        {
+            const fs::path& path = it->path();
+            if( path.extension() == ".cs" && path.stem().string() == InName && !( !InExcept.empty() && fs::equivalent( path, InExcept, error ) ) )
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+
+    // True if a scene or prefab under Assets still names the script class InName.
+    bool ScriptUsedByScenes( const std::string& InName )
+    {
+        const std::regex reference( "\"ScriptName\"\\s*:\\s*\"" + InName + "\"" );
+        const std::string quoted = "\"" + InName + "\"";
+        std::error_code error;
+        for( fs::recursive_directory_iterator it( Path( "Assets" ).FullPath, fs::directory_options::skip_permission_denied, error ), end; it != end; it.increment( error ) )
+        {
+            const fs::path& path = it->path();
+            if( path.extension() != ".lvl" && path.extension() != ".prefab" )
+            {
+                continue;
+            }
+            std::ifstream file( path, std::ios::binary );
+            const std::string text( ( std::istreambuf_iterator<char>( file ) ), std::istreambuf_iterator<char>() );
+            if( text.find( quoted ) != std::string::npos && std::regex_search( text, reference ) )
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
 
     std::string AbsoluteFolder( const std::string& relative )
     {
@@ -1645,7 +1689,7 @@ void AssetBrowserWidget::DrawCreateMenuItems()
     }
     if( ImGui::MenuItem( "C# Script" ) )
     {
-        const std::string name = fs::path( UniquePath( m_currentFolder, "NewScript", ".cs" ) ).stem().string();
+        const std::string name = ScriptNaming::UniqueName( "NewScript", []( const std::string& InName ) { return ScriptNameTaken( InName ); } );
         const std::string script =
             "using System;\n"
             "using ScriptCore;\n\n"
@@ -2027,10 +2071,31 @@ void AssetBrowserWidget::CommitRename()
 {
     const std::string from = m_renamingPath;
     m_renamingPath.clear();
-    const std::string newName = m_renameBuffer;
+    std::string newName = m_renameBuffer;
     if( from.empty() || newName.empty() || newName == fs::path( from ).filename().string() || newName.find_first_of( "/\\" ) != std::string::npos )
     {
         return;
+    }
+    // A script's file name is its class name: keep it a C# identifier, unique in the project.
+    const bool isScript = fs::path( from ).extension() == ".cs";
+    if( isScript )
+    {
+        const std::string typed = fs::path( newName ).extension() == ".cs" ? fs::path( newName ).stem().string() : newName;
+        const std::string stem = ScriptNaming::MakeIdentifier( typed );
+        if( stem != typed )
+        {
+            CLog::GetInstance().Log( CLog::LogType::Info, "Script names are C# class names: renaming to " + stem + ".cs" );
+        }
+        if( ScriptNameTaken( stem, fs::path( from ) ) )
+        {
+            BRUH( "Can't rename: another script is already named " + stem + ".cs (script names are project-wide)." );
+            return;
+        }
+        newName = stem + ".cs";
+        if( newName == fs::path( from ).filename().string() )
+        {
+            return;
+        }
     }
     const std::string to = ToGeneric( fs::path( from ).parent_path() / newName );
     if( fs::exists( to ) )
@@ -2040,6 +2105,23 @@ void AssetBrowserWidget::CommitRename()
     }
     if( MoveWithMeta( from, to, m_fileOperationError ) )
     {
+        if( isScript )
+        {
+            // Rename the class with the file (when it was named after the file). Scenes name scripts
+            // by class, so ones that still use the old name get it as a [FormerName] to keep loading.
+            const std::string oldName = fs::path( from ).stem().string();
+            const std::string newClass = fs::path( to ).stem().string();
+            File script( Path( to, true ) );
+            std::string source = script.Read();
+            if( ScriptNaming::RenameType( source, oldName, newClass ) )
+            {
+                if( ScriptUsedByScenes( oldName ) && ScriptNaming::AddFormerName( source, newClass, oldName ) )
+                {
+                    CLog::GetInstance().Log( CLog::LogType::Info, "Scenes still name " + oldName + ": added [FormerName(\"" + oldName + "\")] to " + newClass + ".cs" );
+                }
+                script.Write( source );
+            }
+        }
         m_thumbnails.erase( from );
         m_selection = { to };
         Refresh();
