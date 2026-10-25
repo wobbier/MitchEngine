@@ -1,4 +1,5 @@
 #pragma once
+#include <typeinfo>
 #include <map>
 #include <string>
 #include <Resource/Resource.h>
@@ -200,14 +201,14 @@ SharedPtr<T> ResourceCache::Load( const Path& InFilePath, bool InAsync, Args&& .
 
     if( !InFilePath.Exists && !compiledFileExists && metaFile && !metaFile->FlaggedForExport )
     {
-        YIKES( "Failed to load resource: " + InFilePath.FullPath );
+        YIKES( "Failed to load resource: " + InFilePath.FullPath + " (local '" + InFilePath.GetLocalPathString() + "')" );
         return {};
     }
 
     // Generated sub-assets ("<owner>#<name>") have no file of their own.
     if( !InFilePath.Exists && InFilePath.GetLocalPathString().find( '#' ) == std::string::npos )
     {
-        BRUH( "Resource source file is missing (using compiled data if present): " + InFilePath.FullPath );
+        BRUH( "Resource source file is missing (using compiled data if present): " + InFilePath.FullPath + " (local '" + InFilePath.GetLocalPathString() + "', type " + typeid( T ).name() + ")" );
     }
 
     SharedPtr<T> Res = MakeShared<T>( InFilePath, std::forward<Args>( args )... );
@@ -232,7 +233,7 @@ SharedPtr<T> ResourceCache::Load( const Path& InFilePath, bool InAsync, Args&& .
     }
     if( !Res->Load() )
     {
-        YIKES( "Resource failed to load: " + InFilePath.FullPath );
+        YIKES( "Resource failed to load: " + InFilePath.FullPath + " (local '" + InFilePath.GetLocalPathString() + "')" );
         Res->m_loadState = Resource::LoadState::Failed;
     }
     m_resourceStack[CacheKey( InFilePath )] = Res;

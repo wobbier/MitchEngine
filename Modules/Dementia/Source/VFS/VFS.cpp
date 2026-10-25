@@ -7,6 +7,7 @@
 
 #include "CLog.h"
 #include "Path.h"
+#include "VFS/Pak.h"
 
 namespace
 {
@@ -52,15 +53,32 @@ namespace
 bool VfsFileStream::Open( const Path& InPath )
 {
     Close();
-    m_stream.open( InPath.FullPath, std::ios::in | std::ios::binary | std::ios::ate );
+    // A window through the answering mount (a pak entry's slice, or a whole file); Paths
+    // outside every mount (absolute .tmp artifacts) fall back to the physical file whole.
+    VfsStreamWindow window;
+    const VfsResolved resolved = VFS::Get().Resolve( InPath.GetLocalPathString() );
+    if( !( resolved.Exists && resolved.Source && resolved.Source->GetStreamWindow( resolved.RelativePath, window ) ) )
+    {
+        window.PhysicalFile = InPath.FullPath;
+        window.Offset = 0;
+        std::error_code ec;
+        window.Size = std::filesystem::file_size( InPath.FullPath, ec );
+        if( ec )
+        {
+            return false;
+        }
+    }
+    m_stream.open( window.PhysicalFile, std::ios::in | std::ios::binary );
     if( !m_stream )
     {
         return false;
     }
-    m_size = static_cast<uint64_t>( m_stream.tellg() );
-    m_stream.seekg( 0 );
-    m_open = true;
-    return true;
+    m_begin = window.Offset;
+    m_size = window.Size;
+    m_cursor = 0;
+    m_stream.seekg( static_cast<std::streamoff>( m_begin ) );
+    m_open = static_cast<bool>( m_stream );
+    return m_open;
 }
 
 
@@ -71,6 +89,8 @@ void VfsFileStream::Close()
         m_stream.close();
         m_stream.clear();
         m_open = false;
+        m_begin = 0;
+        m_cursor = 0;
         m_size = 0;
     }
 }
@@ -78,29 +98,37 @@ void VfsFileStream::Close()
 
 size_t VfsFileStream::Read( void* OutBuffer, size_t InSize )
 {
-    if( !m_open || InSize == 0 )
+    if( !m_open || InSize == 0 || m_cursor >= m_size )
     {
         return 0;
     }
-    m_stream.read( static_cast<char*>( OutBuffer ), static_cast<std::streamsize>( InSize ) );
+    const uint64_t remaining = m_size - m_cursor;
+    const size_t toRead = static_cast<size_t>( std::min<uint64_t>( InSize, remaining ) );
+    m_stream.read( static_cast<char*>( OutBuffer ), static_cast<std::streamsize>( toRead ) );
     const std::streamsize count = m_stream.gcount();
     if( m_stream.eof() )
     {
         m_stream.clear();
     }
+    m_cursor += static_cast<uint64_t>( count );
     return static_cast<size_t>( count );
 }
 
 
 bool VfsFileStream::Seek( uint64_t InPosition )
 {
-    if( !m_open )
+    if( !m_open || InPosition > m_size )
     {
         return false;
     }
     m_stream.clear();
-    m_stream.seekg( static_cast<std::streamoff>( InPosition ) );
-    return static_cast<bool>( m_stream );
+    m_stream.seekg( static_cast<std::streamoff>( m_begin + InPosition ) );
+    if( !m_stream )
+    {
+        return false;
+    }
+    m_cursor = InPosition;
+    return true;
 }
 
 
@@ -188,6 +216,20 @@ void VFS::MountDirectory( const std::string& InPrefix, const std::string& InDire
 }
 
 
+bool VFS::MountPak( const std::string& InPrefix, const std::string& InPakPath, int InPriority, const std::string& InDisplayPrefix )
+{
+    SharedPtr<PakMount> pak = PakMount::Open( InPakPath );
+    if( pak == nullptr )
+    {
+        CLog::Log( CLog::LogType::Error, "VFS: can't mount pak " + InPakPath );
+        return false;
+    }
+    CLog::Log( CLog::LogType::Info, "VFS: mounted pak " + InPakPath + " (" + std::to_string( pak->GetEntryCount() ) + " entries)" );
+    Mount( InPrefix, pak, InPriority, false, InDisplayPrefix );
+    return true;
+}
+
+
 void VFS::UnmountAll( const std::string& InPrefix )
 {
     SharedPtr<const MountTable> current = Snapshot();
@@ -267,15 +309,29 @@ VfsResolved VFS::Resolve( const std::string& InLogicalPath, bool InPrimaryOnly )
         const std::string relative = InLogicalPath.substr( mount.Prefix.size() );
         if( !haveWriteTarget )
         {
-            // The highest-priority mount is where the path lands when nothing has it yet.
-            haveWriteTarget = true;
-            result.PhysicalPath = mount.Source->GetPhysicalPath( relative );
-            result.DisplayPath = mount.DisplayPrefix + TrimAtAssets( relative );
-            result.MountPrefix = mount.Prefix;
-            result.Writable = mount.Writable;
-            result.Source = mount.Source;
-            result.RelativePath = relative;
-            result.Resolved = true;
+            // Where the path lands when nothing has it yet: the highest-priority mount that
+            // yields a physical location. Paks serve bytes but host no files, so they answer
+            // the prefix without claiming the landing.
+            const std::string physical = mount.Source->GetPhysicalPath( relative );
+            if( !physical.empty() )
+            {
+                haveWriteTarget = true;
+                result.PhysicalPath = physical;
+                result.DisplayPath = mount.DisplayPrefix + TrimAtAssets( relative );
+                result.MountPrefix = mount.Prefix;
+                result.Writable = mount.Writable;
+                result.Source = mount.Source;
+                result.RelativePath = relative;
+                result.Resolved = true;
+            }
+            else if( !result.Resolved )
+            {
+                result.DisplayPath = mount.DisplayPrefix + TrimAtAssets( relative );
+                result.MountPrefix = mount.Prefix;
+                result.Source = mount.Source;
+                result.RelativePath = relative;
+                result.Resolved = true;
+            }
         }
 
         const VfsStat stat = mount.Source->Stat( relative );
@@ -304,12 +360,26 @@ VfsResolved VFS::Resolve( const std::string& InLogicalPath, bool InPrimaryOnly )
 
 bool VFS::ReadText( const Path& InPath, std::string& OutText ) const
 {
-    return ReadPhysicalText( InPath.FullPath, OutText );
+    // The mounts are authoritative (a pak can shadow loose files); Paths outside every mount
+    // (absolute .tmp artifacts) miss resolution and fall back to their physical file.
+    if( ReadText( InPath.GetLocalPathString(), OutText ) )
+    {
+        return true;
+    }
+    return !InPath.FullPath.empty() && ReadPhysicalText( InPath.FullPath, OutText );
 }
 
 
 bool VFS::ReadBytes( const Path& InPath, std::vector<uint8_t>& OutBytes ) const
 {
+    if( ReadBytes( InPath.GetLocalPathString(), OutBytes ) )
+    {
+        return true;
+    }
+    if( InPath.FullPath.empty() )
+    {
+        return false;
+    }
     std::ifstream stream( InPath.FullPath, std::ios::in | std::ios::binary );
     if( !stream )
     {

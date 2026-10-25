@@ -11,6 +11,15 @@ struct VfsStat
     bool IsFile = false;
 };
 
+// Where a file's bytes live for chunked streaming: a window of a physical file. Directory
+// mounts answer with the whole file; paks answer with their entry's slice.
+struct VfsStreamWindow
+{
+    std::string PhysicalFile;
+    uint64_t Offset = 0;
+    uint64_t Size = 0;
+};
+
 // Where a mount's bytes come from. VFS-1 ships DirectoryMount; Pak and Memory sources follow
 // (VFS-3) behind this same interface, which is why reads go through the source instead of
 // callers opening the physical path themselves.
@@ -37,6 +46,10 @@ public:
     // Visits every entry under InRelativeDirectory with mount-relative paths ("" = the root).
     virtual void Enumerate( const std::string& InRelativeDirectory, bool InRecursive,
                             const std::function<void( const std::string& InRelativePath, bool InIsDirectory )>& InVisitor ) const = 0;
+
+    // Where to stream InRelativePath from (VfsFileStream). The default answers with the whole
+    // physical file; non-file-backed sources override with their slice (paks) or return false.
+    virtual bool GetStreamWindow( const std::string& InRelativePath, VfsStreamWindow& OutWindow ) const;
 };
 
 // A plain directory on disk.

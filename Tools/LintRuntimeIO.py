@@ -20,6 +20,7 @@ ALLOWED = {
     "Engine/Modules/Dementia/Source/VFS/VFS.h": "the VFS itself (VfsFileStream backend)",
     "Engine/Modules/Dementia/Source/VFS/VFS.cpp": "the VFS itself (physical backend)",
     "Engine/Modules/Dementia/Source/VFS/DirectoryMount.cpp": "the VFS itself (physical backend)",
+    "Engine/Modules/Dementia/Source/VFS/Pak.cpp": "the VFS itself (.mpak writer/reader)",
     "Engine/Source/Terrain/TerrainStreamArchive.cpp": "random-access streaming archive; moves behind the VFS stream source with VFS-3",
     "Engine/Modules/Moonlight/Source/Graphics/TerrainTextureCache.cpp": "chunked fingerprints over huge sources + derived cache; VFS-3 stream source",
     "Engine/Source/Terrain/TerrainRecovery.cpp": "editor recovery journal (derived state, write/read-back)",

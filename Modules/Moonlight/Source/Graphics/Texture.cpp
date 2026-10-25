@@ -290,7 +290,8 @@ void TextureResourceMetadata::OnSerialize( json& outJson )
 
 void TextureResourceMetadata::OnDeserialize( const json& inJson )
 {
-    if( !std::filesystem::exists( FilePath.FullPath + ".dds" ) )
+    // Through the VFS: a pak-served .dds counts (read-only runs must not re-export).
+    if( !Path( FilePath.FullPath + ".dds" ).Exists )
     {
         FlaggedForExport = true;
     }

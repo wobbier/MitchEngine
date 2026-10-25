@@ -50,8 +50,8 @@ struct VfsResolved
 };
 
 // Chunked reads over a resolved Path: for consumers that stream instead of loading whole
-// files (FMOD, large caches). Backed by the physical file today; pak-backed entries arrive
-// with VFS-3 behind the same surface.
+// files (FMOD, large caches). Reads a window of a physical file — the whole file for
+// directory mounts, the entry's slice for pak mounts — so positions are always entry-relative.
 class VfsFileStream
 {
 public:
@@ -59,12 +59,14 @@ public:
     void Close();
     bool IsOpen() const { return m_open; }
     uint64_t Size() const { return m_size; }
-    // Returns the bytes actually read (short reads at end of file).
+    // Returns the bytes actually read (short reads at the end of the window).
     size_t Read( void* OutBuffer, size_t InSize );
     bool Seek( uint64_t InPosition );
 
 private:
     std::ifstream m_stream;
+    uint64_t m_begin = 0;
+    uint64_t m_cursor = 0;
     uint64_t m_size = 0;
     bool m_open = false;
 };
@@ -89,6 +91,8 @@ public:
 
     void Mount( const std::string& InPrefix, const SharedPtr<IMountSource>& InSource, int InPriority, bool InWritable, const std::string& InDisplayPrefix = {} );
     void MountDirectory( const std::string& InPrefix, const std::string& InDirectory, int InPriority, bool InWritable = true, const std::string& InDisplayPrefix = {} );
+    // Mounts an .mpak read-only; false when the file is missing or unreadable.
+    bool MountPak( const std::string& InPrefix, const std::string& InPakPath, int InPriority, const std::string& InDisplayPrefix = {} );
     // Drops every mount serving InPrefix.
     void UnmountAll( const std::string& InPrefix );
 

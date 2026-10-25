@@ -2,6 +2,7 @@
 #include "Path.h"
 #include "File.h"
 #include "VFS/VFS.h"
+#include "VFS/Pak.h"
 #include "Config/EngineConfig.h"
 #include <algorithm>
 #include <filesystem>
@@ -316,4 +317,106 @@ TEST_CASE( "VFS: resolution matches the legacy resolver for every file in both A
 
     CHECK( mismatches == 0 );
     CHECK( checked > 100 );
+}
+
+
+TEST_CASE( "vfs: mpak round-trips bytes, text, stats and enumeration" )
+{
+    using namespace VfsTest;
+    TempDir dir( ".tmp/Tests/Pak" );
+    const std::string pakPath = dir.Absolute + "/test.mpak";
+
+    std::vector<uint8_t> binary;
+    for( int i = 0; i < 300; ++i )
+    {
+        binary.push_back( static_cast<uint8_t>( i * 7 ) );
+    }
+    const std::string alpha = "alpha text\nwith lines";
+    CHECK( Mpak::Write( pakPath, [&]( const Mpak::EntrySink& InSink ) {
+        InSink( "Assets/a.txt", alpha.data(), alpha.size() );
+        InSink( "Assets/Deep/b.bin", binary.data(), binary.size() );
+        InSink( "Assets/empty.dat", nullptr, 0 );
+    } ) );
+
+    SharedPtr<PakMount> mount = PakMount::Open( pakPath );
+    REQUIRE( mount != nullptr );
+    CHECK( mount->GetEntryCount() == 3 );
+    CHECK( mount->Stat( "Assets/a.txt" ).IsFile );
+    CHECK( mount->Stat( "Assets/Deep" ).Exists );
+    CHECK( !mount->Stat( "Assets/Deep" ).IsFile );
+    CHECK( !mount->Stat( "Assets/missing" ).Exists );
+    CHECK( mount->GetPhysicalPath( "Assets/a.txt" ).empty() );
+
+    std::string text;
+    CHECK( mount->ReadText( "Assets/a.txt", text ) );
+    CHECK( text == alpha );
+    std::vector<uint8_t> bytes;
+    CHECK( mount->ReadBytes( "Assets/Deep/b.bin", bytes ) );
+    CHECK( bytes == binary );
+    CHECK( mount->ReadBytes( "Assets/empty.dat", bytes ) );
+    CHECK( bytes.empty() );
+    CHECK( !mount->WriteText( "Assets/a.txt", "read only" ) );
+
+    std::vector<std::string> files;
+    std::vector<std::string> directories;
+    mount->Enumerate( "Assets", true, [&]( const std::string& InPath, bool InIsDirectory ) {
+        ( InIsDirectory ? directories : files ).push_back( InPath );
+    } );
+    CHECK( files == std::vector<std::string>{ "Assets/Deep/b.bin", "Assets/a.txt", "Assets/empty.dat" } );
+    CHECK( directories == std::vector<std::string>{ "Assets/Deep" } );
+
+    VfsStreamWindow window;
+    CHECK( mount->GetStreamWindow( "Assets/Deep/b.bin", window ) );
+    CHECK( window.PhysicalFile == mount->GetPakPath() );
+    CHECK( window.Size == binary.size() );
+}
+
+
+TEST_CASE( "vfs: a mounted pak serves logical paths, Path reads and windowed streams" )
+{
+    using namespace VfsTest;
+    TempDir dir( ".tmp/Tests/PakMounted" );
+    const std::string pakPath = dir.Absolute + "/world.mpak";
+
+    std::vector<uint8_t> payload;
+    for( int i = 0; i < 4096; ++i )
+    {
+        payload.push_back( static_cast<uint8_t>( ( i * 31 ) ^ ( i >> 3 ) ) );
+    }
+    const std::string note = "from the pak";
+    REQUIRE( Mpak::Write( pakPath, [&]( const Mpak::EntrySink& InSink ) {
+        InSink( "Assets/PakOnly/note.txt", note.data(), note.size() );
+        InSink( "Assets/PakOnly/blob.bin", payload.data(), payload.size() );
+    } ) );
+
+    REQUIRE( VFS::Get().MountPak( "", pakPath, 300 ) );
+
+    std::string text;
+    CHECK( VFS::Get().ReadText( std::string( "Assets/PakOnly/note.txt" ), text ) );
+    CHECK( text == note );
+
+    // Path-based reads: no physical file exists, the logical identity answers.
+    Path packed( "Assets/PakOnly/blob.bin" );
+    CHECK( packed.Exists );
+    std::vector<uint8_t> bytes;
+    CHECK( VFS::Get().ReadBytes( packed, bytes ) );
+    CHECK( bytes == payload );
+
+    // The stream reads the pak window: entry-relative positions, clamped at the entry's end.
+    VfsFileStream stream;
+    REQUIRE( stream.Open( packed ) );
+    CHECK( stream.Size() == payload.size() );
+    std::vector<uint8_t> chunk( 100 );
+    CHECK( stream.Read( chunk.data(), chunk.size() ) == 100 );
+    CHECK( std::equal( chunk.begin(), chunk.end(), payload.begin() ) );
+    REQUIRE( stream.Seek( 4000 ) );
+    CHECK( stream.Read( chunk.data(), chunk.size() ) == 96 );
+    CHECK( std::equal( chunk.begin(), chunk.begin() + 96, payload.begin() + 4000 ) );
+    CHECK( stream.Read( chunk.data(), chunk.size() ) == 0 );
+    REQUIRE( stream.Seek( 0 ) );
+    CHECK( stream.Read( chunk.data(), 1 ) == 1 );
+    CHECK( chunk[0] == payload[0] );
+    stream.Close();
+
+    VFS::Get().ResetToDefaults();
 }

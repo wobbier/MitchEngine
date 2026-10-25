@@ -9,6 +9,7 @@
 #include "Selection.h"
 #include "Components/Scripting/ScriptComponent.h"
 #include "Scripting/ScriptEngine.h"
+#include "VFS/Pak.h"
 #include "UndoStack.h"
 #include "EditorApp.h"
 #include "Havana.h"
@@ -350,6 +351,25 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         if( InApp.Editor && InApp.Editor->GetAssetBrowser() )
         {
             InApp.Editor->GetAssetBrowser()->ShowFolder( args );
+        }
+    }
+    else if( command == "pack-assets" )
+    {
+        // pack-assets .tmp/Pak/L.mpak | Assets/Shaders,Assets/Config,...   (logical roots the VFS
+        // serves, game-over-engine baked in; omit the list to pack all of Assets; game runs
+        // mount the result with --pak)
+        auto [pakPath, rootList] = SplitArgs( args );
+        std::vector<std::string> roots;
+        std::string remaining = rootList.empty() ? std::string( "Assets" ) : rootList;
+        while( !remaining.empty() )
+        {
+            const size_t comma = remaining.find( ',' );
+            roots.push_back( Trim( remaining.substr( 0, comma ) ) );
+            remaining = comma == std::string::npos ? std::string() : remaining.substr( comma + 1 );
+        }
+        if( !Mpak::WriteFromVfs( pakPath, roots ) )
+        {
+            Fail( "pack-assets: couldn't write " + pakPath );
         }
     }
     else if( command == "wait-count-stable" )

@@ -24,6 +24,26 @@ namespace
     }
 }
 
+bool IMountSource::GetStreamWindow( const std::string& InRelativePath, VfsStreamWindow& OutWindow ) const
+{
+    const std::string physical = GetPhysicalPath( InRelativePath );
+    if( physical.empty() )
+    {
+        return false;
+    }
+    std::error_code ec;
+    const uint64_t size = std::filesystem::file_size( physical, ec );
+    if( ec )
+    {
+        return false;
+    }
+    OutWindow.PhysicalFile = physical;
+    OutWindow.Offset = 0;
+    OutWindow.Size = size;
+    return true;
+}
+
+
 DirectoryMount::DirectoryMount( const std::string& InRootDirectory )
     : m_root( NormalizeDirectory( InRootDirectory ) )
 {

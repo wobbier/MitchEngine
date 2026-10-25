@@ -125,7 +125,10 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
         {
             resolved = VFS::Get().Resolve( LocalPath.substr( 7 ), Raw );
         }
-        FullPath = std::move( resolved.PhysicalPath );
+        // Pak-backed hits have no physical file: the logical path doubles as FullPath, so the
+        // local-path offsets below (and every consumer that re-reads through the VFS) keep
+        // working. Reads answer through the mount source, never this string.
+        FullPath = resolved.PhysicalPath.empty() && resolved.Exists ? resolved.DisplayPath : std::move( resolved.PhysicalPath );
         Exists = resolved.Exists;
         IsFile = resolved.IsFile;
         IsFolder = !IsFile;

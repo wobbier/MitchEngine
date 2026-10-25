@@ -115,6 +115,15 @@ void Engine::Init( Game* game )
 #endif
     CLog::GetInstance().Log( CLog::LogType::Info, "Starting the MitchEngine." );
 
+    // A packaged run: --pak <file.mpak> mounts the archive over the directory roots, so a
+    // working directory with no Assets/ still serves every logical path (project settings and
+    // the user:// naming below included).
+    const std::string pakFile = CommandLine::GetString( "--pak" );
+    if( !pakFile.empty() )
+    {
+        VFS::Get().MountPak( "", pakFile, 150 );
+    }
+
     // Project settings load first: the product identity names the user:// root.
     ProjectSettings::Get().Load();
 #if !USING( ME_EDITOR ) && !USING( ME_TOOLS ) && ( USING( ME_PLATFORM_WIN64 ) || USING( ME_PLATFORM_MACOS ) || USING( ME_PLATFORM_LINUX ) )

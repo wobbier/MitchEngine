@@ -128,6 +128,9 @@ void AssetMetaCache::SaveLocked()
     std::filesystem::path temp = target;
     temp += ".tmp" + std::to_string( std::random_device{}() );
     {
+        // Packaged runs start in directories without a .tmp/ yet.
+        std::error_code directoryError;
+        std::filesystem::create_directories( target.parent_path(), directoryError );
         std::ofstream out( temp, std::ios::binary | std::ios::trunc );
         if( !out )
         {

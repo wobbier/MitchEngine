@@ -13,11 +13,12 @@ A mount is `{ prefix, source, priority, writable, display prefix }`:
 - **Prefix** — the logical namespace it serves: `""` for the overlay roots, `user://` for
   per-user state. Scheme-shaped prefixes (`name://`) match exactly; `""` serves every
   scheme-less path.
-- **Source** — an `IMountSource`. VFS-1 ships `DirectoryMount` (a directory on disk);
-  pak and memory sources arrive with VFS-3 behind the same interface.
+- **Source** — an `IMountSource`: `DirectoryMount` (a directory on disk) or `PakMount`
+  (one `.mpak`, read-only; VFS-3). Memory sources follow behind the same interface.
 - **Priority** — higher wins. Mounts sharing a prefix overlay each other: resolution walks
-  them highest-first and the first hit answers. A miss lands on the highest-priority mount,
-  which is where a write to that logical path would go.
+  them highest-first and the first hit answers. A miss lands on the highest-priority mount
+  that yields a physical location (paks serve bytes but host no files), which is where a
+  write to that logical path would go.
 - **Display prefix** — what `Path::GetLocalPath` shows (`"Engine/"` on the engine root), so
   local paths keep round-tripping through scene serialization unchanged.
 
@@ -77,8 +78,10 @@ loader reads through the same seam (VFS-2): textures, models (and their vertex c
 shader binaries, terrain assets/heightmaps/sources, navmeshes, sequences, trees, shader
 graphs, ImGui fonts, Ultralight's file system, and FMOD (system-level file callbacks pulling
 chunks through `VfsFileStream`). `VfsFileStream` is the chunked-read surface for consumers
-that stream instead of loading whole files; it is physically backed today and grows a pak
-backend with VFS-3. The deliberate exceptions — the terrain stream archive and texture cache
+that stream instead of loading whole files; it reads a window of a physical file through
+`IMountSource::GetStreamWindow` — the whole file on directory mounts, the entry's slice of
+the archive on pak mounts — so positions are always entry-relative and FMOD streams straight
+out of a pak. The deliberate exceptions — the terrain stream archive and texture cache
 (random access over huge files) and editor/diagnostic I/O — are allowlisted with reasons in
 `Engine/Tools/LintRuntimeIO.py`, which RunChecks and CI run to ban new raw `ifstream`/`fopen`
 reads in runtime code.
@@ -91,9 +94,24 @@ physical change paths map back through the same normalization.
 `VFS::Enumerate( dir, recursive, visitor )` merges entries across mounts: higher priority
 wins duplicates, and the visit is sorted.
 
+## Paks (`.mpak`, VFS-3)
+
+One file carrying a logical tree: a header, raw entry blobs, then the entry table (paths are
+forward-slash, case-preserved). `Mpak::Write` streams entries from a provider;
+`Mpak::WriteFromVfs( pak, roots )` packs what the VFS serves under each logical root — so the
+game-over-engine overlay bakes in at pack time — and the `pack-assets out.mpak | root,root`
+edscript command drives it from a flow or a headless editor run. `PakMount::Open` parses the
+table; every read opens its own window on the archive, so loader threads never share stream
+state. `VFS::MountPak( prefix, pak, priority )` mounts one, and the game mounts `--pak
+<file>` at priority 150 before project settings load, so a working directory with no
+`Assets/` still serves every logical path (`VfsTests.cpp` round-trips bytes, stats,
+enumeration and windowed streams; a packaged Lighting run reproduces the showcase reference).
+Dependency-aware packing is the cooker's job (SHIP-2); until then callers name their roots,
+and engine defaults like `Assets/Textures/DefaultAlpha.png` need naming explicitly.
+
 ## Roadmap
 
-- **VFS-3** — `.mpak` reader and thread-safe `PakMount`; retail reads only paks, mods and
-  `user://`; a stream-capable mount source adopts `VfsFileStream`, the terrain archives and
-  the FMOD callbacks.
+- **VFS-3 leftovers** — retail reads only paks, mods and `user://`; the terrain stream
+  archive and texture cache adopt `GetStreamWindow` (they still random-access physical
+  files, allowlisted in the lint); per-entry compression flags.
 - **Mods** mount at priority 200 + load order (MOD-1).
