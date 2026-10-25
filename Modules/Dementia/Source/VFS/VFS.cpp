@@ -48,6 +48,62 @@ namespace
         stream << InText;
         return stream.good();
     }
+
+
+    // A folder prefix ("Engine/") rather than a scheme ("user://") or the overlay roots ("").
+    bool IsFolderPrefix( const std::string& InPrefix )
+    {
+        return !InPrefix.empty() && InPrefix.back() == '/' && VFS::GetScheme( InPrefix ).empty();
+    }
+
+
+    // Does InMount serve InLogicalPath? Scheme mounts serve their scheme, the overlay roots every
+    // path without one, and folder-prefix mounts the scheme-less paths spelled under them (the
+    // folder itself included: "Engine" for "Engine/").
+    bool Serves( const VfsMount& InMount, const std::string& InScheme, const std::string& InLogicalPath )
+    {
+        if( !InScheme.empty() )
+        {
+            return InMount.Prefix == InScheme;
+        }
+        if( InMount.Prefix.empty() )
+        {
+            return true;
+        }
+        if( !IsFolderPrefix( InMount.Prefix ) )
+        {
+            return false;
+        }
+        return InLogicalPath.compare( 0, InMount.Prefix.size(), InMount.Prefix ) == 0
+            || InLogicalPath.compare( 0, std::string::npos, InMount.Prefix, 0, InMount.Prefix.size() - 1 ) == 0;
+    }
+
+
+    // InLogicalPath relative to a mount that Serves it.
+    std::string RelativeTo( const VfsMount& InMount, const std::string& InLogicalPath )
+    {
+        return InLogicalPath.size() > InMount.Prefix.size() ? InLogicalPath.substr( InMount.Prefix.size() ) : std::string();
+    }
+
+
+    // InLogicalPath's scheme when a mount serves it; empty otherwise, since an unknown scheme
+    // resolves like any relative path always has: against the roots.
+    std::string ServedScheme( const MountTable& InTable, const std::string& InLogicalPath )
+    {
+        const std::string scheme = VFS::GetScheme( InLogicalPath );
+        if( scheme.empty() )
+        {
+            return scheme;
+        }
+        for( const VfsMount& mount : InTable.Mounts )
+        {
+            if( mount.Prefix == scheme )
+            {
+                return scheme;
+            }
+        }
+        return {};
+    }
 }
 
 bool VfsFileStream::Open( const Path& InPath )
@@ -172,17 +228,60 @@ std::string VFS::GetScheme( const std::string& InLogicalPath )
 
 void VFS::InstallDefaults()
 {
-    // The working directory is fixed for the life of the process (Path has relied on this
-    // forever), so the default roots are pinned once.
-    std::error_code ec;
-    const std::string cwd = std::filesystem::current_path( ec ).generic_string();
+    std::string gameRoot;
+    std::string engineRoot;
+    {
+        std::lock_guard<std::mutex> lock( m_mutex );
+        if( m_gameRoot.empty() )
+        {
+            // The working directory is fixed for the life of the process (Path has relied on
+            // this forever; Project changes into the project before anything resolves).
+            std::error_code ec;
+            m_gameRoot = std::filesystem::current_path( ec ).generic_string();
+            m_engineRoot = m_gameRoot + "/Engine";
+        }
+        gameRoot = m_gameRoot;
+        engineRoot = m_engineRoot;
+    }
 
     std::vector<VfsMount> mounts;
-    mounts.push_back( { "", MakeShared<DirectoryMount>( cwd ), 100, true, "" } );
-    mounts.push_back( { "", MakeShared<DirectoryMount>( cwd + "/Engine" ), 0, true, "Engine/" } );
+    SharedPtr<DirectoryMount> engine = MakeShared<DirectoryMount>( engineRoot );
+    mounts.push_back( { "", MakeShared<DirectoryMount>( gameRoot ), 100, true, "" } );
+    mounts.push_back( { "", engine, 0, true, kEnginePrefix } );
+    if( engineRoot != gameRoot + "/Engine" )
+    {
+        // "Engine/..." names the engine's files whether or not the engine sits in the project;
+        // above the game root, so primary-only lookups (Path's Raw flag) find it first.
+        mounts.push_back( { kEnginePrefix, engine, 101, true, kEnginePrefix } );
+    }
     // The dev default; shipped builds remount this at the OS pref dir in Engine::Init.
-    mounts.push_back( { kUserScheme, MakeShared<DirectoryMount>( cwd + "/.tmp/User" ), 0, true, "" } );
+    mounts.push_back( { kUserScheme, MakeShared<DirectoryMount>( gameRoot + "/.tmp/User" ), 0, true, "" } );
     Swap( std::move( mounts ) );
+}
+
+
+void VFS::SetDefaultRoots( const std::string& InGameRoot, const std::string& InEngineRoot )
+{
+    {
+        std::lock_guard<std::mutex> lock( m_mutex );
+        m_gameRoot = InGameRoot;
+        m_engineRoot = InEngineRoot;
+    }
+    InstallDefaults();
+}
+
+
+std::string VFS::GetGameRoot() const
+{
+    std::lock_guard<std::mutex> lock( m_mutex );
+    return m_gameRoot;
+}
+
+
+std::string VFS::GetEngineRoot() const
+{
+    std::lock_guard<std::mutex> lock( m_mutex );
+    return m_engineRoot;
 }
 
 
@@ -297,37 +396,18 @@ void VFS::ResetToDefaults()
 VfsResolved VFS::Resolve( const std::string& InLogicalPath, bool InPrimaryOnly ) const
 {
     SharedPtr<const MountTable> table = Snapshot();
-
-    std::string scheme = GetScheme( InLogicalPath );
-    bool haveSchemeMount = false;
-    if( !scheme.empty() )
-    {
-        for( const VfsMount& mount : table->Mounts )
-        {
-            if( mount.Prefix == scheme )
-            {
-                haveSchemeMount = true;
-                break;
-            }
-        }
-        if( !haveSchemeMount )
-        {
-            // An unknown scheme resolves like any relative path always has: against the roots.
-            scheme.clear();
-        }
-    }
+    const std::string scheme = ServedScheme( *table, InLogicalPath );
 
     VfsResolved result;
     bool haveWriteTarget = false;
     for( const VfsMount& mount : table->Mounts )
     {
-        const bool matches = scheme.empty() ? mount.Prefix.empty() : mount.Prefix == scheme;
-        if( !matches )
+        if( !Serves( mount, scheme, InLogicalPath ) )
         {
             continue;
         }
 
-        const std::string relative = InLogicalPath.substr( mount.Prefix.size() );
+        const std::string relative = RelativeTo( mount, InLogicalPath );
         if( !haveWriteTarget )
         {
             // Where the path lands when nothing has it yet: the highest-priority mount that
@@ -451,29 +531,15 @@ bool VFS::ReadBytes( const std::string& InLogicalPath, std::vector<uint8_t>& Out
 bool VFS::WriteText( const std::string& InLogicalPath, const std::string& InText ) const
 {
     SharedPtr<const MountTable> table = Snapshot();
-
-    std::string scheme = GetScheme( InLogicalPath );
-    if( !scheme.empty() )
-    {
-        bool haveSchemeMount = false;
-        for( const VfsMount& mount : table->Mounts )
-        {
-            haveSchemeMount |= mount.Prefix == scheme;
-        }
-        if( !haveSchemeMount )
-        {
-            scheme.clear();
-        }
-    }
+    const std::string scheme = ServedScheme( *table, InLogicalPath );
 
     for( const VfsMount& mount : table->Mounts )
     {
-        const bool matches = scheme.empty() ? mount.Prefix.empty() : mount.Prefix == scheme;
-        if( !matches || !mount.Writable )
+        if( !Serves( mount, scheme, InLogicalPath ) || !mount.Writable )
         {
             continue;
         }
-        return mount.Source->WriteText( InLogicalPath.substr( mount.Prefix.size() ), InText );
+        return mount.Source->WriteText( RelativeTo( mount, InLogicalPath ), InText );
     }
 
     YIKES( "VFS: no writable mount serves " + InLogicalPath );
@@ -485,31 +551,17 @@ void VFS::Enumerate( const std::string& InLogicalDirectory, bool InRecursive,
                      const std::function<void( const std::string& InLogicalPath, bool InIsDirectory )>& InVisitor ) const
 {
     SharedPtr<const MountTable> table = Snapshot();
-
-    std::string scheme = GetScheme( InLogicalDirectory );
-    bool haveSchemeMount = false;
-    if( !scheme.empty() )
-    {
-        for( const VfsMount& mount : table->Mounts )
-        {
-            haveSchemeMount |= mount.Prefix == scheme;
-        }
-        if( !haveSchemeMount )
-        {
-            scheme.clear();
-        }
-    }
+    const std::string scheme = ServedScheme( *table, InLogicalDirectory );
 
     // Higher-priority mounts fill the map first and win duplicates; the map keeps the visit sorted.
     std::map<std::string, bool> merged;
     for( const VfsMount& mount : table->Mounts )
     {
-        const bool matches = scheme.empty() ? mount.Prefix.empty() : mount.Prefix == scheme;
-        if( !matches )
+        if( !Serves( mount, scheme, InLogicalDirectory ) )
         {
             continue;
         }
-        mount.Source->Enumerate( InLogicalDirectory.substr( mount.Prefix.size() ), InRecursive,
+        mount.Source->Enumerate( RelativeTo( mount, InLogicalDirectory ), InRecursive,
                                  [&]( const std::string& InRelativePath, bool InIsDirectory )
         {
             merged.emplace( mount.Prefix + InRelativePath, InIsDirectory );
@@ -567,7 +619,17 @@ void VFS::NoteRead( const VfsResolved& InResolved ) const
 
 std::string VFS::RecordedSpelling( const VfsResolved& InResolved )
 {
-    if( !InResolved.Exists || !InResolved.MountPrefix.empty() )
+    if( !InResolved.Exists )
+    {
+        return {};
+    }
+    if( InResolved.MountPrefix == kEnginePrefix )
+    {
+        // An engine outside the project, read as "Engine/...": its assets are overlay content.
+        const std::string assets = "Assets/";
+        return InResolved.RelativePath.compare( 0, assets.size(), assets ) == 0 ? InResolved.RelativePath : kEnginePrefix + InResolved.RelativePath;
+    }
+    if( !InResolved.MountPrefix.empty() )
     {
         return {};
     }

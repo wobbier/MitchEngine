@@ -15,7 +15,8 @@ class Path;
 // One entry in the mount table.
 struct VfsMount
 {
-    // The logical prefix this mount serves: "" for the overlay roots, "user://" for user state.
+    // The logical prefix this mount serves: "" for the overlay roots, "user://" for user state,
+    // or a folder prefix ending in '/' ("Engine/") that serves only the paths spelled under it.
     std::string Prefix;
     SharedPtr<IMountSource> Source;
     int Priority = 0;
@@ -39,7 +40,7 @@ struct VfsResolved
     std::string PhysicalPath;
     // DisplayPrefix + the trimmed relative path; what Path exposes as its local path.
     std::string DisplayPath;
-    // The prefix of the mount that answered ("" or "user://").
+    // The prefix of the mount that answered ("", "user://" or a folder prefix like "Engine/").
     std::string MountPrefix;
     // The answering mount's source and the path relative to it, for reads through the mount.
     SharedPtr<IMountSource> Source;
@@ -79,12 +80,23 @@ private:
 // priority 100) over the engine root ("<cwd>/Engine", priority 0). "user://" is the per-user
 // writable root: "<cwd>/.tmp/User" until something remounts it (shipped builds point it at the
 // OS pref dir in Engine::Init). Mods mount at 200 + load order when they arrive.
+//
+// An engine outside the project (a C#-only project using the editor's engine; see Project) is
+// also mounted at the folder prefix "Engine/" above the game root, so "Engine/..." spellings
+// keep resolving the way they do when the engine is the project's Engine/ subfolder.
 class VFS
 {
 public:
     static constexpr const char* kUserScheme = "user://";
+    static constexpr const char* kEnginePrefix = "Engine/";
 
     static VFS& Get();
+
+    // Where the default mounts point (absolute directories); the defaults are reinstalled. Until
+    // this is called they are the working directory and "<cwd>/Engine".
+    void SetDefaultRoots( const std::string& InGameRoot, const std::string& InEngineRoot );
+    std::string GetGameRoot() const;
+    std::string GetEngineRoot() const;
 
     // Resolves a normalized logical path (no scheme = relative to the overlay roots).
     // InPrimaryOnly skips the fallback mounts: only the highest-priority match answers
@@ -104,7 +116,7 @@ public:
     void SetUserRoot( const std::string& InDirectory );
     std::string GetUserRoot() const;
 
-    // Back to the two default roots + the dev user:// mount (tests).
+    // Back to the default roots + the dev user:// mount (tests).
     void ResetToDefaults();
 
     // Reads/writes what a Path already resolved to. The one seam loaders go through, so pak
@@ -154,6 +166,8 @@ private:
 
     mutable std::mutex m_mutex;
     SharedPtr<const MountTable> m_table;
+    std::string m_gameRoot;
+    std::string m_engineRoot;
 
     std::atomic<bool> m_recording{ false };
     mutable std::mutex m_recordMutex;

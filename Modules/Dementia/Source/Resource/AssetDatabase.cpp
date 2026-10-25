@@ -2,6 +2,7 @@
 #include "CookedAssets.h"
 #include "JSON.h"
 #include "CLog.h"
+#include "Path.h"
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -58,8 +59,16 @@ void AssetDatabase::Refresh( const std::vector<std::string>& InRoots )
     };
     for( const std::string& root : InRoots )
     {
+        // Scan the folder the root resolves to (an engine outside the project for "Engine/Assets"),
+        // registering paths in the root's own spelling.
+        const fs::path physicalRoot = fs::path( Path( root, true ).FullPath );
+        auto logicalPath = [&root, &physicalRoot]( const fs::path& InPhysical ) {
+            std::error_code relativeError;
+            const fs::path relative = fs::relative( InPhysical, physicalRoot, relativeError );
+            return relativeError ? InPhysical.generic_string() : ( fs::path( root ) / relative ).generic_string();
+        };
         std::error_code ec;
-        for( fs::recursive_directory_iterator it( root, fs::directory_options::skip_permission_denied, ec ), end; !ec && it != end; it.increment( ec ) )
+        for( fs::recursive_directory_iterator it( physicalRoot, fs::directory_options::skip_permission_denied, ec ), end; !ec && it != end; it.increment( ec ) )
         {
             if( !it->is_regular_file( ec ) )
             {
@@ -67,7 +76,7 @@ void AssetDatabase::Refresh( const std::vector<std::string>& InRoots )
             }
             if( it->path().extension() == ".prefab" )
             {
-                registerScanned( it->path().generic_string(), ReadPrefabGUID( it->path() ) );
+                registerScanned( logicalPath( it->path() ), ReadPrefabGUID( it->path() ) );
                 continue;
             }
             if( it->path().extension() != ".meta" )
@@ -81,7 +90,7 @@ void AssetDatabase::Refresh( const std::vector<std::string>& InRoots )
                 continue;
             }
             const uint64_t guid = std::strtoull( meta["GUID"].get<std::string>().c_str(), nullptr, 16 );
-            std::string assetPath = it->path().generic_string();
+            std::string assetPath = logicalPath( it->path() );
             assetPath.resize( assetPath.size() - 5 );   // strip ".meta"
             registerScanned( assetPath, guid );
         }

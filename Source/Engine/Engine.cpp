@@ -51,6 +51,7 @@
 #include <Debug/DebugDrawer.h>
 #include <Debug/DebugDraw.h>
 #include "Engine/HardwareBudget.h"
+#include "Engine/Project.h"
 #include "Engine/ProjectSettings.h"
 #include "Tools/Cook/CookDependencies.h"
 #include "Resource/CookedAssets.h"
@@ -164,6 +165,15 @@ void Engine::Init( Game* game )
     ScriptEngine::StartInitAsync();
 #endif
     CLog::GetInstance().Log( CLog::LogType::Info, "Starting the MitchEngine." );
+    if( !Project::HasEmbeddedEngine() && Project::IsEngineDirectory( Project::GetEngineRoot() ) )
+    {
+        CLog::GetInstance().Log( CLog::LogType::Info, "Project: " + Project::GetRoot() + " (engine: " + Project::GetEngineRoot() + ")" );
+    }
+    if( Project::HasGameModule() && !Project::IsExecutableInProject() )
+    {
+        // Its components and cores live in its own builds; this executable has another game's.
+        CLog::GetInstance().Log( CLog::LogType::Warning, "Project: " + Project::GetName() + " has C++ game code (Game.sharpmake.cs) that this executable wasn't built with; build its own editor and game to use it" );
+    }
 
     // A packaged run: --pak <file.mpak> mounts the archive over the directory roots, so a
     // working directory with no Assets/ still serves every logical path (project settings and
@@ -458,7 +468,8 @@ void Engine::Run()
 #if USING( ME_TOOLS )
     // Hot reload: watch the asset trees and reimport/reload changed assets at frame start.
     AssetDatabase::Get().Refresh( { "Assets", "Engine/Assets" } );
-    m_assetWatcher.Start( { "Assets", "Engine/Assets" } );
+    // The folders the roots resolve to: the engine's may sit outside the project (Project.h).
+    m_assetWatcher.Start( { Path( "Assets", true ).FullPath, Path( "Engine/Assets", true ).FullPath } );
 #endif
 
     m_game->OnStart();
