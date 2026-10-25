@@ -34,9 +34,12 @@ namespace BuildGame
         ProjectSettings::BuildProfile Profile;
         // False: package the configuration's existing executable (--no-compile).
         bool Compile = true;
-        // A tools game build the cooker records each scene through (--record-deps); empty: the
-        // cook is static only, and assets only scripts name won't ship. FindRecordingExecutable
-        // finds the usual one.
+        // Records each scene through a tools game build (--record-deps), so assets only scripts
+        // load by name ship too; false: a static cook only.
+        bool Record = true;
+        // The tools game build to record with. Empty: the one matching this editor build
+        // (RecordingConfiguration), compiled along with the game when Compile is set, otherwise
+        // the newest FindRecordingExecutable finds.
         std::string RecordExecutable;
         // Each line the build's commands print (compiler, dotnet, tar), from the building thread.
         // The builder's own messages go to the log; .tmp/BuildGame/Staging/<Profile>/Build.log has both.
@@ -64,9 +67,12 @@ namespace BuildGame
     // The executable a configuration's game build produces, e.g.
     // ".build/Game_linux_Retail/Game_EntryPoint_x64".
     std::string GameExecutable( const std::string& InConfiguration );
-    // The tools game build next to this editor build (".build/Editor_Debug/" ->
-    // ".build/Game_<platform>_Debug/Game_EntryPoint_x64", else the other configuration), which
-    // the cooker records scenes through; empty when there is none.
+    // The tools game configuration matching this editor build: "Release" next to a Release
+    // editor, else "Debug".
+    std::string RecordingConfiguration();
+    // The newest tools game build (Debug or Release) next to this editor build, e.g.
+    // ".build/Game_linux_Debug/Game_EntryPoint_x64", which the cooker records scenes through;
+    // empty when there is none.
     std::string FindRecordingExecutable();
     // The file name a product's executable ships as ("My Game" -> "My Game.x86_64" on Linux,
     // "My Game.exe" on Windows).

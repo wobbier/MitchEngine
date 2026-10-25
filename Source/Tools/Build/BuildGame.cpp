@@ -88,26 +88,47 @@ namespace BuildGame
     }
 
 
+    namespace
+    {
+        // This editor build's directory (".../.build/Editor_Debug").
+        fs::path EditorBuildDirectory()
+        {
+            std::string base;
+            if( char* path = SDL_GetBasePath() )
+            {
+                base = path;
+                SDL_free( path );
+            }
+            std::error_code error;
+            return fs::absolute( base.empty() ? fs::path( "." ) : fs::path( base ), error ).lexically_normal().parent_path();
+        }
+    }
+
+
+    std::string RecordingConfiguration()
+    {
+        return EditorBuildDirectory().filename().string().find( "Release" ) != std::string::npos ? "Release" : "Debug";
+    }
+
+
     std::string FindRecordingExecutable()
     {
-        std::string base;
-        if( char* path = SDL_GetBasePath() )
-        {
-            base = path;
-            SDL_free( path );
-        }
+        // The newest, not the first: a configuration nobody built for a while may predate engine
+        // changes and no longer start.
+        const fs::path builds = EditorBuildDirectory().parent_path();
         std::error_code error;
-        const fs::path editorDir = fs::absolute( base.empty() ? fs::path( "." ) : fs::path( base ), error ).lexically_normal().parent_path();
-        const std::string config = editorDir.filename().string().find( "Release" ) != std::string::npos ? "Release" : "Debug";
-        for( const std::string& candidate : { config, std::string( config == "Debug" ? "Release" : "Debug" ) } )
+        fs::path newest;
+        fs::file_time_type newestTime = fs::file_time_type::min();
+        for( const char* configuration : { "Debug", "Release" } )
         {
-            const fs::path game = editorDir.parent_path() / fs::path( GameExecutable( candidate ) ).lexically_relative( ".build" );
-            if( fs::is_regular_file( game, error ) )
+            const fs::path game = builds / fs::path( GameExecutable( configuration ) ).lexically_relative( ".build" );
+            if( fs::is_regular_file( game, error ) && fs::last_write_time( game, error ) > newestTime )
             {
-                return game.generic_string();
+                newest = game;
+                newestTime = fs::last_write_time( game, error );
             }
         }
-        return std::string();
+        return newest.generic_string();
     }
 
 
@@ -445,29 +466,41 @@ namespace BuildGame
             }
 
 
+            // Builds a configuration's game executable through the solution makefile.
+            bool MakeGame( const std::string& InConfiguration )
+            {
+#if USING( ME_PLATFORM_LINUX )
+                const std::string makefile = FindSolutionMakefile();
+                if( makefile.empty() )
+                {
+                    Error( "No solution makefile with a Game_EntryPoint target in the project root; generate the project first (Project/GenerateSolution.sh)" );
+                    return false;
+                }
+                const unsigned jobs = std::max( 1u, std::thread::hardware_concurrency() );
+                const int status = Command( "make -f \"" + makefile + "\" Game_EntryPoint config=game_linux_" + Lower( InConfiguration ) + " -j" + std::to_string( jobs ) );
+                if( status != 0 )
+                {
+                    CommandFailed( "Compiling the " + InConfiguration + " game", status );
+                    return false;
+                }
+                return true;
+#else
+                Error( "Build Game can't compile on this platform yet: build the game's " + InConfiguration + " configuration in your IDE, then build without compiling (--no-compile)" );
+                return false;
+#endif
+            }
+
+
             bool Compile()
             {
                 m_executable = fs::absolute( GameExecutable( m_profile.Configuration ) );
-                if( m_request.Compile )
+                // The cooker records through a tools game build. Unless one was named, it's the one
+                // matching this editor, compiled here too, so a stale build never records.
+                const std::string recordConfiguration = RecordingConfiguration();
+                const bool compileRecorder = m_request.Record && m_request.RecordExecutable.empty() && recordConfiguration != m_profile.Configuration;
+                if( m_request.Compile && ( !MakeGame( m_profile.Configuration ) || ( compileRecorder && !MakeGame( recordConfiguration ) ) ) )
                 {
-#if USING( ME_PLATFORM_LINUX )
-                    const std::string makefile = FindSolutionMakefile();
-                    if( makefile.empty() )
-                    {
-                        Error( "No solution makefile with a Game_EntryPoint target in the project root; generate the project first (Project/GenerateSolution.sh)" );
-                        return false;
-                    }
-                    const unsigned jobs = std::max( 1u, std::thread::hardware_concurrency() );
-                    const int status = Command( "make -f \"" + makefile + "\" Game_EntryPoint config=game_linux_" + Lower( m_profile.Configuration ) + " -j" + std::to_string( jobs ) );
-                    if( status != 0 )
-                    {
-                        CommandFailed( "Compiling the " + m_profile.Configuration + " game", status );
-                        return false;
-                    }
-#else
-                    Error( "Build Game can't compile on this platform yet: build the game's " + m_profile.Configuration + " configuration in your IDE, then build without compiling (--no-compile)" );
                     return false;
-#endif
                 }
                 std::error_code error;
                 if( !fs::is_regular_file( m_executable, error ) )
@@ -476,6 +509,22 @@ namespace BuildGame
                     return false;
                 }
                 Info( "Game executable: " + m_executable.generic_string() );
+                if( m_request.Record )
+                {
+                    m_recordExecutable = !m_request.RecordExecutable.empty() ? m_request.RecordExecutable
+                        : m_request.Compile ? fs::absolute( GameExecutable( recordConfiguration ) ).generic_string()
+                        : FindRecordingExecutable();
+                    if( m_recordExecutable.empty() || !fs::is_regular_file( m_recordExecutable, error ) )
+                    {
+                        Warn( "No tools game build to record the scenes with" + ( m_recordExecutable.empty() ? std::string() : " at " + m_recordExecutable )
+                            + ": the cook is static, and assets only scripts load by name won't ship" );
+                        m_recordExecutable.clear();
+                    }
+                    else
+                    {
+                        Info( "Recording with: " + m_recordExecutable );
+                    }
+                }
                 return true;
             }
 
@@ -534,10 +583,10 @@ namespace BuildGame
                 {
                     cook.PakFile = ( m_out / CookedAssets::kShippedPak ).generic_string();
                 }
-                cook.GameExecutable = m_request.RecordExecutable;
-                if( cook.GameExecutable.empty() )
+                cook.GameExecutable = m_recordExecutable;
+                if( !m_request.Record )
                 {
-                    Info( "Static cook (no scene recording): assets only scripts load by name won't ship" );
+                    Info( "Static cook (recording is off): assets only scripts load by name won't ship" );
                 }
                 const Cook::Report report = Cook::Run( cook );
                 for( const std::string& warning : report.Warnings )
@@ -816,6 +865,7 @@ namespace BuildGame
             fs::path m_executable;
             std::ofstream m_log;
             std::vector<std::string> m_errorLines;
+            std::string m_recordExecutable;
             std::string m_launcher;
             std::string m_dotnetVersion;
             bool m_hasScripts = false;

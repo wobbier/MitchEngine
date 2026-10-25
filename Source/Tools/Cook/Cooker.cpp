@@ -719,7 +719,24 @@ namespace Cook
                 const int status = PlatformUtils::RunCommand( command, output );
                 if( status != 0 || !std::filesystem::exists( recording, error ) )
                 {
-                    Error( "Recording " + InScene + " failed (exit " + std::to_string( status ) + ")" );
+                    // The game's last words say why (a build that can't start, a scene that asserts).
+                    std::vector<std::string> lines;
+                    size_t start = 0;
+                    while( start < output.size() )
+                    {
+                        const size_t end = std::min( output.find( '\n', start ), output.size() );
+                        if( end > start )
+                        {
+                            lines.push_back( output.substr( start, end - start ) );
+                        }
+                        start = end + 1;
+                    }
+                    std::string tail;
+                    for( size_t i = lines.size() > 8 ? lines.size() - 8 : 0; i < lines.size(); ++i )
+                    {
+                        tail += "\n    " + lines[i];
+                    }
+                    Error( "Recording " + InScene + " through " + m_request.GameExecutable + " failed (exit " + std::to_string( status ) + ")" + tail );
                     return std::string();
                 }
                 return recording;

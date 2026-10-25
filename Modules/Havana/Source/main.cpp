@@ -177,14 +177,8 @@ static int BuildGameCommand()
     BuildGame::Request request;
     request.Profile = profile;
     request.Compile = !CommandLine::Has( "--no-compile" );
-    if( !CommandLine::Has( "--no-record" ) )
-    {
-        request.RecordExecutable = CommandLine::GetString( "--game", BuildGame::FindRecordingExecutable() );
-        if( request.RecordExecutable.empty() )
-        {
-            CLog::Log( CLog::LogType::Warning, "Build Game: no tools game build found to record the scenes with (pass --game <exe>)" );
-        }
-    }
+    request.Record = !CommandLine::Has( "--no-record" );
+    request.RecordExecutable = CommandLine::GetString( "--game" );
     if( CommandLine::Has( "--verbose" ) )
     {
         request.OnLine = []( const std::string& InLine ) {

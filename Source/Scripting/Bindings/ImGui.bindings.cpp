@@ -58,26 +58,44 @@ static bool Eng_ImGui_Vec3( const uint8_t* inLabel, Vector3* inOutValue )
 }
 
 
+// Scripts' own debug windows. Builds without ImGui (Retail) have no context: the calls do
+// nothing there instead of crashing, so a script's debug window simply doesn't show.
+static bool HasImGui()
+{
+    return ImGui::GetCurrentContext() != nullptr;
+}
+
+
 static bool Eng_ImGui_Begin( const uint8_t* inLabel )
 {
-    return ImGui::Begin( reinterpret_cast<const char*>( inLabel ) );
+    return HasImGui() && ImGui::Begin( reinterpret_cast<const char*>( inLabel ) );
 }
 
 
 static void Eng_ImGui_End()
 {
-    ImGui::End();
+    if( HasImGui() )
+    {
+        ImGui::End();
+    }
 }
 
 
 static void Eng_ImGui_Text( const uint8_t* inText )
 {
-    ImGui::TextUnformatted( reinterpret_cast<const char*>( inText ) );
+    if( HasImGui() )
+    {
+        ImGui::TextUnformatted( reinterpret_cast<const char*>( inText ) );
+    }
 }
 
 
 static bool Eng_ImGui_Checkbox( const uint8_t* inLabel, uint8_t* inOutValue )
 {
+    if( !HasImGui() )
+    {
+        return false;
+    }
     bool b = ( *inOutValue != 0 );
     bool changed = ImGui::Checkbox( reinterpret_cast<const char*>( inLabel ), &b );
     *inOutValue = b ? 1 : 0;
@@ -87,7 +105,7 @@ static bool Eng_ImGui_Checkbox( const uint8_t* inLabel, uint8_t* inOutValue )
 
 static bool Eng_ImGui_Button( const uint8_t* inLabel )
 {
-    return ImGui::Button( reinterpret_cast<const char*>( inLabel ) );
+    return HasImGui() && ImGui::Button( reinterpret_cast<const char*>( inLabel ) );
 }
 
 

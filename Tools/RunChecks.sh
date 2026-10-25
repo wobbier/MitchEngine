@@ -107,10 +107,12 @@ fi
 
 # Build Game (SHIP-3): a Retail build of the same showcases, copied out of the repo and started from
 # an empty directory with no DOTNET_ROOT and none of the repo's library paths. It must run its
-# scripts on the app-local .NET and still match the references.
-if [[ -f "${cook_scenes[0]}" && -f "${cook_scenes[1]}" && -d Assets/Scenes/Showcase/Reference ]]; then
+# scripts on the app-local .NET and still match the references. The project's main menu ships too:
+# its scripts draw ImGui debug windows, which Retail (no ImGui) must survive.
+smoke_scene=Assets/Main.lvl
+if [[ -f "${cook_scenes[0]}" && -f "${cook_scenes[1]}" && -f $smoke_scene && -d Assets/Scenes/Showcase/Reference ]]; then
     step "Build Game"
-    if ! "$here/Headless.sh" ./.build/Editor_Debug/Havana --build-game --scene "${cook_scenes[0]}" --scene "${cook_scenes[1]}" --out .tmp/BuildGame/Checks \
+    if ! "$here/Headless.sh" ./.build/Editor_Debug/Havana --build-game --scene "${cook_scenes[0]}" --scene "${cook_scenes[1]}" --scene "$smoke_scene" --out .tmp/BuildGame/Checks \
             --game .build/Game_linux_Debug/Game_EntryPoint_x64 > .tmp/RunChecks.buildgame.log 2>&1; then
         grep -E "Build Game|Error" .tmp/RunChecks.buildgame.log | tail -20
         failed+=("build game")
@@ -127,6 +129,14 @@ if [[ -f "${cook_scenes[0]}" && -f "${cook_scenes[1]}" && -d Assets/Scenes/Showc
         elif grep -L "Scripts: .NET runtime from the app-local install" .tmp/ScreenshotRegression/Shipped/*.log | grep -q .; then
             echo "The shipped build didn't run its scripts on the app-local .NET (see .tmp/ScreenshotRegression/Shipped)"
             failed+=("shipped build runtime")
+        fi
+        smoke_log="$PWD/.tmp/RunChecks.shipped-menu.log"
+        if ! ( cd "$shipped/Empty" && env -u DOTNET_ROOT LD_LIBRARY_PATH="$system_libs" "$here/Headless.sh" "$shipped/Game/$launcher" \
+                --scene "$smoke_scene" --frames 60 --no-audio --exit > "$smoke_log" 2>&1 ); then
+            echo "The shipped build failed on $smoke_scene (see $smoke_log)"
+            failed+=("shipped build menu")
+        else
+            echo "ok    $smoke_scene runs in the shipped build"
         fi
         rm -rf "$shipped"
     fi

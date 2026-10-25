@@ -51,7 +51,7 @@ Engine/Tools/Headless.sh ./.build/Editor_Debug/Havana --build-game --scene Asset
 | `--no-compile` | Package the configuration's existing executable (`.build/Game_<platform>_<Configuration>/`) instead of building it |
 | `--loose` | Ship the cooked tree as files instead of `Game.mpak` |
 | `--archive` | Also pack the output into `<dir>.tar.gz` (`.zip` on Windows) next to it |
-| `--game <exe>` / `--no-record` | The tools game build the cooker records scenes with (default: the one next to this editor build) / a static cook only |
+| `--game <exe>` / `--no-record` | The tools game build the cooker records scenes with / a static cook only. Default: the tools game matching this editor build (Release next to a Release editor, else Debug), compiled along with the game; with `--no-compile`, the newest one there |
 | `--verbose` | Print every line of compiler and tool output. It always goes to `.tmp/BuildGame/Staging/<Profile>/Build.log` |
 | `--cancel-file <file>` | Stop after the current step once this file exists |
 
@@ -77,8 +77,10 @@ Builds are made for the machine building them: a Linux editor builds Linux games
 ## The steps
 
 1. **Compile.** On Linux, `make -f <Solution>.make Game_EntryPoint config=game_linux_<configuration>`
-   through the generated solution makefile. Windows and macOS need `--no-compile` and an IDE
-   build for now (ME-265).
+   through the generated solution makefile. When the cook records scenes and no `--game` was
+   named, the tools game it records through (the editor's configuration) is compiled too, so an
+   out-of-date one can't fail the cook. Windows and macOS need `--no-compile` and an IDE build for
+   now (ME-265).
 2. **Scripts.** `dotnet build Project/Game.Script.csproj -c Release` (`Debug` for Debug builds)
    into the staging folder. The assemblies, their `.deps.json` and `ScriptCore.runtimeconfig.json`
    ship next to the executable. The source generator (`MitchEngine.Generators`) stays behind, and
@@ -143,7 +145,9 @@ The "Build Game" step of `RunChecks.sh` builds the Lighting and Playground showc
 game into `.tmp/BuildGame/Checks`. It copies the build to a temporary folder outside the repo and
 captures both scenes from an empty working directory. The captures run with `DOTNET_ROOT` unset
 and the repo's library paths removed from `LD_LIBRARY_PATH`. They must match the showcase
-references, and every run's log must show the app-local runtime.
+references, and every run's log must show the app-local runtime. The project's main menu
+(`Assets/Main.lvl`) ships too, and must run for 60 frames: its scripts draw ImGui debug windows,
+which crashed Retail builds until those calls learned to do nothing without ImGui.
 
 Results on Linux (2026-10-25):
 
