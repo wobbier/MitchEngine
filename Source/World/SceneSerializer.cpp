@@ -232,6 +232,18 @@ namespace SceneSerializer
             // Bullet-era controller fields don't carry over; defaults fit a human-sized capsule.
             return { json{ { "Type", "CharacterController" } } };
         }
+        if( type == "BasicUIView" )
+        {
+            // Ultralight-era HTML view (removed in UI-5): an RmlUi document beside the page,
+            // page.html -> page.rml. Its JS logic has no equivalent; ports move it to C# models.
+            std::string path = InComponent.value( "FilePath", std::string() );
+            const size_t dot = path.rfind( '.' );
+            if( dot != std::string::npos && path.compare( dot, std::string::npos, ".html" ) == 0 )
+            {
+                path.replace( dot, std::string::npos, ".rml" );
+            }
+            return { json{ { "Type", "UIDocument" }, { "FilePath", path } } };
+        }
         return { InComponent };
     }
 

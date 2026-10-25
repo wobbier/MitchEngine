@@ -154,17 +154,6 @@ public class Engine : BaseProject
 
         // TODO: Fix other API's
         //if (target.SubPlatform == CommonTarget.SubPlatformType.Win64 || target.SubPlatform == CommonTarget.SubPlatformType.macOS)
-        if (Globals.IsUltralightEnabled)
-        {
-            conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/UltralightSDK/include"));
-
-            if (target.Platform != Platform.linux)
-            {
-                conf.LibraryFiles.Add("Ultralight");
-                conf.LibraryFiles.Add("UltralightCore");
-                conf.LibraryFiles.Add("WebCore");
-            }
-        }
 
         conf.LibraryFiles.Add("MitchEngine");
 
@@ -202,15 +191,6 @@ public class Engine : BaseProject
         conf.LibraryFiles.Add("winmm.lib");
         conf.LibraryFiles.Add("winhttp.lib");
 
-        // Ultralight UI
-        if (Globals.IsUltralightEnabled)
-        {
-            // Release for now since the 1.4 debug dlls are massive
-            conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $@"ThirdParty/UltralightSDK/Lib/[target.SubPlatform]/{CommonTarget.GetThirdPartyOptimization(Optimization.Release)}"));
-            conf.LibraryFiles.Add("AppCore");
-        }
-
-        conf.LibraryFiles.Add("Dwrite");
 
         if (Directory.Exists(Globals.FMOD_Win64_Dir))
         {
@@ -256,17 +236,6 @@ public class Engine : BaseProject
             conf.EventPostBuildExe.Add(copyDirBuildStep);
         }
 
-        // TODO: Fix other API's
-        // Ultralight UI DLL
-        if (Globals.IsUltralightEnabled)
-        {
-            var copyDirBuildStep = new Configuration.BuildStepCopy(
-            $@"[project.SharpmakeCsPath]/ThirdParty/UltralightSDK/bin/[target.SubPlatform]/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}",
-            Globals.RootDir + "/.build/[target.Name]");
-
-            conf.EventPostBuildExe.Add(copyDirBuildStep);
-        }
-
         if (Directory.Exists(Globals.DOTNET_Win64_Dir))
         {
             conf.IncludePaths.Add(Globals.DOTNET_Win64_Dir);
@@ -303,17 +272,10 @@ public class Engine : BaseProject
         conf.LibraryFiles.Add("winmm.lib");
         conf.LibraryFiles.Add("winhttp.lib");
 
-        // Ultralight UI
-        if (Globals.IsUltralightEnabled)
-        {
-            conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $@"ThirdParty/UltralightSDK/Lib/[target.SubPlatform]/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
-        }
-
         conf.LibraryPaths.Add("$(VCInstallDir)\\lib\\store\\amd64");
         conf.LibraryPaths.Add("$(VCInstallDir)\\lib\\amd64");
 
         conf.LibraryFiles.Add("SDL2.lib");
-        conf.LibraryFiles.Add("Dwrite");
         if (target.Optimization == Optimization.Debug)
         {
             conf.LibraryFiles.Add("assimpd.lib");
@@ -323,16 +285,6 @@ public class Engine : BaseProject
         {
             conf.LibraryFiles.Add("assimp.lib");
             conf.LibraryFiles.Add("zlibstatic.lib");
-        }
-
-        // Ultralight UI
-        if (Globals.IsUltralightEnabled)
-        {
-            var copyDirBuildStep = new Configuration.BuildStepCopy(
-                $@"[project.SharpmakeCsPath]/ThirdParty/UltralightSDK/bin/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}",
-                Globals.RootDir + "/.build/[target.Name]");
-
-            conf.EventPostBuildExe.Add(copyDirBuildStep);
         }
 
         if (Directory.Exists(Globals.FMOD_UWP_Dir))
@@ -362,13 +314,6 @@ public class Engine : BaseProject
 
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/SDL/macOS/Debug"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Assimp/macOS/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
-
-        // Ultralight UI
-        if (Globals.IsUltralightEnabled)
-        {
-            conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $@"ThirdParty/UltralightSDK/Lib/[target.SubPlatform]"));
-            conf.LibraryFiles.Add("AppCore");
-        }
 
         // Build Machine
         if (!Directory.Exists(Globals.FMOD_macOS_Dir) && Directory.Exists(Path.Combine(Globals.RootDir, $"Engine/ThirdParty/FMOD")))
@@ -410,15 +355,6 @@ public class Engine : BaseProject
         }
 
 
-        // Ultralight dylibs
-        if (Globals.IsUltralightEnabled)
-        {
-            var copyDirBuildStep = new Configuration.BuildStepCopy(
-                $@"[project.SharpmakeCsPath]/ThirdParty/UltralightSDK/lib/macOS/",
-                Globals.RootDir + "/.build/[target.Name]");
-
-            conf.EventPostBuildExe.Add(copyDirBuildStep);
-        }
     }
 
 
@@ -448,11 +384,6 @@ public class Engine : BaseProject
             conf.IncludePaths.Add(Path.Combine(Globals.FMOD_Linux_Dir, "api/core/inc"));
             conf.LibraryPaths.Add(Path.Combine(Globals.FMOD_Linux_Dir, "api/core/lib/x86_64"));
             conf.AdditionalLinkerOptions.Add("-lfmodL");
-        }
-
-        if (Globals.IsUltralightEnabled)
-        {
-            conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/UltralightSDK/lib/linux"));
         }
 
         // potentially use [target.Platform] and move this to ConfigureAll
@@ -567,7 +498,7 @@ public class BaseGameSolution : Solution
         System.Console.WriteLine(Line("FMOD audio", fmod, fmod ? fmodDir : "no SDK found (Engine/ThirdParty/FMOD or Globals.FMOD_*_Dir); audio compiles to no-ops"));
         System.Console.WriteLine(Line(".NET scripting", dotnet, dotnet ? dotnetDir
             : (mac ? "no macOS host yet" : (windows ? "set Globals.DOTNET_Win64_Dir to the Microsoft.NETCore.App.Host.win-x64 native folder" : "DOTNET_LINUX_NATIVE_DIR not set or missing: generate inside `nix develop`"))));
-        System.Console.WriteLine(Line("Ultralight UI", Globals.IsUltralightEnabled, Globals.IsUltralightEnabled ? "Globals.IsUltralightEnabled" : "disabled in Globals"));
+        System.Console.WriteLine(Line("RmlUi game UI", true, "RmlUi + FreeType are built from source"));
         System.Console.WriteLine(Line("Optick", windows, windows ? "Win64 builds (not Retail)" : "Win64 only"));
         System.Console.WriteLine(Line("RenderDoc", windows && File.Exists("C:/Program Files/RenderDoc/renderdoc.dll"), windows ? "C:/Program Files/RenderDoc" : "Windows only"));
         System.Console.WriteLine(Line("Physics, navmesh", true, "Box3D, Box2D and Recast/Detour are built from source"));
@@ -618,7 +549,6 @@ public class Globals
     public static string UWP_CertificateName = "Game_EntryPoint_UWP_TemporaryKey.pfx";
 
     public static bool IsUWPEnabled = true;
-    public static bool IsUltralightEnabled = true;
     public static bool IsPhysicsEnabled3D = true;
 }
 

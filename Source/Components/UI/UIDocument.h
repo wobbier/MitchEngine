@@ -3,8 +3,8 @@
 #include "ECS/ComponentDetail.h"
 #include "Path.h"
 
-// An RmlUi document (.rml) shown by RmlUiCore in the main UI context. The spike (UI-1) keeps
-// this minimal; sort order, input priority and focus arrive with the UICore rewrite (UI-2).
+// An RmlUi document (.rml) shown by RmlUiCore in the main UI context. Scenes saved with the
+// retired Ultralight BasicUIView load as one of these (page.html -> page.rml).
 class UIDocument final
     : public Component<UIDocument>
 {

@@ -98,7 +98,7 @@ Velocities faster than sound (340 m/s) are treated as teleports (scene loads, ca
 - **Source one-shots.** `AudioSource::PlayOneShot( volumeScale )` (or with another clip) plays at the source with its settings. These voices follow the source every frame. `MaxOneShots` (default 8) is the per-source limit. A clip still loading starts later at the source's position then, unless the source is gone.
 - **`PlayAudioEvent`.**
   - Without a `Callback`, it is a core one-shot. It has a `Bus`, `Volume`, an optional `Spatial` + `Position`, and a `StartPercent`.
-  - With a `Callback`, it keeps the older behaviour: one cached `AudioSource` per path, restarted on replay and handed to the callback. The asset inspector's preview uses this, and so does `BasicUIView::PlaySound` when its view has a callback set.
+  - With a `Callback`, it keeps the older behaviour: one cached `AudioSource` per path, restarted on replay and handed to the callback. The asset inspector's preview uses this. (The UI's `play-sound:` inline action fires plain one-shots on the UI bus.)
 - **`StopAudioEvent`** stops both the cached source and the one-shots of that clip.
 
 ### Reverb zones

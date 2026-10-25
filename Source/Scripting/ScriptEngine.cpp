@@ -23,7 +23,6 @@
 #include "Bindings/ImGui.bindings.h"
 #include "Bindings/Components/Transform.bindings.h"
 #include "Bindings/Components/Camera.bindings.h"
-#include "Bindings/Components/BasicUIView.bindings.h"
 #include "Bindings/Systems/World.bindings.h"
 #include "Bindings/Systems/Input.bindings.h"
 #include "Bindings/Systems/Gameplay.bindings.h"
@@ -393,7 +392,6 @@ static int StartRuntime()
     Register_EntityBindings( engineApi );
     Register_TransformBindings( engineApi );
     Register_CameraBindings( engineApi );
-    Register_BasicUIViewBindings( engineApi );
     Register_ImGuiBindings( engineApi );
     Register_InputBindings( engineApi );
     Register_WorldBindings( engineApi );

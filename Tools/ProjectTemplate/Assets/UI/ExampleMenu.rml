@@ -1,0 +1,10 @@
+<rml>
+<head>
+	<title>ExampleMenu</title>
+	<link type="text/rcss" href="ExampleMenu.rcss"/>
+</head>
+<body>
+	<!-- Inline engine actions need no code; stateful menus bind a C# view model (UI.Model). -->
+	<button id="load-example" onclick="load-scene:Assets/Example.lvl">Load Example Scene</button>
+</body>
+</rml>

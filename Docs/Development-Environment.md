@@ -101,8 +101,8 @@ and suppresses hook stdout so GDB's MI protocol stays clean. Failed environment
 evaluation aborts before any build or debugger starts. Commands keep their exit
 status and receive arguments without shell re-parsing.
 
-The base environment preserves the C++/.NET, SDL, X11/Wayland, graphics loader,
-and GTK/Ultralight dependencies. It also provides Python, bear, patchelf, Git,
+The base environment preserves the C++/.NET, SDL, X11/Wayland and graphics loader
+dependencies (GTK3 only for the standalone HUB's folder picker). It also provides Python, bear, patchelf, Git,
 Xvfb, and the matching Mesa lavapipe ICD for engine tools. Host GPU driver
 compatibility still needs testing when updating the lock; naming
 `nixos-unstable` does not automatically update a locked package revision.
@@ -143,8 +143,8 @@ event commit unless an `engine_ref` override is supplied. Windows and macOS use
 the same portable Sharpmake bundle as Linux.
 
 Submodule pins must be available from the URLs in `.gitmodules` before an engine
-commit is pushed. Engine-specific ImGui and UltralightSDK changes are published
-on the `mitchengine` branches of the `wobbier` forks. bgfx stays pinned to its
+commit is pushed. Engine-specific ImGui changes are published
+on the `mitchengine` branch of the `wobbier` fork. bgfx stays pinned to its
 published upstream commit; `ThirdParty/Patches/bgfx-vulkan-program-samplers.patch`
 preserves the Vulkan fix and is applied by `GenerateSolutions.sh --build-bgfx`.
 To reproduce CI's dependency checkout from a fresh clone, run

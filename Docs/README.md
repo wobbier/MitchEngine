@@ -26,7 +26,7 @@ Technical documentation for MitchEngine — a C++20, ECS-based game engine built
 | [Navigation.md](Navigation.md) | Recast/Detour: `NavMeshSurface` bakes (tiled, parallel, async, saved next to the scene), areas and costs, modifiers and links, `NavMeshAgent` crowds, queries, editor and script API |
 | [Serialization-and-Scenes.md](Serialization-and-Scenes.md) | `.lvl` JSON format, prefabs, registry-name instantiation, save/load flow, versioning caveats |
 | [Scripting-DotNet.md](Scripting-DotNet.md) | CLI script builds, hostfxr bootstrap, script lifecycle, hot reload, the generated API (`ScriptAPI.def`), C# side, platform status, add-a-binding recipe |
-| [UI-Ultralight-and-ImGui.md](UI-Ultralight-and-ImGui.md) | Ultralight HTML UI integration, GPU driver, view composite — **deprecation status: do not extend** |
+| [UI-RmlUi-and-ImGui.md](UI-RmlUi-and-ImGui.md) | RmlUi game UI (documents, inline actions, C# view models, navigation, hot reload, Ultralight migration) and ImGui |
 | [Editor-Havana.md](Editor-Havana.md) | `EditorApp`/`Havana`, widgets, command/undo system, entity picking, play-in-editor lifecycle |
 | [Input.md](Input.md) | Action maps (`.inputactions`): contexts with priority and consumption, control paths, composites, rebinding and overrides; gamepads (hotplug slots, deadzones, rumble) |
 | [Hardware-Profiles.md](Hardware-Profiles.md) | Target hardware profiles ("Xbox 360", "2004 PC"): frame, memory and draw budgets measured every frame, editor and HUD verdicts, enforced GPU feature caps, perf-report budgets |

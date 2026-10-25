@@ -7,12 +7,12 @@
 #   e.g. Engine/Tools/PackageLinuxBuild.sh Game_linux_Release Game_EntryPoint_x64
 #
 # Bundled next to the binary in lib/:
-#   - shared libs resolved from the engine checkout (Ultralight, FMOD) — their
+#   - shared libs resolved from the engine checkout (FMOD) — their
 #     baked rpaths point at the build machine and are dead on any other box
 #   - libSDL2 / libstdc++ / libgcc_s from the toolchain, so the game doesn't
 #     depend on the target distro's versions
 # Left to the host system: glibc, the GL/EGL/Vulkan driver stack, X11/Wayland,
-# GTK3/fontconfig/ALSA/curl — bundling those breaks more than it fixes.
+# ALSA/curl — bundling those breaks more than it fixes.
 set -e
 
 builddir=".build/${1:?Usage: PackageLinuxBuild.sh <BuildFolder> <Binary> [Output.tar.gz]}"
@@ -31,7 +31,7 @@ ldd "$builddir/$binary" | awk '$3 ~ /^\// { print $3 }' | while read -r lib; do
         libSDL2*|libstdc++*|libgcc_s*) ;;
         *)
             case "$lib" in
-                */ThirdParty/*) ;; # UltralightSDK / FMOD out of the engine tree
+                */ThirdParty/*) ;; # FMOD out of the engine tree
                 *) continue ;;
             esac
             ;;
@@ -42,8 +42,8 @@ done
 cat > "$builddir/run.sh" <<EOF
 #!/usr/bin/env bash
 # Launcher: points the loader at the bundled libs in ./lib.
-# Needs from the system: glibc, GL/Vulkan drivers, X11/Wayland, GTK3,
-# fontconfig, ALSA, curl (standard on any desktop distro).
+# Needs from the system: glibc, GL/Vulkan drivers, X11/Wayland, ALSA,
+# curl (standard on any desktop distro).
 cd "\$(dirname "\$0")"
 LD_LIBRARY_PATH="\$PWD/lib:\$LD_LIBRARY_PATH" exec "./$binary" "\$@"
 EOF

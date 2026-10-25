@@ -49,6 +49,7 @@ void Transform_GetRotation( Entity id, Vector3* outEuler )
 void Transform_SetRotation( Entity id, const Vector3* euler )
 
 ## UI
+# Retired with Ultralight (UI-5): a stub that warns once. The slot stays so later offsets hold.
 void BasicUIView_ExecuteJS( Entity id, cstr script )
 
 ## Logging

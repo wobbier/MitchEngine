@@ -11,38 +11,34 @@
 // must have a higher ID than the producer, or it reads last frame's result.
 //
 // Frame order:
-//   Clear -> Ultralight buffers -> UI resolve -> per-camera passes (dynamic) -> picking
+//   Clear -> game UI (RmlUi) -> per-camera passes (dynamic) -> picking
 //   -> UI composite -> editor offscreen (previews) -> ImGui
 namespace Moonlight::RenderView
 {
     // Backbuffer clear.
     constexpr bgfx::ViewId Clear = 0;
 
-    // Ultralight GPUDriver render buffers, one view per render buffer ID.
-    constexpr bgfx::ViewId UIDriverFirst = 1;
-    constexpr bgfx::ViewId UIDriverCount = 32;
-
-    // Resolves the Ultralight view render target into the UI texture.
-    constexpr bgfx::ViewId UIResolve = UIDriverFirst + UIDriverCount;
+    // Game UI: RmlUi documents render into their offscreen target here, before anything that
+    // samples it (the composite). The rest of the band is headroom for UI layers/filters.
+    constexpr bgfx::ViewId UIFirst = 1;
+    constexpr bgfx::ViewId UICount = 8;
+    constexpr bgfx::ViewId RmlUi = UIFirst;
 
     // Allocated per frame in submission order (ViewAllocator): environment/IBL updates, then each
     // camera's shadow, scene and post-processing passes. The main camera renders last so it can
     // sample render-to-texture cameras from this frame.
-    constexpr bgfx::ViewId DynamicFirst = UIResolve + 1;
+    constexpr bgfx::ViewId DynamicFirst = UIFirst + UICount;
     constexpr bgfx::ViewId DynamicLast = 223;
 
     // Editor picking: ID pass, then blit to the CPU readback texture.
     constexpr bgfx::ViewId PickingId = DynamicLast + 1;
     constexpr bgfx::ViewId PickingBlit = PickingId + 1;
 
-    // Composites the UI texture over the main camera's output.
+    // Composites the game UI texture over the main camera's output.
     constexpr bgfx::ViewId UIComposite = PickingBlit + 1;
 
-    // RmlUi documents, drawn over the composited frame (the Ultralight replacement, UI-1..5).
-    constexpr bgfx::ViewId RmlUi = UIComposite + 1;
-
     // Editor offscreen work submitted from the UI (shader graph node previews), sampled by ImGui.
-    constexpr bgfx::ViewId EditorOffscreenFirst = RmlUi + 1;
+    constexpr bgfx::ViewId EditorOffscreenFirst = UIComposite + 1;
     constexpr bgfx::ViewId EditorOffscreenCount = 16;
     // The browser inspector has its own preview, including while graph documents are open.
     constexpr bgfx::ViewId AssetPreviewTiles = EditorOffscreenFirst + EditorOffscreenCount - 3;

@@ -2,7 +2,7 @@
 
 > **This doc is opinion.** Every other doc in `Docs/` is factual; this one rates, prioritizes, and recommends. Never cite it as a description of behavior — cite the subsystem docs. Assessed at engine commit 047f57b8, 2026-07-10; scorecard rows for the core runtime re-scored at dab803a2, 2026-10-08 (overhaul Waves 0–1); editor, serialization and rendering-tooling rows at 7e869c6e, 2026-10-09 (Wave 2); rendering, lighting and materials rows at 1fa55311, 2026-10-09 (Wave 3); physics at 8fdd99b1, 2026-10-09 (Wave 4); animation at 07617c5f, 2026-10-09; audio at afce7083, 2026-10-09; input at e0ca1f26, 2026-10-09; scripting at 6a4b006f, 2026-10-09; navigation at 8d6769a5, 2026-10-10; the Files & VFS row added 2026-10-24 (VFS-1).
 
-MitchEngine is a real, working engine: it ships Drumsmith, runs a full editor on Linux/Windows, hosts .NET 8 scripting, and has genuinely thoughtful hot paths (the precomputed render submit, automatic instancing, transform dirty caching). Its weaknesses are the classic solo-engine kind: half-migrations left in place (Mono→.NET, fixed→variable timestep, Ultralight→web-UI), correctness debt that hasn't hurt *yet* (variable-dt physics, name-string schemas), and workflow traps that cost real work (Stop-reverts-to-last-save). The theme of this assessment: **finish or delete the half-things, then invest where the engine already punches above its weight.**
+MitchEngine is a real, working engine: it ships Drumsmith, runs a full editor on Linux/Windows, hosts .NET 8 scripting, and has genuinely thoughtful hot paths (the precomputed render submit, automatic instancing, transform dirty caching). Its weaknesses are the classic solo-engine kind: half-migrations left in place (Mono→.NET, fixed→variable timestep), correctness debt that hasn't hurt *yet* (variable-dt physics, name-string schemas), and workflow traps that cost real work (Stop-reverts-to-last-save). The theme of this assessment: **finish or delete the half-things, then invest where the engine already punches above its weight.**
 
 ## 1. Maturity Scorecard
 
@@ -28,7 +28,7 @@ Ratings: **Solid** (rely on it) · **Usable** (works, know the sharp edges) · *
 | Animation | **Usable** | Clip import, bone entities, a real state machine (parameters, exit times, cross-fades, 1D and 2D blends, events), masked override and additive layers, root motion through the character controller, edit-mode previews that never leak into saves, root motion with turning, two-bone and look-at IK, and GPU skinning in the main, shadow and picking passes, unit + editor-flow tested; one-state previews, linear keys | [Animation.md](Animation.md) |
 | Audio | **Usable** | Mixer buses in Project Settings, listener, positioned sources with rolloff and doppler, overlapping one-shots, streamed sources for music, reverb zones, physics occlusion with lowpass, pause with the game, silent automated runs, clips that load in the background (plays wait for them, `Preload` opts out), unit + editor-flow tested; no sound propagation or FMOD Studio | [Audio.md](Audio.md) |
 | Scripting (.NET 8) | **Usable** | Generated ABI from one manifest, hot reload that keeps field values, engine-owned lifecycle (start after physics sync, fixed update), a gameplay API (input actions, physics with collision / trigger callbacks, character, navigation, audio, scenes, debug draw), every component's fields by name, CLI builds on Linux, editor-flow tested; the script inspector draws Havana property rows for every field kind (strings, enums, Color/Vector4/Quaternion, lists, nested [Serializable] types, EntityRef/AssetRef with drag-drop, [Range]/[Header]/[Tooltip]/[ReadOnly] and friends) with save/load proven by flow; a Roslyn source generator gives `[GenerateSchema]` scripts compile-time field schemas, serializers and a schema hash (reflection-free, AOT-safe); no macOS host, Win64 CLI path untested | [Scripting-DotNet.md](Scripting-DotNet.md) |
-| UI (Ultralight) | **Abandoned-in-place** | 60 fps cap + licensing friction; do not extend. The RmlUi replacement works (UI-2: offscreen target composited in the editor and game, mouse/keyboard/text input, cursor, `.rml`/`.rcss` hot reload, the debugger on F7, `ui-click`/`ui-assert-text` edscripts, inline `set-text` actions plus UI-3 MVC models (C# `UI.Model`: engine-side values that survive hot reloads, `data-event` queues, `UIModelFlows` proof); UI-4 navigation (gamepad dpad + Tab focus, South activates), dp text scale, string-table localization with fallback fonts (`UINavFlows` proof)); Ultralight ships until UI-5 | [UI-Ultralight-and-ImGui.md](UI-Ultralight-and-ImGui.md) |
+| UI (RmlUi) | **Usable** | HTML/CSS documents (`UIDocument` + `RmlUiCore`) composited in the editor and game; mouse/keyboard input, gamepad and Tab focus navigation, dp text scale, string-table localization with fallback fonts, `.rml`/`.rcss` hot reload, the debugger on F7; inline engine actions (`load-scene`, `play-sound`, `quit`, `set-text`) and C# view models (`UI.Model`, values survive hot reloads). Proofs: UITest capture, `UIFlows`, `UIModelFlows`, `UINavFlows`, `MainMenuFlows`. Ultralight is gone (UI-5). Gaps: no layers/filters/shader gradients, scalar-only bindings, synthesized text input, no designer yet (UI-6) | [UI-RmlUi-and-ImGui.md](UI-RmlUi-and-ImGui.md) |
 | Editor (Havana) | **Solid** | Selection/undo/actions services, in-memory play snapshots, autosave + recovery, multi-object gizmos, reflection inspector with multi-edit, prefab overrides, asset browser v2 whose moves and renames keep references intact, scripted regression tests; non-reflected components are the gap | [Editor-Havana.md](Editor-Havana.md) |
 | QA automation | **Solid** | doctest unit tests (448 cases), scripted editor flows per subsystem, deterministic `--frame-time` captures with screenshot regression over showcase scenes (also from a cooked tree and its pak), unattended runs that never touch user settings or speakers; the game repository's CI runs all of it (`RunChecks.sh`) | [Architecture.md](Architecture.md) |
 | Build system | **Usable** | Sharpmake graph is coherent; features still follow which SDK directories exist, but generation now reports what it found and how to fix what's missing | [Build-System.md](Build-System.md) |
@@ -42,7 +42,7 @@ Ratings: **Solid** (rely on it) · **Usable** (works, know the sharp edges) · *
 | Scripting (.NET 8) | ✅ (hot reload unverified) | ✅ (Nix shell; scripts built with the dotnet CLI) | ❌ no host path (Mono era ended) | ❌ |
 | Audio (FMOD) | ✅ | ✅ | ✅ (SDK path exists) | ✅ (SDK path exists) |
 | Navigation (Recast/Detour) | ⚠️ written, unverified | ✅ | ⚠️ written, unverified | ⚠️ untested |
-| UI (Ultralight 1.4) | ✅ | ✅ (GTK3 stack) | ✅ | ❌ |
+| UI (RmlUi) | ⚠️ builds from source, unverified | ✅ | ⚠️ builds from source, unverified | ⚠️ untested |
 | Profiling (Optick) | ✅ | ⚠️ engine parses `.opt` captures, but the build define is Win64-only | ❌ | ❌ |
 | Graphics backend | D3D11/12 | Vulkan (forced) | Metal | D3D11 (forced; DX12 shader issues) |
 
@@ -52,7 +52,7 @@ The stated bar (per the game project's conventions) is: Win64/macOS/Linux must c
 
 | Item | Location | State | Verdict |
 |------|----------|-------|---------|
-| Ultralight | `Source/UI/`, `Source/Cores/UI/` | Removal declared in commit history; SDK environment still includes the GTK runtime dependencies | **Finish the removal** |
+| ~~Ultralight~~ | — | — | Done (UI-5): the SDK, `UICore`, `BasicUIView`, the JS bridge and the GTK runtime deps are gone; RmlUi is the game UI and old scenes upgrade on load |
 
 ## 4. Improvement Themes
 
@@ -92,7 +92,7 @@ Impact (H/M/L) × Effort (S/M/L). Grouped so related items can share one work se
 ### D. Editor & workflow
 | Item | Impact | Effort | Notes |
 |------|--------|--------|-------|
-| Finish Ultralight removal | **H** | L | Unblocks UI work, deletes the GTK3 dependency tail and the 60 fps cap |
+| ~~Finish Ultralight removal~~ | — | — | Done (UI-5): RmlUi replaced it, with no fps cap and no GTK3 dependency tail |
 | ~~Undo coverage + dirty-scene indicator~~ | — | — | Done (Wave 2): transactions cover properties, create/delete/duplicate, reparenting and components; `*` in the title when dirty |
 | ~~Generation-time feature report~~ | — | — | Done: generation prints each optional feature, on / OFF, with the fix |
 | ~~Async first-time cooking~~ | — | — | Done: a `GetAsync` of an uncooked texture or model cooks it on the loader thread; hot-reload recompiles (shaders too) run on reimport threads |
@@ -132,7 +132,7 @@ quadrantChart
 3. ~~Debt purge (theme E)~~ — mostly done (see theme E for what's left).
 4. ~~Fixed timestep for physics~~ — done (Wave 4: Box3D `PhysicsCore` in the fixed loop with interpolation). → `Physics.md`
 5. ~~Scene versioning + rename aliases~~ — done (v2 format with migration; component/core aliases, field and script `FormerName`s; asset references follow moves by GUID). → `Serialization-and-Scenes.md`
-6. **Finish Ultralight removal** — *why now:* it's already declared dead; limbo is the worst state. *First step:* land the web-UI spike behind `ME_UI`, delete `Source/UI/Graphics/GPUDriver.*` last. → `UI-Ultralight-and-ImGui.md`
+6. ~~Finish Ultralight removal~~ — done (UI-5: RmlUi replaced it; the SDK, `UICore`/`BasicUIView` and the GTK deps are gone). → `UI-RmlUi-and-ImGui.md`
 7. ~~Script binding codegen~~ — done (`ScriptAPI.def` + generator with a `--check` mode). → `Scripting-DotNet.md`
 8. ~~Script hot reload~~ — done (editing a `.cs` rebuilds and swaps in place; fields survive), and so are collision callbacks and generic component access. → `Scripting-DotNet.md`
 9. ~~Bounding-volume culling~~ — done (AABB per mesh, tested in the mesh job). → `Rendering-Pipeline.md`
@@ -140,4 +140,4 @@ quadrantChart
 
 ## 6. Reassessment Triggers
 
-Re-score the affected rows when any of these land: Ultralight removal completes (UI row + Linux deps) · shadows/multi-light ship (lighting row) · scripting ships inside a released game build (scripting row) · a macOS build is verified again (platform matrix) · fixed timestep lands (frame loop + physics rows) · scene versioning lands (serialization row). Also re-stamp any subsystem doc whose behavior these changes touch — the freshness contract in [README.md](README.md) applies to this doc too.
+Re-score the affected rows when any of these land: shadows/multi-light ship (lighting row) · scripting ships inside a released game build (scripting row) · a macOS build is verified again (platform matrix) · fixed timestep lands (frame loop + physics rows) · scene versioning lands (serialization row). Also re-stamp any subsystem doc whose behavior these changes touch — the freshness contract in [README.md](README.md) applies to this doc too.

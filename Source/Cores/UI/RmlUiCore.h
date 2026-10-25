@@ -18,8 +18,8 @@ namespace Rml
     class Context;
 }
 
-// Shows UIDocument components through RmlUi (the Ultralight replacement, growing behind
-// ME_RMLUI until UI-5). Documents render into an offscreen premultiplied target that the
+// Shows UIDocument components through RmlUi, the engine's game UI. Documents render into an
+// offscreen premultiplied target (RenderView::RmlUi, in the UI band before the cameras) that the
 // renderer composites over the main camera (RenderView::UIComposite), so the editor's game
 // view shows them too. Mouse, keyboard and synthesized text input feed the context, .rml and
 // .rcss edits hot reload, and the RmlUi debugger toggles on F7 outside retail builds.

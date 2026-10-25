@@ -92,9 +92,8 @@ bgfx runs views in ascending ID order, so producers must have lower IDs than the
 | View | Purpose |
 |------|---------|
 | 0 | Backbuffer clear |
-| 1–32 | Ultralight GPU driver buffers |
-| 33 | UI resolve |
-| 34–223 | **Dynamic band**: `ViewAllocator` hands these out per frame in submission order |
+| 1–8 | UI band: RmlUi documents render into their offscreen target at 1 (`RenderView::RmlUi`); the rest is headroom for UI layers |
+| 9–223 | **Dynamic band**: `ViewAllocator` hands these out per frame in submission order |
 | 224–225 | Picking ID pass + readback blit (editor) |
 | 226 | UI composite |
 | 227–242 | Editor offscreen work sampled by ImGui: shader graph previews, the asset browser's preview (240–241), `EditorCapture` (242) copying preview images to the CPU |

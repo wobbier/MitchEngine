@@ -3,6 +3,7 @@
 
 #if USING( ME_SCRIPTING )
 
+#include "CLog.h"
 #include "Engine/Engine.h"
 #include "Cores/UI/RmlUiCore.h"
 
@@ -121,8 +122,22 @@ static int Eng_UIModel_PollEvent( const uint8_t* inModel, uint8_t* outName, int 
 }
 
 
+// BasicUIView left with Ultralight (UI-5). Its ABI slot stays (order is the ABI), so a script
+// built against the old API gets a one-time pointer to the replacement instead of a crash.
+static void Eng_BasicUIView_ExecuteJS( EntityID, const uint8_t* )
+{
+    static bool s_warned = false;
+    if( !s_warned )
+    {
+        s_warned = true;
+        YIKES( "[UI] BasicUIView.ExecuteJS was removed with Ultralight: use a UIDocument and UI.Model" );
+    }
+}
+
+
 void Register_UIModelBindings( ScriptEngineAPI& inAPI )
 {
+    inAPI.BasicUIView_ExecuteJS = Eng_BasicUIView_ExecuteJS;
     inAPI.UIModel_Ensure        = Eng_UIModel_Ensure;
     inAPI.UIModel_SetNumber     = Eng_UIModel_SetNumber;
     inAPI.UIModel_SetString     = Eng_UIModel_SetString;

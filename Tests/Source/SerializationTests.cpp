@@ -7,6 +7,7 @@
 #include "ECS/Core.h"
 #include "Components/Transform.h"
 #include "Components/Camera.h"
+#include "Components/UI/UIDocument.h"
 #include "Graphics/DynamicSky.h"
 #include <cmath>
 #include <filesystem>
@@ -375,6 +376,26 @@ TEST_CASE( "Serialization: renamed component types, core types and fields still 
     CHECK( FindComponentInfo( "OldLink" ) == GetComponentRegistry().find( "SerializationTest::Link" ) );
     CHECK( FindCoreFactory( "TestFormerNavigationCore" ) == GetCoreRegistry().find( "NavigationCore" ) );
     CHECK( FindCoreFactory( "NoSuchCore" ) == GetCoreRegistry().end() );
+}
+
+
+TEST_CASE( "Serialization: Ultralight BasicUIView components load as RmlUi documents" )
+{
+    const std::vector<json> upgraded = SceneSerializer::UpgradeComponent(
+        json{ { "Type", "BasicUIView" }, { "FilePath", "Assets/UI/Drive/Slots.html" }, { "UIURL", "" } }, json::object() );
+    REQUIRE( upgraded.size() == 1 );
+    CHECK( upgraded[0]["Type"] == "UIDocument" );
+    CHECK( upgraded[0]["FilePath"] == "Assets/UI/Drive/Slots.rml" );
+    CHECK_FALSE( upgraded[0].contains( "UIURL" ) );
+
+    json data = json::parse( R"({ "Version": 2, "Entities": [
+        { "GUID": "00000000000000c1", "Name": "HUD", "Components": [ { "Type": "BasicUIView", "FilePath": "Assets/UI/Hud.html" } ] } ] })" );
+    auto world = MakeWorld();
+    SceneSerializer::LoadOptions options;
+    options.LoadCores = false;
+    std::vector<EntityHandle> roots = SceneSerializer::Deserialize( *world, data, options );
+    REQUIRE( roots.size() == 1 );
+    CHECK( roots[0]->HasComponent<UIDocument>() );
 }
 
 

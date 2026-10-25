@@ -163,8 +163,6 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         Moonlight::SkinWeightsVertex::Init();
         Moonlight::WindVertex::Init();
         Moonlight::PosTexCoordVertex::Init();
-        Moonlight::Vertex_2f_4ub_2f::Init();
-        Moonlight::Vertex_2f_4ub_2f_2f_28f::Init();
 
         // Create static vertex buffer.
         m_vbh = bgfx::createVertexBuffer(
@@ -1280,14 +1278,11 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     }
 
     float m_texelHalf = 0.0f;
-    const bool compositeUltralight = bgfx::isValid( camera.UITexture );
-    const bool compositeRml = bgfx::isValid( camera.RmlTexture );
-    if( EnableUIComposite && options.GameUI && camera.IsMain && ( compositeUltralight || compositeRml ) )
+    if( EnableUIComposite && options.GameUI && camera.IsMain && bgfx::isValid( camera.RmlTexture ) )
     {
-        // Runs after the UI resolve and all camera views, so the UI textures are from this frame.
+        // Runs after the UI band and all camera views, so the UI texture is from this frame.
         const bgfx::ViewId view = Moonlight::RenderView::UIComposite;
         bgfx::setViewName( view, "UI Composite" );
-        // Two quads at most (Ultralight, then RmlUi on top): submission order is the paint order.
         bgfx::setViewMode( view, bgfx::ViewMode::Sequential );
 
         // The UI covers the whole display, even when the main camera only fills part of it.
@@ -1297,20 +1292,10 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         constexpr uint64_t kCompositeState = 0
             | BGFX_STATE_WRITE_RGB
             | BGFX_STATE_BLEND_FUNC_SEPARATE( BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA, BGFX_STATE_BLEND_INV_DST_ALPHA, BGFX_STATE_BLEND_ONE );
-        if( compositeUltralight )
-        {
-            bgfx::setState( kCompositeState );
-            bgfx::setTexture( 0, s_texUI, camera.UITexture );
-            Moonlight::screenSpaceQuad( camera.OutputSize.x, camera.OutputSize.y, m_texelHalf, bgfx::getCaps()->originBottomLeft );
-            bgfx::submit( view, UIProgram );
-        }
-        if( compositeRml )
-        {
-            bgfx::setState( kCompositeState );
-            bgfx::setTexture( 0, s_texUI, camera.RmlTexture );
-            Moonlight::screenSpaceQuad( camera.OutputSize.x, camera.OutputSize.y, m_texelHalf, bgfx::getCaps()->originBottomLeft );
-            bgfx::submit( view, UIProgram );
-        }
+        bgfx::setState( kCompositeState );
+        bgfx::setTexture( 0, s_texUI, camera.RmlTexture );
+        Moonlight::screenSpaceQuad( camera.OutputSize.x, camera.OutputSize.y, m_texelHalf, bgfx::getCaps()->originBottomLeft );
+        bgfx::submit( view, UIProgram );
     }
 }
 

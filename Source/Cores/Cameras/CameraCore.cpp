@@ -142,7 +142,6 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
             const PostProcess* post = InEntity.TryGetComponent<PostProcess>();
             CamData->Post = ( post && post->IsEnabled() ) ? post->ToSettings() : Moonlight::PostProcessSettings();
             //CamData.CameraFrustum = CameraComponent.CameraFrustum;
-            CamData->UITexture = BGFX_INVALID_HANDLE;
 
             Vector3 eye = { CamData->Position.x, CamData->Position.y, CamData->Position.z };
             Vector3 at = { CamData->Position.x + CamData->Front.x, CamData->Position.y + CamData->Front.y, CamData->Position.z + CamData->Front.z };

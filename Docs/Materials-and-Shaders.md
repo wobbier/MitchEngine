@@ -156,7 +156,7 @@ flowchart LR
   2. The shader is re-exported **on a reimport thread** (`ShaderFileMetadata::ExportsInBackground`), so the editor keeps running while `shaderc` works, several shaders at once when an include changed. When it's done, `ResourceCache::PumpReimports` (start of the next frame) saves the meta and `ShaderFile::Reload` creates the new shader. A shader edited again mid-compile compiles again before it reloads.
   3. Every program acquired through the registry is rebuilt in place. `ShaderCommand::GetProgram()` reads the shared `ProgramRef`, so materials, post-processing, IBL, shadow, particle and picking passes all pick it up.
 
-  Programs created with raw `LoadProgram` (Ultralight UI) don't reload.
+  Programs created with raw `LoadProgram` (the UI composite and RmlUi document shaders) don't reload.
 - **Metas**: a shader's `.meta` lives next to its source (engine shader metas are committed in the engine repo). A missing `.meta` makes the editor cook that shader at startup.
 - **Batch**: `Tools/BuildShaders.sh [filter]` compiles SPIR-V and GLSL 150 for every engine shader (or those whose path contains the filter) and refreshes shadow copies under the game's `Assets/Shaders`.
 

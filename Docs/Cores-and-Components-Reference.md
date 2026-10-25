@@ -17,7 +17,7 @@ Cores come in two flavors (see `Docs/Architecture.md`): **engine-owned** (create
 | `RenderCore` (`Source/Cores/Rendering/RenderCore.h`) | `Transform` + (`Mesh`, `Model` or `Terrain`) | engine-owned | Gathers `Light`s and `Decal`s, parallel AABB cull + `MeshCommand` fill for every mesh — see `Docs/Rendering-Pipeline.md` |
 | `ParticleCore` (`Source/Cores/Rendering/ParticleCore.h`) | `Transform` + `ParticleSystem` | engine-owned | Simulates particle systems (job per system) into renderer batches; runs in edit mode too, so effects preview live |
 | `AudioCore` (`Source/Cores/AudioCore.h`) | `AudioSource` | engine-owned | FMOD: mixer buses, listener placement, 3D source sync, overlapping one-shots, pause with the game — see `Docs/Audio.md` |
-| `UICore` (`Source/Cores/UI/UICore.h`) | `BasicUIView` | engine-owned | Ultralight HTML views — see `Docs/UI-Ultralight-and-ImGui.md` |
+| `RmlUiCore` (`Source/Cores/UI/RmlUiCore.h`) | `UIDocument` | engine-owned | RmlUi documents: one context per world, input and gamepad navigation, hot reload, inline actions, C# view models, offscreen render composited over the main camera — see `Docs/UI-RmlUi-and-ImGui.md` |
 | `TerrainCore` (`Source/Cores/TerrainCore.h`) | `Transform` + `Terrain` | engine-owned | Publishes/validates resident terrain, completes required collision assets before play, and reports collision readiness — see `Docs/Terrain.md` |
 | `PhysicsCore` (`Source/Cores/PhysicsCore.h`) | `Transform` + one of (`Rigidbody`, a collider, `Terrain`, `CharacterController`, `PhysicsJoint`) | engine-owned | Box3D world: fixed-step simulation (play mode), interpolated poses, edit-mode body sync, `CollisionEvent`s, queries, character mover — see `Docs/Physics.md`. Old scenes' `"PhysicsCore"` core entries resolve to it |
 | `Physics2DCore` (`Source/Cores/Physics2DCore.h`) | `Transform` + one of (`Rigidbody2D`, a 2D collider, `CharacterController2D`, `PhysicsJoint2D`) | engine-owned | The Box2D counterpart in the XY plane: same lifecycle, events (`Is2D`), layers and queries — see `Docs/Physics.md` |
@@ -82,7 +82,7 @@ Audio (FMOD) has its own deep dive: `Docs/Audio.md`.
 | `NavMeshAgent` | `Source/Components/Navigation/NavMeshAgent.h` | Crowd agent: speed, acceleration, turning, stopping distance, radius / height, avoidance quality, area mask, base offset, link jump arc; `SetDestination`, `Stop`, `Warp`, path state |
 | `NavMeshModifier` / `NavMeshModifierVolume` / `NavMeshLink` / `NavMeshObstacle` | `Source/Components/Navigation/NavMeshModifiers.h` | Bake markup: ignore or re-area geometry (optionally its children), re-mark a box, connect two points off-mesh; obstacles carve the navmesh at runtime |
 | `ScriptComponent` | `Source/Components/Scripting/ScriptComponent.h` | Script by type name + `m_dotnetHandle` (int, stable across hot reloads) + started flag + saved-fields JSON; the instance is created on load and started on Play |
-| `BasicUIView` | `Source/Components/UI/BasicUIView.h` | Ultralight HTML view + JS bridge |
+| `UIDocument` | `Source/Components/UI/UIDocument.h` | An `.rml` document shown by `RmlUiCore` (visibility, sort order as z-index); old scenes' Ultralight `BasicUIView` loads as one |
 | `FlyingCamera` | `Source/Components/Cameras/FlyingCamera.h` | Free-fly parameters (speed etc.) for `FlyingCameraCore` |
 | `DebugCube` | `Source/Components/Debug/DebugCube.h` | Debug visualization cube |
 | `SelfDestruct` | `Source/Cores/Utility/SelfDestructCore.h` | Lifetime in seconds; the core kills the entity when it expires (declared in the core's header, not `Source/Components/`) |
@@ -109,5 +109,5 @@ Matrix recompute is **lazy** — `GetLocalToWorldMatrix()` rebuilds (parent-firs
 - `Docs/Architecture.md` — which cores tick where in the frame
 - `Docs/Animation.md` — `Animator` and `AnimationCore` in depth
 - `Docs/Navigation.md` — navmesh surfaces, agents and `NavigationCore` in depth
-- `Docs/Rendering-Pipeline.md`, `Docs/UI-Ultralight-and-ImGui.md`, `Docs/Scripting-DotNet.md` — the specialized cores in depth
+- `Docs/Rendering-Pipeline.md`, `Docs/UI-RmlUi-and-ImGui.md`, `Docs/Scripting-DotNet.md` — the specialized cores in depth
 - `Docs/State-of-the-Engine.md` — verdicts on the orphaned pieces

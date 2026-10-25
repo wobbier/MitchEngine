@@ -11,7 +11,7 @@
 
 // RmlUi on bgfx: compiled geometry in static buffers, premultiplied-alpha blending, per-draw
 // scissor/transform, and stencil clip masks for rounded clipping. Draws into one sequential
-// view (RenderView::RmlUi) over the composited frame; layers and filters come later (UI-2+).
+// view (RenderView::RmlUi, the first of the UI band); layers and filters come later.
 class RmlRenderInterface final
     : public Rml::RenderInterface
 {

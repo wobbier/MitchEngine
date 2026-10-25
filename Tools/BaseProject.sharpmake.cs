@@ -12,16 +12,6 @@ public abstract class BaseProject : Project
         IsFileNameToLower = false;
         IsTargetFileNameToLower = false;
         AddTargets(CommonTarget.GetDefaultTargets());
-
-
-        // Ultralight UI
-        if (Globals.IsUltralightEnabled)
-        {
-            if (Util.GetExecutingPlatform() == Platform.mac)
-            {
-                ResourceFiles.Add(Globals.RootDir + "Engine/ThirdParty/UltralightSDK/bin/macOS/AppCore.dylib");
-            }
-        }
     }
 
     public static class ConfigurePriorities
@@ -48,13 +38,7 @@ public abstract class BaseProject : Project
         conf.TargetPath = "[project.SharpmakeCsPath]/.build/[target.Name]/";
         conf.LibraryPaths.Add("[project.SharpmakeCsPath]/.build/[target.Name]/");
 
-        if (Globals.IsUltralightEnabled)
-        {
-            conf.Defines.Add("DEFINE_ME_ULTRALIGHT");
-        }
-
-        // RmlUi + FreeType build from source on every platform (the Ultralight replacement
-        // grows behind ME_RMLUI until UI-5 removes the SDK).
+        // RmlUi + FreeType (the game UI) build from source on every platform.
         conf.Defines.Add("DEFINE_ME_RMLUI");
 
         // RenderDoc DLL
@@ -280,20 +264,6 @@ public abstract class BaseProject : Project
             conf.AdditionalLinkerOptions.Add($"-Wl,-rpath,{fmodLibDir}");
         }
 
-        if (Globals.IsUltralightEnabled)
-        {
-            string ultralightLibDir = Path.Combine(Globals.RootDir, "Engine/ThirdParty/UltralightSDK/lib/linux");
-            conf.LibraryPaths.Add(ultralightLibDir);
-            conf.AdditionalLinkerOptions.Add($"-Wl,-rpath,{ultralightLibDir}");
-
-            var copyDirBuildStep = new Configuration.BuildStepCopy(
-                Path.Combine(Globals.RootDir, "Engine/ThirdParty/UltralightSDK/lib/linux"),
-                Globals.RootDir + "/.build/[target.Name]");
-            copyDirBuildStep.IsFileCopy = false;
-            copyDirBuildStep.CopyPattern = "*.so";
-            conf.EventPostBuildExe.Add(copyDirBuildStep);
-        }
-        
         if (Directory.Exists(Globals.DOTNET_Linux_Dir))
         {
         System.Console.WriteLine(Globals.DOTNET_Linux_Dir);
@@ -338,14 +308,6 @@ public abstract class BaseProject : Project
             conf.LibraryPaths.Add(Globals.DOTNET_Linux_Dir);
             conf.LibraryFiles.Add("libnethost.so");
             conf.AdditionalLinkerOptions.Add($"-Wl,-rpath,{Globals.DOTNET_Linux_Dir}");
-        }
-        if (Globals.IsUltralightEnabled)
-        {
-            conf.LibraryFiles.Add("libUltralight.so");
-            conf.LibraryFiles.Add("libUltralightCore.so");
-            conf.LibraryFiles.Add("libWebCore.so");
-            conf.LibraryFiles.Add("libAppCore.so");
-            conf.LibraryFiles.Add("libfontconfig.so");
         }
     }
 

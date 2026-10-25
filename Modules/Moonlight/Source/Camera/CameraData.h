@@ -84,8 +84,7 @@ namespace Moonlight
         float Far = 100.f;
         SkyBox* Skybox = nullptr;
         float OrthographicSize = 1.f;
-        bgfx::TextureHandle UITexture = BGFX_INVALID_HANDLE;
-        // RmlUi documents, premultiplied, composited over the output like UITexture.
+        // RmlUi documents, premultiplied, composited over the main camera's output.
         bgfx::TextureHandle RmlTexture = BGFX_INVALID_HANDLE;
 
         Moonlight::FrameBuffer* Buffer = nullptr;

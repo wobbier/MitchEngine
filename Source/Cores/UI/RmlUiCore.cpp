@@ -7,7 +7,9 @@
 #include "Core/UpdateContext.h"
 #include "Engine/Engine.h"
 #include "Engine/Input.h"
+#include "Events/AudioEvents.h"
 #include "Events/EditorEvents.h"
+#include "Events/SceneEvents.h"
 #include "Renderer.h"
 #include "RenderViews.h"
 
@@ -34,9 +36,12 @@ namespace
     int s_contextCounter = 0;
 
 
-    // Inline event actions, a stopgap until the UI-3 MVC bindings: any element can declare
-    //   <button onclick="set-text:#target|New text">...</button>
-    // and flows (ui-click) and designers get scriptable state changes without code.
+    // Inline event actions: menus and flows (ui-click) get common engine verbs without code.
+    //   <button onclick="set-text:#target|New text">       replace an element's content
+    //   <button onclick="load-scene:Assets/Main.lvl">        queue a scene load
+    //   <button onclick="play-sound:Assets/Sounds/Click.wav"> a 2D one-shot on the UI bus
+    //   <button onclick="quit">                              leave the game (ignored in the editor)
+    // Anything stateful belongs in a script view model (UI.Model, data-event-click).
     class RmlActionListener final
         : public Rml::EventListener
     {
@@ -49,13 +54,31 @@ namespace
         void ProcessEvent( Rml::Event& InEvent ) override
         {
             const size_t colon = m_value.find( ':' );
-            if( colon == Rml::String::npos )
-            {
-                return;
-            }
             const Rml::String action = m_value.substr( 0, colon );
-            const Rml::String rest = m_value.substr( colon + 1 );
-            if( action == "set-text" )
+            const Rml::String rest = colon == Rml::String::npos ? Rml::String() : m_value.substr( colon + 1 );
+            if( action == "load-scene" )
+            {
+                // Queued: a load tears the world (and this document) down, never mid-event.
+                LoadSceneEvent evt;
+                evt.Level = Path( rest ).GetLocalPath();
+                evt.Queue();
+                INFO( "UI", "UI: load-scene " + rest );
+            }
+            else if( action == "play-sound" )
+            {
+                PlayAudioEvent evt( rest );
+                evt.Bus = AudioBus::UI;
+                evt.Fire();
+            }
+            else if( action == "quit" )
+            {
+#if USING( ME_EDITOR )
+                INFO( "UI", "UI: quit (ignored in the editor)" );
+#else
+                GetEngine().Quit();
+#endif
+            }
+            else if( action == "set-text" )
             {
                 const size_t bar = rest.find( '|' );
                 if( bar == Rml::String::npos )
@@ -318,7 +341,7 @@ void RmlUiCore::ProcessInput()
 
     Vector2 mousePosition = gameInput.GetMousePosition();
 #if USING( ME_EDITOR )
-    // The game view lives inside the editor: same mapping the Ultralight core uses.
+    // The game view lives inside the editor: map the window mouse into the game view.
     const ImGuiViewport* mainViewport = ImGui::GetMainViewport();
     const Vector2 windowPosition( mainViewport->Pos.x, mainViewport->Pos.y );
     const Vector2 offset = gameInput.GetMouseOffset();

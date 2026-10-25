@@ -100,7 +100,6 @@ public:
     class AudioCore* AudioThread = nullptr;
     // C# scripts (null without scripting).
     class ScriptCore* Scripts = nullptr;
-    class UICore* UI = nullptr;
     class RmlUiCore* RmlUi = nullptr;
     Clock GameClock;
     Moonlight::CameraData EditorCamera;

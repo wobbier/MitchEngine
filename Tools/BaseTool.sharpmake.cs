@@ -40,15 +40,6 @@ public class BaseTool : BaseProject
         //    copyDirBuildStep.CopyPattern = "*.dll";
         //    conf.EventPostBuildExe.Add(copyDirBuildStep);
         //}
-        //
-        //// Ultralight DLL
-        //{
-        //    var copyDirBuildStep = new Configuration.BuildStepCopy(
-        //        @"[project.SharpmakeCsPath]/../../ThirdParty/UltralightSDK/bin/Win64/",
-        //        @"[project.SharpmakeCsPath]/.build/[target.Name]");
-        //
-        //    conf.EventPostBuildExe.Add(copyDirBuildStep);
-        //}
 
     }
 }

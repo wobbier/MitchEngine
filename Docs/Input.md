@@ -133,7 +133,7 @@ The scene-loaded fly camera reads the `Move` action when the map has one, and WA
 - **Rebinding doesn't check conflicts.** Binding a control already used by another action leaves both bound.
 - **No gyro, touchpad positions, LEDs or haptic patterns.** Only buttons, sticks, triggers and simple rumble are exposed.
 - **Edits made in the asset browser aren't undoable.** Data-asset edits write files directly on Save; they don't go through the scene undo stack.
-- **Ultralight UI still only gets the left mouse button.** The runtime UI is being replaced, so it wasn't extended.
+- **Game UI text input is synthesized.** RmlUi gets mouse (three buttons and the wheel), keys and gamepad navigation, but typed characters come from key events on a US layout; `SDL_TEXTINPUT`/IME routing is still to do (`Docs/UI-RmlUi-and-ImGui.md`).
 
 ## Related Docs
 

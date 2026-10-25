@@ -27,7 +27,6 @@
 #include "Components/Graphics/Model.h"
 #include "Audio/AudioOcclusion.h"
 #include "Input/Gamepads.h"
-#include "Cores/UI/UICore.h"
 #include "Cores/UI/RmlUiCore.h"
 #include "Cores/Scripting/ScriptCore.h"
 
@@ -172,13 +171,6 @@ void Engine::Init( Game* game )
         {
             NewRenderer->WindowResized( NewSize );
         }
-        if( UI )
-        {
-            if( Camera::CurrentCamera )
-            {
-                UI->OnResize( Camera::CurrentCamera->OutputSize );
-            }
-        }
         // Remember the windowed size: going fullscreen and back restores it.
         if( !GameWindow || GameWindow->GetWindowMode() == WindowMode::Windowed )
         {
@@ -305,7 +297,6 @@ void Engine::Init( Game* game )
 #endif
         {
             OPTICK_EVENT( "Engine::Init::CreateUI" );
-            UI = new UICore( GameWindow, NewRenderer );
             RmlUi = new RmlUiCore( NewRenderer );
         }
     }
@@ -384,7 +375,6 @@ void Engine::InitGame()
         GameWorld->AddCore<SequenceCore>( *Sequences );
         GameWorld->AddCore<NavigationCore>( *Navigation );
         GameWorld->AddCore<AudioCore>( *AudioThread );
-        GameWorld->AddCore<UICore>( *UI );
         GameWorld->AddCore<RmlUiCore>( *RmlUi );
         if( Scripts )
         {
@@ -705,18 +695,9 @@ void Engine::Run()
 
             // UI Update
             {
-                OPTICK_CATEGORY( "UICore::Update", Optick::Category::Rendering )
+                OPTICK_CATEGORY( "RmlUiCore::Update", Optick::Category::Rendering )
                 ME_FRAMEPROFILE_SCOPED( "UI", ProfileCategory::UI );
                 ME_STAT_SCOPE( "UI Update" );
-                // editor only?
-                if( UI )
-                {
-                    if( Camera::CurrentCamera )
-                    {
-                        UI->OnResize( Camera::CurrentCamera->OutputSize );
-                    }
-                    UI->Update( updateContext );
-                }
                 if( RmlUi )
                 {
                     RmlUi->Update( updateContext );
@@ -744,7 +725,6 @@ void Engine::Run()
                 Cameras->LateUpdate( updateContext );
                 AudioThread->LateUpdate( updateContext );
                 ModelRenderer->LateUpdate( updateContext );
-                UI->LateUpdate( updateContext );
             }
 
             // Prepare commands after uploads and camera late updates: visibility and terrain
@@ -777,12 +757,6 @@ void Engine::Run()
                 }
 #endif
 #endif
-                ME_FRAMEPROFILE_START( "UI Render", ProfileCategory::UI );
-                {
-                    ME_STAT_SCOPE( "UI Render" );
-                    UI->Render();
-                }
-                ME_FRAMEPROFILE_STOP( "UI Render" );
                 ME_FRAMEPROFILE_START( "Render", ProfileCategory::Rendering );
                 {
                     ME_STAT_SCOPE( "Render Submit" );
@@ -790,7 +764,6 @@ void Engine::Run()
                 }
                 ME_FRAMEPROFILE_STOP( "Render" );
                 DebugDraw::EndFrame( updateContext.GetUnscaledDeltaTime() );
-                UI->PostRender( updateContext );
                 m_game->PostRender();
             }
             FrameStats::Get().EndFrame( std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - frameStartTime ).count() );
@@ -1157,7 +1130,6 @@ void Engine::LoadSceneInternal( const std::string& SceneFile, const json* InData
     ScriptEngine::SetWorld( GetWorld() );
 #endif
 
-    GameWorld->AddCore<UICore>(*UI);
     GameWorld->AddCore<RmlUiCore>(*RmlUi);
 
     GameWorld->Simulate();

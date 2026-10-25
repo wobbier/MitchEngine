@@ -121,8 +121,6 @@ to 82 files (71 MiB: five textures, 70 engine shaders, config, a font, the ICU d
 
 - **Terrain**: stream archives and texture caches still read physical files, so terrain scenes
   don't cook yet.
-- **Ultralight**: its resources (ICU data, the `cacert.pem`) ship only when a recording reads
-  them.
 - **Compression and binary scenes**: pak entries are stored uncompressed, and scenes stay JSON
   (FND-17 turns them into CBOR).
 - **Build Game (SHIP-3)**: a Retail build, an app-local .NET and the launcher on top of the cook.

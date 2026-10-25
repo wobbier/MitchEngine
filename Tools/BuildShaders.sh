@@ -46,7 +46,7 @@ while IFS= read -r -d '' source; do
         had_output=0
         [[ -f "$output" ]] && had_output=1
         if ! "$SHADERC" -f "$source" -o "$output" --varyingdef "$varying" --platform linux -p "$profile" --type "$type" -i "$SHADERS" --depends > /tmp/shaderc_$$.log 2>&1; then
-            # Some shaders (Ultralight UI) are Vulkan-only; only count GL failures for shaders
+            # Some UI shaders (RmlUi) are Vulkan-only; only count GL failures for shaders
             # that have built for GL before, or for new shaders.
             if [[ "$profile" == "430" && $had_output -eq 0 && -f "$source.spirv.bin" && ! "$source" -nt "$source.spirv.bin" && "$relative" == UI* ]]; then
                 continue

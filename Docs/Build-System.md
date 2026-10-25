@@ -49,7 +49,7 @@ flowchart TD
     BP --- E
 ```
 
-Outputs land in `.build/[target.Name]/` at the game-repo root (e.g. `.build/Editor_Debug/Havana`, `.build/Game_linux_Debug/Game_EntryPoint_x64`). Post-build steps copy runtime DLLs (FMOD, Ultralight, nethost, Optick) from `ThirdParty` locations into the output dir.
+Outputs land in `.build/[target.Name]/` at the game-repo root (e.g. `.build/Editor_Debug/Havana`, `.build/Game_linux_Debug/Game_EntryPoint_x64`). Post-build steps copy runtime DLLs (FMOD, nethost, Optick) from `ThirdParty` locations into the output dir.
 
 ### Target matrix (`CommonTarget`)
 
@@ -80,7 +80,7 @@ From `Tools/BaseProject.sharpmake.cs` (+ `Engine.sharpmake.cs` `Globals`):
 | `DEFINE_ME_DEBUG` + `DEFINE_ME_TOOLS` | Debug optimization (tools ride along in debug game builds) |
 | `DEFINE_ME_RELEASE` + `DEFINE_ME_TOOLS` | Release optimization (optimized development build) |
 | `DEFINE_ME_RETAIL` | Retail optimization (tools only if the target is an editor) |
-| `DEFINE_ME_ULTRALIGHT` | `Globals.IsUltralightEnabled` (checks `ThirdParty/UltralightSDK` presence) |
+| `DEFINE_ME_RMLUI` | Always (RmlUi + FreeType build from source on every platform) |
 | `DEFINE_ME_FMOD` | `Globals.FMOD_<Platform>_Dir` exists (Win64/UWP: installed SDK path; Linux: SDK dir with `api/core/lib/x86_64`) |
 | `DEFINE_ME_DOTNET` | `Globals.DOTNET_Win64_Dir` (Win64/UWP) or `Globals.DOTNET_Linux_Dir` (Linux) exists — **no macOS path** |
 | `DEFINE_ME_OPTICK` | Win64 (per-optimization lib copy from `ThirdParty/Lib/Optick/Win64/…`) |
@@ -94,7 +94,7 @@ Because these are **generation-time filesystem checks**, two machines with diffe
 2. **Per change**: run the game repo's `Project/GenerateSolution.sh` (Linux — also runs `bear -- make …` to produce `compile_commands.json` for clangd/CLion), `.bat` (Windows → `.sln`), or `.command` (macOS → Xcode). All three invoke `dotnet Engine/Tools/Sharpmake/Sharpmake.Application.dll /sources('../Game.sharpmake.cs')`.
 3. Build in the IDE, or on Linux: `make -f <Game>.make <Project> config=<config> -j$(nproc)`.
 
-The local Linux binaries also need the dev shell at runtime. From a regular terminal at the game-repo root, launch with `Engine/Tools/NixEnv.sh ./.build/Editor_Release/Havana` (or the corresponding game executable). The shell supplies `LD_LIBRARY_PATH` for fontconfig/Wayland, Ultralight's GTK dependencies and graphics loaders; the executable's own RUNPATH does not cover all of these. A direct launch outside the shell can fail at the loader with `libfontconfig.so.1: cannot open shared object file`. The MitchGame VS Code launch configurations enter the same environment through `Tools/NixGdb.sh`.
+The local Linux binaries also need the dev shell at runtime. From a regular terminal at the game-repo root, launch with `Engine/Tools/NixEnv.sh ./.build/Editor_Release/Havana` (or the corresponding game executable). The shell supplies `LD_LIBRARY_PATH` for SDL2, Wayland/X11 and the graphics loaders; the executable's own RUNPATH does not cover all of these, so a direct launch outside the shell can fail at the loader with a missing-library error. The MitchGame VS Code launch configurations enter the same environment through `Tools/NixGdb.sh`.
 
 For example, from the MitchGame root inside `Engine/Tools/DevShell.sh`, build and test the optimized configurations with:
 
@@ -118,7 +118,7 @@ dotnet build Project/Game.Script.csproj -c Release -o .build/Game_linux_Retail \
 
 ### ThirdParty inventory
 
-`ThirdParty/`: `Assimp`, `bgfx` + `bimg` + `bx`, `box3d` + `box2d` + `recastnavigation` (submodules), `FMOD`, `glm`, `ImGui`, `JSON` (nlohmann), `Optick`, `RenderDoc`, `SDL`, `UltralightSDK`, `ChromeTrace`, plus prebuilt outputs under `ThirdParty/Lib/` and runtime binaries under `ThirdParty/Bin/`. Some are source-built (bgfx family; Box3D and Box2D as the `Box3D` / `Box2D` C17 static-library projects in `ThirdParty/Box3D.sharpmake.cs` / `ThirdParty/Box2D.sharpmake.cs`, and Recast + Detour + DetourCrowd as the `RecastNavigation` C++ library in `ThirdParty/RecastNavigation.sharpmake.cs`, all public dependencies of the engine and optimized even in debug builds), some prebuilt SDK drops (FMOD, Ultralight, Optick libs).
+`ThirdParty/`: `Assimp`, `bgfx` + `bimg` + `bx`, `box3d` + `box2d` + `recastnavigation` (submodules), `FMOD`, `glm`, `ImGui`, `JSON` (nlohmann), `Optick`, `RenderDoc`, `SDL`, `RmlUi` + `freetype`, `ChromeTrace`, plus prebuilt outputs under `ThirdParty/Lib/` and runtime binaries under `ThirdParty/Bin/`. Some are source-built (bgfx family; Box3D and Box2D as the `Box3D` / `Box2D` C17 static-library projects in `ThirdParty/Box3D.sharpmake.cs` / `ThirdParty/Box2D.sharpmake.cs`, and Recast + Detour + DetourCrowd as the `RecastNavigation` C++ library in `ThirdParty/RecastNavigation.sharpmake.cs`, all public dependencies of the engine and optimized even in debug builds), some prebuilt SDK drops (FMOD, Ultralight, Optick libs).
 
 ### Tools (`Tools/` at engine root)
 

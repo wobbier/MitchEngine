@@ -76,7 +76,7 @@ it for every file in both `Assets` trees, in both spellings.
 `File::Read` / `File::Write` go through `VFS::ReadText` / `VFS::WriteText`, and every runtime
 loader reads through the same seam (VFS-2): textures, models (and their vertex caches),
 shader binaries, terrain assets/heightmaps/sources, navmeshes, sequences, trees, shader
-graphs, ImGui fonts, Ultralight's file system, and FMOD (system-level file callbacks pulling
+graphs, ImGui fonts, RmlUi documents/stylesheets/fonts, and FMOD (system-level file callbacks pulling
 chunks through `VfsFileStream`). `VfsFileStream` is the chunked-read surface for consumers
 that stream instead of loading whole files; it reads a window of a physical file through
 `IMountSource::GetStreamWindow` — the whole file on directory mounts, the entry's slice of

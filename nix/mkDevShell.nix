@@ -57,23 +57,14 @@ pkgs.mkShell ((config.env or { }) // {
     # Optional Vulkan support for bgfx
     vulkan-loader
 
-    # Required by Ultralight AppCore on Linux
-    fontconfig
-
-    # Ultralight (latest) links against the system GTK3 stack
+    # The standalone HUB's folder picker (Tools/HUB, retired by SHIP-5); the engine needs no GTK
     gtk3
-    glib
-    pango
-    cairo
-    atk
-    gdk-pixbuf
-    harfbuzz
   ] ++ (config.buildInputs or [ ]);
 
   # Provide GL/EGL so bgfx's dlopen("libEGL.so.1") succeeds.
   # makeLibraryPath only adds each listed package's own lib dir
-  # (not transitive deps), so every Ultralight/GTK dependency is
-  # listed explicitly.
+  # (not transitive deps), so every runtime dependency is listed
+  # explicitly.
   LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath ([
     pkgs.libglvnd
     pkgs.mesa
@@ -81,8 +72,8 @@ pkgs.mkShell ((config.env or { }) // {
     pkgs.vulkan-loader
 
     # X11/XCB runtime libs. These are in buildInputs for compiling, but
-    # makeLibraryPath is non-transitive and SDL2 / GTK (via Ultralight
-    # AppCore) need libX11 at link and load time, so list them here too.
+    # makeLibraryPath is non-transitive and SDL2 needs libX11 at link
+    # and load time, so list them here too.
     pkgs.libX11
     pkgs.libXcursor
     pkgs.libXext
@@ -93,17 +84,7 @@ pkgs.mkShell ((config.env or { }) // {
     pkgs.libxcb
 
     # Linked as -l:lib*.so (no Nix RUNPATH entry), so resolve them here
-    pkgs.fontconfig
     pkgs.wayland
-
-    # Ultralight (latest) GTK3 runtime deps
-    pkgs.gtk3
-    pkgs.glib
-    pkgs.pango
-    pkgs.cairo
-    pkgs.atk
-    pkgs.gdk-pixbuf
-    pkgs.harfbuzz
     pkgs.bzip2  # libbz2.so.1.0
     pkgs.curl
   ] ++ (config.runtimeLibraries or [ ]));

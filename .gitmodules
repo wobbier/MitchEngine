@@ -16,11 +16,6 @@
 	path = ThirdParty/Optick
 	url = https://github.com/bombomby/optick
 	ignore = dirty
-[submodule "ThirdParty/UltralightSDK"]
-	path = ThirdParty/UltralightSDK
-	url = https://github.com/wobbier/UltralightSDK
-	branch = mitchengine
-	ignore = dirty
 [submodule "ThirdParty/glm"]
 	path = ThirdParty/glm
 	url = https://github.com/g-truc/glm

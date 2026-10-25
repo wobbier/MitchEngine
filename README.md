@@ -26,7 +26,7 @@ Main Features
    * C# scripting on .NET 8 with hot reload (See Below)
    * Language: C++20
    * Optional [FMOD][10] Audio (See Below)
-   * HTML UI with [Ultralight][5] (being replaced)
+   * HTML/CSS game UI with [RmlUi][5]: C# view models, hot reload, gamepad navigation, localization
 
 How to make a Mitch game
 -----------------------
@@ -74,7 +74,7 @@ Build Requirements
 Third Party Libraries
 --------------------------------
 
-  * [Ultralight][5]
+  * [RmlUi][5] and FreeType
   * [Optick][6]
   * [Box3D][7] and [Box2D][12]
   * [BGFX][9]
@@ -130,7 +130,7 @@ Activity
 [2]: https://github.com/wobbier/MitchEngine/issues "GitHub Issues"
 [3]: https://www.twitter.com/wobbier "Twitter"
 [4]: https://www.notion.so/fc1126e1f8f54a9a8e0daf2735dc59ed?v=fb36a4a955b44efa8dda9fc84d743b43 "Notion"
-[5]: https://github.com/ultralight-ux/Ultralight "Ultralight"
+[5]: https://github.com/mikke89/RmlUi "RmlUi"
 [6]: https://github.com/bombomby/optick "Optick"
 [7]: https://github.com/erincatto/box3d "Box3D"
 [9]: https://github.com/bkaradzic/bgfx "BGFX"

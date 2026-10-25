@@ -37,7 +37,7 @@ flowchart TD
         SDL2[SDL2]
         Box[Box3D / Box2D]
         FMOD[FMOD]
-        UL[Ultralight]
+        RML[RmlUi / FreeType]
         Assimp[Assimp]
     end
     Dementia["Dementia<br/>(flags, jobs, events, resources, log)"]
@@ -55,7 +55,7 @@ flowchart TD
     EngineSrc --> SDL2
     EngineSrc --> Box
     EngineSrc -.optional.-> FMOD
-    EngineSrc -.optional.-> UL
+    EngineSrc --> RML
     EngineSrc -.optional.-> Assimp
     Havana --> EngineSrc
     Havana --> ImGuiMod
@@ -75,10 +75,10 @@ Games implement the pure-virtual `Game` interface (`Source/Game.h`): `OnInitiali
 1. `CLog` set up — log file `Engine.txt`, verbosity `Info`.
 2. **Editor-only config bootstrap quirk**: if running from the engine directory, `Assets\Config\Engine.cfg` is copied into the game project's config path if missing (directory creation is Win64-only).
 3. `EngineConfig` loads window title/size/position from `Assets\Config\Engine.cfg` (note the hardcoded backslash-relative path handed to `Path`).
-4. `SDLWindow` is created on **all** platforms — including UWP (the old dedicated `UWPWindow` is gone). The window gets a `ResizeFunc` lambda that forwards resizes to the renderer, `UICore`, config, and a `WindowResizedEvent`.
+4. `SDLWindow` is created on **all** platforms — including UWP (the old dedicated `UWPWindow` is gone). The window gets a `ResizeFunc` lambda that forwards resizes to the renderer, config, and a `WindowResizedEvent` (`RmlUiCore` follows the main camera's output size each update).
 5. `BGFXRenderer::Create` — on Linux the SDL display pointer and window type (X11/Wayland) are passed through.
 6. ImGui SDL2 backend init, chosen per platform: D3D (Win64), Metal (macOS), Vulkan (Linux).
-7. `World` is created, then the **engine-owned cores** are `new`ed: `CameraCore`, `SceneCore`, `RenderCore`, `ParticleCore`, `TerrainCore`, `PhysicsCore`, `Physics2DCore`, `AnimationCore`, `NavigationCore`, `AudioCore`, `UICore`, and in scripting builds `ScriptCore` (held as raw public members `Cameras`, `SceneNodes`, `ModelRenderer`, `Particles`, `Terrains`, `Physics`, `Physics2D`, `Animation`, `Navigation`, `AudioThread`, `UI`, `Scripts`). .NET starts on a worker thread at the top of `Engine::Init` (`ScriptEngine::StartInitAsync`, which also rebuilds stale scripts in tools builds), overlapping window and renderer creation; constructing `ScriptCore` waits for it (`ScriptEngine::Init`, `Docs/Scripting-DotNet.md`). Next to the physics cores the engine also creates `Collisions`, a `CollisionRouter` (not a core) that turns `CollisionEvent`s into per-entity C++ callbacks (`Docs/Physics.md`).
+7. `World` is created, then the **engine-owned cores** are `new`ed: `CameraCore`, `SceneCore`, `RenderCore`, `ParticleCore`, `TerrainCore`, `PhysicsCore`, `Physics2DCore`, `AnimationCore`, `NavigationCore`, `AudioCore`, `RmlUiCore`, and in scripting builds `ScriptCore` (held as raw public members `Cameras`, `SceneNodes`, `ModelRenderer`, `Particles`, `Terrains`, `Physics`, `Physics2D`, `Animation`, `Navigation`, `AudioThread`, `RmlUi`, `Scripts`). .NET starts on a worker thread at the top of `Engine::Init` (`ScriptEngine::StartInitAsync`, which also rebuilds stale scripts in tools builds), overlapping window and renderer creation; constructing `ScriptCore` waits for it (`ScriptEngine::Init`, `Docs/Scripting-DotNet.md`). Next to the physics cores the engine also creates `Collisions`, a `CollisionRouter` (not a core) that turns `CollisionEvent`s into per-entity C++ callbacks (`Docs/Physics.md`).
 8. A gizmo-draw callback is registered on the renderer that iterates every core's `OnDrawGuizmo`.
 9. `Engine::InitGame` adds those cores to the world via `World::AddCore<T>` and calls `Game::OnInitialize()`.
 10. `ResizeFunc` is fired once manually, and `SystemRegistry` registers `Engine`, the renderer, and the `Jobs::JobSystem` so they are reachable through `UpdateContext`.
@@ -87,7 +87,7 @@ Games implement the pure-virtual `Game` interface (`Source/Game.h`): `OnInitiali
 
 This is a load-bearing architectural split:
 
-- **Engine-owned cores** (`CameraCore`, `SceneCore`, `RenderCore`, `ParticleCore`, `TerrainCore`, `PhysicsCore`, `Physics2DCore`, `AnimationCore`, `NavigationCore`, `AudioCore`, `UICore`, `ScriptCore`) are created in `Engine::Init`, held as raw pointers on `Engine`, and updated **explicitly by name** in the frame loop. The two physics cores step inside the fixed-step loop and write interpolated poses right after it (`Docs/Physics.md`). `AnimationCore` runs after gameplay, then `AudioCore` (so sources on animated bones are heard where they're drawn), before render preparation (`Docs/Animation.md`, `Docs/Audio.md`). `NavigationCore` runs after gameplay and before animation, so agents move with this frame's destinations (`Docs/Navigation.md`). `ScriptCore` runs `OnFixedUpdate` in each fixed step before physics steps, `OnUpdate` right after the scene-loaded cores and `OnLateUpdate` right after their `LateUpdate` (`Docs/Scripting-DotNet.md`).
+- **Engine-owned cores** (`CameraCore`, `SceneCore`, `RenderCore`, `ParticleCore`, `TerrainCore`, `PhysicsCore`, `Physics2DCore`, `AnimationCore`, `NavigationCore`, `AudioCore`, `RmlUiCore`, `ScriptCore`) are created in `Engine::Init`, held as raw pointers on `Engine`, and updated **explicitly by name** in the frame loop. The two physics cores step inside the fixed-step loop and write interpolated poses right after it (`Docs/Physics.md`). `AnimationCore` runs after gameplay, then `AudioCore` (so sources on animated bones are heard where they're drawn), before render preparation (`Docs/Animation.md`, `Docs/Audio.md`). `NavigationCore` runs after gameplay and before animation, so agents move with this frame's destinations (`Docs/Navigation.md`). `ScriptCore` runs `OnFixedUpdate` in each fixed step before physics steps, `OnUpdate` right after the scene-loaded cores and `OnLateUpdate` right after their `LateUpdate` (`Docs/Scripting-DotNet.md`).
 - **Scene-loaded cores** (`SelfDestructor` and any game-defined cores) are *not* created by the engine. They are instantiated by name from the `"Cores"` array of a `.lvl` scene file (see `Docs/Serialization-and-Scenes.md`) and live in `World::m_loadedCores`, updated via `World::FixedUpdateLoadedCores` / `UpdateLoadedCores` / `LateUpdateLoadedCores`.
 
 **Where game code runs.** The order of the engine's own stages is fixed, because each one feeds the next. Game code picks its stage:
@@ -161,7 +161,7 @@ Timing details worth knowing:
 3. `World::Unload()` — destroys `DestroyOnLoad` entities/cores.
 4. `SceneNodes->Init()`, then `new Scene(file)` + `Scene::Load(world)` (assert on failure unless it's a new empty scene).
 5. `ScriptEngine::SetWorld` (scripting builds).
-6. `GameWorld->AddCore<UICore>(*UI)` — UICore is **re-added after every scene load** (the unload removes it from the world's map).
+6. `GameWorld->AddCore<RmlUiCore>(*RmlUi)` — the UI core is **re-added after every scene load** (the unload removes it from the world's map).
 7. `World::Simulate()`, then `SceneLoadedEvent` fires.
 8. **Non-editor builds only**: a second `Simulate()` plus `World::Start()` — in the editor, Start happens when the user presses Play (see `Docs/Editor-Havana.md`).
 
@@ -188,7 +188,7 @@ Flags are driven by `DEFINE_ME_*` preprocessor defines that Sharpmake sets per t
 | `ME_GAME_TOOLS` | `TOOLS && !EDITOR` — debug tooling in game builds |
 | `ME_FMOD` | `DEFINE_ME_FMOD && !HEADLESS` |
 | `ME_DOTNET` → `ME_SCRIPTING` | .NET scripting chain |
-| `ME_ULTRALIGHT` → `ME_UI` | `ULTRALIGHT && !HEADLESS` |
+| `ME_RMLUI` | RmlUi game UI (`DEFINE_ME_RMLUI`, on for every platform; Ultralight and `ME_UI` were removed in UI-5) |
 | `ME_OPTICK` | **Value-checked** (`#if DEFINE_ME_OPTICK`), unlike every other flag which is presence-checked — `DEFINE_ME_OPTICK` must be defined *to a value* |
 | `ME_PROFILING` | `DEBUG \|\| RELEASE` (i.e. not RETAIL) |
 | `ME_IMGUI` | `EDITOR \|\| TOOLS \|\| PROFILING` |
@@ -201,7 +201,7 @@ Flags are driven by `DEFINE_ME_*` preprocessor defines that Sharpmake sets per t
 
 - **Partial teardown.** `Engine::Shutdown` destroys the World, the jobs and the renderer (`BGFXRenderer::Destroy` shuts bgfx down), but leaves the window and the engine cores to process exit. `Engine::IsRunning()` is hardcoded to return `true`.
 - **Two core-update paths.** Engine-owned cores are updated by explicit member calls in a hardcoded order; scene-loaded cores through `UpdateLoadedCores` in priority order. Adding an engine-level core means editing the frame loop by hand.
-- **`UICore` is re-added on every scene load** in `Engine::LoadScene`; if you add another engine-owned core that must survive scene loads, it needs the same treatment (or `DestroyOnLoad = false`).
+- **`RmlUiCore` is re-added on every scene load** in `Engine::LoadScene`; if you add another engine-owned core that must survive scene loads, it needs the same treatment (or `DestroyOnLoad = false`).
 - **Non-editor scene load runs `Simulate()` twice** (once unconditionally, once in the non-editor block) — harmless today but easy to trip over when reasoning about `OnEntityAdded` timing.
 - **`Camera::CurrentCamera` static global** is consulted by the resize path and UI sizing every frame; a scene without a main camera skips UI resize silently.
 - **Window/UI resize flows through a lambda captured in `Engine::Init`** (`ResizeFunc`) — it fires a `WindowResizedEvent` *and* directly pokes the renderer, UI, and config; resize behavior is split between that lambda and event receivers.
