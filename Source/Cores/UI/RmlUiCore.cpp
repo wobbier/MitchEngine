@@ -13,6 +13,7 @@
 
 #if USING( ME_RMLUI )
 #include "Resource/ResourceCache.h"
+#include "VFS/VFS.h"
 #include "UI/Rml/RmlInput.h"
 #include "UI/Rml/RmlInterfaces.h"
 #include "UI/Rml/RmlRenderInterface.h"
@@ -167,6 +168,15 @@ void RmlUiCore::Init()
         {
             YIKES( "[UI] Failed to load the UI font." );
         }
+        // Extra coverage (CJK, symbols): every face under Assets/Fonts/Fallback joins the
+        // fallback chain, game files shadowing engine ones like any asset.
+        VFS::Get().Enumerate( "Assets/Fonts/Fallback", false, []( const std::string& InPath, bool InIsDirectory )
+        {
+            if( !InIsDirectory && Rml::LoadFontFace( InPath, true ) )
+            {
+                INFO( "UI", "UI: fallback font " + InPath );
+            }
+        } );
     }
 
     // .rml/.rcss edits reload live; the event fires on the main thread.
@@ -195,6 +205,7 @@ void RmlUiCore::EnsureContext( const Vector2& InSize )
         m_contextName = "world" + std::to_string( s_contextCounter++ );
         m_context = Rml::CreateContext( m_contextName, size );
         m_contextSize = InSize;
+        m_context->SetDensityIndependentPixelRatio( m_textScale );
 #if !USING( ME_RETAIL )
         Rml::Debugger::Initialise( m_context );
 #endif
@@ -287,6 +298,22 @@ void RmlUiCore::ProcessInput()
     if( altDown )
     {
         modifiers |= Rml::Input::KM_ALT;
+    }
+
+    // Gamepad navigation: the dpad moves focus (the documents' nav properties), South activates.
+    if( gameInput.IsGamepadConnected() )
+    {
+        constexpr GamepadButton kNavButtons[5] = { GamepadButton::DPadUp, GamepadButton::DPadDown, GamepadButton::DPadLeft, GamepadButton::DPadRight, GamepadButton::South };
+        constexpr int kNavKeys[5] = { Rml::Input::KI_UP, Rml::Input::KI_DOWN, Rml::Input::KI_LEFT, Rml::Input::KI_RIGHT, Rml::Input::KI_RETURN };
+        for( int i = 0; i < 5; ++i )
+        {
+            const bool down = gameInput.IsGamepadButtonDown( kNavButtons[i] );
+            if( down && !m_gamepadNavDown[i] )
+            {
+                InjectUiKey( kNavKeys[i] );
+            }
+            m_gamepadNavDown[i] = down;
+        }
     }
 
     Vector2 mousePosition = gameInput.GetMousePosition();
@@ -623,6 +650,63 @@ void RmlUiCore::SyncModels()
         {
             INFO( "UI", "UI: rebound " + std::to_string( reloaded ) + " document(s) to script models" );
         }
+    }
+}
+
+
+// --- Text scale, language, key injection (UI-4) --------------------------------------------------
+
+void RmlUiCore::SetTextScale( float InScale )
+{
+    m_textScale = std::max( 0.25f, InScale );
+    if( m_context != nullptr )
+    {
+        m_context->SetDensityIndependentPixelRatio( m_textScale );
+    }
+    INFO( "UI", "UI: text scale " + std::to_string( m_textScale ) );
+}
+
+
+void RmlUiCore::SetLanguage( const std::string& InCode )
+{
+    m_language = InCode;
+    std::map<std::string, std::string> table;
+    if( !InCode.empty() )
+    {
+        std::string contents;
+        if( !VFS::Get().ReadText( std::string( "Assets/UI/Strings/" ) + InCode + ".json", contents ) )
+        {
+            YIKES( "[UI] No string table for language '" + InCode + "'" );
+        }
+        else
+        {
+            const json root = json::parse( contents, nullptr, false );
+            if( root.is_object() )
+            {
+                for( const auto& [key, value] : root.items() )
+                {
+                    if( value.is_string() )
+                    {
+                        table[key] = value.get<std::string>();
+                    }
+                }
+            }
+        }
+    }
+    const size_t count = table.size();
+    s_systemInterface.SetStringTable( std::move( table ) );
+    // Translation happens at document load: rebuild what's on screen.
+    m_modelsMaterialized = true;
+    INFO( "UI", "UI: language '" + InCode + "' (" + std::to_string( count ) + " strings)" );
+}
+
+
+void RmlUiCore::InjectUiKey( int InKeyIdentifier, int InModifiers )
+{
+    if( m_context != nullptr )
+    {
+        m_context->ProcessKeyDown( static_cast<Rml::Input::KeyIdentifier>( InKeyIdentifier ), InModifiers );
+        m_context->ProcessKeyUp( static_cast<Rml::Input::KeyIdentifier>( InKeyIdentifier ), InModifiers );
     }
 }
 #endif

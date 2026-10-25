@@ -57,6 +57,15 @@ public:
     std::string ModelGetString( const std::string& InModel, const std::string& InKey ) const;
     // Pops the oldest queued data-event name ("" when none are waiting).
     std::string ModelPollEvent( const std::string& InModel );
+
+    // UI-4: dp-unit text scale (the context's density-independent pixel ratio), the string
+    // table language ("" = none; loads Assets/UI/Strings/<code>.json and reloads documents),
+    // and key injection for gamepad navigation and the input-press automation command.
+    void SetTextScale( float InScale );
+    float GetTextScale() const { return m_textScale; }
+    void SetLanguage( const std::string& InCode );
+    const std::string& GetLanguage() const { return m_language; }
+    void InjectUiKey( int InKeyIdentifier, int InModifiers = 0 );
 #endif
 
 private:
@@ -88,6 +97,9 @@ private:
     };
     std::map<std::string, Model> m_models;
     bool m_modelsMaterialized = false;   // a model/variable appeared: reload loaded documents once
+    float m_textScale = 1.f;
+    std::string m_language;
+    bool m_gamepadNavDown[5] = {};   // dpad + south, for press transitions
 
     BGFXRenderer* m_renderer = nullptr;
     Rml::Context* m_context = nullptr;

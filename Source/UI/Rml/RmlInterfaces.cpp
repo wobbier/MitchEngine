@@ -13,6 +13,36 @@ double RmlSystemInterface::GetElapsedTime()
 }
 
 
+int RmlSystemInterface::TranslateString( Rml::String& OutTranslated, const Rml::String& InInput )
+{
+    OutTranslated = InInput;
+    if( m_strings.empty() )
+    {
+        return 0;
+    }
+    // Text nodes keep their markup whitespace; keys match the trimmed text.
+    const size_t first = InInput.find_first_not_of( " \t\r\n" );
+    if( first == std::string::npos )
+    {
+        return 0;
+    }
+    const size_t last = InInput.find_last_not_of( " \t\r\n" );
+    const auto translated = m_strings.find( InInput.substr( first, last - first + 1 ) );
+    if( translated == m_strings.end() )
+    {
+        return 0;
+    }
+    OutTranslated = InInput.substr( 0, first ) + translated->second + InInput.substr( last + 1 );
+    return 1;
+}
+
+
+void RmlSystemInterface::SetStringTable( std::map<std::string, std::string> InTable )
+{
+    m_strings = std::move( InTable );
+}
+
+
 void RmlSystemInterface::AdvanceTime( double InDeltaSeconds )
 {
     m_elapsedTime += InDeltaSeconds;

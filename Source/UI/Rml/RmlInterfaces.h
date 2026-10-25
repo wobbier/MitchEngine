@@ -7,6 +7,8 @@
 #include <RmlUi/Core/SystemInterface.h>
 
 #include <cstdint>
+#include <map>
+#include <string>
 #include <vector>
 
 // Engine time and logging for RmlUi. Time is the accumulated simulated time the core feeds in,
@@ -18,8 +20,12 @@ public:
     double GetElapsedTime() override;
     bool LogMessage( Rml::Log::Type InType, const Rml::String& InMessage ) override;
     void SetMouseCursor( const Rml::String& InCursorName ) override;
+    // The localization hook: document text that exactly matches a string-table key (whitespace
+    // trimmed) renders its translation. RmlUiCore::SetLanguage fills the table.
+    int TranslateString( Rml::String& OutTranslated, const Rml::String& InInput ) override;
 
     void AdvanceTime( double InDeltaSeconds );
+    void SetStringTable( std::map<std::string, std::string> InTable );
 
     // The cursor the UI wants ("" = default); RmlUiCore applies it through SDL.
     const Rml::String& GetRequestedCursor() const { return m_cursor; }
@@ -27,6 +33,7 @@ public:
 private:
     double m_elapsedTime = 0.0;
     Rml::String m_cursor;
+    std::map<std::string, std::string> m_strings;
 };
 
 // Documents, stylesheets and fonts read through the VFS, so overlays (and later paks and mods)

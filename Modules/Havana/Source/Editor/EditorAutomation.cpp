@@ -352,7 +352,7 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         std::string error;
         if( !TerrainAutomation::Execute( command, args, error ) ) Fail( command + ": " + error );
     }
-    else if( command.rfind( "ui-", 0 ) == 0 )
+    else if( command.rfind( "ui-", 0 ) == 0 || command == "input-press" )
     {
         std::string error;
         if( !UIAutomation::Execute( command, args, error ) ) Fail( command + ": " + error );
