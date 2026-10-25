@@ -38,6 +38,11 @@ private:
     int m_stableTimeoutFrames = 0;
     int m_stableRun = 0;
     size_t m_stableLastCount = 0;
+    // wait-field: the assert-field condition to wait for, frames left before giving up.
+    std::string m_waitFieldEntity;
+    std::string m_waitFieldPath;
+    std::string m_waitFieldValue;
+    int m_waitFieldFrames = 0;
     // Log message count when the previous command ran: wait-log also sees what that command logged.
     uint64_t m_previousCommandLogCount = 0;
     bool m_lastWasWaitLog = false;     // consecutive wait-logs share one window

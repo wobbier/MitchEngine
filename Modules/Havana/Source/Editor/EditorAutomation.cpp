@@ -158,6 +158,41 @@ namespace
         OutPointer = json::json_pointer( pointer );
         return true;
     }
+
+
+    // Evaluates an assert-field condition ("value", "!= value", "value ~ tol") without failing:
+    // wait-field polls it until it holds. OutDetail carries the mismatch for the timeout message.
+    bool FieldConditionHolds( const std::string& InEntity, const std::string& InFieldPath, std::string InValueText, std::string& OutDetail )
+    {
+        const bool negate = InValueText.rfind( "!=", 0 ) == 0;
+        if( negate )
+        {
+            InValueText = Trim( InValueText.substr( 2 ) );
+        }
+        double tolerance = 1e-3;
+        if( const size_t tilde = InValueText.find( " ~ " ); tilde != std::string::npos )
+        {
+            tolerance = std::atof( InValueText.c_str() + tilde + 3 );
+            InValueText = InValueText.substr( 0, tilde );
+        }
+        EntityHandle entity = FindEntity( InEntity );
+        std::string type;
+        json::json_pointer pointer;
+        const json expected = json::parse( InValueText, nullptr, false );
+        if( !entity || !SplitFieldPath( InFieldPath, type, pointer ) || expected.is_discarded() )
+        {
+            OutDetail = "bad arguments or no entity named " + InEntity;
+            return false;
+        }
+        const json state = EditorOps::CaptureComponent( *entity.Get(), type );
+        const json* actual = Resolve( state, pointer );
+        if( !actual || NearlyEqual( *actual, expected, tolerance ) == negate )
+        {
+            OutDetail = InEntity + " " + InFieldPath + " is " + ( actual ? actual->dump() : std::string( "<missing>" ) );
+            return false;
+        }
+        return true;
+    }
 }
 
 
@@ -241,6 +276,22 @@ void EditorAutomation::Tick( EditorApp& InApp )
             }
         }
         m_stableTimeoutFrames = 0;
+    }
+    if( m_waitFieldFrames > 0 )
+    {
+        std::string detail;
+        if( FieldConditionHolds( m_waitFieldEntity, m_waitFieldPath, m_waitFieldValue, detail ) )
+        {
+            m_waitFieldFrames = 0;
+        }
+        else if( --m_waitFieldFrames > 0 )
+        {
+            return;
+        }
+        else
+        {
+            Fail( "wait-field timed out: " + detail + ", expected " + m_waitFieldValue );
+        }
     }
     if( m_waitLogFrames > 0 )
     {
@@ -371,6 +422,19 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         {
             Fail( "pack-assets: couldn't write " + pakPath );
         }
+    }
+    else if( command == "wait-field" )
+    {
+        // wait-field Main Camera | Camera.FieldOfView | != 52 | 600   (assert-field's forms with
+        // a frame budget: holds the flow until the condition is true, fails at the timeout —
+        // for state that arrives on its own schedule, like a sequence's first animated frame)
+        auto [name, rest] = SplitArgs( args );
+        auto [fieldPath, valueAndFrames] = SplitArgs( rest );
+        auto [valueText, framesText] = SplitArgs( valueAndFrames );
+        m_waitFieldEntity = name;
+        m_waitFieldPath = fieldPath;
+        m_waitFieldValue = valueText;
+        m_waitFieldFrames = std::max( 1, std::atoi( framesText.c_str() ) );
     }
     else if( command == "wait-count-stable" )
     {
