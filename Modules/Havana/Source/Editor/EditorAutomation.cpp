@@ -214,6 +214,31 @@ void EditorAutomation::Tick( EditorApp& InApp )
         --m_waitFrames;
         return;
     }
+    if( m_stableTimeoutFrames > 0 )
+    {
+        const size_t count = EditorOps::GetWorld().GetEntityCount();
+        if( count != m_stableLastCount )
+        {
+            m_stableLastCount = count;
+            m_stableRun = 0;
+        }
+        else
+        {
+            ++m_stableRun;
+        }
+        if( m_stableRun < m_stableFramesNeeded )
+        {
+            if( --m_stableTimeoutFrames == 0 )
+            {
+                Fail( "wait-count-stable timed out; entity count still changing at " + std::to_string( count ) );
+            }
+            else
+            {
+                return;
+            }
+        }
+        m_stableTimeoutFrames = 0;
+    }
     if( m_waitLogFrames > 0 )
     {
         // Messages logged since the wait-log command, newest last.
@@ -324,6 +349,16 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         {
             InApp.Editor->GetAssetBrowser()->ShowFolder( args );
         }
+    }
+    else if( command == "wait-count-stable" )
+    {
+        // wait-count-stable 90 | 3600   (frames the entity count must hold, frames before giving
+        // up). Settles async scene population (streamed models, prefabs) before a mark-count.
+        auto [stableText, timeoutText] = SplitArgs( args );
+        m_stableFramesNeeded = std::max( 1, std::atoi( stableText.c_str() ) );
+        m_stableTimeoutFrames = std::max( m_stableFramesNeeded + 1, std::atoi( timeoutText.c_str() ) );
+        m_stableRun = 0;
+        m_stableLastCount = world.GetEntityCount();
     }
     else if( command == "wait-log" )
     {
@@ -830,6 +865,7 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
     }
     else if( command == "assert-audio" )
     {
+#if USING( ME_FMOD )
         // assert-audio Name | 1   (the entity's AudioSource voice is playing: 1, or not: 0)
         auto [name, expectedText] = SplitArgs( args );
         EntityHandle entity = FindEntity( name );
@@ -839,9 +875,14 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         {
             Fail( name + " audio " + ( source ? ( source->IsPlaying() ? "playing" : "stopped" ) : std::string( "<no AudioSource>" ) ) + ", expected " + ( expected ? "playing" : "stopped" ) );
         }
+#else
+        // Without the FMOD SDK (proprietary, gitignored, absent on CI) nothing ever plays.
+        CLog::Log( CLog::LogType::Info, "[editor-exec] SKIP line " + std::to_string( m_nextLine ) + ": assert-audio (no FMOD in this build)" );
+#endif
     }
     else if( command == "assert-occlusion" )
     {
+#if USING( ME_FMOD )
         // assert-occlusion Name | 0.7 ~ 0.05   (the entity's AudioSource occlusion, within a tolerance; 0.05 by default)
         auto [name, valueText] = SplitArgs( args );
         double tolerance = 0.05;
@@ -857,6 +898,9 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         {
             Fail( name + " occlusion " + ( source ? std::to_string( source->GetOcclusion() ) : std::string( "<no AudioSource>" ) ) + ", expected " + valueText );
         }
+#else
+        CLog::Log( CLog::LogType::Info, "[editor-exec] SKIP line " + std::to_string( m_nextLine ) + ": assert-occlusion (no FMOD in this build)" );
+#endif
     }
     else if( command == "assert-sky-time" || command == "assert-sky-animation-time" )
     {

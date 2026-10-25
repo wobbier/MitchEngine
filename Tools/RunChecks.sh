@@ -66,7 +66,8 @@ else
 fi
 
 step "Editor flows"
-if ! python3 "$here/RunEditorFlows.py" --editor .build/Editor_Debug/Havana --wrapper "$here/Headless.sh" --only "$only"; then
+# 1500s covers the longest flow (LaunchNight) on a cold 2-core CI runner.
+if ! python3 "$here/RunEditorFlows.py" --editor .build/Editor_Debug/Havana --wrapper "$here/Headless.sh" --only "$only" --timeout 1500; then
     failed+=("editor flows")
 fi
 
@@ -78,7 +79,9 @@ if [[ -d Assets/Scenes/Showcase/Reference ]]; then
 fi
 
 # Test scenes with a committed reference (UITest and friends) regress the same way.
-if compgen -G "Assets/Scenes/Tests/Reference/*.png" > /dev/null; then
+# (A plain glob test: the devshell's bash is built without compgen.)
+test_references=(Assets/Scenes/Tests/Reference/*.png)
+if [[ -e "${test_references[0]}" ]]; then
     step "Test-scene screenshots"
     test_scenes=()
     for reference in Assets/Scenes/Tests/Reference/*.png; do

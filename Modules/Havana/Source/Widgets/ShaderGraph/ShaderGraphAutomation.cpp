@@ -294,7 +294,8 @@ bool ShaderGraphAutomation::Execute( const std::string& InCommand, const std::st
     {
         ShaderGraphPreview& preview = document->GetPreview();
         // Edits compile after a short debounce; then the preview compiles in the background.
-        const bool waiting = preview.IsCompiling() || ( !preview.HasProgram() && preview.GetShaderErrors().empty() );
+        // Idle means both stages have drained, so program counts are settled too.
+        const bool waiting = document->HasPendingCompile() || !preview.IsIdle() || ( !preview.HasProgram() && preview.GetShaderErrors().empty() );
         if( waiting && ++s_retryFrames < 1800 )
         {
             OutRetry = true;

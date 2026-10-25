@@ -48,6 +48,11 @@ public:
     {
         return m_job.valid();
     }
+    // Settled: no recompile queued behind the dirty flag and no build in flight.
+    bool IsIdle() const
+    {
+        return !m_dirty && !m_job.valid();
+    }
     bool HasProgram() const
     {
         return bgfx::isValid( m_program );

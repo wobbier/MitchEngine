@@ -33,6 +33,11 @@ private:
     std::string m_waitLogText;
     int m_waitLogFrames = 0;
     uint64_t m_waitLogFrom = 0;
+    // wait-count-stable: frames the entity count must hold, frames left before giving up.
+    int m_stableFramesNeeded = 0;
+    int m_stableTimeoutFrames = 0;
+    int m_stableRun = 0;
+    size_t m_stableLastCount = 0;
     // Log message count when the previous command ran: wait-log also sees what that command logged.
     uint64_t m_previousCommandLogCount = 0;
     bool m_lastWasWaitLog = false;     // consecutive wait-logs share one window

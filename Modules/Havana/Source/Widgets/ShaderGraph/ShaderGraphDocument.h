@@ -84,6 +84,11 @@ public:
     }
     // Compiles now (normally debounced after edits) and exports when live.
     void CompileNow();
+    // An edit is waiting out the debounce; the next Draw will compile.
+    bool HasPendingCompile() const
+    {
+        return m_needsCompile;
+    }
     uint32_t GetCompileCount() const
     {
         return m_compileCount;
