@@ -25,6 +25,7 @@ class HistoryWidget;
 class ProfilerWidget;
 class PreferencesWidget;
 class ProjectSettingsWidget;
+class BuildGameWidget;
 class ShaderGraphWidget;
 class TreeWidget;
 class TerrainWidget;
@@ -91,6 +92,7 @@ private:
 	SharedPtr<ProfilerWidget> Profiler;
 	SharedPtr<PreferencesWidget> Preferences;
 	SharedPtr<ProjectSettingsWidget> ProjectSettingsView;
+	SharedPtr<BuildGameWidget> BuildGameView;
 	// Open shader graph documents (not a single window, so not in RegisteredWidgets).
 	SharedPtr<ShaderGraphWidget> ShaderGraphs;
 	// Open MitchTree documents (likewise).

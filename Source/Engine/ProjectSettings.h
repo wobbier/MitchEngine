@@ -85,6 +85,30 @@ public:
     std::vector<std::string> BuildScenes;
     std::vector<std::string> BuildAlwaysInclude;
     std::vector<std::string> BuildExclude;
+    // Build Game profiles (SHIP-3, Engine/Docs/Building.md): each makes one shippable build of
+    // the project for the machine building it.
+    struct BuildProfile
+    {
+        std::string Name = "Default";
+        // "Retail" ships; "Release" keeps the tools code (automation, cooking); "Debug".
+        std::string Configuration = "Retail";
+        // Where the build goes ("" = Builds/<Name>). Replaced each build.
+        std::string OutputDirectory;
+        // The scenes it ships (empty = Build.Scenes and the StartupScene).
+        std::vector<std::string> Scenes;
+        // The content as one Game.mpak (true) or as a loose cooked tree.
+        bool Pak = true;
+        // Also packs the output into one archive next to it (.tar.gz; .zip on Windows).
+        bool Archive = false;
+    };
+    std::vector<BuildProfile> BuildProfiles;
+    // The profile named InName ("" = the first); null when there is none.
+    const BuildProfile* FindBuildProfile( const std::string& InName ) const;
+    // One profile as a JSON file (the shape of a Build.Profiles entry): the editor hands the
+    // profile it shows to a Havana --build-game run this way, saved or not.
+    static bool ParseBuildProfile( const std::string& InJson, BuildProfile& OutProfile );
+    static bool ReadBuildProfile( const std::string& InPath, BuildProfile& OutProfile );
+    static bool WriteBuildProfile( const std::string& InPath, const BuildProfile& InProfile );
 
 private:
     std::array<std::string, kLayerCount> m_layerNames;

@@ -1043,6 +1043,23 @@ void SDLWindow::SetTitle( const std::string& title )
 {
 }
 
+
+void SDLWindow::SetIcon( const uint8_t* InRgba, int InWidth, int InHeight )
+{
+    if( !WindowHandle || !InRgba || InWidth <= 0 || InHeight <= 0 )
+    {
+        return;
+    }
+    // SDL copies the pixels into the window's icon, so the surface can borrow them.
+    SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormatFrom( const_cast<uint8_t*>( InRgba ), InWidth, InHeight, 32, InWidth * 4, SDL_PIXELFORMAT_RGBA32 );
+    if( surface )
+    {
+        SDL_SetWindowIcon( WindowHandle, surface );
+        SDL_FreeSurface( surface );
+    }
+}
+
+
 void SDLWindow::Exit()
 {
     CloseRequested = true;

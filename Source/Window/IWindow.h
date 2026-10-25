@@ -61,6 +61,8 @@ public:
     virtual void* GetWindowPtr() = 0;
 
     virtual void SetBorderless( bool isBorderless ) = 0;
+    // The window/taskbar icon, from tightly packed RGBA8 pixels (the engine's own until set).
+    virtual void SetIcon( const uint8_t* InRgba, int InWidth, int InHeight ) {}
 
     // Window modes (player settings). Windowed: InResolution is the window's size (zero keeps it).
     // Fullscreen: the display mode closest to InResolution (zero = the desktop's). Borderless ignores it.

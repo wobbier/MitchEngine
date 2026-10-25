@@ -28,6 +28,9 @@ class CookedAssets
 {
 public:
     static constexpr const char* kRegistryPath = "AssetRegistry.json";
+    // A Build Game output's content: this pak beside the executable. The game mounts it on its
+    // own when no --pak names another (Engine/Docs/Building.md).
+    static constexpr const char* kShippedPak = "Game.mpak";
 
     static CookedAssets& Get();
 

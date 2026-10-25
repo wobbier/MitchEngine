@@ -638,6 +638,19 @@ namespace Cook
                 {
                     AddFileOrFolder( always );
                 }
+                // The window icon decodes from its source bytes (Engine::Init), so it ships as is.
+                if( !InSettings.ProductIcon.empty() )
+                {
+                    const std::string icon = CanonicalAsset( InSettings.ProductIcon );
+                    if( icon.empty() )
+                    {
+                        Warn( "Product icon not found: " + InSettings.ProductIcon );
+                    }
+                    else
+                    {
+                        m_rawReads.insert( icon );
+                    }
+                }
                 // The renderer prefetches every engine stage at startup.
                 for( const std::string& stage : Moonlight::FindEngineShaderStages() )
                 {

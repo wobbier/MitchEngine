@@ -4,7 +4,9 @@
 #   2. runs the unit tests;
 #   3. runs every editor regression script (Tools/RunEditorFlows.py);
 #   4. compares the showcase scenes with their reference screenshots (Tools/ScreenshotRegression.py);
-#   5. cooks two showcases (Havana --cook) and compares the game on the cooked tree and its pak.
+#   5. cooks two showcases (Havana --cook) and compares the game on the cooked tree and its pak;
+#   6. builds them as a shippable Retail game (Havana --build-game) and compares that, run from
+#      outside the repo without a .NET install.
 # GUI runs go through Tools/Headless.sh (a private virtual display with software Vulkan), so nothing
 # opens on your desktop and nothing plays through your speakers.
 #
@@ -100,6 +102,33 @@ if [[ -f "${cook_scenes[0]}" && -f "${cook_scenes[1]}" && -d Assets/Scenes/Showc
                 --out .tmp/ScreenshotRegression/CookedPak --cwd .tmp/CookEmpty --game-args "--pak $PWD/.tmp/Cook.mpak" "${cook_scenes[@]}"; then
             failed+=("cooked pak screenshots")
         fi
+    fi
+fi
+
+# Build Game (SHIP-3): a Retail build of the same showcases, copied out of the repo and started from
+# an empty directory with no DOTNET_ROOT and none of the repo's library paths. It must run its
+# scripts on the app-local .NET and still match the references.
+if [[ -f "${cook_scenes[0]}" && -f "${cook_scenes[1]}" && -d Assets/Scenes/Showcase/Reference ]]; then
+    step "Build Game"
+    if ! "$here/Headless.sh" ./.build/Editor_Debug/Havana --build-game --scene "${cook_scenes[0]}" --scene "${cook_scenes[1]}" --out .tmp/BuildGame/Checks \
+            --game .build/Game_linux_Debug/Game_EntryPoint_x64 > .tmp/RunChecks.buildgame.log 2>&1; then
+        grep -E "Build Game|Error" .tmp/RunChecks.buildgame.log | tail -20
+        failed+=("build game")
+    else
+        grep -E "Build Game finished" .tmp/RunChecks.buildgame.log
+        shipped="$(mktemp -d)"
+        cp -a .tmp/BuildGame/Checks "$shipped/Game" && mkdir -p "$shipped/Empty"
+        launcher="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["Launcher"])' "$shipped/Game/BuildInfo.json")"
+        system_libs="$(tr ':' '\n' <<< "${LD_LIBRARY_PATH:-}" | grep -vF "$PWD" | paste -sd: -)"
+        rm -rf .tmp/ScreenshotRegression/Shipped
+        if ! env -u DOTNET_ROOT LD_LIBRARY_PATH="$system_libs" python3 "$here/ScreenshotRegression.py" --game "$shipped/Game/$launcher" \
+                --reference Assets/Scenes/Showcase/Reference --wrapper "$here/Headless.sh" --out .tmp/ScreenshotRegression/Shipped --cwd "$shipped/Empty" "${cook_scenes[@]}"; then
+            failed+=("shipped build screenshots")
+        elif grep -L "Scripts: .NET runtime from the app-local install" .tmp/ScreenshotRegression/Shipped/*.log | grep -q .; then
+            echo "The shipped build didn't run its scripts on the app-local .NET (see .tmp/ScreenshotRegression/Shipped)"
+            failed+=("shipped build runtime")
+        fi
+        rm -rf "$shipped"
     fi
 fi
 

@@ -217,6 +217,9 @@ Makefile
 *.make
 compile_commands.json
 
+# Build Game outputs (Engine/Docs/Building.md)
+/Builds/
+
 # Runtime logs / dumps
 Engine.txt
 fmod_log.txt

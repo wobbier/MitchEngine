@@ -37,6 +37,38 @@ void ProjectSettings::Load()
 }
 
 
+namespace
+{
+    ProjectSettings::BuildProfile ProfileFromJson( const json& InEntry )
+    {
+        ProjectSettings::BuildProfile profile;
+        profile.Name = InEntry.value( "Name", profile.Name );
+        profile.Configuration = InEntry.value( "Configuration", profile.Configuration );
+        profile.OutputDirectory = InEntry.value( "Output", profile.OutputDirectory );
+        profile.Pak = InEntry.value( "Pak", profile.Pak );
+        profile.Archive = InEntry.value( "Archive", profile.Archive );
+        if( InEntry.contains( "Scenes" ) && InEntry["Scenes"].is_array() )
+        {
+            for( const json& scene : InEntry["Scenes"] )
+            {
+                if( scene.is_string() )
+                {
+                    profile.Scenes.push_back( scene.get<std::string>() );
+                }
+            }
+        }
+        return profile;
+    }
+
+
+    json ProfileToJson( const ProjectSettings::BuildProfile& InProfile )
+    {
+        return { { "Name", InProfile.Name }, { "Configuration", InProfile.Configuration }, { "Output", InProfile.OutputDirectory },
+            { "Scenes", InProfile.Scenes }, { "Pak", InProfile.Pak }, { "Archive", InProfile.Archive } };
+    }
+}
+
+
 void ProjectSettings::LoadFrom( const std::string& InPath )
 {
     const Path path( InPath );
@@ -183,7 +215,63 @@ void ProjectSettings::LoadFrom( const std::string& InPath )
         readList( "Scenes", BuildScenes );
         readList( "AlwaysInclude", BuildAlwaysInclude );
         readList( "Exclude", BuildExclude );
+        if( build.contains( "Profiles" ) && build["Profiles"].is_array() )
+        {
+            BuildProfiles.clear();
+            for( const json& entry : build["Profiles"] )
+            {
+                if( entry.is_object() )
+                {
+                    BuildProfiles.push_back( ProfileFromJson( entry ) );
+                }
+            }
+        }
     }
+}
+
+
+bool ProjectSettings::ParseBuildProfile( const std::string& InJson, BuildProfile& OutProfile )
+{
+    const json entry = json::parse( InJson, nullptr, false );
+    if( entry.is_discarded() || !entry.is_object() )
+    {
+        return false;
+    }
+    OutProfile = ProfileFromJson( entry );
+    return true;
+}
+
+
+bool ProjectSettings::ReadBuildProfile( const std::string& InPath, BuildProfile& OutProfile )
+{
+    const Path path( InPath, true );
+    if( !path.Exists )
+    {
+        return false;
+    }
+    File file{ path };
+    return ParseBuildProfile( file.Read(), OutProfile );
+}
+
+
+bool ProjectSettings::WriteBuildProfile( const std::string& InPath, const BuildProfile& InProfile )
+{
+    File file{ Path( InPath, true ) };
+    file.Write( ProfileToJson( InProfile ).dump( 4 ) );
+    return Path( InPath, true ).Exists;
+}
+
+
+const ProjectSettings::BuildProfile* ProjectSettings::FindBuildProfile( const std::string& InName ) const
+{
+    for( const BuildProfile& profile : BuildProfiles )
+    {
+        if( InName.empty() || profile.Name == InName )
+        {
+            return &profile;
+        }
+    }
+    return nullptr;
 }
 
 
@@ -225,6 +313,15 @@ void ProjectSettings::SaveTo( const std::string& InPath ) const
     root["Product"] = { { "Org", ProductOrg }, { "Name", ProductName }, { "Version", ProductVersion },
         { "Icon", ProductIcon }, { "StartupScene", StartupScene } };
     root["Build"] = { { "Scenes", BuildScenes }, { "AlwaysInclude", BuildAlwaysInclude }, { "Exclude", BuildExclude } };
+    // Written only when there are any, so projects that never made one keep their file as is.
+    if( !BuildProfiles.empty() )
+    {
+        json& profiles = root["Build"]["Profiles"] = json::array();
+        for( const BuildProfile& profile : BuildProfiles )
+        {
+            profiles.push_back( ProfileToJson( profile ) );
+        }
+    }
     File file{ Path( InPath, true ) };
     file.Write( root.dump( 4 ) );
 }

@@ -19,6 +19,7 @@ Technical documentation for MitchEngine — a C++20, ECS-based game engine built
 | [Resources-and-Assets.md](Resources-and-Assets.md) | `ResourceCache` load flow, `.meta` sidecars, export/cooking, eviction, resource type inventory |
 | [VFS.md](VFS.md) | The mount table behind `Path`/`File`: overlay roots, `user://`, read recording (`--record-deps`), `.mpak` paks |
 | [Cooking.md](Cooking.md) | `Havana --cook`: dependencies from scenes and recorded runs, what ships per platform, `AssetRegistry.json`, cooked runs |
+| [Building.md](Building.md) | Build Game (`Havana --build-game`, File > Build Game): build profiles, the Retail compile, scripts, cook and pak, the app-local .NET, bundled libraries and launcher |
 | [Cores-and-Components-Reference.md](Cores-and-Components-Reference.md) | Catalog of every core and every component; orphaned-component list |
 | [Audio.md](Audio.md) | FMOD `AudioCore`: output modes (silent automated runs), mixer buses, listener, 2D/3D sources with rolloff and doppler, overlapping one-shots, pause and lifecycle |
 | [Animation.md](Animation.md) | Clip import, the `Animator` state machine (parameters, transitions, blends, events), `AnimationCore`, bone entities, GPU skinning in every pass |

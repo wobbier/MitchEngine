@@ -3,6 +3,7 @@
 #include "StringUtils.h"
 #include <Path.h>
 #include <Core/Buffer.h>
+#include <functional>
 
 namespace PlatformUtils
 {
@@ -12,6 +13,8 @@ namespace PlatformUtils
 
     // Runs a shell command, waits for it and returns its exit code; stdout and stderr go to OutOutput.
     int RunCommand( const std::string& inCommand, std::string& OutOutput );
+    // The same, handing each line of output (without its newline) to inOnLine as it arrives.
+    int RunCommand( const std::string& inCommand, const std::function<void( const std::string& )>& inOnLine );
 
     void CreateDirectory( const Path& inFilePath );
 

@@ -160,6 +160,8 @@ void MainMenuWidget::Render()
             actions.MenuItem( "File.SaveAs" );
             actions.MenuItem( "File.SaveAll" );
             ImGui::Separator();
+            actions.MenuItem( "File.BuildGame" );
+            ImGui::Separator();
             actions.MenuItem( "File.Quit" );
             ImGui::EndMenu();
         }

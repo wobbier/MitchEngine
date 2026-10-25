@@ -69,6 +69,53 @@
 #include <thread>
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
+#include <bimg/decode.h>
+#include <bx/allocator.h>
+
+namespace
+{
+    // A Build Game output keeps its content in Game.mpak beside the executable; it serves the
+    // game from any working directory without --pak.
+    std::string FindShippedPak()
+    {
+        std::string pak;
+        if( char* base = SDL_GetBasePath() )
+        {
+            pak = std::string( base ) + CookedAssets::kShippedPak;
+            SDL_free( base );
+        }
+        std::error_code error;
+        return !pak.empty() && std::filesystem::is_regular_file( pak, error ) ? pak : std::string();
+    }
+
+
+    // The product's window/taskbar icon (Project Settings > Product > Icon); the engine's own
+    // stays when there is none. The cooker ships the icon's source bytes for this.
+    void ApplyProductIcon( IWindow* InWindow )
+    {
+        const std::string& icon = ProjectSettings::Get().ProductIcon;
+        if( icon.empty() || !InWindow )
+        {
+            return;
+        }
+        std::vector<uint8_t> bytes;
+        if( !VFS::Get().ReadBytes( icon, bytes ) )
+        {
+            BRUH( "Product icon not found: " + icon );
+            return;
+        }
+        bx::DefaultAllocator allocator;
+        bimg::ImageContainer* image = bimg::imageParse( &allocator, bytes.data(), static_cast<uint32_t>( bytes.size() ), bimg::TextureFormat::RGBA8 );
+        if( !image )
+        {
+            BRUH( "Product icon failed to decode: " + icon );
+            return;
+        }
+        InWindow->SetIcon( static_cast<const uint8_t*>( image->m_data ), static_cast<int>( image->m_width ), static_cast<int>( image->m_height ) );
+        bimg::imageFree( image );
+    }
+}
 
 Engine& GetEngine()
 {
@@ -120,10 +167,15 @@ void Engine::Init( Game* game )
 
     // A packaged run: --pak <file.mpak> mounts the archive over the directory roots, so a
     // working directory with no Assets/ still serves every logical path (project settings and
-    // the user:// naming below included).
-    const std::string pakFile = CommandLine::GetString( "--pak" );
+    // the user:// naming below included). Without one, a shipped Game.mpak mounts the same way.
+    std::string pakFile = CommandLine::GetString( "--pak" );
+    if( pakFile.empty() )
+    {
+        pakFile = FindShippedPak();
+    }
     if( !pakFile.empty() )
     {
+        CLog::GetInstance().Log( CLog::LogType::Info, "Content: mounting " + pakFile );
         VFS::Get().MountPak( "", pakFile, 150 );
     }
     // A cooked tree (Havana --cook) indexes what it stripped: sources, .meta files, GUIDs.
@@ -221,6 +273,7 @@ void Engine::Init( Game* game )
     {
         OPTICK_EVENT( "Engine::Init::CreateWindow" );
         GameWindow = new SDLWindow( engineConfig.GetValue( "Title" ), ResizeFunc, engineConfig.WindowPosition.x, engineConfig.WindowPosition.y, engineConfig.WindowSize );
+        ApplyProductIcon( GameWindow );
     }
 #endif
 

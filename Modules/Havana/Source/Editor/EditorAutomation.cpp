@@ -17,6 +17,8 @@
 #include "Widgets/SequenceWidget.h"
 #include "Widgets/SceneViewWidget.h"
 #include "Widgets/SettingsWidgets.h"
+#include "Widgets/BuildGameWidget.h"
+#include "Engine/ProjectSettings.h"
 #include "Utils/EditorConfig.h"
 #include "Widgets/ShaderGraph/ShaderGraphAutomation.h"
 #include "Widgets/Terrain/TerrainAutomation.h"
@@ -36,6 +38,7 @@
 #include "File.h"
 #include "CLog.h"
 #include <cmath>
+#include <filesystem>
 #include <imgui.h>
 #include <sstream>
 #include "Profiling/FrameStats.h"
@@ -541,6 +544,54 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         if( InApp.Editor )
         {
             InApp.Editor->ShowWidget( args );
+        }
+    }
+    else if( command == "build-game" )
+    {
+        // build-game <profile json> [| no-compile no-record]   (the Build Game window builds it as
+        // shown: loaded into the window, not saved)
+        const size_t bar = args.find( '|' );
+        const std::string profileJson = Trim( bar == std::string::npos ? args : args.substr( 0, bar ) );
+        const std::string options = bar == std::string::npos ? std::string() : args.substr( bar + 1 );
+        ProjectSettings::BuildProfile profile;
+        BuildGameWidget* widget = BuildGameWidget::Get();
+        if( !widget )
+        {
+            Fail( "build-game: no Build Game window" );
+        }
+        else if( !ProjectSettings::ParseBuildProfile( profileJson, profile ) )
+        {
+            Fail( "build-game: expected a build profile JSON object" );
+        }
+        else
+        {
+            widget->UseProfile( profile, options.find( "no-compile" ) == std::string::npos, options.find( "no-record" ) == std::string::npos );
+            if( !widget->StartBuild() )
+            {
+                Fail( "build-game: a build is already running" );
+            }
+        }
+    }
+    else if( command == "build-game-wait" )
+    {
+        // build-game-wait   (holds until the window's build ends; fails unless it made a build)
+        BuildGameWidget* widget = BuildGameWidget::Get();
+        std::error_code error;
+        if( !widget )
+        {
+            Fail( "build-game-wait: no Build Game window" );
+        }
+        else if( widget->IsBuilding() )
+        {
+            --m_nextLine;
+        }
+        else if( !widget->LastBuildSucceeded() )
+        {
+            Fail( "build-game-wait: the build failed (its output is in the Build Game window and .tmp/BuildGame/Staging/<profile>/Build.log)" );
+        }
+        else if( !std::filesystem::exists( widget->GetOutputDirectory() + "/BuildInfo.json", error ) )
+        {
+            Fail( "build-game-wait: no BuildInfo.json in " + widget->GetOutputDirectory() );
         }
     }
     else if( command == "preference" )

@@ -29,6 +29,7 @@ public:
     void ExitMaximize() override;
 
     void SetTitle(const std::string& title) override;
+    void SetIcon( const uint8_t* InRgba, int InWidth, int InHeight ) override;
     void Exit() override;
 
     void* GetWindowPtr() override;

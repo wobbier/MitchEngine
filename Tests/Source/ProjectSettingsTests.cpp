@@ -16,6 +16,14 @@ TEST_CASE( "ProjectSettings: product, startup and build settings round-trip" )
     saved.BuildScenes = { "Assets/Scenes/Tests/UITest.lvl", "Assets/SceneGraphTest.lvl" };
     saved.BuildAlwaysInclude = { "Assets/Fonts" };
     saved.BuildExclude = { "Assets/Scenes/Tests" };
+    ProjectSettings::BuildProfile demo;
+    demo.Name = "Demo";
+    demo.Configuration = "Release";
+    demo.OutputDirectory = ".tmp/Demo";
+    demo.Scenes = { "Assets/Scenes/Tests/UITest.lvl" };
+    demo.Pak = false;
+    demo.Archive = true;
+    saved.BuildProfiles = { ProjectSettings::BuildProfile(), demo };
     saved.SetLayerName( 3, "Probe Layer" );
     saved.BusVolumes[1] = 0.25f;
     saved.SaveTo( path );
@@ -30,6 +38,19 @@ TEST_CASE( "ProjectSettings: product, startup and build settings round-trip" )
     CHECK( loaded.BuildScenes == saved.BuildScenes );
     CHECK( loaded.BuildAlwaysInclude == saved.BuildAlwaysInclude );
     CHECK( loaded.BuildExclude == saved.BuildExclude );
+    REQUIRE( loaded.BuildProfiles.size() == 2 );
+    CHECK( loaded.BuildProfiles[0].Name == "Default" );
+    CHECK( loaded.BuildProfiles[0].Configuration == "Retail" );
+    CHECK( loaded.BuildProfiles[0].Pak );
+    const ProjectSettings::BuildProfile* found = loaded.FindBuildProfile( "Demo" );
+    REQUIRE( found );
+    CHECK( found->Configuration == "Release" );
+    CHECK( found->OutputDirectory == ".tmp/Demo" );
+    CHECK( found->Scenes == demo.Scenes );
+    CHECK( !found->Pak );
+    CHECK( found->Archive );
+    CHECK( loaded.FindBuildProfile( "" ) == &loaded.BuildProfiles[0] );
+    CHECK( loaded.FindBuildProfile( "Missing" ) == nullptr );
     CHECK( loaded.GetLayerName( 3 ) == "Probe Layer" );
     CHECK( loaded.BusVolumes[1] == doctest::Approx( 0.25f ) );
 
@@ -45,4 +66,5 @@ TEST_CASE( "ProjectSettings: a missing file keeps the defaults" )
     CHECK( fresh.ProductOrg == "MitchEngine" );
     CHECK( fresh.StartupScene.empty() );
     CHECK( fresh.BuildScenes.empty() );
+    CHECK( fresh.BuildProfiles.empty() );
 }

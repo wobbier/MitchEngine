@@ -24,7 +24,8 @@ Nothing is built without regenerating projects first — adding files, changing 
 | `ThirdParty/GenerateSolutions.sh` / `.bat` / `.command` | One-time third-party project generation (`.sh`: cmake configure only; `--build-bgfx` rebuilds the bgfx archives) |
 | `nix/flake.nix` / `nix/mkDevShell.nix` | Engine-owned Linux environment; optional private game additions in `devshell.nix` |
 | `Tools/NewProjectSetup.sh` / `.bat` / `.command` | New-project bootstrap (clone engine, copy template, generate); `.sh` uses the engine-owned environment on Linux |
-| `Tools/PackageLinuxBuild.sh` | Packages a `.build/<Target>` folder into a relocatable tar.gz (bundled libs + `run.sh` launcher) |
+| `Havana --build-game` (`Source/Tools/Build/`) | Build Game: a shippable game folder (Retail executable, scripts, cooked pak, app-local .NET, bundled libraries, launcher); see `Docs/Building.md` |
+| `Tools/PackageLinuxBuild.sh` | Packages a `.build/<Target>` folder into a tar.gz with bundled libs and a `run.sh` launcher. Only the engine CI's editor artifacts still use it; games use Build Game (ME-264) |
 | `.github/workflows/Linux.yml` (+ `Windows.yml`, `macOS.yml`, `UWP.yml`) | CI: sets up an `EmptyProject` from the template and builds Editor/Game × Debug/Release; Linux builds inside the SDK environment and uploads tar.gz artifacts |
 
 ## How It Works

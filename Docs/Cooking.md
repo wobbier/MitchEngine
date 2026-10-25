@@ -123,4 +123,5 @@ to 82 files (71 MiB: five textures, 70 engine shaders, config, a font, the ICU d
   don't cook yet.
 - **Compression and binary scenes**: pak entries are stored uncompressed, and scenes stay JSON
   (FND-17 turns them into CBOR).
-- **Build Game (SHIP-3)**: a Retail build, an app-local .NET and the launcher on top of the cook.
+- **Shipping**: Build Game (`Building.md`) puts a Retail executable, the scripts, an app-local
+  .NET and a launcher around a cook.

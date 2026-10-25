@@ -86,6 +86,15 @@ void PlatformUtils::SystemCall( const Path& inFilePath, const std::string& inArg
 int PlatformUtils::RunCommand( const std::string& inCommand, std::string& OutOutput )
 {
     OutOutput.clear();
+    return RunCommand( inCommand, [&OutOutput]( const std::string& inLine ) {
+        OutOutput += inLine;
+        OutOutput += '\n';
+    } );
+}
+
+
+int PlatformUtils::RunCommand( const std::string& inCommand, const std::function<void( const std::string& )>& inOnLine )
+{
     const std::string command = inCommand + " 2>&1";
 #if USING( ME_PLATFORM_WIN64 )
     FILE* pipe = _popen( command.c_str(), "r" );
@@ -97,9 +106,24 @@ int PlatformUtils::RunCommand( const std::string& inCommand, std::string& OutOut
         return -1;
     }
     char buffer[512];
+    std::string line;
     while( fgets( buffer, sizeof( buffer ), pipe ) )
     {
-        OutOutput += buffer;
+        line += buffer;
+        if( !line.empty() && line.back() == '\n' )
+        {
+            line.pop_back();
+            if( !line.empty() && line.back() == '\r' )
+            {
+                line.pop_back();
+            }
+            inOnLine( line );
+            line.clear();
+        }
+    }
+    if( !line.empty() )
+    {
+        inOnLine( line );
     }
 #if USING( ME_PLATFORM_WIN64 )
     return _pclose( pipe );

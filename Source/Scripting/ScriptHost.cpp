@@ -143,6 +143,28 @@ bool ScriptHost::Init( const std::string& inRuntimeConfigPath, const std::string
 }
 
 
+std::string ScriptHost::FindSystemDotnetRoot()
+{
+#if USING( ME_PLATFORM_WINDOWS )
+    wchar_t buffer[MAX_PATH];
+    size_t bufferSize = sizeof( buffer ) / sizeof( wchar_t );
+#elif USING( ME_PLATFORM_LINUX )
+    char_t buffer[PATH_MAX];
+    size_t bufferSize = sizeof( buffer ) / sizeof( char_t );
+#endif
+#if USING( ME_PLATFORM_WINDOWS ) || USING( ME_PLATFORM_LINUX )
+    if( get_hostfxr_path( buffer, &bufferSize, nullptr ) != 0 )
+    {
+        return std::string();
+    }
+    // <root>/host/fxr/<version>/<hostfxr library>
+    return std::filesystem::path( buffer ).parent_path().parent_path().parent_path().parent_path().generic_string();
+#else
+    return std::string();
+#endif
+}
+
+
 void ScriptHost::Shutdown()
 {
     // Called from engine shutdown, while the runtime is alive. The hostfxr library stays loaded:

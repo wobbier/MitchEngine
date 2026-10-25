@@ -41,6 +41,7 @@
 #include "Widgets/SequenceWidget.h"
 #include "Widgets/ProfilerWidget.h"
 #include "Widgets/SettingsWidgets.h"
+#include "Widgets/BuildGameWidget.h"
 #include "Widgets/ShaderGraph/ShaderGraphWidget.h"
 #include "Widgets/Terrain/TerrainWidget.h"
 #include "Widgets/Tree/TreeWidget.h"
@@ -140,6 +141,9 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
     ProjectSettingsView.reset( new ProjectSettingsWidget() );
     RegisteredWidgets.push_back( ProjectSettingsView );
 
+    BuildGameView.reset( new BuildGameWidget() );
+    RegisteredWidgets.push_back( BuildGameView );
+
     TerrainPanel.reset( new TerrainWidget() );
     RegisteredWidgets.push_back( TerrainPanel );
     ShaderGraphs.reset( new ShaderGraphWidget() );
@@ -156,6 +160,7 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
     RegisterDefaultEditorActions( *app );
     actions.Register( { "Edit.Preferences", "Preferences...", "Edit", ImGuiMod_Shortcut | ImGuiKey_Comma, 0, [this]() { ShowWidget( "Preferences" ); } } );
     actions.Register( { "Edit.ProjectSettings", "Project Settings...", "Edit", 0, 0, [this]() { ShowWidget( "Project Settings" ); } } );
+    actions.Register( { "File.BuildGame", "Build Game...", "File", ImGuiMod_Shortcut | ImGuiMod_Shift | ImGuiKey_B, 0, [this]() { ShowWidget( "Build Game" ); } } );
     actions.Register( { "View.Profiler", "Profiler", "View", 0, 0, [this]() { ShowWidget( "Profiler" ); } } );
     ReflectionUI::RegisterDefaultDrawers();
     actions.Register( { "View.AssetSearch", "Quick Asset Search", "View", ImGuiMod_Shortcut | ImGuiKey_Space, 0, [this]() { AssetBrowser->RequestOverlay( nullptr ); } } );
@@ -319,6 +324,7 @@ void Havana::NewFrame()
     Profiler->Render();
     Preferences->Render();
     ProjectSettingsView->Render();
+    BuildGameView->Render();
     ShaderGraphs->Render();
     Trees->Render();
     TerrainPanel->Render();

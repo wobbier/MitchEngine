@@ -24,7 +24,7 @@ Editor builds are gated by `ME_EDITOR` (Sharpmake "Editor" targets, `Docs/Build-
 | `Modules/Havana/Source/Editor/SceneTools.*` | Bounds, ray picking, grid/selection/gizmo overlays |
 | `Modules/Havana/Source/Editor/EditorAutomation.*` | `--editor-exec` script runner |
 | `Modules/Havana/Source/Cores/EditorCore.*` | Owns the scene camera, queues overlays, saves scenes |
-| `Modules/Havana/Source/Widgets/` | `SceneViewWidget` (World/Game View), `SceneHierarchyWidget`, `PropertiesWidget`, `AssetBrowser`, `LogWidget`, `HistoryWidget`, `ProfilerWidget`, `SettingsWidgets` (Preferences, Project Settings), `MainMenuWidget`, `AssetPreviewWidget`, `ResourceMonitorWidget` |
+| `Modules/Havana/Source/Widgets/` | `SceneViewWidget` (World/Game View), `SceneHierarchyWidget`, `PropertiesWidget`, `AssetBrowser`, `LogWidget`, `HistoryWidget`, `ProfilerWidget`, `SettingsWidgets` (Preferences, Project Settings), `BuildGameWidget` (File > Build Game), `MainMenuWidget`, `AssetPreviewWidget`, `ResourceMonitorWidget` |
 | `Modules/Havana/Source/Utils/EditorConfig.h` | Per-user state and preferences (`.tmp/Havana.cfg`) |
 | `Source/Engine/ProjectSettings.*` | Project settings (layer names, layer collision matrix, gravity) in the project's `ProjectSettings.json` under `Assets/Config` |
 
@@ -66,6 +66,7 @@ Shortcuts don't fire while typing in a text field unless the action opts in (Sav
 | W / E / R / T, X, Z | Move / Rotate / Scale / Universal gizmo, local/world, pivot/center (scene context) |
 | F, Keypad 1/3/7, Keypad 5 | Frame selection, front/right/top views, perspective/ortho |
 | Ctrl+H, Ctrl+Space, Ctrl+, | History panel, asset browser, Preferences |
+| Ctrl+Shift+B | Build Game window |
 
 ### Play mode
 
@@ -147,12 +148,13 @@ A searchable project-wide table is the default: type icon, name, local path and 
 
 ### Cooking: `--cook`
 
-`Havana --cook --scene <lvl> --out <dir>` runs the dependency cooker without opening the editor and exits non-zero on failure. It writes a cooked tree (`--pak` also packs it) that the game runs without sources. `Havana --cook-textures [folder]` cooks only textures, on every core. See `Docs/Cooking.md`.
+`Havana --cook --scene <lvl> --out <dir>` runs the dependency cooker without opening the editor and exits non-zero on failure. It writes a cooked tree (`--pak` also packs it) that the game runs without sources. `Havana --cook-textures [folder]` cooks only textures, on every core. See `Docs/Cooking.md`. `Havana --build-game [profile]` makes a shippable build the same way (`Docs/Building.md`).
 
 ### Console, history, profiler, settings
 
 - **Log**: level toggles with counts, search, duplicate collapsing, timestamps, auto-scroll that pauses when you scroll up, a detail pane, copy. Double-click opens the first source reference in an entry (`file:line`, a compiler's `file(line,col)` or a .NET stack frame's `file:line N`; `Utils/SourceLocation.h`) in the code editor (`PlatformUtils::OpenInCodeEditor`: Preferences command, `$ME_CODE_EDITOR`, or `code -g`).
 - **History**: the undo stack; click an entry to jump there.
+- **Build Game** (File > Build Game, Ctrl+Shift+B): the project's build profiles and a Build button that runs `Havana --build-game` as a child process, streaming its output with step progress, Cancel, Open Folder and Run (`Docs/Building.md`).
 - **Profiler**: CPU/GPU frame history, per-phase and per-core CPU scopes from `FrameStats` (`ME_STAT_SCOPE`), per-view GPU timings (the bgfx profiler is enabled only while this window is open). **F9** records the next 10 frames into `.tmp/Captures/capture_<time>` (`.opt` with Optick on Win64, Chrome Trace `.json` elsewhere); only the newest 5 are kept. `--capture-startup` records the first 10 frames into `.tmp/Captures/startup`. Nothing is captured unless asked.
 - **Preferences** (per user, `.tmp/Havana.cfg`; the dock layout is per user too, `.tmp/imgui.ini`, and a checkout without one starts from the project's `Assets/Config/imgui.cfg`, which the editor never writes) and **Project Settings**, tabbed into Time, Hardware, Layers, Physics, Input, Audio, Terrain and Navigation. Time holds the fixed update rate and frame cap in `Engine.cfg`. The rest live in the project's `ProjectSettings.json` under `Assets/Config`: the hardware profile and whether it's enforced (with live budget bars and a feature caps table; `Docs/Hardware-Profiles.md`), layer names, gravity, the triangular layer collision matrix over the named layers, the action map path (with connected pads and a live action table), the audio bus volumes, terrain streaming limits, and the navigation area names and costs.
 - **Stats overlay** (World View and Game View, including the maximized Game View; each view's View > Stats, saved as `Scene.ShowStats` / `GameView.ShowStats`): fps, CPU and GPU time, draws, triangles and entities. With a hardware profile chosen, a second box below it gives the verdict ("Xbox 360: 2 over budget") and lists the budgets that are near or over.
@@ -184,6 +186,7 @@ The script runs one command per frame after a short warm-up and logs `[editor-ex
 | `create-prefab Entity | path`, `instantiate path`, `prefab-apply/-revert/-unpack Entity` | Prefab workflow |
 | `play`, `stop`, `load path`, `save-as path`, `show-assets folder`, `show-window Title` (opens a panel), `focus-window name`, `screenshot path`, `quit` | Editor state |
 | `preference Key | <json>` | Set an editor preference for this run (never saved by unattended runs); `Appearance.*` keys re-apply the theme, e.g. `preference Appearance.FontSize | 28` or `preference Appearance.Theme | "Light"` |
+| `build-game <profile json> [| no-compile no-record]`, `build-game-wait` | Build the profile in the Build Game window (shown, not saved) / hold until its build ends, failing unless it succeeded and wrote `BuildInfo.json` (`BuildGameFlows.edscript`) |
 | `pack-assets out.mpak | root,root` | Write an `.mpak` of what the VFS serves under each logical root (all of `Assets` when the list is omitted); game runs mount it with `--pak` (see `VFS.md`) |
 | `mark-count`, `assert-count N`, `assert-count-delta N`, `wait-count-stable frames | timeout` | Entity counts; the wait holds until the count is unchanged for that many consecutive frames (settles async scene population before a `mark-count`), failing at the timeout |
 | `input-press Gamepad/DPadDown` (or `Key/Tab`, `Key/ShiftTab`, `Gamepad/South`, arrows), `ui-assert-focused #id`, `ui-set-text-scale 1.5`, `ui-set-language es` (empty resets) | One RmlUi navigation press through the live gamepad mapping's key path / assert the focused element / dp text scale / swap the string table and reload documents |

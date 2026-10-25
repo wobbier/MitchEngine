@@ -7,9 +7,11 @@
 #include "Resource/MetaFile.h"
 #include "CLog.h"
 #include "Engine/ProjectSettings.h"
+#include "Tools/Build/BuildGame.h"
 #include "Tools/Cook/Cooker.h"
 #include <atomic>
 #include <chrono>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <thread>
@@ -82,43 +84,13 @@ static int CookTextures( const std::string& InFolder )
 }
 
 
-// The game build next to this editor build (".build/Editor_Debug/Havana" ->
-// ".build/Game_<platform>_Debug/Game_EntryPoint_x64"), for recording scenes; empty when absent.
-static std::string FindGameExecutable( const char* InEditorPath )
-{
-    namespace fs = std::filesystem;
-    std::error_code error;
-    const fs::path editorDir = fs::absolute( InEditorPath, error ).parent_path();
-    const std::string config = editorDir.filename().string().find( "Release" ) != std::string::npos ? "Release" : "Debug";
-#if USING( ME_PLATFORM_WINDOWS )
-    const char* platform = "win64";
-    const char* executable = "Game_EntryPoint_x64.exe";
-#elif USING( ME_PLATFORM_MACOS )
-    const char* platform = "macos";
-    const char* executable = "Game_EntryPoint_x64";
-#else
-    const char* platform = "linux";
-    const char* executable = "Game_EntryPoint_x64";
-#endif
-    for( const std::string& candidate : { config, std::string( config == "Debug" ? "Release" : "Debug" ) } )
-    {
-        const fs::path game = editorDir.parent_path() / ( std::string( "Game_" ) + platform + "_" + candidate ) / executable;
-        if( fs::is_regular_file( game, error ) )
-        {
-            return game.generic_string();
-        }
-    }
-    return std::string();
-}
-
-
 // --cook [--scene <lvl>]... [--deps <recording>]... [--out <dir>] [--platform linux|windows|macos]
 //        [--pak <file.mpak>] [--game <exe> | --no-record] [--record-frames <n>]
 // The dependency cooker (SHIP-2, Engine/Docs/Cooking.md) without opening the editor: cooks what
 // the scenes (default: the project's Build scenes) need into a tree that runs without sources.
 // Scenes are recorded through the game first (--record-deps) when a game build is found.
 // Returns non-zero if anything failed.
-static int CookProject( const char* InEditorPath )
+static int CookProject()
 {
     // The engine isn't initialized here, so the log has no verbosity yet: progress and errors.
     CLog::GetInstance().SetLogVerbosity( CLog::LogType::Info );
@@ -142,7 +114,7 @@ static int CookProject( const char* InEditorPath )
     }
     if( !CommandLine::Has( "--no-record" ) )
     {
-        request.GameExecutable = CommandLine::GetString( "--game", FindGameExecutable( InEditorPath ) );
+        request.GameExecutable = CommandLine::GetString( "--game", BuildGame::FindRecordingExecutable() );
         if( request.GameExecutable.empty() )
         {
             CLog::Log( CLog::LogType::Warning, "Cook: no game build found to record the scenes with (pass --game <exe>); assets only scripts load by name won't ship" );
@@ -150,6 +122,103 @@ static int CookProject( const char* InEditorPath )
     }
     const Cook::Report report = Cook::Run( request );
     return report.Success ? 0 : 1;
+}
+
+
+// --build-game [<profile> | --profile <file.json>] [--out <dir>] [--scene <lvl>]...
+//              [--configuration Retail|Release|Debug] [--no-compile] [--loose] [--archive]
+//              [--game <exe> | --no-record] [--cancel-file <file>] [--verbose]
+// Build Game (SHIP-3, Engine/Docs/Building.md) without opening the editor: a shippable build of
+// the project from a build profile (the named one, one written to a file, else the first in Project
+// Settings, else the defaults); the options override its settings. The build stops after its
+// current step once --cancel-file exists (the editor's Build Game window cancels this way). --verbose prints every line of compiler and tool
+// output (it always goes to .tmp/BuildGame/Staging/<profile>/Build.log). Returns non-zero on failure.
+static int BuildGameCommand()
+{
+    // The engine isn't initialized here, so the log has no verbosity yet: progress and errors.
+    CLog::GetInstance().SetLogVerbosity( CLog::LogType::Info );
+    ProjectSettings::Get().Load();
+
+    const std::string name = CommandLine::GetString( "--build-game" );
+    const std::string profileFile = CommandLine::GetString( "--profile" );
+    ProjectSettings::BuildProfile profile;
+    if( !profileFile.empty() )
+    {
+        if( !ProjectSettings::ReadBuildProfile( profileFile, profile ) )
+        {
+            CLog::Log( CLog::LogType::Error, "Build Game: couldn't read the build profile " + profileFile );
+            return 2;
+        }
+    }
+    else if( const ProjectSettings::BuildProfile* found = ProjectSettings::Get().FindBuildProfile( name ) )
+    {
+        profile = *found;
+    }
+    else if( !name.empty() )
+    {
+        CLog::Log( CLog::LogType::Error, "Build Game: no build profile named '" + name + "' in Project Settings" );
+        return 2;
+    }
+    std::vector<std::string> scenes;
+    const std::vector<std::string>& args = CommandLine::GetArgs();
+    for( size_t i = 0; i + 1 < args.size(); ++i )
+    {
+        if( args[i] == "--scene" ) scenes.push_back( args[i + 1] );
+    }
+    if( !scenes.empty() )
+    {
+        profile.Scenes = scenes;
+    }
+    profile.OutputDirectory = CommandLine::GetString( "--out", profile.OutputDirectory );
+    profile.Configuration = CommandLine::GetString( "--configuration", profile.Configuration );
+    profile.Pak = profile.Pak && !CommandLine::Has( "--loose" );
+    profile.Archive = profile.Archive || CommandLine::Has( "--archive" );
+
+    BuildGame::Request request;
+    request.Profile = profile;
+    request.Compile = !CommandLine::Has( "--no-compile" );
+    if( !CommandLine::Has( "--no-record" ) )
+    {
+        request.RecordExecutable = CommandLine::GetString( "--game", BuildGame::FindRecordingExecutable() );
+        if( request.RecordExecutable.empty() )
+        {
+            CLog::Log( CLog::LogType::Warning, "Build Game: no tools game build found to record the scenes with (pass --game <exe>)" );
+        }
+    }
+    if( CommandLine::Has( "--verbose" ) )
+    {
+        request.OnLine = []( const std::string& InLine ) {
+            std::printf( "%s\n", InLine.c_str() );
+            std::fflush( stdout );
+        };
+    }
+    // The cancel file is polled, so a build stops between steps without a signal (portable).
+    std::atomic<bool> cancel{ false };
+    std::atomic<bool> finished{ false };
+    std::thread cancelWatch;
+    const std::string cancelFile = CommandLine::GetString( "--cancel-file" );
+    if( !cancelFile.empty() )
+    {
+        request.Cancel = &cancel;
+        cancelWatch = std::thread( [&cancel, &finished, cancelFile]() {
+            while( !finished.load() )
+            {
+                std::error_code error;
+                if( std::filesystem::exists( cancelFile, error ) )
+                {
+                    cancel = true;
+                }
+                std::this_thread::sleep_for( std::chrono::milliseconds( 200 ) );
+            }
+        } );
+    }
+    const bool success = BuildGame::Run( request ).Success;
+    finished = true;
+    if( cancelWatch.joinable() )
+    {
+        cancelWatch.join();
+    }
+    return success ? 0 : 1;
 }
 
 
@@ -162,7 +231,11 @@ int main( int argc, char** argv )
     }
     if( CommandLine::Has( "--cook" ) )
     {
-        return CookProject( argv[0] );
+        return CookProject();
+    }
+    if( CommandLine::Has( "--build-game" ) )
+    {
+        return BuildGameCommand();
     }
 
     if( CommandLine::Has( "--capture-startup" ) )

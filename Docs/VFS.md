@@ -122,7 +122,10 @@ Dependency-aware packing is the cooker's job: `Havana --cook --pak <file>` packs
 the scenes need, sources stripped (`Cooking.md`); `pack-assets` stays for packing named roots
 wholesale. A cooked tree or pak carries `AssetRegistry.json`, and `Engine::Init` loads it right
 after the `--pak` mount (`CookedAssets`): a stat-only mount at priority -1000 answers that the
-stripped sources exist, without serving bytes. `VFS::Unmount( source )` drops one mount.
+stripped sources exist, without serving bytes. Without `--pak`, a `Game.mpak` beside the
+executable mounts the same way (`CookedAssets::kShippedPak`): that is how a Build Game output
+serves its content from any working directory (`Building.md`). `VFS::Unmount( source )` drops one
+mount.
 
 ## Roadmap
 

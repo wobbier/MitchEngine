@@ -15,6 +15,11 @@ public:
     bool Init( const std::string& inRuntimeConfigPath, const std::string& inDotnetRoot = std::string() );
     void Shutdown();
 
+    // The .NET install this machine's own lookup picks (DOTNET_ROOT, then the OS default
+    // locations): the directory holding host/fxr and shared/. Empty when there is none. Build Game
+    // copies the runtime from here.
+    static std::string FindSystemDotnetRoot();
+
     // get [UnmanagedCallersOnly] function pointer.
     // inTypeName - "Namespace.Class, AssemblyName"
     bool LoadFunction( const std::string& inAssemblyPath,

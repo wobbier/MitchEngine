@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Packages a Linux build folder into a relocatable tar.gz (the usual way to
-# ship a Linux game outside a store: binary + assets + bundled libs + launcher).
+# Packages a Linux build folder into a relocatable tar.gz (binary + bundled
+# libs + launcher). Games ship with Build Game instead (`Havana --build-game`,
+# Docs/Building.md: cooked pak, app-local .NET, launcher); this script stays for
+# the engine CI's editor artifacts until SHIP-7 (ME-264).
 #
 # Usage (from the project root, inside `nix develop` so ldd can resolve libs):
 #   Engine/Tools/PackageLinuxBuild.sh <BuildFolder> <Binary> [Output.tar.gz]
