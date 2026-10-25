@@ -24,6 +24,10 @@ Engine/Tools/BuildProject.sh Game_EntryPoint game_linux_release
 Engine/Tools/NixEnv.sh ./.build/Editor_Debug/Havana
 ```
 
+The same solution builds the `Player` target, the game runtime with no game module that runs
+C#-only projects (`Havana --project <folder>` and `Player --project <folder>` open any project;
+see [Projects](Projects.md)).
+
 `BuildProject.sh` takes a target, configuration, and optional extra make
 arguments. It reads the generated solution name from `Project/Game.meproj`.
 `MITCH_BUILD_JOBS` overrides the default `nproc` job count.

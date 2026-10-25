@@ -146,6 +146,10 @@ A searchable project-wide table is the default: type icon, name, local path and 
 - **Build Assets** (toolbar; *Cook All Textures, Models & Shaders* in the context menu) cooks every texture, model and shader whose cooked twin is missing or stale, for this platform (`Cook::CookInPlace`).
 - `AssetsChangedEvent` from the asset watcher refreshes it.
 
+### Projects: `--project`
+
+`Havana --project <folder>` opens that project (a folder with `Project/Game.meproj`, or the file itself) instead of the working directory; every mode below works on it. **File > Open Project...** browses to another project and reopens the editor on it (after the unsaved-changes prompt), and a project's first open lands on its startup scene. C#-only projects run on the editor's own engine. See `Docs/Projects.md`.
+
 ### Cooking: `--cook`
 
 `Havana --cook --scene <lvl> --out <dir>` runs the dependency cooker without opening the editor and exits non-zero on failure. It writes a cooked tree (`--pak` also packs it) that the game runs without sources. `Havana --cook-textures [folder]` cooks only textures, on every core. See `Docs/Cooking.md`. `Havana --build-game [profile]` makes a shippable build the same way (`Docs/Building.md`).
@@ -186,6 +190,7 @@ The script runs one command per frame after a short warm-up and logs `[editor-ex
 | `create-prefab Entity | path`, `instantiate path`, `prefab-apply/-revert/-unpack Entity` | Prefab workflow |
 | `play`, `stop`, `load path`, `save-as path`, `show-assets folder`, `show-window Title` (opens a panel), `focus-window name`, `screenshot path`, `quit` | Editor state |
 | `preference Key | <json>` | Set an editor preference for this run (never saved by unattended runs); `Appearance.*` keys re-apply the theme, e.g. `preference Appearance.FontSize | 28` or `preference Appearance.Theme | "Light"` |
+| `open-project <folder>` | File > Open Project for that folder; an unattended run logs the reopen command instead of starting another editor (`Tests/Samples/ScriptOnly/ScriptOnlyFlows.edscript`) |
 | `build-game <profile json> [| no-compile no-record]`, `build-game-wait` | Build the profile in the Build Game window (shown, not saved) / hold until its build ends, failing unless it succeeded and wrote `BuildInfo.json` (`BuildGameFlows.edscript`) |
 | `pack-assets out.mpak | root,root` | Write an `.mpak` of what the VFS serves under each logical root (all of `Assets` when the list is omitted); game runs mount it with `--pak` (see `VFS.md`) |
 | `mark-count`, `assert-count N`, `assert-count-delta N`, `wait-count-stable frames | timeout` | Entity counts; the wait holds until the count is unchanged for that many consecutive frames (settles async scene population before a `mark-count`), failing at the timeout |

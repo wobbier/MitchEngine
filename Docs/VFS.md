@@ -12,7 +12,9 @@ A mount is `{ prefix, source, priority, writable, display prefix }`:
 
 - **Prefix** — the logical namespace it serves: `""` for the overlay roots, `user://` for
   per-user state. Scheme-shaped prefixes (`name://`) match exactly; `""` serves every
-  scheme-less path.
+  scheme-less path. A folder prefix ending in `/` (`VFS::kEnginePrefix`, `"Engine/"`) serves
+  only the scheme-less paths spelled under it, relative to the folder, alongside the `""`
+  mounts in priority order.
 - **Source** — an `IMountSource`: `DirectoryMount` (a directory on disk) or `PakMount`
   (one `.mpak`, read-only; VFS-3). Memory sources follow behind the same interface.
 - **Priority** — higher wins. Mounts sharing a prefix overlay each other: resolution walks
@@ -26,9 +28,19 @@ The defaults reproduce the historical two-root resolver and are installed lazily
 
 | Prefix | Source | Priority | Notes |
 |---|---|---|---|
+| `Engine/` | `<engine>` | 101 | Only when the engine isn't `<cwd>/Engine`; see below |
 | `""` | `<cwd>` (the game root) | 100 | Writable; where misses land |
-| `""` | `<cwd>/Engine` | 0 | The engine fallback; displays as `Engine/...` |
+| `""` | `<engine>`, normally `<cwd>/Engine` | 0 | The engine fallback; displays as `Engine/...` |
 | `user://` | `<cwd>/.tmp/User` | 0 | Dev default; see below |
+
+`VFS::SetDefaultRoots( game, engine )` points them elsewhere and reinstalls them (`GetGameRoot`
+and `GetEngineRoot` report them). `Project::InitFromCommandLine` calls it at startup with the
+project and its engine (`Docs/Projects.md`). When the engine sits outside the project, as for a
+C#-only project running on the editor's engine, the `Engine/` mount makes `Engine/...` spellings
+(engine shaders, tools, `Engine/Assets/...` references) resolve to the engine's own files, the
+way the project's `Engine/` subfolder serves them otherwise. It sits above the game root so
+primary-only lookups (`Path`'s Raw flag) find it first. Reads through it are recorded in their
+overlay spelling (`Assets/...`), and writes to `Engine/...` land in the engine.
 
 The mount table is an immutable snapshot swapped under a lock; `Resolve` copies the
 snapshot pointer and walks it lock-free, so a remount never races loader threads mid-resolve.

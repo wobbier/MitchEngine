@@ -1,0 +1,28 @@
+# C#-only project regression (SHIP-4), run on a copy of Engine/Samples/ScriptOnly outside any checkout,
+# with a second copy named Other beside it (RunChecks' "C#-only project" step does both):
+#   Havana --project <copy> --editor-exec Engine/Tests/Samples/ScriptOnly/ScriptOnlyFlows.edscript
+# The project has no C++ and no Engine/ of its own: the editor's engine serves it, and the editor
+# builds its scripts into <copy>/.tmp/Scripts/Havana-Debug.
+wait-log Project: | 60
+wait 20
+
+# A first open (no editor prefs yet) lands on the project's startup scene; scripts load but idle
+assert-exists Ball
+assert-field Spinner | Transform.Position | [0.0, 1.2, 0.0]
+wait 30
+assert-field Spinner | Transform.Position | [0.0, 1.2, 0.0]
+
+# Play: the C# script spins and bobs the cube
+play
+wait-log Spinner started on Spinner | 600
+wait 60
+assert-playing 1
+assert-field Spinner | Transform.Position.1 | != 1.2
+assert-field Spinner | Transform.Rotation | != [0.0, 0.0, 0.0, 1.0]
+stop
+assert-field Spinner | Transform.Position | [0.0, 1.2, 0.0]
+
+# File > Open Project: the sibling project would reopen the editor (logged; automation never relaunches)
+open-project ../Other
+wait-log Open Project: would reopen the editor with | 60
+wait-log --project | 60

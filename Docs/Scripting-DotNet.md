@@ -8,7 +8,7 @@ Game scripts are C# classes implementing `IGameScript` (usually through the `Scr
 
 The feature-flag chain is `DEFINE_ME_DOTNET` (set by Sharpmake **only when the .NET host directory exists**; see `Docs/Build-System.md`) → `ME_DOTNET` → `ME_SCRIPTING`.
 
-The engine owns scripting the way it owns physics and audio: `Engine::Scripts` is a `ScriptCore` created at startup, added to every world (not saved into scenes), and ticked from the main loop. Its constructor calls `ScriptEngine::Init()`. That builds the scripts if needed, starts .NET, loads `ScriptCore.dll` and `Game.Script.dll` from the executable's directory, and fills the API table.
+The engine owns scripting the way it owns physics and audio: `Engine::Scripts` is a `ScriptCore` created at startup, added to every world (not saved into scenes), and ticked from the main loop. Its constructor calls `ScriptEngine::Init()`. That builds the scripts if needed, starts .NET, loads `ScriptCore.dll` and `Game.Script.dll` from `ScriptEngine::GetAssemblyDirectory()` (next to the executable, or inside the project for a shared editor or Player, see below), and fills the API table.
 
 ## Key Files
 
@@ -22,7 +22,7 @@ The engine owns scripting the way it owns physics and audio: `Engine::Scripts` i
 | `Modules/ScriptCore/Source/Generated/EngineAPIBindings.g.cs` | Generated C# `struct EngineAPIBindings` (`delegate* unmanaged<>` members) |
 | `Source/Scripting/Bindings/` (`Entity`, `ImGui`, `Components/`, `Systems/`) | `Register_*Bindings( ScriptEngineAPI& )` implementations; `Systems/Gameplay.bindings.cpp` holds time, lifecycle, world-space transforms, scenes, input actions, audio, physics and debug draw |
 | `Source/Scripting/Bindings/BindingContext.h` / `.cpp` | Script-world pointer + name-keyed component ops (`RegisterComponent<T>`) |
-| `Source/Scripting/ScriptCore.runtimeconfig.json` | Runtime config (net8.0) handed to hostfxr: looked up next to the executable first (`ScriptCore.csproj` copies it into the script build's output, so a cooked tree runs scripts from any directory), then the working directory, then this path |
+| `Source/Scripting/ScriptCore.runtimeconfig.json` | Runtime config (net8.0) handed to hostfxr: looked up beside the assemblies first (`ScriptCore.csproj` copies it into the script build's output, so a cooked tree runs scripts from any directory), then next to the executable, then the working directory, then this path in the engine |
 | `Source/Cores/Scripting/ScriptCore.cpp` | The engine-owned core: start, fixed update, update, destroy |
 | `Source/Components/Scripting/ScriptComponent.h` / `.cpp` | Script name, handle, started flag, saved-fields JSON, inspector |
 | `Modules/ScriptCore/ScriptCore.csproj` | SDK-style project for command-line builds |
@@ -50,12 +50,14 @@ On Windows, Sharpmake generates the `ScriptCore` and `UserGameScript` C# project
 Sharpmake can't generate C# projects elsewhere, so **the engine builds them itself**. `ScriptEngine::BuildScripts` runs:
 
 ```
-dotnet build "Project/Game.Script.csproj" -c Debug|Release -o "<exe dir>" --artifacts-path .tmp/dotnet --nologo -v q
+dotnet build "Project/Game.Script.csproj" -c Debug|Release -o "<assembly dir>" -p:MitchEngineDir="<engine>/" --artifacts-path .tmp/dotnet --nologo -v q
 ```
 
-That builds `ScriptCore.csproj` through the project reference and drops both DLLs next to the executable. `bin/` and `obj/` stay under `.tmp/dotnet`, out of the tree.
+That builds `ScriptCore.csproj` through the project reference and drops both DLLs in the assembly directory. `bin/` and `obj/` stay under `.tmp/dotnet`, out of the tree. `MitchEngineDir` is where the script project finds `ScriptCore.csproj` and the generator targets; it defaults to the project's `Engine/`, and the engine always passes its own root (`Project::GetEngineRoot`).
 
-Tools builds (editor, `ME_TOOLS`) run it at `Init` when `NeedsBuild()` finds `Game.Script.dll` missing or older than any `.cs`/`.csproj` under `Assets/`, `Engine/Modules/ScriptCore/Source` or the two project files. Game builds only load what is there, so ship the DLLs with the executable.
+The **assembly directory** (`ScriptEngine::GetAssemblyDirectory`) is next to the executable, which is where a project's own builds (`<project>/.build/<config>/`) and shipped builds keep them. A *shared* executable, one built outside the project (another checkout's editor or the Player running a C#-only project, `Docs/Projects.md`), builds into `<project>/.tmp/Scripts/<Executable>-<Debug|Release>/` instead, one folder per executable so the editor and the Player can run the project at once. That folder's `Engine.stamp` names the engine it was built against, and another engine rebuilds it. When the engine isn't the project's `Engine/`, the build also writes `.tmp/MitchEngine.props`, which the script project imports so IDEs resolve `ScriptCore` too.
+
+Tools builds (editor, `ME_TOOLS`) run it at `Init` when `NeedsBuild()` finds `Game.Script.dll` missing or older than any `.cs`/`.csproj` under `Assets/`, the engine's `Modules/ScriptCore/Source` or the two project files. Game builds only load what is there, so ship the DLLs with the executable.
 
 You can also build by hand from the game repo root with the same command.
 
@@ -69,8 +71,8 @@ sequenceDiagram
     participant CS as ScriptCore.dll (C#, "ScriptBridge")
     participant G as Game.Script.dll
     E->>SE: new ScriptCore() → Init()
-    SE->>SE: tools: NeedsBuild()? → dotnet build into the exe dir
-    SE->>H: Init(runtimeconfig) (exe dir via SDL_GetBasePath)
+    SE->>SE: tools: NeedsBuild()? → dotnet build into the assembly dir
+    SE->>H: Init(runtimeconfig) (found beside the assemblies)
     H-->>SE: load_assembly_and_get_function_pointer
     SE->>CS: LoadFunction ×14 (LoadGameAssembly, ReloadGameAssembly,<br/>SetEngineAPI, CreateScript, ScriptOn*, Get/SetFieldsJson,<br/>IsHandleAlive, GetScriptCount/Name)
     SE->>SE: fill ScriptEngineAPI (Register_*Bindings);<br/>a null slot aborts init
@@ -210,7 +212,7 @@ Tests: `Modules/ScriptCore/Generators.Tests/` (xunit, run by RunChecks and CI wi
 - **Script lookup is `Type.Name`**: two scripts with the same class name in different namespaces clash.
 - **Renames need `[FormerName]`.** A scene names its scripts by class name and their fields by field name. Renaming a script file in the asset browser renames its class and adds the `[FormerName]` itself when a scene or prefab still names the old class; renames made elsewhere need it by hand. Put `[FormerName("OldClass")]` on a renamed script class: scenes that name the old class create the new one, and `ScriptComponent` adopts the new name (logged) so the next save writes it. `[FormerName("oldField")]` on a field reads a value saved under the old key. `ScriptTest.lvl` / `RenameProbe.cs` exercise both in `ScriptFlows`.
 - **Handles are bare ints.** They stay stable across reloads, and `IsHandleAlive` validates them, but there is no generation counter.
-- **Game builds don't compile scripts.** The DLLs must already sit next to the executable, or scripting logs a warning and stays off.
+- **Game builds don't compile scripts.** The DLLs must already sit in the assembly directory, or scripting logs a warning and stays off.
 - **The .NET SDK must be on `PATH`** for tools builds to compile. Without it the existing DLLs are used as-is.
 - **All script calls are synchronous on the main thread.** A slow `OnUpdate` is a frame hitch; there is no sandboxing or time budget.
 - **Field access by name goes through JSON.** It reaches every component, but a typed wrapper (like `Rigidbody`) is faster for per-frame use. Wrong names return the fallback or `false`, not an error.

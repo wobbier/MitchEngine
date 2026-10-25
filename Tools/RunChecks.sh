@@ -6,7 +6,9 @@
 #   4. compares the showcase scenes with their reference screenshots (Tools/ScreenshotRegression.py);
 #   5. cooks two showcases (Havana --cook) and compares the game on the cooked tree and its pak;
 #   6. builds them as a shippable Retail game (Havana --build-game) and compares that, run from
-#      outside the repo without a .NET install.
+#      outside the repo without a .NET install;
+#   7. opens the C#-only sample project (Samples/ScriptOnly), copied out of the repo, in the editor
+#      and runs it in the Player, both on this checkout's engine with no C++ build.
 # GUI runs go through Tools/Headless.sh (a private virtual display with software Vulkan), so nothing
 # opens on your desktop and nothing plays through your speakers.
 #
@@ -33,7 +35,7 @@ step() { echo; echo "== $1"; }
 
 if [[ $build -eq 1 ]]; then
     step "Build"
-    for target in "Havana config=editor_debug" "Game_EntryPoint config=game_linux_debug" "MitchEngine_Tests config=game_linux_debug"; do
+    for target in "Havana config=editor_debug" "Game_EntryPoint config=game_linux_debug" "Player config=game_linux_debug" "MitchEngine_Tests config=game_linux_debug"; do
         # shellcheck disable=SC2086
         if ! make -f MitchGame.make $target -j"$(nproc)" > ".tmp/RunChecks.build.log" 2>&1; then
             grep -E "error" ".tmp/RunChecks.build.log" | head -20
@@ -140,6 +142,33 @@ if [[ -f "${cook_scenes[0]}" && -f "${cook_scenes[1]}" && -f $smoke_scene && -d 
         fi
         rm -rf "$shipped"
     fi
+fi
+
+# A C#-only project (SHIP-4): the engine's sample, copied out of the repo beside a second copy.
+# Neither has C++ or an Engine/ of its own; the editor and the Player run them on this checkout's
+# engine and build their scripts into the project. The editor flow plays the scripts and asks
+# File > Open Project for the sibling; the Player's capture must match the sample's reference.
+sample="$here/../Samples/ScriptOnly"
+sample_checks="$here/../Tests/Samples/ScriptOnly"
+if [[ -d $sample && -d $sample_checks/Reference ]]; then
+    step "C#-only project"
+    projects="$(mktemp -d)"
+    cp -a "$sample" "$projects/ScriptOnly" && cp -a "$sample" "$projects/Other"
+    if ! "$here/Headless.sh" ./.build/Editor_Debug/Havana --project "$projects/ScriptOnly" --editor-exec "$sample_checks/ScriptOnlyFlows.edscript" \
+            > .tmp/RunChecks.scriptonly.log 2>&1 || ! grep -q "\[editor-exec\] PASSED" .tmp/RunChecks.scriptonly.log; then
+        grep -E "editor-exec|Error" .tmp/RunChecks.scriptonly.log | tail -20
+        failed+=("C#-only project in the editor")
+    elif [[ ! -f $projects/ScriptOnly/.tmp/Scripts/Havana-Debug/Game.Script.dll ]]; then
+        echo "The editor didn't build the project's scripts into the project (see .tmp/RunChecks.scriptonly.log)"
+        failed+=("C#-only project scripts")
+    else
+        echo "ok    ScriptOnlyFlows (editor)"
+    fi
+    if ! python3 "$here/ScreenshotRegression.py" --game .build/Game_linux_Debug/Player --reference "$sample_checks/Reference" --wrapper "$here/Headless.sh" \
+            --out .tmp/ScreenshotRegression/ScriptOnly --cwd "$projects/ScriptOnly" Assets/Scenes/Main.lvl; then
+        failed+=("C#-only project in the Player")
+    fi
+    rm -rf "$projects"
 fi
 
 # Test scenes with a committed reference (UITest and friends) regress the same way.

@@ -1,0 +1,206 @@
+{
+    "Cores": [],
+    "Scene": [
+        {
+            "Name": "Main Camera",
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0,
+                        2.0,
+                        -6.0
+                    ],
+                    "Rotation": [
+                        12,
+                        0,
+                        0
+                    ],
+                    "Scale": [
+                        1,
+                        1,
+                        1
+                    ]
+                },
+                {
+                    "Type": "Camera",
+                    "ClearType": "Procedural",
+                    "ClearColor": [
+                        0.3,
+                        0.4,
+                        0.55
+                    ],
+                    "IsCurrent": true,
+                    "Near": 0.1,
+                    "Far": 200.0,
+                    "Zoom": 55.0
+                },
+                {
+                    "Type": "PostProcess",
+                    "AutoExposure": false,
+                    "ExposureCompensation": 0.2,
+                    "Bloom": true,
+                    "BloomIntensity": 0.1,
+                    "BloomThreshold": 1.0,
+                    "AmbientOcclusion": true,
+                    "AORadius": 0.5,
+                    "AOIntensity": 1.0,
+                    "VignetteIntensity": 0.3,
+                    "FXAA": true,
+                    "TemporalAA": false
+                }
+            ]
+        },
+        {
+            "Name": "Sun",
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0,
+                        10,
+                        -5
+                    ],
+                    "Rotation": [
+                        35,
+                        -40,
+                        0
+                    ],
+                    "Scale": [
+                        1,
+                        1,
+                        1
+                    ]
+                },
+                {
+                    "Type": "Light",
+                    "LightType": "Directional",
+                    "Color": [
+                        1,
+                        0.95,
+                        0.88
+                    ],
+                    "Intensity": 3.0,
+                    "CastShadows": true,
+                    "ShadowDistance": 30.0
+                }
+            ]
+        },
+        {
+            "Name": "Ground",
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "Rotation": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "Scale": [
+                        60,
+                        1,
+                        60
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Plane",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.45,
+                            0.47,
+                            0.42
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.8
+                    }
+                }
+            ]
+        },
+        {
+            "Name": "Spinner",
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0,
+                        1.2,
+                        0
+                    ],
+                    "Rotation": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "Scale": [
+                        0.5,
+                        0.5,
+                        0.5
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.95,
+                            0.55,
+                            0.15
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.45
+                    }
+                },
+                {
+                    "Type": "ScriptComponent",
+                    "ScriptName": "Spinner",
+                    "ScriptFields": "{\"DegreesPerSecond\": 30.0, \"BobHeight\": 0.25}"
+                }
+            ]
+        },
+        {
+            "Name": "Ball",
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        -1.8,
+                        0.4,
+                        0.8
+                    ],
+                    "Rotation": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "Scale": [
+                        0.4,
+                        0.4,
+                        0.4
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Sphere",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.25,
+                            0.55,
+                            0.95
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.3
+                    }
+                }
+            ]
+        }
+    ]
+}
