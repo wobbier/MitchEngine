@@ -7,6 +7,7 @@ using Sharpmake;
 [module: Sharpmake.Include("Modules/ImGui/ImGui.sharpmake.cs")]
 [module: Sharpmake.Include("Modules/Moonlight/Moonlight.sharpmake.cs")]
 [module: Sharpmake.Include("Modules/Havana/Havana.sharpmake.cs")]
+[module: Sharpmake.Include("Modules/Player/Player.sharpmake.cs")]
 [module: Sharpmake.Include("Modules/ScriptCore/ScriptCore.sharpmake.cs")]
 [module: Sharpmake.Include("Tests/Tests.sharpmake.cs")]
 [module: Sharpmake.Include("Tools/BaseProject.sharpmake.cs")]
@@ -26,7 +27,6 @@ public abstract class BaseGameProject : BaseProject
         : base()
     {
         SourceRootPath = @"Game/Source";
-        SourceFiles.Add(@"[project.SharpmakeCsPath]/Assets/Scripts/TestScript.cs");
     }
 
     public override void ConfigureAll(Project.Configuration conf, CommonTarget target)
@@ -453,6 +453,11 @@ public class BaseGameSolution : Solution
             {
                 conf.AddProject<EntryPointGameProjectUWP>(target);
             }
+            else
+            {
+                // The generic runtime for C#-only projects (Docs/Projects.md).
+                conf.AddProject<PlayerProject>(target);
+            }
             {
                 conf.AddProject<EntryPointGameProject>(target);
             }
@@ -469,13 +474,31 @@ public class BaseGameSolution : Solution
             conf.AddProject<EngineTests>(target);
         }
 
-        // #TODO (mitch): Make this actual C# JSON shit, and make it not stop current configs.
-        //if (!File.Exists(Globals.RootDir + "Project/Game.meproj"))
-        {
-            // #TODO (mitch): wtf how TF do you write JSON inline with quotes?? perhaps have a C# serializable class?
-            File.WriteAllText(Globals.RootDir + "Project/Game.meproj", "{\"ProjectName\":\"" + Name + "\"}");
-        }
+        WriteProjectFile(Globals.RootDir + "Project/Game.meproj", Name);
     }
+
+    // Project/Game.meproj names the solution (BuildProject.sh, Build Game and the editor read it).
+    // Generation creates it or renames the project in it, leaving every other key alone.
+    private static void WriteProjectFile(string path, string projectName)
+    {
+        string nameEntry = "\"ProjectName\":\"" + projectName + "\"";
+        string text = File.Exists(path) ? File.ReadAllText(path) : string.Empty;
+        int open = text.IndexOf('{');
+        if (open < 0)
+        {
+            File.WriteAllText(path, "{" + nameEntry + "}");
+            return;
+        }
+        var entry = new System.Text.RegularExpressions.Regex("\"ProjectName\"\\s*:\\s*\"([^\"]*)\"");
+        var match = entry.Match(text);
+        if (match.Success && match.Groups[1].Value == projectName)
+        {
+            return;
+        }
+        bool empty = text.Substring(open + 1).Trim().StartsWith("}");
+        File.WriteAllText(path, match.Success ? entry.Replace(text, nameEntry, 1) : text.Insert(open + 1, nameEntry + (empty ? "" : ",")));
+    }
+
     private static bool s_reportedFeatures = false;
 
     // Optional features follow which SDKs exist at generation time and silently compile out when one
