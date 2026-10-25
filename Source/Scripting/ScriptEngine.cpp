@@ -8,13 +8,16 @@
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
+#include <fstream>
 #include <mutex>
 #include <regex>
 #include <set>
 #include <sstream>
 #include <thread>
-#include <SDL_filesystem.h>
 #include "CLog.h"
+#include "Core/CommandLine.h"
+#include "Engine/Project.h"
+#include "VFS/VFS.h"
 #include "Generated/ScriptEngineAPI.generated.h"
 
 // per-domain binding registrars
@@ -209,22 +212,34 @@ namespace
     std::mutex gBuildMutex;
     std::string gBuildLog;
 
-    // Assemblies live next to the executable (the C# projects build into .build/<config>/).
-    std::string ExecutableDirectory()
+    const char* BuildConfiguration()
     {
-        std::string directory;
-        if( char* base = SDL_GetBasePath() )
-        {
-            directory = base;
-            SDL_free( base );
-        }
-        return directory;
+#if USING( ME_DEBUG )
+        return "Debug";
+#else
+        return "Release";
+#endif
     }
 
 
-    std::string FindRuntimeConfig( const std::string& InExeDir )
+    // The running executable's name ("Havana", "Player").
+    std::string ExecutableStem()
     {
-        for( const std::string& candidate : { InExeDir + "ScriptCore.runtimeconfig.json", std::string( "ScriptCore.runtimeconfig.json" ), std::string( "Engine/Source/Scripting/ScriptCore.runtimeconfig.json" ) } )
+        const std::vector<std::string>& args = CommandLine::GetArgs();
+        const std::string stem = args.empty() ? std::string() : fs::path( args[0] ).stem().string();
+        return stem.empty() ? std::string( "Game" ) : stem;
+    }
+
+
+    // A shared executable's script folder records the engine it built against, so a project opened
+    // by another checkout's editor rebuilds instead of loading a ScriptCore it can't talk to.
+    constexpr const char* kEngineStamp = "Engine.stamp";
+
+
+    std::string FindRuntimeConfig( const std::string& InAssemblyDir )
+    {
+        for( const std::string& candidate : { InAssemblyDir + "ScriptCore.runtimeconfig.json", Project::GetExecutableDirectory() + "ScriptCore.runtimeconfig.json",
+                                              std::string( "ScriptCore.runtimeconfig.json" ), Project::GetEngineRoot() + "/Source/Scripting/ScriptCore.runtimeconfig.json" } )
         {
             std::error_code error;
             if( fs::exists( candidate, error ) )
@@ -262,9 +277,26 @@ namespace
 
     const std::vector<std::string>& ScriptSources()
     {
-        static const std::vector<std::string> sources = { "Assets", "Engine/Modules/ScriptCore/Source", ScriptEngine::kScriptProject, "Engine/Modules/ScriptCore/ScriptCore.csproj" };
+        static const std::vector<std::string> sources = { "Assets", Project::GetEngineRoot() + "/Modules/ScriptCore/Source", ScriptEngine::kScriptProject, Project::GetEngineRoot() + "/Modules/ScriptCore/ScriptCore.csproj" };
         return sources;
     }
+}
+
+
+std::string ScriptEngine::GetAssemblyDirectory()
+{
+#if USING( ME_TOOLS )
+    // A shared editor or Player (another checkout's build, an install) builds each project's
+    // scripts into the project, so projects never overwrite each other's assemblies.
+    std::error_code error;
+    if( fs::exists( kScriptProject, error ) && !Project::IsExecutableInProject() )
+    {
+        // A folder per executable and configuration, since the editor and the Player can run the
+        // project at once (as a project's own builds do from their .build/<config>/ folders).
+        return Project::GetRoot() + "/.tmp/Scripts/" + ExecutableStem() + "-" + BuildConfiguration() + "/";
+    }
+#endif
+    return Project::GetExecutableDirectory();
 }
 
 
@@ -275,10 +307,19 @@ bool ScriptEngine::NeedsBuild()
     {
         return false;   // no command-line project (Visual Studio builds the assemblies)
     }
-    const fs::path gameDll = ExecutableDirectory() + "Game.Script.dll";
+    const std::string assemblyDir = GetAssemblyDirectory();
+    const fs::path gameDll = assemblyDir + "Game.Script.dll";
     if( !fs::exists( gameDll, error ) )
     {
         return true;
+    }
+    if( assemblyDir != Project::GetExecutableDirectory() )
+    {
+        std::string stamp;
+        if( !VFS::Get().ReadText( Path( assemblyDir + kEngineStamp, true ), stamp ) || stamp != Project::GetEngineRoot() )
+        {
+            return true;
+        }
     }
     return NewestSource( ScriptSources() ) > fs::last_write_time( gameDll, error );
 }
@@ -292,18 +333,24 @@ bool ScriptEngine::BuildScripts( std::string* OutLog )
     {
         return false;
     }
-    std::string exeDir = ExecutableDirectory();
-    if( !exeDir.empty() && ( exeDir.back() == '/' || exeDir.back() == '\\' ) )
+    std::string outputDir = GetAssemblyDirectory();
+    if( !outputDir.empty() && ( outputDir.back() == '/' || outputDir.back() == '\\' ) )
     {
-        exeDir.pop_back();
+        outputDir.pop_back();
     }
-#if USING( ME_DEBUG )
-    const char* configuration = "Debug";
-#else
-    const char* configuration = "Release";
-#endif
+    // The script project finds ScriptCore through MitchEngineDir (default: the project's Engine/).
+    // An engine outside the project is passed in, and written where IDEs pick it up too.
+    const std::string engineDir = Project::GetEngineRoot() + "/";
+    if( !Project::HasEmbeddedEngine() )
+    {
+        fs::create_directories( ".tmp", error );
+        std::ofstream props( ".tmp/MitchEngine.props", std::ios::trunc );
+        props << "<Project>\n  <!-- Written by the engine: the engine this project builds its scripts against. -->\n"
+              << "  <PropertyGroup>\n    <MitchEngineDir>" << engineDir << "</MitchEngineDir>\n  </PropertyGroup>\n</Project>\n";
+    }
     // --artifacts-path keeps bin/obj out of the source tree.
-    const std::string command = std::string( "dotnet build \"" ) + kScriptProject + "\" -c " + configuration + " -o \"" + exeDir + "\" --artifacts-path .tmp/dotnet --nologo -v q -clp:NoSummary 2>&1";
+    const std::string command = std::string( "dotnet build \"" ) + kScriptProject + "\" -c " + BuildConfiguration() + " -o \"" + outputDir + "\" -p:MitchEngineDir=\"" + engineDir
+        + "\" --artifacts-path .tmp/dotnet --nologo -v q -clp:NoSummary 2>&1";
     std::string output;
 #if USING( ME_PLATFORM_WINDOWS )
     FILE* pipe = _popen( command.c_str(), "r" );
@@ -332,6 +379,10 @@ bool ScriptEngine::BuildScripts( std::string* OutLog )
     {
         *OutLog = output;
     }
+    if( status == 0 && outputDir + "/" != Project::GetExecutableDirectory() )
+    {
+        std::ofstream( outputDir + "/" + kEngineStamp, std::ios::trunc ) << Project::GetEngineRoot();
+    }
     return status == 0;
 #else
     return false;
@@ -349,9 +400,10 @@ static int StartRuntime()
         return 0;
     }
 
-    const std::string exeDir = ExecutableDirectory();
-    const std::string coreDll = exeDir + "ScriptCore.dll";
-    gGameDll = exeDir + "Game.Script.dll";
+    const std::string exeDir = Project::GetExecutableDirectory();
+    const std::string assemblyDir = ScriptEngine::GetAssemblyDirectory();
+    const std::string coreDll = assemblyDir + "ScriptCore.dll";
+    gGameDll = assemblyDir + "Game.Script.dll";
 
 #if USING( ME_TOOLS )
     // Tools builds compile the scripts when they're missing or older than their sources.
@@ -369,7 +421,7 @@ static int StartRuntime()
     std::error_code error;
     if( !fs::exists( coreDll, error ) || !fs::exists( gGameDll, error ) )
     {
-        BRUH( "Scripts: no ScriptCore.dll / Game.Script.dll next to the executable; scripting is off" );
+        BRUH( "Scripts: no ScriptCore.dll / Game.Script.dll in " + assemblyDir + "; scripting is off" );
         return 1;
     }
 
@@ -380,7 +432,7 @@ static int StartRuntime()
     {
         dotnetRoot.clear();
     }
-    if( !gScriptHost.Init( FindRuntimeConfig( exeDir ), dotnetRoot ) )
+    if( !gScriptHost.Init( FindRuntimeConfig( assemblyDir ), dotnetRoot ) )
     {
         YIKES( "failed to init .NET runtime, scripting is dead" );
         return 1;

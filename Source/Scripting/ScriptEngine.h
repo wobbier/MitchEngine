@@ -18,10 +18,14 @@ public:
     // The command-line project of the game's scripts (references ScriptCore.csproj).
     static constexpr const char* kScriptProject = "Project/Game.Script.csproj";
 
-    // Starts .NET and loads ScriptCore + Game.Script from the executable's directory; tools builds
+    // Starts .NET and loads ScriptCore + Game.Script from GetAssemblyDirectory(); tools builds
     // first rebuild them when their sources changed. Returns 0 on success. The start runs once:
     // later calls return its result, waiting for a StartInitAsync still under way.
     static int Init();
+    // Where the script assemblies live, with a trailing slash: next to the executable (shipped
+    // builds, and a project's own builds in <project>/.build/<config>/), or for a shared editor or
+    // Player running a project with a script project, <project>/.tmp/Scripts/<Executable>-<Debug|Release>/.
+    static std::string GetAssemblyDirectory();
     // Runs the start on a worker thread, so .NET comes up while the window and renderer are created.
     static void StartInitAsync();
     static bool IsAvailable();
@@ -42,7 +46,7 @@ public:
     static std::vector<BuildDiagnostic> ParseBuildDiagnostics( const std::string& InOutput, const std::string& InRoot );
     static void Shutdown();
 
-    // dotnet build of kScriptProject into the executable's directory (tools builds).
+    // dotnet build of kScriptProject into GetAssemblyDirectory() (tools builds).
     static bool NeedsBuild();
     static bool BuildScripts( std::string* OutLog = nullptr );
     // Hot reload: RequestReload rebuilds on a worker thread; PollReload (every frame, main thread)
