@@ -217,4 +217,17 @@ struct ScriptEngineAPI
 
     // Entity lookup by scene GUID (the 16-hex string scenes and EntityRef fields store)
     bool ( *World_FindByGuid )( const uint8_t* guid, EntityID* outId );
+
+    // RmlUi data models (UI-3): script-owned view models for data-model documents. Values live
+
+    // engine-side, so they survive C# hot reloads; documents referencing a model reload when it
+
+    // first materializes. Events queue per model; scripts drain them each update.
+    bool ( *UIModel_Ensure )( const uint8_t* model );
+    void ( *UIModel_SetNumber )( const uint8_t* model, const uint8_t* key, double value );
+    void ( *UIModel_SetString )( const uint8_t* model, const uint8_t* key, const uint8_t* value );
+    void ( *UIModel_RegisterEvent )( const uint8_t* model, const uint8_t* key );
+    double ( *UIModel_GetNumber )( const uint8_t* model, const uint8_t* key );
+    int ( *UIModel_GetString )( const uint8_t* model, const uint8_t* key, uint8_t* outValue, int size );
+    int ( *UIModel_PollEvent )( const uint8_t* model, uint8_t* outName, int size );
 };

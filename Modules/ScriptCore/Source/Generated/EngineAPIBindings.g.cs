@@ -206,4 +206,17 @@ public unsafe struct EngineAPIBindings
 
     // Entity lookup by scene GUID (the 16-hex string scenes and EntityRef fields store)
     public delegate* unmanaged<byte*, Entity*, byte> World_FindByGuid;
+
+    // RmlUi data models (UI-3): script-owned view models for data-model documents. Values live
+
+    // engine-side, so they survive C# hot reloads; documents referencing a model reload when it
+
+    // first materializes. Events queue per model; scripts drain them each update.
+    public delegate* unmanaged<byte*, byte> UIModel_Ensure;
+    public delegate* unmanaged<byte*, byte*, double, void> UIModel_SetNumber;
+    public delegate* unmanaged<byte*, byte*, byte*, void> UIModel_SetString;
+    public delegate* unmanaged<byte*, byte*, void> UIModel_RegisterEvent;
+    public delegate* unmanaged<byte*, byte*, double> UIModel_GetNumber;
+    public delegate* unmanaged<byte*, byte*, byte*, int, int> UIModel_GetString;
+    public delegate* unmanaged<byte*, byte*, int, int> UIModel_PollEvent;
 }

@@ -436,6 +436,195 @@ void RmlUiCore::HotReload()
         INFO( "UI", "UI: reloaded " + std::to_string( reloadedDocuments ) + " document(s)" );
     }
 }
+
+
+// --- Script view models (UI-3) ------------------------------------------------------------------
+
+void RmlUiCore::ModelEnsure( const std::string& InModel )
+{
+    m_models[InModel];
+}
+
+
+void RmlUiCore::ModelSetNumber( const std::string& InModel, const std::string& InKey, double InValue )
+{
+    ModelValue& value = m_models[InModel].Values[InKey];
+    value.Number = InValue;
+    value.IsString = false;
+    value.Dirty = true;
+}
+
+
+void RmlUiCore::ModelSetString( const std::string& InModel, const std::string& InKey, const std::string& InValue )
+{
+    ModelValue& value = m_models[InModel].Values[InKey];
+    value.String = InValue;
+    value.IsString = true;
+    value.Dirty = true;
+}
+
+
+void RmlUiCore::ModelRegisterEvent( const std::string& InModel, const std::string& InKey )
+{
+    m_models[InModel].Events.emplace( InKey, false );
+}
+
+
+double RmlUiCore::ModelGetNumber( const std::string& InModel, const std::string& InKey ) const
+{
+    const auto model = m_models.find( InModel );
+    if( model == m_models.end() )
+    {
+        return 0.0;
+    }
+    const auto value = model->second.Values.find( InKey );
+    return value != model->second.Values.end() && !value->second.IsString ? value->second.Number : 0.0;
+}
+
+
+std::string RmlUiCore::ModelGetString( const std::string& InModel, const std::string& InKey ) const
+{
+    const auto model = m_models.find( InModel );
+    if( model == m_models.end() )
+    {
+        return {};
+    }
+    const auto value = model->second.Values.find( InKey );
+    if( value == model->second.Values.end() )
+    {
+        return {};
+    }
+    return value->second.IsString ? value->second.String : std::to_string( value->second.Number );
+}
+
+
+std::string RmlUiCore::ModelPollEvent( const std::string& InModel )
+{
+    auto model = m_models.find( InModel );
+    if( model == m_models.end() || model->second.EventQueue.empty() )
+    {
+        return {};
+    }
+    std::string event = std::move( model->second.EventQueue.front() );
+    model->second.EventQueue.pop_front();
+    return event;
+}
+
+
+void RmlUiCore::SyncModels()
+{
+    bool materialized = false;
+    for( auto& [name, model] : m_models )
+    {
+        Rml::DataModelConstructor constructor;
+        if( !model.Created )
+        {
+            constructor = m_context->CreateDataModel( name );
+            if( !constructor )
+            {
+                constructor = m_context->GetDataModel( name );
+            }
+            if( !constructor )
+            {
+                continue;
+            }
+            model.Created = true;
+            materialized = true;
+        }
+        Rml::DataModelHandle handle;
+        for( auto& [key, value] : model.Values )
+        {
+            if( !value.Bound )
+            {
+                if( !constructor )
+                {
+                    constructor = m_context->GetDataModel( name );
+                }
+                ModelValue* stored = &value;
+                constructor.BindFunc(
+                    key,
+                    [stored]( Rml::Variant& OutValue ) {
+                        if( stored->IsString )
+                        {
+                            OutValue = stored->String;
+                        }
+                        else
+                        {
+                            OutValue = stored->Number;
+                        }
+                    },
+                    [stored]( const Rml::Variant& InValue ) {
+                        // Two-way bindings (data-value on inputs) write the view's value back.
+                        if( stored->IsString )
+                        {
+                            stored->String = InValue.Get<Rml::String>();
+                        }
+                        else
+                        {
+                            stored->Number = InValue.Get<double>();
+                        }
+                    } );
+                value.Bound = true;
+                value.Dirty = false;
+                materialized = true;
+                continue;
+            }
+            if( value.Dirty )
+            {
+                if( !handle )
+                {
+                    handle = m_context->GetDataModel( name ).GetModelHandle();
+                }
+                handle.DirtyVariable( key );
+                value.Dirty = false;
+            }
+        }
+        for( auto& [key, bound] : model.Events )
+        {
+            if( bound )
+            {
+                continue;
+            }
+            if( !constructor )
+            {
+                constructor = m_context->GetDataModel( name );
+            }
+            Model* owner = &model;
+            const std::string eventName = key;
+            constructor.BindEventCallback( key, [owner, eventName]( Rml::DataModelHandle, Rml::Event&, const Rml::VariantList& ) {
+                owner->EventQueue.push_back( eventName );
+            } );
+            bound = true;
+            materialized = true;
+        }
+    }
+
+    if( materialized )
+    {
+        // Documents resolve their data bindings at load: anything already on screen that
+        // predates the model (play started after the scene loaded) reloads once to see it.
+        m_modelsMaterialized = true;
+    }
+    if( m_modelsMaterialized )
+    {
+        m_modelsMaterialized = false;
+        int reloaded = 0;
+        for( Entity& entity : GetEntities() )
+        {
+            UIDocument& document = entity.GetComponent<UIDocument>();
+            if( document.m_document != nullptr )
+            {
+                CloseDocument( document );
+                LoadDocument( document );
+                ++reloaded;
+            }
+        }
+        if( reloaded > 0 )
+        {
+            INFO( "UI", "UI: rebound " + std::to_string( reloaded ) + " document(s) to script models" );
+        }
+    }
+}
 #endif
 
 
@@ -469,6 +658,7 @@ void RmlUiCore::Update( const UpdateContext& inUpdateContext )
     s_systemInterface.AdvanceTime( inUpdateContext.GetUnscaledDeltaTime() );
     EnsureContext( outputSize );
     HotReload();
+    SyncModels();
 
     bool anyVisible = false;
     for( Entity& entity : GetEntities() )

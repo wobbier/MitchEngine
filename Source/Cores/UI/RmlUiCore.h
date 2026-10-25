@@ -5,6 +5,9 @@
 #include "Math/Vector2.h"
 
 #include <bgfx/bgfx.h>
+#include <deque>
+#include <map>
+#include <string>
 #include <vector>
 
 class BGFXRenderer;
@@ -42,6 +45,18 @@ public:
     Rml::Context* GetContext() const { return m_context; }
     // True while the pointer is over (or dragging in) a document: game input should yield.
     bool WantsMouse() const;
+
+    // Script-owned view models (UI-3): values live here (not in C#), so they survive hot
+    // reloads; the Rml data model binds lazily in Update and documents referencing a model
+    // reload once when it first materializes. All calls are safe before the context exists.
+    void ModelEnsure( const std::string& InModel );
+    void ModelSetNumber( const std::string& InModel, const std::string& InKey, double InValue );
+    void ModelSetString( const std::string& InModel, const std::string& InKey, const std::string& InValue );
+    void ModelRegisterEvent( const std::string& InModel, const std::string& InKey );
+    double ModelGetNumber( const std::string& InModel, const std::string& InKey ) const;
+    std::string ModelGetString( const std::string& InModel, const std::string& InKey ) const;
+    // Pops the oldest queued data-event name ("" when none are waiting).
+    std::string ModelPollEvent( const std::string& InModel );
 #endif
 
 private:
@@ -53,6 +68,26 @@ private:
     void ProcessInput();
     void ApplyRequestedCursor();
     void HotReload();
+    void SyncModels();
+
+    // One script view-model value: a number or a UTF-8 string.
+    struct ModelValue
+    {
+        double Number = 0.0;
+        std::string String;
+        bool IsString = false;
+        bool Bound = false;
+        bool Dirty = false;
+    };
+    struct Model
+    {
+        std::map<std::string, ModelValue> Values;
+        std::map<std::string, bool> Events;   // name -> bound to Rml yet
+        std::deque<std::string> EventQueue;
+        bool Created = false;
+    };
+    std::map<std::string, Model> m_models;
+    bool m_modelsMaterialized = false;   // a model/variable appeared: reload loaded documents once
 
     BGFXRenderer* m_renderer = nullptr;
     Rml::Context* m_context = nullptr;

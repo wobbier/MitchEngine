@@ -22,6 +22,7 @@ TYPES = {
     "bool": ("bool", "byte"),
     "int": ("int", "int"),
     "float": ("float", "float"),
+    "double": ("double", "double"),
     "cstr": ("const uint8_t*", "byte*"),
     "Entity": ("EntityID", "Entity"),
     "Entity*": ("EntityID*", "Entity*"),

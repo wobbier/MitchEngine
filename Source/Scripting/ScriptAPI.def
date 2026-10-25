@@ -209,3 +209,14 @@ bool ImGui_AssetRef( cstr label, byte* inOutPath, int size, cstr extensions )
 
 ## Entity lookup by scene GUID (the 16-hex string scenes and EntityRef fields store)
 bool World_FindByGuid( cstr guid, Entity* outId )
+
+## RmlUi data models (UI-3): script-owned view models for data-model documents. Values live
+## engine-side, so they survive C# hot reloads; documents referencing a model reload when it
+## first materializes. Events queue per model; scripts drain them each update.
+bool UIModel_Ensure( cstr model )
+void UIModel_SetNumber( cstr model, cstr key, double value )
+void UIModel_SetString( cstr model, cstr key, cstr value )
+void UIModel_RegisterEvent( cstr model, cstr key )
+double UIModel_GetNumber( cstr model, cstr key )
+int UIModel_GetString( cstr model, cstr key, byte* outValue, int size )
+int UIModel_PollEvent( cstr model, byte* outName, int size )
