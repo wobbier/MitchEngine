@@ -1,5 +1,7 @@
 #include "EditorApp.h"
 #include "ECS/Component.h"
+#include "Editor/ReflectionUI.h"
+#include "Scripting/ScriptInspectorRows.h"
 #include "Engine/Clock.h"
 #include "Components/Transform.h"
 #include "ECS/Entity.h"
@@ -102,6 +104,12 @@ EditorApp::EditorApp( int argc, char** argv )
 {
     Listen<NewSceneEvent>( [this]( const NewSceneEvent& InEvent ) { OnNewScene( InEvent ); } );
     Listen<SceneLoadedEvent>( [this]( const SceneLoadedEvent& InEvent ) { OnSceneLoaded( InEvent ); } );
+
+#if USING( ME_SCRIPTING )
+    // The script inspector's entity/asset rows use the editor's reflection rows (drag-drop, pick).
+    ScriptInspectorRows::EntityRow = &ReflectionUI::EntityGuidRow;
+    ScriptInspectorRows::AssetRow = &ReflectionUI::AssetPathRow;
+#endif
 
     // 0x0100 is the default, so we put the transform component decently high up.
     REGISTER_EDITORCOMPONENTCACHE_ORDERDATA( Transform, 0x0F00 );

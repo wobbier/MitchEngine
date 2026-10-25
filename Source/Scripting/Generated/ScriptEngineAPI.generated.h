@@ -192,4 +192,29 @@ struct ScriptEngineAPI
     bool ( *Sequence_PlayAsset )( EntityID id, const uint8_t* path, bool restart );
     bool ( *Sequence_HasClip )( EntityID id, const uint8_t* name );
     void ( *Sequence_Bind )( EntityID id, const uint8_t* slot, EntityID target );
+
+    // Script inspector rows (Havana property rows in editor builds; no-ops elsewhere)
+    bool ( *ImGui_String )( const uint8_t* label, uint8_t* inOutUtf8, int size );
+    bool ( *ImGui_Multiline )( const uint8_t* label, uint8_t* inOutUtf8, int size, int lines );
+    bool ( *ImGui_Vec2 )( const uint8_t* label, Vector2* inOutValue );
+    bool ( *ImGui_Vec4 )( const uint8_t* label, float* inOutXyzw );
+    bool ( *ImGui_Color )( const uint8_t* label, float* inOutRgba );
+    bool ( *ImGui_Enum )( const uint8_t* label, int* inOutIndex, const uint8_t* names );
+    bool ( *ImGui_Double )( const uint8_t* label, double* inOutValue );
+    bool ( *ImGui_SliderFloat )( const uint8_t* label, float* inOutValue, float min, float max );
+    bool ( *ImGui_SliderInt )( const uint8_t* label, int* inOutValue, int min, int max );
+    void ( *ImGui_Header )( const uint8_t* text );
+    void ( *ImGui_Space )( float height );
+    void ( *ImGui_Tooltip )( const uint8_t* text );
+    void ( *ImGui_BeginDisabled )();
+    void ( *ImGui_EndDisabled )();
+    bool ( *ImGui_TreeNode )( const uint8_t* label );
+    void ( *ImGui_TreePop )();
+    bool ( *ImGui_SmallButton )( const uint8_t* label );
+    void ( *ImGui_SameLine )();
+    bool ( *ImGui_EntityRef )( const uint8_t* label, uint8_t* inOutGuid, int size );
+    bool ( *ImGui_AssetRef )( const uint8_t* label, uint8_t* inOutPath, int size, const uint8_t* extensions );
+
+    // Entity lookup by scene GUID (the 16-hex string scenes and EntityRef fields store)
+    bool ( *World_FindByGuid )( const uint8_t* guid, EntityID* outId );
 };

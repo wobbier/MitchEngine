@@ -29,6 +29,7 @@ TYPES = {
     "Vector3*": ("Vector3*", "Vector3*"),
     "const Vector3*": ("const Vector3*", "Vector3*"),
     "float*": ("float*", "float*"),
+    "double*": ("double*", "double*"),
     "int*": ("int*", "int*"),
     "bool*": ("uint8_t*", "byte*"),
     "byte*": ("uint8_t*", "byte*"),

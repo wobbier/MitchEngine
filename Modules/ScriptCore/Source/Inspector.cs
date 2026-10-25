@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
@@ -32,45 +33,258 @@ internal static class FieldReflection
 }
 
 
-// imgui inspection for base shit atm, more to come
-public static unsafe class Inspector
+// The script inspector: every public field as a Havana property row, matching the C++
+// reflection inspector (ranges, tooltips, headers, colors, references, lists, nested types).
+public static class Inspector
 {
     public static void DrawDefault(object target)
     {
-        foreach (var f in FieldReflection.Of(target.GetType()))
-        {
-            DrawField(target, f);
-        }
+        DrawObjectFields(target);
     }
 
-    private static void DrawField(object target, FieldInfo f)
+    // Draws every visible field of the boxed object, mutating it in place.
+    private static bool DrawObjectFields(object target)
     {
-        var t = f.FieldType;
+        bool changed = false;
+        foreach (var f in FieldReflection.Of(target.GetType()))
+        {
+            changed |= DrawField(target, f);
+        }
+        return changed;
+    }
+
+    private static bool DrawField(object target, FieldInfo f)
+    {
+        foreach (var space in f.GetCustomAttributes<SpaceAttribute>(true))
+        {
+            ImGui.Space(space.Height);
+        }
+        foreach (var header in f.GetCustomAttributes<HeaderAttribute>(true))
+        {
+            ImGui.Header(header.Text);
+        }
+
+        bool readOnly = f.IsDefined(typeof(ReadOnlyAttribute), true);
+        if (readOnly)
+        {
+            ImGui.BeginDisabled();
+        }
+        object? value = f.GetValue(target);
+        bool changed = DrawValue(f.Name, f, f.FieldType, ref value);
+        if (changed && !readOnly)
+        {
+            f.SetValue(target, value);
+        }
+        if (readOnly)
+        {
+            ImGui.EndDisabled();
+        }
+
+        var tooltip = f.GetCustomAttribute<TooltipAttribute>(true);
+        if (tooltip != null)
+        {
+            ImGui.Tooltip(tooltip.Text);
+        }
+        return changed && !readOnly;
+    }
+
+    // One value row (or subtree). attributes may be null for list elements.
+    private static bool DrawValue(string label, FieldInfo? attributes, Type t, ref object? value)
+    {
+        var range = attributes?.GetCustomAttribute<RangeAttribute>(true);
 
         if (t == typeof(float))
         {
-            float v = (float)f.GetValue(target);
-            fixed (byte* l = FieldReflection.Utf8(f.Name))
-                if (Engine._api.ImGui_Float(l, &v) != 0) f.SetValue(target, v);
+            float v = (float)(value ?? 0f);
+            bool changed = range != null ? ImGui.SliderFloat(label, ref v, range.Min, range.Max) : ImGui.Float(label, ref v);
+            if (changed) value = v;
+            return changed;
         }
-        else if (t == typeof(int))
+        if (t == typeof(double))
         {
-            int v = (int)f.GetValue(target);
-            fixed (byte* l = FieldReflection.Utf8(f.Name))
-                if (Engine._api.ImGui_Int(l, &v) != 0) f.SetValue(target, v);
+            double v = (double)(value ?? 0.0);
+            if (ImGui.Double(label, ref v)) { value = v; return true; }
+            return false;
         }
-        else if (t == typeof(bool))
+        if (t == typeof(int))
         {
-            byte v = (bool)f.GetValue(target) ? (byte)1 : (byte)0;
-            fixed (byte* l = FieldReflection.Utf8(f.Name))
-                if (Engine._api.ImGui_Bool(l, &v) != 0) f.SetValue(target, v != 0);
+            int v = (int)(value ?? 0);
+            bool changed = range != null ? ImGui.SliderInt(label, ref v, (int)range.Min, (int)range.Max) : ImGui.Int(label, ref v);
+            if (changed) value = v;
+            return changed;
         }
-        else if (t == typeof(Vector3))
+        if (t == typeof(bool))
         {
-            Vector3 v = (Vector3)f.GetValue(target);
-            fixed (byte* l = FieldReflection.Utf8(f.Name))
-                if (Engine._api.ImGui_Vec3(l, &v) != 0) f.SetValue(target, v);
+            bool v = (bool)(value ?? false);
+            if (ImGui.Bool(label, ref v)) { value = v; return true; }
+            return false;
         }
+        if (t == typeof(string))
+        {
+            string v = (string?)value ?? "";
+            var multiline = attributes?.GetCustomAttribute<MultilineAttribute>(true);
+            bool changed = multiline != null ? ImGui.InputMultiline(label, ref v, multiline.Lines) : ImGui.InputText(label, ref v);
+            if (changed) value = v;
+            return changed;
+        }
+        if (t.IsEnum)
+        {
+            var values = Enum.GetValues(t);
+            var names = Enum.GetNames(t);
+            int index = Array.IndexOf(values, value);
+            if (index < 0) index = 0;
+            if (ImGui.EnumCombo(label, ref index, names))
+            {
+                value = values.GetValue(index);
+                return true;
+            }
+            return false;
+        }
+        if (t == typeof(Vector2))
+        {
+            Vector2 v = (Vector2)(value ?? default(Vector2));
+            if (ImGui.Vec2(label, ref v)) { value = v; return true; }
+            return false;
+        }
+        if (t == typeof(Vector3))
+        {
+            Vector3 v = (Vector3)(value ?? default(Vector3));
+            if (ImGui.Vec3(label, ref v)) { value = v; return true; }
+            return false;
+        }
+        if (t == typeof(Vector4))
+        {
+            Vector4 v = (Vector4)(value ?? default(Vector4));
+            if (ImGui.Vec4(label, ref v)) { value = v; return true; }
+            return false;
+        }
+        if (t == typeof(Quaternion))
+        {
+            Quaternion v = value is Quaternion q ? q : Quaternion.Identity;
+            if (ImGui.Quat(label, ref v)) { v.Normalize(); value = v; return true; }
+            return false;
+        }
+        if (t == typeof(Color))
+        {
+            Color v = value is Color c ? c : Color.White;
+            if (ImGui.ColorRow(label, ref v)) { value = v; return true; }
+            return false;
+        }
+        if (t == typeof(EntityRef))
+        {
+            EntityRef v = (EntityRef)(value ?? default(EntityRef));
+            string guid = v.Guid ?? "";
+            if (ImGui.EntityRow(label, ref guid))
+            {
+                v.Guid = guid;
+                value = v;
+                return true;
+            }
+            return false;
+        }
+        if (t == typeof(AssetRef))
+        {
+            AssetRef v = (AssetRef)(value ?? default(AssetRef));
+            string path = v.Path ?? "";
+            string filter = attributes?.GetCustomAttribute<AssetFilterAttribute>(true)?.Filter ?? "";
+            if (ImGui.AssetRow(label, ref path, filter))
+            {
+                v.Path = path;
+                value = v;
+                return true;
+            }
+            return false;
+        }
+        if (t.IsArray || (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(List<>)))
+        {
+            return DrawListValue(label, t, ref value);
+        }
+        if ((t.IsValueType || t.IsClass) && t.IsDefined(typeof(SerializableAttribute), false))
+        {
+            return DrawNestedValue(label, t, ref value);
+        }
+
+        return false;
+    }
+
+    private static bool DrawListValue(string label, Type t, ref object? value)
+    {
+        Type elementType = t.IsArray ? t.GetElementType()! : t.GetGenericArguments()[0];
+        var items = new List<object?>();
+        if (value is IEnumerable existing)
+        {
+            foreach (var item in existing) items.Add(item);
+        }
+
+        bool changed = false;
+        if (ImGui.TreeNode($"{label} ({items.Count})"))
+        {
+            for (int i = 0; i < items.Count; ++i)
+            {
+                object? element = items[i];
+                if (DrawValue($"[{i}]", null, elementType, ref element))
+                {
+                    items[i] = element;
+                    changed = true;
+                }
+            }
+            if (ImGui.SmallButton("+"))
+            {
+                items.Add(elementType.IsValueType ? Activator.CreateInstance(elementType) : elementType == typeof(string) ? "" : null);
+                changed = true;
+            }
+            ImGui.SameLine();
+            if (ImGui.SmallButton("-") && items.Count > 0)
+            {
+                items.RemoveAt(items.Count - 1);
+                changed = true;
+            }
+            ImGui.TreePop();
+        }
+
+        if (changed)
+        {
+            if (t.IsArray)
+            {
+                var array = Array.CreateInstance(elementType, items.Count);
+                for (int i = 0; i < items.Count; ++i) array.SetValue(items[i], i);
+                value = array;
+            }
+            else
+            {
+                var list = (IList)Activator.CreateInstance(t)!;
+                foreach (var item in items) list.Add(item);
+                value = list;
+            }
+        }
+        return changed;
+    }
+
+    private static bool DrawNestedValue(string label, Type t, ref object? value)
+    {
+        if (value == null)
+        {
+            if (!ImGui.TreeNode($"{label} (null)"))
+            {
+                return false;
+            }
+            bool created = false;
+            if (ImGui.SmallButton("+") && t.GetConstructor(Type.EmptyTypes) != null)
+            {
+                value = Activator.CreateInstance(t);
+                created = true;
+            }
+            ImGui.TreePop();
+            return created;
+        }
+
+        bool changed = false;
+        if (ImGui.TreeNode(label))
+        {
+            changed = DrawObjectFields(value);   // mutates the box in place
+            ImGui.TreePop();
+        }
+        return changed;
     }
 }
 
@@ -103,7 +317,8 @@ public static class ScriptSerializer
         {
             if (root.TryGetProperty(f.Name, out var el) || TryFormerName(root, f, out el))
             {
-                f.SetValue(target, el.Deserialize(f.FieldType, Options));
+                try { f.SetValue(target, el.Deserialize(f.FieldType, Options)); }
+                catch (JsonException) { }   // a field that changed type keeps its default
             }
         }
     }

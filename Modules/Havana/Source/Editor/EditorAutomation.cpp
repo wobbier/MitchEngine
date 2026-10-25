@@ -7,6 +7,8 @@
 #include "PrefabTools.h"
 #include "World/SceneSerializer.h"
 #include "Selection.h"
+#include "Components/Scripting/ScriptComponent.h"
+#include "Scripting/ScriptEngine.h"
 #include "UndoStack.h"
 #include "EditorApp.h"
 #include "Havana.h"
@@ -649,6 +651,89 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         {
             return Execute( InApp, "set " + fieldPath + " \"" + SceneSerializer::GUIDToString( referenced->GetGUID() ) + "\"" );
         }
+    }
+    else if( command == "script-set" || command == "script-assert" || command == "script-set-ref" )
+    {
+#if USING( ME_SCRIPTING )
+        // script-set Fancy.Inner | 3        edits the active entity's live script fields by path
+        // script-assert Items.1 | 2.5 ~ 0.1 (numbers within 1e-3 by default; != negates)
+        // script-set-ref Target | Probe     fills an EntityRef field's Guid with that entity's GUID
+        EntityHandle active = Selection::Get().GetActive();
+        ScriptComponent* script = active ? active->TryGetComponent<ScriptComponent>() : nullptr;
+        int handle = script ? script->GetHandle() : -1;
+        if( script && handle < 0 )
+        {
+            script->Init();   // .NET booted after the scene loaded (first-start builds): create now
+            handle = script->GetHandle();
+        }
+        auto [fieldPath, valueText] = SplitArgs( args );
+        json fields = handle >= 0 ? json::parse( ScriptEngine::GetFieldsJson( handle ), nullptr, false ) : json();
+        std::string pointerText = "/" + fieldPath;
+        for( char& c : pointerText )
+        {
+            if( c == '.' )
+            {
+                c = '/';
+            }
+        }
+        if( handle < 0 || fields.is_discarded() || fieldPath.empty() )
+        {
+            Fail( command + ": select an entity with a live ScriptComponent first" );
+        }
+        else if( command == "script-assert" )
+        {
+            const bool negate = valueText.rfind( "!=", 0 ) == 0;
+            if( negate )
+            {
+                valueText = Trim( valueText.substr( 2 ) );
+            }
+            double tolerance = 1e-3;
+            if( const size_t tilde = valueText.find( " ~ " ); tilde != std::string::npos )
+            {
+                tolerance = std::atof( valueText.c_str() + tilde + 3 );
+                valueText = valueText.substr( 0, tilde );
+            }
+            const json expected = json::parse( valueText, nullptr, false );
+            const json* actual = Resolve( fields, json::json_pointer( pointerText ) );
+            if( expected.is_discarded() )
+            {
+                Fail( "script-assert: bad value " + valueText );
+            }
+            else if( !actual || NearlyEqual( *actual, expected, tolerance ) == negate )
+            {
+                Fail( "script field " + fieldPath + " is " + ( actual ? actual->dump() : std::string( "<missing>" ) ) + ", expected " + ( negate ? "!= " : "" ) + expected.dump() );
+            }
+        }
+        else
+        {
+            json value;
+            if( command == "script-set-ref" )
+            {
+                EntityHandle referenced = FindEntity( valueText );
+                if( !referenced )
+                {
+                    Fail( "script-set-ref: no entity named " + valueText );
+                    return true;
+                }
+                // An EntityRef field serializes as { "Guid": "<16 hex>" }.
+                pointerText += "/Guid";
+                value = SceneSerializer::GUIDToString( referenced->GetGUID() );
+            }
+            else
+            {
+                value = json::parse( valueText, nullptr, false );
+                if( value.is_discarded() )
+                {
+                    Fail( "script-set: bad value " + valueText );
+                    return true;
+                }
+            }
+            fields[json::json_pointer( pointerText )] = value;
+            ScriptEngine::SetFieldsJson( handle, fields.dump() );
+        }
+#else
+        Fail( command + ": this build has no scripting" );
+#endif
     }
     else if( command == "assert-near" )
     {

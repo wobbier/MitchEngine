@@ -37,6 +37,11 @@ namespace ReflectionUI
 
     // Registers the built-in custom drawers (EntityHandle).
     void RegisterDefaultDrawers();
+
+    // The script inspector's reference rows (installed into ScriptInspectorRows by the editor
+    // app): the same entity and asset rows, on the GUID/path representations script fields store.
+    bool EntityGuidRow( const char* InLabel, uint64_t& InOutGuid );
+    bool AssetPathRow( const char* InLabel, std::string& InOutPath, const char* InExtensions );
 }
 
 #endif

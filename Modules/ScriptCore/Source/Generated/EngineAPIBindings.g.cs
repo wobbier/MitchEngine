@@ -181,4 +181,29 @@ public unsafe struct EngineAPIBindings
     public delegate* unmanaged<Entity, byte*, byte, byte> Sequence_PlayAsset;
     public delegate* unmanaged<Entity, byte*, byte> Sequence_HasClip;
     public delegate* unmanaged<Entity, byte*, Entity, void> Sequence_Bind;
+
+    // Script inspector rows (Havana property rows in editor builds; no-ops elsewhere)
+    public delegate* unmanaged<byte*, byte*, int, byte> ImGui_String;
+    public delegate* unmanaged<byte*, byte*, int, int, byte> ImGui_Multiline;
+    public delegate* unmanaged<byte*, Vector2*, byte> ImGui_Vec2;
+    public delegate* unmanaged<byte*, float*, byte> ImGui_Vec4;
+    public delegate* unmanaged<byte*, float*, byte> ImGui_Color;
+    public delegate* unmanaged<byte*, int*, byte*, byte> ImGui_Enum;
+    public delegate* unmanaged<byte*, double*, byte> ImGui_Double;
+    public delegate* unmanaged<byte*, float*, float, float, byte> ImGui_SliderFloat;
+    public delegate* unmanaged<byte*, int*, int, int, byte> ImGui_SliderInt;
+    public delegate* unmanaged<byte*, void> ImGui_Header;
+    public delegate* unmanaged<float, void> ImGui_Space;
+    public delegate* unmanaged<byte*, void> ImGui_Tooltip;
+    public delegate* unmanaged<void> ImGui_BeginDisabled;
+    public delegate* unmanaged<void> ImGui_EndDisabled;
+    public delegate* unmanaged<byte*, byte> ImGui_TreeNode;
+    public delegate* unmanaged<void> ImGui_TreePop;
+    public delegate* unmanaged<byte*, byte> ImGui_SmallButton;
+    public delegate* unmanaged<void> ImGui_SameLine;
+    public delegate* unmanaged<byte*, byte*, int, byte> ImGui_EntityRef;
+    public delegate* unmanaged<byte*, byte*, int, byte*, byte> ImGui_AssetRef;
+
+    // Entity lookup by scene GUID (the 16-hex string scenes and EntityRef fields store)
+    public delegate* unmanaged<byte*, Entity*, byte> World_FindByGuid;
 }

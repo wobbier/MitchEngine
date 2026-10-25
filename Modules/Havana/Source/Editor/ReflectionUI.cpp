@@ -5,6 +5,7 @@
 #include "ECS/EntityHandle.h"
 #include "ECS/Entity.h"
 #include "Components/Transform.h"
+#include "EditorOperations.h"
 #include "Events/EditorEvents.h"
 #include "Materials/ShaderGraphParams.h"
 #include "Math/Quaternion.h"
@@ -682,6 +683,9 @@ namespace ReflectionUI
     }
 
 
+    bool EntityHandleValue( const char* InLabel, EntityHandle& InOutHandle );
+
+
     void RegisterDefaultDrawers()
     {
         // EntityHandle: shows the target's name, accepts hierarchy drags, click to select, x to clear.
@@ -707,37 +711,73 @@ namespace ReflectionUI
         } );
 
         RegisterCustomDrawer( "EntityHandle", []( const char* InLabel, const Reflection::FieldInfo*, void* InValue ) {
-            EntityHandle& handle = *static_cast<EntityHandle*>( InValue );
-            bool changed = false;
-            ImGui::PushID( InLabel );
-            const std::string name = handle ? ( handle->GetName().empty() ? std::string( "(unnamed)" ) : handle->GetName() ) : std::string( "None" );
-            if( ImGui::Button( name.c_str(), ImVec2( std::max( ImGui::CalcItemWidth() - ImGuiTheme::IconButtonsWidth( 1 ), ImGuiTheme::Em( 2.f ) ), 0.f ) ) && handle )
-            {
-                Selection::Get().Set( handle );
-            }
-            ImGui::SetItemTooltip( "Drag an entity from the hierarchy here" );
-            if( ImGui::BeginDragDropTarget() )
-            {
-                if( const ImGuiPayload* payload = ImGui::AcceptDragDropPayload( kEntityPayload ) )
-                {
-                    const ParentDescriptor* descriptor = static_cast<const ParentDescriptor*>( payload->Data );
-                    if( descriptor && descriptor->Parent )
-                    {
-                        handle = descriptor->Parent->Parent;
-                        changed = true;
-                    }
-                }
-                ImGui::EndDragDropTarget();
-            }
-            ImGui::SameLine( 0.f, ImGuiTheme::InnerGap() );
-            if( ImGui::Button( "x", ImGuiTheme::IconButtonSize() ) && handle )
-            {
-                handle = EntityHandle();
-                changed = true;
-            }
-            ImGui::PopID();
-            return changed;
+            return EntityHandleValue( InLabel, *static_cast<EntityHandle*>( InValue ) );
         } );
+    }
+
+
+    bool EntityHandleValue( const char* InLabel, EntityHandle& InOutHandle )
+    {
+        EntityHandle& handle = InOutHandle;
+        bool changed = false;
+        ImGui::PushID( InLabel );
+        const std::string name = handle ? ( handle->GetName().empty() ? std::string( "(unnamed)" ) : handle->GetName() ) : std::string( "None" );
+        if( ImGui::Button( name.c_str(), ImVec2( std::max( ImGui::CalcItemWidth() - ImGuiTheme::IconButtonsWidth( 1 ), ImGuiTheme::Em( 2.f ) ), 0.f ) ) && handle )
+        {
+            Selection::Get().Set( handle );
+        }
+        ImGui::SetItemTooltip( "Drag an entity from the hierarchy here" );
+        if( ImGui::BeginDragDropTarget() )
+        {
+            if( const ImGuiPayload* payload = ImGui::AcceptDragDropPayload( kEntityPayload ) )
+            {
+                const ParentDescriptor* descriptor = static_cast<const ParentDescriptor*>( payload->Data );
+                if( descriptor && descriptor->Parent )
+                {
+                    handle = descriptor->Parent->Parent;
+                    changed = true;
+                }
+            }
+            ImGui::EndDragDropTarget();
+        }
+        ImGui::SameLine( 0.f, ImGuiTheme::InnerGap() );
+        if( ImGui::Button( "x", ImGuiTheme::IconButtonSize() ) && handle )
+        {
+            handle = EntityHandle();
+            changed = true;
+        }
+        ImGui::PopID();
+        return changed;
+    }
+
+
+    // The script inspector's reference rows: the rows above, on the GUID/path representations
+    // script fields store (installed into ScriptInspectorRows by the editor app).
+    bool EntityGuidRow( const char* InLabel, uint64_t& InOutGuid )
+    {
+        World& world = EditorOps::GetWorld();
+        EntityHandle handle = InOutGuid != 0 ? world.FindEntityByGUID( InOutGuid ) : EntityHandle();
+        ImGui::PushID( InLabel );
+        HavanaUtils::Label( InLabel );
+        const bool changed = EntityHandleValue( "##entity", handle );
+        ImGui::PopID();
+        if( changed )
+        {
+            InOutGuid = handle ? handle->GetGUID() : 0;
+        }
+        return changed;
+    }
+
+
+    bool AssetPathRow( const char* InLabel, std::string& InOutPath, const char* InExtensions )
+    {
+        Reflection::FieldInfo field;
+        field.AssetFilter = InExtensions ? InExtensions : "";
+        ImGui::PushID( InLabel );
+        HavanaUtils::Label( InLabel );
+        const bool changed = DrawAssetPath( "##asset", &field, InOutPath );
+        ImGui::PopID();
+        return changed;
     }
 }
 
