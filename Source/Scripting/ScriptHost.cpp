@@ -2,6 +2,7 @@
 #include "ScriptHost.h"
 
 #if USING( ME_SCRIPTING )
+#include <filesystem>
 #include <string>
 
 #include <nethost.h>
@@ -23,15 +24,19 @@ static std::wstring ToWide( const std::string& inStr )
 #endif
 
 
-bool ScriptHost::Init( const std::string& inRuntimeConfigPath )
+bool ScriptHost::Init( const std::string& inRuntimeConfigPath, const std::string& inDotnetRoot )
 {
 #if USING( ME_PLATFORM_WINDOWS )
+    // An app-local install: hostfxr comes from it, and the runtime resolves its frameworks there.
+    const std::wstring wDotnetRoot = ToWide( inDotnetRoot );
+    const get_hostfxr_parameters fxrParams{ sizeof( get_hostfxr_parameters ), nullptr, wDotnetRoot.c_str() };
+    const hostfxr_initialize_parameters initParams{ sizeof( hostfxr_initialize_parameters ), nullptr, wDotnetRoot.c_str() };
     wchar_t buffer[MAX_PATH];
     size_t bufferSize = sizeof( buffer ) / sizeof( wchar_t );
-    int rc = get_hostfxr_path( buffer, &bufferSize, nullptr );
+    int rc = get_hostfxr_path( buffer, &bufferSize, inDotnetRoot.empty() ? nullptr : &fxrParams );
     if( rc != 0 )
     {
-        YIKES_NEW( "get_hostfxr_path failed: 0x{:x}", rc );
+        YIKES_NEW( "get_hostfxr_path failed: 0x{:x} - no .NET 8 runtime found (install one, set DOTNET_ROOT, or ship one with Build Game)", static_cast<uint32_t>( rc ) );
         return false;
     }
 
@@ -56,10 +61,10 @@ bool ScriptHost::Init( const std::string& inRuntimeConfigPath )
     }
 
     auto wConfig = ToWide( inRuntimeConfigPath );
-    rc = initFptr( wConfig.c_str(), nullptr, reinterpret_cast<hostfxr_handle*>( &m_hostfxrCtx ) );
+    rc = initFptr( wConfig.c_str(), inDotnetRoot.empty() ? nullptr : &initParams, reinterpret_cast<hostfxr_handle*>( &m_hostfxrCtx ) );
     if( rc != 0 || !m_hostfxrCtx )
     {
-        YIKES_NEW( "hostfxr_initialize_for_runtime_config failed: 0x{:x} - runtimeconfig path correct?", rc );
+        YIKES_NEW( "hostfxr_initialize_for_runtime_config failed: 0x{:x} - runtimeconfig path correct?", static_cast<uint32_t>( rc ) );
         return false;
     }
 
@@ -70,18 +75,21 @@ bool ScriptHost::Init( const std::string& inRuntimeConfigPath )
         reinterpret_cast<void**>( &loadFn ) );
     if( rc != 0 || !loadFn )
     {
-        YIKES_NEW( "failed to get load_assembly delegate: 0x{:x}", rc );
+        YIKES_NEW( "failed to get load_assembly delegate: 0x{:x}", static_cast<uint32_t>( rc ) );
         return false;
     }
     m_loadAssemblyFn = (void*)loadFn;
 
 #elif USING( ME_PLATFORM_LINUX )
+    // An app-local install: hostfxr comes from it, and the runtime resolves its frameworks there.
+    const get_hostfxr_parameters fxrParams{ sizeof( get_hostfxr_parameters ), nullptr, inDotnetRoot.c_str() };
+    const hostfxr_initialize_parameters initParams{ sizeof( hostfxr_initialize_parameters ), nullptr, inDotnetRoot.c_str() };
     char_t buffer[PATH_MAX];
     size_t bufferSize = sizeof( buffer ) / sizeof( char_t );
-    int rc = get_hostfxr_path( buffer, &bufferSize, nullptr );
+    int rc = get_hostfxr_path( buffer, &bufferSize, inDotnetRoot.empty() ? nullptr : &fxrParams );
     if( rc != 0 )
     {
-        YIKES_NEW( "get_hostfxr_path failed: 0x{:x}", rc );
+        YIKES_NEW( "get_hostfxr_path failed: 0x{:x} - no .NET 8 runtime found (install one, set DOTNET_ROOT, or ship one with Build Game)", static_cast<uint32_t>( rc ) );
         return false;
     }
 
@@ -105,10 +113,10 @@ bool ScriptHost::Init( const std::string& inRuntimeConfigPath )
         return false;
     }
 
-    rc = initFptr( inRuntimeConfigPath.c_str(), nullptr, reinterpret_cast<hostfxr_handle*>( &m_hostfxrCtx ) );
+    rc = initFptr( inRuntimeConfigPath.c_str(), inDotnetRoot.empty() ? nullptr : &initParams, reinterpret_cast<hostfxr_handle*>( &m_hostfxrCtx ) );
     if( rc != 0 || !m_hostfxrCtx )
     {
-        YIKES_NEW( "hostfxr_initialize_for_runtime_config failed: 0x{:x} - runtimeconfig path correct?", rc );
+        YIKES_NEW( "hostfxr_initialize_for_runtime_config failed: 0x{:x} - runtimeconfig path correct?", static_cast<uint32_t>( rc ) );
         return false;
     }
 
@@ -119,13 +127,18 @@ bool ScriptHost::Init( const std::string& inRuntimeConfigPath )
         reinterpret_cast<void**>( &loadFn ) );
     if( rc != 0 || !loadFn )
     {
-        YIKES_NEW( "failed to get load_assembly delegate: 0x{:x}", rc );
+        YIKES_NEW( "failed to get load_assembly delegate: 0x{:x}", static_cast<uint32_t>( rc ) );
         return false;
     }
     m_loadAssemblyFn = (void*)loadFn;
 #endif
 
-    DBG( "ScriptHost .NET runtime initialised" );
+#if USING( ME_PLATFORM_WINDOWS ) || USING( ME_PLATFORM_LINUX )
+    // Which runtime a build runs on is the first question when scripts don't start on a player's
+    // machine, so it's logged at Info (shipped builds log Info and up).
+    const std::filesystem::path hostfxrPath( buffer );
+    CLog::Log( CLog::LogType::Info, std::string( "Scripts: .NET runtime from " ) + ( inDotnetRoot.empty() ? "the system install (" : "the app-local install (" ) + hostfxrPath.generic_string() + ")" );
+#endif
     return true;
 }
 
@@ -180,7 +193,7 @@ bool ScriptHost::LoadFunction( const std::string& inAssemblyPath,
 
     if( rc != 0 )
     {
-        YIKES_NEW( "LoadFunction failed for {}.{} (0x{:x})", inTypeName, inMethodName, rc );
+        YIKES_NEW( "LoadFunction failed for {}.{} (0x{:x})", inTypeName, inMethodName, static_cast<uint32_t>( rc ) );
         return false;
     }
     return true;

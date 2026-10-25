@@ -373,7 +373,14 @@ static int StartRuntime()
         return 1;
     }
 
-    if( !gScriptHost.Init( FindRuntimeConfig( exeDir ) ) )
+    // Build Game ships a private .NET install next to the executable (Docs/Building.md), so
+    // players need none; without one the system's is used.
+    std::string dotnetRoot = exeDir + "dotnet";
+    if( !fs::is_directory( dotnetRoot + "/host/fxr", error ) )
+    {
+        dotnetRoot.clear();
+    }
+    if( !gScriptHost.Init( FindRuntimeConfig( exeDir ), dotnetRoot ) )
     {
         YIKES( "failed to init .NET runtime, scripting is dead" );
         return 1;

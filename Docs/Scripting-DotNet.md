@@ -81,6 +81,7 @@ sequenceDiagram
 
 - The game assembly is **loaded from memory** (`LoadFromStream`), so the file on disk is never locked and a rebuild can overwrite it while the old version runs.
 - `ScriptEngine::Shutdown` (from `Engine` shutdown) closes the hostfxr context explicitly. The host library is never unloaded: tearing it down from static destructors crashed with a double free.
+- **Which runtime**: a `dotnet/` folder next to the executable is an **app-local install** (`host/fxr/<version>/` and `shared/Microsoft.NETCore.App/<version>/`, copied there by Build Game, `Docs/Building.md`). When it exists, `ScriptHost::Init` hands it to `get_hostfxr_path` and `hostfxr_initialize_for_runtime_config` as `dotnet_root`, so players need no .NET install. Otherwise the system install is used (`DOTNET_ROOT`, then the OS default locations). Either way the log says which at Info level (`Scripts: .NET runtime from the app-local install (...)`). Without either, `get_hostfxr_path` fails with `0x80008083` and scripting stays off.
 
 ### Script lifecycle
 

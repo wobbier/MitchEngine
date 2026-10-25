@@ -9,7 +9,10 @@ public:
     // Shutdown during its shutdown instead.
     ~ScriptHost() = default;
 
-    bool Init( const std::string& inRuntimeConfigPath );
+    // inDotnetRoot: a private .NET install shipped with the game (Build Game puts one in
+    // "<exe dir>/dotnet": host/fxr/<version>/ and shared/Microsoft.NETCore.App/<version>/).
+    // Empty: the system install (DOTNET_ROOT, then the OS default locations).
+    bool Init( const std::string& inRuntimeConfigPath, const std::string& inDotnetRoot = std::string() );
     void Shutdown();
 
     // get [UnmanagedCallersOnly] function pointer.
