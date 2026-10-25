@@ -10,6 +10,7 @@
 
 #include "CLog.h"
 #include "Resource/ResourceCache.h"
+#include "Resource/CookedAssets.h"
 #include "Graphics/Texture.h"
 #include "Graphics/Material.h"
 #include "Graphics/ImportedMaterial.h"
@@ -723,9 +724,7 @@ Moonlight::MeshData* ModelResource::ProcessMesh( aiMesh* mesh, Moonlight::Node& 
         apply( *static_cast<StandardMaterial*>( newMaterial.get() ), imported );
         for( unsigned int t = 0; t < Moonlight::TextureType::Count; ++t )
         {
-            if( t == Moonlight::TextureType::Normal && imported.InferredNormal
-                && !Path( FilePath.GetDirectoryString() + imported.Textures[t] ).Exists
-                && FindTextureNear( FilePath.FullPath, imported.Textures[t] ).empty() ) continue;
+            if( t == Moonlight::TextureType::Normal && imported.InferredNormal && !HasNearbyTexture( FilePath, imported.Textures[t] ) ) continue;
             if( !imported.Textures[t].empty() ) LoadMaterialTexture( newMaterial, imported.Textures[t], static_cast<Moonlight::TextureType>( t ), imported.Wrap[t] );
         }
         if( newMaterial->GetTexture( Moonlight::TextureType::Emissive ) && imported.Emissive.LengthSquared() <= 0.f )
@@ -840,31 +839,83 @@ bool ModelResource::LoadMaterialTexture( SharedPtr<Moonlight::Material> InMateri
 SharedPtr<Moonlight::Texture> ModelResource::FindMaterialTexture( const std::string& InReference, Moonlight::WrapMode InWrap ) const
 {
     if( InReference.empty() || InReference == "." ) return nullptr;
-    std::shared_ptr<Moonlight::Texture> texture;
-    const Path absolute( InReference );
-    const Path relative( FilePath.GetDirectoryString() + InReference );
-    if( relative.Exists ) texture = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( relative, InWrap );
-    else if( absolute.Exists ) texture = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( absolute, InWrap );
-    if( !texture )
-    {
-        const std::string found = FindTextureNear( FilePath.FullPath, InReference );
-        if( !found.empty() ) texture = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( Path( found ), InWrap );
-    }
-#if USING( ME_TOOLS )
-    if( !texture )
-    {
-        std::string name = InReference;
-        std::replace( name.begin(), name.end(), '\\', '/' );
-        name = name.substr( name.find_last_of( '/' ) + 1 );
-        const Path found = ResourceCache::GetInstance().FindByName( Path( "Assets" ), name );
-        if( found.Exists ) texture = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( found, InWrap );
-    }
-#endif
-    if( !texture )
+    const Path found = ResolveTextureReference( FilePath, InReference );
+    if( !found.Exists )
     {
         BRUH( "Model " + FilePath.GetLocalPathString() + ": texture '" + InReference + "' not found" );
+        return nullptr;
     }
-    return texture;
+    return ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( found, InWrap );
+}
+
+
+Path ModelResource::ResolveTextureReference( const Path& InModel, const std::string& InReference )
+{
+    if( InReference.empty() || InReference == "." ) return Path();
+    // A cooked tree ships no sources to search: the cooker recorded where every reference it
+    // could resolve went, so anything else didn't resolve against the sources either.
+    if( CookedAssets::Get().IsCooked() )
+    {
+        const std::string cooked = CookedAssets::Get().FindTextureReference( ResourceCache::CacheKey( InModel ), InReference );
+        return cooked.empty() ? Path() : Path( cooked );
+    }
+    const Path relative( InModel.GetDirectoryString() + InReference );
+    if( relative.Exists ) return relative;
+    const Path absolute( InReference );
+    if( absolute.Exists ) return absolute;
+    const std::string near = FindTextureNear( InModel.FullPath, InReference );
+    if( !near.empty() ) return Path( near );
+#if USING( ME_TOOLS )
+    std::string name = InReference;
+    std::replace( name.begin(), name.end(), '\\', '/' );
+    name = name.substr( name.find_last_of( '/' ) + 1 );
+    const Path found = ResourceCache::GetInstance().FindByName( Path( "Assets" ), name );
+    if( found.Exists ) return found;
+#endif
+    return Path();
+}
+
+
+bool ModelResource::HasNearbyTexture( const Path& InModel, const std::string& InReference )
+{
+    if( CookedAssets::Get().IsCooked() )
+    {
+        return !CookedAssets::Get().FindTextureReference( ResourceCache::CacheKey( InModel ), InReference ).empty();
+    }
+    return Path( InModel.GetDirectoryString() + InReference ).Exists || !FindTextureNear( InModel.FullPath, InReference ).empty();
+}
+
+
+std::vector<std::string> ModelResource::ReadTextureReferences( const Path& InModel )
+{
+    std::vector<std::string> references;
+    std::vector<uint8_t> cookedBytes;
+    if( !VFS::Get().ReadBytes( Path( InModel.FullPath + ".assbin" ), cookedBytes ) || cookedBytes.empty() )
+    {
+        return references;
+    }
+    Assimp::Importer importer;
+    const aiScene* scene = importer.ReadFileFromMemory( cookedBytes.data(), cookedBytes.size(), 0, "assbin" );
+    if( !scene )
+    {
+        return references;
+    }
+    // Both readings the loader binds: the current importer's and the legacy baseline's.
+    for( unsigned int m = 0; m < scene->mNumMaterials; ++m )
+    {
+        for( const bool legacy : { false, true } )
+        {
+            const Moonlight::ImportedMaterial imported = Moonlight::ReadImportedMaterial( *scene->mMaterials[m], legacy );
+            for( const std::string& texture : imported.Textures )
+            {
+                if( !texture.empty() && texture != "." && std::find( references.begin(), references.end(), texture ) == references.end() )
+                {
+                    references.push_back( texture );
+                }
+            }
+        }
+    }
+    return references;
 }
 
 

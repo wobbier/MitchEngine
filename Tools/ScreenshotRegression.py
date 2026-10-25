@@ -10,7 +10,8 @@ the simulation repeatable), captures the backbuffer, and compares it with a refe
   # accept the current look as the new reference
   ... --update
 
-Run it from the game project root (the game resolves Assets/ from there). --wrapper prefixes the
+Run it from the game project root (the game resolves Assets/ from there); --cwd runs the game in
+another directory instead (a cooked tree from Havana --cook). --wrapper prefixes the
 command (e.g. a script that points DISPLAY at a virtual X server). References are stored downscaled;
 the comparison happens at that size, with a per-pixel tolerance so particles and dithering don't
 count as regressions. Differences are written as amplified diff images to --out.
@@ -150,6 +151,8 @@ def main():
     parser.add_argument("--max-changed", type=float, default=0.03, help="fraction of changed pixels that fails a scene")
     parser.add_argument("--wrapper", default="", help="command prefix, e.g. a virtual-display launcher")
     parser.add_argument("--update", action="store_true", help="write the captures as the new references")
+    parser.add_argument("--cwd", default="", help="run the game in this directory (a cooked tree); scenes stay logical paths")
+    parser.add_argument("--game-args", default="", help="extra game arguments, e.g. \"--pak /abs/Game.mpak\"")
     args = parser.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
@@ -160,11 +163,18 @@ def main():
         capture = os.path.join(args.out, name + ".png")
         if os.path.exists(capture):
             os.remove(capture)
-        command = shlex.split(args.wrapper) + [args.game, "--scene", scene, "--frames", str(args.frames), "--frame-time", str(args.frame_time),
-                                               "--width", str(args.width), "--height", str(args.height), "--no-audio", "--screenshot", capture, "--exit"]
+        wrapper = shlex.split(args.wrapper)
+        game, shot = args.game, capture
+        if args.cwd:
+            # Another working directory: everything named relative to this one goes absolute.
+            wrapper = [os.path.abspath(token) if os.path.exists(token) else token for token in wrapper]
+            game, shot = os.path.abspath(game), os.path.abspath(capture)
+        command = wrapper + [game, "--scene", scene, "--frames", str(args.frames), "--frame-time", str(args.frame_time),
+                             "--width", str(args.width), "--height", str(args.height), "--no-audio", "--screenshot", shot, "--exit"]
+        command += shlex.split(args.game_args)
         log_path = os.path.join(args.out, name + ".log")
         with open(log_path, "w") as log:
-            result = subprocess.run(command, stdout=log, stderr=subprocess.STDOUT)
+            result = subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, cwd=args.cwd or None)
         if result.returncode != 0 or not os.path.exists(capture):
             print(f"FAIL  {name}: the game exited with {result.returncode} without a capture (see {log_path})")
             failures += 1

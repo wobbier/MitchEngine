@@ -3,6 +3,7 @@
 #include "Path.h"
 #include "Graphics/ShaderFile.h"
 #include "Resource/ResourceCache.h"
+#include "Resource/CookedAssets.h"
 #include "Pointers.h"
 #include "Dementia.h"
 #include <algorithm>
@@ -236,6 +237,11 @@ std::vector<SharedPtr<Moonlight::ShaderFile>> Moonlight::PrefetchShaders( const 
 
 std::vector<std::string> Moonlight::FindEngineShaderStages()
 {
+    // A cooked tree ships binaries without sources; the cooker listed the stages it shipped.
+    if( CookedAssets::Get().IsCooked() )
+    {
+        return CookedAssets::Get().GetEngineShaderStages();
+    }
     std::vector<std::string> stages;
 #if !USING( ME_PLATFORM_UWP )
     // Resolve the folder through a stage only the engine ships, so a game's own Assets/Shaders

@@ -54,6 +54,7 @@
 #include "Engine/HardwareBudget.h"
 #include "Engine/ProjectSettings.h"
 #include "Tools/Cook/CookDependencies.h"
+#include "Resource/CookedAssets.h"
 #include "Profiling/FrameStats.h"
 #include "Events/PlatformEvents.h"
 #include "Scripting/ScriptEngine.h"
@@ -126,6 +127,8 @@ void Engine::Init( Game* game )
     {
         VFS::Get().MountPak( "", pakFile, 150 );
     }
+    // A cooked tree (Havana --cook) indexes what it stripped: sources, .meta files, GUIDs.
+    CookedAssets::Get().Load();
 
     // Project settings load first: the product identity names the user:// root.
     ProjectSettings::Get().Load();

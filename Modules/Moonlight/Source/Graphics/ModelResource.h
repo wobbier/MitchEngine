@@ -55,6 +55,15 @@ public:
     float GetBakedImportScale() const { return m_bakedImportScale; }
     // A procedural MitchTree (`.mtree`): generated from its recipe on load instead of read from a cook.
     bool IsTree() const { return m_isTree; }
+    // Where a material texture reference of InModel resolves: a cooked tree's recorded answer,
+    // then relative to the model, absolute, nearby by name, and (tools builds) anywhere under
+    // Assets by file name. A non-existing Path when nothing matches.
+    static Path ResolveTextureReference( const Path& InModel, const std::string& InReference );
+    // Every texture reference InModel's materials name (read from its cook), for the cooker.
+    static std::vector<std::string> ReadTextureReferences( const Path& InModel );
+    // An inferred normal map binds only when it's next to the model (or near it by name); a
+    // cooked tree answers from what the cooker resolved.
+    static bool HasNearbyTexture( const Path& InModel, const std::string& InReference );
     // The recipe the tree was generated from (trees only).
     const MitchTree::TreeRecipe* GetTreeRecipe() const { return m_treeRecipe.get(); }
 private:

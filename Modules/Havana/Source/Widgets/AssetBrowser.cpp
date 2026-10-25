@@ -38,6 +38,7 @@
 #include <Utils/EditorConfig.h>
 #include <CLog.h>
 #include "Utils/PlatformUtils.h"
+#include "Tools/Cook/Cooker.h"
 #include "Utils/ScriptNaming.h"
 #include <ImGuiTheme.h>
 #include <Utils/HavanaUtils.h>
@@ -724,11 +725,8 @@ void AssetBrowserWidget::Render()
 
 void AssetBrowserWidget::DrawProjectToolbar()
 {
-    if( m_compiledAssets.empty() )
-    {
-        if( ImGui::Button( "Build Assets" ) ) BuildAssets();
-    }
-    else if( ImGui::Button( "Clear Assets" ) ) ClearAssets();
+    if( ImGui::Button( "Build Assets" ) ) BuildAssets();
+    if( ImGui::IsItemHovered() ) ImGui::SetTooltip( "Cook every texture, model and shader that's missing its cooked twin or is stale" );
     ImGui::SameLine();
     if( ImGui::Button( "Refresh" ) )
     {
@@ -1660,7 +1658,7 @@ void AssetBrowserWidget::DrawBackgroundContextMenu()
     {
         Refresh();
     }
-    if( ImGui::MenuItem( "Compile All Textures & Shaders" ) )
+    if( ImGui::MenuItem( "Cook All Textures, Models & Shaders" ) )
     {
         BuildAssets();
     }
@@ -2287,31 +2285,10 @@ void AssetBrowserWidget::CreatePrefabIn( const std::string& InDirectory, Transfo
 
 void AssetBrowserWidget::BuildAssets()
 {
-    for( const char* root : { "Engine/Assets", "Assets" } )
-    {
-        std::error_code error;
-        for( fs::recursive_directory_iterator it( Path( root ).FullPath, error ), end; it != end; it.increment( error ) )
-        {
-            const std::string path = ToGeneric( it->path() );
-            const AssetType type = GetAssetType( path );
-            if( type == AssetType::Texture )
-            {
-                BRUH( "Compiling: " + path );
-                m_compiledAssets.push_back( ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( path ) ) );
-            }
-            else if( type == AssetType::Shader && !EndsWith( path, ".sh" ) )
-            {
-                BRUH( "Compiling: " + path );
-                m_compiledAssets.push_back( ResourceCache::GetInstance().Get<Moonlight::ShaderFile>( Path( path ) ) );
-            }
-        }
-    }
-}
-
-
-void AssetBrowserWidget::ClearAssets()
-{
-    m_compiledAssets.clear();
+    // The cooker's in-place pass: every texture, model and shader missing its cooked twin (or
+    // stale) cooks for the running platform.
+    const int failed = Cook::CookInPlace( { "Engine/Assets", "Assets" }, Cook::HostPlatform() );
+    CLog::Log( failed ? CLog::LogType::Error : CLog::LogType::Info, failed ? std::to_string( failed ) + " asset(s) failed to cook" : std::string( "Every asset is cooked" ) );
 }
 
 #endif

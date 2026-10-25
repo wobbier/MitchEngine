@@ -1,4 +1,5 @@
 #include "AssetDatabase.h"
+#include "CookedAssets.h"
 #include "JSON.h"
 #include "CLog.h"
 #include <cstdlib>
@@ -92,10 +93,22 @@ void AssetDatabase::Refresh( const std::vector<std::string>& InRoots )
 
 void AssetDatabase::EnsureScanned()
 {
-    if( !IsScanned() )
+    if( IsScanned() )
     {
-        Refresh( { "Assets", "Engine/Assets" } );
+        return;
     }
+    // A cooked tree has no .meta files to scan: its registry carries the GUIDs.
+    if( CookedAssets::Get().IsCooked() )
+    {
+        for( const auto& [path, guid] : CookedAssets::Get().GetGuids() )
+        {
+            Register( path, guid );
+        }
+        std::lock_guard<std::mutex> lock( m_mutex );
+        m_scanned = true;
+        return;
+    }
+    Refresh( { "Assets", "Engine/Assets" } );
 }
 
 

@@ -97,6 +97,8 @@ public:
     bool MountPak( const std::string& InPrefix, const std::string& InPakPath, int InPriority, const std::string& InDisplayPrefix = {} );
     // Drops every mount serving InPrefix.
     void UnmountAll( const std::string& InPrefix );
+    // Drops the mounts backed by InSource.
+    void Unmount( const SharedPtr<IMountSource>& InSource );
 
     // Replaces the user:// mount.
     void SetUserRoot( const std::string& InDirectory );

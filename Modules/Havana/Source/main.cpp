@@ -6,6 +6,8 @@
 #include "Resource/ResourceCache.h"
 #include "Resource/MetaFile.h"
 #include "CLog.h"
+#include "Engine/ProjectSettings.h"
+#include "Tools/Cook/Cooker.h"
 #include <atomic>
 #include <chrono>
 #include <filesystem>
@@ -80,6 +82,77 @@ static int CookTextures( const std::string& InFolder )
 }
 
 
+// The game build next to this editor build (".build/Editor_Debug/Havana" ->
+// ".build/Game_<platform>_Debug/Game_EntryPoint_x64"), for recording scenes; empty when absent.
+static std::string FindGameExecutable( const char* InEditorPath )
+{
+    namespace fs = std::filesystem;
+    std::error_code error;
+    const fs::path editorDir = fs::absolute( InEditorPath, error ).parent_path();
+    const std::string config = editorDir.filename().string().find( "Release" ) != std::string::npos ? "Release" : "Debug";
+#if USING( ME_PLATFORM_WINDOWS )
+    const char* platform = "win64";
+    const char* executable = "Game_EntryPoint_x64.exe";
+#elif USING( ME_PLATFORM_MACOS )
+    const char* platform = "macos";
+    const char* executable = "Game_EntryPoint_x64";
+#else
+    const char* platform = "linux";
+    const char* executable = "Game_EntryPoint_x64";
+#endif
+    for( const std::string& candidate : { config, std::string( config == "Debug" ? "Release" : "Debug" ) } )
+    {
+        const fs::path game = editorDir.parent_path() / ( std::string( "Game_" ) + platform + "_" + candidate ) / executable;
+        if( fs::is_regular_file( game, error ) )
+        {
+            return game.generic_string();
+        }
+    }
+    return std::string();
+}
+
+
+// --cook [--scene <lvl>]... [--deps <recording>]... [--out <dir>] [--platform linux|windows|macos]
+//        [--pak <file.mpak>] [--game <exe> | --no-record] [--record-frames <n>]
+// The dependency cooker (SHIP-2, Engine/Docs/Cooking.md) without opening the editor: cooks what
+// the scenes (default: the project's Build scenes) need into a tree that runs without sources.
+// Scenes are recorded through the game first (--record-deps) when a game build is found.
+// Returns non-zero if anything failed.
+static int CookProject( const char* InEditorPath )
+{
+    // The engine isn't initialized here, so the log has no verbosity yet: progress and errors.
+    CLog::GetInstance().SetLogVerbosity( CLog::LogType::Info );
+    ProjectSettings::Get().Load();
+
+    Cook::Request request;
+    const std::vector<std::string>& args = CommandLine::GetArgs();
+    for( size_t i = 0; i + 1 < args.size(); ++i )
+    {
+        if( args[i] == "--scene" ) request.Scenes.push_back( args[i + 1] );
+        else if( args[i] == "--deps" ) request.DependencyFiles.push_back( args[i + 1] );
+    }
+    request.OutputDirectory = CommandLine::GetString( "--out", request.OutputDirectory );
+    request.PakFile = CommandLine::GetString( "--pak" );
+    request.RecordFrames = CommandLine::GetInt( "--record-frames", request.RecordFrames );
+    const std::string platform = CommandLine::GetString( "--platform", Cook::PlatformName( Cook::HostPlatform() ) );
+    if( !Cook::ParsePlatform( platform, request.TargetPlatform ) )
+    {
+        CLog::Log( CLog::LogType::Error, "Cook: unknown platform '" + platform + "' (linux, windows, macos)" );
+        return 2;
+    }
+    if( !CommandLine::Has( "--no-record" ) )
+    {
+        request.GameExecutable = CommandLine::GetString( "--game", FindGameExecutable( InEditorPath ) );
+        if( request.GameExecutable.empty() )
+        {
+            CLog::Log( CLog::LogType::Warning, "Cook: no game build found to record the scenes with (pass --game <exe>); assets only scripts load by name won't ship" );
+        }
+    }
+    const Cook::Report report = Cook::Run( request );
+    return report.Success ? 0 : 1;
+}
+
+
 int main( int argc, char** argv )
 {
     CommandLine::Set( argc, argv );
@@ -87,19 +160,9 @@ int main( int argc, char** argv )
     {
         return CookTextures( CommandLine::GetString( "--cook-textures", "Assets" ) );
     }
-    for( int i = 0; i < argc; ++i )
+    if( CommandLine::Has( "--cook" ) )
     {
-        std::printf( "argv[%d]: %s\n", i, argv[i] );
-        if( std::string( argv[i] ) == "-CompileAssets" )
-        {
-            bgfx::Init init;
-            init.reset = BGFX_RESET_VSYNC;
-
-            bgfx::init( init );
-            AssetBrowserWidget browser = AssetBrowserWidget( nullptr );
-            browser.BuildAssets();
-            return 0;
-        }
+        return CookProject( argv[0] );
     }
 
     if( CommandLine::Has( "--capture-startup" ) )

@@ -17,6 +17,8 @@ Technical documentation for MitchEngine — a C++20, ECS-based game engine built
 | [Materials-and-Shaders.md](Materials-and-Shaders.md) | Material hierarchy, instance batch keys, offline `shaderc` cooking via the MetaFile system |
 | [ShaderGraph.md](ShaderGraph.md) | Node-based shaders: the graph model, typed stage-aware compiler, Lit/Unlit/Particle/Decal/Post Process targets, generated files and runtime binding, the Havana editor and its live previews, adding nodes and targets |
 | [Resources-and-Assets.md](Resources-and-Assets.md) | `ResourceCache` load flow, `.meta` sidecars, export/cooking, eviction, resource type inventory |
+| [VFS.md](VFS.md) | The mount table behind `Path`/`File`: overlay roots, `user://`, read recording (`--record-deps`), `.mpak` paks |
+| [Cooking.md](Cooking.md) | `Havana --cook`: dependencies from scenes and recorded runs, what ships per platform, `AssetRegistry.json`, cooked runs |
 | [Cores-and-Components-Reference.md](Cores-and-Components-Reference.md) | Catalog of every core and every component; orphaned-component list |
 | [Audio.md](Audio.md) | FMOD `AudioCore`: output modes (silent automated runs), mixer buses, listener, 2D/3D sources with rolloff and doppler, overlapping one-shots, pause and lifecycle |
 | [Animation.md](Animation.md) | Clip import, the `Animator` state machine (parameters, transitions, blends, events), `AnimationCore`, bone entities, GPU skinning in every pass |

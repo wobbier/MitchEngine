@@ -3,7 +3,8 @@
 #   1. builds the editor, the game and the unit tests (debug);
 #   2. runs the unit tests;
 #   3. runs every editor regression script (Tools/RunEditorFlows.py);
-#   4. compares the showcase scenes with their reference screenshots (Tools/ScreenshotRegression.py).
+#   4. compares the showcase scenes with their reference screenshots (Tools/ScreenshotRegression.py);
+#   5. cooks two showcases (Havana --cook) and compares the game on the cooked tree and its pak.
 # GUI runs go through Tools/Headless.sh (a private virtual display with software Vulkan), so nothing
 # opens on your desktop and nothing plays through your speakers.
 #
@@ -75,6 +76,30 @@ if [[ -d Assets/Scenes/Showcase/Reference ]]; then
     step "Screenshot regression"
     if ! python3 "$here/ScreenshotRegression.py" --game .build/Game_linux_Debug/Game_EntryPoint_x64 --reference Assets/Scenes/Showcase/Reference --wrapper "$here/Headless.sh" Assets/Scenes/Showcase/*.lvl; then
         failed+=("screenshot regression")
+    fi
+fi
+
+# The cooker (SHIP-2): cook two showcases (each recorded through the game first), then run the
+# game on the cooked tree and, from an empty directory, on its pak alone. Both must still match
+# the references: nothing the scenes need may be left behind with the sources.
+cook_scenes=(Assets/Scenes/Showcase/Lighting.lvl Assets/Scenes/Showcase/Playground.lvl)
+if [[ -f "${cook_scenes[0]}" && -f "${cook_scenes[1]}" && -d Assets/Scenes/Showcase/Reference ]]; then
+    step "Cooked build"
+    if ! "$here/Headless.sh" ./.build/Editor_Debug/Havana --cook --scene "${cook_scenes[0]}" --scene "${cook_scenes[1]}" --out .tmp/Cook --pak .tmp/Cook.mpak \
+            --game .build/Game_linux_Debug/Game_EntryPoint_x64 > .tmp/RunChecks.cook.log 2>&1; then
+        grep -E "Cook|Error" .tmp/RunChecks.cook.log | tail -20
+        failed+=("cook")
+    else
+        grep -E "Cook finished" .tmp/RunChecks.cook.log
+        if ! python3 "$here/ScreenshotRegression.py" --game .build/Game_linux_Debug/Game_EntryPoint_x64 --reference Assets/Scenes/Showcase/Reference --wrapper "$here/Headless.sh" \
+                --out .tmp/ScreenshotRegression/Cooked --cwd .tmp/Cook "${cook_scenes[@]}"; then
+            failed+=("cooked tree screenshots")
+        fi
+        rm -rf .tmp/CookEmpty && mkdir -p .tmp/CookEmpty
+        if ! python3 "$here/ScreenshotRegression.py" --game .build/Game_linux_Debug/Game_EntryPoint_x64 --reference Assets/Scenes/Showcase/Reference --wrapper "$here/Headless.sh" \
+                --out .tmp/ScreenshotRegression/CookedPak --cwd .tmp/CookEmpty --game-args "--pak $PWD/.tmp/Cook.mpak" "${cook_scenes[@]}"; then
+            failed+=("cooked pak screenshots")
+        fi
     fi
 fi
 

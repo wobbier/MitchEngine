@@ -48,8 +48,8 @@ public:
     void RequestOverlay( const std::function<void( Path )> cb = nullptr, AssetType forcedType = AssetType::Unknown, bool isRequestingSave = false );
 
     // Compiles every texture and shader (command line / pre-cooking helper).
+    // Cooks every texture, model and shader in place (Cook::CookInPlace).
     void BuildAssets();
-    void ClearAssets();
 
     static AssetType GetAssetType( const std::string& InPath );
 
@@ -186,7 +186,6 @@ private:
     std::vector<std::string> m_pendingDelete;
     bool m_openDeleteConfirmation = false;
 
-    std::vector<SharedPtr<Resource>> m_compiledAssets;
 };
 
 #endif

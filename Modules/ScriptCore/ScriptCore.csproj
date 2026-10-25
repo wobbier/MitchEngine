@@ -16,5 +16,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Source/**/*.cs" />
+    <!-- The host's runtime config travels with the DLLs, so an executable directory runs scripts
+         without the source tree next to it (a cooked tree runs from anywhere). -->
+    <None Include="../../Source/Scripting/ScriptCore.runtimeconfig.json" Link="ScriptCore.runtimeconfig.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

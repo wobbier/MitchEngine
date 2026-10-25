@@ -109,4 +109,28 @@ namespace Moonlight
             }
         }
     }
+
+
+    bool IsShaderBinaryStale( const std::string& InSourcePath, const std::string& InBinaryPath )
+    {
+        namespace fs = std::filesystem;
+        std::error_code ec;
+        const fs::file_time_type built = fs::last_write_time( InBinaryPath, ec );
+        if( ec )
+        {
+            return true;
+        }
+        auto newer = [&built]( const std::string& InInput ) {
+            std::error_code inputError;
+            const fs::file_time_type changed = fs::last_write_time( InInput, inputError );
+            return !inputError && changed > built;
+        };
+        const std::string varying = InSourcePath.substr( 0, InSourcePath.rfind( '.' ) ) + ".var";
+        if( newer( InSourcePath ) || newer( varying ) )
+        {
+            return true;
+        }
+        const std::vector<std::string> deps = ReadDepfile( InBinaryPath + ".d" );
+        return std::any_of( deps.begin(), deps.end(), newer );
+    }
 }

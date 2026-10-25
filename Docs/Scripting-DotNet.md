@@ -22,7 +22,7 @@ The engine owns scripting the way it owns physics and audio: `Engine::Scripts` i
 | `Modules/ScriptCore/Source/Generated/EngineAPIBindings.g.cs` | Generated C# `struct EngineAPIBindings` (`delegate* unmanaged<>` members) |
 | `Source/Scripting/Bindings/` (`Entity`, `ImGui`, `Components/`, `Systems/`) | `Register_*Bindings( ScriptEngineAPI& )` implementations; `Systems/Gameplay.bindings.cpp` holds time, lifecycle, world-space transforms, scenes, input actions, audio, physics and debug draw |
 | `Source/Scripting/Bindings/BindingContext.h` / `.cpp` | Script-world pointer + name-keyed component ops (`RegisterComponent<T>`) |
-| `Source/Scripting/ScriptCore.runtimeconfig.json` | Runtime config (net8.0) handed to hostfxr (also looked up next to the executable and in the working directory) |
+| `Source/Scripting/ScriptCore.runtimeconfig.json` | Runtime config (net8.0) handed to hostfxr: looked up next to the executable first (`ScriptCore.csproj` copies it into the script build's output, so a cooked tree runs scripts from any directory), then the working directory, then this path |
 | `Source/Cores/Scripting/ScriptCore.cpp` | The engine-owned core: start, fixed update, update, destroy |
 | `Source/Components/Scripting/ScriptComponent.h` / `.cpp` | Script name, handle, started flag, saved-fields JSON, inspector |
 | `Modules/ScriptCore/ScriptCore.csproj` | SDK-style project for command-line builds |

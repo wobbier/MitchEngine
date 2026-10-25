@@ -5,6 +5,7 @@
 #include "JSON.h"
 #include "File.h"
 #include "AssetMetaCache.h"
+#include "CookedAssets.h"
 #include <optional>
 #include <chrono>
 #include <algorithm>
@@ -64,11 +65,13 @@ class PathResolver
 public:
     static std::optional<std::filesystem::path> FindMatchingFile( const std::filesystem::path& filename, const std::filesystem::path& rootDir )
     {
-        for( const auto& entry : std::filesystem::recursive_directory_iterator( rootDir ) )
+        // A missing root (a pak-only run has no Assets/ on disk) is no match, not an exception.
+        std::error_code error;
+        for( std::filesystem::recursive_directory_iterator it( rootDir, error ), end; !error && it != end; it.increment( error ) )
         {
-            if( entry.is_regular_file() && entry.path().filename() == filename )
+            if( it->is_regular_file( error ) && it->path().filename() == filename )
             {
-                return entry.path();
+                return it->path();
             }
         }
         return std::nullopt;
@@ -529,6 +532,11 @@ void ResourceCache::ReleaseAll()
 void ResourceCache::ExportIfNeeded( const Path& InFilePath, const SharedPtr<MetaBase>& InMetaFile, bool InForce )
 {
 #if USING( ME_TOOLS )
+    // Cooked trees have no sources to cook from.
+    if( CookedAssets::Get().IsCooked() )
+    {
+        return;
+    }
     if( InMetaFile && ( InMetaFile->FlaggedForExport || InForce ) )
     {
         CLog::Log( CLog::LogType::Info, "Exporting asset: " + InFilePath.FullPath );
@@ -784,7 +792,14 @@ SharedPtr<MetaBase> ResourceCache::LoadMetadata( const Path& filePath )
         metadata = it->second( filePath );
 
         bool hasValidMeta = false;
-        if( metaPath.Exists )
+        // A cooked tree ships no .meta files: the cooker folded the settings into its registry.
+        const json* cookedMeta = metaPath.Exists ? nullptr : CookedAssets::Get().FindMeta( CacheKey( filePath ) );
+        if( cookedMeta )
+        {
+            metadata->Deserialize( *cookedMeta );
+            hasValidMeta = true;
+        }
+        else if( metaPath.Exists )
         {
             // Sidecars that aren't ours (e.g. Unity YAML .meta files shipped with asset packs) or
             // that were hand-edited badly fall back to default settings instead of aborting the load.

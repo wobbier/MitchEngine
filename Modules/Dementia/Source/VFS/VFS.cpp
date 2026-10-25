@@ -235,6 +235,22 @@ bool VFS::MountPak( const std::string& InPrefix, const std::string& InPakPath, i
 }
 
 
+void VFS::Unmount( const SharedPtr<IMountSource>& InSource )
+{
+    SharedPtr<const MountTable> current = Snapshot();
+    std::vector<VfsMount> mounts;
+    mounts.reserve( current->Mounts.size() );
+    for( const VfsMount& mount : current->Mounts )
+    {
+        if( mount.Source != InSource )
+        {
+            mounts.push_back( mount );
+        }
+    }
+    Swap( std::move( mounts ) );
+}
+
+
 void VFS::UnmountAll( const std::string& InPrefix )
 {
     SharedPtr<const MountTable> current = Snapshot();

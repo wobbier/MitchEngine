@@ -118,8 +118,11 @@ state. `VFS::MountPak( prefix, pak, priority )` mounts one, and the game mounts 
 <file>` at priority 150 before project settings load, so a working directory with no
 `Assets/` still serves every logical path (`VfsTests.cpp` round-trips bytes, stats,
 enumeration and windowed streams; a packaged Lighting run reproduces the showcase reference).
-Dependency-aware packing is the cooker's job (SHIP-2); until then callers name their roots,
-and engine defaults like `Assets/Textures/DefaultAlpha.png` need naming explicitly.
+Dependency-aware packing is the cooker's job: `Havana --cook --pak <file>` packs exactly what
+the scenes need, sources stripped (`Cooking.md`); `pack-assets` stays for packing named roots
+wholesale. A cooked tree or pak carries `AssetRegistry.json`, and `Engine::Init` loads it right
+after the `--pak` mount (`CookedAssets`): a stat-only mount at priority -1000 answers that the
+stripped sources exist, without serving bytes. `VFS::Unmount( source )` drops one mount.
 
 ## Roadmap
 

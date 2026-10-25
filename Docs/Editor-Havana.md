@@ -142,7 +142,12 @@ A searchable project-wide table is the default: type icon, name, local path and 
 - **Opening**: double-click opens terrains in the Terrain panel, shader graphs in their editor, sequences in the sequencer, `.mtree` trees in MitchTree (`Docs/MitchTree.md`) and scenes in place.
 - **File operations**: create folder/scene/prefab/material/input actions/C# script/tree (Create > Tree > preset), rename (F2, moves the `.meta`; a script's name is its class name, so a new script takes the first free name in the project, `NewScript`, `NewScript2`..., and renaming one keeps it a unique C# identifier, `my door` becoming `MyDoor.cs`, renames the class with it and adds a `[FormerName]` when a scene or prefab still names the old class), duplicate (Ctrl+D), move (Alt-drag files, or drag folders, onto folders or breadcrumbs), delete to `.tmp/Trash` after confirmation, show in file manager, copy path, reimport.
 - **Picker mode**: the same window serves `RequestAssetSelectionEvent`. Double-click selects; save dialogs save into the browsed folder with the right extension.
+- **Build Assets** (toolbar; *Cook All Textures, Models & Shaders* in the context menu) cooks every texture, model and shader whose cooked twin is missing or stale, for this platform (`Cook::CookInPlace`).
 - `AssetsChangedEvent` from the asset watcher refreshes it.
+
+### Cooking: `--cook`
+
+`Havana --cook --scene <lvl> --out <dir>` runs the dependency cooker without opening the editor and exits non-zero on failure. It writes a cooked tree (`--pak` also packs it) that the game runs without sources. `Havana --cook-textures [folder]` cooks only textures, on every core. See `Docs/Cooking.md`.
 
 ### Console, history, profiler, settings
 
