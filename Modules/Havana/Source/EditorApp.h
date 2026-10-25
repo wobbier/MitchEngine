@@ -45,6 +45,9 @@ public:
 	void RequestOpenScene( const std::string& InScenePath );
 	void RequestOpenSceneDialog();
 	void SaveScene( bool InSaveAs );
+	// Reopens the editor on another project (Havana --project <root>), after the unsaved-changes
+	// prompt. Unattended runs only log the command: they never start a second editor.
+	void RequestOpenProject( const std::string& InFolder );
 	void RequestQuit();
 	bool OnQuitRequested() override;
 

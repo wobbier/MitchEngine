@@ -594,6 +594,12 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             Fail( "build-game-wait: no BuildInfo.json in " + widget->GetOutputDirectory() );
         }
     }
+    else if( command == "open-project" )
+    {
+        // open-project Engine/Samples/ScriptOnly   (File > Open Project; an unattended run logs the
+        // reopen command instead of starting another editor)
+        InApp.RequestOpenProject( args );
+    }
     else if( command == "preference" )
     {
         // preference Appearance.FontSize | 28   (for this session: unattended runs never save it)

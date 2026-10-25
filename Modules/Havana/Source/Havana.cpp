@@ -42,6 +42,7 @@
 #include "Widgets/ProfilerWidget.h"
 #include "Widgets/SettingsWidgets.h"
 #include "Widgets/BuildGameWidget.h"
+#include "Widgets/OpenProjectWidget.h"
 #include "Widgets/ShaderGraph/ShaderGraphWidget.h"
 #include "Widgets/Terrain/TerrainWidget.h"
 #include "Widgets/Tree/TreeWidget.h"
@@ -144,6 +145,9 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
     BuildGameView.reset( new BuildGameWidget() );
     RegisteredWidgets.push_back( BuildGameView );
 
+    OpenProjectView.reset( new OpenProjectWidget( app ) );
+    RegisteredWidgets.push_back( OpenProjectView );
+
     TerrainPanel.reset( new TerrainWidget() );
     RegisteredWidgets.push_back( TerrainPanel );
     ShaderGraphs.reset( new ShaderGraphWidget() );
@@ -161,9 +165,17 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
     actions.Register( { "Edit.Preferences", "Preferences...", "Edit", ImGuiMod_Shortcut | ImGuiKey_Comma, 0, [this]() { ShowWidget( "Preferences" ); } } );
     actions.Register( { "Edit.ProjectSettings", "Project Settings...", "Edit", 0, 0, [this]() { ShowWidget( "Project Settings" ); } } );
     actions.Register( { "File.BuildGame", "Build Game...", "File", ImGuiMod_Shortcut | ImGuiMod_Shift | ImGuiKey_B, 0, [this]() { ShowWidget( "Build Game" ); } } );
+    actions.Register( { "File.OpenProject", "Open Project...", "File", 0, 0, [this]() { ShowWidget( "Open Project" ); } } );
     actions.Register( { "View.Profiler", "Profiler", "View", 0, 0, [this]() { ShowWidget( "Profiler" ); } } );
     ReflectionUI::RegisterDefaultDrawers();
     actions.Register( { "View.AssetSearch", "Quick Asset Search", "View", ImGuiMod_Shortcut | ImGuiKey_Space, 0, [this]() { AssetBrowser->RequestOverlay( nullptr ); } } );
+    const ImGuiKey workspaceKeys[] = { ImGuiKey_1, ImGuiKey_2, ImGuiKey_3, ImGuiKey_4, ImGuiKey_5, ImGuiKey_6, ImGuiKey_7, ImGuiKey_8, ImGuiKey_9 };
+    for( int workspace = 1; workspace <= 9; ++workspace )
+    {
+        const std::string id = "Workspace.Select" + std::to_string( workspace );
+        const std::string name = "Workspace " + std::to_string( workspace );
+        actions.Register( { id, name, "Workspace", ImGuiMod_Shortcut | workspaceKeys[workspace - 1], 0, [this, workspace]() { SwitchWorkspace( workspace ); } } );
+    }
 
     InitUI();
 }
@@ -183,15 +195,22 @@ void Havana::InitUI()
     std::error_code ec;
     std::filesystem::create_directories( ".tmp", ec );
     EngineConfigFilePath = Path( ".tmp/imgui.ini", true );
-    const Path defaultLayout( "Assets/Config/imgui.cfg" );
+    DefaultLayoutFilePath = Path( "Assets/Config/imgui.cfg" );
+    ActiveWorkspace = EditorConfig::GetInstance().GetPreference<int>( "ActiveWorkspace", 1 );
+    if( ActiveWorkspace < 1 || ActiveWorkspace > 9 ) ActiveWorkspace = 1;
+    const Path activeWorkspaceLayout = GetWorkspaceLayoutPath( ActiveWorkspace );
     ImGuiIO& io = ImGui::GetIO(); (void)io;
-    if( EngineConfigFilePath.Exists )
+    if( activeWorkspaceLayout.Exists )
+    {
+        ImGui::LoadIniSettingsFromDisk( activeWorkspaceLayout.FullPath.c_str() );
+    }
+    else if( EngineConfigFilePath.Exists )
     {
         ImGui::LoadIniSettingsFromDisk( EngineConfigFilePath.FullPath.c_str() );
     }
-    else if( defaultLayout.Exists )
+    else if( DefaultLayoutFilePath.Exists )
     {
-        ImGui::LoadIniSettingsFromDisk( defaultLayout.FullPath.c_str() );
+        ImGui::LoadIniSettingsFromDisk( DefaultLayoutFilePath.FullPath.c_str() );
     }
     // Unattended runs use the layout without ever writing it back.
     io.IniFilename = AutomationRunner::IsUnattendedRun() ? nullptr : EngineConfigFilePath.FullPath.c_str();
@@ -254,6 +273,7 @@ void Havana::InitUI()
         CustomRegisteredWidgets.push_back( customWidget );
         customWidget->Init();
     }
+    RestoreWorkspacePanelVisibility( ActiveWorkspace );
 
     ShaderGraphs->Init();
     Sequencer->InstallActionRouting();
@@ -325,6 +345,7 @@ void Havana::NewFrame()
     Preferences->Render();
     ProjectSettingsView->Render();
     BuildGameView->Render();
+    OpenProjectView->Render();
     ShaderGraphs->Render();
     Trees->Render();
     TerrainPanel->Render();
@@ -350,6 +371,80 @@ void Havana::ShowWidget( const std::string& name )
             widget->IsOpen = true;
             ImGui::SetWindowFocus( name.c_str() );
         }
+    }
+}
+
+
+Path Havana::GetWorkspaceLayoutPath( int InWorkspace ) const
+{
+    return Path( ".tmp/imgui-workspace-" + std::to_string( InWorkspace ) + ".ini", true );
+}
+
+
+void Havana::StoreWorkspacePanelVisibility( int InWorkspace )
+{
+    json& workspaces = EditorConfig::GetInstance().Preferences["Workspaces"];
+    if( !workspaces.is_object() ) workspaces = json::object();
+    json& panels = workspaces[std::to_string( InWorkspace )]["Panels"] = json::object();
+    for( const auto& widget : RegisteredWidgets )
+    {
+        if( widget.get() != MainMenu.get() ) panels[widget->Name] = widget->IsOpen;
+    }
+    for( const auto& widget : CustomRegisteredWidgets )
+    {
+        panels[widget->Name] = widget->IsOpen;
+    }
+}
+
+
+void Havana::RestoreWorkspacePanelVisibility( int InWorkspace )
+{
+    const json& preferences = EditorConfig::GetInstance().Preferences;
+    const auto workspace = preferences.find( "Workspaces" );
+    if( workspace == preferences.end() || !workspace->is_object() ) return;
+    const auto slot = workspace->find( std::to_string( InWorkspace ) );
+    if( slot == workspace->end() || !slot->is_object() ) return;
+    const auto panels = slot->find( "Panels" );
+    if( panels == slot->end() || !panels->is_object() ) return;
+    auto restore = [&panels]( const SharedPtr<HavanaWidget>& widget ) {
+        const auto visible = panels->find( widget->Name );
+        if( visible != panels->end() && visible->is_boolean() ) widget->IsOpen = visible->get<bool>();
+    };
+    for( const auto& widget : RegisteredWidgets )
+    {
+        if( widget.get() != MainMenu.get() ) restore( widget );
+    }
+    for( const auto& widget : CustomRegisteredWidgets ) restore( widget );
+}
+
+
+void Havana::SaveWorkspaceLayout( int InWorkspace )
+{
+    if( AutomationRunner::IsUnattendedRun() ) return;
+    ImGui::SaveIniSettingsToDisk( GetWorkspaceLayoutPath( InWorkspace ).FullPath.c_str() );
+    StoreWorkspacePanelVisibility( InWorkspace );
+    EditorConfig::GetInstance().Save();
+}
+
+
+void Havana::SwitchWorkspace( int InWorkspace )
+{
+    if( InWorkspace < 1 || InWorkspace > 9 || InWorkspace == ActiveWorkspace ) return;
+
+    SaveWorkspaceLayout( ActiveWorkspace );
+    const Path target = GetWorkspaceLayoutPath( InWorkspace );
+    ImGui::ClearIniSettings();
+    if( target.Exists ) ImGui::LoadIniSettingsFromDisk( target.FullPath.c_str() );
+    else if( DefaultLayoutFilePath.Exists ) ImGui::LoadIniSettingsFromDisk( DefaultLayoutFilePath.FullPath.c_str() );
+    RestoreWorkspacePanelVisibility( InWorkspace );
+    ActiveWorkspace = InWorkspace;
+    EditorConfig::GetInstance().SetPreference( "ActiveWorkspace", ActiveWorkspace );
+
+    // Keep the normal startup layout in sync with the selected workspace.
+    if( !AutomationRunner::IsUnattendedRun() )
+    {
+        ImGui::SaveIniSettingsToDisk( EngineConfigFilePath.FullPath.c_str() );
+        EditorConfig::GetInstance().Save();
     }
 }
 
@@ -491,6 +586,9 @@ Vector2 Havana::GetWorldEditorRenderSize() const
 
 void Havana::Save()
 {
+    // The active slot may be the last one used this session, so save it even when
+    // no workspace switch happened before the editor closed.
+    SaveWorkspaceLayout( ActiveWorkspace );
     for( auto i : RegisteredWidgets )
     {
         auto& panelData = EditorConfig::GetInstance().PanelVisibility;

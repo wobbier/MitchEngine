@@ -6,6 +6,7 @@
 #include "Resource/ResourceCache.h"
 #include "Resource/MetaFile.h"
 #include "CLog.h"
+#include "Engine/Project.h"
 #include "Engine/ProjectSettings.h"
 #include "Tools/Build/BuildGame.h"
 #include "Tools/Cook/Cooker.h"
@@ -219,6 +220,11 @@ static int BuildGameCommand()
 int main( int argc, char** argv )
 {
     CommandLine::Set( argc, argv );
+    // --project <folder>: every mode below works on that project.
+    if( !Project::InitFromCommandLine() )
+    {
+        return 2;
+    }
     if( CommandLine::Has( "--cook-textures" ) )
     {
         return CookTextures( CommandLine::GetString( "--cook-textures", "Assets" ) );

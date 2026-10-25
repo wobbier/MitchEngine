@@ -140,6 +140,8 @@ void MainMenuWidget::Render()
                 ImGui::EndMenu();
             }
             ImGui::Separator();
+            actions.MenuItem( "File.OpenProject" );
+            ImGui::Separator();
             if( ImGui::BeginMenu( "New Shader Graph" ) )
             {
                 actions.MenuItem( "ShaderGraph.NewLit", "Lit..." );
@@ -224,6 +226,22 @@ void MainMenuWidget::Render()
             {
                 ImGui::Separator();
                 trees->DrawViewMenu();
+            }
+            ImGui::EndMenu();
+        }
+
+        const std::string workspaceLabel = "Workspace " + std::to_string( Editor->GetActiveWorkspace() );
+        if( ImGui::BeginMenu( workspaceLabel.c_str() ) )
+        {
+            ImGui::TextDisabled( "Layouts and open panels are saved per workspace." );
+            ImGui::Separator();
+            for( int workspace = 1; workspace <= 9; ++workspace )
+            {
+                const std::string id = "Workspace.Select" + std::to_string( workspace );
+                const EditorAction* action = actions.Find( id );
+                const std::string label = "Workspace " + std::to_string( workspace );
+                const std::string shortcut = action ? EditorActions::ShortcutToString( action->Shortcut ) : std::string();
+                if( ImGui::MenuItem( label.c_str(), shortcut.c_str(), workspace == Editor->GetActiveWorkspace() ) ) actions.Execute( id );
             }
             ImGui::EndMenu();
         }

@@ -39,6 +39,9 @@
 #include "Editor/EditorComponentInfoCache.h"
 #include "Editor/EditorOperations.h"
 #include "Engine/AutomationRunner.h"
+#include "Engine/Project.h"
+#include "Engine/ProjectSettings.h"
+#include "Utils/PlatformUtils.h"
 #include "Editor/Selection.h"
 #include "Editor/UndoStack.h"
 #include "Widgets/Terrain/TerrainWidget.h"
@@ -283,6 +286,11 @@ void EditorApp::OnInitialize()
             EditorConfig::GetInstance().Load();
         }
         InitialLevel = GetEngine().GetConfig().GetValue( "CurrentScene" );
+        // A project opened for the first time (or whose last scene is gone) opens its startup scene.
+        if( ( InitialLevel.empty() || !Path( InitialLevel ).Exists ) && !ProjectSettings::Get().StartupScene.empty() )
+        {
+            InitialLevel = ProjectSettings::Get().StartupScene;
+        }
         {
             OPTICK_EVENT( "Havana::Create" );
             Editor = MakeUnique<Havana>( &GetEngine(), this );
@@ -546,6 +554,38 @@ void EditorApp::SaveScene( bool InSaveAs )
     evt.SaveAs = InSaveAs;
     evt.Fire();
     EditorConfig::GetInstance().AddRecentScene( CurrentScenePath() );
+}
+
+
+void EditorApp::RequestOpenProject( const std::string& InFolder )
+{
+    const std::string root = Project::FindProjectRoot( InFolder );
+    if( root.empty() )
+    {
+        YIKES( "Open Project: " + InFolder + " is not a project (no " + Project::kProjectFile + ")" );
+        return;
+    }
+    if( root == Project::GetRoot() )
+    {
+        CLog::Log( CLog::LogType::Info, "Open Project: " + root + " is already open" );
+        return;
+    }
+    RunWithUnsavedCheck( [root]() {
+#if USING( ME_PLATFORM_WINDOWS )
+        const std::string editor = Project::GetExecutableDirectory() + "Havana.exe";
+#else
+        const std::string editor = Project::GetExecutableDirectory() + "Havana";
+#endif
+        const std::string command = "\"" + editor + "\" --project \"" + root + "\"";
+        if( AutomationRunner::IsUnattendedRun() )
+        {
+            CLog::Log( CLog::LogType::Info, "Open Project: would reopen the editor with " + command );
+            return;
+        }
+        CLog::Log( CLog::LogType::Info, "Open Project: reopening the editor on " + root );
+        PlatformUtils::RunDetached( command );
+        GetEngine().Quit( true );
+    } );
 }
 
 

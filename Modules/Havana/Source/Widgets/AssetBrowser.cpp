@@ -24,6 +24,7 @@
 #include "File.h"
 #include "Components/Transform.h"
 #include "Engine/Engine.h"
+#include "Engine/Project.h"
 #include "EditorApp.h"
 #include "Havana.h"
 #include "Events/SceneEvents.h"
@@ -146,14 +147,25 @@ namespace
     }
 
 
+    // The folder a project-relative spelling names; "Engine/..." is the engine's, which may sit
+    // outside the project (a C#-only project on the editor's engine, see Engine/Project.h).
     std::string AbsoluteFolder( const std::string& relative )
     {
+        if( relative == "Engine" || relative.rfind( "Engine/", 0 ) == 0 )
+        {
+            return relative.size() > 7 ? ( fs::path( Project::GetEngineRoot() ) / relative.substr( 7 ) ).generic_string() : Project::GetEngineRoot();
+        }
         return ( fs::path( ProjectRoot() ) / relative ).generic_string();
     }
 
     // "Engine/Assets/Havana" for display (unambiguous, unlike local asset paths).
     std::string RelativeToProject( const std::string& absolute )
     {
+        const std::string engine = Project::GetEngineRoot();
+        if( absolute == engine || absolute.rfind( engine + "/", 0 ) == 0 )
+        {
+            return "Engine" + absolute.substr( engine.size() );
+        }
         const std::string& root = ProjectRoot();
         if( absolute.rfind( root, 0 ) == 0 )
         {
@@ -220,7 +232,9 @@ namespace
     // Project-relative form (AssetDatabase keys, prefab links): "Assets/...", "Engine/Assets/...".
     std::string ProjectRelative( const std::string& absolute )
     {
-        return fs::path( absolute ).lexically_relative( ProjectRoot() ).generic_string();
+        const std::string normalized = fs::path( absolute ).lexically_normal().generic_string();
+        const std::string relative = RelativeToProject( normalized );
+        return relative != normalized ? relative : fs::path( normalized ).lexically_relative( ProjectRoot() ).generic_string();
     }
 
     // Moves a file (or folder) and its .meta sidecar. References follow by GUID: the asset database

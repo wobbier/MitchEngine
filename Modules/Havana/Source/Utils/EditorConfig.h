@@ -83,6 +83,10 @@ public:
 	void Load()
 	{
 		Path configPath(kConfigPath);
+		if (!configPath.Exists)
+		{
+			return;	// a project's first open (unattended runs never write one)
+		}
 
 		File configFile(configPath);
 		configFile.Read();

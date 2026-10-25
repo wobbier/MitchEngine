@@ -26,6 +26,7 @@ class ProfilerWidget;
 class PreferencesWidget;
 class ProjectSettingsWidget;
 class BuildGameWidget;
+class OpenProjectWidget;
 class ShaderGraphWidget;
 class TreeWidget;
 class TerrainWidget;
@@ -59,6 +60,10 @@ public:
 	void SetPlayMode(bool playing);
 	// Opens (and focuses) a registered widget by name.
 	void ShowWidget(const std::string& name);
+	// Personal editor layouts. Ctrl+1 through Ctrl+9 select a workspace; the outgoing
+	// workspace is saved automatically so its dock tree and open panels are restored.
+	void SwitchWorkspace( int InWorkspace );
+	int GetActiveWorkspace() const { return ActiveWorkspace; }
 	// True while the hierarchy or the world view has keyboard focus (scene-editing shortcuts).
 	bool IsSceneContextFocused() const;
 
@@ -78,6 +83,13 @@ private:
 	class BGFXRenderer* Renderer = nullptr;
 
 	Path EngineConfigFilePath;
+	Path DefaultLayoutFilePath;
+	int ActiveWorkspace = 1;
+
+	Path GetWorkspaceLayoutPath( int InWorkspace ) const;
+	void SaveWorkspaceLayout( int InWorkspace );
+	void RestoreWorkspacePanelVisibility( int InWorkspace );
+	void StoreWorkspacePanelVisibility( int InWorkspace );
 
 	SharedPtr<LogWidget> LogPanel;
 	SharedPtr<ResourceMonitorWidget> ResourceMonitor;
@@ -93,6 +105,7 @@ private:
 	SharedPtr<PreferencesWidget> Preferences;
 	SharedPtr<ProjectSettingsWidget> ProjectSettingsView;
 	SharedPtr<BuildGameWidget> BuildGameView;
+	SharedPtr<OpenProjectWidget> OpenProjectView;
 	// Open shader graph documents (not a single window, so not in RegisteredWidgets).
 	SharedPtr<ShaderGraphWidget> ShaderGraphs;
 	// Open MitchTree documents (likewise).
