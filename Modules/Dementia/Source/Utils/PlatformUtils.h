@@ -23,6 +23,8 @@ namespace PlatformUtils
     // Opens a source file at a line in the code editor: $ME_CODE_EDITOR ("{file}" and "{line}" are
     // substituted) or VS Code ("code -g file:line").
     void OpenInCodeEditor( const std::string& inFile, int inLine );
+    // Opens a folder as a workspace in the same code editor (the template's command word).
+    void OpenFolderInCodeEditor( const std::string& inFolder );
     // Overrides the code editor command template (empty = $ME_CODE_EDITOR or VS Code).
     void SetCodeEditorCommand( const std::string& inCommand );
     // Starts a shell command without waiting for it.

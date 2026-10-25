@@ -110,6 +110,17 @@ Only public fields survive. Private state, statics and references are rebuilt in
 
 **Errors.** A failed build logs each compiler diagnostic as its own entry, `Assets/File.cs:line:col: error CS1002: ; expected` (warnings at warning level; `ScriptEngine::ParseBuildDiagnostics`), then a summary line; the Log panel opens the line on double-click. While the last build failed (`ScriptEngine::HasBuildErrors`), Play is refused with a message, since the last good scripts would run instead. An exception thrown by a script callback is logged at error level with the whole exception, its stack included, down to the throwing `File.cs:line N` when symbols loaded (Debug builds). `ScriptFlows.edscript` covers both.
 
+### IDE integration
+
+- **Open at file:line.** Double-clicking a `.cs` in the asset browser, or a `File.cs:line` reference in the Log panel, opens the configured code editor: the `CodeEditorCommand` preference (Preferences → "Code editor"), else `$ME_CODE_EDITOR`, else VS Code (`code -g "{file}:{line}"`). `{file}` and `{line}` are substituted.
+- **Open C# Project** (right-click any `.cs`): opens the generated game solution when one exists (Windows — it carries the C# projects); otherwise it generates a minimal `Project/Scripts.sln` (Game.Script + ScriptCore, gitignored) and opens the project root in the code editor, where VS Code's C# Dev Kit discovers the solution. The game repo recommends `ms-dotnettools.csharp` + `csdevkit` in `.vscode/extensions.json`.
+- **Attach the .NET debugger** (the game repo ships the launch config):
+  1. Run Havana (F5 "Havana (Editor_Debug, Linux)" for mixed sessions, or launch it outside VS Code).
+  2. Run the **"Attach to Havana (.NET)"** launch config and pick the `Havana` process. The C# debugger (`coreclr`) attaches alongside any native debugger.
+  3. Set a breakpoint in a game script (e.g. `OnUpdate`) and press Play — it binds and hits. Game assemblies load from memory, but their portable PDBs load as streams with them (`Engine.cs` `LoadFromStream(image, symbols)`), so sources resolve.
+  4. Edit the `.cs`, let hot reload swap the ALC, press Play again: the breakpoint re-binds in the newly loaded assembly and hits again — each reload is a fresh module load to the debugger.
+  - Breakpoints inside `OnReload` itself are the one blind spot: the debugger may still be binding the new module while it runs.
+
 ### Calling the engine from C#
 
 The API is 120 functions (`ScriptAPI.def`). Strings cross as UTF-8 `byte*`, entities as the raw 64-bit `EntityID`, and vectors by pointer.

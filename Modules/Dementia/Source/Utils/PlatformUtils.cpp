@@ -218,6 +218,16 @@ void PlatformUtils::OpenInCodeEditor( const std::string& inFile, int inLine )
     RunDetached( command );
 }
 
+
+void PlatformUtils::OpenFolderInCodeEditor( const std::string& inFolder )
+{
+    const char* custom = std::getenv( "ME_CODE_EDITOR" );
+    const std::string editorTemplate = !CodeEditorCommand().empty() ? CodeEditorCommand() : ( custom ? custom : "code" );
+    // The template opens file:line references; a workspace open only wants its command word.
+    const std::string editor = editorTemplate.substr( 0, editorTemplate.find( ' ' ) );
+    RunDetached( ( editor.empty() ? std::string( "code" ) : editor ) + " " + ShellQuote( inFolder ) );
+}
+
 void PlatformUtils::DeleteFile( const Path& inFilePath )
 {
     std::filesystem::remove( inFilePath.FullPath );
