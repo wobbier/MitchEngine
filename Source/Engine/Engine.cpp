@@ -53,6 +53,7 @@
 #include <Debug/DebugDraw.h>
 #include "Engine/HardwareBudget.h"
 #include "Engine/ProjectSettings.h"
+#include "Tools/Cook/CookDependencies.h"
 #include "Profiling/FrameStats.h"
 #include "Events/PlatformEvents.h"
 #include "Scripting/ScriptEngine.h"
@@ -100,6 +101,8 @@ void Engine::Init( Game* game )
     }
 
     m_game = game;
+    // --record-deps <file>: note every asset this run reads, for the cooker (written on exit).
+    Cook::StartRecordingIfRequested();
 
     CLog::GetInstance().SetLogFile( "Engine.txt" );
 #if USING( ME_RETAIL )
@@ -844,6 +847,7 @@ void Engine::Run()
         engineConfig.Display = GameWindow->GetDisplay();
     }
 #endif
+    Cook::WriteRecordingIfRequested();
     // Window placement and the open scene are per-user state (never written by unattended runs).
     engineConfig.SaveUserState();
     Shutdown();

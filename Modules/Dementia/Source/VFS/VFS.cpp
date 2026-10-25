@@ -57,7 +57,8 @@ bool VfsFileStream::Open( const Path& InPath )
     // outside every mount (absolute .tmp artifacts) fall back to the physical file whole.
     VfsStreamWindow window;
     const VfsResolved resolved = VFS::Get().Resolve( InPath.GetLocalPathString() );
-    if( !( resolved.Exists && resolved.Source && resolved.Source->GetStreamWindow( resolved.RelativePath, window ) ) )
+    const bool throughMount = resolved.Exists && resolved.Source && resolved.Source->GetStreamWindow( resolved.RelativePath, window );
+    if( !throughMount )
     {
         window.PhysicalFile = InPath.FullPath;
         window.Offset = 0;
@@ -78,6 +79,10 @@ bool VfsFileStream::Open( const Path& InPath )
     m_cursor = 0;
     m_stream.seekg( static_cast<std::streamoff>( m_begin ) );
     m_open = static_cast<bool>( m_stream );
+    if( m_open && throughMount )
+    {
+        VFS::Get().NoteRead( resolved );
+    }
     return m_open;
 }
 
@@ -406,22 +411,24 @@ bool VFS::WriteText( const Path& InPath, const std::string& InText ) const
 bool VFS::ReadText( const std::string& InLogicalPath, std::string& OutText ) const
 {
     const VfsResolved resolved = Resolve( InLogicalPath );
-    if( !resolved.Exists || !resolved.Source )
+    if( !resolved.Exists || !resolved.Source || !resolved.Source->ReadText( resolved.RelativePath, OutText ) )
     {
         return false;
     }
-    return resolved.Source->ReadText( resolved.RelativePath, OutText );
+    NoteRead( resolved );
+    return true;
 }
 
 
 bool VFS::ReadBytes( const std::string& InLogicalPath, std::vector<uint8_t>& OutBytes ) const
 {
     const VfsResolved resolved = Resolve( InLogicalPath );
-    if( !resolved.Exists || !resolved.Source )
+    if( !resolved.Exists || !resolved.Source || !resolved.Source->ReadBytes( resolved.RelativePath, OutBytes ) )
     {
         return false;
     }
-    return resolved.Source->ReadBytes( resolved.RelativePath, OutBytes );
+    NoteRead( resolved );
+    return true;
 }
 
 
@@ -497,4 +504,63 @@ void VFS::Enumerate( const std::string& InLogicalDirectory, bool InRecursive,
     {
         InVisitor( logicalPath, isDirectory );
     }
+}
+
+
+void VFS::SetRecordingReads( bool InRecording )
+{
+    m_recording.store( InRecording, std::memory_order_relaxed );
+}
+
+
+bool VFS::IsRecordingReads() const
+{
+    return m_recording.load( std::memory_order_relaxed );
+}
+
+
+std::vector<std::string> VFS::GetRecordedReads() const
+{
+    std::lock_guard<std::mutex> lock( m_recordMutex );
+    return std::vector<std::string>( m_recorded.begin(), m_recorded.end() );
+}
+
+
+void VFS::ClearRecordedReads()
+{
+    std::lock_guard<std::mutex> lock( m_recordMutex );
+    m_recorded.clear();
+}
+
+
+void VFS::NoteRead( const VfsResolved& InResolved ) const
+{
+    if( !m_recording.load( std::memory_order_relaxed ) )
+    {
+        return;
+    }
+    std::string spelling = RecordedSpelling( InResolved );
+    if( spelling.empty() )
+    {
+        return;
+    }
+    std::lock_guard<std::mutex> lock( m_recordMutex );
+    m_recorded.insert( std::move( spelling ) );
+}
+
+
+std::string VFS::RecordedSpelling( const VfsResolved& InResolved )
+{
+    if( !InResolved.Exists || !InResolved.MountPrefix.empty() )
+    {
+        return {};
+    }
+    // Engine content read under its display spelling resolves on the game root as
+    // "Engine/Assets/..."; the overlay (and so a cooked tree) serves it as "Assets/...".
+    const std::string engineAssets = "Engine/Assets/";
+    if( InResolved.RelativePath.compare( 0, engineAssets.size(), engineAssets ) == 0 )
+    {
+        return InResolved.RelativePath.substr( 7 );
+    }
+    return InResolved.RelativePath;
 }

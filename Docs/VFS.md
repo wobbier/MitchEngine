@@ -94,6 +94,18 @@ physical change paths map back through the same normalization.
 `VFS::Enumerate( dir, recursive, visitor )` merges entries across mounts: higher priority
 wins duplicates, and the visit is sorted.
 
+## Recording reads (`--record-deps`)
+
+`VFS::SetRecordingReads( true )` makes every successful read through a mount (`ReadText`,
+`ReadBytes`, `VfsFileStream::Open`) note the logical path it served, in the overlay spelling:
+engine content read as `Engine/Assets/X` is noted as `Assets/X`, the path a cooked tree or pak
+serves it under. Misses, existence probes, `user://` state and absolute paths outside the mounts
+aren't noted. Any run takes `--record-deps <file>`: recording starts in `Engine::Init` and the
+run writes `{ "Version": 1, "Reads": [...] }` when it exits (`Source/Tools/Cook/
+CookDependencies.h`). The cooker ships what a recorded run read, which catches the assets
+scripts and engine code load by string paths no scene names. Models read their `.assbin` cook
+through the VFS too (`ReadFileFromMemory`), so a cook served by a pak loads.
+
 ## Paks (`.mpak`, VFS-3)
 
 One file carrying a logical tree: a header, raw entry blobs, then the entry table (paths are

@@ -1,6 +1,8 @@
 #pragma once
+#include <atomic>
 #include <mutex>
 #include <fstream>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -126,6 +128,21 @@ public:
     // "user://Saves/slot0" -> "user://". Empty when InLogicalPath has no scheme.
     static std::string GetScheme( const std::string& InLogicalPath );
 
+    // Read recording (--record-deps; the cooker ships what a run read). While on, every
+    // successful read through a mount — ReadText, ReadBytes, VfsFileStream — notes the logical
+    // path it served, in the overlay spelling ("Engine/Assets/X" reads note "Assets/X"). Only
+    // the overlay roots are recorded: user:// state and absolute paths aren't content.
+    // Thread safe; while off, a read pays one relaxed atomic load.
+    void SetRecordingReads( bool InRecording );
+    bool IsRecordingReads() const;
+    // Every path noted since recording started, sorted.
+    std::vector<std::string> GetRecordedReads() const;
+    void ClearRecordedReads();
+    // For readers that open a resolved location themselves.
+    void NoteRead( const VfsResolved& InResolved ) const;
+    // The recorded spelling of a resolution; empty for anything that isn't overlay content.
+    static std::string RecordedSpelling( const VfsResolved& InResolved );
+
 private:
     VFS();
     ME_HARDSTUCK( VFS );
@@ -135,4 +152,8 @@ private:
 
     mutable std::mutex m_mutex;
     SharedPtr<const MountTable> m_table;
+
+    std::atomic<bool> m_recording{ false };
+    mutable std::mutex m_recordMutex;
+    mutable std::set<std::string> m_recorded;
 };

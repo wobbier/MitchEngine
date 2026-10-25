@@ -420,3 +420,48 @@ TEST_CASE( "vfs: a mounted pak serves logical paths, Path reads and windowed str
 
     VFS::Get().ResetToDefaults();
 }
+
+
+TEST_CASE( "vfs: read recording notes served overlay paths in their overlay spelling" )
+{
+    using namespace VfsTest;
+    TempDir dir( ".tmp/Tests/VfsRecording" );
+    WriteTextFile( dir.Absolute + "/Engine/Assets/RecordTest/engine.txt", "engine" );
+    WriteTextFile( dir.Absolute + "/Assets/RecordTest/game.txt", "game" );
+    WriteTextFile( dir.Absolute + "/Assets/RecordTest/streamed.bin", "0123456789" );
+    WriteTextFile( dir.Absolute + "/Assets/RecordTest/untouched.txt", "never read" );
+    TempDir userDir( ".tmp/Tests/VfsRecordingUser" );
+    ScopedUserRoot user( userDir.Absolute );
+    WriteTextFile( userDir.Absolute + "/settings.json", "{}" );
+    VFS::Get().MountDirectory( "", dir.Absolute, 300 );
+
+    VFS::Get().ClearRecordedReads();
+    std::string text;
+    // Off: nothing is noted.
+    CHECK( VFS::Get().ReadText( std::string( "Assets/RecordTest/game.txt" ), text ) );
+    CHECK( VFS::Get().GetRecordedReads().empty() );
+
+    VFS::Get().SetRecordingReads( true );
+    CHECK( VFS::Get().ReadText( std::string( "Assets/RecordTest/game.txt" ), text ) );
+    std::vector<uint8_t> bytes;
+    CHECK( VFS::Get().ReadBytes( std::string( "Engine/Assets/RecordTest/engine.txt" ), bytes ) );
+    VfsFileStream stream;
+    REQUIRE( stream.Open( Path( "Assets/RecordTest/streamed.bin" ) ) );
+    stream.Close();
+    // Misses, existence probes and user state aren't dependencies.
+    CHECK( !VFS::Get().ReadText( std::string( "Assets/RecordTest/missing.txt" ), text ) );
+    CHECK( Path( "Assets/RecordTest/untouched.txt" ).Exists );
+    CHECK( VFS::Get().ReadText( std::string( "user://settings.json" ), text ) );
+    VFS::Get().SetRecordingReads( false );
+
+    const std::vector<std::string> expected = { "Assets/RecordTest/engine.txt", "Assets/RecordTest/game.txt", "Assets/RecordTest/streamed.bin" };
+    std::vector<std::string> recorded;
+    for( const std::string& read : VFS::Get().GetRecordedReads() )
+    {
+        if( read.find( "RecordTest" ) != std::string::npos ) recorded.push_back( read );
+    }
+    CHECK( recorded == expected );
+
+    VFS::Get().ClearRecordedReads();
+    VFS::Get().ResetToDefaults();
+}

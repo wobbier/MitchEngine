@@ -230,8 +230,15 @@ bool ModelResource::LoadAsync()
         CLog::Log( CLog::LogType::Error, "Model isn't cooked: " + FilePath.GetLocalPathString() );
         return false;
     }
+    // Through the VFS, so a cook served by a pak loads (and --record-deps sees the read).
+    std::vector<uint8_t> cookedBytes;
+    if( !VFS::Get().ReadBytes( cooked, cookedBytes ) || cookedBytes.empty() )
+    {
+        CLog::Log( CLog::LogType::Error, "Model " + FilePath.GetLocalPathString() + ": couldn't read its cook" );
+        return false;
+    }
     m_importer = std::make_unique<Assimp::Importer>();
-    m_pendingScene = m_importer->ReadFile( cooked.FullPath.c_str(), 0 );
+    m_pendingScene = m_importer->ReadFileFromMemory( cookedBytes.data(), cookedBytes.size(), 0, "assbin" );
     if( !m_pendingScene || m_pendingScene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !m_pendingScene->mRootNode )
     {
         CLog::Log( CLog::LogType::Error, "Model " + FilePath.GetLocalPathString() + ": " + m_importer->GetErrorString() );
