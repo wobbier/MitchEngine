@@ -57,8 +57,13 @@ void Input::Resume()
 void Input::Stop()
 {
     RelativeMousePosition = Vector2();
-    SDL_SetRelativeMouseMode( SDL_FALSE );
-    SDL_ShowCursor( SDL_ENABLE );
+    // Only release the cursor if this input grabbed it: the editor and the game each own an Input,
+    // and stopping the idle one (e.g. the editor's on Play) must not undo the game's capture.
+    if( CaptureInput && WantsToCaptureMouse )
+    {
+        SDL_SetRelativeMouseMode( SDL_FALSE );
+        SDL_ShowCursor( SDL_ENABLE );
+    }
     CaptureInput = false;
 }
 
