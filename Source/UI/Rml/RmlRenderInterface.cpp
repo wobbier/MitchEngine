@@ -131,6 +131,9 @@ void RmlRenderInterface::BeginFrame( bgfx::ViewId InView, uint16_t InWidth, uint
     // Into an offscreen target: start from transparent black so the composite only adds the UI.
     const uint16_t clearFlags = bgfx::isValid( InTarget ) ? uint16_t( BGFX_CLEAR_COLOR | BGFX_CLEAR_STENCIL ) : uint16_t( BGFX_CLEAR_STENCIL );
     bgfx::setViewClear( m_view, clearFlags, 0x00000000, 1.f, 0 );
+    // Clear even when nothing is drawn (bgfx skips empty views), or a document that just hid its last
+    // element keeps showing the previous frame.
+    bgfx::touch( m_view );
 
     float proj[16];
     bx::mtxOrtho( proj, 0.f, static_cast<float>( m_width ), static_cast<float>( m_height ), 0.f,
