@@ -90,7 +90,7 @@ namespace TerrainData
             const auto& s = field.GetSettings();
             if( field.GetTiles().size() != static_cast<size_t>( s.TilesX ) * s.TilesZ ) throw std::runtime_error( "Every source tile must be resident before saving" );
             if( !path.parent_path().empty() ) fs::create_directories( path.parent_path() );
-            std::ostringstream id; id << std::hex << GUID::Generate();
+            std::ostringstream id; id << std::hex << Guid::Generate();
             const fs::path relative = fs::path( path.stem().string() + ".terrain-data" ) / id.str();
             generation = path.parent_path() / relative;
             if( !fs::create_directories( generation ) ) throw std::runtime_error( "Terrain generation already exists" );

@@ -45,7 +45,7 @@ bool TerrainFileAutomation::Execute( const std::string& command, const std::stri
     if( !widget || !browser ) return false;
     if( command == "terrain-file-fixture" )
     {
-        s_root = std::filesystem::path( Path( ".tmp/Tests/TerrainFileFlows" ).FullPath ) / std::to_string( GUID::Generate() );
+        s_root = std::filesystem::path( Path( ".tmp/Tests/TerrainFileFlows" ).FullPath ) / std::to_string( Guid::Generate() );
         std::filesystem::create_directories( s_root / "Move" );
         s_original = s_current = ( s_root / "Original.terrain" ).generic_string();
         TerrainData::Settings s; s.TileQuads = 4; s.PatchQuads = 2; s.MinTile = { -1, -1 }; s.TilesX = s.TilesZ = 2;

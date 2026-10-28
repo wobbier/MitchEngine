@@ -96,7 +96,7 @@ TEST_CASE( "Terrain: RAW export rejects missing pages and unrepresentable sample
 
 TEST_CASE( "Terrain: RAW file publication round trips and invalid exports preserve the previous file" )
 {
-    const auto path = std::filesystem::path( ".tmp/Tests/TerrainHeightmaps" ) / ( std::to_string( GUID::Generate() ) + ".r32" );
+    const auto path = std::filesystem::path( ".tmp/Tests/TerrainHeightmaps" ) / ( std::to_string( Guid::Generate() ) + ".r32" );
     const auto field = Field(); auto format = Format( field ); std::string error;
     REQUIRE( WriteHeightmap( path, field, format, error ) );
     Heightfield decoded; REQUIRE( ReadHeightmap( path, field.GetSettings(), format, decoded, error ) ); Equal( field, decoded );

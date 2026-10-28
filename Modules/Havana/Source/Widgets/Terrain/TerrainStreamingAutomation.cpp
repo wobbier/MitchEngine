@@ -97,7 +97,7 @@ namespace TerrainStreamingAutomation
         }
         if( command == "terrain-stream-fixture" )
         {
-            s_directory = std::filesystem::path( Path( ".tmp/Tests/TerrainStreamingFlows" ).FullPath ) / std::to_string( GUID::Generate() );
+            s_directory = std::filesystem::path( Path( ".tmp/Tests/TerrainStreamingFlows" ).FullPath ) / std::to_string( Guid::Generate() );
             TerrainData::Settings s; s.TileQuads = 16; s.PatchQuads = 8; s.MinTile = { -4, -4 }; s.TilesX = s.TilesZ = 9;
             TerrainData::Heightfield field( s );
             for( int x = -4; x <= 4; ++x ) for( int z = -4; z <= 4; ++z ) if( !field.CreateFlatTile( { x, z }, 0, error ) ) return false;

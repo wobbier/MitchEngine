@@ -2223,7 +2223,7 @@ void AssetBrowserWidget::DuplicateSelection()
             json data = json::parse( copy.Read(), nullptr, false );
             if( data.is_object() && data.contains( "AssetGUID" ) )
             {
-                const uint64_t guid = GUID::Generate();
+                const uint64_t guid = Guid::Generate();
                 data["AssetGUID"] = SceneSerializer::GUIDToString( guid );
                 copy.Write( data.dump( 4 ) );
                 AssetDatabase::Get().Register( ProjectRelative( destination ), guid );

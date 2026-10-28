@@ -195,7 +195,7 @@ namespace TerrainData
             Require( ( paged ? coverageSize / count : coverageSize ) <= kCoverageLimit, "Terrain coarse coverage exceeds 64 MiB; increase its stride or split the dataset" );
             Require( !hierarchical || roots.size() * ( coverageSize / count ) <= kCoverageLimit, "Terrain root coverage exceeds 64 MiB; use a smaller/coarser dataset" );
             if( !path.parent_path().empty() ) std::filesystem::create_directories( path.parent_path() );
-            temporary = path; temporary += "." + std::to_string( GUID::Generate() ) + ".tmp";
+            temporary = path; temporary += "." + std::to_string( Guid::Generate() ) + ".tmp";
             std::ofstream file( temporary, std::ios::binary | std::ios::trunc ); Require( bool( file ), "Could not stage terrain cook" );
             Bytes coverage, directory; coverage.Data.reserve( static_cast<size_t>( paged ? coverageSize / count : coverageSize ) );
             uint64_t offset = headerBytes + nodes.size() * kNodeBytes + count * ( paged ? kPagedEntryBytes : kEntryBytes ) + ( paged ? palette.Data.size() : coverageSize ), revision = surface ? Hash( palette.Data ) : kHashSeed;

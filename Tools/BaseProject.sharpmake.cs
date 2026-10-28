@@ -146,6 +146,8 @@ public abstract class BaseProject : Project
         }
 
         conf.Defines.Add("DEFINE_ME_PLATFORM_WIN64");
+        // Portable CRT calls (getenv, localtime, fopen...) are deliberate; /WX would fail on C4996.
+        conf.Defines.Add("_CRT_SECURE_NO_WARNINGS");
 
         conf.Options.Add(
             new Options.Vc.Compiler.DisableSpecificWarnings(
@@ -176,6 +178,8 @@ public abstract class BaseProject : Project
         conf.Options.Add(Options.Vc.Compiler.Exceptions.Enable);
 
         conf.Defines.Add("DEFINE_ME_PLATFORM_UWP");
+        // Portable CRT calls (getenv, localtime, fopen...) are deliberate; /WX would fail on C4996.
+        conf.Defines.Add("_CRT_SECURE_NO_WARNINGS");
 
         conf.LibraryPaths.Add("C:\\Program Files (x86)\\Windows Kits\\10\\UnionMetadata");
 

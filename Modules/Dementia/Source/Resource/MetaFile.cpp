@@ -46,7 +46,7 @@ void MetaBase::Serialize( json& outJson )
     outJson["FileType"] = FilePath.GetExtension();
     if( GUID == 0 )
     {
-        GUID = ::GUID::Generate();
+        GUID = ::Guid::Generate();
     }
     char guidText[17];
     std::snprintf( guidText, sizeof( guidText ), "%016llx", static_cast<unsigned long long>( GUID ) );

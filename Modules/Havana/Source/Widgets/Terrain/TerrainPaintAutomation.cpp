@@ -63,7 +63,7 @@ namespace TerrainPaintAutomation
         }
         if( command == "terrain-paint-recovery-save" )
         {
-            s_recovery = std::filesystem::path( Path( ".tmp/Tests/TerrainPaintRecovery/" + std::to_string( GUID::Generate() ) ).FullPath );
+            s_recovery = std::filesystem::path( Path( ".tmp/Tests/TerrainPaintRecovery/" + std::to_string( Guid::Generate() ) ).FullPath );
             if( !document->SaveRecovery( s_recovery / "Owned.terrain-recovery" ) ) return false;
             // Keep a crash-surviving copy while Load clears this live document's own snapshot.
             std::filesystem::copy_file( s_recovery / "Owned.terrain-recovery", s_recovery / "Restore.terrain-recovery" );

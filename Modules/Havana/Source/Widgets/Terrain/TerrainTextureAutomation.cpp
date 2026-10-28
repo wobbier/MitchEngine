@@ -77,7 +77,7 @@ namespace TerrainTextureAutomation
             if( command == "terrain-texture-cache-fixture" )
             {
                 // Unique bytes give this restart test its own content-addressed entry.
-                const uint64_t nonce = GUID::Generate();
+                const uint64_t nonce = Guid::Generate();
                 std::array<uint8_t, 8> pixels; for( unsigned i = 0; i < 8; ++i ) pixels[i] = uint8_t( nonce >> ( i * 8 ) );
                 std::fstream file( Path( s_paths[0] ).FullPath, std::ios::binary | std::ios::in | std::ios::out );
                 file.seekp( 18 ); file.write( reinterpret_cast<const char*>( pixels.data() ), pixels.size() ); file.close();

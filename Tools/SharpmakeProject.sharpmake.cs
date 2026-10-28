@@ -42,6 +42,8 @@ public class SharpmakeProjectBase : CSharpProject
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/ThirdParty/Box2D.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/ThirdParty/Box3D.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/ThirdParty/RecastNavigation.sharpmake.cs");
+        SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/ThirdParty/Freetype.sharpmake.cs");
+        SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/ThirdParty/RmlUi.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Tools/BaseProject.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Tools/CommonTarget.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Tools/SharpmakeProject.sharpmake.cs");

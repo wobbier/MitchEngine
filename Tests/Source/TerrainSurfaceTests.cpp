@@ -24,7 +24,7 @@ namespace TerrainSurfaceTests
     }
     struct Files
     {
-        std::filesystem::path Root = std::filesystem::path( ".tmp/Tests/TerrainSurface" ) / std::to_string( GUID::Generate() );
+        std::filesystem::path Root = std::filesystem::path( ".tmp/Tests/TerrainSurface" ) / std::to_string( Guid::Generate() );
         Files() { std::filesystem::create_directories( Root ); }
         ~Files() { std::error_code ec; std::filesystem::remove_all( Root, ec ); }
     };

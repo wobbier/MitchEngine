@@ -167,7 +167,7 @@ namespace Moonlight
             try
             {
                 std::filesystem::create_directories( path.parent_path() );
-                temporary = path; temporary += "." + std::to_string( GUID::Generate() ) + ".tmp";
+                temporary = path; temporary += "." + std::to_string( Guid::Generate() ) + ".tmp";
                 std::ofstream file( temporary, std::ios::binary | std::ios::trunc ); Require( bool( file ), "Cannot stage terrain texture cache" );
                 uint64_t hash = kSeed;
                 for( const auto& map : data.Maps ) for( const auto& upload : map ) hash = Hash( upload.Pixels, hash );

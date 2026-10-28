@@ -140,7 +140,7 @@ namespace TerrainAssetActions
             if( widget ) widget->OnAssetsRemoved( path );
             out.clear(); return true;
         }
-        const auto directory = std::filesystem::path( Path( ".tmp/Trash" ).FullPath ) / ( "Terrain-" + std::to_string( GUID::Generate() ) );
+        const auto directory = std::filesystem::path( Path( ".tmp/Trash" ).FullPath ) / ( "Terrain-" + std::to_string( Guid::Generate() ) );
         try { std::filesystem::create_directories( directory ); }
         catch( const std::exception& e ) { error = e.what(); return false; }
         const auto destination = directory / std::filesystem::path( path ).filename();

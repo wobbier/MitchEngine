@@ -52,7 +52,7 @@ namespace TerrainNavigationAutomation
         if( !widget || !nav ) return false;
         if( command == "terrain-nav-fixture" )
         {
-            s_streamed = false; s_directory = std::filesystem::path( Path( ".tmp/Tests/TerrainNavigationFlows" ).FullPath ) / std::to_string( GUID::Generate() );
+            s_streamed = false; s_directory = std::filesystem::path( Path( ".tmp/Tests/TerrainNavigationFlows" ).FullPath ) / std::to_string( Guid::Generate() );
             TerrainData::Settings s; s.TileQuads = 16; s.PatchQuads = 8; s.MinTile = { -2, -2 }; s.TilesX = s.TilesZ = 4;
             TerrainData::Heightfield field( s );
             for( int x = -2; x < 2; ++x ) for( int z = -2; z < 2; ++z ) if( !field.CreateFlatTile( { x, z }, 0, error ) ) return false;
