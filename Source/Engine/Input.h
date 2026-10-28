@@ -465,6 +465,13 @@ public:
     void SetMouseCapture( bool Capture );
     bool IsMouseCaptured() const { return WantsToCaptureMouse; }
     void SetMouseOffset( const Vector2& InOffset );
+    // Editor: a rectangle of a window (the Game View image, in window coordinates) that holds the
+    // cursor while this input is capturing: the window grabs the pointer and a cursor that leaves
+    // the rectangle is warped back to its edge. A mouse capture then hides the cursor and warps it
+    // to the rectangle's centre each frame instead of using relative mode, which would lock it to
+    // the whole editor window. Without a region, capture uses relative mode on the window.
+    void SetCursorRegion( SDL_Window* InWindow, const Vector2& InMin, const Vector2& InSize );
+    void ClearCursorRegion();
 
     bool IsMouseButtonDown( MouseButton mouseButton );
     bool WasMouseButtonPressed( MouseButton mouseButton );
@@ -535,6 +542,16 @@ private:
 
     bool WantsToCaptureMouse = false;
     bool CaptureInput = true;
+
+    // Applies the cursor state (relative mode, confinement, visibility) this input asks for.
+    void UpdateCursor();
+    // What this input has applied to SDL, so it only undoes its own changes.
+    bool m_relativeMode = false;
+    bool m_cursorConfined = false;
+    bool m_cursorHidden = false;
+    bool m_cursorWarped = false;
+    SDL_Window* m_cursorWindow = nullptr;
+    SDL_Rect m_cursorRect{ 0, 0, 0, 0 };
 
     Vector2 MouseScroll;
     Vector2 PreviousMouseScroll;

@@ -339,8 +339,8 @@ void EditorApp::Play()
     GetEngine().SetPaused( false );
 
     Editor->SetPlayMode( true );
-    GetEngine().GetInput().Resume();
     Editor->GetInput().Stop();
+    GetEngine().GetInput().Resume();
 }
 
 

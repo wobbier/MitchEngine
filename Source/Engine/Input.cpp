@@ -16,6 +16,7 @@
 #include "Input/InputActionsAsset.h"
 #include "Resource/ResourceCache.h"
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 
 #pragma region Class
@@ -46,25 +47,20 @@ Input::Input()
 void Input::Pause()
 {
     CaptureInput = false;
+    UpdateCursor();
 }
 
 void Input::Resume()
 {
     CaptureInput = true;
-    SetMouseCapture( WantsToCaptureMouse );
+    UpdateCursor();
 }
 
 void Input::Stop()
 {
     RelativeMousePosition = Vector2();
-    // Only release the cursor if this input grabbed it: the editor and the game each own an Input,
-    // and stopping the idle one (e.g. the editor's on Play) must not undo the game's capture.
-    if( CaptureInput && WantsToCaptureMouse )
-    {
-        SDL_SetRelativeMouseMode( SDL_FALSE );
-        SDL_ShowCursor( SDL_ENABLE );
-    }
     CaptureInput = false;
+    UpdateCursor();
 }
 
 void Input::Update()
@@ -78,6 +74,36 @@ void Input::Update()
         int relativeMouse[2] = { 0, 0 };
         SDL_GetRelativeMouseState( &relativeMouse[0], &relativeMouse[1] );
         RelativeMousePosition = Vector2( relativeMouse[0], relativeMouse[1] );
+
+        // Inside a cursor region: locked, measure from its centre and warp back there; otherwise
+        // warp a cursor that left the region back to its edge.
+        const bool inRegionWindow = m_cursorWindow && SDL_GetMouseFocus() == m_cursorWindow && SDL_GetKeyboardFocus() == m_cursorWindow;
+        if( inRegionWindow && WantsToCaptureMouse )
+        {
+            const int centerX = m_cursorRect.x + m_cursorRect.w / 2;
+            const int centerY = m_cursorRect.y + m_cursorRect.h / 2;
+            RelativeMousePosition = m_cursorWarped ? Vector2( mouseX - centerX, mouseY - centerY ) : Vector2();
+            SDL_WarpMouseInWindow( m_cursorWindow, centerX, centerY );
+            m_cursorWarped = true;
+        }
+        else
+        {
+            if( m_cursorWindow && WantsToCaptureMouse )
+            {
+                RelativeMousePosition = Vector2();
+            }
+            m_cursorWarped = false;
+            if( inRegionWindow )
+            {
+                const int x = std::clamp( mouseX, m_cursorRect.x, m_cursorRect.x + m_cursorRect.w - 1 );
+                const int y = std::clamp( mouseY, m_cursorRect.y, m_cursorRect.y + m_cursorRect.h - 1 );
+                if( x != mouseX || y != mouseY )
+                {
+                    SDL_WarpMouseInWindow( m_cursorWindow, x, y );
+                    MousePosition = Vector2( x, y );
+                }
+            }
+        }
     }
 
     // Device snapshot for actions and the gamepad API (nothing while another context has input).
@@ -427,22 +453,66 @@ KeyCode Input::GetLastKeyPressed()
 
 void Input::SetMouseCapture( bool Capture )
 {
-    if( CaptureInput )
-    {
-        if( Capture )
-        {
-            SDL_SetRelativeMouseMode( SDL_TRUE );
-            //SDL_CaptureMouse(SDL_TRUE);
-            //SDL_ShowCursor(SDL_DISABLE);
-        }
-        else
-        {
-            SDL_SetRelativeMouseMode( SDL_FALSE );
-            //SDL_CaptureMouse(SDL_FALSE);
-            //SDL_ShowCursor(SDL_ENABLE);
-        }
-    }
     WantsToCaptureMouse = Capture;
+    UpdateCursor();
+}
+
+
+void Input::SetCursorRegion( SDL_Window* InWindow, const Vector2& InMin, const Vector2& InSize )
+{
+    const SDL_Rect rect{ static_cast<int>( std::ceil( InMin.x ) ), static_cast<int>( std::ceil( InMin.y ) ),
+                         std::max( static_cast<int>( InSize.x ), 1 ), std::max( static_cast<int>( InSize.y ), 1 ) };
+    if( InWindow != m_cursorWindow && m_cursorWindow && m_cursorConfined )
+    {
+        SDL_SetWindowGrab( m_cursorWindow, SDL_FALSE );
+        m_cursorConfined = false;
+    }
+    m_cursorWindow = InWindow;
+    m_cursorRect = rect;
+    UpdateCursor();
+}
+
+
+void Input::ClearCursorRegion()
+{
+    if( m_cursorWindow && m_cursorConfined )
+    {
+        SDL_SetWindowGrab( m_cursorWindow, SDL_FALSE );
+    }
+    m_cursorConfined = false;
+    m_cursorWindow = nullptr;
+    UpdateCursor();
+}
+
+
+void Input::UpdateCursor()
+{
+    // Only the input that is capturing holds the cursor: the editor and the game each own an
+    // Input, and stopping the idle one must not undo the other's state.
+    const bool lock = CaptureInput && WantsToCaptureMouse;
+    const bool relative = lock && !m_cursorWindow;
+    if( relative != m_relativeMode )
+    {
+        SDL_SetRelativeMouseMode( relative ? SDL_TRUE : SDL_FALSE );
+        m_relativeMode = relative;
+    }
+
+    // The grab keeps the cursor in the window between frames; Update holds it inside the region.
+    // (SDL_SetWindowMouseRect would be tighter, but its X11 pointer barriers can fail fatally.)
+    const bool confine = CaptureInput && m_cursorWindow;
+    if( confine != m_cursorConfined && m_cursorWindow )
+    {
+        SDL_SetWindowGrab( m_cursorWindow, confine ? SDL_TRUE : SDL_FALSE );
+    }
+    m_cursorConfined = confine;
+
+    // Relative mode hides the cursor itself; a region lock hides it here.
+    const bool hide = lock && m_cursorWindow;
+    if( hide != m_cursorHidden )
+    {
+        SDL_ShowCursor( hide ? SDL_DISABLE : SDL_ENABLE );
+        m_cursorHidden = hide;
+    }
 }
 
 void Input::SetMouseOffset( const Vector2& InOffset )

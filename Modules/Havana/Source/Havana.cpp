@@ -476,6 +476,35 @@ Input& Havana::GetInput()
     return m_engine->GetEditorInput();
 }
 
+// While the game owns input its cursor stays inside the Game View image (hidden and held at the
+// centre when the game captures the mouse) and ImGui ignores the mouse, so neither a stray nor an
+// invisible cursor can click editor panels. Escape hands input back to the editor and frees it.
+void Havana::UpdateGameCursor()
+{
+    Input& gameInput = GetEngine().GetInput();
+    SDL_Window* window = nullptr;
+    Vector2 min;
+    Vector2 size;
+    if( GameSceneView && GameSceneView->GetImageWindowRect( window, min, size ) )
+    {
+        gameInput.SetCursorRegion( window, min, size );
+    }
+    else
+    {
+        gameInput.ClearCursorRegion();
+    }
+
+    const bool block = m_app->IsGameRunning() && gameInput.IsCapturing();
+    if( block != m_imguiMouseBlocked )
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        constexpr ImGuiConfigFlags kFlags = ImGuiConfigFlags_NoMouse | ImGuiConfigFlags_NoMouseCursorChange;
+        io.ConfigFlags = block ? ( io.ConfigFlags | kFlags ) : ( io.ConfigFlags & ~kFlags );
+        m_imguiMouseBlocked = block;
+    }
+}
+
+
 void Havana::Render( Moonlight::CameraData& EditorCamera )
 {
     OPTICK_EVENT( "Havana::Render", Optick::Category::UI );
@@ -512,10 +541,11 @@ void Havana::Render( Moonlight::CameraData& EditorCamera )
             }
             else if( GameSceneView->IsFocused && GetInput().IsMouseButtonDown( MouseButton::Left ) )
             {
-                gameInput.Resume();
                 GetInput().Stop();
+                gameInput.Resume();
             }
         }
+        UpdateGameCursor();
 
         // #TODO: Remove this
         // Update: This crashes macOS, but is needed for to display the game as the correct size in the editor

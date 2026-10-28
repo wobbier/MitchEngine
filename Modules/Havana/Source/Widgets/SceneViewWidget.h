@@ -14,6 +14,7 @@
 #if USING( ME_EDITOR )
 
 class EditorApp;
+struct SDL_Window;
 #include "Components/Transform.h"
 
 // A camera viewport inside the editor. The "World View" instance (scene tools enabled) adds the
@@ -63,6 +64,9 @@ public:
 	void RequestClick(const Vector2& InViewportFraction);
 	// Called after camera navigation consumes this frame's mouse movement.
 	void WrapNavigationCursor();
+	// The OS window showing the viewport image and the image's rectangle in that window's
+	// coordinates; false when the image wasn't shown this frame (closed, hidden tab, collapsed).
+	bool GetImageWindowRect(SDL_Window*& OutWindow, Vector2& OutMin, Vector2& OutSize) const;
 
 	Moonlight::CameraData* MainCamera = nullptr;
 	EditorApp* App = nullptr;
@@ -114,6 +118,8 @@ private:
 
 	Vector2 m_viewportScreenMin;
 	Vector2 m_viewportScreenSize;
+	Vector2 m_viewportWindowMin;
+	bool m_imageShown = false;
 	ImGuiID m_viewportId = 0;
 
 	// Gizmo drag

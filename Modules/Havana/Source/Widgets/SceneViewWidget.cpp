@@ -410,8 +410,19 @@ void SceneViewWidget::WrapNavigationCursor()
 }
 
 
+bool SceneViewWidget::GetImageWindowRect(SDL_Window*& OutWindow, Vector2& OutMin, Vector2& OutSize) const
+{
+	ImGuiViewport* viewport = m_imageShown ? ImGui::FindViewportByID(m_viewportId) : nullptr;
+	OutWindow = viewport ? static_cast<SDL_Window*>(viewport->PlatformHandle) : nullptr;
+	OutMin = m_viewportWindowMin;
+	OutSize = m_viewportScreenSize;
+	return OutWindow && OutSize.x > 1.f && OutSize.y > 1.f;
+}
+
+
 void SceneViewWidget::Render()
 {
+	m_imageShown = false;
 	if (!IsOpen && !MaximizeOnPlay)
 	{
 		if (MainCamera)
@@ -515,7 +526,9 @@ void SceneViewWidget::Render()
 		break;
 	}
 	const Vector2 imageScreenPos = contentScreenPos + (SceneViewRenderLocation - Vector2(ImGui::GetCursorPos().x, ImGui::GetCursorPos().y));
-	GetEngine().GetInput().SetMouseOffset(imageScreenPos - Vector2(ImGui::GetWindowViewport()->Pos.x, ImGui::GetWindowViewport()->Pos.y));
+	m_viewportWindowMin = imageScreenPos - Vector2(ImGui::GetWindowViewport()->Pos.x, ImGui::GetWindowViewport()->Pos.y);
+	m_imageShown = shouldRender && !ImGui::IsWindowCollapsed();
+	GetEngine().GetInput().SetMouseOffset(m_viewportWindowMin);
 
 	m_viewportScreenMin = imageScreenPos;
 	m_viewportScreenSize = viewportRenderSize;

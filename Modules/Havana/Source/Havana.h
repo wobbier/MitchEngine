@@ -115,6 +115,10 @@ private:
 
     std::vector<SharedPtr<HavanaWidget>> RegisteredWidgets;
     std::vector<SharedPtr<HavanaWidget>> CustomRegisteredWidgets;
+
+    // Holds the cursor in the Game View while the game owns input (UpdateGameCursor).
+    void UpdateGameCursor();
+    bool m_imguiMouseBlocked = false;
 };
 
 #endif
