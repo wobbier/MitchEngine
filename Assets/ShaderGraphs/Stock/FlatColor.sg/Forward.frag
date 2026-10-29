@@ -7,6 +7,9 @@ $input v_worldPos, v_normal, v_tangent, v_bitangent, v_texcoord0, v_viewPos, v_o
 #include "Lighting.sh"
 #include "Fog.sh"
 #include "ShaderGraph/SGLib.sh"
+#include "Dither.sh"
+
+uniform vec4 u_drawParams; // x screen-door fade (Dither.sh), per draw
 
 uniform vec4 u_sgParams[16];
 // u_sgParams[0]: Base Color (Vector 3)
@@ -14,6 +17,10 @@ uniform vec4 u_sgParams[16];
 
 void main()
 {
+	if (ditherDrops(u_drawParams.x, gl_FragCoord.xy))
+	{
+		discard;
+	}
 	vec4 sg_fragCoord = gl_FragCoord;
 	bool sg_frontFacing = gl_FrontFacing;
 

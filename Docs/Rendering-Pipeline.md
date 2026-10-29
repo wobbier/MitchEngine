@@ -468,7 +468,7 @@ Opaque meshes fade without sorting by dropping texels against a 4x4 Bayer patter
 - The meshes on the entities hit, and on those entities' children, fade to `Amount` over `FadeSeconds`, then back once they're clear. `Mesh::DitherFade` holds the runtime value; it isn't saved.
 - `Assets/Scenes/Tests/OccluderFadeTest.lvl` (reference in `Tests/Reference`): the wall in the way dithers 80% away while the one beside it stays solid.
 
-**Not yet:** shader-graph materials (Lit, Unlit, CustomLit templates) ignore the fade, and transparent meshes don't need it.
+**Shader graphs** (ME-283): the Lit, Unlit and CustomLit templates and the graph shadow caster template drop texels through `ditherDrops(u_drawParams.x, ...)` as well. The renderer sets `u_drawParams` for custom graph casters too, so graph materials fade and cast faded shadows like Standard ones. OccluderFadeTest's wall is a Toon graph material, with a Standard pillar in front of it. Transparent meshes don't use the fade.
 
 ## How to Extend
 

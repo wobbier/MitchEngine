@@ -2102,6 +2102,9 @@ void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, uint32_t InViewIndex,
             const bgfx::ProgramHandle custom = mesh.CustomShadow ? mesh.MeshMaterial->GetShadowProgram( false ) : bgfx::ProgramHandle( BGFX_INVALID_HANDLE );
             if( bgfx::isValid( custom ) )
             {
+                // Graph casters dither from the per-draw parameter (ME-283).
+                const float drawParams[4] = { alpha[3], 0.f, 0.f, 0.f };
+                bgfx::setUniform( u_drawParams, drawParams );
                 mesh.MeshMaterial->UseShadowCaster();
             }
             else
@@ -2138,6 +2141,8 @@ void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, uint32_t InViewIndex,
         if( skinned ) bgfx::setUniform( u_bones, mesh.SkinPalette, mesh.SkinBoneCount );
         if( bgfx::isValid( custom ) )
         {
+            const float drawParams[4] = { alpha[3], 0.f, 0.f, 0.f };
+            bgfx::setUniform( u_drawParams, drawParams );
             mesh.MeshMaterial->UseShadowCaster();
         }
         else
