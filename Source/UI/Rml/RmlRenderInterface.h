@@ -1,4 +1,7 @@
 #pragma once
+#include <map>
+#include "Pointers.h"
+namespace Moonlight { class Texture; }
 #include "Dementia.h"
 
 #if USING( ME_RMLUI )
@@ -62,6 +65,10 @@ private:
     std::vector<Geometry> m_geometry;
     std::vector<uint32_t> m_freeGeometry;
     std::vector<bgfx::TextureHandle> m_textures;
+    // Textures RmlUi didn't create (render textures, UI-8 <viewport>): never destroyed here; the
+    // asset stays alive while the UI uses it.
+    std::vector<bool> m_externalTextures;
+    std::map<uint32_t, SharedPtr<Moonlight::Texture>> m_externalAssets;
     std::vector<uint32_t> m_freeTextures;
 
     bgfx::VertexLayout m_layout;

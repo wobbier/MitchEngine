@@ -18,6 +18,7 @@
 #include "VFS/VFS.h"
 #include "UI/Rml/RmlInput.h"
 #include "UI/Rml/RmlInterfaces.h"
+#include "UI/Rml/RmlElements.h"
 #include "UI/Rml/RmlRenderInterface.h"
 #include "UI/Rml/RmlSettings.h"
 #include "Engine/LoadingScreen.h"
@@ -222,6 +223,8 @@ void RmlUiCore::Init()
         }
         Rml::Initialise();
         Rml::Factory::RegisterEventListenerInstancer( &s_actionInstancer );
+        // <sprite>, <viewport>, <input-glyph> (UI-8).
+        RmlElements::Register();
         // The engine font; a fallback face so plain documents always have glyphs.
         if( !Rml::LoadFontFace( "Assets/Fonts/Inter-Regular.ttf", true ) )
         {

@@ -122,6 +122,22 @@ Three levels, simplest first:
   - Assertions: `designer-assert-selected #id`, `designer-assert-computed <property> | <value>` (as RmlUi prints it: colors are `#rrggbb`), `designer-assert-preview <w>x<h>`, `assert-file-contains <path> | <text>` (`!=` negates)
 - **Proof:** `UIDesignerFlows.edscript` (inline and rule edits, a Steam Deck preview, picking, a palette button added and deleted; both test files end as committed), with `RmlSourceEditTests.cpp` for the write-back.
 
+### Engine-native elements (UI-8)
+
+`Source/UI/Rml/RmlElements.cpp` registers three elements with RmlUi's factory:
+
+| Element | Shows |
+|---------|-------|
+| `<sprite sheet="Assets/X.spritesheet" name="X_3"/>` | A sheet's sprite: its region of the sheet's image |
+| `<sprite anim="Assets/X_Walk.spriteanim" fps="12"/>` | A flipbook (a `.spriteanim`), looping on the UI clock (simulated time, so captures repeat). `fps` overrides the file's rate |
+| `<viewport src="Assets/Textures/RenderTexture/Feed.rendertexture"/>` | A render texture's live image, for minimaps and character previews; a camera renders into it (`Docs/Rendering-Pipeline.md`, Render textures) |
+| `<input-glyph action="Jump" index="0"/>` | The action's binding as text, such as a key cap. It follows rebinds, and the text is data, not translated |
+
+- **Sizing:** sprites and viewports size themselves from the region or the texture; CSS `width` and `height` override. Paths are project paths (`Assets/...`, `Engine/Assets/...`), not relative to the document.
+- **Render textures:** `RmlRenderInterface::LoadTexture` maps a `.rendertexture` source to the render texture's own target. The asset owns that target, so RmlUi never destroys it, and it's read from the asset at draw time, so a resized or reloaded target keeps showing. The UI draws before the cameras, so a viewport shows the feed's previous frame.
+- **Proof:** the UITest capture (`Assets/Scenes/Tests/Reference/UITest.png`) shows a viewport fed by a camera filming a spinning cube, the coin sprite, the hero's walk flipbook and the Jump key cap.
+- **Not done:** device glyphs (Xbox / PlayStation / Deck icons; PLAY-8) and the ShaderGraph UI target. See the follow-up issue.
+
 ### Hot reload
 
 `.rml`/`.rcss` edits arrive as `AssetsChangedEvent`. An `.rcss` edit reloads stylesheets in place (DOM state survives); an `.rml` edit reloads the documents loaded from it. Both log `UI: reloaded N document(s)`, which flows wait on.

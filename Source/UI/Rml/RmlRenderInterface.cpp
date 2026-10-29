@@ -1,5 +1,7 @@
 #include "PCH.h"
 #include "UI/Rml/RmlRenderInterface.h"
+#include "Graphics/Texture.h"
+#include "Resource/ResourceCache.h"
 
 #if USING( ME_RMLUI )
 
@@ -223,7 +225,10 @@ void RmlRenderInterface::RenderGeometry( Rml::CompiledGeometryHandle InGeometry,
         return;
     }
     const Geometry& geometry = m_geometry[static_cast<uint32_t>( InGeometry ) - 1];
-    const bgfx::TextureHandle texture = InTexture != 0 ? m_textures[static_cast<uint32_t>( InTexture ) - 1] : m_whiteTexture;
+    const uint32_t textureSlot = InTexture != 0 ? static_cast<uint32_t>( InTexture ) - 1 : 0;
+    const bool external = InTexture != 0 && textureSlot < m_externalTextures.size() && m_externalTextures[textureSlot];
+    // A render texture's target can be recreated (resized, hot reloaded): read it from the asset.
+    const bgfx::TextureHandle texture = InTexture == 0 ? m_whiteTexture : external ? m_externalAssets[textureSlot]->TexHandle : m_textures[textureSlot];
 
     uint32_t stencil = BGFX_STENCIL_NONE;
     if( m_clipMaskEnabled )
@@ -253,6 +258,38 @@ void RmlRenderInterface::ReleaseGeometry( Rml::CompiledGeometryHandle InGeometry
 
 Rml::TextureHandle RmlRenderInterface::LoadTexture( Rml::Vector2i& OutDimensions, const Rml::String& InSource )
 {
+    // A render texture (UI-8 <viewport>): its own live image, owned by the asset.
+    if( InSource.size() > 14 && InSource.compare( InSource.size() - 14, 14, ".rendertexture" ) == 0 )
+    {
+        const Path asset( InSource );
+        SharedPtr<Moonlight::Texture> texture = asset.Exists ? ResourceCache::GetInstance().Get<Moonlight::Texture>( asset ) : nullptr;
+        if( !texture || !bgfx::isValid( texture->TexHandle ) )
+        {
+            YIKES( "[UI] Render texture not found: " + InSource );
+            return 0;
+        }
+        OutDimensions = Rml::Vector2i( texture->mWidth, texture->mHeight );
+        uint32_t slot;
+        if( !m_freeTextures.empty() )
+        {
+            slot = m_freeTextures.back();
+            m_freeTextures.pop_back();
+            m_textures[slot] = texture->TexHandle;
+        }
+        else
+        {
+            slot = static_cast<uint32_t>( m_textures.size() );
+            m_textures.push_back( texture->TexHandle );
+        }
+        if( m_externalTextures.size() <= slot )
+        {
+            m_externalTextures.resize( slot + 1, false );
+        }
+        m_externalTextures[slot] = true;
+        m_externalAssets[slot] = texture;
+        ++m_liveTextures;
+        return static_cast<Rml::TextureHandle>( slot + 1 );
+    }
     const Path resolved( InSource );
     std::vector<uint8_t> bytes;
     if( !resolved.Exists || !VFS::Get().ReadBytes( resolved, bytes ) )
@@ -344,7 +381,15 @@ void RmlRenderInterface::ReleaseTexture( Rml::TextureHandle InTexture )
         return;
     }
     const uint32_t slot = static_cast<uint32_t>( InTexture ) - 1;
-    bgfx::destroy( m_textures[slot] );
+    if( slot < m_externalTextures.size() && m_externalTextures[slot] )
+    {
+        m_externalTextures[slot] = false;
+        m_externalAssets.erase( slot );
+    }
+    else
+    {
+        bgfx::destroy( m_textures[slot] );
+    }
     m_textures[slot] = BGFX_INVALID_HANDLE;
     m_freeTextures.push_back( slot );
     --m_liveTextures;
