@@ -175,6 +175,7 @@ public static class ScriptBridge
         ScriptRegistry.Clear();
         ScriptSerializer.ResetCaches();
         EventBus.Clear();
+        Scheduler.Clear();
         _schedules.Clear();
         _alc?.Unload();
         _alc = newAlc;
@@ -444,6 +445,21 @@ public static class ScriptBridge
         catch (Exception ex) { ReportException("DispatchEngineEvents", ex); }
     }
 
+    // CS-6: once a frame before OnUpdate (game delta time): continuations, coroutines, timers and
+    // tweens. reset != 0 (Stop) drops them all.
+    [UnmanagedCallersOnly]
+    public static void SchedulerTick(float deltaTime, int reset)
+    {
+        try
+        {
+            // Every await from here on resumes on the main thread (scripts run on it).
+            Scheduler.InstallContext();
+            if (reset != 0) Scheduler.Clear();
+            else Scheduler.Tick(deltaTime);
+        }
+        catch (Exception ex) { ReportException("SchedulerTick", ex); }
+    }
+
     internal static void ReportHandlerException(string eventName, Exception ex) => ReportException($"EventBus handler for {eventName}", ex);
 
     [UnmanagedCallersOnly]
@@ -451,6 +467,7 @@ public static class ScriptBridge
     {
         if (!Instances.TryGetValue(handle, out var s)) return;
         EventBus.RemoveTarget(s);
+        Scheduler.RemoveOwner(s);
         try
         {
             s.OnDestroy();

@@ -111,6 +111,7 @@ struct ScriptAPI
     FnGetFieldsJson       GetFieldsJson = nullptr;
     FnGetFieldsJson       GetSaveFieldsJson = nullptr;
     FnSetFieldsJson       DispatchEngineEvents = nullptr;   // (unused handle, JSON array)
+    void ( *SchedulerTick )( float, int ) = nullptr;
     FnSetFieldsJson       SetFieldsJson = nullptr;
     FnIsHandleAlive       IsHandleAlive = nullptr;
     FnGetHandleTypeName   GetHandleTypeName = nullptr;
@@ -146,6 +147,7 @@ static bool LoadAPI( ScriptHost& inHost, const std::string& inCoreDll, ScriptAPI
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetFieldsJson", (void**)&outApi.GetFieldsJson );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetSaveFieldsJson", (void**)&outApi.GetSaveFieldsJson );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "DispatchEngineEvents", (void**)&outApi.DispatchEngineEvents );
+    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "SchedulerTick", (void**)&outApi.SchedulerTick );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "SetFieldsJson", (void**)&outApi.SetFieldsJson );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ReloadGameAssembly", (void**)&outApi.ReloadGameAssembly );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "IsHandleAlive", (void**)&outApi.IsHandleAlive );
@@ -723,6 +725,15 @@ std::string ScriptEngine::GetFieldsJson( int inHandle, bool InIncludeSaveFields 
     json.resize( static_cast<size_t>( std::max( length, 0 ) ) );
     return json;
 }
+
+void ScriptEngine::SchedulerTick( float inDeltaTime, bool inReset )
+{
+    if( gDotnetAPI.SchedulerTick )
+    {
+        gDotnetAPI.SchedulerTick( inDeltaTime, inReset ? 1 : 0 );
+    }
+}
+
 
 void ScriptEngine::DispatchEngineEvents( const std::string& inJsonArray )
 {

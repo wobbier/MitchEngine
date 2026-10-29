@@ -3,7 +3,7 @@
 
 Each script names its scene in its header (the usage line: --scene <file>); a header that also
 names --user-dir <folder> runs with user:// state there (so a pair of flows can prove settings
-survive a restart). From the project root:
+survive a restart), and --frame-time <seconds> fixes every frame's delta (frame-exact timing). From the project root:
 
     Engine/Tools/RunEditorFlows.py --editor .build/Editor_Debug/Havana --wrapper Engine/Tools/Headless.sh
     Engine/Tools/RunEditorFlows.py ... --only Nav          # scripts whose path contains "Nav"
@@ -35,6 +35,11 @@ def scene_of(script):
 
 def user_dir_of(script):
     match = re.search(r"--user-dir\s+(\S+)", header_of(script))
+    return match.group(1) if match else None
+
+
+def frame_time_of(script):
+    match = re.search(r"--frame-time\s+(\S+)", header_of(script))
     return match.group(1) if match else None
 
 
@@ -81,6 +86,9 @@ def main():
         user_dir = user_dir_of(script)
         if user_dir:
             command += ["--user-dir", user_dir]
+        frame_time = frame_time_of(script)
+        if frame_time:
+            command += ["--frame-time", frame_time]
         start = time.time()
         try:
             with open(log_path, "w") as log:

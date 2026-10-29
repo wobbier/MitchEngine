@@ -59,6 +59,10 @@ ScriptCore::ScriptCore()
 void ScriptCore::OnStart()
 {
     m_running = true;
+#if USING( ME_SCRIPTING )
+    // A fresh scheduler, with the main-thread context in place before any OnStart awaits.
+    ScriptEngine::SchedulerTick( 0.f, true );
+#endif
     StartPendingScripts();
 }
 
@@ -109,8 +113,12 @@ void ScriptCore::StartPendingScripts()
 void ScriptCore::OnStop()
 {
     m_running = false;
-    // Play starts fresh: nothing from the last session (or edit mode) is delivered late.
+    // Play starts fresh: nothing from the last session (or edit mode) is delivered late, and no
+    // await, coroutine, timer or tween outlives it.
     m_engineEvents.clear();
+#if USING( ME_SCRIPTING )
+    ScriptEngine::SchedulerTick( 0.f, true );
+#endif
 }
 
 
@@ -235,6 +243,8 @@ void ScriptCore::Update( const UpdateContext& inUpdateContext )
         const json events = json( std::exchange( m_engineEvents, {} ) );
         ScriptEngine::DispatchEngineEvents( events.dump() );
     }
+    // Awaits, coroutines, timers and tweens advance by game time before OnUpdate.
+    ScriptEngine::SchedulerTick( inUpdateContext.GetDeltaTime() );
     for( ScriptComponent* script : RunList( ScriptEngine::UpdateCallback ) )
     {
         ScriptEngine::ScriptOnUpdate( script->m_dotnetHandle, inUpdateContext.GetDeltaTime() );

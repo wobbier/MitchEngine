@@ -7,6 +7,12 @@ public abstract class Script : IGameScript
 {
     public Entity Entity { get; internal set; } = Entity.Null;
 
+    // Coroutines, timers and tweens owned by this script: they stop when it's destroyed (Async.cs).
+    protected AsyncHandle StartCoroutine(System.Collections.IEnumerator routine) => Scheduler.AddCoroutine(this, routine);
+    protected void StopAllCoroutines() => Scheduler.RemoveOwner(this);
+    protected AsyncHandle After(float seconds, Action action) => Timer.After(seconds, action, this);
+    protected AsyncHandle Every(float seconds, Action action) => Timer.Every(seconds, action, this);
+
     // Subscribes to an event for as long as this script lives (EventBus).
     protected IDisposable On<T>(Action<T> handler) => EventBus.Subscribe(handler);
 

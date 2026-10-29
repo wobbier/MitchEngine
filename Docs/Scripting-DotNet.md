@@ -138,6 +138,7 @@ The API is 120 functions (`ScriptAPI.def`). Strings cross as UTF-8 `byte*`, enti
 | World | `CreateEntity`, `Find(name)` (any depth), `Instantiate(prefab, parent)`, `LoadScene(path)` (queued to the end of the frame), `LoadSceneAdditive(path, async = true)` / `UnloadScene(id)` / `GetSceneState(id)` (`Docs/Serialization-and-Scenes.md`) |
 | Input | `IsKeyDown`, `WasKeyPressed`, `MouseDelta`, `GetAction`, `GetActionVector2`, `IsActionPressed`, `WasActionPressed`, `WasActionReleased` (actions from `Docs/Input.md`); local multiplayer: `PlayerCount`, `Player(n)` (a `PlayerInput` with the same action methods and its `Gamepad`), `SetJoining(maxPlayers)` |
 | Audio | `Audio.PlayOneShot(clip, volume)`, `PlayOneShotAt(clip, position, volume)` |
+| Async | `await Async.Seconds(s)` / `Frames(n)` / `NextFrame()` / `Until(cond)`, `Async.Frame`; coroutines `StartCoroutine(IEnumerator)` with `WaitForSeconds` / `WaitFrames` / `WaitUntil` / `null`; `After(s, a)` / `Every(s, a)` (`Timer`); `Tween.Float` / `Vector` / `Move` with `Ease` (see below) |
 | Events | `EventBus.Publish(evt)` / `Subscribe<T>(handler)` (a disposable token) / `Unsubscribe`, `Script.On<T>(handler)`; engine events `SceneLoaded`, `AdditiveSceneChanged`, `GamepadChanged`, `PlayerChanged`, `AnimationMarker`, `WindowResized` (see below) |
 | Localization | `Loc.Get(key)`, `Loc.Language` (sets the player setting), `Loc.Languages` (`Docs/Localization.md`) |
 | Save games | `SaveGame.Save(slot, name)`, `Load`, `Delete`, `Exists`, `List()` (`SaveSlot`: slot, name, scene, date, playtime), `IsWriting`, `Playtime`; `[Save]` keeps a non-public field in save games (`Docs/Save-Games.md`) |
@@ -149,6 +150,22 @@ The API is 120 functions (`ScriptAPI.def`). Strings cross as UTF-8 `byte*`, enti
 | Navigation | `NavMeshAgent.SetDestination`, `IsStopped`, `ResetPath`, `Warp`, `HasPath`, `HasArrived`, `RemainingDistance`, `Velocity`, `DesiredVelocity`, `Speed`; `Navigation.FindPath`, `SamplePosition`, `Raycast`, `GetRandomPoint` (`Docs/Navigation.md`) |
 | Camera / UI | Clear colour; `Camera.SetClipPlane(point, normal)` / `ClearClipPlane()` (hide everything behind a world plane, for portals and mirrors); `Mesh.ShowCameraView(camera)` (the mesh becomes a screen-space window onto that camera's view, see `Rendering-Pipeline.md`); `UI.Model` view models for RmlUi documents |
 | ImGui | A subset for `OnEditorInspect`, plus `Begin`/`End`/`Text`/`Checkbox`/`Button` for a script's own debug window. Those do nothing in builds without ImGui (Retail), so a debug window never crashes a shipped game |
+
+### Async, coroutines, timers and tweens (CS-6)
+
+`Modules/ScriptCore/Source/Core/Async.cs` runs all four on the game clock, on the main thread.
+- **The tick.** `ScriptBridge.SchedulerTick` runs once a frame, before the scripts' `OnUpdate`, with game delta time, so pausing stops them and `--frame-time` makes them frame-exact. It runs the posted continuations, then every coroutine, timer and tween, then the continuations those released.
+- **Await.** A main-thread `SynchronizationContext` is installed when Play starts, so any `await` resumes on the main thread inside that pump. That includes `Task.Delay`, which runs on the wall clock (before CS-6 it resumed on a pool thread).
+- **Frame counting.**
+  - The first tick after `OnStart` is frame 1.
+  - `Async.Seconds(0.5f)` at 0.02 s frames completes on frame 25.
+  - A coroutine's `WaitForSeconds` counts from the frame after the one it yielded on.
+  - A tween's last call is exactly its target.
+- **Lifetime.**
+  - Whatever a script owns (its `StartCoroutine` / `After` / `Every`, and anything started with `owner: this`) is cancelled when the script is destroyed.
+  - Everything stops on Stop and on a hot reload. An `AsyncHandle.Task` completes either way.
+- **Ease.** `Linear`, `SmoothStep` and `Hold` match `SequenceInterpolation`; there are also quad, cubic and `OutBack` curves.
+- **Proof:** `AsyncProbe.cs` + `AsyncFlows.edscript`, frame-exact at `--frame-time 0.02`. RunEditorFlows reads `--frame-time` from a flow's header.
 
 ### Events (CS-8)
 
