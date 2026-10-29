@@ -198,6 +198,10 @@ void ProjectSettings::LoadFrom( const std::string& InPath )
         {
             LoadingDocument = product["LoadingDocument"].get<std::string>();
         }
+        if( product.contains( "Look" ) && product["Look"].is_string() )
+        {
+            Look = product["Look"].get<std::string>();
+        }
         if( product.contains( "Splash" ) && product["Splash"].is_array() )
         {
             Splash.clear();
@@ -334,6 +338,10 @@ void ProjectSettings::SaveTo( const std::string& InPath ) const
     if( LoadingDocument != kDefaultLoadingDocument )
     {
         root["Product"]["LoadingDocument"] = LoadingDocument;
+    }
+    if( !Look.empty() )
+    {
+        root["Product"]["Look"] = Look;
     }
     if( !Splash.empty() )
     {

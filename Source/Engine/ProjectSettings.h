@@ -88,6 +88,10 @@ public:
         float Seconds = 2.f;
     };
     std::vector<SplashScreen> Splash;
+    // The project's look preset (LookPresets, LOOK-S0): its texture import defaults and cap layer
+    // apply at startup; Project Settings > Look applies its camera, post and materials to a scene.
+    // Empty = none.
+    std::string Look;
     static constexpr const char* kDefaultLoadingDocument = "Assets/UI/Loading/Loading.rml";
     std::string LoadingDocument = kDefaultLoadingDocument;
     // Build settings, consumed by the SHIP-2 cooker: the scenes a shipped build includes,

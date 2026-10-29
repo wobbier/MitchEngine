@@ -386,7 +386,14 @@ HardwareProfile::FeatureCaps HardwareBudget::GetEffectiveCaps() const
     const HardwareProfile* profile = m_enforced ? GetActiveProfile() : nullptr;
     const QualityPreset* quality = m_qualityName.empty() ? nullptr : FindQualityPreset( m_qualityName );
     const HardwareProfile::FeatureCaps none;
-    return HardwareProfile::Combine( profile ? profile->Caps : none, quality ? quality->Caps : none );
+    return HardwareProfile::Combine( HardwareProfile::Combine( profile ? profile->Caps : none, quality ? quality->Caps : none ), m_lookCaps );
+}
+
+
+void HardwareBudget::SetLookCaps( const HardwareProfile::FeatureCaps& InCaps )
+{
+    m_lookCaps = InCaps;
+    ApplyCaps();
 }
 
 

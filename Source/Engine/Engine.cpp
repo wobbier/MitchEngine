@@ -8,6 +8,7 @@
 #include "Cores/Physics2DCore.h"
 #include "Cores/AnimationCore.h"
 #include "Text/FontAtlas.h"
+#include "Engine/LookPresets.h"
 #include "Cores/SequenceCore.h"
 #include "Cores/NavigationCore.h"
 #include "Cores/Cameras/CameraCore.h"
@@ -324,6 +325,9 @@ void Engine::Init( Game* game )
         NewRenderer->EnableUIComposite = !CommandLine::Has( "--no-ui" );
         // The project's target hardware: budgets, and its feature caps when enforced.
         HardwareBudget::Get().Init( *NewRenderer );
+        // The project's look (LOOK-S0): texture import defaults and its cap layer.
+        LookPresets::Get().Load();
+        LookPresets::ApplyProjectDefaults( LookPresets::Get().Find( ProjectSettings::Get().Look ) );
     }
     CLog::GetInstance().Log( CLog::LogType::Info, "After the Renderer." );
 #if USING( ME_IMGUI )

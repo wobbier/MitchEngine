@@ -6,6 +6,10 @@
 #include "Engine/HardwareBudget.h"
 #include "Engine/Input.h"
 #include "Engine/ProjectSettings.h"
+#include "Engine/LookPresets.h"
+#include "Editor/EditorOperations.h"
+#include "Editor/UndoStack.h"
+#include "CLog.h"
 #include "Cores/AudioCore.h"
 #include "Cores/EditorCore.h"
 #include "EditorApp.h"
@@ -147,6 +151,64 @@ namespace
 			return ImGuiTheme::WarningText();
 		default:
 			return ImGui::GetStyleColorVec4(ImGuiCol_Text);
+		}
+	}
+
+
+	// Project Settings > Look (LOOK-S0): the project's look preset. Saving applies its import
+	// defaults and cap layer at once; Apply sets the open scene's cameras (and materials).
+	void DrawLookTab()
+	{
+		ProjectSettings& settings = ProjectSettings::Get();
+		LookPresets& looks = LookPresets::Get();
+		if (looks.GetAll().empty())
+		{
+			looks.Load();
+		}
+		HavanaUtils::Label("Look");
+		if (ImGui::BeginCombo("##LookPreset", settings.Look.empty() ? "(none)" : settings.Look.c_str()))
+		{
+			if (ImGui::Selectable("(none)", settings.Look.empty()))
+			{
+				settings.Look.clear();
+				settings.Save();
+				LookPresets::ApplyProjectDefaults(nullptr);
+			}
+			for (const LookPresets::Preset& preset : looks.GetAll())
+			{
+				if (ImGui::Selectable(preset.Name.c_str(), preset.Name == settings.Look))
+				{
+					settings.Look = preset.Name;
+					settings.Save();
+					LookPresets::ApplyProjectDefaults(&preset);
+				}
+				ImGui::SetItemTooltip("%s", preset.Description.c_str());
+			}
+			ImGui::EndCombo();
+		}
+		const LookPresets::Preset* preset = looks.Find(settings.Look);
+		if (!preset)
+		{
+			ImGui::TextDisabled("No look: scenes keep their own camera and post settings.");
+			return;
+		}
+		ImGui::TextWrapped("%s", preset->Description.c_str());
+		if (preset->Lite)
+		{
+			ImGui::TextDisabled("Lite pipeline: no SSAO, shadows or image-based lighting.");
+		}
+		if (!preset->Import.empty())
+		{
+			ImGui::TextDisabled("New images import as: %s", preset->Import.dump().c_str());
+		}
+		static bool s_materials = true;
+		ImGui::Checkbox("Replace Standard materials", &s_materials);
+		ImGui::SetItemTooltip("Meshes still on the stock StandardMaterial take the look's material (when it has one)");
+		if (ImGui::Button("Apply to Open Scene"))
+		{
+			const int changed = LookPresets::ApplyToWorld(*preset, EditorOps::GetWorld(), s_materials);
+			UndoStack::Get().MarkDirty();
+			CLog::Log(CLog::LogType::Info, "Look " + preset->Name + ": " + std::to_string(changed) + " entities changed");
 		}
 	}
 
@@ -923,6 +985,12 @@ void ProjectSettingsWidget::Render()
 	if (ImGui::BeginTabItem("Hardware"))
 	{
 		DrawHardwareTab();
+		ImGui::EndTabItem();
+	}
+
+	if (ImGui::BeginTabItem("Look"))
+	{
+		DrawLookTab();
 		ImGui::EndTabItem();
 	}
 

@@ -189,7 +189,17 @@ struct TextureResourceMetadata
     TextureResourceMetadata( const Path& filePath )
         : MetaBase( filePath )
     {
+        // New images take the project look's import defaults (LookPresets); saved metas override.
+        if( s_defaultUncompressed )
+        {
+            OutputFormat = OutputTextureFormat::None;
+        }
+        GenerateMIPs = s_defaultMips;
     }
+
+    // Import defaults for images without a .meta yet (the project look sets them: pixel art).
+    static inline bool s_defaultUncompressed = false;
+    static inline bool s_defaultMips = true;
 
     virtual std::string GetExtension2() const override;
 

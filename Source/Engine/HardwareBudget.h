@@ -166,6 +166,9 @@ public:
     // Picks a preset ("" = none: no player caps) and re-applies the caps. False when InName
     // isn't defined (the choice is kept, so a preset added by a later reload takes effect).
     bool SetQualityPreset( const std::string& InName );
+    // The project look's cap layer (LookPresets: its Caps, plus the Lite pipeline), combined like
+    // the quality preset: the stricter cap wins. Default caps = none.
+    void SetLookCaps( const HardwareProfile::FeatureCaps& InCaps );
     const std::string& GetQualityPresetName() const { return m_qualityName; }
     // What ApplyCaps hands the renderer: the enforced profile's caps and the quality preset's.
     HardwareProfile::FeatureCaps GetEffectiveCaps() const;
@@ -214,6 +217,7 @@ private:
     bool m_enforced = false;
     std::vector<QualityPreset> m_qualityPresets;
     std::string m_qualityName;
+    HardwareProfile::FeatureCaps m_lookCaps;
 
     std::vector<Line> m_lines;
     // Per line: when it went over (seconds, < 0 while under) and whether that was logged.

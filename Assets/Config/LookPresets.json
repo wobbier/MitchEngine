@@ -1,0 +1,226 @@
+{
+    "About": "Look presets (LOOK-S0): a project's look in one pick (Project Settings > Look, or the look-apply edscript command). Camera and Post are partial Camera / PostProcess component JSON merged onto every camera in the scene (a missing PostProcess is added); Material replaces the material of meshes still on the stock StandardMaterial when applied with materials; Import sets the texture import defaults for new images (Format, MIPs); Caps (the HardwareProfiles.json Caps shape) are a project-wide cap layer, the stricter cap winning over the hardware profile and the player's quality; \"Lite\": true adds the Lite pipeline caps (no SSAO, shadows or image-based lighting, for low-end PCs and handhelds). A project's Assets/Config/LookPresets.json adds presets or replaces one with the same Name.",
+    "Presets": [
+        {
+            "Name": "Realistic",
+            "Description": "Physically based: temporal AA, SSAO, bloom, ACES, auto exposure off for stable captures, full resolution.",
+            "Camera": {
+                "RenderScale": 1.0,
+                "Upscale": "Bilinear",
+                "PixelPerfect": false,
+                "SunShadows": true,
+                "AmbientOcclusion": true,
+                "VolumetricFog": true
+            },
+            "Post": {
+                "Tonemapper": "ACES",
+                "TemporalAA": true,
+                "FXAA": false,
+                "AmbientOcclusion": true,
+                "Bloom": true,
+                "BloomIntensity": 0.08,
+                "VignetteIntensity": 0.2,
+                "Outline": false,
+                "Saturation": 1.0,
+                "Lut": ""
+            }
+        },
+        {
+            "Name": "Stylized-Lit",
+            "Description": "Lit and shadowed, pushed colour: warm grade, stronger bloom and saturation, softer contrast, FXAA.",
+            "Camera": {
+                "RenderScale": 1.0,
+                "PixelPerfect": false
+            },
+            "Post": {
+                "Tonemapper": "AgX",
+                "TemporalAA": false,
+                "FXAA": true,
+                "AmbientOcclusion": true,
+                "Bloom": true,
+                "BloomIntensity": 0.15,
+                "Saturation": 1.25,
+                "Contrast": 0.95,
+                "Lut": "Engine/Assets/Textures/LUTs/Warm.cube",
+                "LutContribution": 0.6,
+                "VignetteIntensity": 0.25,
+                "Outline": false
+            }
+        },
+        {
+            "Name": "Toon",
+            "Description": "Cel shading: the stock Toon graph (Custom Lit) on meshes, ink edge outlines, AgX tonemapping a little under, no SSAO.",
+            "Camera": {
+                "RenderScale": 1.0,
+                "PixelPerfect": false,
+                "AmbientOcclusion": false
+            },
+            "Post": {
+                "Tonemapper": "AgX",
+                "TemporalAA": false,
+                "FXAA": true,
+                "AmbientOcclusion": false,
+                "Bloom": false,
+                "Outline": true,
+                "OutlineColor": [
+                    0.05,
+                    0.04,
+                    0.06
+                ],
+                "OutlineThickness": 1.5,
+                "VignetteIntensity": 0.0,
+                "Lut": "",
+                "ExposureCompensation": -0.5
+            },
+            "Material": {
+                "Type": "ShaderGraphMaterial",
+                "Graph": "Assets/ShaderGraphs/Examples/Toon.shadergraph",
+                "Params": {},
+                "Textures": {}
+            }
+        },
+        {
+            "Name": "Flat/Unlit",
+            "Description": "No lighting at all: flat colours (the FlatColor graph), no shadows, no post effects; the Lite cap layer.",
+            "Camera": {
+                "RenderScale": 1.0,
+                "PixelPerfect": false,
+                "SunShadows": false,
+                "AmbientOcclusion": false,
+                "VolumetricFog": false
+            },
+            "Post": {
+                "Tonemapper": "None",
+                "TemporalAA": false,
+                "FXAA": true,
+                "AmbientOcclusion": false,
+                "Bloom": false,
+                "Outline": false,
+                "VignetteIntensity": 0.0,
+                "Fog": false,
+                "Lut": ""
+            },
+            "Material": {
+                "Type": "ShaderGraphMaterial",
+                "Graph": "Assets/ShaderGraphs/Examples/FlatColor.shadergraph",
+                "Params": {},
+                "Textures": {}
+            },
+            "Lite": true
+        },
+        {
+            "Name": "Pixel-2D",
+            "Description": "Pixel art: a pixel-perfect camera (320 x 180, whole-texel snapping), point-filtered uncompressed imports, no AA or bloom.",
+            "Camera": {
+                "PixelPerfect": true,
+                "ReferenceResolution": [
+                    320.0,
+                    180.0
+                ],
+                "PixelsPerUnit": 16.0,
+                "PixelSnap": true,
+                "AmbientOcclusion": false
+            },
+            "Post": {
+                "Tonemapper": "None",
+                "TemporalAA": false,
+                "FXAA": false,
+                "AmbientOcclusion": false,
+                "Bloom": false,
+                "Outline": false,
+                "VignetteIntensity": 0.0,
+                "Lut": ""
+            },
+            "Import": {
+                "Format": "None",
+                "MIPs": false
+            }
+        },
+        {
+            "Name": "PS1",
+            "Description": "Late-90s console: about 320 x 240 internally with nearest upscaling, no AA, no SSAO, crushed vintage grade.",
+            "Camera": {
+                "RenderScale": 0.33,
+                "Upscale": "Nearest",
+                "PixelPerfect": false,
+                "AmbientOcclusion": false,
+                "VolumetricFog": false
+            },
+            "Post": {
+                "Tonemapper": "Reinhard",
+                "TemporalAA": false,
+                "FXAA": false,
+                "AmbientOcclusion": false,
+                "Bloom": false,
+                "Outline": false,
+                "Lut": "Engine/Assets/Textures/LUTs/Vintage.cube",
+                "LutContribution": 0.7,
+                "Contrast": 1.1,
+                "VignetteIntensity": 0.3
+            },
+            "Import": {
+                "Format": "None",
+                "MIPs": false
+            }
+        },
+        {
+            "Name": "N64",
+            "Description": "Soft and foggy: a low internal resolution smoothed by bilinear upscaling, thick distance fog, muted colour.",
+            "Camera": {
+                "RenderScale": 0.4,
+                "Upscale": "Bilinear",
+                "PixelPerfect": false,
+                "AmbientOcclusion": false
+            },
+            "Post": {
+                "Tonemapper": "Reinhard",
+                "TemporalAA": false,
+                "FXAA": true,
+                "AmbientOcclusion": false,
+                "Bloom": false,
+                "Outline": false,
+                "Fog": true,
+                "FogDensity": 0.08,
+                "FogColor": [
+                    0.6,
+                    0.65,
+                    0.75
+                ],
+                "FogStartDistance": 4.0,
+                "Saturation": 0.8,
+                "Lut": "",
+                "VignetteIntensity": 0.0
+            }
+        },
+        {
+            "Name": "Retro-PC",
+            "Description": "Early PC VGA: 320 x 200 pixel-perfect blocks, no AA, high contrast, cool grade.",
+            "Camera": {
+                "PixelPerfect": true,
+                "ReferenceResolution": [
+                    320.0,
+                    200.0
+                ],
+                "PixelsPerUnit": 0.0,
+                "PixelSnap": false,
+                "AmbientOcclusion": false
+            },
+            "Post": {
+                "Tonemapper": "None",
+                "TemporalAA": false,
+                "FXAA": false,
+                "AmbientOcclusion": false,
+                "Bloom": false,
+                "Outline": false,
+                "Contrast": 1.2,
+                "Lut": "Engine/Assets/Textures/LUTs/Cool.cube",
+                "LutContribution": 0.5,
+                "VignetteIntensity": 0.0
+            },
+            "Import": {
+                "Format": "None",
+                "MIPs": false
+            }
+        }
+    ]
+}

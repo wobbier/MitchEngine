@@ -40,6 +40,7 @@
 #include "Engine/Localization.h"
 #include "Widgets/UIDesigner/UIDesignerWidget.h"
 #include "Editor/TilemapPainter.h"
+#include "Engine/LookPresets.h"
 #include "Components/Graphics/Tilemap.h"
 #include "Cores/UI/RmlUiCore.h"
 #include <RmlUi/Core/Context.h>
@@ -398,6 +399,33 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         {
             // Run this line again next frame (sg-wait-* commands).
             --m_nextLine;
+        }
+    }
+    else if( command == "look-apply" || command == "look-project" )
+    {
+        // look-apply Toon | materials   the preset's camera / post (and materials) on the open scene
+        // look-project PS1              the project's look (its import defaults and cap layer); "" = none
+        auto [name, option] = SplitArgs( args );
+        LookPresets& looks = LookPresets::Get();
+        if( looks.GetAll().empty() )
+        {
+            looks.Load();
+        }
+        const LookPresets::Preset* preset = looks.Find( name );
+        if( !preset && !( command == "look-project" && name.empty() ) )
+        {
+            Fail( command + ": no look preset " + name );
+        }
+        else if( command == "look-project" )
+        {
+            ProjectSettings::Get().Look = name;
+            LookPresets::ApplyProjectDefaults( preset );
+        }
+        else
+        {
+            const int changed = LookPresets::ApplyToWorld( *preset, EditorOps::GetWorld(), option == "materials" );
+            UndoStack::Get().MarkDirty();
+            CLog::Log( CLog::LogType::Info, "Look " + preset->Name + ": " + std::to_string( changed ) + " entities changed" );
         }
     }
     else if( command.rfind( "tile-", 0 ) == 0 )
