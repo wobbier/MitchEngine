@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "Net/NetReplication.h"
 #include "Components/Networking/NetIdentity.h"
+#include "Components/Physics/CharacterController.h"
 #include "Components/Physics/Rigidbody.h"
 #include "Components/Transform.h"
 #include "Engine/World.h"
@@ -51,6 +52,27 @@ namespace
         InWriter.WriteBits( static_cast<uint32_t>( InState.Rotation >> 32 ), 6 );
     }
 
+    void WriteVector( BitWriter& InWriter, const Vector3& InValue )
+    {
+        InWriter.WriteFloat( InValue.x );
+        InWriter.WriteFloat( InValue.y );
+        InWriter.WriteFloat( InValue.z );
+    }
+
+    Vector3 ReadVector( BitReader& InReader )
+    {
+        const float x = InReader.ReadFloat();
+        const float y = InReader.ReadFloat();
+        const float z = InReader.ReadFloat();
+        return Vector3( x, y, z );
+    }
+
+    void ReadPose( BitReader& InReader, NetEntityState& OutState );
+}
+
+
+namespace
+{
     void ReadPose( BitReader& InReader, NetEntityState& OutState )
     {
         for( uint32_t& axis : OutState.Position )
@@ -215,6 +237,30 @@ void NetReplicationServer::OnClientAccepted( NetServer::Client& InClient )
 
 void NetReplicationServer::OnPacket( NetServer::Client& InClient )
 {
+    // Its own characters' exact state, for its prediction (full precision: it restores from it).
+    for( auto& [id, handle] : m_entities )
+    {
+        const NetIdentity& identity = handle->GetComponent<NetIdentity>();
+        const CharacterController* controller = handle->TryGetComponent<CharacterController>();
+        if( identity.m_owner != InClient.Id || controller == nullptr )
+        {
+            continue;
+        }
+        const CharacterController::NetState mover = controller->GetNetState();
+        BitWriter owner;
+        owner.WriteBits( NetMessage::OwnerState, 8 );
+        owner.WriteBits( m_current.Tick, 32 );
+        owner.WriteVarUInt( id );
+        WriteVector( owner, mover.Position );
+        WriteVector( owner, mover.Velocity );
+        WriteVector( owner, mover.MoveInput );
+        WriteVector( owner, mover.PendingMove );
+        WriteVector( owner, mover.GroundNormal );
+        owner.WriteBool( mover.WantsJump );
+        owner.WriteBool( mover.Grounded );
+        m_server.Send( InClient, owner, false );
+    }
+
     ClientState& state = m_clients[InClient.Id];
     const NetSnapshot* baseline = nullptr;
     if( state.HasAck )
@@ -301,6 +347,23 @@ void NetReplicationClient::OnMessage( uint8_t InType, BitReader& InReader, bool 
     else if( InType == NetMessage::Snapshot && !InReliable )
     {
         OnSnapshot( InReader );
+    }
+    else if( InType == NetMessage::OwnerState && !InReliable )
+    {
+        const uint32_t tick = InReader.ReadBits( 32 );
+        const uint32_t id = static_cast<uint32_t>( InReader.ReadVarUInt() );
+        CharacterController::NetState state;
+        state.Position = ReadVector( InReader );
+        state.Velocity = ReadVector( InReader );
+        state.MoveInput = ReadVector( InReader );
+        state.PendingMove = ReadVector( InReader );
+        state.GroundNormal = ReadVector( InReader );
+        state.WantsJump = InReader.ReadBool();
+        state.Grounded = InReader.ReadBool();
+        if( !InReader.IsOverflowed() && OnOwnerState )
+        {
+            OnOwnerState( id, tick, state );
+        }
     }
 }
 
@@ -439,7 +502,7 @@ void NetReplicationClient::Update( double InFrameSeconds )
     for( auto& [id, samples] : m_samples )
     {
         auto entity = m_entities.find( id );
-        if( samples.empty() || entity == m_entities.end() || !entity->second )
+        if( samples.empty() || entity == m_entities.end() || !entity->second || m_predicted.count( id ) )
         {
             continue;
         }

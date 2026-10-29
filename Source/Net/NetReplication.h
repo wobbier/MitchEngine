@@ -1,9 +1,12 @@
 #pragma once
+#include "Components/Physics/CharacterController.h"
 #include "ECS/EntityHandle.h"
 #include "Net/NetSession.h"
 #include "Net/NetSnapshot.h"
 #include <deque>
+#include <functional>
 #include <map>
+#include <set>
 #include <unordered_map>
 #include <vector>
 
@@ -19,6 +22,8 @@ class World;
 //   snapshot it acked (or everything), quantized (NetSnapshot). When nothing changed since the
 //   last one sent, the server skips it, sending one at least every kKeepAliveTicks, so an idle
 //   scene costs next to nothing.
+// - Owners: each packet also carries, for every character the client owns, its exact mover
+//   state after the tick (OwnerState), which the client's NetPredictor reconciles with (NET-4).
 // - Clients keep the decoded snapshots (deltas need them), interpolate each entity at
 //   "server tick - delay" (adaptive: it grows when samples run out) and make remote Rigidbodies
 //   kinematic: only the server simulates.
@@ -87,6 +92,11 @@ public:
     uint32_t GetNewestSnapshotTick() const { return m_newest; }
     uint64_t GetSnapshotsReceived() const { return m_received; }
 
+    // The server's state of a character this client owns (NET-4): for its predictor.
+    std::function<void( uint32_t InNetId, uint32_t InTick, const CharacterController::NetState& InState )> OnOwnerState;
+    // Entities this client predicts aren't interpolated.
+    void SetPredicted( uint32_t InNetId ) { m_predicted.insert( InNetId ); }
+
 private:
     struct Sample
     {
@@ -104,6 +114,7 @@ private:
     NetClient& m_client;
     std::map<uint32_t, EntityHandle> m_entities;
     std::map<uint32_t, std::deque<Sample>> m_samples;
+    std::set<uint32_t> m_predicted;
     std::deque<NetSnapshot> m_snapshots;    // decoded, newest last, up to 32
     bool m_hasSnapshot = false;
     uint32_t m_newest = 0;

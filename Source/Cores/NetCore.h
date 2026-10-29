@@ -1,5 +1,6 @@
 #pragma once
 #include "ECS/Core.h"
+#include "Net/NetPrediction.h"
 #include "Net/NetReplication.h"
 #include "Net/NetSession.h"
 #include <memory>
@@ -58,6 +59,13 @@ public:
 
     // The local player's input for the coming ticks (until changed).
     void SetLocalCommand( const InputCommand& InCommand ) { m_localCommand = InCommand; }
+
+    // How a command drives an entity (NET-4): on the server for every entity a client owns
+    // (NetIdentity::SetOwner) with that client's command; on a client for its predicted pawn.
+    void SetCommandHandler( NetPredictor::CommandHandler InHandler ) { m_commandHandler = std::move( InHandler ); }
+    // Client: predict this pawn (a CharacterController the server lets this client own).
+    void Predict( EntityHandle InPawn );
+    NetPredictor* GetPredictor() { return m_predictor.get(); }
     // The tick being simulated (BeginTick to EndTick): the server's, or the client's.
     uint32_t GetTick() const { return m_tick; }
 
@@ -72,6 +80,8 @@ private:
     std::unique_ptr<NetReplicationClient> m_replicationClient;
     std::optional<NetVersion> m_versionOverride;
     InputCommand m_localCommand;
+    NetPredictor::CommandHandler m_commandHandler;
+    std::unique_ptr<NetPredictor> m_predictor;
     uint32_t m_tick = 0;
 };
 

@@ -18,7 +18,9 @@ Multiplayer follows the Overwatch model: an authoritative server, client predict
   - client interpolation;
   - kinematic remotes.
 
-Prediction, relevancy and the C# API come next (NET-4 onwards).
+- **NET-4:** client prediction of the owner's character, with rollback, resim and error smoothing.
+
+Transports for real, the C# API, the editor tooling and lag compensation come next (NET-5 onwards).
 
 ## Key Files
 
@@ -35,6 +37,7 @@ Prediction, relevancy and the C# API come next (NET-4 onwards).
 | `Source/Components/Networking/NetIdentity.h` | Marks an entity networked: NetId, owner, the prefab clients spawn |
 | `Source/Net/NetSnapshot.h` | `NetEntityState`: pose at 1/1024 m, rotation smallest-three at 12 bits, replicated field bytes. `NetSchema` (fields flagged `.Replicated()` in `ME_REFLECT`). `NetSnapshotCodec`: deltas against a baseline |
 | `Source/Net/NetReplication.h` | `NetReplicationServer` (ids, spawns, snapshots per client) and `NetReplicationClient` (mirrors, interpolation) |
+| `Source/Net/NetPrediction.h` | `NetPredictor`: a 128-tick history of {command, mover state}, `Reconcile` (millimetre compare, then restore and resim with `PhysicsCore::StepCharacter`), and visual error smoothing |
 | `Source/Cores/NetCore.h` | Engine-owned (`Engine::Net`): `Host` / `Connect`, the frame hooks, the version of its world |
 | `Tests/Source/NetTests.cpp`, `NetSessionTests.cpp`, `NetHarness.h` | The proofs (below). The harness runs a server world and a client world in one process at 1 ms resolution |
 
@@ -116,6 +119,23 @@ Messages are at most 1024 bytes (`kMaxMessageBytes`); there is no fragmentation 
 
 **`NetSchema` field types:** bool, ints and enums (VarUInt), float, double, Vector2/3/4, Quaternion (raw floats), and strings. Flag fields with `ME_FIELD( X ).Replicated()`. `.Predicted()` implies Replicated and is for NET-5.
 
+### Prediction (NET-4)
+
+The client predicts only what it owns. Remote entities are interpolated (above), and rigidbodies simulate only on the server.
+
+- **Command handler:** `NetCore::SetCommandHandler( fn( Entity&, InputCommand ) )` is the same function on both sides. On the server it runs at `BeginTick` for every entity a client owns (`NetIdentity::SetOwner`), with that client's command. On the client it runs for the predicted pawn (`NetCore::Predict( pawn )`), with the local command quantized exactly as the server receives it.
+- **Recording:** after each client tick, `EndTick` records `{command, CharacterController::NetState}`.
+- **OwnerState:** each server packet carries, for each character the client owns, its full-precision mover state after the tick.
+- **Reconcile:** compares that state with the prediction for the same tick: position within 1 mm, velocity within 1 cm/s, grounded equal.
+  - **On a mismatch:** restore the server's state, then for every later recorded tick apply its command and run `PhysicsCore::StepCharacter`. Only the pawn re-runs; the rest of the world stays in the present.
+  - **The visual jump** (where it was drawn minus where it now is) becomes `GetVisualOffset()`, which shrinks linearly to zero over 100 ms.
+  - **Before the first match**, a mismatch is the initial sync, not a correction: the server simulated idle ticks before the client's first command arrived.
+- **Interpolation:** the predicted pawn is excluded from snapshot interpolation.
+
+**Not covered yet:**
+- The visual offset isn't applied to anything. A game draws the pawn's mesh at `Transform + GetVisualOffset()`. Moving the Transform itself would read as a teleport to the mover.
+- Prediction of `[Predicted]` script fields comes with NET-6.
+
 ## Proofs
 
 `NetTests.cpp`:
@@ -133,6 +153,10 @@ Messages are at most 1024 bytes (`kMaxMessageBytes`); there is no fragmentation 
   - **Mirroring:** at each client frame's render tick, 99.8% of 12000 samples are within 1 cm of the server's pose at that tick (≥ 99.5% required). The rest are boxes landing inside a lost-snapshot gap, which straight-line interpolation can't know about; the worst was 5.5 cm (< 10 cm required). The placed copies are kinematic.
   - **Idle:** once asleep, snapshots cost 480 bit/s (< 1 kbps).
   - **Despawn and late join:** destroying every seventh box, plus a late joiner at 140 ms RTT, converge. Both clients mirror exactly the server's set within 2 mm.
+- **Prediction (`NetPredictionTests.cpp`), the NET-4 done-when:**
+  - **Resim:** a predictor corrected at tick 19 resims 20 ticks in 0.056 ms (< 1 ms, Debug). Its visual offset is the jump, and it's gone after 100 ms. Resimming from the straight run's own state reproduces that run bit for bit.
+  - **Course:** two worlds at 150 ms RTT (75 ± 3 ms each way) run a walk/strafe/jump course with a step and a wall: 697 ticks confirmed, **0 corrections**, after 1 initial sync.
+  - **Knockback:** a server-only knockback gives **exactly 1 correction**, at the knockback tick. The visual offset is zero by the 10th frame after it, and no further corrections follow.
 - **Handshake:** another build is rejected (`"version mismatch: build"`) and the server lets it go; so is another scene (`"version mismatch: scene"`); a match connects.
 - **Round trip:** at 50 ms each way, 5% loss, with 0 or ±10 ms jitter, both ends estimate within 10% of 100 ms. Garbage and lying packets are rejected, and oversized messages are refused.
 

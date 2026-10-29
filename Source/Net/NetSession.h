@@ -32,6 +32,7 @@ namespace NetMessage
         ServerState = 17,
         Snapshot = 18,
         SnapshotAck = 19,
+        OwnerState = 20,
     };
 }
 

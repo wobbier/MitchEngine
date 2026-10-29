@@ -54,6 +54,8 @@ namespace NetHarness
         std::function<void( NetServer& )> OnServerTick;
         std::function<InputCommand( uint32_t InTick )> MakeCommand;
         std::function<void( NetClient& )> OnClientFrame;
+        // The first client's simulation of each of its ticks (between BeginTick and EndTick).
+        std::function<void( NetCore& )> OnClientTick;
 
         Harness( const NetConditions& InToClient, const NetConditions& InToServer )
             : ServerLink( ServerRaw, InToClient )
@@ -158,6 +160,10 @@ namespace NetHarness
                         InNet.SetLocalCommand( MakeCommand( client->GetClock().GetTick() ) );
                     }
                     InNet.BeginTick();
+                    if( OnClientTick && &InNet == &ClientNet )
+                    {
+                        OnClientTick( InNet );
+                    }
                     InNet.EndTick( InNow );
                 }
             }
