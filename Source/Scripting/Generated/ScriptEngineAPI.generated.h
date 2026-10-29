@@ -351,4 +351,14 @@ struct ScriptEngineAPI
     void ( *Sprite_SetSorting )( EntityID id, int layer, int order );
     int ( *Sprite_GetSortingLayer )( EntityID id );
     int ( *Sprite_GetOrderInLayer )( EntityID id );
+
+    // Tilemaps (LOOK-S5): cells of the entity's Tilemap by palette index (-1 = empty); a change
+
+    // rebuilds its TilemapCollider2D on the next physics step
+    void ( *Tilemap_SetTile )( EntityID id, int x, int y, int index );
+    int ( *Tilemap_GetTile )( EntityID id, int x, int y );
+    void ( *Tilemap_FillRect )( EntityID id, int x0, int y0, int x1, int y1, int index );
+    void ( *Tilemap_Clear )( EntityID id );
+    int ( *Tilemap_GetTileCount )( EntityID id );
+    void ( *Tilemap_WorldToCell )( EntityID id, const Vector3* world, int* outCell );
 };

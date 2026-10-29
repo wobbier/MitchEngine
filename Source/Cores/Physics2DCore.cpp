@@ -2,6 +2,7 @@
 #include "Physics2DCore.h"
 #include "Components/Physics/CharacterController2D.h"
 #include "Components/Physics/Colliders2D.h"
+#include "Components/Graphics/Tilemap.h"
 #include "Components/Physics/PhysicsJoint2D.h"
 #include "Components/Physics/Rigidbody2D.h"
 #include "Components/Transform.h"
@@ -116,7 +117,7 @@ namespace
     bool HasAnyCollider( Entity& InEntity )
     {
         return Enabled<BoxCollider2D>( InEntity ) || Enabled<CircleCollider2D>( InEntity ) || Enabled<CapsuleCollider2D>( InEntity )
-            || Enabled<PolygonCollider2D>( InEntity ) || Enabled<EdgeCollider2D>( InEntity );
+            || Enabled<PolygonCollider2D>( InEntity ) || Enabled<EdgeCollider2D>( InEntity ) || ( Enabled<TilemapCollider2D>( InEntity ) && InEntity.TryGetComponent<Tilemap>() );
     }
 
     // Pose of a collider entity relative to its body owner, in the owner's (unscaled) XY frame.
@@ -201,7 +202,7 @@ namespace
 
 Physics2DCore::Physics2DCore()
     : Base( ComponentFilter().Requires<Transform>().RequiresOneOf<Rigidbody2D>().RequiresOneOf<BoxCollider2D>().RequiresOneOf<CircleCollider2D>()
-        .RequiresOneOf<CapsuleCollider2D>().RequiresOneOf<PolygonCollider2D>().RequiresOneOf<EdgeCollider2D>().RequiresOneOf<CharacterController2D>()
+        .RequiresOneOf<CapsuleCollider2D>().RequiresOneOf<PolygonCollider2D>().RequiresOneOf<EdgeCollider2D>().RequiresOneOf<TilemapCollider2D>().RequiresOneOf<CharacterController2D>()
         .RequiresOneOf<PhysicsJoint2D>() )
 {
     SetIsSerializable( false );
@@ -357,6 +358,13 @@ uint64_t Physics2DCore::ComputeShapeSignature( Entity& InOwner, const std::vecto
                 h = MixVector( h, point );
             }
         }
+        if( TilemapCollider2D* tiles = Enabled<TilemapCollider2D>( entity ) )
+        {
+            if( const Tilemap* tilemap = entity.TryGetComponent<Tilemap>() )
+            {
+                h = Mix( Mix( Mix( Mix( h, 6 ), tiles->SettingsHash() ), tilemap->GetRevision() ), Bits( tilemap->CellSize ) );
+            }
+        }
     }
     return h;
 }
@@ -491,6 +499,22 @@ void Physics2DCore::BuildShapes( BodyRecord& InRecord, const std::vector<EntityH
                 if( b2DistanceSquared( segment.point1, segment.point2 ) > 1e-8f )
                 {
                     InRecord.Shapes.push_back( Pack( b2CreateSegmentShape( body, &def, &segment ) ) );
+                }
+            }
+        }
+        // Tiles: the filled cells' merged outline as segments.
+        if( TilemapCollider2D* tiles = Enabled<TilemapCollider2D>( entity ) )
+        {
+            if( const Tilemap* tilemap = entity.TryGetComponent<Tilemap>() )
+            {
+                const b2ShapeDef def = makeDef( *tiles );
+                for( const auto& [from, to] : tilemap->BuildOutline() )
+                {
+                    const b2Segment segment{ toBody( from + tiles->Offset ), toBody( to + tiles->Offset ) };
+                    if( b2DistanceSquared( segment.point1, segment.point2 ) > 1e-8f )
+                    {
+                        InRecord.Shapes.push_back( Pack( b2CreateSegmentShape( body, &def, &segment ) ) );
+                    }
                 }
             }
         }

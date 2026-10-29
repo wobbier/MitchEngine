@@ -10,6 +10,7 @@
 #include <glm/glm.hpp>
 #include "Components/Effects/ParticleSystem.h"
 #include "Components/Graphics/SpriteRenderer.h"
+#include "Components/Graphics/Tilemap.h"
 #include "Components/Transform.h"
 #include "Components/Physics/Rigidbody2D.h"
 #include "Cores/Physics2DCore.h"
@@ -635,6 +636,55 @@ static int Eng_Sprite_GetOrderInLayer( EntityID inId )
 }
 
 
+static void Eng_Tilemap_SetTile( EntityID inId, int inX, int inY, int inIndex )
+{
+    if( Tilemap* tilemap = ComponentOf<Tilemap>( inId ) ) tilemap->SetTile( inX, inY, inIndex );
+}
+
+
+static int Eng_Tilemap_GetTile( EntityID inId, int inX, int inY )
+{
+    Tilemap* tilemap = ComponentOf<Tilemap>( inId );
+    return tilemap ? tilemap->GetTile( inX, inY ) : -1;
+}
+
+
+static void Eng_Tilemap_FillRect( EntityID inId, int inX0, int inY0, int inX1, int inY1, int inIndex )
+{
+    if( Tilemap* tilemap = ComponentOf<Tilemap>( inId ) ) tilemap->FillRect( inX0, inY0, inX1, inY1, inIndex );
+}
+
+
+static void Eng_Tilemap_Clear( EntityID inId )
+{
+    if( Tilemap* tilemap = ComponentOf<Tilemap>( inId ) ) tilemap->Clear();
+}
+
+
+static int Eng_Tilemap_GetTileCount( EntityID inId )
+{
+    Tilemap* tilemap = ComponentOf<Tilemap>( inId );
+    return tilemap ? static_cast<int>( tilemap->GetTileCount() ) : 0;
+}
+
+
+static void Eng_Tilemap_WorldToCell( EntityID inId, const Vector3* inWorld, int* outCell )
+{
+    Tilemap* tilemap = ComponentOf<Tilemap>( inId );
+    Transform* transform = ComponentOf<Transform>( inId );
+    if( !outCell || !inWorld )
+    {
+        return;
+    }
+    outCell[0] = outCell[1] = 0;
+    if( tilemap && transform )
+    {
+        const glm::vec4 local = transform->GetWorldToLocalMatrix().GetInternalMatrix() * glm::vec4( inWorld->InternalVector, 1.f );
+        tilemap->LocalToCell( Vector2( local.x, local.y ), outCell[0], outCell[1] );
+    }
+}
+
+
 void Register_QueryBindings( ScriptEngineAPI& inAPI )
 {
     inAPI.Camera_ScreenToRay = Eng_Camera_ScreenToRay;
@@ -680,6 +730,12 @@ void Register_QueryBindings( ScriptEngineAPI& inAPI )
     inAPI.Sprite_SetSorting = Eng_Sprite_SetSorting;
     inAPI.Sprite_GetSortingLayer = Eng_Sprite_GetSortingLayer;
     inAPI.Sprite_GetOrderInLayer = Eng_Sprite_GetOrderInLayer;
+    inAPI.Tilemap_SetTile = Eng_Tilemap_SetTile;
+    inAPI.Tilemap_GetTile = Eng_Tilemap_GetTile;
+    inAPI.Tilemap_FillRect = Eng_Tilemap_FillRect;
+    inAPI.Tilemap_Clear = Eng_Tilemap_Clear;
+    inAPI.Tilemap_GetTileCount = Eng_Tilemap_GetTileCount;
+    inAPI.Tilemap_WorldToCell = Eng_Tilemap_WorldToCell;
     inAPI.World_FindAllWithComponent = Eng_World_FindAllWithComponent;
     inAPI.World_FindAllByName = Eng_World_FindAllByName;
     inAPI.Transform_GetChildren = Eng_Transform_GetChildren;

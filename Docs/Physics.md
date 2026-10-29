@@ -193,6 +193,7 @@ Joints have their own signature and are re-created when it changes.
   - `CapsuleCollider2D`: vertical or horizontal; it collapses to a circle when it's shorter than its diameter.
   - `PolygonCollider2D`: the convex hull of `Points`, reduced to Box2D's 8-vertex limit by dropping the vertex that removes the least area (`Collider2DUtils::ConvexHull`).
   - `EdgeCollider2D`: two-sided segments along `Points` (optionally `Loop`ed). They have no area.
+  - `TilemapCollider2D` (LOOK-S5): two-sided segments along the merged outline of the `Tilemap` on the same entity (runs of boundary edges become one segment, holes have their own ring). The shapes rebuild when the tiles change, through the tilemap's revision in the shape signature (`Docs/Rendering-Pipeline.md`, Tilemaps).
 - **Joints** (`PhysicsJoint2D`). Fixed (weld), Hinge (revolute), Slider (prismatic), Distance and Wheel, with the same A = connected / B = entity convention.
   - Wheel joints go on the wheel, connected to the chassis.
   - Box2D v3.1 has no joint events, so `BreakJoints` compares `b2Joint_GetConstraintForce` / `Torque` against `BreakForce` after each step.

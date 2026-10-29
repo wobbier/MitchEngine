@@ -334,3 +334,12 @@ void Sprite_GetColor( Entity id, Vector4* outColor )
 void Sprite_SetSorting( Entity id, int layer, int order )
 int Sprite_GetSortingLayer( Entity id )
 int Sprite_GetOrderInLayer( Entity id )
+
+## Tilemaps (LOOK-S5): cells of the entity's Tilemap by palette index (-1 = empty); a change
+## rebuilds its TilemapCollider2D on the next physics step
+void Tilemap_SetTile( Entity id, int x, int y, int index )
+int Tilemap_GetTile( Entity id, int x, int y )
+void Tilemap_FillRect( Entity id, int x0, int y0, int x1, int y1, int index )
+void Tilemap_Clear( Entity id )
+int Tilemap_GetTileCount( Entity id )
+void Tilemap_WorldToCell( Entity id, const Vector3* world, int* outCell )

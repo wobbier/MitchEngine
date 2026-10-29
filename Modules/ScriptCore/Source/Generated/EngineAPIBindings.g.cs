@@ -339,4 +339,14 @@ public unsafe struct EngineAPIBindings
     public delegate* unmanaged<Entity, int, int, void> Sprite_SetSorting;
     public delegate* unmanaged<Entity, int> Sprite_GetSortingLayer;
     public delegate* unmanaged<Entity, int> Sprite_GetOrderInLayer;
+
+    // Tilemaps (LOOK-S5): cells of the entity's Tilemap by palette index (-1 = empty); a change
+
+    // rebuilds its TilemapCollider2D on the next physics step
+    public delegate* unmanaged<Entity, int, int, int, void> Tilemap_SetTile;
+    public delegate* unmanaged<Entity, int, int, int> Tilemap_GetTile;
+    public delegate* unmanaged<Entity, int, int, int, int, int, void> Tilemap_FillRect;
+    public delegate* unmanaged<Entity, void> Tilemap_Clear;
+    public delegate* unmanaged<Entity, int> Tilemap_GetTileCount;
+    public delegate* unmanaged<Entity, Vector3*, int*, void> Tilemap_WorldToCell;
 }

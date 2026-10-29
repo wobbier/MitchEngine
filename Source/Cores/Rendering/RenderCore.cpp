@@ -18,6 +18,7 @@
 #include "Components/Lighting/Light.h"
 #include "Components/Graphics/Decal.h"
 #include "Components/Graphics/SpriteRenderer.h"
+#include "Components/Graphics/Tilemap.h"
 #include "Components/Graphics/Outline.h"
 #include "Components/Graphics/WindZone.h"
 #include "Components/Graphics/Mesh.h"
@@ -600,6 +601,13 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                 command.Sequence = static_cast<uint32_t>( sprites.size() );
                 command.ID = entity.GetId().Value();
                 sprites.push_back( command );
+            }
+        } );
+        // Tilemaps (LOOK-S5): one sprite per filled cell, batched like any sprites.
+        GetWorld().Each<Transform, Tilemap>( [&]( Entity& entity, Transform& transform, Tilemap& tilemap ) {
+            if( entity.IsActiveInHierarchy() && tilemap.IsEnabled() && tilemap.Resolve() )
+            {
+                tilemap.BuildCommands( transform, sprites, entity.GetId().Value() );
             }
         } );
     }

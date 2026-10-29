@@ -475,6 +475,18 @@ A camera can render into a texture asset that any material samples: a security m
   - Normal maps join the batch key.
   - 2D shadow casters aren't done.
   - `../Assets/Scenes/Showcase/Lights2D.lvl` shows it: a tiled stone wall and crates with generated normal maps (`../Tools/BuildSpriteArt.py`), three flat crates for comparison, a rotated crate and a hero, under three coloured point lights (two bob) and a dim moonlight.
+- **Tilemaps** (LOOK-S5, `Components/Graphics/Tilemap.h`): a grid in the entity's local XY plane. Cell (x, y) covers [x, x+1) × [y, y+1) times `CellSize`.
+  - Cells hold an index into `Palette`, whose entries name sprites of `Sheet`.
+  - An entry `@Base` autotiles: a cell shows `Base_<mask>`, where the mask holds its same-entry neighbours (1 up, 2 right, 4 down, 8 left), falling back to `Base`.
+  - Tiles save as sorted `[x, y, index]` triples, and every change bumps a revision.
+  - Drawing: `RenderCore` turns every filled cell into a sprite command, so a tilemap is one batch per sheet with the sprites' sorting, tint, lit and point-filter settings. That works for thousands of cells. Chunked static meshes aren't done.
+  - Painting, with Paint on in the Tilemap inspector:
+    - The World view's brush (`Havana/Source/Editor/TilemapPainter.cpp`) paints the selected palette entry with the left button and erases with the right, along the tilemap's plane. It is one undo step per stroke.
+    - Edscript: `tile-set`, `tile-fill`, `tile-paint` (the brush at a view fraction), `tile-assert`, `tile-assert-count`.
+  - Collision: a `TilemapCollider2D` gives Box2D segments along the filled cells' merged outline (runs of boundary edges joined, holes included). They rebuild when the revision changes.
+  - C#: `Tilemap.GetTile/SetTile/ClearTile/FillRect/Clear/TileCount/WorldToCell`.
+  - Proof: `TilemapTests.cpp` (cells, fills, autotile masks, outline merging, JSON) and `TilemapFlows.edscript` on `../Assets/Scenes/Tests/TilemapTest.lvl`. The flow fills an autotiled floor, sets a brick, paints with the brush and undoes it, sets a cell from C#, drops a crate in Play that lands on the painted floor, and saves and reopens.
+  - Art: the generated `Tiles.spritesheet` has 16 Ground variants plus Brick, Stone, Grass and Dirt.
 - **Sprite sheets** (LOOK-S3, `Graphics/SpriteSheet.h`): a `.spritesheet` is JSON naming its `Texture`, its `Slicing` and its `Sprites`. Each sprite has a name, a rect in texels, a pivot and 9-slice borders. It ships as data (cooks copy it) and is a cached `Resource`, so editing it hot reloads its users.
   - A `SpriteRenderer` with `Sheet` and `SpriteName` takes the region, pivot and borders from the sheet's sprite, and the image too unless `Texture` names one.
   - Slicing is `Grid` (cell size, offset, padding, skip empty cells) or `Auto` (one sprite per 8-connected island of texels at or above `AlphaThreshold`, in reading order). Names are `<image>_0`, `_1`... A re-slice keeps the pivots and borders of sprites whose names survive.

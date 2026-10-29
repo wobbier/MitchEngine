@@ -1,4 +1,5 @@
 #include "SceneViewWidget.h"
+#include "Editor/TilemapPainter.h"
 #include "Widgets/Terrain/TerrainWidget.h"
 #include <EditorApp.h>
 #include "Cores/EditorCore.h"
@@ -609,7 +610,8 @@ void SceneViewWidget::Render()
 		IsUsingGuizmo = false;
 		DrawViewCube();
 		const bool cubeOwnsMouse = IsUsingGuizmo;
-		const bool terrainOwnsMouse = TerrainWidget::Get() && TerrainWidget::Get()->DrawViewport(*this, m_viewportScreenMin, m_viewportScreenSize);
+		const bool terrainOwnsMouse = ( TerrainWidget::Get() && TerrainWidget::Get()->DrawViewport(*this, m_viewportScreenMin, m_viewportScreenSize) )
+			|| TilemapPainter::DrawViewport(*this, m_viewportScreenMin, m_viewportScreenSize);
 		if (!terrainOwnsMouse)
 		{
 			DrawManipulator();

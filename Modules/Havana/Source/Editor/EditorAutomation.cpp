@@ -39,6 +39,8 @@
 #include "Engine/LoadingScreen.h"
 #include "Engine/Localization.h"
 #include "Widgets/UIDesigner/UIDesignerWidget.h"
+#include "Editor/TilemapPainter.h"
+#include "Components/Graphics/Tilemap.h"
 #include "Cores/UI/RmlUiCore.h"
 #include <RmlUi/Core/Context.h>
 #include "VFS/VFS.h"
@@ -396,6 +398,68 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         {
             // Run this line again next frame (sg-wait-* commands).
             --m_nextLine;
+        }
+    }
+    else if( command.rfind( "tile-", 0 ) == 0 )
+    {
+        // tile-set Ground | 3 -1 | 0          a cell's palette index (-1 erases)
+        // tile-fill Ground | 0 0 9 1 | 0      a rectangle of cells
+        // tile-paint Ground | 0.5 0.6 | 0     the World view's brush at a fraction of the view (one undo step)
+        // tile-assert Ground | 3 -1 | 0       a cell holds that index (-1 = empty)
+        // tile-assert-count Ground | 12       how many cells are filled
+        auto [name, rest] = SplitArgs( args );
+        auto [cells, valueText] = SplitArgs( rest );
+        EntityHandle entity = FindEntity( name );
+        Tilemap* tilemap = entity ? entity->TryGetComponent<Tilemap>() : nullptr;
+        std::istringstream numbers( cells );
+        std::vector<float> values;
+        for( float value = 0.f; numbers >> value; )
+        {
+            values.push_back( value );
+        }
+        const int index = valueText.empty() ? 0 : std::atoi( valueText.c_str() );
+        if( !tilemap )
+        {
+            Fail( command + ": no Tilemap on " + name );
+        }
+        else if( command == "tile-assert-count" )
+        {
+            if( tilemap->GetTileCount() != static_cast<size_t>( std::atoi( cells.c_str() ) ) )
+            {
+                Fail( name + " has " + std::to_string( tilemap->GetTileCount() ) + " tiles, not " + cells );
+            }
+        }
+        else if( command == "tile-set" && values.size() == 2 )
+        {
+            const json before = EditorOps::CaptureComponent( *entity.Get(), "Tilemap" );
+            tilemap->SetTile( static_cast<int>( values[0] ), static_cast<int>( values[1] ), index );
+            EditorOps::RecordComponentEdit( *entity.Get(), "Tilemap", before, EditorOps::CaptureComponent( *entity.Get(), "Tilemap" ), "Set tile" );
+        }
+        else if( command == "tile-fill" && values.size() == 4 )
+        {
+            const json before = EditorOps::CaptureComponent( *entity.Get(), "Tilemap" );
+            tilemap->FillRect( static_cast<int>( values[0] ), static_cast<int>( values[1] ), static_cast<int>( values[2] ), static_cast<int>( values[3] ), index );
+            EditorOps::RecordComponentEdit( *entity.Get(), "Tilemap", before, EditorOps::CaptureComponent( *entity.Get(), "Tilemap" ), "Fill tiles" );
+        }
+        else if( command == "tile-paint" && values.size() == 2 )
+        {
+            SceneViewWidget* view = InApp.Editor ? InApp.Editor->GetSceneView() : nullptr;
+            if( !view || !TilemapPainter::PaintAt( *view, *entity.Get(), Vector2( values[0] * view->SceneViewRenderSize.x, values[1] * view->SceneViewRenderSize.y ), index ) )
+            {
+                Fail( "tile-paint: the point misses " + name + "'s plane" );
+            }
+        }
+        else if( command == "tile-assert" && values.size() == 2 )
+        {
+            const int actual = tilemap->GetTile( static_cast<int>( values[0] ), static_cast<int>( values[1] ) );
+            if( actual != index )
+            {
+                Fail( name + " cell " + cells + " holds " + std::to_string( actual ) + ", not " + valueText );
+            }
+        }
+        else
+        {
+            Fail( command + ": bad arguments" );
         }
     }
     else if( command.rfind( "rtt-", 0 ) == 0 )
