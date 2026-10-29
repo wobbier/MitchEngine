@@ -22,6 +22,10 @@ public:
     NetIdentity();
 
     std::string Prefab;     // what clients create for a spawned copy
+    // Relevancy (NET-13): how much it matters next to others when a client's bandwidth is short,
+    // and whether it ignores the server's relevant radius.
+    float Priority = 1.f;
+    bool AlwaysRelevant = false;
 
     uint32_t GetNetId() const { return m_netId; }
     // The client that owns it (0: the server).

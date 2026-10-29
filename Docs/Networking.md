@@ -20,6 +20,7 @@ Multiplayer follows the Overwatch model: an authoritative server, client predict
 
 - **NET-4:** client prediction of the owner's character, with rollback, resim and error smoothing.
 - **NET-8:** lag compensation: `NetHitbox`, a rewound `LagCompensatedRaycast`, and its overlays.
+- **NET-13:** relevancy, a priority accumulator, a per-client bandwidth budget, and snapshot encoding on jobs.
 
 Real transports (ENet, NET-5), the C# API (NET-6) and the editor tooling (NET-7) come next.
 
@@ -122,6 +123,20 @@ Messages are at most 1024 bytes (`kMaxMessageBytes`); there is no fragmentation 
 
 **`NetSchema` field types:** bool, ints and enums (VarUInt), float, double, Vector2/3/4, Quaternion (raw floats), and strings. Flag fields with `ME_FIELD( X ).Replicated()`. `.Predicted()` implies Replicated and is for NET-5.
 
+### Relevancy and bandwidth (NET-13)
+
+`NetReplicationServer::Settings` (`NetReplicationSettings`) shares out each client's bandwidth.
+
+**Every tick, for every client:**
+
+1. **Viewer:** `SetViewer( client, position )`, else the first entity the client owns.
+2. **View:** entities within `RelevantRadius` of the viewer, plus `NetIdentity::AlwaysRelevant` ones and the client's own. An entity that leaves the view is listed as gone in that client's snapshots and holds its last pose there; when it comes back, it's sent whole.
+3. **Accumulate:** each changed entity in the view adds to its accumulator: `Priority × (1 within NearDistance, else NearDistance / distance)`.
+4. **Budget:** the packet's 900 bytes, and with `BytesPerSecond`, a token bucket of `BytesPerSecond / tick rate` a tick, holding up to two ticks' worth.
+5. **Select:** highest accumulator first, each sized from what changed, while it fits.
+6. **Encode:** the snapshot writes the selected entities. Their accumulators reset; the rest keep growing, so nothing starves.
+7. **Jobs:** each client's snapshot is encoded on the job system (`UseJobs`); the packets go out on the main thread. Encoding reads only the shared capture and the client's own state, so the bytes match a serial encode.
+
 ### Prediction (NET-4)
 
 The client predicts only what it owns. Remote entities are interpolated (above), and rigidbodies simulate only on the server.
@@ -172,6 +187,12 @@ The client predicts only what it owns. Remote entities are interpolated (above),
   - **Resim:** a predictor corrected at tick 19 resims 20 ticks in 0.056 ms (< 1 ms, Debug). Its visual offset is the jump, and it's gone after 100 ms. Resimming from the straight run's own state reproduces that run bit for bit.
   - **Course:** two worlds at 150 ms RTT (75 ± 3 ms each way) run a walk/strafe/jump course with a step and a wall: 697 ticks confirmed, **0 corrections**, after 1 initial sync.
   - **Knockback:** a server-only knockback gives **exactly 1 correction**, at the knockback tick. The visual offset is zero by the 10th frame after it, and no further corrections follow.
+- **Relevancy (`NetRelevancyTests.cpp`), the NET-13 done-when:** a 20 s soak of 200 bots wandering a 200 m square, with 4 clients at its corners, a 50 m radius, 12 KB/s each, and 2% loss.
+  - **Budget:** every client got exactly 12288 B/s of snapshots, within its budget.
+  - **Starvation:** a relevant bot waited at most 3 ticks for an update.
+  - **Priority:** bots within 15 m updated 0.97 times a tick, against 0.35 for those 35–50 m out.
+  - **Relevancy:** nothing was sent while out of range.
+  - **Jobs:** a run encoded on jobs matches a serial run byte for byte.
 - **Lag compensation (`NetLagCompensationTests.cpp`), the NET-8 done-when:**
   - **Shapes:** ray vs capsule (side, cap, miss, range, behind) and ray vs a turned box.
   - **Setup:** at 200 ms RTT, a target strafes at 5 m/s while the client fires every 20 ticks, aiming at the target where it sees it.

@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <set>
 #include <vector>
 
 class BaseComponent;
@@ -66,7 +67,10 @@ namespace NetSnapshotCodec
     // the baseline but not in InCurrent are listed as gone. Stops writing changed entities once
     // InByteBudget is spent; OutSent then holds what the client will actually have (unsent
     // entities keep their baseline state), which is what to delta against later.
-    void Write( BitWriter& InWriter, const NetSnapshot& InCurrent, const NetSnapshot* InBaseline, size_t InByteBudget, NetSnapshot& OutSent );
+    // InOnly (optional): the changed entities allowed in this one; the others wait, like those over
+    // the budget.
+    void Write( BitWriter& InWriter, const NetSnapshot& InCurrent, const NetSnapshot* InBaseline, size_t InByteBudget, NetSnapshot& OutSent,
+        const std::set<uint32_t>* InOnly = nullptr );
     // The baseline must be the one the writer used (its tick is in the message).
     bool Read( BitReader& InReader, const NetSnapshot* InBaseline, NetSnapshot& OutSnapshot );
 }

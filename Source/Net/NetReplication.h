@@ -18,6 +18,11 @@ class World;
 //   server creates later get dynamic ones (from kFirstDynamicId) and a reliable Spawn
 //   {NetId, owner, prefab, pose} to every client, sent again to late joiners. Destroying one
 //   sends Despawn.
+// - Relevancy and bandwidth (NET-13, NetReplicationSettings): each client only gets what's
+//   within RelevantRadius of its viewer; changed entities build up priority (NetIdentity::
+//   Priority, falling off with distance) every tick they wait, and the snapshot takes the highest
+//   first until the client's byte budget runs out, so near things update often and nothing
+//   starves. Every client's snapshot is encoded on the job system.
 // - Snapshots: every tick each client gets the world's state as a delta against the newest
 //   snapshot it acked (or everything), quantized (NetSnapshot). When nothing changed since the
 //   last one sent, the server skips it, sending one at least every kKeepAliveTicks, so an idle
@@ -27,9 +32,26 @@ class World;
 // - Clients keep the decoded snapshots (deltas need them), interpolate each entity at
 //   "server tick - delay" (adaptive: it grows when samples run out) and make remote Rigidbodies
 //   kinematic: only the server simulates.
+// How the server shares out each client's bandwidth (NET-13).
+struct NetReplicationSettings
+{
+    // Entities further than this from a client's viewer (SetViewer, else the first entity it
+    // owns) aren't sent to it; they hold their last state there. 0: everything is relevant.
+    float RelevantRadius = 0.f;
+    // Priority falls off past this: an entity at 4x the distance accumulates a quarter as fast.
+    float NearDistance = 10.f;
+    // Snapshot bytes a second per client (a token bucket, up to two ticks' worth saved up).
+    // 0: only the per-packet budget limits it.
+    uint32_t BytesPerSecond = 0;
+    // Encode each client's snapshot on the job system.
+    bool UseJobs = true;
+};
+
+
 class NetReplicationServer
 {
 public:
+    NetReplicationSettings Settings;
     static constexpr uint32_t kFirstDynamicId = 0x10000;
     static constexpr uint32_t kKeepAliveTicks = 15;
     static constexpr size_t kSnapshotBudget = 900;
@@ -43,6 +65,12 @@ public:
 
     uint32_t GetNetId( Entity& InEntity ) const;
     const NetSnapshot& GetCurrent() const { return m_current; }
+
+    // Where a client's view is, for relevancy and priority (otherwise its first owned entity).
+    void SetViewer( uint8_t InClient, const Vector3& InPosition ) { m_viewers[InClient] = InPosition; }
+    // The tick an entity's state last went to a client (0: never).
+    uint32_t GetLastSentTick( uint8_t InClient, uint32_t InNetId ) const;
+    uint64_t GetClientSnapshotBytes( uint8_t InClient ) const;
     // Snapshot message bytes sent to every client so far.
     uint64_t GetSnapshotBytes() const { return m_snapshotBytes; }
     uint64_t GetSnapshotsSent() const { return m_snapshotsSent; }
@@ -55,15 +83,33 @@ private:
         uint32_t AckedTick = 0;
         bool HasSent = false;
         uint32_t LastSentTick = 0;
+        double Tokens = 0.0;
+        std::map<uint32_t, float> Accumulators;
+        std::map<uint32_t, uint32_t> LastSentEntity;
+        uint64_t Bytes = 0;
+        // This tick's snapshot, encoded ahead of the packet (on a job).
+        std::vector<uint8_t> Prepared;
+        NetSnapshot PreparedSent;
+        bool HasPrepared = false;
+    };
+    struct EntityMeta
+    {
+        uint8_t Owner = 0;
+        float Priority = 1.f;
+        bool AlwaysRelevant = false;
     };
 
     void WriteSpawn( BitWriter& InWriter, uint32_t InId, Entity& InEntity ) const;
+    void PrepareSnapshots();
+    void Prepare( uint8_t InClient, ClientState& InState ) const;
     void OnPacket( NetServer::Client& InClient );
     void OnClientAccepted( NetServer::Client& InClient );
 
     World& m_world;
     NetServer& m_server;
     NetSnapshot m_current;
+    std::map<uint32_t, EntityMeta> m_meta;
+    std::map<uint8_t, Vector3> m_viewers;
     std::map<uint32_t, EntityHandle> m_entities;
     uint32_t m_nextDynamicId = kFirstDynamicId;
     uint32_t m_staticCount = 0;

@@ -5,6 +5,7 @@
 #include "Components/Physics/Rigidbody.h"
 #include "Components/Transform.h"
 #include "Engine/World.h"
+#include "Jobs/JobSystem.h"
 #include "Net/BitStream.h"
 #include <algorithm>
 #include <cmath>
@@ -201,10 +202,203 @@ void NetReplicationServer::CaptureTick( uint32_t InTick )
 
     m_current.Tick = InTick;
     m_current.Entities.clear();
+    m_meta.clear();
     for( auto& [id, handle] : m_entities )
     {
         m_current.Entities.emplace( id, Capture( *handle.Get() ) );
+        const NetIdentity& identity = handle->GetComponent<NetIdentity>();
+        m_meta[id] = EntityMeta{ identity.m_owner, identity.Priority, identity.AlwaysRelevant };
     }
+    PrepareSnapshots();
+}
+
+
+void NetReplicationServer::PrepareSnapshots()
+{
+    std::vector<std::pair<uint8_t, ClientState*>> clients;
+    for( const auto& client : m_server.GetClients() )
+    {
+        if( client->Accepted )
+        {
+            clients.emplace_back( client->Id, &m_clients[client->Id] );
+        }
+    }
+    // Each client's snapshot only reads the shared capture: encode them side by side.
+    auto prepare = [this, &clients]( uint32_t InBegin, uint32_t InEnd ) {
+        for( uint32_t i = InBegin; i < InEnd; ++i )
+        {
+            Prepare( clients[i].first, *clients[i].second );
+        }
+    };
+    if( Settings.UseJobs && clients.size() > 1 )
+    {
+        Jobs::JobSystem::Get().ParallelFor( static_cast<uint32_t>( clients.size() ), 1, prepare );
+    }
+    else
+    {
+        prepare( 0, static_cast<uint32_t>( clients.size() ) );
+    }
+}
+
+
+void NetReplicationServer::Prepare( uint8_t InClient, ClientState& InState ) const
+{
+    InState.HasPrepared = false;
+    const NetSnapshot* baseline = nullptr;
+    if( InState.HasAck )
+    {
+        for( const NetSnapshot& sent : InState.Sent )
+        {
+            if( sent.Tick == InState.AckedTick )
+            {
+                baseline = &sent;
+            }
+        }
+    }
+
+    // Where this client is looking from.
+    bool hasViewer = false;
+    Vector3 viewer;
+    if( auto it = m_viewers.find( InClient ); it != m_viewers.end() )
+    {
+        hasViewer = true;
+        viewer = it->second;
+    }
+    else
+    {
+        for( const auto& [id, meta] : m_meta )
+        {
+            if( meta.Owner == InClient )
+            {
+                hasViewer = true;
+                viewer = m_current.Entities.at( id ).GetPosition();
+                break;
+            }
+        }
+    }
+
+    // What it gets to see, and what changed there, by priority.
+    NetSnapshot view;
+    view.Tick = m_current.Tick;
+    std::vector<std::pair<float, uint32_t>> candidates;
+    for( const auto& [id, state] : m_current.Entities )
+    {
+        const EntityMeta& meta = m_meta.at( id );
+        const float distance = hasViewer ? ( state.GetPosition() - viewer ).Length() : 0.f;
+        const bool relevant = Settings.RelevantRadius <= 0.f || !hasViewer || meta.AlwaysRelevant || meta.Owner == InClient || distance <= Settings.RelevantRadius;
+        if( !relevant )
+        {
+            InState.Accumulators.erase( id );
+            continue;
+        }
+        view.Entities.emplace( id, state );
+        const NetEntityState* before = nullptr;
+        if( baseline )
+        {
+            auto it = baseline->Entities.find( id );
+            before = it != baseline->Entities.end() ? &it->second : nullptr;
+        }
+        if( before && *before == state )
+        {
+            InState.Accumulators.erase( id );
+            continue;
+        }
+        const float near = std::max( Settings.NearDistance, 0.001f );
+        float& accumulated = InState.Accumulators[id];
+        accumulated += meta.Priority * ( distance <= near ? 1.f : near / distance );
+        candidates.emplace_back( accumulated, id );
+    }
+    std::sort( candidates.begin(), candidates.end(), []( const auto& InA, const auto& InB ) {
+        return InA.first != InB.first ? InA.first > InB.first : InA.second < InB.second;
+    } );
+
+    // The budget: the packet's share, and the client's bandwidth.
+    double budget = static_cast<double>( kSnapshotBudget );
+    if( Settings.BytesPerSecond > 0 )
+    {
+        const double perTick = static_cast<double>( Settings.BytesPerSecond ) / std::max<uint16_t>( m_server.GetTickRate(), 1 );
+        InState.Tokens = std::min( InState.Tokens + perTick, perTick * 2.0 );
+        budget = std::min( budget, InState.Tokens );
+    }
+    // Highest priority first, while they fit (each entity's size worked out from what changed).
+    constexpr double kHeaderBytes = 16.0;
+    double used = kHeaderBytes;
+    std::set<uint32_t> selected;
+    for( const auto& [priority, id] : candidates )
+    {
+        const NetEntityState& state = view.Entities.at( id );
+        const NetEntityState* before = nullptr;
+        if( baseline )
+        {
+            auto it = baseline->Entities.find( id );
+            before = it != baseline->Entities.end() ? &it->second : nullptr;
+        }
+        double bits = 1 + 24 + 3;
+        bits += !before || before->Position != state.Position ? NetEntityState::kPositionBits * 3 : 0;
+        bits += !before || before->Rotation != state.Rotation ? 38 : 0;
+        bits += !before || before->Fields != state.Fields ? 16 + state.Fields.size() * 8.0 : 0;
+        if( used + bits / 8.0 > budget )
+        {
+            continue;
+        }
+        used += bits / 8.0;
+        selected.insert( id );
+    }
+
+    BitWriter writer;
+    writer.WriteBits( NetMessage::Snapshot, 8 );
+    writer.WriteBool( InState.HasSent );
+    if( InState.HasSent )
+    {
+        writer.WriteBits( InState.LastSentTick, 32 );
+    }
+    NetSnapshot sent;
+    NetSnapshotCodec::Write( writer, view, baseline, kSnapshotBudget, sent, &selected );
+
+    // Unchanged since the last one sent: skip it (a keep-alive now and then keeps acks moving).
+    if( InState.HasSent && !InState.Sent.empty() && InState.Sent.back().Entities == sent.Entities && m_current.Tick - InState.LastSentTick < kKeepAliveTicks )
+    {
+        return;
+    }
+    for( const uint32_t id : selected )
+    {
+        InState.Accumulators.erase( id );
+        InState.LastSentEntity[id] = m_current.Tick;
+    }
+    if( Settings.BytesPerSecond > 0 )
+    {
+        InState.Tokens -= static_cast<double>( writer.GetByteCount() );
+    }
+    InState.Bytes += writer.GetByteCount();
+    InState.Prepared = writer.GetBytes();
+    InState.PreparedSent = std::move( sent );
+    InState.HasPrepared = true;
+    InState.HasSent = true;
+    InState.LastSentTick = m_current.Tick;
+    InState.Sent.push_back( InState.PreparedSent );
+    while( InState.Sent.size() > kSnapshotHistory )
+    {
+        InState.Sent.pop_front();
+    }
+}
+
+
+uint32_t NetReplicationServer::GetLastSentTick( uint8_t InClient, uint32_t InNetId ) const
+{
+    auto client = m_clients.find( InClient );
+    if( client == m_clients.end() )
+    {
+        return 0;
+    }
+    auto it = client->second.LastSentEntity.find( InNetId );
+    return it != client->second.LastSentEntity.end() ? it->second : 0;
+}
+
+
+uint64_t NetReplicationServer::GetClientSnapshotBytes( uint8_t InClient ) const
+{
+    auto client = m_clients.find( InClient );
+    return client != m_clients.end() ? client->second.Bytes : 0;
 }
 
 
@@ -261,41 +455,16 @@ void NetReplicationServer::OnPacket( NetServer::Client& InClient )
         m_server.Send( InClient, owner, false );
     }
 
+    // This tick's snapshot was encoded already (PrepareSnapshots).
     ClientState& state = m_clients[InClient.Id];
-    const NetSnapshot* baseline = nullptr;
-    if( state.HasAck )
+    if( state.HasPrepared )
     {
-        for( const NetSnapshot& sent : state.Sent )
-        {
-            if( sent.Tick == state.AckedTick )
-            {
-                baseline = &sent;
-            }
-        }
-    }
-    // Unchanged since the last one sent: skip it (a keep-alive now and then keeps acks moving).
-    if( state.HasSent && !state.Sent.empty() && state.Sent.back().Entities == m_current.Entities && m_current.Tick - state.LastSentTick < kKeepAliveTicks )
-    {
-        return;
-    }
-    BitWriter writer;
-    writer.WriteBits( NetMessage::Snapshot, 8 );
-    writer.WriteBool( state.HasSent );
-    if( state.HasSent )
-    {
-        writer.WriteBits( state.LastSentTick, 32 );
-    }
-    NetSnapshot sent;
-    NetSnapshotCodec::Write( writer, m_current, baseline, kSnapshotBudget, sent );
-    m_server.Send( InClient, writer, false );
-    m_snapshotBytes += writer.GetByteCount();
-    ++m_snapshotsSent;
-    state.HasSent = true;
-    state.LastSentTick = m_current.Tick;
-    state.Sent.push_back( std::move( sent ) );
-    while( state.Sent.size() > kSnapshotHistory )
-    {
-        state.Sent.pop_front();
+        BitWriter message;
+        message.WriteBytes( state.Prepared.data(), state.Prepared.size() );
+        m_server.Send( InClient, message, false );
+        m_snapshotBytes += state.Prepared.size();
+        ++m_snapshotsSent;
+        state.HasPrepared = false;
     }
 }
 

@@ -233,7 +233,8 @@ size_t NetSchema::CountReplicatedFields( Entity& InEntity )
 }
 
 
-void NetSnapshotCodec::Write( BitWriter& InWriter, const NetSnapshot& InCurrent, const NetSnapshot* InBaseline, size_t InByteBudget, NetSnapshot& OutSent )
+void NetSnapshotCodec::Write( BitWriter& InWriter, const NetSnapshot& InCurrent, const NetSnapshot* InBaseline, size_t InByteBudget, NetSnapshot& OutSent,
+    const std::set<uint32_t>* InOnly )
 {
     OutSent.Tick = InCurrent.Tick;
     OutSent.Entities.clear();
@@ -280,7 +281,7 @@ void NetSnapshotCodec::Write( BitWriter& InWriter, const NetSnapshot& InCurrent,
             OutSent.Entities.emplace( id, state );
             continue;
         }
-        if( InWriter.GetByteCount() - start + 16 + state.Fields.size() > InByteBudget )
+        if( ( InOnly && !InOnly->count( id ) ) || InWriter.GetByteCount() - start + 16 + state.Fields.size() > InByteBudget )
         {
             // Next time: the client keeps what it had (nothing, for a new one).
             if( before )
