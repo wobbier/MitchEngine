@@ -90,6 +90,15 @@ if [[ -d Assets/Scenes/Showcase/Reference ]]; then
     fi
 fi
 
+# Pixel-perfect cameras (LOOK-S6): a panning pixel-perfect camera's consecutive frames are each
+# identical or an exact whole-texel shift (no sub-pixel shimmer).
+if [[ -f Assets/Scenes/Tests/PixelPerfectTest.lvl ]]; then
+    step "Pixel-perfect camera"
+    if ! python3 "$here/PixelShimmerCheck.py" --game .build/Game_linux_Debug/Game_EntryPoint_x64 --wrapper "$here/Headless.sh" --scene Assets/Scenes/Tests/PixelPerfectTest.lvl --texel 4; then
+        failed+=("pixel-perfect camera")
+    fi
+fi
+
 # The cooker (SHIP-2): cook three showcases (each recorded through the game first), then run the
 # game on the cooked tree and, from an empty directory, on its pak alone. All must still match
 # the references: nothing the scenes need may be left behind with the sources (RenderTexture's

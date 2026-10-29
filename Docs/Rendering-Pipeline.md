@@ -481,6 +481,11 @@ A camera can render below its output size and upscale the result (LOOK-S1): chea
   - An *enforced* profile caps every camera's internal pixels at its `Resolution` (`FeatureCaps.MaxRenderPixels`): render-resolution enforcement.
   - The Resolution budget line reports the main camera's render size.
 - **Pixel-sized settings follow the internal size**: outline thickness, the depth-of-field radius and star size. Mouse picking, `ScreenToRay` and the UI stay in output pixels.
+- **Pixel-perfect cameras** (LOOK-S6, Camera "Pixel Perfect" category), for pixel art:
+  - With `PixelPerfect`, `CameraCore` takes the largest whole factor N at which `ReferenceResolution` (default 320×180) fits the output (`ComputePixelPerfect`). It sets `RenderScale` to 1/N with the Pixel filter, so the internal size is ceil(output / N). A window that isn't a multiple shows a little more world, never a stretched texel. 320×180 art is 4× at 720p, 6× at 1080p, and 4× with 20 extra rows on a Steam Deck.
+  - Orthographic cameras with `PixelsPerUnit > 0` size their view from the internal image, so a world unit is exactly that many texels. `PixelSnap` moves the eye along the view's right and up axes onto the texel grid (`SnapToTexelGrid`), so the image moves in whole texels.
+  - Caps (`MaxRenderScale`, profile resolution) don't apply to these cameras. Temporal AA's jitter and the tonemapper's dither (`u_exposure.w`) are off: both are screen-fixed and would change under art that moves in whole texels.
+  - **Proof:** `Tools/PixelShimmerCheck.py` captures `../Assets/Scenes/Tests/PixelPerfectTest.lvl` (from `../Tools/BuildPixelPerfectTest.py`: a camera panning 0.4 texels a frame over blocks off the grid) at six consecutive frames. It requires each pair to be identical or an exact whole-texel shift, and RunChecks runs it ("Pixel-perfect camera"). The same scene without `PixelSnap` fails it on every pair.
 - **Proof:** `../Assets/Scenes/Showcase/RenderScale.lvl`, rebuilt by `../Tools/BuildRenderScaleShowcase.py` from the Lighting showcase. It is four split-screen cameras, one per filter: Bilinear and Sharp at 0.5, Nearest at 0.35 and Pixel at 0.25, so their blocks survive the regression's 2× downscale. `RenderScaleTests.cpp` covers sizes, caps and dynamic steps.
 
 ## Caveats & Fragility

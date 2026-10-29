@@ -910,7 +910,8 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     uint32_t internalWidth = outputWidth;
     uint32_t internalHeight = outputHeight;
     uint32_t pixelFactor = 1;
-    Moonlight::ComputeRenderSize( outputWidth, outputHeight, renderScale, camera.Upscale, FeatureCaps.MaxRenderScale, FeatureCaps.MaxRenderPixels, internalWidth, internalHeight, pixelFactor );
+    // Pixel-perfect cameras keep their whole-texel grid: no caps on top.
+    Moonlight::ComputeRenderSize( outputWidth, outputHeight, renderScale, camera.Upscale, camera.PixelPerfect ? 0.f : FeatureCaps.MaxRenderScale, camera.PixelPerfect ? 0 : FeatureCaps.MaxRenderPixels, internalWidth, internalHeight, pixelFactor );
     const uint16_t width = static_cast<uint16_t>( internalWidth );
     const uint16_t height = static_cast<uint16_t>( internalHeight );
     const bool scaled = width != outputWidth || height != outputHeight || pixelFactor > 1;
@@ -992,7 +993,8 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     {
         camera.Post.VolumetricSteps = std::min( camera.Post.VolumetricSteps, FeatureCaps.MaxVolumetricSteps );
     }
-    camera.Post.TemporalAA = camera.Post.TemporalAA && FeatureCaps.TemporalAA;
+    // A pixel-perfect image doesn't jitter.
+    camera.Post.TemporalAA = camera.Post.TemporalAA && FeatureCaps.TemporalAA && !camera.PixelPerfect;
     // The camera's own pass switches (cheaper render texture feeds).
     camera.Post.AmbientOcclusion = camera.Post.AmbientOcclusion && camera.AmbientOcclusion;
     camera.Post.VolumetricFog = camera.Post.VolumetricFog && camera.VolumetricFog;

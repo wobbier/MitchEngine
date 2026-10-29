@@ -527,6 +527,35 @@ namespace Moonlight
     }
 
 
+    void ComputePixelPerfect( uint32_t InOutputWidth, uint32_t InOutputHeight, uint32_t InReferenceWidth, uint32_t InReferenceHeight, uint32_t& OutFactor, uint32_t& OutWidth, uint32_t& OutHeight )
+    {
+        const uint32_t outputWidth = std::max<uint32_t>( InOutputWidth, 1 );
+        const uint32_t outputHeight = std::max<uint32_t>( InOutputHeight, 1 );
+        const uint32_t referenceWidth = std::max<uint32_t>( InReferenceWidth, 1 );
+        const uint32_t referenceHeight = std::max<uint32_t>( InReferenceHeight, 1 );
+        OutFactor = std::max<uint32_t>( 1, std::min( outputWidth / referenceWidth, outputHeight / referenceHeight ) );
+        OutWidth = ( outputWidth + OutFactor - 1 ) / OutFactor;
+        OutHeight = ( outputHeight + OutFactor - 1 ) / OutFactor;
+    }
+
+
+    Vector3 SnapToTexelGrid( const Vector3& InEye, const Vector3& InRight, const Vector3& InUp, float InTexel )
+    {
+        if( InTexel <= 0.f )
+        {
+            return InEye;
+        }
+        const glm::vec3 eye = InEye.InternalVector;
+        const glm::vec3 right = glm::normalize( InRight.InternalVector );
+        const glm::vec3 up = glm::normalize( InUp.InternalVector );
+        const float x = glm::dot( eye, right );
+        const float y = glm::dot( eye, up );
+        const float snappedX = std::round( x / InTexel ) * InTexel;
+        const float snappedY = std::round( y / InTexel ) * InTexel;
+        return Vector3( eye + right * ( snappedX - x ) + up * ( snappedY - y ) );
+    }
+
+
     float StepDynamicScale( float InScale, float InGpuMs, float InTargetMs, float InMinScale, float InMaxScale )
     {
         const float minScale = std::clamp( std::min( InMinScale, InMaxScale ), 0.05f, 1.f );
@@ -750,7 +779,7 @@ namespace Moonlight
         const float tonemap[4] = { compensation, static_cast<float>( settings.Operator ), bloom ? settings.BloomIntensity : 0.f, settings.VignetteIntensity };
         const float grading[4] = { settings.Saturation, settings.Contrast, settings.Temperature, settings.Tint };
         const float grading2[4] = { settings.VignetteSmoothness, settings.Gamma, settings.Lift, settings.Gain };
-        const float exposure[4] = { settings.AutoExposure ? 1.f : 0.f, compensation, fxaa ? 1.f : 0.f, 0.f };
+        const float exposure[4] = { settings.AutoExposure ? 1.f : 0.f, compensation, fxaa ? 1.f : 0.f, InCamera.PixelPerfect ? 0.f : 1.f };
         // The grading LUT: a .cube volume, else an image strip of N slices of NxN (height N,
         // width NxN; anything else is ignored rather than sampled wrongly).
         float lutMode = 0.f;

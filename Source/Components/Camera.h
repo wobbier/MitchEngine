@@ -60,6 +60,17 @@ public:
     bool DynamicResolution = false;
     float DynamicMinScale = 0.5f;
     float DynamicTargetMs = 16.6f;
+    // Pixel-perfect (LOOK-S6), for pixel art: the camera renders at its ReferenceResolution scaled
+    // by the largest whole factor that fits the output (Pixel upscale, exact N x N blocks; a window
+    // that isn't a multiple shows a little more world). Orthographic cameras with PixelsPerUnit > 0
+    // size their view so a world unit is that many texels, and PixelSnap moves the view in whole
+    // texels so nothing shimmers while the camera pans.
+    bool PixelPerfect = false;
+    Vector2 ReferenceResolution = Vector2( 320.f, 180.f );
+    float PixelsPerUnit = 16.f;
+    bool PixelSnap = true;
+    // The internal size and block factor a pixel-perfect camera renders at for its output.
+    void GetPixelPerfectSize( uint32_t& OutFactor, uint32_t& OutWidth, uint32_t& OutHeight ) const;
 
     Camera();
     ~Camera();

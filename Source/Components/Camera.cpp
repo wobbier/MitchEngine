@@ -64,6 +64,10 @@ ME_REFLECT_BEGIN( Camera )
     ME_FIELD( DynamicResolution ).Category( "Render Scale" ).Display( "Dynamic Resolution" ).Tooltip( "Lower the scale while the GPU frame takes longer than the target, and raise it back when there's headroom" );
     ME_FIELD( DynamicMinScale ).Category( "Render Scale" ).Display( "Minimum Scale" ).Range( 0.1f, 1.f );
     ME_FIELD( DynamicTargetMs ).Category( "Render Scale" ).Display( "Target GPU ms" ).Range( 1.f, 100.f );
+    ME_FIELD( PixelPerfect ).Category( "Pixel Perfect" ).Display( "Pixel Perfect" ).Tooltip( "Render pixel art at the reference resolution times the largest whole factor that fits, as exact blocks (overrides Render Scale and the upscale filter)" );
+    ME_FIELD( ReferenceResolution ).Category( "Pixel Perfect" ).Display( "Reference Resolution" ).Speed( 1.f ).Tooltip( "The art's native resolution: the least the camera shows" );
+    ME_FIELD( PixelsPerUnit ).Category( "Pixel Perfect" ).Display( "Pixels Per Unit" ).Range( 0.f, 512.f ).Tooltip( "Orthographic only: texels per world unit (sets the view size). 0 keeps Orthographic Size" );
+    ME_FIELD( PixelSnap ).Category( "Pixel Perfect" ).Display( "Pixel Snap" ).Tooltip( "Orthographic only: move the view in whole texels so a panning camera doesn't shimmer" );
 ME_REFLECT_END()
 
 
@@ -274,6 +278,14 @@ Matrix4 CalculateObliqueMatrix( const Matrix4& projection, const glm::vec4& clip
     return Matrix4( m );
 }
 
+void Camera::GetPixelPerfectSize( uint32_t& OutFactor, uint32_t& OutWidth, uint32_t& OutHeight ) const
+{
+    const Vector2 size = GetViewportSize();
+    Moonlight::ComputePixelPerfect( static_cast<uint32_t>( size.x ), static_cast<uint32_t>( size.y ),
+        static_cast<uint32_t>( std::max( ReferenceResolution.x, 1.f ) ), static_cast<uint32_t>( std::max( ReferenceResolution.y, 1.f ) ), OutFactor, OutWidth, OutHeight );
+}
+
+
 Matrix4 Camera::GetProjectionMatrix() const
 {
     // #TODO: output size in the game view of the editor is messed up cause it's not reading the output size of the editor window widget.
@@ -285,8 +297,18 @@ Matrix4 Camera::GetProjectionMatrix() const
     }
     else
     {
-        const float halfHeight = std::max( OrthographicSize, 0.001f );
-        const float halfWidth = size.y > 0.f ? halfHeight * size.x / size.y : halfHeight;
+        float halfHeight = std::max( OrthographicSize, 0.001f );
+        float halfWidth = size.y > 0.f ? halfHeight * size.x / size.y : halfHeight;
+        if( PixelPerfect && PixelsPerUnit > 0.f )
+        {
+            // Exactly PixelsPerUnit texels per unit over the internal image (square texels).
+            uint32_t factor = 1;
+            uint32_t width = 1;
+            uint32_t height = 1;
+            GetPixelPerfectSize( factor, width, height );
+            halfWidth = 0.5f * static_cast<float>( width ) / PixelsPerUnit;
+            halfHeight = 0.5f * static_cast<float>( height ) / PixelsPerUnit;
+        }
         bx::mtxOrtho( &outMatrix.GetInternalMatrix()[0][0], -halfWidth, halfWidth, -halfHeight, halfHeight, Near, Far, 0.f, bgfx::getCaps()->homogeneousDepth );
     }
 

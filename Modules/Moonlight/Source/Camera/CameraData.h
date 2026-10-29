@@ -85,6 +85,13 @@ namespace Moonlight
     // resolution). Pixel snaps the scale to 1/N and rounds up, so N x N blocks cover the output.
     // Never below 1 px or above the output.
     void ComputeRenderSize( uint32_t InOutputWidth, uint32_t InOutputHeight, float InScale, UpscaleFilter InFilter, float InMaxScale, uint64_t InMaxPixels, uint32_t& OutWidth, uint32_t& OutHeight, uint32_t& OutPixelFactor );
+    // Pixel-perfect cameras (LOOK-S6): the largest whole factor N at which InReference still fits the
+    // output (at least 1), and the internal size covering the output in N x N blocks (ceil(out / N):
+    // a window that isn't a multiple shows slightly more of the world, never a stretched texel).
+    void ComputePixelPerfect( uint32_t InOutputWidth, uint32_t InOutputHeight, uint32_t InReferenceWidth, uint32_t InReferenceHeight, uint32_t& OutFactor, uint32_t& OutWidth, uint32_t& OutHeight );
+    // Moves InEye along InRight and InUp so its view-space x and y land on a multiple of InTexel
+    // (world units per texel): everything then moves across the screen in whole texels.
+    Vector3 SnapToTexelGrid( const Vector3& InEye, const Vector3& InRight, const Vector3& InUp, float InTexel );
     // Dynamic resolution: the next scale for a measured GPU frame time against a target (ms),
     // within [InMinScale, InMaxScale] in steps of 0.05. Drops quickly when over budget, climbs
     // slowly when well under it, holds in between (so targets aren't recreated every frame).
@@ -146,6 +153,9 @@ namespace Moonlight
         bool DynamicResolution = false;
         float DynamicMinScale = 0.5f;
         float DynamicTargetMs = 16.6f;
+        // Pixel-perfect (LOOK-S6): RenderScale is 1/N with the Pixel filter, set by CameraCore; caps
+        // don't apply (they would break the whole-texel grid) and temporal AA's jitter is off.
+        bool PixelPerfect = false;
         // Seconds since this camera last rendered, for eye adaptation (0: one frame).
         float RenderDeltaSeconds = 0.f;
 

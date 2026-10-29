@@ -162,6 +162,17 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
             CamData->DynamicResolution = CameraComponent.DynamicResolution;
             CamData->DynamicMinScale = CameraComponent.DynamicMinScale;
             CamData->DynamicTargetMs = CameraComponent.DynamicTargetMs;
+            CamData->PixelPerfect = CameraComponent.PixelPerfect;
+            if( CameraComponent.PixelPerfect )
+            {
+                uint32_t pixelFactor = 1;
+                uint32_t pixelWidth = 1;
+                uint32_t pixelHeight = 1;
+                CameraComponent.GetPixelPerfectSize( pixelFactor, pixelWidth, pixelHeight );
+                CamData->RenderScale = 1.f / static_cast<float>( pixelFactor );
+                CamData->Upscale = Moonlight::UpscaleFilter::Pixel;
+                CamData->DynamicResolution = false;
+            }
             CamData->Target = target ? CameraComponent.m_target : nullptr;
             CamData->TargetOrder = InEntity.GetGUID();
             CamData->RenderDeltaSeconds = 0.f;
@@ -212,7 +223,14 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
             //CamData.CameraFrustum = CameraComponent.CameraFrustum;
 
             Vector3 eye = { CamData->Position.x, CamData->Position.y, CamData->Position.z };
-            Vector3 at = { CamData->Position.x + CamData->Front.x, CamData->Position.y + CamData->Front.y, CamData->Position.z + CamData->Front.z };
+            if( CameraComponent.PixelPerfect && CameraComponent.PixelSnap && CameraComponent.PixelsPerUnit > 0.f && CameraComponent.Projection == Moonlight::ProjectionType::Orthographic )
+            {
+                // Whole texels only: the view moves in steps of a texel's world size.
+                const Vector3 right = CamData->Up.Cross( CamData->Front );
+                eye = Moonlight::SnapToTexelGrid( eye, right, CamData->Up, 1.f / CameraComponent.PixelsPerUnit );
+                CamData->Position = eye;
+            }
+            Vector3 at = { eye.x + CamData->Front.x, eye.y + CamData->Front.y, eye.z + CamData->Front.z };
             Vector3 up = { CamData->Up.x, CamData->Up.y, CamData->Up.z };
 
             Frustum& camFrustum = CameraComponent.CameraFrustum;

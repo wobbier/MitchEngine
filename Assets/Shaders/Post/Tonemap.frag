@@ -14,7 +14,7 @@ SAMPLER2D(s_lutStrip, 4);  // strip LUT: N slices of NxN side by side, blue pick
 uniform vec4 u_tonemap;   // x exposure (linear multiplier), y operator (0 clamp, 1 ACES, 2 AgX, 3 Reinhard), z bloom intensity, w vignette intensity
 uniform vec4 u_grading;   // x saturation, y contrast, z temperature, w tint
 uniform vec4 u_grading2;  // x vignette smoothness, y gamma, z lift, w gain
-uniform vec4 u_exposure;  // x auto exposure on, y compensation multiplier (2^EV), z luma in alpha (FXAA follows)
+uniform vec4 u_exposure;  // x auto exposure on, y compensation multiplier (2^EV), z luma in alpha (FXAA follows), w dither (0 for pixel-perfect cameras)
 uniform vec4 u_lut;       // x LUT size N, y contribution, z mode (0 off, 1 volume, 2 strip)
 
 void main()
@@ -78,8 +78,9 @@ void main()
 		display = mix(display, texture3DLod(s_lut, coord, 0.0).rgb, u_lut.y);
 	}
 
-	// +-0.5 LSB of dither hides 8-bit banding in gradients (sky, fog).
-	display += (interleavedGradientNoise(gl_FragCoord.xy) - 0.5) / 255.0;
+	// +-0.5 LSB of dither hides 8-bit banding in gradients (sky, fog). Pixel-perfect cameras skip it:
+	// screen-fixed noise would change under art that moves in whole texels.
+	display += (interleavedGradientNoise(gl_FragCoord.xy) - 0.5) / 255.0 * u_exposure.w;
 	// FXAA reads luma from alpha; when tonemapping straight to the output the image must stay opaque.
 	gl_FragColor = vec4(display, u_exposure.z > 0.5 ? dot(display, vec3(0.299, 0.587, 0.114)) : 1.0);
 }
