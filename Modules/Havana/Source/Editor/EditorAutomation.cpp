@@ -37,6 +37,7 @@
 #include "Engine/PlayerSettings.h"
 #include "Engine/HardwareBudget.h"
 #include "Components/Graphics/Mesh.h"
+#include "Graphics/SpriteAtlas.h"
 #include <array>
 #include <map>
 #include "Engine/SaveGames.h"
@@ -1452,6 +1453,22 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             {
                 Fail( name + " " + fieldText + " is " + actual->dump() + ", saved " + saved->dump() );
             }
+        }
+    }
+    else if( command == "atlas-pack" )
+    {
+        // atlas-pack Assets/Textures/Sprites/Physics2D.spriteatlas | 10   (the inspector's Pack;
+        // fails unless that many sprites were packed)
+        auto [atlas, countText] = SplitArgs( args );
+        std::string error;
+        const int count = Moonlight::PackSpriteAtlasFile( atlas, error );
+        if( count < 0 )
+        {
+            Fail( "atlas-pack: " + error );
+        }
+        else if( !countText.empty() && count != std::atoi( countText.c_str() ) )
+        {
+            Fail( "atlas-pack: packed " + std::to_string( count ) + " sprite(s), expected " + countText );
         }
     }
     else if( command == "budget-profile" )

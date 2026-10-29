@@ -124,7 +124,7 @@ Source trees never see the map, so editing keeps using the sources.
 
 **Limits:**
 - RmlUi's `<sprite>` element and C# code that load a sheet's image directly still need that image. List it in `Build.AlwaysInclude`, or keep it out of atlases.
-- The editor has no Pack button or preview yet.
+- **In the editor** (ME-282): the `.spriteatlas` inspector edits the sources, padding, max size and extrusion. **Pack** writes the atlas as a cook would, then previews it with every sprite outlined (hover for its name and size) and shows the fill. An existing pack previews on open. The Game view's stats overlay shows `Sprite batches`. edscript `atlas-pack <atlas> | <expected count>` runs the same Pack (`SpriteAtlasFlows.edscript`).
 
 ## Cooked runs
 

@@ -1,4 +1,5 @@
 #include "SpriteAtlas.h"
+#include "File.h"
 #include "JSON.h"
 #include "Path.h"
 #include "VFS/VFS.h"
@@ -377,3 +378,171 @@ namespace Moonlight
         return true;
     }
 }
+
+
+int Moonlight::PackSpriteAtlasFile( const std::string& InAtlasPath, std::string& OutError, SpriteAtlasImage* OutImage )
+{
+    SpriteAtlasImage image;
+    std::vector<AtlasInput> inputs;
+    if( !BuildSpriteAtlas( InAtlasPath, image, inputs, OutError ) || !WriteSpriteAtlas( image, InAtlasPath, OutError ) )
+    {
+        return -1;
+    }
+    const int count = static_cast<int>( image.Frames.size() );
+    if( OutImage )
+    {
+        *OutImage = std::move( image );
+    }
+    return count;
+}
+
+
+#if USING( ME_EDITOR )
+#include <Utils/HavanaUtils.h>
+#include <Utils/ImGuiUtils.h>
+#include <bgfx/bgfx.h>
+#include <imgui.h>
+#include <cstring>
+
+void SpriteAtlasMetadata::OnEditorInspect()
+{
+    MetaBase::OnEditorInspect();
+    struct Editing
+    {
+        Moonlight::SpriteAtlasDesc Desc;
+        bool Loaded = false;
+        // The last pack: its image on the GPU for the preview, and its sprites.
+        bgfx::TextureHandle Preview = BGFX_INVALID_HANDLE;
+        Moonlight::SpriteAtlasImage Image;
+        std::string Status;
+        char NewSource[256] = {};
+    };
+    static std::map<std::string, Editing> s_atlases;
+    Editing& editing = s_atlases[FilePath.GetLocalPathString()];
+    if( !editing.Loaded )
+    {
+        std::string text;
+        editing.Loaded = true;
+        if( VFS::Get().ReadText( FilePath, text ) )
+        {
+            editing.Desc.Parse( text );
+        }
+    }
+    Moonlight::SpriteAtlasDesc& desc = editing.Desc;
+    bool changed = false;
+
+    ImGui::SeparatorText( ( std::to_string( desc.Sources.size() ) + " source(s)" ).c_str() );
+    for( size_t i = 0; i < desc.Sources.size(); ++i )
+    {
+        ImGui::PushID( static_cast<int>( i ) );
+        if( ImGui::SmallButton( "x" ) )
+        {
+            desc.Sources.erase( desc.Sources.begin() + static_cast<std::ptrdiff_t>( i ) );
+            changed = true;
+            ImGui::PopID();
+            break;
+        }
+        ImGui::SameLine();
+        ImGui::TextUnformatted( desc.Sources[i].c_str() );
+        ImGui::PopID();
+    }
+    if( ImGui::InputTextWithHint( "##NewSource", "Add an image, folder or .spritesheet (Enter)", editing.NewSource, sizeof( editing.NewSource ), ImGuiInputTextFlags_EnterReturnsTrue ) && editing.NewSource[0] )
+    {
+        desc.Sources.push_back( editing.NewSource );
+        editing.NewSource[0] = '\0';
+        changed = true;
+    }
+    HavanaUtils::Label( "Padding" );
+    changed |= ImGui::SliderInt( "##AtlasPadding", &desc.Padding, 0, 16 );
+    HavanaUtils::Label( "Max Size" );
+    changed |= ImGui::InputInt( "##AtlasMaxSize", &desc.MaxSize, 256, 1024 );
+    HavanaUtils::Label( "Extrude" );
+    changed |= ImGui::SliderInt( "##AtlasExtrude", &desc.Extrude, 0, 8 );
+    ImGui::SetItemTooltip( "Edge texels repeated outwards, so filtering doesn't bleed neighbours in" );
+    if( changed )
+    {
+        File file( FilePath );
+        file.Write( desc.Write() );
+    }
+
+    // An earlier pack (here, by a cook or by atlas-pack) shows until the next one.
+    const std::string base = FilePath.GetLocalPathString();
+    bool packNow = ImGui::Button( "Pack" );
+    ImGui::SetItemTooltip( "Writes <atlas>.png and <atlas>.spritesheet beside it, as a cook does" );
+    bool loadExisting = false;
+    if( !packNow && !bgfx::isValid( editing.Preview ) && editing.Status.empty() && Path( base + ".spritesheet" ).Exists && Path( base + ".png" ).Exists )
+    {
+        loadExisting = true;
+    }
+    if( packNow || loadExisting )
+    {
+        std::string error;
+        Moonlight::SpriteAtlasImage image;
+        int count = -1;
+        if( packNow )
+        {
+            count = Moonlight::PackSpriteAtlasFile( base, error, &image );
+        }
+        else
+        {
+            std::string sheetText;
+            Moonlight::SpriteSheet sheet{ Path( base + ".spritesheet" ) };
+            if( Moonlight::SpriteSheet::DecodeImage( base + ".png", image.Rgba, image.Width, image.Height ) && VFS::Get().ReadText( Path( base + ".spritesheet" ), sheetText ) && sheet.Parse( sheetText ) )
+            {
+                image.Frames = sheet.Sprites;
+                count = static_cast<int>( image.Frames.size() );
+            }
+            else
+            {
+                error = "can't read the last pack";
+            }
+        }
+        if( count < 0 )
+        {
+            editing.Status = "Pack failed: " + error;
+        }
+        else
+        {
+            if( bgfx::isValid( editing.Preview ) )
+            {
+                bgfx::destroy( editing.Preview );
+            }
+            editing.Preview = bgfx::createTexture2D( static_cast<uint16_t>( image.Width ), static_cast<uint16_t>( image.Height ), false, 1, bgfx::TextureFormat::RGBA8,
+                BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP, bgfx::copy( image.Rgba.data(), static_cast<uint32_t>( image.Rgba.size() ) ) );
+            editing.Image = std::move( image );
+            double used = 0.0;
+            for( const Moonlight::SpriteFrame& frame : editing.Image.Frames )
+            {
+                used += double( frame.Rect.z ) * frame.Rect.w;
+            }
+            const double fill = used / std::max( 1.0, double( editing.Image.Width ) * editing.Image.Height );
+            char status[160];
+            std::snprintf( status, sizeof( status ), "%d sprite(s) in %d x %d (%.0f%% filled)", count, editing.Image.Width, editing.Image.Height, fill * 100.0 );
+            editing.Status = status;
+        }
+    }
+    if( !editing.Status.empty() )
+    {
+        ImGui::SameLine();
+        ImGui::TextUnformatted( editing.Status.c_str() );
+    }
+    if( bgfx::isValid( editing.Preview ) && editing.Image.Width > 0 )
+    {
+        const float width = std::max( ImGui::GetContentRegionAvail().x, 64.f );
+        const float scale = width / static_cast<float>( editing.Image.Width );
+        const ImVec2 origin = ImGui::GetCursorScreenPos();
+        ImGui::Image( editing.Preview, ImVec2( width, editing.Image.Height * scale ) );
+        ImDrawList* draw = ImGui::GetWindowDrawList();
+        for( const Moonlight::SpriteFrame& frame : editing.Image.Frames )
+        {
+            const ImVec2 min( origin.x + frame.Rect.x * scale, origin.y + frame.Rect.y * scale );
+            const ImVec2 max( min.x + frame.Rect.z * scale, min.y + frame.Rect.w * scale );
+            draw->AddRect( min, max, IM_COL32( 255, 200, 0, 200 ) );
+            if( ImGui::IsMouseHoveringRect( min, max ) )
+            {
+                ImGui::SetTooltip( "%s (%.0f x %.0f)", frame.Name.c_str(), frame.Rect.z, frame.Rect.w );
+            }
+        }
+    }
+}
+#endif

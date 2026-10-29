@@ -1,3 +1,4 @@
+#include <cstring>
 #include "SceneViewWidget.h"
 #include "Editor/TilemapPainter.h"
 #include "Widgets/Terrain/TerrainWidget.h"
@@ -937,6 +938,13 @@ void SceneViewWidget::DrawStatsOverlay()
 	std::snprintf(text, sizeof(text), "%.0f fps  %.2f ms\nGPU %.2f ms  Draws %u\nTris %.1fk  Entities %zu",
 		stats.GetFramesPerSecond(), stats.GetSmoothedFrameMilliseconds(), render.GpuMilliseconds, render.DrawCalls,
 		render.Triangles / 1000.f, EditorOps::GetWorld().GetEntityCount());
+	// Sprite batches, when there are sprites (ME-282): a sheet or atlas shared by many sprites
+	// batches them; a texture, lit/unlit or filter change starts a new one.
+	if (render.SpriteBatches > 0)
+	{
+		const size_t length = std::strlen(text);
+		std::snprintf(text + length, sizeof(text) - length, "\nSprite batches %u", render.SpriteBatches);
+	}
 	// Fixed light-on-dark colors: the overlay has to read over any scene, in either theme.
 	ImDrawList* drawList = ImGui::GetWindowDrawList();
 	const ImVec2 padding = ImGui::GetStyle().FramePadding;

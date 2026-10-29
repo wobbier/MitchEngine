@@ -70,4 +70,35 @@ namespace Moonlight
     // Writes the atlas as <InBase>.png and <InBase>.spritesheet (InBase is a project path, without
     // an extension; files go to its full path).
     bool WriteSpriteAtlas( const SpriteAtlasImage& InImage, const std::string& InBase, std::string& OutError );
+
+    // The editor's Pack (ME-282): builds a .spriteatlas and writes <atlas>.png / .spritesheet beside
+    // it, as the cooker would. OutImage (optional) receives the packed image. -1 on failure.
+    int PackSpriteAtlasFile( const std::string& InAtlasPath, std::string& OutError, SpriteAtlasImage* OutImage = nullptr );
 }
+
+// The .spriteatlas inspector (ME-282): its sources, padding, size and extrusion, a Pack button and
+// a preview of the packed image with every sprite's rectangle outlined.
+struct SpriteAtlasMetadata
+    : public MetaBase
+{
+    explicit SpriteAtlasMetadata( const Path& InPath )
+        : MetaBase( InPath )
+    {
+    }
+
+    std::string GetExtension2() const override
+    {
+        return Moonlight::SpriteAtlasDesc::kExtension;
+    }
+    void OnSerialize( json& OutJson ) override
+    {
+    }
+    void OnDeserialize( const json& InJson ) override
+    {
+    }
+
+#if USING( ME_EDITOR )
+    void OnEditorInspect() override;
+#endif
+};
+ME_REGISTER_METADATA( "spriteatlas", SpriteAtlasMetadata );
