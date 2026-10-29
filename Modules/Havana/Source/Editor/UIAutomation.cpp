@@ -3,6 +3,13 @@
 #include "Dementia.h"
 #include "Engine/Engine.h"
 #include "Cores/UI/RmlUiCore.h"
+#include "Engine/Input.h"
+#include "EditorApp.h"
+#include "Havana.h"
+#include "Widgets/SceneViewWidget.h"
+#include <SDL.h>
+#include <cmath>
+#include <imgui.h>
 
 #include <cstdlib>
 #include <map>
@@ -37,6 +44,45 @@ namespace UIAutomation
         {
             OutError = "No RmlUi context exists yet";
             return false;
+        }
+
+        // The real mouse path (ME-262): move the OS pointer over an element as the Game View
+        // shows it, from the image's on-screen rect and the context's size (not the mapping
+        // under test), then press and release through the game's mouse buttons.
+        //   ui-mouse-move #press-me     ui-mouse-down     ui-mouse-up
+        if( InCommand == "ui-mouse-move" )
+        {
+            const std::string selector = Trimmed( InArgs );
+            Rml::Element* element = context->GetRootElement()->QuerySelector( selector );
+            EditorApp* app = static_cast<EditorApp*>( GetEngine().GetGame() );
+            SceneViewWidget* gameView = app && app->Editor ? app->Editor->GetGameView() : nullptr;
+            if( element == nullptr || gameView == nullptr )
+            {
+                OutError = element == nullptr ? "No element matches '" + selector + "'" : "No Game View";
+                return false;
+            }
+            const Rml::Vector2f centre = element->GetAbsoluteOffset( Rml::BoxArea::Border ) + element->GetBox().GetSize( Rml::BoxArea::Border ) * 0.5f;
+            const Rml::Vector2i dimensions = context->GetDimensions();
+            const Vector2 min = gameView->GetViewportScreenMin();
+            const Vector2 size = gameView->GetViewportScreenSize();
+            const float x = min.x + centre.x / std::max( dimensions.x, 1 ) * size.x;
+            const float y = min.y + centre.y / std::max( dimensions.y, 1 ) * size.y;
+            if( ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable )
+            {
+                SDL_WarpMouseGlobal( static_cast<int>( std::lround( x ) ), static_cast<int>( std::lround( y ) ) );
+            }
+            else
+            {
+                const ImGuiViewport* main = ImGui::GetMainViewport();
+                SDL_WarpMouseInWindow( SDL_GetMouseFocus() ? SDL_GetMouseFocus() : SDL_GetKeyboardFocus(), static_cast<int>( std::lround( x - main->Pos.x ) ),
+                    static_cast<int>( std::lround( y - main->Pos.y ) ) );
+            }
+            return true;
+        }
+        if( InCommand == "ui-mouse-down" || InCommand == "ui-mouse-up" )
+        {
+            GetEngine().GetInput().SetSimulatedMouseButtons( InCommand == "ui-mouse-down" ? SDL_BUTTON_LMASK : 0u );
+            return true;
         }
 
         if( InCommand == "ui-click" )
@@ -99,6 +145,21 @@ namespace UIAutomation
         if( InCommand == "ui-set-language" )
         {
             core->SetLanguage( Trimmed( InArgs ) );
+            return true;
+        }
+
+        if( InCommand == "ui-set-text" )
+        {
+            // ui-set-text #click-result | Unclicked   (resets a label between checks)
+            const size_t bar = InArgs.find( '|' );
+            const std::string selector = Trimmed( InArgs.substr( 0, bar ) );
+            Rml::Element* element = bar == std::string::npos ? nullptr : context->GetRootElement()->QuerySelector( selector );
+            if( element == nullptr )
+            {
+                OutError = "ui-set-text: expected <selector> | <text>, and an element matching it";
+                return false;
+            }
+            element->SetInnerRML( Trimmed( InArgs.substr( bar + 1 ) ) );
             return true;
         }
 

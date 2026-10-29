@@ -565,7 +565,19 @@ void SceneViewWidget::Render()
 	const Vector2 imageScreenPos = contentScreenPos + (SceneViewRenderLocation - Vector2(ImGui::GetCursorPos().x, ImGui::GetCursorPos().y));
 	m_viewportWindowMin = imageScreenPos - Vector2(ImGui::GetWindowViewport()->Pos.x, ImGui::GetWindowViewport()->Pos.y);
 	m_imageShown = shouldRender && !ImGui::IsWindowCollapsed();
-	GetEngine().GetInput().SetMouseOffset(m_viewportWindowMin);
+	// The Game View alone maps the game's mouse (the World View rendering last used to win), with
+	// the image's on-screen place and its scale on both axes: Fixed shows a larger render shrunk
+	// into the panel (ME-262).
+	if (!EnableSceneTools)
+	{
+		GetEngine().GetInput().SetMouseOffset(m_viewportWindowMin);
+		Input::GameViewMapping mapping;
+		mapping.ScreenPos = imageScreenPos;
+		mapping.DrawnSize = viewportRenderSize;
+		mapping.Scale = Vector2(SceneViewRenderSize.x / std::max(viewportRenderSize.x, 1.f), SceneViewRenderSize.y / std::max(viewportRenderSize.y, 1.f));
+		mapping.Valid = m_imageShown && viewportRenderSize.x > 1.f && viewportRenderSize.y > 1.f;
+		GetEngine().GetInput().SetGameViewMapping(mapping);
+	}
 
 	m_viewportScreenMin = imageScreenPos;
 	m_viewportScreenSize = viewportRenderSize;
@@ -583,7 +595,8 @@ void SceneViewWidget::Render()
 		// Panel resize grips and dock splitters own their drags, even over the image.
 		IsViewportHovered = ImGui::IsItemHovered();
 		const ImVec2 mouse = ImGui::GetIO().MousePos;
-		ViewportMousePosition = Vector2(mouse.x - imageScreenPos.x, mouse.y - imageScreenPos.y) * (SceneViewRenderSize.x / std::max(viewportRenderSize.x, 1.f));
+		ViewportMousePosition = Vector2((mouse.x - imageScreenPos.x) * (SceneViewRenderSize.x / std::max(viewportRenderSize.x, 1.f)),
+			(mouse.y - imageScreenPos.y) * (SceneViewRenderSize.y / std::max(viewportRenderSize.y, 1.f)));
 		if (m_hasRequestedClick)
 		{
 			m_hasRequestedClick = false;

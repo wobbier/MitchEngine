@@ -465,6 +465,21 @@ public:
     void SetMouseCapture( bool Capture );
     bool IsMouseCaptured() const { return WantsToCaptureMouse; }
     void SetMouseOffset( const Vector2& InOffset );
+    // Editor: where the Game View draws the game's image (ImGui's absolute coordinates, so an
+    // undocked view works too), its drawn size, and game pixels per screen pixel on each axis.
+    // The game's UI maps the mouse through it (ME-262).
+    struct GameViewMapping
+    {
+        Vector2 ScreenPos;
+        Vector2 DrawnSize;
+        Vector2 Scale = Vector2( 1.f, 1.f );
+        bool Valid = false;
+    };
+    void SetGameViewMapping( const GameViewMapping& InMapping ) { m_gameViewMapping = InMapping; }
+    const GameViewMapping& GetGameViewMapping() const { return m_gameViewMapping; }
+    // Editor automation: mouse buttons held as if pressed (SDL_BUTTON masks), on top of the real
+    // ones, like the simulated keys.
+    void SetSimulatedMouseButtons( uint32_t InMask ) { m_simulatedMouseButtons = InMask; }
     // Editor: a rectangle of a window (the Game View image, in window coordinates) that holds the
     // cursor while this input is capturing: the window grabs the pointer and a cursor that leaves
     // the rectangle is warped back to its edge. A mouse capture then hides the cursor and warps it
@@ -572,6 +587,8 @@ private:
     InputDeviceState m_devices;
     InputDeviceState m_previousDevices;
     std::array<uint8_t, kKeyCount> m_simulatedKeys{};
+    uint32_t m_simulatedMouseButtons = 0;
+    GameViewMapping m_gameViewMapping;
 
     struct Edges
     {

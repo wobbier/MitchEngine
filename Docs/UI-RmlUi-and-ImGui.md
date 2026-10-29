@@ -138,6 +138,16 @@ Three levels, simplest first:
 - **Proof:** the UITest capture (`Assets/Scenes/Tests/Reference/UITest.png`) shows a viewport fed by a camera filming a spinning cube, the coin sprite, the hero's walk flipbook and the Jump key cap.
 - **Not done:** device glyphs (Xbox / PlayStation / Deck icons; PLAY-8) and the ShaderGraph UI target. See the follow-up issue.
 
+### The Game View's mouse (ME-262)
+
+In the editor the game's UI reads ImGui's absolute mouse (`io.MousePos`, so a Game View undocked into its own window works). It maps that through `Input::GameViewMapping`: where the Game View draws the game's image, the drawn size, and game pixels per screen pixel on each axis. Fixed display modes shrink a larger render into the panel, so the mapping scales as well as offsets.
+- **Only the Game View sets the mapping.** The World View used to overwrite the offset when it rendered last.
+- **Real-mouse checks:** `ui-click` dispatches straight to an element, so it never tests this path. `GameMouseFlows.edscript` does:
+  - `ui-mouse-move <selector>` warps the OS pointer to the element's centre as the Game View shows it, computed from the image's rect and the context's size (not from the mapping under test);
+  - `ui-mouse-down` / `ui-mouse-up` press through `Input::SetSimulatedMouseButtons`.
+- **Proof:** the flow clicks a button in Freeform, Fixed 1080p and Ultra-Wide (letterboxed). With the old offset-only mapping, all three missed.
+- **Not covered:** an undocked Game View is the same math, but no flow drives it.
+
 ### Hot reload
 
 `.rml`/`.rcss` edits arrive as `AssetsChangedEvent`. An `.rcss` edit reloads stylesheets in place (DOM state survives); an `.rml` edit reloads the documents loaded from it. Both log `UI: reloaded N document(s)`, which flows wait on.

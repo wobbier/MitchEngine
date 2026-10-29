@@ -74,6 +74,9 @@ public:
 	ImDrawList* GetImageDrawList(Vector2& OutMin, Vector2& OutSize) const;
 	// The display presets ("Freeform", "1080p", "Steam Deck", ...): false for an unknown name.
 	bool SetDisplayPreset(const std::string& InName);
+	// Where the game's image is drawn (ImGui's absolute coordinates) and its drawn size.
+	Vector2 GetViewportScreenMin() const { return m_viewportScreenMin; }
+	Vector2 GetViewportScreenSize() const { return m_viewportScreenSize; }
 	std::vector<std::string> GetDisplayPresetNames() const;
 
 	Moonlight::CameraData* MainCamera = nullptr;

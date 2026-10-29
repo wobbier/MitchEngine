@@ -536,13 +536,13 @@ void RmlUiCore::ProcessInput()
 
     Vector2 mousePosition = gameInput.GetMousePosition();
 #if USING( ME_EDITOR )
-    // The game view lives inside the editor: map the window mouse into the game view.
-    const ImGuiViewport* mainViewport = ImGui::GetMainViewport();
-    const Vector2 windowPosition( mainViewport->Pos.x, mainViewport->Pos.y );
-    const Vector2 offset = gameInput.GetMouseOffset();
-    mousePosition = Vector2( ( windowPosition.x + mousePosition.x ) - offset.x,
-                             ( windowPosition.y + mousePosition.y ) - offset.y );
-    const bool fireMouse = !gameInput.GetMousePosition().IsZero();
+    // The game view lives inside the editor: map ImGui's mouse (absolute, so a Game View undocked
+    // into its own window works) through where the Game View draws the image and its scale
+    // (ME-262).
+    const Input::GameViewMapping& view = gameInput.GetGameViewMapping();
+    const ImVec2 mouse = ImGui::GetIO().MousePos;
+    const bool fireMouse = view.Valid && ImGui::IsMousePosValid( &mouse );
+    mousePosition = Vector2( ( mouse.x - view.ScreenPos.x ) * view.Scale.x, ( mouse.y - view.ScreenPos.y ) * view.Scale.y );
 #else
     const bool fireMouse = true;
 #endif

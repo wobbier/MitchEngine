@@ -69,7 +69,7 @@ void Input::Update()
     {
         int mouseX = 0;
         int mouseY = 0;
-        MouseState = SDL_GetMouseState( &mouseX, &mouseY );
+        MouseState = SDL_GetMouseState( &mouseX, &mouseY ) | m_simulatedMouseButtons;
         MousePosition = Vector2( mouseX, mouseY );
         int relativeMouse[2] = { 0, 0 };
         SDL_GetRelativeMouseState( &relativeMouse[0], &relativeMouse[1] );
