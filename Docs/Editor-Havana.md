@@ -224,6 +224,24 @@ The script runs one command per frame after a short warm-up and logs `[editor-ex
 
 `Assets/Scenes/Tests/EditorFlows.edscript` and `PrefabFlows.edscript` (run with `HierarchyTest.lvl`) `PhysicsFlows.edscript` (run with `PhysicsTest.lvl`) and `Physics2DFlows.edscript` (run with `Physics2DTest.lvl`) in the game repository are the regression scripts.
 
+### Agents: the MCP server (NEXT-1)
+
+`Tools/HavanaMCP/havana_mcp.py` is an MCP server (stdio, JSON-RPC, no dependencies) that lets an agent build and check games with the editor. It's built on the automation above: every editor tool runs one headless, unattended Havana session, so the user's own editor, layout and preferences are never touched.
+
+| Tool | What it does |
+|---|---|
+| `run_edscript` | An edscript in a scene (any command in this section: edits, play/stop, asserts, `save-as`, screenshots). Returns pass/fail, failures and the log's key lines |
+| `screenshot` | A PNG of a scene, optionally after playing it some frames |
+| `scene_summary` | A scene file's entities and components |
+| `list_assets` | Project files by folder and extension |
+| `edscript_commands` | Every command with its usage comment, read from `EditorAutomation.cpp` |
+| `build_game` | `Havana --build-game [profile]` |
+| `read_log` | The tail of a log under `.tmp/` |
+
+- **Registering it.** MitchGame's `.mcp.json` registers it for Claude Code. Elsewhere: `claude mcp add havana -- python3 Engine/Tools/HavanaMCP/havana_mcp.py`, from the project root.
+- **Environment.** Outside the Nix dev shell it starts the editor through `nix develop Engine/nix`, and `HAVANA_EDITOR` picks another editor binary.
+- **Proof:** `Tools/HavanaMCP/test_havana_mcp.py` (RunChecks "MCP server") does a client handshake, then calls each tool.
+
 ## How to Extend
 
 **Add an editor action** (menus, palette, shortcuts and scripts all pick it up):

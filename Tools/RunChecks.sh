@@ -238,6 +238,18 @@ if [[ -f $hub_checks/HubFlows.edscript ]]; then
     rm -rf "$hub_dir"
 fi
 
+# The MCP server (NEXT-1): a client's handshake, tool list and each tool once (headless editor runs).
+mcp_test="$here/HavanaMCP/test_havana_mcp.py"
+if [[ -f $mcp_test ]]; then
+    step "MCP server"
+    if python3 "$mcp_test" > .tmp/RunChecks.mcp.log 2>&1; then
+        echo "ok    Havana MCP server ($(grep -c '^ok' .tmp/RunChecks.mcp.log) checks)"
+    else
+        tail -15 .tmp/RunChecks.mcp.log
+        failed+=("MCP server")
+    fi
+fi
+
 # Editor layouts (ED-2): named workspaces and Reset Layout, in a fresh project made from the Empty
 # template (its shipped imgui.cfg is the default layout, so the user's own layout can't vary it).
 layout_flow="$here/../Tests/Editor/LayoutFlows.edscript"
