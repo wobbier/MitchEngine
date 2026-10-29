@@ -51,6 +51,15 @@ undo
 assert-field RectanglePanel | Light.RectangleHeight | 1
 redo
 assert-field RectanglePanel | Light.RectangleHeight | 0.5
+# The panel's beam: the spot cone angles set its size and feathered edge.
+set Light.OuterConeAngle 12
+set Light.InnerConeAngle 5
+assert-field RectanglePanel | Light.OuterConeAngle | 12
+assert-field RectanglePanel | Light.InnerConeAngle | 5
+undo
+assert-field RectanglePanel | Light.InnerConeAngle | 20
+redo
+assert-field RectanglePanel | Light.InnerConeAngle | 5
 
 save-as .tmp/ExtendedLights.lvl
 play
@@ -60,6 +69,7 @@ assert-field BoxEmitter | Light.Size | [2,0.5,1]
 assert-field RectanglePanel | Light.LightType | "Rectangle"
 assert-field RectanglePanel | Light.RectangleWidth | 3
 assert-field RectanglePanel | Light.RectangleHeight | 0.5
+assert-field RectanglePanel | Light.OuterConeAngle | 12
 stop
 wait 5
 assert-field FluorescentTube | Light.Length | 3

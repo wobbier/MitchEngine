@@ -64,7 +64,7 @@ namespace Moonlight
         OutVolume[0] = InSettings.FogSunIntensity;
         OutVolume[1] = std::clamp( InSettings.FogAnisotropy, -0.95f, 0.95f );
         OutVolume[2] = std::max( InSettings.VolumetricDistance, 1.f );
-        OutVolume[3] = volumetric ? static_cast<float>( std::min( InSettings.VolumetricSteps, 64 ) ) : 0.f;
+        OutVolume[3] = volumetric ? static_cast<float>( std::min( InSettings.VolumetricSteps, PostProcess::kMaxVolumetricSteps ) ) : 0.f;
     }
 
 
@@ -82,6 +82,7 @@ namespace Moonlight
         m_adaptProgram = LoadPost( "Adapt" );
         m_fogScatterProgram = LoadPost( "FogScatter" );
         m_fogBlurProgram = LoadPost( "FogBlur" );
+        m_fogResolveProgram = LoadPost( "FogResolve" );
         m_fogProgram = LoadPost( "Fog" );
         m_taaProgram = LoadPost( "TAA" );
         m_copyProgram = LoadPost( "Copy" );
@@ -123,6 +124,9 @@ namespace Moonlight
         u_fogProjection2 = bgfx::createUniform( "u_fogProjection2", bgfx::UniformType::Vec4 );
         u_fogScreen = bgfx::createUniform( "u_fogScreen", bgfx::UniformType::Vec4 );
         u_fogInvView = bgfx::createUniform( "u_fogInvView", bgfx::UniformType::Mat4 );
+        u_fogVolume2 = bgfx::createUniform( "u_fogVolume2", bgfx::UniformType::Vec4 );
+        u_fogReproject = bgfx::createUniform( "u_fogReproject", bgfx::UniformType::Mat4 );
+        s_fogHistory = bgfx::createUniform( "s_fogHistory", bgfx::UniformType::Sampler );
         s_taaCurrent = bgfx::createUniform( "s_taaCurrent", bgfx::UniformType::Sampler );
         s_taaHistory = bgfx::createUniform( "s_taaHistory", bgfx::UniformType::Sampler );
         s_taaDepth = bgfx::createUniform( "s_taaDepth", bgfx::UniformType::Sampler );
@@ -147,7 +151,7 @@ namespace Moonlight
     PostProcess::~PostProcess()
     {
         for( bgfx::UniformHandle* uniform : { &s_input0, &s_input1, &s_hdrColor, &s_bloom, &s_exposure, &s_ldrColor, &u_tonemap, &u_grading, &u_grading2, &u_exposure, &u_bloom, &u_ssao, &u_ssaoProjection, &u_ssaoScreen, &u_ssaoInvProjection, &u_adapt,
-            &u_fogProjection, &u_fogProjection2, &u_fogScreen, &u_fogInvView, &s_taaCurrent, &s_taaHistory, &s_taaDepth, &u_taaParams, &u_taaJitter, &u_taaReproject, &u_graphSceneFilter,
+            &u_fogProjection, &u_fogProjection2, &u_fogScreen, &u_fogInvView, &u_fogVolume2, &u_fogReproject, &s_fogHistory, &s_taaCurrent, &s_taaHistory, &s_taaDepth, &u_taaParams, &u_taaJitter, &u_taaReproject, &u_graphSceneFilter,
             &s_dof0, &s_dof1, &s_dof2, &s_dof3, &s_dof4, &u_dofLens, &u_dofSplit, &u_dofProjection, &u_dofScreen, &u_dofPass, &u_dofJitter, &s_lut, &s_lutStrip, &u_lut, &u_outline, &u_outlineParams } )
         {
             DestroyUniform( *uniform );
@@ -284,6 +288,8 @@ namespace Moonlight
         const PostProcessSettings& settings = InCamera.Post;
         if( !settings.Fog || settings.FogDensity <= 0.f || settings.FogMaxOpacity <= 0.f || !bgfx::isValid( InTargets.FogBuffer.Buffer ) || !bgfx::isValid( InTargets.ParticleBuffer ) )
         {
+            InTargets.FogHistoryValid = false;
+            InTargets.FogFrame = 0;
             return;
         }
         OPTICK_EVENT( "PostProcess::Fog" );
@@ -295,27 +301,70 @@ namespace Moonlight
         float fogVolume[4];
         FogUniforms( settings, fogParams, fogColor, fogVolume );
         const bool volumetric = fogVolume[3] > 0.f;
+        const bool temporal = volumetric && settings.VolumetricTemporal;
+        if( !temporal )
+        {
+            InTargets.FogHistoryValid = false;
+            InTargets.FogFrame = 0;
+        }
         const float fogProjection[4] = { projection[2][2], projection[3][2], InCamera.Projection == ProjectionType::Orthographic ? 1.f : 0.f, bgfx::getCaps()->homogeneousDepth ? 1.f : 0.f };
-        // Rotate the march samples when temporal AA can accumulate them. A fixed screen-space
-        // pattern survives the resolve as diagonal bands around bright, small local lights.
-        const float fogJitter = InCamera.Post.TemporalAA ? static_cast<float>( InTargets.TemporalFrame % 32 ) * 0.61803398875f : 0.f;
+        // Rotate the march samples when something accumulates them: the fog's own history, or
+        // temporal AA. A fixed screen-space pattern survives a resolve as diagonal bands around
+        // bright, small local lights.
+        const float fogJitter = temporal ? static_cast<float>( InTargets.FogFrame % 32 ) * 0.61803398875f
+            : ( InCamera.Post.TemporalAA ? static_cast<float>( InTargets.TemporalFrame % 32 ) * 0.61803398875f : 0.f );
         const float fogProjection2[4] = { projection[0][0], projection[1][1], InCamera.Far, fogJitter };
         const float fogScreen[4] = { static_cast<float>( InTargets.Width ), static_cast<float>( InTargets.Height ), static_cast<float>( InTargets.FogBuffer.Width ), static_cast<float>( InTargets.FogBuffer.Height ) };
         const uint64_t pointClamp = BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
+        const uint64_t linearClamp = BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
+
+        // The history is reprojected through the opaque depth: unjittered clip space now -> last
+        // frame's. A cut (the camera jumping or turning away) drops it rather than smearing.
+        glm::mat4 reproject( 1.f );
+        if( temporal )
+        {
+            InTargets.EnsureFogHistoryTargets();
+            const glm::vec3 origin( invView[3] );
+            const glm::vec3 forward = glm::normalize( glm::vec3( invView[2] ) );
+            if( InTargets.FogHistoryValid )
+            {
+                const glm::vec3 previousOrigin = glm::make_vec3( InTargets.FogPreviousOrigin );
+                const glm::vec3 previousForward = glm::make_vec3( InTargets.FogPreviousForward );
+                if( glm::distance( origin, previousOrigin ) > 5.f || glm::dot( forward, previousForward ) < 0.9f )
+                {
+                    InTargets.FogHistoryValid = false;
+                }
+            }
+            if( InTargets.FogHistoryValid )
+            {
+                reproject = glm::make_mat4( InTargets.FogPreviousViewProjection ) * glm::inverse( glm::make_mat4( InTargets.ViewProjection ) );
+            }
+            std::copy( InTargets.ViewProjection, InTargets.ViewProjection + 16, InTargets.FogPreviousViewProjection );
+            std::copy( &origin[0], &origin[0] + 3, InTargets.FogPreviousOrigin );
+            std::copy( &forward[0], &forward[0] + 3, InTargets.FogPreviousForward );
+        }
+        // x local-light anisotropy, y history weight, z 1 = history valid, w blur radius (texels):
+        // the 5x5 blur hides a single frame's jitter; once the history has converged 3x3 keeps
+        // the beams crisper.
+        const float fogVolume2[4] = { std::clamp( settings.FogLocalAnisotropy, 0.f, 0.95f ), kFogHistoryWeight, InTargets.FogHistoryValid ? 1.f : 0.f, temporal && InTargets.FogHistoryValid ? 1.f : 2.f };
         auto setFogState = [&]() {
             InBindLighting();
             bgfx::setUniform( u_fogProjection, fogProjection );
             bgfx::setUniform( u_fogProjection2, fogProjection2 );
             bgfx::setUniform( u_fogScreen, fogScreen );
             bgfx::setUniform( u_fogInvView, &invView[0][0] );
+            bgfx::setUniform( u_fogVolume2, fogVolume2 );
+            bgfx::setUniform( u_fogReproject, &reproject[0][0] );
         };
 
         if( volumetric )
         {
             const bgfx::ViewId scatterView = InViews.Allocate( "Fog Scatter" );
+            const bgfx::ViewId resolveView = temporal ? InViews.Allocate( "Fog Resolve" ) : scatterView;
             const bgfx::ViewId blurView = InViews.Allocate( "Fog Blur" );
-            if( blurView == UINT16_MAX )
+            if( blurView == UINT16_MAX || resolveView == UINT16_MAX )
             {
+                InTargets.FogHistoryValid = false;
                 return;
             }
             SetupFullscreenView( scatterView, InTargets.FogBuffer.Buffer, InTargets.FogBuffer.Width, InTargets.FogBuffer.Height );
@@ -323,9 +372,27 @@ namespace Moonlight
             bgfx::setTexture( 0, s_input0, InTargets.DepthTexture, pointClamp );
             SubmitFullscreen( scatterView, m_fogScatterProgram );
 
+            bgfx::TextureHandle blurInput = InTargets.FogBuffer.Color;
+            if( temporal )
+            {
+                const uint32_t read = InTargets.FogHistoryIndex;
+                const uint32_t write = 1 - read;
+                FrameBuffer::Mip& target = InTargets.FogHistory[write];
+                SetupFullscreenView( resolveView, target.Buffer, target.Width, target.Height );
+                setFogState();
+                bgfx::setTexture( 0, s_input0, InTargets.FogBuffer.Color, pointClamp );
+                bgfx::setTexture( 1, s_input1, InTargets.DepthTexture, pointClamp );
+                bgfx::setTexture( 2, s_fogHistory, InTargets.FogHistoryValid ? InTargets.FogHistory[read].Color : m_blackTexture, linearClamp );
+                SubmitFullscreen( resolveView, m_fogResolveProgram );
+                InTargets.FogHistoryIndex = write;
+                InTargets.FogHistoryValid = true;
+                ++InTargets.FogFrame;
+                blurInput = target.Color;
+            }
+
             SetupFullscreenView( blurView, InTargets.FogBlurBuffer.Buffer, InTargets.FogBlurBuffer.Width, InTargets.FogBlurBuffer.Height );
             setFogState();
-            bgfx::setTexture( 0, s_input0, InTargets.FogBuffer.Color, pointClamp );
+            bgfx::setTexture( 0, s_input0, blurInput, pointClamp );
             bgfx::setTexture( 1, s_input1, InTargets.DepthTexture, pointClamp );
             SubmitFullscreen( blurView, m_fogBlurProgram );
         }

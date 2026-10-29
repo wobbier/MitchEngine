@@ -346,22 +346,33 @@ vec4 localLightGeometry(vec3 _position, float _light, vec4 _source, float _type)
 	return vec4(toLight * inversesqrt(max(dot(toLight, toLight), 1e-8)), distance * distance);
 }
 
-// Rectangles emit from the front face only, fading with the emission angle. The explicit plane
-// test also excludes points exactly on the face, where the closest-source direction is undefined.
-// Extended emitters soften the falloff by their near-field area, so surfaces and fog touching
-// the source see a bounded brightness rather than a 1/d^2 spike across the whole emitter.
+// Cone falloff shared by spot and rectangle lights: full inside the inner angle, a squared ramp to
+// zero at the outer angle (_t2 = direction.xyz cosOuter, _t3.x = cosInner). _L points at the source.
+float localLightCone(vec3 _L, vec4 _t2, vec4 _t3)
+{
+	float cd = dot(-_L, _t2.xyz);
+	float cone = clamp((cd - _t2.w) / max(_t3.x - _t2.w, 1e-4), 0.0, 1.0);
+	return cone * cone;
+}
+
+// Rectangles emit from the front face only, through a feathered cone measured from the closest
+// point on the face (so the beam is the face swept along the cone, a rounded frustum that starts at
+// the full panel size). The explicit plane test also excludes points exactly on the face, where the
+// closest-source direction is undefined. Extended emitters soften the falloff by their near-field
+// area, so surfaces and fog touching the source see a bounded brightness rather than a 1/d^2 spike
+// across the whole emitter.
 float localLightAttenuation(vec3 _position, vec4 _geometry, float _light, vec4 _source, float _type)
 {
 	float nearField = _type > 2.5 ? fetchLightTexel(_light, 3.0).z : 0.0;
 	float attenuation = distanceAttenuation(_geometry.w, _source.w, nearField);
 	if (_type > 4.5)
 	{
-		vec3 forward = fetchLightTexel(_light, 2.0).xyz;
-		if (dot(_position - _source.xyz, forward) <= 0.0)
+		vec4 t2 = fetchLightTexel(_light, 2.0);
+		if (dot(_position - _source.xyz, t2.xyz) <= 0.0)
 		{
 			return 0.0;
 		}
-		attenuation *= clamp(dot(-_geometry.xyz, forward), 0.0, 1.0);
+		attenuation *= localLightCone(_geometry.xyz, t2, fetchLightTexel(_light, 3.0));
 	}
 	return attenuation;
 }
@@ -380,11 +391,7 @@ vec3 shadeLocalLight(Surface _s, float _light)
 	float attenuation = localLightAttenuation(_s.position, geometry, _light, t0, t1.w);
 	if (t1.w > 1.5 && t1.w < 2.5)
 	{
-		vec4 t2 = fetchLightTexel(_light, 2.0);
-		vec4 t3 = fetchLightTexel(_light, 3.0);
-		float cd = dot(-L, t2.xyz);
-		float spot = clamp((cd - t2.w) / max(t3.x - t2.w, 1e-4), 0.0, 1.0);
-		attenuation *= spot * spot;
+		attenuation *= localLightCone(L, fetchLightTexel(_light, 2.0), fetchLightTexel(_light, 3.0));
 		vec4 t4 = fetchLightTexel(_light, 4.0);
 		if (t4.x > -0.5 && attenuation > 0.0)
 		{
@@ -471,9 +478,11 @@ Surface volumeSurface(vec3 _position, vec3 _L)
 	return s;
 }
 
-// Radiance reaching _position from one local light, shadows included where supported.
-vec3 volumeLocalLight(vec3 _position, float _light)
+// Radiance reaching _position from one local light, shadows included where supported; _toLight
+// is the unit direction towards the source (the closest point of an extended emitter).
+vec3 volumeLocalLightDir(vec3 _position, float _light, out vec3 _toLight)
 {
+	_toLight = vec3(0.0, 1.0, 0.0);
 	vec4 t0 = fetchLightTexel(_light, 0.0);
 	vec4 t1 = fetchLightTexel(_light, 1.0);
 	vec4 geometry = localLightGeometry(_position, _light, t0, t1.w);
@@ -483,14 +492,12 @@ vec3 volumeLocalLight(vec3 _position, float _light)
 		return vec3_splat(0.0);
 	}
 	vec3 L = geometry.xyz;
+	_toLight = L;
 	float attenuation = localLightAttenuation(_position, geometry, _light, t0, t1.w);
 	if (t1.w > 1.5 && t1.w < 2.5)
 	{
 		vec4 t4 = fetchLightTexel(_light, 4.0);
-		vec4 t2 = fetchLightTexel(_light, 2.0);
-		vec4 t3 = fetchLightTexel(_light, 3.0);
-		float spot = clamp((dot(-L, t2.xyz) - t2.w) / max(t3.x - t2.w, 1e-4), 0.0, 1.0);
-		attenuation *= spot * spot;
+		attenuation *= localLightCone(L, fetchLightTexel(_light, 2.0), fetchLightTexel(_light, 3.0));
 		if (t4.x > -0.5 && attenuation > 0.0)
 		{
 			attenuation *= spotShadow(volumeSurface(_position, L), L, sqrt(distanceSq), t4);
@@ -505,6 +512,12 @@ vec3 volumeLocalLight(vec3 _position, float _light)
 		}
 	}
 	return t1.rgb * attenuation;
+}
+
+vec3 volumeLocalLight(vec3 _position, float _light)
+{
+	vec3 toLight;
+	return volumeLocalLightDir(_position, _light, toLight);
 }
 
 // All light reaching a point in a volume: directional (the sun with its shadow), clustered local

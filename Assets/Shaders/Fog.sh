@@ -11,6 +11,7 @@ uniform vec4 u_fogProjection2;  // x P[0][0], y P[1][1], z far distance (sky), w
 uniform vec4 u_fogScreen;       // xy full-resolution size, zw half-resolution (raymarch) size
 uniform mat4 u_fogInvView;      // view -> world
 uniform vec4 u_fogForward;      // x 1 = forward-shaded surfaces drawn after the fog pass apply it themselves
+uniform vec4 u_fogVolume2;      // x local-light anisotropy, y history weight, z 1 = history valid, w blur radius (texels)
 
 // Henyey-Greenstein phase (normalised over the sphere); _cosTheta between the light's travel
 // direction and the scattered direction, _g > 0 scatters forwards.
@@ -55,6 +56,8 @@ float fogViewDepth(float _rawDepth)
 
 // The ray from the camera through _uv (top-left origin) to the surface at view depth _viewZ.
 // Returns the world-space origin; _dir, _distance and the view depth gained per metre come out.
+// The projection's temporal AA jitter is left out: at half resolution the ray lands within a
+// quarter texel of the depth it reads, which the resolves average away.
 vec3 fogRay(vec2 _uv, float _viewZ, out vec3 _dir, out float _distance, out float _viewZPerMetre, out float _originViewZ)
 {
 	vec2 ndc = vec2(_uv.x * 2.0 - 1.0, 1.0 - _uv.y * 2.0);

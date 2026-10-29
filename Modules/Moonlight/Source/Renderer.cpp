@@ -920,6 +920,10 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     camera.Post.Bloom = camera.Post.Bloom && FeatureCaps.Bloom;
     camera.Post.DepthOfField = camera.Post.DepthOfField && FeatureCaps.DepthOfField;
     camera.Post.VolumetricFog = camera.Post.VolumetricFog && FeatureCaps.VolumetricFog;
+    if( FeatureCaps.MaxVolumetricSteps > 0 )
+    {
+        camera.Post.VolumetricSteps = std::min( camera.Post.VolumetricSteps, FeatureCaps.MaxVolumetricSteps );
+    }
     camera.Post.TemporalAA = camera.Post.TemporalAA && FeatureCaps.TemporalAA;
     {
         const glm::mat4 viewProjection = camera.ProjectionMatrix.GetInternalMatrix() * camera.View.GetInternalMatrix();

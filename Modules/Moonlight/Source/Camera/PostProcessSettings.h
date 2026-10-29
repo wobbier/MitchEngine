@@ -66,7 +66,9 @@ namespace Moonlight
         // Raymarched lighting: light shafts through the sun's shadows, point and spot lights.
         bool VolumetricFog = false;
         float VolumetricDistance = 60.f;    // metres raymarched (analytic beyond)
-        int VolumetricSteps = 24;
+        int VolumetricSteps = 24;           // up to 256
+        bool VolumetricTemporal = true;     // accumulate the march over frames (own reprojected history, independent of TemporalAA)
+        float FogLocalAnisotropy = 0.f;     // Henyey-Greenstein g for point / spot / area lights in the fog (0 even)
 
         // Edge outlines over the opaque scene: depth silhouettes and crease folds, from depth alone.
         bool Outline = false;

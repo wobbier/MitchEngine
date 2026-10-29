@@ -155,6 +155,7 @@ void HardwareProfile::Deserialize( const json& InJson )
         readBool( *caps, "Bloom", Caps.Bloom );
         readBool( *caps, "DepthOfField", Caps.DepthOfField );
         readBool( *caps, "VolumetricFog", Caps.VolumetricFog );
+        readInt( *caps, "MaxVolumetricSteps", Caps.MaxVolumetricSteps );
         readBool( *caps, "TemporalAA", Caps.TemporalAA );
         readBool( *caps, "EnvironmentLighting", Caps.EnvironmentLighting );
         readBool( *caps, "Instancing", Caps.Instancing );
@@ -327,6 +328,7 @@ void HardwareBudget::ApplyCaps()
         out.Bloom = caps.Bloom;
         out.DepthOfField = caps.DepthOfField;
         out.VolumetricFog = caps.VolumetricFog;
+        out.MaxVolumetricSteps = std::max( caps.MaxVolumetricSteps, 0 );
         out.TemporalAA = caps.TemporalAA;
         out.Instancing = caps.Instancing;
     }

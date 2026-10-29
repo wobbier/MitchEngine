@@ -2,8 +2,10 @@ $input v_texcoord0
 
 // Volumetric fog at half resolution: marches each view ray through the height fog and lights every
 // step with the ambient fog colour, the sun through its cascaded shadow (Henyey-Greenstein phase)
-// and the cluster's local lights (point/spot shadows, extended bar/box sources). Fog beyond the march distance is added
-// analytically. Output: rgb in-scattered light, a transmittance.
+// and the cluster's local lights (point/spot shadows, extended bar/box/rectangle sources, their
+// own Henyey-Greenstein phase from u_fogVolume2.x). Fog beyond the march distance is added
+// analytically. Output: rgb in-scattered light, a transmittance (FogResolve accumulates it over
+// frames when the camera's fog is temporal).
 #include "../Common.sh"
 #include "PostCommon.sh"
 #include "../Lighting.sh"
@@ -30,7 +32,7 @@ void main()
 	{
 		directionalScatter[i] = u_dirLightColor[i].rgb * henyeyGreenstein(dot(dir, -u_dirLightDirection[i].xyz), u_fogVolume.y) * u_fogVolume.x;
 	}
-	float isotropic = u_fogVolume.x / (4.0 * PI);
+	float localScale = u_fogVolume.x;
 
 	float marchEnd = min(distance, u_fogVolume.z);
 	float marchStart = min(u_fogParams.w, marchEnd);
@@ -40,7 +42,7 @@ void main()
 
 	vec3 scattered = vec3_splat(0.0);
 	float transmittance = 1.0;
-	for (int i = 0; i < 64; ++i)
+	for (int i = 0; i < 256; ++i)
 	{
 		if (i >= steps)
 		{
@@ -76,7 +78,11 @@ void main()
 					{
 						break;
 					}
-					light += volumeLocalLight(p, clusterLight(range, j)) * isotropic;
+					// Phase against the direction towards the source (the same convention as the
+					// sun's -direction above); g = 0 is the even 1 / 4pi.
+					vec3 toLight;
+					vec3 radiance = volumeLocalLightDir(p, clusterLight(range, j), toLight);
+					light += radiance * henyeyGreenstein(dot(dir, toLight), u_fogVolume2.x) * localScale;
 				}
 			}
 			float stepTransmittance = exp(-sigma * stepLength);

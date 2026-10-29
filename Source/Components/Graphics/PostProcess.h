@@ -49,7 +49,6 @@ public:
     float DoFSplitPosition = 0.5f;
     float DoFSplitFeather = 0.015f;
 
-    // Fog
     // Edge outlines (toon ink): depth silhouettes and crease folds over the opaque scene.
     bool Outline = false;
     Vector3 OutlineColor = Vector3( 0.f, 0.f, 0.f );
@@ -69,6 +68,8 @@ public:
     bool VolumetricFog = false;
     float VolumetricDistance = 60.f;
     int VolumetricSteps = 24;
+    bool VolumetricTemporal = true;
+    float FogLocalAnisotropy = 0.f;
 
     // Colour grading
     float Saturation = 1.f;

@@ -165,6 +165,7 @@ public:
         bool Bloom = true;
         bool DepthOfField = true;
         bool VolumetricFog = true;
+        int MaxVolumetricSteps = 0;          // raymarch samples per pixel (0 = no cap)
         bool TemporalAA = true;
         bool Instancing = true;              // off: every instanced mesh is its own draw call
     };
