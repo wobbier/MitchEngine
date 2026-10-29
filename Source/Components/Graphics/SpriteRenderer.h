@@ -9,7 +9,7 @@
 #include "Math/Vector4.h"
 #include <string>
 
-namespace Moonlight { class Texture; }
+namespace Moonlight { class Texture; class SpriteSheet; }
 class Transform;
 
 // A 2D sprite (LOOK-S2): a textured quad in the entity's local XY plane, facing local -Z (towards a
@@ -20,6 +20,9 @@ class Transform;
 // to front. NineSlice borders (texels) keep the corners unscaled while the middle stretches to
 // Size: panels, buttons, frames. Lit sprites shade like a rough surface facing the viewer; unlit
 // ones show the texture as is. Drawn after transparent meshes, depth-tested against the scene.
+// With a Sheet (.spritesheet, LOOK-S3) and a SpriteName, the sheet's sprite supplies the region,
+// pivot and 9-slice borders (and the texture, unless Texture names another), so re-slicing the
+// sheet updates every sprite using it.
 class SpriteRenderer
     : public Component<SpriteRenderer>
 {
@@ -28,6 +31,8 @@ public:
     SpriteRenderer();
 
     Path Texture;
+    Path Sheet;
+    std::string SpriteName;
     // x, y, width, height in texels from the image's top left; zero width or height = the whole image.
     Vector4 Region = Vector4( 0.f, 0.f, 0.f, 0.f );
     Vector2 Pivot = Vector2( 0.5f, 0.5f );
@@ -61,8 +66,14 @@ public:
     void OnEditorInspect() override;
 #endif
 
+    // The region, pivot and borders in effect: the sheet's sprite when there is one.
+    void GetFrame( Vector4& OutRegion, Vector2& OutPivot, Vector4& OutBorder ) const;
+    const Moonlight::SpriteSheet* GetSheet() const { return m_sheet.get(); }
+
 private:
     SharedPtr<Moonlight::Texture> m_texture;
     std::string m_loadedTexture;
+    SharedPtr<Moonlight::SpriteSheet> m_sheet;
+    std::string m_loadedSheet;
 };
 ME_REGISTER_COMPONENT_FOLDER( SpriteRenderer, "Rendering" )

@@ -19,6 +19,8 @@ enum class AssetType : unsigned int
     Sequence,
     // A .rendertexture: a texture cameras render into. Texture pickers offer it too.
     RenderTexture,
+    // A .spritesheet: an image cut into named sprites (LOOK-S3).
+    SpriteSheet,
     Count
 };
 
@@ -57,6 +59,8 @@ namespace {
             return "Sequence";
         case AssetType::RenderTexture:
             return "RenderTexture";
+        case AssetType::SpriteSheet:
+            return "SpriteSheet";
         case AssetType::Count:
         default:
             return "";

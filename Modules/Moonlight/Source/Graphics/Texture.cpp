@@ -18,6 +18,7 @@
 #include <ImGuiTheme.h>
 #include "File.h"
 #include "Graphics/DefaultTextures.h"
+#include "Graphics/SpriteSheet.h"
 #include "Procedural/Tree/TreeTextures.h"
 
 
@@ -747,6 +748,30 @@ void TextureResourceMetadata::OnEditorInspect()
 
     HavanaUtils::Label( "Generate MIPs" );
     ImGui::Checkbox( "##GenerateMIPs", &GenerateMIPs );
+
+    // Pixel art (LOOK-S3): exact texels, no blurred mips. Sprites add Point Filter for the sampling.
+    HavanaUtils::Label( "Presets" );
+    if( ImGui::Button( "Pixel Art" ) )
+    {
+        OutputFormat = OutputTextureFormat::None;
+        GenerateMIPs = false;
+    }
+    ImGui::SetItemTooltip( "No compression and no mips, so every texel stays exact (turn on Point Filter on its sprites)" );
+    ImGui::SameLine();
+    if( ImGui::Button( "Make Sprite Sheet" ) )
+    {
+        // <image>.spritesheet next to the image, cut into its opaque islands (re-slice it in its inspector).
+        const std::string local = FilePath.GetLocalPathString();
+        const std::string sheetPath = local.substr( 0, local.find_last_of( '.' ) ) + "." + Moonlight::SpriteSheet::kExtension;
+        Moonlight::SpriteSheet sheet{ Path( sheetPath ) };
+        sheet.Texture = local;
+        sheet.Slicing.Mode = Moonlight::SpriteSliceMode::Auto;
+        sheet.Slice();
+        File file{ Path( sheetPath ) };
+        file.Write( sheet.Write() );
+        CLog::Log( CLog::LogType::Info, "Sprite sheet: " + sheetPath + " (" + std::to_string( sheet.Sprites.size() ) + " sprite(s))" );
+    }
+    ImGui::SetItemTooltip( "Create a .spritesheet beside the image, sliced into its opaque islands" );
 }
 
 #endif

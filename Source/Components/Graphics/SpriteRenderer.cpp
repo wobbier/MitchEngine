@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "SpriteRenderer.h"
 #include "Components/Transform.h"
+#include "Graphics/SpriteSheet.h"
 #include "Graphics/Texture.h"
 #include "Resource/ResourceCache.h"
 #include <algorithm>
@@ -9,7 +10,9 @@
 ME_REFLECT_ENUM( Moonlight::SpriteBlend, { { "Alpha", Moonlight::SpriteBlend::Alpha }, { "Additive", Moonlight::SpriteBlend::Additive } } )
 
 ME_REFLECT_BEGIN( SpriteRenderer )
-    ME_FIELD( Texture ).Asset( "Texture" ).Tooltip( "The image or atlas; empty draws a white quad" );
+    ME_FIELD( Texture ).Asset( "Texture" ).Tooltip( "The image or atlas; empty draws a white quad (or the sheet's image)" );
+    ME_FIELD( Sheet ).Asset( "SpriteSheet" ).Tooltip( "A .spritesheet: its sprite named below sets the region, pivot and borders" );
+    ME_FIELD( SpriteName ).Display( "Sprite" ).Tooltip( "The sheet's sprite to draw" );
     ME_FIELD( Region ).Tooltip( "Atlas rectangle in texels: x, y (from the top left), width, height. Zero width or height uses the whole image" );
     ME_FIELD( Pivot ).Speed( 0.01f ).Tooltip( "The point the transform holds: 0, 0 bottom left, 1, 1 top right" );
     ME_FIELD( PixelsPerUnit ).Range( 0.01f, 4096.f ).Tooltip( "Texels per world unit (sets the size unless Size overrides it)" );
@@ -35,13 +38,36 @@ SpriteRenderer::SpriteRenderer()
 
 bool SpriteRenderer::Resolve()
 {
-    const std::string& path = Texture.GetLocalPathString();
+    const std::string& sheet = Sheet.GetLocalPathString();
+    if( sheet != m_loadedSheet )
+    {
+        m_loadedSheet = sheet;
+        m_sheet = ( !sheet.empty() && Sheet.Exists ) ? ResourceCache::GetInstance().Get<Moonlight::SpriteSheet>( Sheet ) : nullptr;
+    }
+    // The sheet's image unless Texture names one.
+    const std::string path = !Texture.GetLocalPathString().empty() || !m_sheet ? Texture.GetLocalPathString() : m_sheet->Texture;
     if( path != m_loadedTexture )
     {
         m_loadedTexture = path;
-        m_texture = ( !path.empty() && Texture.Exists ) ? ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( Texture ) : nullptr;
+        const Path texture( path );
+        m_texture = ( !path.empty() && texture.Exists ) ? ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( texture ) : nullptr;
     }
     return !m_texture || !m_texture->IsLoading();
+}
+
+
+void SpriteRenderer::GetFrame( Vector4& OutRegion, Vector2& OutPivot, Vector4& OutBorder ) const
+{
+    OutRegion = Region;
+    OutPivot = Pivot;
+    OutBorder = NineSlice;
+    const Moonlight::SpriteFrame* frame = m_sheet && !SpriteName.empty() ? m_sheet->Find( SpriteName ) : nullptr;
+    if( frame )
+    {
+        OutRegion = Vector4( frame->Rect.x, frame->Rect.y, frame->Rect.z, frame->Rect.w );
+        OutPivot = Vector2( frame->Pivot.x, frame->Pivot.y );
+        OutBorder = Vector4( frame->Border.x, frame->Border.y, frame->Border.z, frame->Border.w );
+    }
 }
 
 
@@ -62,14 +88,18 @@ Vector2 SpriteRenderer::GetWorldSize() const
         return Size;
     }
     const Vector2 texture = GetTextureSize();
-    const bool region = Region.z > 0.f && Region.w > 0.f;
+    Vector4 frame;
+    Vector2 pivot;
+    Vector4 border;
+    GetFrame( frame, pivot, border );
+    const bool region = frame.z > 0.f && frame.w > 0.f;
     const float ppu = std::max( PixelsPerUnit, 0.01f );
     // Without a texture, a unit square.
     if( !m_texture )
     {
         return Vector2( 1.f, 1.f );
     }
-    return Vector2( ( region ? Region.z : texture.x ) / ppu, ( region ? Region.w : texture.y ) / ppu );
+    return Vector2( ( region ? frame.z : texture.x ) / ppu, ( region ? frame.w : texture.y ) / ppu );
 }
 
 
@@ -79,20 +109,24 @@ Moonlight::SpriteCommand SpriteRenderer::BuildCommand( Transform& InTransform ) 
     Moonlight::SpriteCommand command;
     command.World = InTransform.GetLocalToWorldMatrix().GetInternalMatrix();
     const Vector2 texture = GetTextureSize();
-    const bool region = Region.z > 0.f && Region.w > 0.f;
+    Vector4 frame;
+    Vector2 pivot;
+    Vector4 border;
+    GetFrame( frame, pivot, border );
+    const bool region = frame.z > 0.f && frame.w > 0.f;
     if( region && m_texture )
     {
-        command.UvRect = glm::vec4( Region.x / texture.x, Region.y / texture.y, ( Region.x + Region.z ) / texture.x, ( Region.y + Region.w ) / texture.y );
+        command.UvRect = glm::vec4( frame.x / texture.x, frame.y / texture.y, ( frame.x + frame.z ) / texture.x, ( frame.y + frame.w ) / texture.y );
     }
     command.Color = glm::vec4( toLinear( Tint.x ), toLinear( Tint.y ), toLinear( Tint.z ), std::clamp( Opacity, 0.f, 1.f ) );
     const Vector2 size = GetWorldSize();
     command.Size = glm::vec2( size.x, size.y );
-    command.Pivot = glm::vec2( Pivot.x, Pivot.y );
-    if( m_texture && ( NineSlice.x > 0.f || NineSlice.y > 0.f || NineSlice.z > 0.f || NineSlice.w > 0.f ) )
+    command.Pivot = glm::vec2( pivot.x, pivot.y );
+    if( m_texture && ( border.x > 0.f || border.y > 0.f || border.z > 0.f || border.w > 0.f ) )
     {
         const float ppu = std::max( PixelsPerUnit, 0.01f );
-        command.Border = glm::vec4( NineSlice.x, NineSlice.y, NineSlice.z, NineSlice.w ) / ppu;
-        command.BorderUv = glm::vec4( NineSlice.x / texture.x, NineSlice.y / texture.y, NineSlice.z / texture.x, NineSlice.w / texture.y );
+        command.Border = glm::vec4( border.x, border.y, border.z, border.w ) / ppu;
+        command.BorderUv = glm::vec4( border.x / texture.x, border.y / texture.y, border.z / texture.x, border.w / texture.y );
     }
     command.FlipX = FlipX;
     command.FlipY = FlipY;

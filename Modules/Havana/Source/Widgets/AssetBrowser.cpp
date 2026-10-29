@@ -20,6 +20,7 @@
 #include "Resource/AssetDatabase.h"
 #include "Utils/GUID.h"
 #include "Graphics/Texture.h"
+#include "Graphics/SpriteSheet.h"
 #include "Graphics/ShaderFile.h"
 #include "File.h"
 #include "Components/Transform.h"
@@ -236,6 +237,7 @@ namespace
         case AssetType::Terrain: return ".terrain";
         case AssetType::Sequence: return ".sequence";
         case AssetType::RenderTexture: return ".rendertexture";
+        case AssetType::SpriteSheet: return ".spritesheet";
         default: return {};
         }
     }
@@ -331,6 +333,8 @@ AssetType AssetBrowserWidget::GetAssetType( const std::string& InPath )
         return AssetType::Terrain;
     if( EndsWith( path, ".rendertexture" ) )
         return AssetType::RenderTexture;
+    if( EndsWith( path, ".spritesheet" ) )
+        return AssetType::SpriteSheet;
     if( EndsWith( path, ".vert" ) || EndsWith( path, ".frag" ) || EndsWith( path, ".sh" ) || EndsWith( path, ".sc" ) )
         return AssetType::Shader;
     if( EndsWith( path, ".cpp" ) || EndsWith( path, ".h" ) )
@@ -601,7 +605,8 @@ SharedPtr<Moonlight::Texture> AssetBrowserWidget::GetIcon( const Entry& InEntry 
     {
     case AssetType::Level: return Icons["World"];
     case AssetType::Texture:
-    case AssetType::RenderTexture: return Icons["Image"];
+    case AssetType::RenderTexture:
+    case AssetType::SpriteSheet: return Icons["Image"];
     case AssetType::Model: return Icons["Model"];
     case AssetType::Shader:
     case AssetType::ShaderGraph:
@@ -1736,6 +1741,11 @@ void AssetBrowserWidget::DrawCreateMenuItems()
     {
         // A camera renders into it (Camera > Target Texture); materials use it like any texture.
         CreateAsset( "New Render Texture", ".rendertexture", Moonlight::RenderTextureSettings().Write() );
+    }
+    if( ImGui::MenuItem( "Sprite Sheet" ) )
+    {
+        // Cut an image into named sprites (its inspector slices it); SpriteRenderer > Sheet uses it.
+        CreateAsset( "New Sprite Sheet", ".spritesheet", Moonlight::SpriteSheet( Path( "" ) ).Write() );
     }
     if( ImGui::BeginMenu( "Shader Graph" ) )
     {
