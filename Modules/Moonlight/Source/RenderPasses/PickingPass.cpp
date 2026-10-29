@@ -6,6 +6,9 @@
 #include "optick.h"
 #include "RenderCommands.h"
 #include "Graphics/MeshData.h"
+#include <algorithm>
+#include <cstring>
+#include <vector>
 
 using namespace Moonlight;
 
@@ -220,6 +223,54 @@ void PickingPass::Render( ::BGFXRenderer* inRenderer, CameraData* inCamData, Fra
                 // Submit primitive for rendering to view 0.
                 bgfx::submit( RENDER_PASS_ID, program );
             }
+        }
+        // Sprites pick by their whole quad (not their texels), top-most first so it wins a tie.
+        std::vector<const Moonlight::SpriteCommand*> sprites;
+        for( const Moonlight::SpriteCommand& sprite : inRenderer->GetSprites() )
+        {
+            if( inCamData->RenderGroup == 0 && sprite.ID != 0 && ( !inCamData->ShouldCull || inCamData->ViewFrustum.Intersects( sprite.Bounds ) ) )
+            {
+                sprites.push_back( &sprite );
+            }
+        }
+        std::sort( sprites.begin(), sprites.end(), []( const Moonlight::SpriteCommand* a, const Moonlight::SpriteCommand* b ) {
+            if( a->Layer != b->Layer ) return a->Layer > b->Layer;
+            if( a->Order != b->Order ) return a->Order > b->Order;
+            return a->Sequence > b->Sequence;
+        } );
+        const bgfx::VertexLayout& spriteLayout = Moonlight::GetSpriteVertexLayout();
+        for( const Moonlight::SpriteCommand* sprite : sprites )
+        {
+            if( bgfx::getAvailTransientVertexBuffer( 36, spriteLayout ) < 36 || bgfx::getAvailTransientIndexBuffer( 54 ) < 54 )
+            {
+                break;
+            }
+            bgfx::TransientVertexBuffer tvb;
+            bgfx::TransientIndexBuffer tib;
+            bgfx::allocTransientVertexBuffer( &tvb, 36, spriteLayout );
+            bgfx::allocTransientIndexBuffer( &tib, 54 );
+            const uint32_t vertices = Moonlight::BuildSpriteVertices( *sprite, reinterpret_cast<Moonlight::SpriteVertex*>( tvb.data ) );
+            uint16_t* indices = reinterpret_cast<uint16_t*>( tib.data );
+            for( uint32_t quad = 0; quad < vertices; quad += 4 )
+            {
+                const uint16_t first = static_cast<uint16_t>( quad );
+                const uint16_t quadIndices[6] = { first, static_cast<uint16_t>( first + 1 ), static_cast<uint16_t>( first + 2 ), first, static_cast<uint16_t>( first + 2 ), static_cast<uint16_t>( first + 3 ) };
+                std::memcpy( indices + quad / 4 * 6, quadIndices, sizeof( quadIndices ) );
+            }
+            const uint32_t id = static_cast<uint32_t>( sprite->ID );
+            const uint32_t rr = id & 0xFF;
+            const uint32_t gg = ( id >> 8 ) & 0xFF;
+            const uint32_t bb = ( id >> 16 ) & 0xFF;
+            const Vector4 colorVec( rr / 255.f, gg / 255.f, bb / 255.f, 1.f );
+            m_idsToEnt[rr + ( gg << 8 ) + ( bb << 16 ) + ( 255u << 24 )] = sprite->ID;
+            float identity[16];
+            bx::mtxIdentity( identity );
+            bgfx::setTransform( identity );
+            bgfx::setVertexBuffer( 0, &tvb, 0, vertices );
+            bgfx::setIndexBuffer( &tib, 0, vertices / 4 * 6 );
+            bgfx::setState( state & ~BGFX_STATE_CULL_MASK );
+            bgfx::setUniform( u_id, &colorVec.x );
+            bgfx::submit( RENDER_PASS_ID, m_idProgram.GetProgram() );
         }
     }
     // If the user previously clicked, and we're done reading data from GPU, look at ID buffer on CPU

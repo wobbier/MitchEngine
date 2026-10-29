@@ -5,6 +5,7 @@
 #include "ECS/EntityID.h"
 #include "Math/Vector2.h"
 #include "Math/Vector3.h"
+#include "Math/Vector4.h"
 
 // A physics query result as scripts see it (matches ScriptCore's RaycastHit).
 struct ScriptRaycastHit
@@ -338,4 +339,16 @@ struct ScriptEngineAPI
     void ( *Camera_WorldToScreen )( EntityID camera, const Vector3* world, Vector3* outScreen );
     void ( *Camera_GetOutputSize )( EntityID camera, Vector2* outSize );
     void ( *Input_GetMousePosition )( Vector2* outPosition );
+
+    // Sprites (LOOK-S2 / ME-276): the entity's SpriteRenderer; colours are sRGB tint + opacity
+    void ( *Sprite_SetSprite )( EntityID id, const uint8_t* sheet, const uint8_t* sprite );
+    int ( *Sprite_GetSprite )( EntityID id, uint8_t* outSprite, int size );
+    void ( *Sprite_SetTexture )( EntityID id, const uint8_t* texture );
+    void ( *Sprite_SetFlip )( EntityID id, bool flipX, bool flipY );
+    int ( *Sprite_GetFlip )( EntityID id );
+    void ( *Sprite_SetColor )( EntityID id, Vector4* color );
+    void ( *Sprite_GetColor )( EntityID id, Vector4* outColor );
+    void ( *Sprite_SetSorting )( EntityID id, int layer, int order );
+    int ( *Sprite_GetSortingLayer )( EntityID id );
+    int ( *Sprite_GetOrderInLayer )( EntityID id );
 };

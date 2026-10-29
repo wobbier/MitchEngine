@@ -327,4 +327,16 @@ public unsafe struct EngineAPIBindings
     public delegate* unmanaged<Entity, Vector3*, Vector3*, void> Camera_WorldToScreen;
     public delegate* unmanaged<Entity, Vector2*, void> Camera_GetOutputSize;
     public delegate* unmanaged<Vector2*, void> Input_GetMousePosition;
+
+    // Sprites (LOOK-S2 / ME-276): the entity's SpriteRenderer; colours are sRGB tint + opacity
+    public delegate* unmanaged<Entity, byte*, byte*, void> Sprite_SetSprite;
+    public delegate* unmanaged<Entity, byte*, int, int> Sprite_GetSprite;
+    public delegate* unmanaged<Entity, byte*, void> Sprite_SetTexture;
+    public delegate* unmanaged<Entity, byte, byte, void> Sprite_SetFlip;
+    public delegate* unmanaged<Entity, int> Sprite_GetFlip;
+    public delegate* unmanaged<Entity, Vector4*, void> Sprite_SetColor;
+    public delegate* unmanaged<Entity, Vector4*, void> Sprite_GetColor;
+    public delegate* unmanaged<Entity, int, int, void> Sprite_SetSorting;
+    public delegate* unmanaged<Entity, int> Sprite_GetSortingLayer;
+    public delegate* unmanaged<Entity, int> Sprite_GetOrderInLayer;
 }

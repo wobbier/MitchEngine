@@ -9,6 +9,7 @@
 #include <bgfx/bgfx.h>
 #include <glm/glm.hpp>
 #include "Components/Effects/ParticleSystem.h"
+#include "Components/Graphics/SpriteRenderer.h"
 #include "Components/Transform.h"
 #include "Components/Physics/Rigidbody2D.h"
 #include "Cores/Physics2DCore.h"
@@ -536,6 +537,104 @@ static void Eng_Input_GetMousePosition( Vector2* outPosition )
 }
 
 
+static void Eng_Sprite_SetSprite( EntityID inId, const uint8_t* inSheet, const uint8_t* inSprite )
+{
+    if( SpriteRenderer* sprite = ComponentOf<SpriteRenderer>( inId ) )
+    {
+        const std::string sheet = Text( inSheet );
+        if( !sheet.empty() && sprite->Sheet.GetLocalPathString() != sheet )
+        {
+            sprite->Sheet = Path( sheet );
+        }
+        sprite->SpriteName = Text( inSprite );
+    }
+}
+
+
+static int Eng_Sprite_GetSprite( EntityID inId, uint8_t* outSprite, int inSize )
+{
+    SpriteRenderer* sprite = ComponentOf<SpriteRenderer>( inId );
+    const std::string name = sprite ? sprite->SpriteName : std::string();
+    if( outSprite && inSize > 0 )
+    {
+        const int length = std::min( static_cast<int>( name.size() ), inSize - 1 );
+        std::memcpy( outSprite, name.data(), static_cast<size_t>( length ) );
+        outSprite[length] = 0;
+    }
+    return static_cast<int>( name.size() );
+}
+
+
+static void Eng_Sprite_SetTexture( EntityID inId, const uint8_t* inTexture )
+{
+    if( SpriteRenderer* sprite = ComponentOf<SpriteRenderer>( inId ) )
+    {
+        sprite->Texture = Path( Text( inTexture ) );
+    }
+}
+
+
+static void Eng_Sprite_SetFlip( EntityID inId, bool inFlipX, bool inFlipY )
+{
+    if( SpriteRenderer* sprite = ComponentOf<SpriteRenderer>( inId ) )
+    {
+        sprite->FlipX = inFlipX;
+        sprite->FlipY = inFlipY;
+    }
+}
+
+
+static int Eng_Sprite_GetFlip( EntityID inId )
+{
+    SpriteRenderer* sprite = ComponentOf<SpriteRenderer>( inId );
+    return sprite ? ( sprite->FlipX ? 1 : 0 ) | ( sprite->FlipY ? 2 : 0 ) : 0;
+}
+
+
+static void Eng_Sprite_SetColor( EntityID inId, Vector4* inColor )
+{
+    if( SpriteRenderer* sprite = ComponentOf<SpriteRenderer>( inId ); sprite && inColor )
+    {
+        sprite->Tint = Vector3( inColor->x, inColor->y, inColor->z );
+        sprite->Opacity = inColor->w;
+    }
+}
+
+
+static void Eng_Sprite_GetColor( EntityID inId, Vector4* outColor )
+{
+    SpriteRenderer* sprite = ComponentOf<SpriteRenderer>( inId );
+    if( outColor )
+    {
+        *outColor = sprite ? Vector4( sprite->Tint.x, sprite->Tint.y, sprite->Tint.z, sprite->Opacity ) : Vector4( 1.f, 1.f, 1.f, 1.f );
+    }
+}
+
+
+static void Eng_Sprite_SetSorting( EntityID inId, int inLayer, int inOrder )
+{
+    if( SpriteRenderer* sprite = ComponentOf<SpriteRenderer>( inId ) )
+    {
+        sprite->SortingLayer = inLayer;
+        sprite->OrderInLayer = inOrder;
+    }
+}
+
+
+static int Eng_Sprite_GetSortingLayer( EntityID inId )
+{
+    SpriteRenderer* sprite = ComponentOf<SpriteRenderer>( inId );
+    return sprite ? sprite->SortingLayer : 0;
+}
+
+
+static int Eng_Sprite_GetOrderInLayer( EntityID inId )
+{
+    SpriteRenderer* sprite = ComponentOf<SpriteRenderer>( inId );
+    return sprite ? sprite->OrderInLayer : 0;
+}
+
+
 void Register_QueryBindings( ScriptEngineAPI& inAPI )
 {
     inAPI.Camera_ScreenToRay = Eng_Camera_ScreenToRay;
@@ -571,6 +670,16 @@ void Register_QueryBindings( ScriptEngineAPI& inAPI )
     inAPI.Particles_Stop = Eng_Particles_Stop;
     inAPI.Particles_Burst = Eng_Particles_Burst;
     inAPI.Particles_GetCount = Eng_Particles_GetCount;
+    inAPI.Sprite_SetSprite = Eng_Sprite_SetSprite;
+    inAPI.Sprite_GetSprite = Eng_Sprite_GetSprite;
+    inAPI.Sprite_SetTexture = Eng_Sprite_SetTexture;
+    inAPI.Sprite_SetFlip = Eng_Sprite_SetFlip;
+    inAPI.Sprite_GetFlip = Eng_Sprite_GetFlip;
+    inAPI.Sprite_SetColor = Eng_Sprite_SetColor;
+    inAPI.Sprite_GetColor = Eng_Sprite_GetColor;
+    inAPI.Sprite_SetSorting = Eng_Sprite_SetSorting;
+    inAPI.Sprite_GetSortingLayer = Eng_Sprite_GetSortingLayer;
+    inAPI.Sprite_GetOrderInLayer = Eng_Sprite_GetOrderInLayer;
     inAPI.World_FindAllWithComponent = Eng_World_FindAllWithComponent;
     inAPI.World_FindAllByName = Eng_World_FindAllByName;
     inAPI.Transform_GetChildren = Eng_Transform_GetChildren;

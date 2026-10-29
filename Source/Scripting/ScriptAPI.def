@@ -7,7 +7,7 @@
 # wrap it in ScriptCore. Order is the ABI: append rather than reorder.
 #
 # Types: void bool int float cstr (UTF-8 string) Entity, pointers to Entity / Vector2 / Vector3 /
-# float / int / bool / byte / RaycastHit, and const Vector3* for inputs passed by pointer.
+# Vector4 / float / int / bool / byte / RaycastHit, and const Vector3* for inputs passed by pointer.
 
 ## Core
 void Log( cstr message )
@@ -322,3 +322,15 @@ void Camera_ScreenToRay( Entity camera, Vector2* screen, Vector3* outOrigin, Vec
 void Camera_WorldToScreen( Entity camera, const Vector3* world, Vector3* outScreen )
 void Camera_GetOutputSize( Entity camera, Vector2* outSize )
 void Input_GetMousePosition( Vector2* outPosition )
+
+## Sprites (LOOK-S2 / ME-276): the entity's SpriteRenderer; colours are sRGB tint + opacity
+void Sprite_SetSprite( Entity id, cstr sheet, cstr sprite )
+int Sprite_GetSprite( Entity id, byte* outSprite, int size )
+void Sprite_SetTexture( Entity id, cstr texture )
+void Sprite_SetFlip( Entity id, bool flipX, bool flipY )
+int Sprite_GetFlip( Entity id )
+void Sprite_SetColor( Entity id, Vector4* color )
+void Sprite_GetColor( Entity id, Vector4* outColor )
+void Sprite_SetSorting( Entity id, int layer, int order )
+int Sprite_GetSortingLayer( Entity id )
+int Sprite_GetOrderInLayer( Entity id )

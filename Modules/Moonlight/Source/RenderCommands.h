@@ -241,6 +241,7 @@ namespace Moonlight
         int32_t Layer = 0;
         int32_t Order = 0;
         uint32_t Sequence = 0;     // gathering order: the last tie-break
+        uint64_t ID = 0u;          // the entity (editor picking)
         bgfx::TextureHandle Texture = BGFX_INVALID_HANDLE;     // invalid: white
         AABB Bounds;
     };
@@ -255,6 +256,8 @@ namespace Moonlight
         float Color[4];
     };
     uint32_t BuildSpriteVertices( const SpriteCommand& InSprite, SpriteVertex* OutVertices );
+    // The layout SpriteVertex matches (position, normal, uv, colour).
+    const bgfx::VertexLayout& GetSpriteVertexLayout();
 
     enum class ParticleAlignment : uint8_t
     {

@@ -598,6 +598,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
             {
                 Moonlight::SpriteCommand command = sprite.BuildCommand( transform );
                 command.Sequence = static_cast<uint32_t>( sprites.size() );
+                command.ID = entity.GetId().Value();
                 sprites.push_back( command );
             }
         } );

@@ -35,6 +35,12 @@ namespace
 }
 
 
+const bgfx::VertexLayout& Moonlight::GetSpriteVertexLayout()
+{
+    return SpriteLayout();
+}
+
+
 uint32_t Moonlight::BuildSpriteVertices( const SpriteCommand& InSprite, SpriteVertex* OutVertices )
 {
     float left = InSprite.Border.x;
