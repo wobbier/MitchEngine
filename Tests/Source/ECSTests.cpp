@@ -313,6 +313,48 @@ TEST_CASE( "ECS: GUIDs are unique and resolve entity references" )
 }
 
 
+TEST_CASE( "ECS: adding a component to an inactive entity leaves it inactive (ME-60)" )
+{
+    ProtectedCore protectedCore;    // outlives the world
+    auto world = MakeWorld();
+    world->AddCore( protectedCore );
+    EntityHandle entity = world->CreateEntity();
+    entity->AddComponent<Health>( 1 );
+    entity->SetActive( false );
+    world->Simulate();
+
+    entity->AddComponent<Shield>();
+    world->Simulate();
+    // By name, the way the editor's Add Component does it.
+    REQUIRE( entity->AddComponentByName( "Transform" ) != nullptr );
+    world->Simulate();
+    CHECK_FALSE( entity->IsActiveSelf() );
+    CHECK_FALSE( entity->IsActiveInHierarchy() );
+    CHECK( protectedCore.GetEntities().empty() );
+    int visited = 0;
+    world->Each<Health, Shield>( [&]( Entity&, Health&, Shield& ) { ++visited; } );
+    CHECK( visited == 0 );
+
+    // Under an inactive parent, too.
+    EntityHandle parent = world->CreateEntity();
+    parent->AddComponent<Transform>();
+    parent->SetActive( false );
+    EntityHandle child = world->CreateEntity();
+    child->AddComponent<Transform>().SetParent( parent->GetComponent<Transform>() );
+    world->Simulate();
+    child->AddComponent<Frozen>();
+    world->Simulate();
+    CHECK( child->IsActiveSelf() );
+    CHECK_FALSE( child->IsActiveInHierarchy() );
+    CHECK( protectedCore.GetEntities().empty() );
+
+    // Activated, both join the core.
+    entity->SetActive( true );
+    parent->SetActive( true );
+    world->Simulate();
+    CHECK( protectedCore.GetEntities().size() == 2 );
+}
+
 TEST_CASE( "ECS: World::Each visits matching active entities" )
 {
     auto world = MakeWorld();
