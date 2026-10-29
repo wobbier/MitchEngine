@@ -13,6 +13,8 @@
 #include "Utils/BGFXUtils.h"
 #include <Utils/PlatformUtils.h>
 #include <bimg/decode.h>
+#include <bimg/encode.h>
+#include <bx/file.h>
 #include <bx/allocator.h>
 #include <Utils/HavanaUtils.h>
 #include <ImGuiTheme.h>
@@ -570,6 +572,57 @@ TextureResourceMetadata::OutputTextureFormat TextureResourceMetadata::OutputForm
 
 namespace
 {
+    // PNG colour type 4, grey + alpha. bimg decodes it as RG (grey in red, alpha in green), so
+    // texturec would export it red-green and opaque (ME-39): Export expands it to RGBA first.
+    bool IsGreyAlphaPng( const std::vector<uint8_t>& InData )
+    {
+        static const uint8_t kSignature[8] = { 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A };
+        return InData.size() > 25 && std::memcmp( InData.data(), kSignature, 8 ) == 0 && std::memcmp( InData.data() + 12, "IHDR", 4 ) == 0 && InData[25] == 4;
+    }
+
+
+    // A grey + alpha PNG as RGBA8: the grey in each colour channel.
+    [[maybe_unused]] bool ExpandGreyAlpha( const std::vector<uint8_t>& InData, std::vector<uint8_t>& OutRgba, uint32_t& OutWidth, uint32_t& OutHeight )
+    {
+        bx::DefaultAllocator allocator;
+        bimg::ImageContainer* image = bimg::imageParse( &allocator, InData.data(), static_cast<uint32_t>( InData.size() ) );
+        if( !image )
+        {
+            return false;
+        }
+        OutWidth = image->m_width;
+        OutHeight = image->m_height;
+        const uint64_t pixels = uint64_t( image->m_width ) * image->m_height;
+        OutRgba.resize( pixels * 4 );
+        bool expanded = true;
+        for( uint64_t i = 0; i < pixels && expanded; ++i )
+        {
+            uint8_t grey = 0;
+            uint8_t alpha = 255;
+            if( image->m_format == bimg::TextureFormat::RG8 )
+            {
+                grey = static_cast<const uint8_t*>( image->m_data )[i * 2];
+                alpha = static_cast<const uint8_t*>( image->m_data )[i * 2 + 1];
+            }
+            else if( image->m_format == bimg::TextureFormat::RG16 )
+            {
+                grey = static_cast<uint8_t>( static_cast<const uint16_t*>( image->m_data )[i * 2] >> 8 );
+                alpha = static_cast<uint8_t>( static_cast<const uint16_t*>( image->m_data )[i * 2 + 1] >> 8 );
+            }
+            else
+            {
+                expanded = false;
+            }
+            OutRgba[i * 4 + 0] = grey;
+            OutRgba[i * 4 + 1] = grey;
+            OutRgba[i * 4 + 2] = grey;
+            OutRgba[i * 4 + 3] = alpha;
+        }
+        bimg::imageFree( image );
+        return expanded;
+    }
+
+
     // True if any pixel of the image isn't fully opaque. Images that can't be read count as
     // transparent, so they get a format that keeps alpha.
     bool ImageHasTransparency( const std::string& InPath )
@@ -586,14 +639,28 @@ namespace
             return true;
         }
         const uint64_t pixels = uint64_t( image->m_width ) * image->m_height;
+        const bool greyAlpha = IsGreyAlphaPng( data );
         bool transparent = true;
         switch( image->m_format )
         {
-        case bimg::TextureFormat::R8:
         case bimg::TextureFormat::RG8:
+            // Grey + alpha PNGs come back as RG: green is the alpha.
+            transparent = false;
+            for( uint64_t i = 0; greyAlpha && i < pixels && !transparent; ++i )
+            {
+                transparent = static_cast<const uint8_t*>( image->m_data )[i * 2 + 1] != 255;
+            }
+            break;
+        case bimg::TextureFormat::RG16:
+            transparent = false;
+            for( uint64_t i = 0; greyAlpha && i < pixels && !transparent; ++i )
+            {
+                transparent = static_cast<const uint16_t*>( image->m_data )[i * 2 + 1] != 0xFFFF;
+            }
+            break;
+        case bimg::TextureFormat::R8:
         case bimg::TextureFormat::RGB8:
         case bimg::TextureFormat::R16:
-        case bimg::TextureFormat::RG16:
             transparent = false;
             break;
         case bimg::TextureFormat::RGBA8:
@@ -823,6 +890,32 @@ void TextureResourceMetadata::Export()
             command = texturec -f $in -o $out --max 512 -t rgba16f --equirect
     */
 
+    // texturec reads grey + alpha PNGs as red-green (ME-39): hand it an RGBA copy instead.
+    std::string source = FilePath.FullPath;
+    std::filesystem::path expandedSource;
+    {
+        std::vector<uint8_t> data;
+        uint32_t width = 0;
+        uint32_t height = 0;
+        std::vector<uint8_t> rgba;
+        if( VFS::Get().ReadBytes( Path( FilePath.FullPath, true ), data ) && IsGreyAlphaPng( data ) && ExpandGreyAlpha( data, rgba, width, height ) )
+        {
+            std::error_code error;
+            expandedSource = std::filesystem::temp_directory_path( error ) / ( "MitchEngine_" + std::to_string( std::hash<std::string>()( FilePath.FullPath ) ) + "_rgba.png" );
+            bx::FileWriter writer;
+            bx::Error writeError;
+            if( !error && bx::open( &writer, expandedSource.string().c_str(), false, &writeError ) )
+            {
+                bimg::imageWritePng( &writer, width, height, width * 4, rgba.data(), bimg::TextureFormat::RGBA8, false, &writeError );
+                bx::close( &writer );
+                if( writeError.isOk() )
+                {
+                    source = expandedSource.string();
+                }
+            }
+        }
+    }
+
 #if USING( ME_PLATFORM_WIN64 )
     Path texturecPath = Path( "Engine/Tools/Win64/texturec.exe" );
     if( !texturecPath.Exists )
@@ -831,7 +924,7 @@ void TextureResourceMetadata::Export()
     }
 
     std::string progArgs = "-f \"";
-    progArgs += FilePath.FullPath;
+    progArgs += source;
     progArgs += "\" -o \"" + FilePath.FullPath + ".dds\"" + exportType;
     // ./shaderc -f ../../../Assets/Shaders/vs_cubes.shader -o ../../../Assets/Shaders/dummy.bin --varyingdef ./varying.def.sc --platform windows -p vs_5_0 --type vertex
     CLog::GetInstance().Log( CLog::LogType::Info, progArgs );
@@ -841,7 +934,7 @@ void TextureResourceMetadata::Export()
     Path texturecPath = Path( "Engine/Tools/macOS/texturec" );
 
     std::string progArgs = "-f \"";
-    progArgs += FilePath.FullPath;
+    progArgs += source;
     progArgs += "\" -o \"" + FilePath.FullPath + ".dds\"" + exportType;
     CLog::GetInstance().Log( CLog::LogType::Info, progArgs );
     PlatformUtils::SystemCall( texturecPath, progArgs );
@@ -855,7 +948,7 @@ void TextureResourceMetadata::Export()
         return;
     }
     const std::string command = ShellQuote( launcher.string() )
-        + " -f " + ShellQuote( FilePath.FullPath )
+        + " -f " + ShellQuote( source )
         + " -o " + ShellQuote( FilePath.FullPath + ".dds" ) + exportType;
     std::string output;
     if( PlatformUtils::RunCommand( command, output ) != 0 )
@@ -864,6 +957,11 @@ void TextureResourceMetadata::Export()
     }
 
 #endif
+    if( !expandedSource.empty() )
+    {
+        std::error_code error;
+        std::filesystem::remove( expandedSource, error );
+    }
 }
 
 #endif
