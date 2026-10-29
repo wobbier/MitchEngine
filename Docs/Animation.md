@@ -123,6 +123,20 @@ control curves and no exported skin clusters/weights.
 
 `Animator::Stop()` freezes the pose. Setting `Speed` to 0 does the same but keeps transitions and events live.
 
+### Sprite flipbooks
+
+Flipbooks (LOOK-S4) are clips too, so 2D characters get the same state machine as skinned ones:
+- **The asset.** A `.spriteanim` (`Graphics/SpriteSheet.h`, `SpriteAnimation`) is JSON naming a `Sheet` (`.spritesheet`), `FramesPerSecond`, `Loop` and its `Frames` (sprite names). It is edited in the asset browser through reflection.
+- **The clip.** `Animator::SpriteClips` lists `.spriteanim` paths. `Bind` turns each into an `AnimationClip` named after its file, with one `SpriteKey` per frame (`AnimationClip::Sprites`, `SampleSprite`) and `Duration` = frames / fps. The clips join the model's clips, or are the only clips: an Animator with sprite clips binds without a Model. Without `States`, each clip's state takes the file's `Loop`. `UseClips` clips with sprite keys work the same way.
+- **Each frame.** After the state machine steps, `AnimationCore::ApplySprite` reads the base layer's current state and writes that clip's key into the entity's `SpriteRenderer` (`Sheet`, `SpriteName`), only when it changed. Looping states wrap by the clip's duration.
+  - Frames can't blend. A cross-fade switches at its midpoint, and a 1D or 2D blend state shows the clip nearest the parameters (8-way facing from a 2D blend works).
+  - Transitions, exit times, events, `Speed` and C#'s `Animator` API all work unchanged. Stop restores the authored sprite with the scene.
+- **Limits.**
+  - Exit-time transitions fire on the update after the state reaches its exit time, so a looping state shows its first frame for one update before switching. Use a non-looping state, or an exit time a little under 1, to avoid it.
+  - Edit-mode previews don't flip sprites yet.
+  - Sprite clips are read when the Animator binds; re-enter Play after editing one.
+- **Proof:** AnimationTests' flipbook case (frames at exact times through an exit-time transition, then looping), SpriteSheetTests (parsing, `ToClip`, `SampleSprite`), and `SpriteAnimFlows.edscript` on `../Assets/Scenes/Tests/SpriteAnimTest.lvl` (the generated Hero: Idle then Walk, frames in order, two captured walk frames, the authored frame back after Stop).
+
 ### Inverse kinematics
 
 The constraints are components (`Source/Components/Animation/IKConstraints.h`, math in `Source/Animation/IKSolver.cpp`), usually placed on the character. They point at bones by entity reference. A Model's node entities keep their GUIDs in a saved scene (`Model::Expand` reuses children by name), so the references survive reloads.

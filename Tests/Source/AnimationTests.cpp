@@ -7,6 +7,8 @@
 #include "Engine/World.h"
 #include "Events/EventReceiver.h"
 #include "Scene/AnimationClip.h"
+#include "Components/Graphics/SpriteRenderer.h"
+#include "Graphics/SpriteSheet.h"
 #include "Graphics/VertexAnimation.h"
 #include <cmath>
 #include <memory>
@@ -687,4 +689,47 @@ TEST_CASE( "IK: look-at aims a bone, limited by MaxAngle and shared along the ch
     toTarget = ( rig.WorldPosition( rig.Target ) - head.GetWorldPosition() ).Normalized();
     CHECK( glm::dot( aim.InternalVector, toTarget.InternalVector ) == doctest::Approx( 1.f ).epsilon( 0.001 ) );
     CHECK( std::abs( rig.Thigh->GetComponent<Transform>().GetWorldRotation().InternalQuat.w ) < 0.999f );
+}
+
+
+TEST_CASE( "Animation: flipbook clips drive the SpriteRenderer through states and exit-time transitions" )
+{
+    Moonlight::SpriteAnimation idle;
+    idle.Sheet = "Assets/Hero.spritesheet";
+    idle.FramesPerSecond = 2.f;
+    idle.Frames = { "Idle_0", "Idle_1" };
+    Moonlight::SpriteAnimation walk = idle;
+    walk.FramesPerSecond = 8.f;
+    walk.Frames = { "Walk_0", "Walk_1", "Walk_2", "Walk_3" };
+    Rig rig( { idle.ToClip( "Idle" ), walk.ToClip( "Walk" ) } );
+    SpriteRenderer& sprite = rig.Root->AddComponent<SpriteRenderer>();
+    Animator& animator = rig.Anim();
+    animator.DefaultState = "Idle";
+    AnimatorState idleState;
+    idleState.Name = idleState.Clip = "Idle";
+    AnimatorState walkState;
+    walkState.Name = walkState.Clip = "Walk";
+    animator.States = { idleState, walkState };
+    AnimatorTransition toWalk;
+    toWalk.From = "Idle";
+    toWalk.To = "Walk";
+    toWalk.ExitTime = 1.f;
+    toWalk.Duration = 0.f;
+    animator.Transitions = { toWalk };
+    rig.Start();
+
+    rig.Run( 0.25f );
+    CHECK( sprite.SpriteName == "Idle_0" );
+    CHECK( sprite.Sheet.GetLocalPathString().find( "Hero.spritesheet" ) != std::string::npos );
+    rig.Run( 0.5f );    // 0.75 s
+    CHECK( sprite.SpriteName == "Idle_1" );
+    rig.Run( 0.35f );   // 1.10 s: Walk began at ~1.0 s
+    CHECK( animator.GetCurrentState() == "Walk" );
+    CHECK( sprite.SpriteName == "Walk_0" );
+    rig.Run( 0.125f );  // + one walk frame
+    CHECK( sprite.SpriteName == "Walk_1" );
+    rig.Run( 0.25f );
+    CHECK( sprite.SpriteName == "Walk_3" );
+    rig.Run( 0.125f );  // looped
+    CHECK( sprite.SpriteName == "Walk_0" );
 }

@@ -58,6 +58,21 @@ namespace Moonlight
     }
 
 
+    const SpriteKey* AnimationClip::SampleSprite( float InTime ) const
+    {
+        const SpriteKey* found = Sprites.empty() ? nullptr : &Sprites.front();
+        for( const SpriteKey& key : Sprites )
+        {
+            if( key.Time > InTime )
+            {
+                break;
+            }
+            found = &key;
+        }
+        return found;
+    }
+
+
     int AnimationClip::FindChannel( const std::string& InNodeName ) const
     {
         for( size_t i = 0; i < Channels.size(); ++i )

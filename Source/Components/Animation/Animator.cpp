@@ -83,6 +83,7 @@ ME_REFLECT_END()
 
 ME_REFLECT_BEGIN( Animator )
     ME_FIELD( ClipSource ).Tooltip( "Optional model file whose animations to play (shared rigs); default: this entity's Model" );
+    ME_FIELD( SpriteClips ).Tooltip( "Flipbook clips (.spriteanim files), each named after its file: they drive this entity's SpriteRenderer" );
     ME_FIELD( DefaultState ).Tooltip( "Empty = the first state (or clip)" );
     ME_FIELD( Speed ).Range( -10.f, 10.f );
     ME_FIELD( PlayOnStart );
@@ -115,6 +116,9 @@ void Animator::Unbind()
     m_bound = false;
     m_clips = nullptr;
     m_clipModel.reset();
+    m_mergedClips.reset();
+    m_hasSpriteClips = false;
+    m_appliedSprite.clear();
     m_bindings.clear();
     m_states.clear();
     m_layers.clear();

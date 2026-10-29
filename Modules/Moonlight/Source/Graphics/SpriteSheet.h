@@ -3,6 +3,8 @@
 #include "Resource/MetaFile.h"
 #include "Resource/MetaRegistry.h"
 #include "JSON.h"
+#include "Reflection/Reflection.h"
+#include "Scene/AnimationClip.h"
 #include <glm/glm.hpp>
 #include <cstdint>
 #include <string>
@@ -83,6 +85,62 @@ namespace Moonlight
         uint32_t m_revision = 0;
     };
 }
+
+namespace Moonlight
+{
+    // A .spriteanim asset (LOOK-S4): a flipbook of a sheet's sprites at a frame rate. An Animator's
+    // SpriteClips turn each into a clip (named after the file) whose sprite keys drive the
+    // SpriteRenderer on the Animator's entity, so states, transitions, blends and events work as
+    // for any clip. JSON: { "Sheet": "...", "FramesPerSecond": 10, "Loop": true, "Frames": [ ... ] }.
+    struct SpriteAnimation
+    {
+        ME_REFLECTABLE( SpriteAnimation )
+    public:
+        static constexpr const char* kExtension = "spriteanim";
+
+        std::string Sheet;
+        float FramesPerSecond = 10.f;
+        bool Loop = true;
+        std::vector<std::string> Frames;
+
+        bool Parse( const std::string& InText );
+        std::string Write() const;
+        // The clip: one sprite key per frame, Duration = frames / FramesPerSecond.
+        AnimationClip ToClip( const std::string& InName ) const;
+        // Reads and converts the file at InPath (false when it can't).
+        static bool LoadClip( const std::string& InPath, AnimationClip& OutClip );
+    };
+}
+
+// Edited in the asset browser through reflection, like a .rendertexture.
+struct SpriteAnimationMetadata
+    : public MetaBase
+{
+    explicit SpriteAnimationMetadata( const Path& InPath )
+        : MetaBase( InPath )
+    {
+    }
+
+    std::string GetExtension2() const override
+    {
+        return Moonlight::SpriteAnimation::kExtension;
+    }
+    void OnSerialize( json& OutJson ) override
+    {
+    }
+    void OnDeserialize( const json& InJson ) override
+    {
+    }
+
+    const Reflection::TypeInfo* GetEditableType() override;
+    void* GetEditableData() override;
+    void SaveEditableData() override;
+
+private:
+    Moonlight::SpriteAnimation m_animation;
+    bool m_loaded = false;
+};
+ME_REGISTER_METADATA( "spriteanim", SpriteAnimationMetadata );
 
 // The meta only carries the asset's GUID; the inspector edits the sheet itself.
 struct SpriteSheetMetadata

@@ -18,12 +18,27 @@ namespace Moonlight
         std::vector<Vector3> Scales;
     };
 
-    // A named animation: one channel per animated node, sampled with linear / spherical interpolation.
+    // A flipbook key (LOOK-S4): from Time on, the Animator's SpriteRenderer shows Sprite of Sheet.
+    struct SpriteKey
+    {
+        float Time = 0.f;
+        std::string Sheet;
+        std::string Sprite;
+    };
+
+    // A named animation: one channel per animated node, sampled with linear / spherical interpolation,
+    // and/or sprite keys (a flipbook from a .spriteanim).
     struct AnimationClip
     {
         std::string Name;
         float Duration = 0.f;   // seconds
         std::vector<AnimationChannel> Channels;
+        std::vector<SpriteKey> Sprites;
+        // The loop setting for the state made for this clip when an Animator has no States.
+        bool Loop = true;
+
+        // The sprite key in effect at InTime seconds (the last at or before it; null without keys).
+        const SpriteKey* SampleSprite( float InTime ) const;
 
         // Samples a channel at InTime seconds (clamped to the keys). Properties without keys keep
         // the values passed in (the node's bind pose).

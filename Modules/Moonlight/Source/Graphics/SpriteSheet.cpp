@@ -297,6 +297,106 @@ namespace Moonlight
 }
 
 
+ME_REFLECT_BEGIN( Moonlight::SpriteAnimation )
+    ME_FIELD( Sheet ).Asset( "SpriteSheet" ).Tooltip( "The .spritesheet whose sprites the frames name" );
+    ME_FIELD( FramesPerSecond ).Range( 0.1f, 120.f ).Tooltip( "Playback rate (an Animator's and its state's Speed scale it)" );
+    ME_FIELD( Loop ).Tooltip( "The loop setting of the state an Animator makes for it when it has no States" );
+    ME_FIELD( Frames ).Tooltip( "The sheet's sprite names, in order" );
+ME_REFLECT_END()
+
+
+namespace Moonlight
+{
+    bool SpriteAnimation::Parse( const std::string& InText )
+    {
+        const json root = json::parse( InText, nullptr, false );
+        if( root.is_discarded() || !root.is_object() )
+        {
+            return false;
+        }
+        Sheet = root.value( "Sheet", std::string() );
+        FramesPerSecond = std::max( root.value( "FramesPerSecond", 10.f ), 0.1f );
+        Loop = root.value( "Loop", true );
+        Frames.clear();
+        if( auto frames = root.find( "Frames" ); frames != root.end() && frames->is_array() )
+        {
+            for( const json& frame : *frames )
+            {
+                if( frame.is_string() )
+                {
+                    Frames.push_back( frame.get<std::string>() );
+                }
+            }
+        }
+        return true;
+    }
+
+
+    std::string SpriteAnimation::Write() const
+    {
+        return json{ { "Sheet", Sheet }, { "FramesPerSecond", FramesPerSecond }, { "Loop", Loop }, { "Frames", Frames } }.dump( 4 );
+    }
+
+
+    AnimationClip SpriteAnimation::ToClip( const std::string& InName ) const
+    {
+        AnimationClip clip;
+        clip.Name = InName;
+        clip.Loop = Loop;
+        const float frameTime = 1.f / std::max( FramesPerSecond, 0.1f );
+        for( size_t i = 0; i < Frames.size(); ++i )
+        {
+            clip.Sprites.push_back( { static_cast<float>( i ) * frameTime, Sheet, Frames[i] } );
+        }
+        clip.Duration = static_cast<float>( std::max<size_t>( Frames.size(), 1 ) ) * frameTime;
+        return clip;
+    }
+
+
+    bool SpriteAnimation::LoadClip( const std::string& InPath, AnimationClip& OutClip )
+    {
+        std::string text;
+        SpriteAnimation animation;
+        if( !VFS::Get().ReadText( Path( InPath ), text ) || !animation.Parse( text ) )
+        {
+            return false;
+        }
+        std::string name = InPath.substr( InPath.find_last_of( "/\\" ) + 1 );
+        name = name.substr( 0, name.find_last_of( '.' ) );
+        OutClip = animation.ToClip( name );
+        return true;
+    }
+}
+
+
+const Reflection::TypeInfo* SpriteAnimationMetadata::GetEditableType()
+{
+    return &Moonlight::SpriteAnimation::StaticType();
+}
+
+
+void* SpriteAnimationMetadata::GetEditableData()
+{
+    if( !m_loaded )
+    {
+        File file{ FilePath };
+        m_animation.Parse( file.Read() );
+        m_loaded = true;
+    }
+    return &m_animation;
+}
+
+
+void SpriteAnimationMetadata::SaveEditableData()
+{
+    if( m_loaded )
+    {
+        File file{ FilePath };
+        file.Write( m_animation.Write() );
+    }
+}
+
+
 #if USING( ME_EDITOR )
 void SpriteSheetMetadata::OnEditorInspect()
 {

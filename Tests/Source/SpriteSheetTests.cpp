@@ -98,3 +98,27 @@ TEST_CASE( "Sprite sheets: JSON round trip, lookup, and slicing a real sheet" )
         CHECK( sheet.Sprites[3].Rect.z < sheet.Sprites[0].Rect.z );
     }
 }
+
+
+TEST_CASE( "Sprite animations: .spriteanim to a flipbook clip, sampled by time" )
+{
+    Moonlight::SpriteAnimation animation;
+    REQUIRE( animation.Parse( R"({ "Sheet": "Assets/Hero.spritesheet", "FramesPerSecond": 8, "Loop": false, "Frames": [ "Walk_0", "Walk_1", "Walk_2", "Walk_3" ] })" ) );
+    const Moonlight::AnimationClip clip = animation.ToClip( "Hero_Walk" );
+    CHECK( clip.Name == "Hero_Walk" );
+    CHECK( clip.Duration == doctest::Approx( 0.5f ) );
+    CHECK_FALSE( clip.Loop );
+    REQUIRE( clip.Sprites.size() == 4 );
+    CHECK( clip.Sprites[2].Time == doctest::Approx( 0.25f ) );
+    CHECK( clip.SampleSprite( 0.f )->Sprite == "Walk_0" );
+    CHECK( clip.SampleSprite( 0.124f )->Sprite == "Walk_0" );
+    CHECK( clip.SampleSprite( 0.126f )->Sprite == "Walk_1" );
+    CHECK( clip.SampleSprite( 0.49f )->Sheet == "Assets/Hero.spritesheet" );
+    CHECK( clip.SampleSprite( 0.49f )->Sprite == "Walk_3" );
+    // Round trip, and a clip without frames samples nothing.
+    Moonlight::SpriteAnimation copy;
+    REQUIRE( copy.Parse( animation.Write() ) );
+    CHECK( copy.Frames.size() == 4 );
+    CHECK( copy.FramesPerSecond == doctest::Approx( 8.f ) );
+    CHECK( Moonlight::AnimationClip().SampleSprite( 1.f ) == nullptr );
+}

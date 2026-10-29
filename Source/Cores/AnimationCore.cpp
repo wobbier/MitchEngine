@@ -4,6 +4,8 @@
 #include "Components/Animation/IKConstraints.h"
 #include "Animation/IKSolver.h"
 #include "Components/Graphics/Model.h"
+#include "Components/Graphics/SpriteRenderer.h"
+#include "Graphics/SpriteSheet.h"
 #include "Components/Physics/CharacterController.h"
 #include "Components/Transform.h"
 #include "ECS/ComponentFilter.h"
@@ -267,14 +269,44 @@ void AnimationCore::Bind( Entity& InEntity, Animator& InAnimator )
         {
             model = component->ModelHandle;
         }
-        if( !model )
+        if( model )
+        {
+            InAnimator.m_clipModel = model;
+            InAnimator.m_clips = &model->GetAnimations();
+        }
+        else if( InAnimator.SpriteClips.empty() )
         {
             return;
         }
-        InAnimator.m_clipModel = model;
-        InAnimator.m_clips = &model->GetAnimations();
     }
-    if( InAnimator.m_clips->empty() )
+    // Flipbooks join the clips (a sprite character has only these).
+    if( !InAnimator.SpriteClips.empty() )
+    {
+        InAnimator.m_mergedClips = MakeShared<std::vector<Moonlight::AnimationClip>>();
+        if( InAnimator.m_clips )
+        {
+            *InAnimator.m_mergedClips = *InAnimator.m_clips;
+        }
+        for( const std::string& path : InAnimator.SpriteClips )
+        {
+            Moonlight::AnimationClip clip;
+            if( Moonlight::SpriteAnimation::LoadClip( path, clip ) )
+            {
+                InAnimator.m_mergedClips->push_back( std::move( clip ) );
+            }
+            else
+            {
+                YIKES( "Animator on " + InEntity.GetName() + ": can't read the sprite clip " + path );
+            }
+        }
+        InAnimator.m_clips = InAnimator.m_mergedClips.get();
+    }
+    // Any flipbook clip (SpriteClips or UseClips) drives the SpriteRenderer.
+    if( InAnimator.m_clips )
+    {
+        InAnimator.m_hasSpriteClips = std::any_of( InAnimator.m_clips->begin(), InAnimator.m_clips->end(), []( const Moonlight::AnimationClip& InClip ) { return !InClip.Sprites.empty(); } );
+    }
+    if( !InAnimator.m_clips || InAnimator.m_clips->empty() )
     {
         InAnimator.m_clips = nullptr;
         return;
@@ -289,6 +321,7 @@ void AnimationCore::Bind( Entity& InEntity, Animator& InAnimator )
             AnimatorState state;
             state.Name = clip.Name;
             state.Clip = clip.Name;
+            state.Loop = clip.Loop;
             InAnimator.m_states.push_back( state );
         }
     }
@@ -997,6 +1030,70 @@ void AnimationCore::SamplePose( Animator& InAnimator )
 }
 
 
+void AnimationCore::ApplySprite( Entity& InEntity, Animator& InAnimator )
+{
+    SpriteRenderer* sprite = InEntity.TryGetComponent<SpriteRenderer>();
+    if( !sprite || InAnimator.m_layers.empty() || !InAnimator.m_clips )
+    {
+        return;
+    }
+    const Animator::LayerPlayback& layer = InAnimator.m_layers[0];
+    if( !layer.Playing || layer.Current < 0 )
+    {
+        return;
+    }
+    // Frames can't blend: a cross-fade switches halfway, a blend shows its nearest clip.
+    const bool previous = layer.Previous >= 0 && layer.FadeDuration > 0.f && layer.FadeElapsed < layer.FadeDuration * 0.5f;
+    const int stateIndex = previous ? layer.Previous : layer.Current;
+    const float time = previous ? layer.PreviousTime : layer.Time;
+    if( stateIndex < 0 || stateIndex >= static_cast<int>( InAnimator.m_states.size() ) )
+    {
+        return;
+    }
+    const AnimatorState& state = InAnimator.m_states[stateIndex];
+    std::string clipName = state.Clip;
+    if( clipName.empty() && !state.BlendClips.empty() )
+    {
+        const float x = InAnimator.GetFloat( state.BlendParameter );
+        const float y = state.BlendParameterY.empty() ? 0.f : InAnimator.GetFloat( state.BlendParameterY );
+        float best = std::numeric_limits<float>::max();
+        for( const AnimatorBlendClip& blend : state.BlendClips )
+        {
+            const float dx = blend.Threshold - x;
+            const float dy = state.BlendParameterY.empty() ? 0.f : blend.ThresholdY - y;
+            if( dx * dx + dy * dy < best )
+            {
+                best = dx * dx + dy * dy;
+                clipName = blend.Clip;
+            }
+        }
+    }
+    const int clipIndex = InAnimator.FindClip( clipName );
+    if( clipIndex < 0 )
+    {
+        return;
+    }
+    const Moonlight::AnimationClip& clip = ( *InAnimator.m_clips )[clipIndex];
+    if( clip.Sprites.empty() )
+    {
+        return;
+    }
+    const float duration = std::max( clip.Duration, 1e-4f );
+    const float local = state.Loop ? std::fmod( std::max( time, 0.f ), duration ) : std::clamp( time, 0.f, duration - 1e-4f );
+    const Moonlight::SpriteKey* key = clip.SampleSprite( local );
+    const std::string applied = key->Sheet + "|" + key->Sprite;
+    if( key && applied != InAnimator.m_appliedSprite )
+    {
+        InAnimator.m_appliedSprite = applied;
+        if( sprite->Sheet.GetLocalPathString() != key->Sheet )
+        {
+            sprite->Sheet = Path( key->Sheet );
+        }
+        sprite->SpriteName = key->Sprite;
+    }
+}
+
+
 void AnimationCore::WritePose( Animator& InAnimator )
 {
     for( size_t i = 0; i < InAnimator.m_bindings.size(); ++i )
@@ -1037,6 +1134,10 @@ void AnimationCore::Advance( float InDeltaSeconds )
             continue;
         }
         StepStateMachine( entity, *animator, InDeltaSeconds );
+        if( animator->m_hasSpriteClips )
+        {
+            ApplySprite( entity, *animator );
+        }
         const bool anyPlaying = std::any_of( animator->m_layers.begin(), animator->m_layers.end(), []( const Animator::LayerPlayback& layer ) { return layer.Playing && layer.Current >= 0; } );
         if( anyPlaying && !animator->m_bindings.empty() )
         {

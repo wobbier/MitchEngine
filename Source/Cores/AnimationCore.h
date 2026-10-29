@@ -55,6 +55,8 @@ private:
     static void WriteBindPose( Animator& InAnimator );
     void EndPreview( Animator& InAnimator );
     static void ApplyRootMotion( Animator& InAnimator );
+    // Flipbooks (LOOK-S4): the base layer's dominant clip's sprite key, onto the SpriteRenderer.
+    static void ApplySprite( Entity& InEntity, Animator& InAnimator );
 };
 
 ME_REGISTER_CORE( AnimationCore )

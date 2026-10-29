@@ -139,6 +139,9 @@ public:
     Animator();
 
     std::string ClipSource;     // optional model file whose clips to use (shared rigs)
+    // Flipbook clips (.spriteanim, LOOK-S4), each a clip named after its file, added to the model's
+    // (or the only clips, for a sprite character): they set the SpriteRenderer on this entity.
+    std::vector<std::string> SpriteClips;
     std::string DefaultState;   // empty = the first state
     float Speed = 1.f;
     bool PlayOnStart = true;
@@ -247,6 +250,10 @@ private:
     SharedPtr<ModelResource> m_clipModel;
     SharedPtr<std::vector<Moonlight::AnimationClip>> m_ownClips;
     const std::vector<Moonlight::AnimationClip>* m_clips = nullptr;
+    // The model's (or UseClips') clips plus the sprite clips, when there are sprite clips.
+    SharedPtr<std::vector<Moonlight::AnimationClip>> m_mergedClips;
+    bool m_hasSpriteClips = false;
+    std::string m_appliedSprite;    // "sheet|sprite" last written to the SpriteRenderer
     std::vector<AnimatorState> m_states;    // States, or one per clip
     std::vector<Binding> m_bindings;
     std::vector<Pose> m_pose;
