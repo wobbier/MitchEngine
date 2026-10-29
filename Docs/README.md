@@ -26,6 +26,7 @@ Technical documentation for MitchEngine — a C++20, ECS-based game engine built
 | [Animation.md](Animation.md) | Clip import, the `Animator` state machine (parameters, transitions, blends, events), `AnimationCore`, bone entities, GPU skinning in every pass |
 | [Physics.md](Physics.md) | Box3D `PhysicsCore` and Box2D `Physics2DCore`: bodies, colliders, compound bodies, joints, character movers, fixed step + interpolation, layers, events, queries |
 | [Navigation.md](Navigation.md) | Recast/Detour: `NavMeshSurface` bakes (tiled, parallel, async, saved next to the scene), areas and costs, modifiers and links, `NavMeshAgent` crowds, queries, editor and script API |
+| [Networking.md](Networking.md) | NET-0/1 foundation: `BitWriter`/`BitReader`, `NetQuantize`, loopback + conditioned transports, `NetConnection` (acks, RTT, loss, reliable ordered stream), `NetStats` |
 | [Serialization-and-Scenes.md](Serialization-and-Scenes.md) | `.lvl` JSON format, prefabs, registry-name instantiation, save/load flow, versioning caveats |
 | [Scripting-DotNet.md](Scripting-DotNet.md) | CLI script builds, hostfxr bootstrap, script lifecycle, hot reload, the generated API (`ScriptAPI.def`), C# side, platform status, add-a-binding recipe |
 | [UI-RmlUi-and-ImGui.md](UI-RmlUi-and-ImGui.md) | RmlUi game UI (documents, inline actions, C# view models, navigation, hot reload, Ultralight migration) and ImGui |
