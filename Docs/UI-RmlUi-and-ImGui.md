@@ -62,6 +62,7 @@ Three levels, simplest first:
    | `onclick="play-sound:Assets/Sounds/Click.wav"` | A 2D one-shot on the UI bus |
    | `onclick="quit"` | Leaves the game (logged and ignored in the editor) |
    | `onclick="set-text:#target\|New text"` | Replaces an element's content |
+   | `onclick="load-scene-async:Assets/Main.lvl"` | Loads the scene in the background under the loading screen (below) |
    | `onclick="hide-document"` | Hides this document's `UIDocument` (a menu's Back) |
    | `onclick="show-document:Options"` / `toggle-document:Options` | Shows / toggles the `UIDocument` on the entity with that name (C#: `UI.Show`, `UI.Hide`, `UI.Toggle`, `UI.IsVisible`) |
    | `onclick="setting:Graphics.Quality\|Low"`, `setting-step:Audio.Music\|0.1`, `setting-toggle:...` | Sets, steps or flips a player setting (`Docs/Player-Settings.md`) |
@@ -86,6 +87,21 @@ Three levels, simplest first:
 ### The stock options menu
 
 `Engine/Assets/UI/Options/Options.rml` (PLAY-3) is a complete options menu built only from the above: Graphics (quality presets, window mode), Audio (a −/+ step per bus), Controls (every binding of the game's action map, rebindable), Accessibility (text size, reduce motion, language) and Back / Reset all. Every button is in the focus chain, and showing the document focuses the Graphics tab (`autofocus`), so a gamepad drives all of it. A project replaces it by shipping its own `Assets/UI/Options/Options.rml`. The project templates carry it on a hidden `Options` entity with `PauseMenu.cs` (Pause toggles it and pauses the game), and MitchGame's main menu opens it with `show-document:Options`.
+
+### Overlays, loading screens and splashes
+
+`RmlUiCore::ShowOverlay( path, sortOrder )` / `HideOverlay` show documents that belong to the engine rather than an entity, so they stay up while the scene changes under them. `LoadingScreen` (`Source/Engine/LoadingScreen.h`, PLAY-5) uses them:
+
+- **`LoadSceneAsync( scene, document )`** (C# `World.LoadSceneAsync`, the `load-scene-async:` action) loads the main scene in phases:
+  1. **Reading:** the file is read and parsed on a worker while the current scene keeps running under the loading document.
+  2. **Instantiating:** the new scene is built through `Engine::LoadSceneFromData`.
+  3. **Settling:** the screen stays up until `ResourceCache::GetPendingLoadCount()` has been 0 for three frames (60 s at most).
+- **`MinimumSeconds`** holds the screen longer. The bar fills across that time, never ahead of the real progress.
+- **The "loading" data model** carries `progress` (0..1), `percent`, `width` ("42%", for `data-style-width`), `scene`, `phase` and `product`. A log line marks each quarter.
+- **The stock documents** are `Engine/Assets/UI/Loading/Loading.rml` and `Splash.rml`. Project Settings `Product.LoadingDocument` picks another loading document.
+- **`Product.Splash`** (`[{ "Document": ..., "Seconds": 2 }]`) plays over the boot scene in game builds. Unattended runs skip it unless they pass `--splash`.
+- **Cooking:** the cooker ships the folders of those documents.
+- **Proof:** `LoadingFlows.edscript` (the `load-scene-async` and `play-splash` commands; a capture mid-load).
 
 ### Hot reload
 
