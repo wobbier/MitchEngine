@@ -19,6 +19,22 @@ public static class UI
         unsafe { fixed (byte* m = Engine.Utf8(name)) Engine._api.UIModel_Ensure(m); }
         return new UIModel(name);
     }
+
+    // The UIDocument on the entity with this name (a menu such as the stock options menu,
+    // Assets/UI/Options/Options.rml). False when no UIDocument entity has that name.
+    public static bool Show(string entityName) => SetVisible(entityName, 1);
+    public static bool Hide(string entityName) => SetVisible(entityName, 0);
+    public static bool Toggle(string entityName) => SetVisible(entityName, 2);
+
+    public static bool IsVisible(string entityName)
+    {
+        unsafe { fixed (byte* n = Engine.Utf8(entityName)) return Engine._api.UI_IsDocumentVisible(n) != 0; }
+    }
+
+    private static bool SetVisible(string entityName, int mode)
+    {
+        unsafe { fixed (byte* n = Engine.Utf8(entityName)) return Engine._api.UI_SetDocumentVisible(n, mode) != 0; }
+    }
 }
 
 public readonly struct UIModel

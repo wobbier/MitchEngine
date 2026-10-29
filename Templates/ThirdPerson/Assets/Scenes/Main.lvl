@@ -1673,6 +1673,41 @@
                     "Mass": 2.0
                 }
             ]
+        },
+        {
+            "GUID": "bab7784883a8682e",
+            "Name": "Options",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.0,
+                        1.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Type": "UIDocument",
+                    "FilePath": "Assets/UI/Options/Options.rml",
+                    "Visible": false,
+                    "SortOrder": 100
+                },
+                {
+                    "Type": "ScriptComponent",
+                    "ScriptName": "PauseMenu"
+                }
+            ]
         }
     ]
 }

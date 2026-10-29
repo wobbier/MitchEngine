@@ -231,4 +231,10 @@ public unsafe struct EngineAPIBindings
     public delegate* unmanaged<void> Settings_ResetBindings;
     public delegate* unmanaged<byte*, int, byte*, int, int> Settings_GetBindingDisplay;
     public delegate* unmanaged<byte*, int, int> Settings_GetQualityPresets;
+
+    // UIDocument visibility by entity name (PLAY-3: menus such as the stock options menu).
+
+    // mode: 0 hide, 1 show, 2 toggle; false when no UIDocument entity has that name.
+    public delegate* unmanaged<byte*, int, byte> UI_SetDocumentVisible;
+    public delegate* unmanaged<byte*, byte> UI_IsDocumentVisible;
 }

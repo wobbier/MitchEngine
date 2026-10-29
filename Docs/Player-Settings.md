@@ -84,6 +84,10 @@ Presets are data in the profiles files (`QualityPresets`, engine file first, the
 - **Survival.** Overrides survive map reloads (`SetMap`), so a game that loads another map in `OnInitialize` keeps the player's rebinds.
 - **Player 0 only.** Only the game's main `Input` (player 0) is persisted. Local multiplayer players' maps are not.
 
+## In documents
+
+The stock options menu (`Engine/Assets/UI/Options/Options.rml`) and any other RmlUi document change settings with inline actions (`setting:`, `setting-step:`, `setting-toggle:`, `rebind:`, `reset-settings`) and show them with `data-setting-*` attributes; see `Docs/UI-RmlUi-and-ImGui.md`. `GetRevision()` counts changes, so documents only refresh when something changed.
+
 ## C#
 
 ```csharp
@@ -120,6 +124,7 @@ Settings.Save();                                 // optional: changes save on th
 - **`Language` isn't checked.** A code with no string table logs `[UI] No string table` and shows the raw keys.
 - **An undefined preset caps nothing.** `Graphics.Quality` naming a preset that doesn't exist logs a warning. The name is kept, so a preset a later profiles reload adds takes effect then.
 - **The editor shares the player's file.** In the editor, `.tmp/User/Settings.json` is the player's file too, so a quality level picked during Play stays applied after Stop.
+- **The stock menu rebinds player 0 only.** Its Controls list is the game input's map; local multiplayer players have none.
 - **Window settings live elsewhere.** The window mode, resolution and display stay in `EngineConfig`'s user state (`Docs/Platform-Window-Input-Config.md`).
 
 ## Related Docs

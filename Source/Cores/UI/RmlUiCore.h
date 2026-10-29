@@ -42,6 +42,14 @@ public:
     virtual void OnEntityRemoved( Entity& InEntity ) final;
 
 #if USING( ME_RMLUI )
+    // Documents by their entity's name (the show-document / toggle-document actions, C#
+    // UI.Show): false when no UIDocument entity has that name. Visibility applies next update.
+    bool SetDocumentVisible( const std::string& InEntityName, bool InVisible );
+    bool ToggleDocument( const std::string& InEntityName );
+    bool IsDocumentVisible( const std::string& InEntityName );
+    // The hide-document action: hides the UIDocument showing InDocument (an Rml::ElementDocument).
+    void HideDocument( const void* InDocument );
+
     Rml::Context* GetContext() const { return m_context; }
     // True while the pointer is over (or dragging in) a document: game input should yield.
     bool WantsMouse() const;

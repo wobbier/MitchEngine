@@ -82,7 +82,7 @@ Gamepad shaping:
 - **Interactive rebinding.** `StartInteractiveRebind( action, bindingIndex, part, done )` waits for the next newly actuated control: a key, a mouse button, a pad button, a trigger past halfway, or a stick pushed past halfway. It binds that control and calls `done( path )`; the cancel controls (default `Keyboard/Escape`) call `done( "" )` instead. A stick pushed for a whole-binding Vector2 action binds the whole stick. Actions stay idle until the rebind completes.
 - **Composite parts.** The part names a composite piece: `"Up"`, `"Negative"`, and so on. `""` means the binding's main control.
 - **Overrides.** `SetBindingOverride` sets one directly. Overrides are keyed `Context/Action/Index[/Part]`, survive `SetMap` and hot reloads, and round-trip through `SaveOverrides()` / `LoadOverrides( json )`. The game input's overrides persist with the player settings (`Input.Bindings` in `user://Settings.json`, restored at boot; `Settings.Rebind` in C#, see `Docs/Player-Settings.md`).
-- **Prompts.** `GetBindingDisplay( action, index )` and `GetControlDisplay( path )` give strings such as "Space", "Left Mouse", "Gamepad South" and "W/A/S/D", overrides included.
+- **Prompts.** `GetBindingDisplay( action, index )`, `GetBindingPartDisplay( action, index, part )` and `GetControlDisplay( path )` give strings such as "Space", "Left Mouse", "Gamepad South" and "W/A/S/D", overrides included.
 
 ### Gamepads
 

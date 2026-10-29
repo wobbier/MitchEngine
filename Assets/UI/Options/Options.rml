@@ -1,0 +1,96 @@
+<rml>
+<head>
+	<title>Options</title>
+	<link type="text/rcss" href="Options.rcss"/>
+</head>
+<!-- The stock options menu (PLAY-3): every control is an inline settings action or a
+     data-setting-* binding (Source/UI/Rml/RmlSettings.h), so it needs no script. A project
+     replaces it by shipping its own Assets/UI/Options/Options.rml. Back hides this document;
+     show it again with the show-document / toggle-document actions or UIDocument.Visible. -->
+<body>
+	<div id="options">
+		<h1>Options</h1>
+		<div id="tabs">
+			<button class="tab selected" id="tab-graphics" autofocus onclick="tab:page-graphics">Graphics</button>
+			<button class="tab" id="tab-audio" onclick="tab:page-audio">Audio</button>
+			<button class="tab" id="tab-controls" onclick="tab:page-controls">Controls</button>
+			<button class="tab" id="tab-accessibility" onclick="tab:page-accessibility">Accessibility</button>
+		</div>
+
+		<div class="tab-page" id="page-graphics">
+			<div class="row">
+				<span class="label">Quality</span>
+				<div class="choices" data-options="quality"></div>
+			</div>
+			<div class="row">
+				<span class="label">Display</span>
+				<div class="choices">
+					<button class="choice" id="window-windowed" onclick="window-mode:windowed" data-window-mode="windowed">Windowed</button>
+					<button class="choice" id="window-borderless" onclick="window-mode:borderless" data-window-mode="borderless">Borderless</button>
+					<button class="choice" id="window-fullscreen" onclick="window-mode:fullscreen" data-window-mode="fullscreen">Fullscreen</button>
+				</div>
+			</div>
+		</div>
+
+		<div class="tab-page" id="page-audio" style="display: none;">
+			<div class="row">
+				<span class="label">Master</span>
+				<button class="step" id="master-down" onclick="setting-step:Audio.Master|-0.1">-</button>
+				<span class="value" id="master-value" data-setting-text="Audio.Master" data-format="percent"></span>
+				<button class="step" id="master-up" onclick="setting-step:Audio.Master|0.1">+</button>
+			</div>
+			<div class="row">
+				<span class="label">Music</span>
+				<button class="step" id="music-down" onclick="setting-step:Audio.Music|-0.1">-</button>
+				<span class="value" id="music-value" data-setting-text="Audio.Music" data-format="percent"></span>
+				<button class="step" id="music-up" onclick="setting-step:Audio.Music|0.1">+</button>
+			</div>
+			<div class="row">
+				<span class="label">Effects</span>
+				<button class="step" id="sfx-down" onclick="setting-step:Audio.SFX|-0.1">-</button>
+				<span class="value" id="sfx-value" data-setting-text="Audio.SFX" data-format="percent"></span>
+				<button class="step" id="sfx-up" onclick="setting-step:Audio.SFX|0.1">+</button>
+			</div>
+			<div class="row">
+				<span class="label">Voice</span>
+				<button class="step" id="voice-down" onclick="setting-step:Audio.Voice|-0.1">-</button>
+				<span class="value" id="voice-value" data-setting-text="Audio.Voice" data-format="percent"></span>
+				<button class="step" id="voice-up" onclick="setting-step:Audio.Voice|0.1">+</button>
+			</div>
+			<div class="row">
+				<span class="label">Interface</span>
+				<button class="step" id="ui-down" onclick="setting-step:Audio.UI|-0.1">-</button>
+				<span class="value" id="ui-value" data-setting-text="Audio.UI" data-format="percent"></span>
+				<button class="step" id="ui-up" onclick="setting-step:Audio.UI|0.1">+</button>
+			</div>
+		</div>
+
+		<div class="tab-page" id="page-controls" style="display: none;">
+			<div id="controls" data-controls></div>
+			<button class="wide" id="controls-reset" onclick="reset-bindings">Reset controls</button>
+		</div>
+
+		<div class="tab-page" id="page-accessibility" style="display: none;">
+			<div class="row">
+				<span class="label">Text size</span>
+				<button class="step" id="text-down" onclick="setting-step:Accessibility.TextScale|-0.25">-</button>
+				<span class="value" id="text-value" data-setting-text="Accessibility.TextScale" data-format="percent"></span>
+				<button class="step" id="text-up" onclick="setting-step:Accessibility.TextScale|0.25">+</button>
+			</div>
+			<div class="row">
+				<span class="label">Reduce motion</span>
+				<button class="choice" id="reduce-motion" onclick="setting-toggle:Accessibility.ReduceMotion" data-setting-text="Accessibility.ReduceMotion" data-format="onoff"></button>
+			</div>
+			<div class="row">
+				<span class="label">Language</span>
+				<div class="choices" data-options="languages"></div>
+			</div>
+		</div>
+
+		<div id="footer">
+			<button class="wide" id="options-reset" onclick="reset-settings">Reset all</button>
+			<button class="wide" id="options-back" onclick="hide-document">Back</button>
+		</div>
+	</div>
+</body>
+</rml>

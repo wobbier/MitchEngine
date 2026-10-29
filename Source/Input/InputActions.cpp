@@ -807,6 +807,37 @@ std::string InputActionSystem::GetControlDisplay( const std::string& InControl )
 }
 
 
+std::string InputActionSystem::GetBindingPartDisplay( const std::string& InAction, size_t InBinding, const std::string& InPart ) const
+{
+    auto found = m_statesByName.find( InAction );
+    if( found == m_statesByName.end() || found->second.empty() )
+    {
+        return std::string();
+    }
+    const InputActionState& state = m_states[found->second.front()];
+    for( const InputContext& context : m_map.Contexts )
+    {
+        if( context.Name != state.Context )
+        {
+            continue;
+        }
+        for( const InputAction& action : context.Actions )
+        {
+            if( action.Name != InAction || InBinding >= action.Bindings.size() )
+            {
+                continue;
+            }
+            const InputBinding& binding = action.Bindings[InBinding];
+            const std::string& fallback = InPart == "Up" ? binding.Up : InPart == "Down" ? binding.Down : InPart == "Left" ? binding.Left
+                : InPart == "Right" ? binding.Right : InPart == "Negative" ? binding.Negative : InPart == "Positive" ? binding.Positive : binding.Control;
+            auto overridden = m_overrides.find( OverrideKey( context.Name, InAction, InBinding, InPart ) );
+            return GetControlDisplay( overridden != m_overrides.end() ? overridden->second : fallback );
+        }
+    }
+    return std::string();
+}
+
+
 std::string InputActionSystem::GetBindingDisplay( const std::string& InAction, size_t InBinding ) const
 {
     auto found = m_statesByName.find( InAction );

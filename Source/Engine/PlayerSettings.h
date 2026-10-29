@@ -1,6 +1,7 @@
 #pragma once
 #include "Dementia.h"
 #include "JSON.h"
+#include <cstdint>
 #include <string>
 
 class AudioCore;
@@ -66,6 +67,8 @@ public:
     // Once a frame: writes unsaved changes once they've settled (a dragged slider writes once).
     void Update();
     bool IsDirty() const { return m_dirty; }
+    // Counts changes (sets, loads, resets, rebinds): views redraw when it moves.
+    uint64_t GetRevision() const { return m_revision; }
 
     // Null for a key that isn't a setting.
     json GetValue( const std::string& InKey ) const;
@@ -92,4 +95,5 @@ private:
     Targets m_targets;
     bool m_dirty = false;
     double m_changedAt = 0.0;
+    uint64_t m_revision = 0;
 };

@@ -62,6 +62,11 @@ Three levels, simplest first:
    | `onclick="play-sound:Assets/Sounds/Click.wav"` | A 2D one-shot on the UI bus |
    | `onclick="quit"` | Leaves the game (logged and ignored in the editor) |
    | `onclick="set-text:#target\|New text"` | Replaces an element's content |
+   | `onclick="hide-document"` | Hides this document's `UIDocument` (a menu's Back) |
+   | `onclick="show-document:Options"` / `toggle-document:Options` | Shows / toggles the `UIDocument` on the entity with that name (C#: `UI.Show`, `UI.Hide`, `UI.Toggle`, `UI.IsVisible`) |
+   | `onclick="setting:Graphics.Quality\|Low"`, `setting-step:Audio.Music\|0.1`, `setting-toggle:...` | Sets, steps or flips a player setting (`Docs/Player-Settings.md`) |
+   | `onclick="rebind:Jump\|0"` (`\|0\|Up` for a composite part) | "Press a key": the next control actuated becomes the binding; Escape or Start cancels |
+   | `onclick="reset-bindings"`, `reset-settings`, `window-mode:borderless`, `tab:page-audio` | Clear rebinds, reset every setting, switch the window mode (ignored in the editor), show one `.tab-page` and mark the clicked `.tab` |
 
    The main menu (`Assets/UI/Main.rml`) and the project template's `ExampleMenu.rml` are built from these.
 2. **C# view models** carry state. A script owns a named model, and a document opts in with `data-model="name"`:
@@ -75,7 +80,12 @@ Three levels, simplest first:
    ```
 
    Values are numbers or strings (bools are 0/1) and live engine-side (`RmlUiCore::Model*`), so C# hot reloads keep the rendered state. Documents that loaded before their model reload once when it materializes (the `UI: rebound` log). Lists aren't bindable yet: write repeated elements out (see `Assets/UI/Drive/Slots.rml`).
+   Settings need no model either: `RmlSettings` (`Source/UI/Rml/RmlSettings.h`) keeps attributed elements current whenever the player settings or a rebind change. `data-setting-text="Audio.Music"` (with `data-format="percent|scale|onoff"`) shows a value, `data-setting-selected="Graphics.Quality|Low"` and `data-window-mode="borderless"` set the `selected` class, and `data-binding="Jump|0"` shows a binding's control. At load it fills `data-options="quality"` / `"languages"` with choice buttons and `data-controls` with a row per action of the game input. While a rebind waits (and on the frame it ends) the documents get no keys, buttons or gamepad navigation.
 3. **C++** uses the same store (`GetEngine().RmlUi->ModelSetNumber(...)`, `ModelPollEvent(...)`), or `GetContext()` for raw RmlUi.
+
+### The stock options menu
+
+`Engine/Assets/UI/Options/Options.rml` (PLAY-3) is a complete options menu built only from the above: Graphics (quality presets, window mode), Audio (a −/+ step per bus), Controls (every binding of the game's action map, rebindable), Accessibility (text size, reduce motion, language) and Back / Reset all. Every button is in the focus chain, and showing the document focuses the Graphics tab (`autofocus`), so a gamepad drives all of it. A project replaces it by shipping its own `Assets/UI/Options/Options.rml`. The project templates carry it on a hidden `Options` entity with `PauseMenu.cs` (Pause toggles it and pauses the game), and MitchGame's main menu opens it with `show-document:Options`.
 
 ### Hot reload
 
@@ -116,7 +126,7 @@ Three levels, simplest first:
 
 - `Assets/Scenes/Tests/UITest.lvl`: screenshot regression (text, image, rounded clip, transform, a button) in RunChecks' test-scene pass.
 - `Tests/Source/RmlUiTests.cpp`: no leaked geometry handles on the bgfx Noop backend. `SerializationTests.cpp`: the `BasicUIView` upgrade.
-- `UIFlows.edscript` (clicks, assertions, `.rcss` hot reload; it edits the stylesheet, so it self-skips while another Havana is open), `UINavFlows.edscript` (Tab/ShiftTab and dpad focus, South activates, captures at text scale 1.5 and in Spanish), `UIModelFlows.edscript` (`UIProbe.cs` renders a bound value, a click raises `increment`, a C# hot reload keeps the score and runs the edited logic), and `MainMenuFlows.edscript` (the ported main menu: keyboard focus, then a click loads a scene).
+- `UIFlows.edscript` (clicks, assertions, `.rcss` hot reload; it edits the stylesheet, so it self-skips while another Havana is open), `UINavFlows.edscript` (Tab/ShiftTab and dpad focus, South activates, captures at text scale 1.5 and in Spanish), `UIModelFlows.edscript` (`UIProbe.cs` renders a bound value, a click raises `increment`, a C# hot reload keeps the score and runs the edited logic), `MainMenuFlows.edscript` (the ported main menu: keyboard focus, the Options menu opens and closes, then a click loads a scene), and `OptionsFlows.edscript` (the stock options menu by dpad and South only: a quality preset, two volume steps, a rebind of Jump to J and a cancelled one, each checked in the player settings).
 
 ## Related Docs
 

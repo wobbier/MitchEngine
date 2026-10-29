@@ -242,4 +242,10 @@ struct ScriptEngineAPI
     void ( *Settings_ResetBindings )();
     int ( *Settings_GetBindingDisplay )( const uint8_t* action, int binding, uint8_t* outText, int size );
     int ( *Settings_GetQualityPresets )( uint8_t* outNames, int size );
+
+    // UIDocument visibility by entity name (PLAY-3: menus such as the stock options menu).
+
+    // mode: 0 hide, 1 show, 2 toggle; false when no UIDocument entity has that name.
+    bool ( *UI_SetDocumentVisible )( const uint8_t* entityName, int mode );
+    bool ( *UI_IsDocumentVisible )( const uint8_t* entityName );
 };

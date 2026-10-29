@@ -102,7 +102,7 @@ middle over Log and Resource Monitor, Properties right):
 
 | Template | Startup scene | Scripts |
 | --- | --- | --- |
-| **Empty** | A camera, a sun and a floor | none |
+| **Empty** | A camera, a sun and a floor | `PauseMenu.cs` (every template): Pause (Escape / Start) toggles the engine's stock options menu on the hidden `Options` entity and pauses the game |
 | **First-Person** (`FirstPerson`) | A CharacterController body with the camera at eye height, on the blockout course | `FirstPersonController.cs`: mouse/stick look (captured; Pause frees the cursor, Fire takes it back), walk, sprint, jump |
 | **Third-Person** (`ThirdPerson`) | A capsule hero with a visor on the course | `ThirdPersonController.cs` (camera-relative movement, turns to face it), `ThirdPersonCamera.cs` (orbit, eases after the hero, pulls in at walls) |
 | **Top-Down** (`TopDown`) | The same hero under a high camera | `TopDownController.cs` (screen-relative movement), `TopDownCamera.cs` (fixed angle, eases after the target) |
@@ -113,7 +113,7 @@ a ramp, pillars and a stack of physics crates, on the engine's 1 m prototype gri
 
 Each template is a whole project, so `Havana --project Engine/Templates/<Id>` opens one to edit it
 (its `.tmp/` is ignored). The files every template shares (the scripts project, `.gitignore`, the
-input map and the layout) are copies of Empty's; a unit test keeps them identical.
+input map, the layout and `PauseMenu.cs`) are copies of Empty's; a unit test keeps them identical.
 
 From a shell (or CI), `Havana --new-project <template> --name <Name> [--in <folder>]` creates
 `<folder>/<Name>` (default: the working directory) the same way without opening a window, and prints

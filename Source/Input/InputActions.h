@@ -191,6 +191,8 @@ public:
 
     // A short label for UI prompts: "Space", "Left Mouse", "Gamepad South", "W/A/S/D".
     std::string GetBindingDisplay( const std::string& InAction, size_t InBinding ) const;
+    // One part of a binding ("Up", "Negative"... or "" for its main control), overrides included.
+    std::string GetBindingPartDisplay( const std::string& InAction, size_t InBinding, const std::string& InPart ) const;
     static std::string GetControlDisplay( const std::string& InControl );
     // True if the path names a known control.
     static bool IsValidControl( const std::string& InControl );

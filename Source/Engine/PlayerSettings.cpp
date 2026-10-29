@@ -327,6 +327,7 @@ bool PlayerSettings::Load()
     }
     Apply();
     m_dirty = false;
+    ++m_revision;
     CLog::Log( CLog::LogType::Info, IsPersistent() ? "Settings: " + m_path + ( text.empty() ? " (defaults)" : "" ) : std::string( "Settings: in memory only (unattended run)" ) );
     return readable;
 }
@@ -554,4 +555,5 @@ void PlayerSettings::MarkDirty()
 {
     m_dirty = true;
     m_changedAt = NowSeconds();
+    ++m_revision;
 }

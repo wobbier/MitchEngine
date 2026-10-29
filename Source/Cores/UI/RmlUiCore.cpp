@@ -19,6 +19,7 @@
 #include "UI/Rml/RmlInput.h"
 #include "UI/Rml/RmlInterfaces.h"
 #include "UI/Rml/RmlRenderInterface.h"
+#include "UI/Rml/RmlSettings.h"
 #include <RmlUi/Core.h>
 #include <RmlUi/Debugger.h>
 #include <SDL_mouse.h>
@@ -41,6 +42,10 @@ namespace
     //   <button onclick="load-scene:Assets/Main.lvl">        queue a scene load
     //   <button onclick="play-sound:Assets/Sounds/Click.wav"> a 2D one-shot on the UI bus
     //   <button onclick="quit">                              leave the game (ignored in the editor)
+    //   <button onclick="hide-document">                     hide this document (a menu's Back)
+    //   <button onclick="show-document:Options">             show / toggle-document the UIDocument
+    //                                                        on the entity with that name
+    // Player settings verbs (setting:, rebind:, tab:...) are RmlSettings' (UI/Rml/RmlSettings.h).
     // Anything stateful belongs in a script view model (UI.Model, data-event-click).
     class RmlActionListener final
         : public Rml::EventListener
@@ -77,6 +82,25 @@ namespace
 #else
                 GetEngine().Quit();
 #endif
+            }
+            else if( action == "hide-document" )
+            {
+                if( RmlUiCore* core = GetEngine().RmlUi )
+                {
+                    core->HideDocument( InEvent.GetTargetElement()->GetOwnerDocument() );
+                }
+            }
+            else if( action == "show-document" || action == "toggle-document" )
+            {
+                RmlUiCore* core = GetEngine().RmlUi;
+                const bool found = core && ( action == "show-document" ? core->SetDocumentVisible( rest, true ) : core->ToggleDocument( rest ) );
+                if( !found )
+                {
+                    YIKES( "[UI] " + action + ": no UIDocument entity named '" + rest + "'" );
+                }
+            }
+            else if( RmlSettings::HandleAction( action, rest, InEvent ) )
+            {
             }
             else if( action == "set-text" )
             {
@@ -263,6 +287,53 @@ void RmlUiCore::EnsureRenderTarget( uint16_t InWidth, uint16_t InHeight )
 }
 
 
+bool RmlUiCore::SetDocumentVisible( const std::string& InEntityName, bool InVisible )
+{
+    bool found = false;
+    for( Entity& entity : GetEntities() )
+    {
+        if( entity.GetName() == InEntityName )
+        {
+            entity.GetComponent<UIDocument>().Visible = InVisible;
+            found = true;
+        }
+    }
+    return found;
+}
+
+
+bool RmlUiCore::ToggleDocument( const std::string& InEntityName )
+{
+    return SetDocumentVisible( InEntityName, !IsDocumentVisible( InEntityName ) );
+}
+
+
+bool RmlUiCore::IsDocumentVisible( const std::string& InEntityName )
+{
+    for( Entity& entity : GetEntities() )
+    {
+        if( entity.GetName() == InEntityName && entity.GetComponent<UIDocument>().Visible )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+
+void RmlUiCore::HideDocument( const void* InDocument )
+{
+    for( Entity& entity : GetEntities() )
+    {
+        UIDocument& document = entity.GetComponent<UIDocument>();
+        if( document.m_document != nullptr && document.m_document == InDocument )
+        {
+            document.Visible = false;
+        }
+    }
+}
+
+
 void RmlUiCore::LoadDocument( UIDocument& InDocument )
 {
     if( InDocument.m_document != nullptr || !InDocument.DocumentPath.Exists )
@@ -278,6 +349,7 @@ void RmlUiCore::LoadDocument( UIDocument& InDocument )
     InDocument.m_document = document;
     // Sort order stacks documents without touching their stylesheets.
     document->SetProperty( "z-index", std::to_string( InDocument.SortOrder ) );
+    RmlSettings::OnDocumentLoaded( *document );
     if( InDocument.Visible )
     {
         document->Show();
@@ -323,6 +395,9 @@ void RmlUiCore::ProcessInput()
         modifiers |= Rml::Input::KM_ALT;
     }
 
+    // A "press a key" rebind owns the input until the frame after it ends.
+    const bool held = RmlSettings::HoldsInput();
+
     // Gamepad navigation: the dpad moves focus (the documents' nav properties), South activates.
     if( gameInput.IsGamepadConnected() )
     {
@@ -331,7 +406,7 @@ void RmlUiCore::ProcessInput()
         for( int i = 0; i < 5; ++i )
         {
             const bool down = gameInput.IsGamepadButtonDown( kNavButtons[i] );
-            if( down && !m_gamepadNavDown[i] )
+            if( down && !m_gamepadNavDown[i] && !held )
             {
                 InjectUiKey( kNavKeys[i] );
             }
@@ -358,7 +433,7 @@ void RmlUiCore::ProcessInput()
         const MouseButton buttons[3] = { MouseButton::Left, MouseButton::Right, MouseButton::Middle };
         for( int index = 0; index < 3; ++index )
         {
-            const bool down = gameInput.IsMouseButtonDown( buttons[index] );
+            const bool down = gameInput.IsMouseButtonDown( buttons[index] ) && !held;
             if( down && !m_mouseWasDown[index] )
             {
                 m_context->ProcessMouseButtonDown( index, modifiers );
@@ -378,6 +453,10 @@ void RmlUiCore::ProcessInput()
 
     for( const KeyPressEvent& keyEvent : gameInput.m_keyEventsThisFrame )
     {
+        if( held && keyEvent.State != KeyState::Released )
+        {
+            continue;
+        }
         const Rml::Input::KeyIdentifier key = RmlInput::ToKeyIdentifier( keyEvent.Key );
         if( keyEvent.State == KeyState::Released )
         {
@@ -780,6 +859,19 @@ void RmlUiCore::Update( const UpdateContext& inUpdateContext )
                 document.Visible ? loaded->Show() : loaded->Hide();
             }
             anyVisible |= document.Visible;
+        }
+    }
+
+    // Settings-bound elements (RmlSettings) follow the player settings and rebinds.
+    if( RmlSettings::ConsumeChanged() )
+    {
+        for( Entity& entity : GetEntities() )
+        {
+            UIDocument& document = entity.GetComponent<UIDocument>();
+            if( document.m_document != nullptr )
+            {
+                RmlSettings::Refresh( *static_cast<Rml::ElementDocument*>( document.m_document ) );
+            }
         }
     }
 

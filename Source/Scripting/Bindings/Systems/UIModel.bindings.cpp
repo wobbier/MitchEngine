@@ -122,6 +122,31 @@ static int Eng_UIModel_PollEvent( const uint8_t* inModel, uint8_t* outName, int 
 }
 
 
+static bool Eng_UI_SetDocumentVisible( const uint8_t* inEntityName, int inMode )
+{
+#if USING( ME_RMLUI )
+    if( RmlUiCore* core = UiCore() )
+    {
+        const std::string name = Text( inEntityName );
+        return inMode == 2 ? core->ToggleDocument( name ) : core->SetDocumentVisible( name, inMode != 0 );
+    }
+#endif
+    return false;
+}
+
+
+static bool Eng_UI_IsDocumentVisible( const uint8_t* inEntityName )
+{
+#if USING( ME_RMLUI )
+    if( RmlUiCore* core = UiCore() )
+    {
+        return core->IsDocumentVisible( Text( inEntityName ) );
+    }
+#endif
+    return false;
+}
+
+
 // BasicUIView left with Ultralight (UI-5). Its ABI slot stays (order is the ABI), so a script
 // built against the old API gets a one-time pointer to the replacement instead of a crash.
 static void Eng_BasicUIView_ExecuteJS( EntityID, const uint8_t* )
@@ -145,6 +170,8 @@ void Register_UIModelBindings( ScriptEngineAPI& inAPI )
     inAPI.UIModel_GetNumber     = Eng_UIModel_GetNumber;
     inAPI.UIModel_GetString     = Eng_UIModel_GetString;
     inAPI.UIModel_PollEvent     = Eng_UIModel_PollEvent;
+    inAPI.UI_SetDocumentVisible = Eng_UI_SetDocumentVisible;
+    inAPI.UI_IsDocumentVisible  = Eng_UI_IsDocumentVisible;
 }
 
 #endif

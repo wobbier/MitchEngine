@@ -1,0 +1,133 @@
+body {
+	font-family: Inter;
+	font-size: 18dp;
+	color: #EEF1F6;
+	width: 100%;
+	height: 100%;
+	background-color: #0B0E1499;
+}
+
+#options {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	width: 760dp;
+	height: 600dp;
+	margin-left: -380dp;
+	margin-top: -300dp;
+	padding: 24dp 28dp;
+	background-color: #161B26F2;
+	border-radius: 14dp;
+}
+
+h1 {
+	display: block;
+	font-size: 30dp;
+	margin-bottom: 14dp;
+	color: #FFFFFF;
+}
+
+#tabs {
+	display: block;
+	margin-bottom: 18dp;
+}
+
+/* No scrolling: RmlUi's dpad navigation never leaves a scroll container, so a page must fit. */
+.tab-page {
+	display: block;
+	height: 410dp;
+}
+
+/* Labels sit above their controls, so every column lines up under the tabs and the dpad moves
+   straight down through the page. */
+.row {
+	display: block;
+	margin-bottom: 14dp;
+}
+
+.label {
+	display: block;
+	margin-bottom: 6dp;
+	font-size: 15dp;
+	color: #AAB3C5;
+}
+
+.value {
+	display: inline-block;
+	width: 80dp;
+	text-align: center;
+}
+
+.choices {
+	display: inline-block;
+}
+
+/* Every button is in the focus chain and moves spatially with the dpad / arrows. */
+button {
+	display: inline-block;
+	padding: 8dp 14dp;
+	margin-right: 8dp;
+	background-color: #2A3245;
+	border-radius: 6dp;
+	color: #EEF1F6;
+	tab-index: auto;
+	nav: auto;
+}
+
+button:hover {
+	background-color: #364057;
+}
+
+button:focus {
+	background-color: #4C6FD8;
+	color: #FFFFFF;
+}
+
+button.selected {
+	border-width: 2dp;
+	border-color: #8FB0FF;
+	color: #FFFFFF;
+}
+
+button.step {
+	width: 40dp;
+	text-align: center;
+	padding: 8dp 0dp;
+}
+
+button.wide {
+	padding: 8dp 22dp;
+}
+
+button.waiting {
+	background-color: #B9822B;
+}
+
+.control-row {
+	display: block;
+	height: 34dp;
+	margin-bottom: 4dp;
+}
+
+.control-name {
+	display: inline-block;
+	width: 120dp;
+	font-size: 15dp;
+	color: #AAB3C5;
+}
+
+.control-bindings {
+	display: inline-block;
+}
+
+.control-bindings button {
+	font-size: 15dp;
+	padding: 5dp 10dp;
+	margin-right: 6dp;
+}
+
+#footer {
+	position: absolute;
+	right: 28dp;
+	bottom: 20dp;
+}
