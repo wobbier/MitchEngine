@@ -8,6 +8,7 @@
 #include "Components/Camera.h"
 #include "Components/Graphics/Decal.h"
 #include "Components/Graphics/Mesh.h"
+#include "Components/Graphics/SpriteRenderer.h"
 #include "Components/Graphics/Terrain.h"
 #include "Components/Graphics/Model.h"
 #include "Components/Lighting/Light.h"
@@ -58,6 +59,13 @@ namespace SceneTools
                 }
                 if( auto* terrain = entity->TryGetComponent<Terrain>(); terrain && terrain->IsEnabled() )
                     if( auto data = terrain->GetData() ) OutBounds.Encapsulate( data->Bounds.Transformed( InTransform.GetLocalToWorldMatrix() ) );
+                // Sprites: the quad they draw (ME-278; the selection box used to skip them).
+                if( SpriteRenderer* sprite = entity->TryGetComponent<SpriteRenderer>(); sprite && sprite->IsEnabled() )
+                {
+                    sprite->Resolve();
+                    const AABB spriteBounds = sprite->BuildCommand( InTransform ).Bounds;
+                    if( spriteBounds.IsValid() ) OutBounds.Encapsulate( spriteBounds );
+                }
                 if( Decal* decal = entity->TryGetComponent<Decal>() )
                 {
                     OutBounds.Encapsulate( AABB::FromCenterExtents( Vector3(), Vector3( 0.5f, 0.5f, 0.5f ) ).Transformed( Decal::BoxMatrix( InTransform, decal->Size ) ) );

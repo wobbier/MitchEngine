@@ -24,6 +24,12 @@ PickingPass::PickingPass()
 
     u_id = bgfx::createUniform( "u_id", bgfx::UniformType::Vec4 ); // ID for drawing into ID buffer
     m_idProgram = Moonlight::ShaderCommand( "Assets/Shaders/Picking/picking_shaded", "Assets/Shaders/Picking/picking_id" );
+    m_spriteIdProgram = Moonlight::ShaderCommand( "Assets/Shaders/Picking/picking_sprite", "Assets/Shaders/Picking/picking_sprite" );
+    s_texSprite = bgfx::createUniform( "s_texSprite", bgfx::UniformType::Sampler );
+    {
+        const uint32_t white = 0xFFFFFFFF;
+        m_white = bgfx::createTexture2D( 1, 1, false, 1, bgfx::TextureFormat::RGBA8, 0, bgfx::copy( &white, sizeof( white ) ) );
+    }
     m_skinnedIdProgram = Moonlight::ShaderCommand( "Assets/Shaders/Picking/picking_skinned", "Assets/Shaders/Picking/picking_id" );
     u_bones = bgfx::createUniform( "u_bones", bgfx::UniformType::Mat4, Moonlight::MeshData::kMaxBones );
 
@@ -75,6 +81,8 @@ PickingPass::~PickingPass()
     bgfx::destroy( m_blitTex );
     bgfx::destroy( u_id );
     bgfx::destroy( u_bones );
+    bgfx::destroy( s_texSprite );
+    bgfx::destroy( m_white );
 }
 
 
@@ -270,7 +278,10 @@ void PickingPass::Render( ::BGFXRenderer* inRenderer, CameraData* inCamData, Fra
             bgfx::setIndexBuffer( &tib, 0, vertices / 4 * 6 );
             bgfx::setState( state & ~BGFX_STATE_CULL_MASK );
             bgfx::setUniform( u_id, &colorVec.x );
-            bgfx::submit( RENDER_PASS_ID, m_idProgram.GetProgram() );
+            // Clear texels don't pick (a texture still loading picks by the whole quad).
+            const bgfx::ProgramHandle spriteProgram = m_spriteIdProgram.GetProgram();
+            bgfx::setTexture( 0, s_texSprite, bgfx::isValid( sprite->Texture ) ? sprite->Texture : m_white, BGFX_SAMPLER_POINT );
+            bgfx::submit( RENDER_PASS_ID, bgfx::isValid( spriteProgram ) ? spriteProgram : m_idProgram.GetProgram() );
         }
     }
     // If the user previously clicked, and we're done reading data from GPU, look at ID buffer on CPU

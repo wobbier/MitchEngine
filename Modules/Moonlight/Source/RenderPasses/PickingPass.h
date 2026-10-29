@@ -34,6 +34,10 @@ namespace Moonlight
 
         // Resource handles
         Moonlight::ShaderCommand m_idProgram;
+        // Sprites: alpha-tested against their texture (ME-278).
+        Moonlight::ShaderCommand m_spriteIdProgram;
+        bgfx::UniformHandle s_texSprite = BGFX_INVALID_HANDLE;
+        bgfx::TextureHandle m_white = BGFX_INVALID_HANDLE;
         Moonlight::ShaderCommand m_skinnedIdProgram;
         bgfx::UniformHandle u_id;
         bgfx::UniformHandle u_bones;
