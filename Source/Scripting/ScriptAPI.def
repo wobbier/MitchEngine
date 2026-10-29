@@ -261,3 +261,57 @@ int Loc_GetLanguages( byte* outCodes, int size )
 ## go to the project (false in a shipped, read-only build).
 int Asset_ReadText( cstr path, byte* outText, int size )
 bool Asset_WriteText( cstr path, cstr text )
+
+## Entity queries (CS-5 h): ids fill outEntities up to max; each returns the total found
+int World_FindAllWithComponent( cstr component, Entity* outEntities, int maxEntities )
+int World_FindAllByName( cstr name, Entity* outEntities, int maxEntities )
+int Transform_GetChildren( Entity id, Entity* outEntities, int maxEntities )
+int Entity_GetGuid( Entity id, byte* outGuid, int size )
+int Entity_GetLayer( Entity id )
+void Entity_SetLayer( Entity id, int layer )
+
+## Application (CS-5 j): rumble a local player's pad, leave the game, the window
+bool Input_Rumble( int player, float low, float high, float seconds )
+void App_Quit()
+void Window_GetSize( Vector2* outSize )
+int Window_GetMode()
+void Window_SetMode( int mode )
+
+## Audio sources and particles (CS-5 b, c): on the entity's AudioSource / ParticleSystem
+void AudioSource_Play( Entity id )
+void AudioSource_Stop( Entity id )
+void AudioSource_Pause( Entity id )
+bool AudioSource_IsPlaying( Entity id )
+void Particles_Play( Entity id )
+void Particles_Stop( Entity id )
+void Particles_Burst( Entity id, int count )
+int Particles_GetCount( Entity id )
+
+## Physics queries with layer masks (CS-5 f): mask bit n = layer n (-1 = every layer)
+bool Physics_RaycastMasked( const Vector3* origin, const Vector3* direction, float maxDistance, int layerMask, RaycastHit* outHit )
+int Physics_RaycastAll( const Vector3* origin, const Vector3* direction, float maxDistance, int layerMask, RaycastHit* outHits, int maxHits )
+bool Physics_SphereCast( const Vector3* origin, float radius, const Vector3* direction, float maxDistance, int layerMask, RaycastHit* outHit )
+int Physics_OverlapBox( const Vector3* center, const Vector3* halfExtents, const Vector3* eulerDegrees, int layerMask, Entity* outEntities, int maxEntities )
+
+## Animator (CS-5 a): parameters, playback and state on the entity's Animator (markers arrive as
+## EventBus AnimationMarker events)
+void Animator_Play( Entity id, cstr state, float fadeSeconds )
+void Animator_Stop( Entity id )
+bool Animator_IsPlaying( Entity id )
+void Animator_SetFloat( Entity id, cstr name, float value )
+float Animator_GetFloat( Entity id, cstr name )
+void Animator_SetBool( Entity id, cstr name, bool value )
+bool Animator_GetBool( Entity id, cstr name )
+void Animator_SetTrigger( Entity id, cstr name )
+int Animator_GetState( Entity id, cstr layer, byte* outState, int size )
+float Animator_GetNormalizedTime( Entity id, cstr layer )
+void Animator_SetLayerWeight( Entity id, cstr layer, float weight )
+
+## 2D physics (CS-5 g): queries in the XY plane and Rigidbody2D motion; contacts reach
+## OnCollisionEnter / Exit like 3D ones
+bool Physics2D_Raycast( Vector2* origin, Vector2* direction, float maxDistance, int layerMask, RaycastHit* outHit )
+int Physics2D_OverlapCircle( Vector2* center, float radius, int layerMask, Entity* outEntities, int maxEntities )
+int Physics2D_OverlapPoint( Vector2* point, int layerMask, Entity* outEntities, int maxEntities )
+void Rigidbody2D_AddForce( Entity id, Vector2* force, int mode )
+void Rigidbody2D_GetVelocity( Entity id, Vector2* outVelocity )
+void Rigidbody2D_SetVelocity( Entity id, Vector2* velocity )

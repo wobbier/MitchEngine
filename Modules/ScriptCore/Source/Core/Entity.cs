@@ -22,6 +22,35 @@ public readonly struct Entity : IEquatable<Entity>
 
     public bool IsAlive { get { unsafe { return Engine._api.Entity_IsAlive(this) != 0; } } }
 
+    // Its direct children (CS-5 h).
+    public Entity[] Children
+    {
+        get
+        {
+            Entity self = this;
+            return Query.Fill((buffer, max) => { unsafe { fixed (Entity* b = buffer) return Engine._api.Transform_GetChildren(self, b, max); } });
+        }
+    }
+
+    // The scene GUID (the 16-hex string scenes and EntityRef store), "" for a dead entity.
+    public string Guid
+    {
+        get
+        {
+            var buffer = new byte[32];
+            int length;
+            unsafe { fixed (byte* b = buffer) length = Engine._api.Entity_GetGuid(this, b, buffer.Length); }
+            return System.Text.Encoding.UTF8.GetString(buffer, 0, System.Math.Clamp(length, 0, buffer.Length - 1));
+        }
+    }
+
+    // The physics / filtering layer, 0..31 (Project Settings names them).
+    public int Layer
+    {
+        get { unsafe { return Engine._api.Entity_GetLayer(this); } }
+        set { unsafe { Engine._api.Entity_SetLayer(this, value); } }
+    }
+
     // Destroys the entity and its children at the end of the frame.
     public void Destroy()
     {
@@ -51,6 +80,18 @@ public readonly struct Entity : IEquatable<Entity>
 
     // what is life?
     public static implicit operator bool(Entity e) => e.IsAlive;
+
+    // Any registered component by name ("Light", "ParticleSystem", "AudioSource"...), wrapped in
+    // C# or not; its fields are reachable through Component.GetField / SetField.
+    public bool HasComponent(string component)
+    {
+        unsafe { fixed (byte* p = Engine.Utf8(component)) return Engine._api.Entity_HasComponent(this, p) != 0; }
+    }
+
+    public void AddComponent(string component)
+    {
+        unsafe { fixed (byte* p = Engine.Utf8(component)) Engine._api.Entity_AddComponent(this, p); }
+    }
 
     public bool HasComponent<T>() where T : Component, new()
     {

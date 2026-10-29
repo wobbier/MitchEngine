@@ -263,4 +263,60 @@ public unsafe struct EngineAPIBindings
     // go to the project (false in a shipped, read-only build).
     public delegate* unmanaged<byte*, byte*, int, int> Asset_ReadText;
     public delegate* unmanaged<byte*, byte*, byte> Asset_WriteText;
+
+    // Entity queries (CS-5 h): ids fill outEntities up to max; each returns the total found
+    public delegate* unmanaged<byte*, Entity*, int, int> World_FindAllWithComponent;
+    public delegate* unmanaged<byte*, Entity*, int, int> World_FindAllByName;
+    public delegate* unmanaged<Entity, Entity*, int, int> Transform_GetChildren;
+    public delegate* unmanaged<Entity, byte*, int, int> Entity_GetGuid;
+    public delegate* unmanaged<Entity, int> Entity_GetLayer;
+    public delegate* unmanaged<Entity, int, void> Entity_SetLayer;
+
+    // Application (CS-5 j): rumble a local player's pad, leave the game, the window
+    public delegate* unmanaged<int, float, float, float, byte> Input_Rumble;
+    public delegate* unmanaged<void> App_Quit;
+    public delegate* unmanaged<Vector2*, void> Window_GetSize;
+    public delegate* unmanaged<int> Window_GetMode;
+    public delegate* unmanaged<int, void> Window_SetMode;
+
+    // Audio sources and particles (CS-5 b, c): on the entity's AudioSource / ParticleSystem
+    public delegate* unmanaged<Entity, void> AudioSource_Play;
+    public delegate* unmanaged<Entity, void> AudioSource_Stop;
+    public delegate* unmanaged<Entity, void> AudioSource_Pause;
+    public delegate* unmanaged<Entity, byte> AudioSource_IsPlaying;
+    public delegate* unmanaged<Entity, void> Particles_Play;
+    public delegate* unmanaged<Entity, void> Particles_Stop;
+    public delegate* unmanaged<Entity, int, void> Particles_Burst;
+    public delegate* unmanaged<Entity, int> Particles_GetCount;
+
+    // Physics queries with layer masks (CS-5 f): mask bit n = layer n (-1 = every layer)
+    public delegate* unmanaged<Vector3*, Vector3*, float, int, RaycastHit*, byte> Physics_RaycastMasked;
+    public delegate* unmanaged<Vector3*, Vector3*, float, int, RaycastHit*, int, int> Physics_RaycastAll;
+    public delegate* unmanaged<Vector3*, float, Vector3*, float, int, RaycastHit*, byte> Physics_SphereCast;
+    public delegate* unmanaged<Vector3*, Vector3*, Vector3*, int, Entity*, int, int> Physics_OverlapBox;
+
+    // Animator (CS-5 a): parameters, playback and state on the entity's Animator (markers arrive as
+
+    // EventBus AnimationMarker events)
+    public delegate* unmanaged<Entity, byte*, float, void> Animator_Play;
+    public delegate* unmanaged<Entity, void> Animator_Stop;
+    public delegate* unmanaged<Entity, byte> Animator_IsPlaying;
+    public delegate* unmanaged<Entity, byte*, float, void> Animator_SetFloat;
+    public delegate* unmanaged<Entity, byte*, float> Animator_GetFloat;
+    public delegate* unmanaged<Entity, byte*, byte, void> Animator_SetBool;
+    public delegate* unmanaged<Entity, byte*, byte> Animator_GetBool;
+    public delegate* unmanaged<Entity, byte*, void> Animator_SetTrigger;
+    public delegate* unmanaged<Entity, byte*, byte*, int, int> Animator_GetState;
+    public delegate* unmanaged<Entity, byte*, float> Animator_GetNormalizedTime;
+    public delegate* unmanaged<Entity, byte*, float, void> Animator_SetLayerWeight;
+
+    // 2D physics (CS-5 g): queries in the XY plane and Rigidbody2D motion; contacts reach
+
+    // OnCollisionEnter / Exit like 3D ones
+    public delegate* unmanaged<Vector2*, Vector2*, float, int, RaycastHit*, byte> Physics2D_Raycast;
+    public delegate* unmanaged<Vector2*, float, int, Entity*, int, int> Physics2D_OverlapCircle;
+    public delegate* unmanaged<Vector2*, int, Entity*, int, int> Physics2D_OverlapPoint;
+    public delegate* unmanaged<Entity, Vector2*, int, void> Rigidbody2D_AddForce;
+    public delegate* unmanaged<Entity, Vector2*, void> Rigidbody2D_GetVelocity;
+    public delegate* unmanaged<Entity, Vector2*, void> Rigidbody2D_SetVelocity;
 }

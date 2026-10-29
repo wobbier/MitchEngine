@@ -27,4 +27,6 @@ namespace ScriptBindings
 
     bool HasComponentNamed( EntityHandle inHandle, const char* inName );
     bool AddComponentNamed( EntityHandle inHandle, const char* inName );
+    // Whether the entity has a component of that type (any registered component).
+    bool HasComponentOfType( const Entity& InEntity, TypeId InType );
 }

@@ -35,6 +35,7 @@
 #include "Bindings/Systems/SaveGame.bindings.h"
 #include "Bindings/Systems/Localization.bindings.h"
 #include "Bindings/Systems/Asset.bindings.h"
+#include "Bindings/Systems/Query.bindings.h"
 
 namespace fs = std::filesystem;
 
@@ -475,6 +476,7 @@ static int StartRuntime()
     Register_SaveGameBindings( engineApi );
     Register_LocalizationBindings( engineApi );
     Register_AssetBindings( engineApi );
+    Register_QueryBindings( engineApi );
 
     // Every slot of the generated table must be filled, or a script call would jump to null.
     static_assert( sizeof( ScriptEngineAPI ) % sizeof( void* ) == 0, "ScriptEngineAPI holds only function pointers" );

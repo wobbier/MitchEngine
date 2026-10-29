@@ -96,10 +96,15 @@ public:
     void Simulate( float InDeltaSeconds, const glm::mat4& InWorld );
     void FillBatch( Moonlight::ParticleBatch& OutBatch, const glm::mat4& InWorld ) const;
     void Restart();
+    // Script control (CS-5 c): Play restarts emission, Stop ends it (live particles finish their
+    // lives), Burst emits InCount at once on the next simulation step.
+    void Play();
+    void Stop();
+    void Burst( int InCount );
     // Loads the texture and graph when they changed (main thread).
     void ResolveTexture();
     size_t GetParticleCount() const { return m_particles.size(); }
-    bool IsEmitting() const { return Looping || m_time < Duration; }
+    bool IsEmitting() const { return !m_stopped && ( Looping || m_time < Duration ); }
 
 #if USING( ME_EDITOR )
     void OnEditorInspect() override;
@@ -127,6 +132,8 @@ private:
     float m_time = 0.f;
     float m_emitAccumulator = 0.f;
     bool m_burstDone = false;
+    bool m_stopped = false;
+    int m_pendingBurst = 0;
     uint32_t m_rng = 0x9e3779b9u;
     SharedPtr<Moonlight::Texture> m_texture;
     std::string m_loadedTexture;

@@ -83,6 +83,28 @@ void ParticleSystem::Restart()
     m_time = 0.f;
     m_emitAccumulator = 0.f;
     m_burstDone = false;
+    m_stopped = false;
+}
+
+
+void ParticleSystem::Play()
+{
+    m_stopped = false;
+    m_time = 0.f;
+    m_emitAccumulator = 0.f;
+    m_burstDone = false;
+}
+
+
+void ParticleSystem::Stop()
+{
+    m_stopped = true;
+}
+
+
+void ParticleSystem::Burst( int InCount )
+{
+    m_pendingBurst += std::max( InCount, 0 );
 }
 
 
@@ -233,6 +255,11 @@ void ParticleSystem::Simulate( float InDeltaSeconds, const glm::mat4& InWorld )
     {
         m_time = std::fmod( m_time, std::max( Duration, 0.05f ) );
         m_burstDone = false;
+    }
+    // Script bursts emit whether or not the system is emitting.
+    for( ; m_pendingBurst > 0; --m_pendingBurst )
+    {
+        Emit( InWorld );
     }
     if( IsEmitting() )
     {

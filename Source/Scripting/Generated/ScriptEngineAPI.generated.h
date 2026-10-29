@@ -274,4 +274,60 @@ struct ScriptEngineAPI
     // go to the project (false in a shipped, read-only build).
     int ( *Asset_ReadText )( const uint8_t* path, uint8_t* outText, int size );
     bool ( *Asset_WriteText )( const uint8_t* path, const uint8_t* text );
+
+    // Entity queries (CS-5 h): ids fill outEntities up to max; each returns the total found
+    int ( *World_FindAllWithComponent )( const uint8_t* component, EntityID* outEntities, int maxEntities );
+    int ( *World_FindAllByName )( const uint8_t* name, EntityID* outEntities, int maxEntities );
+    int ( *Transform_GetChildren )( EntityID id, EntityID* outEntities, int maxEntities );
+    int ( *Entity_GetGuid )( EntityID id, uint8_t* outGuid, int size );
+    int ( *Entity_GetLayer )( EntityID id );
+    void ( *Entity_SetLayer )( EntityID id, int layer );
+
+    // Application (CS-5 j): rumble a local player's pad, leave the game, the window
+    bool ( *Input_Rumble )( int player, float low, float high, float seconds );
+    void ( *App_Quit )();
+    void ( *Window_GetSize )( Vector2* outSize );
+    int ( *Window_GetMode )();
+    void ( *Window_SetMode )( int mode );
+
+    // Audio sources and particles (CS-5 b, c): on the entity's AudioSource / ParticleSystem
+    void ( *AudioSource_Play )( EntityID id );
+    void ( *AudioSource_Stop )( EntityID id );
+    void ( *AudioSource_Pause )( EntityID id );
+    bool ( *AudioSource_IsPlaying )( EntityID id );
+    void ( *Particles_Play )( EntityID id );
+    void ( *Particles_Stop )( EntityID id );
+    void ( *Particles_Burst )( EntityID id, int count );
+    int ( *Particles_GetCount )( EntityID id );
+
+    // Physics queries with layer masks (CS-5 f): mask bit n = layer n (-1 = every layer)
+    bool ( *Physics_RaycastMasked )( const Vector3* origin, const Vector3* direction, float maxDistance, int layerMask, ScriptRaycastHit* outHit );
+    int ( *Physics_RaycastAll )( const Vector3* origin, const Vector3* direction, float maxDistance, int layerMask, ScriptRaycastHit* outHits, int maxHits );
+    bool ( *Physics_SphereCast )( const Vector3* origin, float radius, const Vector3* direction, float maxDistance, int layerMask, ScriptRaycastHit* outHit );
+    int ( *Physics_OverlapBox )( const Vector3* center, const Vector3* halfExtents, const Vector3* eulerDegrees, int layerMask, EntityID* outEntities, int maxEntities );
+
+    // Animator (CS-5 a): parameters, playback and state on the entity's Animator (markers arrive as
+
+    // EventBus AnimationMarker events)
+    void ( *Animator_Play )( EntityID id, const uint8_t* state, float fadeSeconds );
+    void ( *Animator_Stop )( EntityID id );
+    bool ( *Animator_IsPlaying )( EntityID id );
+    void ( *Animator_SetFloat )( EntityID id, const uint8_t* name, float value );
+    float ( *Animator_GetFloat )( EntityID id, const uint8_t* name );
+    void ( *Animator_SetBool )( EntityID id, const uint8_t* name, bool value );
+    bool ( *Animator_GetBool )( EntityID id, const uint8_t* name );
+    void ( *Animator_SetTrigger )( EntityID id, const uint8_t* name );
+    int ( *Animator_GetState )( EntityID id, const uint8_t* layer, uint8_t* outState, int size );
+    float ( *Animator_GetNormalizedTime )( EntityID id, const uint8_t* layer );
+    void ( *Animator_SetLayerWeight )( EntityID id, const uint8_t* layer, float weight );
+
+    // 2D physics (CS-5 g): queries in the XY plane and Rigidbody2D motion; contacts reach
+
+    // OnCollisionEnter / Exit like 3D ones
+    bool ( *Physics2D_Raycast )( Vector2* origin, Vector2* direction, float maxDistance, int layerMask, ScriptRaycastHit* outHit );
+    int ( *Physics2D_OverlapCircle )( Vector2* center, float radius, int layerMask, EntityID* outEntities, int maxEntities );
+    int ( *Physics2D_OverlapPoint )( Vector2* point, int layerMask, EntityID* outEntities, int maxEntities );
+    void ( *Rigidbody2D_AddForce )( EntityID id, Vector2* force, int mode );
+    void ( *Rigidbody2D_GetVelocity )( EntityID id, Vector2* outVelocity );
+    void ( *Rigidbody2D_SetVelocity )( EntityID id, Vector2* velocity );
 };
