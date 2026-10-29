@@ -159,6 +159,7 @@ TEST_CASE( "Net: at 100+-20 ms and 5% loss, 99.9% of commands arrive on time, sl
     {
         InputCommand expected = CommandFor( simulated[i].Tick );
         expected.Tick = simulated[i].Tick;
+        expected.ViewTick = simulated[i].ViewTick;  // the client fills in what it was looking at
         for( float& axis : expected.Axes )
         {
             axis = NetCommands::QuantizeAxis( axis );

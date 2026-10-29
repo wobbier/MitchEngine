@@ -75,6 +75,7 @@ bool NetCore::Host( INetTransport& InTransport, uint16_t InTickRate )
         return false;
     }
     m_server = std::make_unique<NetServer>( InTransport, MakeVersion(), InTickRate );
+    m_lagCompensation.SetTickRate( InTickRate );
     m_replicationServer = std::make_unique<NetReplicationServer>( GetWorld(), *m_server );
     m_replicationServer->AssignStaticIds();
     return true;
@@ -115,6 +116,13 @@ void NetCore::Predict( EntityHandle InPawn )
     {
         m_replicationClient->SetPredicted( identity->GetNetId() );
     }
+}
+
+
+LagCompensatedHit NetCore::LagCompensatedRaycast( const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, const InputCommand& InCommand,
+    const EntityHandle& InShooter )
+{
+    return m_lagCompensation.Raycast( GetWorld().GetCore<PhysicsCore>(), InOrigin, InDirection, InMaxDistance, InCommand.ViewTick, InShooter );
 }
 
 
@@ -163,6 +171,11 @@ void NetCore::BeginTick()
     if( m_client && m_client->GetState() == NetClient::State::Connected )
     {
         m_tick = m_client->GetClock().GetTick();
+        // What the player is looking at: lag compensation rewinds shots to it.
+        if( m_replicationClient->GetSnapshotsReceived() > 0 )
+        {
+            m_localCommand.ViewTick = m_replicationClient->GetRenderTick();
+        }
         m_client->SubmitCommand( m_localCommand );
         if( m_predictor )
         {
@@ -173,6 +186,7 @@ void NetCore::BeginTick()
             {
                 axis = NetCommands::QuantizeAxis( axis );
             }
+            quantized.ViewTick = NetCommands::QuantizeViewTick( m_tick, quantized.ViewTick );
             m_predictor->Apply( quantized );
         }
     }
@@ -183,6 +197,7 @@ void NetCore::EndTick( double InNow )
 {
     if( m_server )
     {
+        m_lagCompensation.Record( GetWorld(), m_server->GetTick() );
         m_replicationServer->CaptureTick( m_server->GetTick() );
         m_server->EndTick( InNow );
     }

@@ -2,6 +2,7 @@
 #include "Net/NetCommands.h"
 #include "Net/BitStream.h"
 #include "Net/NetQuantize.h"
+#include <algorithm>
 #include <cmath>
 
 namespace
@@ -14,7 +15,18 @@ namespace
 
 bool InputCommand::operator==( const InputCommand& InOther ) const
 {
-    return Tick == InOther.Tick && Buttons == InOther.Buttons && Axes == InOther.Axes;
+    return Tick == InOther.Tick && Buttons == InOther.Buttons && Axes == InOther.Axes && ViewTick == InOther.ViewTick;
+}
+
+
+double NetCommands::QuantizeViewTick( uint32_t InTick, double InViewTick )
+{
+    if( InViewTick < 0.0 )
+    {
+        return -1.0;
+    }
+    const double behind = std::clamp( static_cast<double>( InTick ) - InViewTick, 0.0, 1023.0 );
+    return static_cast<double>( InTick ) - std::round( behind * 64.0 ) / 64.0;
 }
 
 
@@ -54,6 +66,13 @@ void NetCommands::Write( BitWriter& InWriter, const InputCommand* InCommands, si
                 InWriter.WriteBits( value, kAxisBits );
             }
         }
+        // How far behind its tick the view was, in 1/64 ticks.
+        InWriter.WriteBool( command.ViewTick >= 0.0 );
+        if( command.ViewTick >= 0.0 )
+        {
+            const double behind = std::clamp( static_cast<double>( command.Tick ) - command.ViewTick, 0.0, 1023.0 );
+            InWriter.WriteBits( static_cast<uint32_t>( std::lround( behind * 64.0 ) ), 16 );
+        }
         previous = command;
     }
 }
@@ -86,6 +105,7 @@ bool NetCommands::Read( BitReader& InReader, std::vector<InputCommand>& OutComma
                 axis = NetCommands::QuantizeAxis( axis );
             }
         }
+        command.ViewTick = InReader.ReadBool() ? static_cast<double>( command.Tick ) - InReader.ReadBits( 16 ) / 64.0 : -1.0;
         OutCommands.push_back( command );
         previous = command;
     }

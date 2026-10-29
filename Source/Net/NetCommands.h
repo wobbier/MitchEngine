@@ -16,6 +16,9 @@ struct InputCommand
     uint32_t Tick = 0;
     uint32_t Buttons = 0;
     std::array<float, 4> Axes{};    // -1..1, 16 bits on the wire
+    // The (fractional) server tick the player was looking at when making it: its interpolated
+    // view's render tick (lag compensation, NET-8). < 0: none. 1/64 tick on the wire.
+    double ViewTick = -1.0;
 
     bool operator==( const InputCommand& InOther ) const;
 };
@@ -28,6 +31,8 @@ namespace NetCommands
 
     // An axis as the server will see it (clients predict with the same value).
     float QuantizeAxis( float InValue );
+    // A view tick as the server will see it.
+    double QuantizeViewTick( uint32_t InTick, double InViewTick );
 
     // Delta-coded: unchanged buttons / axes and consecutive ticks cost a bit each.
     void Write( BitWriter& InWriter, const InputCommand* InCommands, size_t InCount );

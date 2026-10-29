@@ -19,8 +19,9 @@ Multiplayer follows the Overwatch model: an authoritative server, client predict
   - kinematic remotes.
 
 - **NET-4:** client prediction of the owner's character, with rollback, resim and error smoothing.
+- **NET-8:** lag compensation: `NetHitbox`, a rewound `LagCompensatedRaycast`, and its overlays.
 
-Transports for real, the C# API, the editor tooling and lag compensation come next (NET-5 onwards).
+Real transports (ENet, NET-5), the C# API (NET-6) and the editor tooling (NET-7) come next.
 
 ## Key Files
 
@@ -38,6 +39,8 @@ Transports for real, the C# API, the editor tooling and lag compensation come ne
 | `Source/Net/NetSnapshot.h` | `NetEntityState`: pose at 1/1024 m, rotation smallest-three at 12 bits, replicated field bytes. `NetSchema` (fields flagged `.Replicated()` in `ME_REFLECT`). `NetSnapshotCodec`: deltas against a baseline |
 | `Source/Net/NetReplication.h` | `NetReplicationServer` (ids, spawns, snapshots per client) and `NetReplicationClient` (mirrors, interpolation) |
 | `Source/Net/NetPrediction.h` | `NetPredictor`: a 128-tick history of {command, mover state}, `Reconcile` (millimetre compare, then restore and resim with `PhysicsCore::StepCharacter`), and visual error smoothing |
+| `Source/Components/Networking/NetHitbox.h` | A capsule or box that lag-compensated shots test against |
+| `Source/Net/NetLagCompensation.h` | Each tick's hitbox poses for `MaxRewindSeconds`; `Raycast` at a view tick (analytic ray vs capsule / OBB, present colliders occlude); overlays |
 | `Source/Cores/NetCore.h` | Engine-owned (`Engine::Net`): `Host` / `Connect`, the frame hooks, the version of its world |
 | `Tests/Source/NetTests.cpp`, `NetSessionTests.cpp`, `NetHarness.h` | The proofs (below). The harness runs a server world and a client world in one process at 1 ms resolution |
 
@@ -136,6 +139,18 @@ The client predicts only what it owns. Remote entities are interpolated (above),
 - The visual offset isn't applied to anything. A game draws the pawn's mesh at `Transform + GetVisualOffset()`. Moving the Transform itself would read as a teleport to the mover.
 - Prediction of `[Predicted]` script fields comes with NET-6.
 
+### Lag compensation (NET-8)
+
+- **View tick:** each client command carries `ViewTick`, the render tick of its interpolated view when the command was made. It goes on the wire as how far behind the command's tick it was, in 1/64 ticks.
+- **Recording:** after each server tick, `NetLagCompensation::Record` stores every `NetHitbox`'s world pose: a capsule along local Y (Height, Radius) or a box (HalfExtents), around a local Center.
+- **The shot:** a server command handler calls `NetCore::LagCompensatedRaycast( origin, direction, range, command, shooter )`.
+  1. The hitboxes are interpolated to the command's view tick.
+  2. The ray is tested analytically against each, skipping the shooter. Nothing in the physics world moves.
+  3. A present-day `RaycastAll` finds occluders, ignoring entities with hitboxes, whose bodies are in the present.
+  4. A hit behind an occluder comes back `Occluded`.
+- **The cap:** a view older than `MaxRewindSeconds` (0.4 s, about 300 ms RTT plus the view's delay and slack) is `Rejected`.
+- **Overlays:** with `DrawOverlays`, each shot draws the ray (green on a hit, red otherwise), the rewound hitboxes in yellow and the present ones in gray, for 2 s.
+
 ## Proofs
 
 `NetTests.cpp`:
@@ -157,6 +172,14 @@ The client predicts only what it owns. Remote entities are interpolated (above),
   - **Resim:** a predictor corrected at tick 19 resims 20 ticks in 0.056 ms (< 1 ms, Debug). Its visual offset is the jump, and it's gone after 100 ms. Resimming from the straight run's own state reproduces that run bit for bit.
   - **Course:** two worlds at 150 ms RTT (75 ± 3 ms each way) run a walk/strafe/jump course with a step and a wall: 697 ticks confirmed, **0 corrections**, after 1 initial sync.
   - **Knockback:** a server-only knockback gives **exactly 1 correction**, at the knockback tick. The visual offset is zero by the 10th frame after it, and no further corrections follow.
+- **Lag compensation (`NetLagCompensationTests.cpp`), the NET-8 done-when:**
+  - **Shapes:** ray vs capsule (side, cap, miss, range, behind) and ray vs a turned box.
+  - **Setup:** at 200 ms RTT, a target strafes at 5 m/s while the client fires every 20 ticks, aiming at the target where it sees it.
+  - **Results:** of 60 shots, rewound by 16.6 ticks (276 ms) on average:
+    - all 50 unobstructed shots hit with rewind;
+    - the other 10 were correctly blocked by a wall;
+    - 2 hit without rewind, near the target's turnaround;
+    - all 60 forged views 30 ticks further back were rejected.
 - **Handshake:** another build is rejected (`"version mismatch: build"`) and the server lets it go; so is another scene (`"version mismatch: scene"`); a match connects.
 - **Round trip:** at 50 ms each way, 5% loss, with 0 or ±10 ms jitter, both ends estimate within 10% of 100 ms. Garbage and lying packets are rejected, and oversized messages are refused.
 

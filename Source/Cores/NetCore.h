@@ -1,5 +1,6 @@
 #pragma once
 #include "ECS/Core.h"
+#include "Net/NetLagCompensation.h"
 #include "Net/NetPrediction.h"
 #include "Net/NetReplication.h"
 #include "Net/NetSession.h"
@@ -66,6 +67,12 @@ public:
     // Client: predict this pawn (a CharacterController the server lets this client own).
     void Predict( EntityHandle InPawn );
     NetPredictor* GetPredictor() { return m_predictor.get(); }
+
+    // Server (NET-8): a ray against the hitboxes as InCommand's player saw them (its ViewTick),
+    // blocked by colliders in the present. InShooter is ignored.
+    LagCompensatedHit LagCompensatedRaycast( const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, const InputCommand& InCommand,
+        const EntityHandle& InShooter = EntityHandle() );
+    NetLagCompensation& GetLagCompensation() { return m_lagCompensation; }
     // The tick being simulated (BeginTick to EndTick): the server's, or the client's.
     uint32_t GetTick() const { return m_tick; }
 
@@ -82,6 +89,7 @@ private:
     InputCommand m_localCommand;
     NetPredictor::CommandHandler m_commandHandler;
     std::unique_ptr<NetPredictor> m_predictor;
+    NetLagCompensation m_lagCompensation;
     uint32_t m_tick = 0;
 };
 
