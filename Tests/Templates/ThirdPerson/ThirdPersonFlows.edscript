@@ -12,10 +12,12 @@ assert-exists Main Camera
 assert-exists Crate 6
 assert-field Player | Transform.Position | [0.0, 1.0, -6.0] ~ 0.01
 
-# Play: W runs away from the camera (+Z), D to its right (+X), and the hero turns to face it
-# (anchored on state: the scripts may still be building when Play starts)
+# Play: the fence behind the start stands between the follow camera and the hero, so it dithers
+# away (OccluderFade, ME-284). Then W runs away from the camera (+Z), D to its right (+X), and the
+# hero turns to face it (anchored on state: the scripts may still be building when Play starts)
 play
 assert-playing 1
+wait-field Fence | Mesh.DitherFade | != 0.0 ~ 0.5 | 600
 input-hold Keyboard/W
 wait-field Player | Transform.Position.2 | != -6.0 ~ 2.0 | 900
 input-release Keyboard/W

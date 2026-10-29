@@ -58,6 +58,13 @@
                     "Type": "ScriptComponent",
                     "ScriptName": "ThirdPersonCamera",
                     "ScriptFields": "{\"Target\": \"Player\", \"Distance\": 6.0, \"Height\": 1.4, \"Yaw\": 0.0, \"Pitch\": 18.0, \"Sensitivity\": 1.5, \"FollowHalfLife\": 0.05}"
+                },
+                {
+                    "Type": "OccluderFade",
+                    "Target": "Player",
+                    "Radius": 0.3,
+                    "Amount": 0.8,
+                    "FadeSeconds": 0.2
                 }
             ]
         },
@@ -1706,6 +1713,62 @@
                 {
                     "Type": "ScriptComponent",
                     "ScriptName": "PauseMenu"
+                }
+            ]
+        },
+        {
+            "GUID": "80022b65dede0f3a",
+            "Name": "Fence",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0.0,
+                        1.5,
+                        -9.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.5,
+                        1.5,
+                        0.15
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.5,
+                            0.51,
+                            0.54
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.8,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            1.0,
+                            4
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2.0,
+                        2.0,
+                        2.0
+                    ]
                 }
             ]
         }

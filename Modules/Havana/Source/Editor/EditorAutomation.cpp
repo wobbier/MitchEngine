@@ -36,6 +36,7 @@
 #include "Engine/Engine.h"
 #include "Engine/PlayerSettings.h"
 #include "Engine/HardwareBudget.h"
+#include "Components/Graphics/Mesh.h"
 #include <array>
 #include <map>
 #include "Engine/SaveGames.h"
@@ -205,7 +206,16 @@ namespace
             OutDetail = "bad arguments or no entity named " + InEntity;
             return false;
         }
-        const json state = EditorOps::CaptureComponent( *entity.Get(), type );
+        json state = EditorOps::CaptureComponent( *entity.Get(), type );
+        // Runtime readouts that aren't saved: a mesh's screen-door fade (ME-279), e.g.
+        // wait-field Fence | Mesh.DitherFade | != 0.0 ~ 0.5 | 300
+        if( type == "Mesh" && state.is_object() )
+        {
+            if( const Mesh* mesh = entity->TryGetComponent<Mesh>() )
+            {
+                state["DitherFade"] = mesh->DitherFade;
+            }
+        }
         const json* actual = Resolve( state, pointer );
         if( !actual || NearlyEqual( *actual, expected, tolerance ) == negate )
         {

@@ -104,7 +104,7 @@ middle over Log and Resource Monitor, Properties right):
 | --- | --- | --- |
 | **Empty** | A camera, a sun and a floor | `PauseMenu.cs` (every template): Pause (Escape / Start) toggles the engine's stock options menu on the hidden `Options` entity and pauses the game |
 | **First-Person** (`FirstPerson`) | A CharacterController body with the camera at eye height, on the blockout course | `FirstPersonController.cs`: mouse/stick look (captured; Pause frees the cursor, Fire takes it back), walk, sprint, jump |
-| **Third-Person** (`ThirdPerson`) | A capsule hero with a visor on the course | `ThirdPersonController.cs` (camera-relative movement, turns to face it), `ThirdPersonCamera.cs` (orbit, eases after the hero, pulls in at walls) |
+| **Third-Person** (`ThirdPerson`) | A capsule hero with a visor on the course | `ThirdPersonController.cs` (camera-relative movement, turns to face it), `ThirdPersonCamera.cs` (orbit, eases after the hero, pulls in at walls); the camera's `OccluderFade` dithers away the fence behind the start when it hides the hero |
 | **Top-Down** (`TopDown`) | The same hero under a high camera | `TopDownController.cs` (screen-relative movement), `TopDownCamera.cs` (fixed angle, eases after the target) |
 | **2D Platformer** (`Platformer2D`) | A sprite hero on a tilemap level (ground with a pit, brick platforms, stairs, coins), side-on orthographic camera | `PlatformerController.cs` (a `CharacterController2D`: run, sprint, jump with coyote time and a jump buffer, sprite facing, Idle/Walk flipbooks), `PlatformerCamera.cs` (look-ahead, vertical slack, eased follow) |
 
