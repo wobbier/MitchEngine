@@ -175,15 +175,22 @@ void HardwareBudget::Init( BGFXRenderer& InRenderer )
     m_renderer = &InRenderer;
     const ProjectSettings& settings = ProjectSettings::Get();
     m_activeName = CommandLine::Has( "--hardware-profile" ) ? CommandLine::GetString( "--hardware-profile" ) : settings.HardwareProfileName;
-    m_enforced = CommandLine::Has( "--enforce-profile" ) || settings.EnforceHardwareProfile;
+    // --no-profile-enforcement wins: reference captures and regression runs pass it
+    // (Tools/ScreenshotRegression.py), so a local ProjectSettings edit can't cap what they render.
+    const bool enforcementOff = CommandLine::Has( "--no-profile-enforcement" );
+    m_enforced = !enforcementOff && ( CommandLine::Has( "--enforce-profile" ) || settings.EnforceHardwareProfile );
     ReloadProfiles();
+    // Always one line, so a run's log says which caps it rendered under.
     if( m_activeName.empty() )
     {
+        CLog::Log( CLog::LogType::Info, "Hardware profile: none" );
         return;
     }
     if( GetActiveProfile() )
     {
-        CLog::Log( CLog::LogType::Info, "Hardware profile: " + m_activeName + ( m_enforced ? " (enforced)" : "" ) );
+        const bool asked = CommandLine::Has( "--enforce-profile" ) || settings.EnforceHardwareProfile;
+        CLog::Log( CLog::LogType::Info, "Hardware profile: " + m_activeName
+            + ( m_enforced ? " (enforced)" : enforcementOff && asked ? " (not enforced: --no-profile-enforcement)" : "" ) );
     }
     else
     {

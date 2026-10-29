@@ -7,7 +7,7 @@ A project picks a **hardware profile**: a target machine such as "Xbox 360", "20
 ## Overview
 
 - **Profiles** (`HardwareProfile`) come from the engine's `Assets/Config/HardwareProfiles.json` (four built-in targets), then from the project's `Assets/Config/HardwareProfiles.json`.
-- **The choice** is per project: `"HardwareProfile": { "Name", "Enforce" }` in `ProjectSettings.json`, edited in Project Settings > Hardware. `--hardware-profile "Name"` and `--enforce-profile` override it for one run.
+- **The choice** is per project: `"HardwareProfile": { "Name", "Enforce" }` in `ProjectSettings.json`, edited in Project Settings > Hardware. `--hardware-profile "Name"` and `--enforce-profile` override it for one run; `--no-profile-enforcement` turns enforcement off whatever else asks for it. Every run logs the result (`Hardware profile: none`, `Hardware profile: Xbox 360 (enforced)`). Screenshot captures (`Tools/ScreenshotRegression.py`) pass `--no-profile-enforcement` unless their `--game-args` has `--enforce-profile`, and print each scene's profile, so a local `ProjectSettings.json` edit can't leak into references (ME-255); `--update` also warns while `Assets/Config` has uncommitted changes.
 - **Measurement** happens once a frame, right after `FrameStats::EndFrame` (`Docs/Architecture.md`). It reads `FrameStats`, which the renderer fills in `BGFXRenderer::GatherFrameStats`, plus process and FMOD memory a few times a second.
 - **Enforcement** writes `BGFXRenderer::FeatureCaps` and `Moonlight::Texture::SetMaxUploadSize`. The caps mask the renderer's settings and each camera's post-processing while frames render; they never change the authored settings. Lifting a cap brings the authored look back.
 

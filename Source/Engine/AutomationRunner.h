@@ -16,6 +16,8 @@ class BGFXRenderer;
 //   --frame-time S        every frame advances S seconds of game time (repeatable captures; Engine)
 //   --hardware-profile N  budget against hardware profile N; the perf report gains its "Budgets"
 //   --enforce-profile     apply that profile's feature caps (HardwareBudget)
+//   --no-profile-enforcement  never apply them, whatever the project or --enforce-profile asks
+//                         (screenshot captures pass it; Tools/ScreenshotRegression.py)
 class AutomationRunner
 {
 public:

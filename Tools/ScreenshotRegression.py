@@ -15,6 +15,11 @@ another directory instead (a cooked tree from Havana --cook). --wrapper prefixes
 command (e.g. a script that points DISPLAY at a virtual X server). References are stored downscaled;
 the comparison happens at that size, with a per-pixel tolerance so particles and dithering don't
 count as regressions. Differences are written as amplified diff images to --out.
+
+Captures pass --no-profile-enforcement (unless --game-args has --enforce-profile), so a hardware profile a
+local ProjectSettings edit enforces can't cap what they render; each scene's line names the profile
+its log reports. --update also warns when Assets/Config has uncommitted changes, before and after
+capturing (an open editor can write ProjectSettings.json mid-run): other local settings still apply.
 """
 import argparse
 import os
@@ -134,6 +139,41 @@ def compare(a, b, tolerance):
     pixels = width * height
     return total / (pixels * 255.0), bad / pixels, diff_rows
 
+# ----------------------------------------------------------------------------------------- hygiene
+
+def dirty_config(cwd):
+    """Uncommitted files under Assets/Config in the repository the game runs in (none outside one).
+    The editor layout doesn't change what a capture renders."""
+    try:
+        out = subprocess.run(["git", "status", "--porcelain", "--", "Assets/Config"], cwd=cwd or None,
+                             capture_output=True, text=True, check=True).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return []
+    files = [line[3:].strip() for line in out.splitlines()]
+    return [f for f in files if not f.endswith("imgui.cfg")]
+
+
+def warn_dirty_config(cwd, when):
+    files = dirty_config(cwd)
+    if files:
+        sys.stdout.flush()
+        print(f"WARNING: --update {when} with uncommitted config ({', '.join(files)}): references may capture local "
+              "settings a clean checkout doesn't have (hardware profile enforcement is off for captures; the rest "
+              "still applies). Commit or stash them and recapture.", file=sys.stderr)
+
+
+def profile_from_log(log_path):
+    """The 'Hardware profile: ...' line the engine logs at startup, else 'unknown'."""
+    try:
+        with open(log_path, errors="replace") as log:
+            for line in log:
+                at = line.find("Hardware profile: ")
+                if at >= 0 and "reloaded" not in line:
+                    return line[at + len("Hardware profile: "):].strip()
+    except OSError:
+        pass
+    return "unknown"
+
 # -------------------------------------------------------------------------------------------- main
 
 def main():
@@ -157,6 +197,11 @@ def main():
 
     os.makedirs(args.out, exist_ok=True)
     os.makedirs(args.reference, exist_ok=True)
+    game_args = shlex.split(args.game_args)
+    if "--enforce-profile" not in game_args:
+        game_args.append("--no-profile-enforcement")
+    if args.update:
+        warn_dirty_config(args.cwd, "starting")
     failures = 0
     for scene in args.scenes:
         name = os.path.splitext(os.path.basename(scene))[0]
@@ -171,7 +216,7 @@ def main():
             game, shot = os.path.abspath(game), os.path.abspath(capture)
         command = wrapper + [game, "--scene", scene, "--frames", str(args.frames), "--frame-time", str(args.frame_time),
                              "--width", str(args.width), "--height", str(args.height), "--no-audio", "--screenshot", shot, "--exit"]
-        command += shlex.split(args.game_args)
+        command += game_args
         log_path = os.path.join(args.out, name + ".log")
         with open(log_path, "w") as log:
             result = subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, cwd=args.cwd or None)
@@ -179,12 +224,13 @@ def main():
             print(f"FAIL  {name}: the game exited with {result.returncode} without a capture (see {log_path})")
             failures += 1
             continue
+        profile = f"[profile: {profile_from_log(log_path)}]"
         image = read_png(capture)
         small = downscale(*image, args.scale)
         reference_path = os.path.join(args.reference, name + ".png")
         if args.update:
             write_png(reference_path, *small)
-            print(f"WROTE {name}: {reference_path} ({small[0]}x{small[1]})")
+            print(f"WROTE {name}: {reference_path} ({small[0]}x{small[1]}) {profile}")
             continue
         if not os.path.exists(reference_path):
             print(f"FAIL  {name}: no reference (run with --update to create {reference_path})")
@@ -199,7 +245,9 @@ def main():
         write_png(os.path.join(args.out, name + ".diff.png"), small[0], small[1], diff_rows)
         ok = changed <= args.max_changed
         failures += 0 if ok else 1
-        print(f"{'ok   ' if ok else 'FAIL '} {name}: {changed * 100:.2f}% of pixels changed (limit {args.max_changed * 100:.1f}%), mean difference {mean * 100:.2f}%")
+        print(f"{'ok   ' if ok else 'FAIL '} {name}: {changed * 100:.2f}% of pixels changed (limit {args.max_changed * 100:.1f}%), mean difference {mean * 100:.2f}% {profile}")
+    if args.update:
+        warn_dirty_config(args.cwd, "finished")
     return 1 if failures else 0
 
 

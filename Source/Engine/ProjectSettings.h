@@ -67,7 +67,7 @@ public:
     // Type N (1-based), or null.
     const NavAgentType* GetNavAgentType( int InType ) const;
     // The hardware profile the project is held to ("" = none) and whether its feature caps apply
-    // (see HardwareBudget). --hardware-profile / --enforce-profile override them for a run.
+    // (see HardwareBudget). --hardware-profile / --enforce-profile / --no-profile-enforcement override them for a run.
     std::string HardwareProfileName;
     bool EnforceHardwareProfile = false;
     // Product identity: names the user:// pref dir of shipped builds, so changing Org or
