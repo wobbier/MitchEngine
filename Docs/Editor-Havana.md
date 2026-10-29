@@ -163,6 +163,11 @@ A searchable project-wide table is the default: type icon, name, local path and 
 - **Preferences.** They come in two kinds:
   - **Per user, across every project:** appearance, camera feel, snapping, gizmos, shortcuts, the code editor command, autosave and Maximize On Play (`EditorConfig::IsUserPreference`). These live in `Preferences.json` in the OS preference folder (`SDL_GetPrefPath("MitchEngine", "Havana")`, beside the Hub's recent projects). They win over a project's older copy, and unattended runs neither read nor write the file.
   - **Per project:** everything else (asset browser folder, view options, workspaces), in `.tmp/Havana.cfg`.
+- **High DPI and keyboard navigation (ED-1).**
+  - **UI scale:** Appearance > UI scale (`Appearance.UIScale`, per user) multiplies the font size, and spacing follows the font, so the editor scales without blurring (the atlas is rebuilt at the scaled size). Auto (the default) uses the window's monitor (its DPI over 96, in quarter steps, 1-3x) and follows the window to a monitor with a different DPI. On Windows the process is per-monitor DPI aware (`SDL_WINDOWS_DPI_AWARENESS = permonitorv2`), so the OS doesn't stretch it.
+  - **Keyboard navigation:** ImGui's is on: Tab and the arrows move through the focused window's widgets, and Space / Enter press them.
+  - **Proof:** `DpiFlows.edscript`, a 2x capture plus the tour driven by keys only. The `imgui-focus` and `imgui-key` commands support it.
+  - **macOS:** not yet asked for a high-DPI drawable; that needs the renderer to use the drawable size.
 - **Help and onboarding (ED-3).** The Help menu has these entries, each also a `Help.*` action:
   - **Documentation** (F1) opens `Docs/README.md`, and **Getting Started** opens `Docs/Projects.md`, in the OS viewer. Unattended runs log `Help: <doc>` instead.
   - **Take the Tour** steps through six stops, opening and focusing Hierarchy, Properties, the asset browser and the Log. It starts on a user's first launch, records `Editor.TourDone`, and `Help.TourNext` / `TourBack` drive it from scripts.

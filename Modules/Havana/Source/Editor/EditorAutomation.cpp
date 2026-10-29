@@ -569,6 +569,34 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             InApp.Editor->ShowWidget( args );
         }
     }
+    else if( command == "imgui-key" || command == "imgui-focus" )
+    {
+        // imgui-focus Tour          focuses an editor window (as a click on it would)
+        // imgui-key Tab | Space | Enter | Up | Down | Left | Right | Escape
+        //                           one press (down then up) through ImGui's input queue
+        if( command == "imgui-focus" )
+        {
+            ImGui::SetWindowFocus( args.c_str() );
+        }
+        else
+        {
+            static const std::map<std::string, ImGuiKey> kKeys = {
+                { "Tab", ImGuiKey_Tab }, { "Space", ImGuiKey_Space }, { "Enter", ImGuiKey_Enter },
+                { "Up", ImGuiKey_UpArrow }, { "Down", ImGuiKey_DownArrow }, { "Left", ImGuiKey_LeftArrow },
+                { "Right", ImGuiKey_RightArrow }, { "Escape", ImGuiKey_Escape },
+            };
+            const auto key = kKeys.find( args );
+            if( key == kKeys.end() )
+            {
+                Fail( "imgui-key: unknown key " + args );
+            }
+            else
+            {
+                ImGui::GetIO().AddKeyEvent( key->second, true );
+                ImGui::GetIO().AddKeyEvent( key->second, false );
+            }
+        }
+    }
     else if( command == "assert-window" )
     {
         // assert-window Profiler | true   (whether that editor panel is open)

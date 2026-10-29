@@ -1,6 +1,8 @@
 #include "SettingsWidgets.h"
 #include "Editor/EditorActions.h"
 #include "Engine/Engine.h"
+#include "Window/SDLWindow.h"
+#include <SDL_video.h>
 #include "Engine/HardwareBudget.h"
 #include "Engine/Input.h"
 #include "Engine/ProjectSettings.h"
@@ -64,10 +66,34 @@ namespace
 		return 0;
 	}
 
-	float AppearanceFontSize()
+	float AppearanceBaseFontSize()
 	{
 		const float size = EditorConfig::GetInstance().GetPreference<float>("Appearance.FontSize", ImGuiRenderer::kMinFontSize);
 		return std::isfinite(size) ? std::clamp(std::round(size), ImGuiRenderer::kMinFontSize, kMaxFontSize) : ImGuiRenderer::kMinFontSize;
+	}
+
+	// ED-1: the display's scale (its DPI over 96), in quarter steps, for the window's monitor.
+	float DisplayScale()
+	{
+		SDLWindow* window = static_cast<SDLWindow*>(GetEngine().GetWindow());
+		const int display = window && window->WindowHandle ? SDL_GetWindowDisplayIndex(window->WindowHandle) : 0;
+		float dpi = 96.f;
+		if (SDL_GetDisplayDPI(std::max(display, 0), &dpi, nullptr, nullptr) != 0 || !std::isfinite(dpi) || dpi <= 0.f)
+			dpi = 96.f;
+		return std::clamp(std::round(dpi / 96.f * 4.f) / 4.f, 1.f, 3.f);
+	}
+
+	// Appearance.UIScale: 0 = Auto (the monitor's scale), else 1..3.
+	float AppearanceScale()
+	{
+		const float scale = EditorConfig::GetInstance().GetPreference<float>("Appearance.UIScale", 0.f);
+		return std::isfinite(scale) && scale >= 1.f ? std::min(scale, 3.f) : DisplayScale();
+	}
+
+	// What the fonts and spacing are built at: the chosen size times the UI scale.
+	float AppearanceFontSize()
+	{
+		return std::round(AppearanceBaseFontSize() * AppearanceScale());
 	}
 
 	bool ContainsInsensitive(const std::string& text, const char* needle)
@@ -426,10 +452,23 @@ void PreferencesWidget::ApplyAppearancePreferences()
 
 void PreferencesWidget::ApplyPendingAppearance()
 {
+	// Auto scale follows the window to a monitor with another DPI (checked twice a second).
+	if (++m_scaleCheckFrames >= 30)
+	{
+		m_scaleCheckFrames = 0;
+		const float size = AppearanceFontSize();
+		if (size != m_appliedFontSize && m_appliedFontSize > 0.f)
+			m_appearancePending = true;
+	}
 	if (m_appearancePending)
 	{
 		ApplyAppearancePreferences();
+		m_appliedFontSize = AppearanceFontSize();
 		m_appearancePending = false;
+	}
+	else if (m_appliedFontSize <= 0.f)
+	{
+		m_appliedFontSize = AppearanceFontSize();
 	}
 }
 
@@ -539,10 +578,36 @@ void PreferencesWidget::DrawAppearance()
 		}
 		ImGui::EndCombo();
 	}
-	int fontSize = static_cast<int>(AppearanceFontSize());
+	int fontSize = static_cast<int>(AppearanceBaseFontSize());
 	HavanaUtils::Label("Size");
 	if (ImGui::SliderInt("##Size", &fontSize, static_cast<int>(ImGuiRenderer::kMinFontSize), static_cast<int>(kMaxFontSize), "%d px", ImGuiSliderFlags_AlwaysClamp))
 		changed = true;
+
+	// ED-1: UI scale multiplies the size (fonts and spacing); Auto follows the monitor's DPI.
+	{
+		EditorConfig& scaleConfig = EditorConfig::GetInstance();
+		float stored = scaleConfig.GetPreference<float>("Appearance.UIScale", 0.f);
+		bool autoScale = !(stored >= 1.f);
+		HavanaUtils::Label("UI scale");
+		if (ImGui::Checkbox("Auto##UIScale", &autoScale))
+		{
+			scaleConfig.SetPreference("Appearance.UIScale", autoScale ? 0.f : DisplayScale());
+			m_appearancePending = true;
+			m_appearanceUnsaved = true;
+		}
+		ImGui::SameLine();
+		float scale = AppearanceScale();
+		ImGui::BeginDisabled(autoScale);
+		if (ImGui::SliderFloat("##UIScaleValue", &scale, 1.f, 3.f, "%.2fx", ImGuiSliderFlags_AlwaysClamp))
+		{
+			scaleConfig.SetPreference("Appearance.UIScale", std::round(scale * 4.f) / 4.f);
+			m_appearancePending = true;
+			m_appearanceUnsaved = true;
+		}
+		ImGui::EndDisabled();
+		if (autoScale)
+			ImGui::TextDisabled("This monitor: %.2fx", DisplayScale());
+	}
 
 	ImGui::SeparatorText("Accent");
 	struct Preset { const char* Name; ImVec4 Color; };

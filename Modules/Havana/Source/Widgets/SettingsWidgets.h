@@ -34,6 +34,8 @@ private:
 	std::string m_capturingAction;
 	char m_shortcutFilter[64] = {};
 	bool m_appearancePending = false;
+	float m_appliedFontSize = 0.f;
+	int m_scaleCheckFrames = 0;
 	bool m_appearanceUnsaved = false;
 };
 

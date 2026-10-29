@@ -110,6 +110,11 @@ SDLWindow::SDLWindow( const std::string& title, std::function<void( const Vector
     // An explicit SDL_VIDEODRIVER environment setting takes precedence over this hint.
     SDL_SetHint( SDL_HINT_VIDEODRIVER, "x11,wayland" );
 #endif
+#if USING( ME_PLATFORM_WINDOWS )
+    // ED-1: per-monitor DPI awareness, so Windows doesn't bitmap-stretch the window on a high-DPI
+    // monitor (the editor scales its UI itself, Appearance > UI scale). Must precede SDL_Init.
+    SDL_SetHint( "SDL_WINDOWS_DPI_AWARENESS", "permonitorv2" );
+#endif
     SDL_Init( subsystems );
     int xPos = ( X == 0 ) ? SDL_WINDOWPOS_CENTERED : X;
     int yPos = ( Y == 0 ) ? SDL_WINDOWPOS_UNDEFINED : Y;

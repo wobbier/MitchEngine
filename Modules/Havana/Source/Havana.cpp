@@ -135,7 +135,11 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
     LocalizationTables.reset( new LocalizationWidget() );
     RegisteredWidgets.push_back( LocalizationTables );
     Tour.reset( new TourWidget() );
-    Tour->ShowPanel = [this]( const std::string& InPanel ) { ShowWidget( InPanel ); };
+    // The step's panel comes to the front (its dock tab selected), and the tour keeps the keyboard.
+    Tour->ShowPanel = [this]( const std::string& InPanel ) {
+        ShowWidget( InPanel );
+        ImGui::SetWindowFocus( "Tour" );
+    };
     RegisteredWidgets.push_back( Tour );
     WhatsNew.reset( new WhatsNewWidget() );
     RegisteredWidgets.push_back( WhatsNew );
@@ -256,6 +260,8 @@ void Havana::InitUI()
     // Unattended runs use the layout without ever writing it back.
     io.IniFilename = AutomationRunner::IsUnattendedRun() ? nullptr : EngineConfigFilePath.FullPath.c_str();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    // ED-1: Tab and the arrows move through a focused window's widgets, Space / Enter press them.
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     //io.MouseDrawCursor = true;
 
     g_imgui_to_sdl_cursor[ImGuiMouseCursor_Arrow] = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_ARROW );
