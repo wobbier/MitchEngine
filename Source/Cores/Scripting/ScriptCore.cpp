@@ -11,6 +11,12 @@
 #include "Physics/CollisionRouter.h"
 #include "Physics/PhysicsTypes.h"
 #include "Engine/Engine.h"
+#include "Components/Animation/Animator.h"
+#include "Events/PlatformEvents.h"
+#include "Events/SceneEvents.h"
+#include "Input/Gamepads.h"
+#include "Input/InputPlayers.h"
+#include "World/Scene.h"
 #include "optick.h"
 
 #if USING( ME_EDITOR )
@@ -26,6 +32,26 @@ ScriptCore::ScriptCore()
 #if USING( ME_SCRIPTING )
     ScriptEngine::Init();
     Listen<CollisionEvent>( [this]( const CollisionEvent& InEvent ) { OnCollision( InEvent ); } );
+    // Engine events for C# (EventBus): queued, then published once before the next update.
+    const auto entityJson = []( const EntityID& InId ) { return json::array( { InId.Index, InId.Generation } ); };
+    Listen<SceneLoadedEvent>( [this]( const SceneLoadedEvent& InEvent ) {
+        QueueEngineEvent( { { "Type", "SceneLoaded" }, { "Path", InEvent.LoadedScene ? InEvent.LoadedScene->FilePath.GetLocalPathString() : std::string() } } );
+    } );
+    Listen<AdditiveSceneEvent>( [this]( const AdditiveSceneEvent& InEvent ) {
+        QueueEngineEvent( { { "Type", "AdditiveScene" }, { "SceneId", InEvent.SceneId }, { "Path", InEvent.Path }, { "Loaded", InEvent.Loaded } } );
+    } );
+    Listen<GamepadConnectionEvent>( [this]( const GamepadConnectionEvent& InEvent ) {
+        QueueEngineEvent( { { "Type", "Gamepad" }, { "Slot", InEvent.Slot }, { "Connected", InEvent.Connected }, { "Name", InEvent.Name } } );
+    } );
+    Listen<InputPlayerEvent>( [this]( const InputPlayerEvent& InEvent ) {
+        QueueEngineEvent( { { "Type", "Player" }, { "Player", InEvent.Player }, { "GamepadSlot", InEvent.GamepadSlot }, { "Change", static_cast<int>( InEvent.Type ) } } );
+    } );
+    Listen<AnimationEvent>( [this, entityJson]( const AnimationEvent& InEvent ) {
+        QueueEngineEvent( { { "Type", "Animation" }, { "Entity", entityJson( InEvent.Entity.GetID() ) }, { "State", InEvent.State }, { "Name", InEvent.Name } } );
+    } );
+    Listen<WindowResizedEvent>( [this]( const WindowResizedEvent& InEvent ) {
+        QueueEngineEvent( { { "Type", "WindowResized" }, { "Size", { InEvent.NewSize.x, InEvent.NewSize.y } } } );
+    } );
 #endif
 }
 
@@ -83,6 +109,19 @@ void ScriptCore::StartPendingScripts()
 void ScriptCore::OnStop()
 {
     m_running = false;
+    // Play starts fresh: nothing from the last session (or edit mode) is delivered late.
+    m_engineEvents.clear();
+}
+
+
+void ScriptCore::QueueEngineEvent( json InEvent )
+{
+    // Bounded: events pile up while nothing runs (edit mode, a paused game).
+    constexpr size_t kMaxQueued = 256;
+    if( m_engineEvents.size() < kMaxQueued )
+    {
+        m_engineEvents.push_back( std::move( InEvent ) );
+    }
 }
 
 
@@ -190,6 +229,12 @@ void ScriptCore::Update( const UpdateContext& inUpdateContext )
     // Scripts created since the world started (spawned, or loaded with a scene) start before
     // their first update.
     StartPendingScripts();
+    if( !m_engineEvents.empty() )
+    {
+        // Moved out first: a handler that loads a scene queues new events for the next frame.
+        const json events = json( std::exchange( m_engineEvents, {} ) );
+        ScriptEngine::DispatchEngineEvents( events.dump() );
+    }
     for( ScriptComponent* script : RunList( ScriptEngine::UpdateCallback ) )
     {
         ScriptEngine::ScriptOnUpdate( script->m_dotnetHandle, inUpdateContext.GetDeltaTime() );

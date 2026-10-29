@@ -138,6 +138,7 @@ The API is 120 functions (`ScriptAPI.def`). Strings cross as UTF-8 `byte*`, enti
 | World | `CreateEntity`, `Find(name)` (any depth), `Instantiate(prefab, parent)`, `LoadScene(path)` (queued to the end of the frame), `LoadSceneAdditive(path, async = true)` / `UnloadScene(id)` / `GetSceneState(id)` (`Docs/Serialization-and-Scenes.md`) |
 | Input | `IsKeyDown`, `WasKeyPressed`, `MouseDelta`, `GetAction`, `GetActionVector2`, `IsActionPressed`, `WasActionPressed`, `WasActionReleased` (actions from `Docs/Input.md`); local multiplayer: `PlayerCount`, `Player(n)` (a `PlayerInput` with the same action methods and its `Gamepad`), `SetJoining(maxPlayers)` |
 | Audio | `Audio.PlayOneShot(clip, volume)`, `PlayOneShotAt(clip, position, volume)` |
+| Events | `EventBus.Publish(evt)` / `Subscribe<T>(handler)` (a disposable token) / `Unsubscribe`, `Script.On<T>(handler)`; engine events `SceneLoaded`, `AdditiveSceneChanged`, `GamepadChanged`, `PlayerChanged`, `AnimationMarker`, `WindowResized` (see below) |
 | Localization | `Loc.Get(key)`, `Loc.Language` (sets the player setting), `Loc.Languages` (`Docs/Localization.md`) |
 | Save games | `SaveGame.Save(slot, name)`, `Load`, `Delete`, `Exists`, `List()` (`SaveSlot`: slot, name, scene, date, playtime), `IsWriting`, `Playtime`; `[Save]` keeps a non-public field in save games (`Docs/Save-Games.md`) |
 | Settings | The player's settings (`Docs/Player-Settings.md`): `Quality` / `QualityPresets`, `GetVolume` / `SetVolume(AudioBus, v)`, `Language`, `TextScale`, `ReduceMotion`, `Rebind(action, binding, control, part)`, `GetBindingDisplay`, `ResetBindings`, the game's own `GetFloat` / `SetFloat` / `GetInt` / `GetBool` / `GetString` (and setters, under `Game.`), `GetJson` / `SetJson`, `Save`, `Reset` |
@@ -148,6 +149,26 @@ The API is 120 functions (`ScriptAPI.def`). Strings cross as UTF-8 `byte*`, enti
 | Navigation | `NavMeshAgent.SetDestination`, `IsStopped`, `ResetPath`, `Warp`, `HasPath`, `HasArrived`, `RemainingDistance`, `Velocity`, `DesiredVelocity`, `Speed`; `Navigation.FindPath`, `SamplePosition`, `Raycast`, `GetRandomPoint` (`Docs/Navigation.md`) |
 | Camera / UI | Clear colour; `Camera.SetClipPlane(point, normal)` / `ClearClipPlane()` (hide everything behind a world plane, for portals and mirrors); `Mesh.ShowCameraView(camera)` (the mesh becomes a screen-space window onto that camera's view, see `Rendering-Pipeline.md`); `UI.Model` view models for RmlUi documents |
 | ImGui | A subset for `OnEditorInspect`, plus `Begin`/`End`/`Text`/`Checkbox`/`Button` for a script's own debug window. Those do nothing in builds without ImGui (Retail), so a debug window never crashes a shipped game |
+
+### Events (CS-8)
+
+`EventBus` (`Modules/ScriptCore/Source/Core/EventBus.cs`) carries typed events between scripts: any type is an event, usually a `readonly record struct`.
+- **Delivery:** `Publish` delivers at once, in subscription order. A throwing handler is reported (stack and all), and the rest still run.
+- **Lifetime:**
+  - A script's handlers go when the script is destroyed: `ScriptOnDestroy` drops every delegate whose target is that script. That covers methods and lambdas that only use `this`; a lambda that captures locals needs its token disposed.
+  - Every handler goes on a hot reload, so scripts subscribe again in `OnStart` / `OnReload`.
+- **Engine events.** `ScriptCore` listens for engine events and queues them (at most 256, cleared on Stop). It hands them to `ScriptBridge.DispatchEngineEvents` as one JSON array before the next update's `OnUpdate`, and they arrive typed:
+
+| Event | When |
+|---|---|
+| `SceneLoaded(Path)` | The main scene loaded |
+| `AdditiveSceneChanged(SceneId, Path, Loaded)` | An additive scene loaded or unloaded |
+| `GamepadChanged(Slot, Connected, Name)` | A pad connected or left |
+| `PlayerChanged(Player, GamepadSlot, Change)` | A local player joined, lost or regained its pad |
+| `AnimationMarker(Entity, State, Name)` | An Animator passed a marker |
+| `WindowResized(Size)` | The window resized |
+
+- **Proof:** `EventProbe.cs` + `EventFlows.edscript`.
 
 ### Platform status
 

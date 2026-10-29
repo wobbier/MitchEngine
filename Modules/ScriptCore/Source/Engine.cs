@@ -174,6 +174,7 @@ public static class ScriptBridge
         _handleOrder.Clear();
         ScriptRegistry.Clear();
         ScriptSerializer.ResetCaches();
+        EventBus.Clear();
         _schedules.Clear();
         _alc?.Unload();
         _alc = newAlc;
@@ -435,10 +436,21 @@ public static class ScriptBridge
         return false;
     }
 
+    // CS-8: the engine's events for this frame, a JSON array (EventBus.DispatchEngine).
+    [UnmanagedCallersOnly]
+    public static unsafe void DispatchEngineEvents(int unused, byte* json)
+    {
+        try { EventBus.DispatchEngine(ReadUtf8(json)); }
+        catch (Exception ex) { ReportException("DispatchEngineEvents", ex); }
+    }
+
+    internal static void ReportHandlerException(string eventName, Exception ex) => ReportException($"EventBus handler for {eventName}", ex);
+
     [UnmanagedCallersOnly]
     public static void ScriptOnDestroy(int handle)
     {
         if (!Instances.TryGetValue(handle, out var s)) return;
+        EventBus.RemoveTarget(s);
         try
         {
             s.OnDestroy();

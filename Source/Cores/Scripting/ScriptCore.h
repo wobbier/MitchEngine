@@ -49,6 +49,9 @@ private:
     static void RefreshSchedule( ScriptComponent& InScript );
     static bool RunsBefore( const ScriptComponent* InA, const ScriptComponent* InB );
     void OnCollision( const CollisionEvent& InEvent );
+    // CS-8: engine events queued for C#'s EventBus, delivered before the next update's scripts.
+    void QueueEngineEvent( json InEvent );
+    std::vector<json> m_engineEvents;
     void DeliverCollision( const EntityHandle& InSelf, const EntityHandle& InOther, int InKind, const Vector3& InPoint, const Vector3& InNormal );
 };
 

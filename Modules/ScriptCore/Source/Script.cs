@@ -1,9 +1,14 @@
+using System;
+
 namespace ScriptCore;
 
 // Base for scripts that live on an entity
 public abstract class Script : IGameScript
 {
     public Entity Entity { get; internal set; } = Entity.Null;
+
+    // Subscribes to an event for as long as this script lives (EventBus).
+    protected IDisposable On<T>(Action<T> handler) => EventBus.Subscribe(handler);
 
     public virtual void OnStart() { }
     public virtual void OnUpdate( float deltaTime ) { }
