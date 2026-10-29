@@ -10,6 +10,7 @@
 #include "Engine/AutomationRunner.h"
 #include "Engine/ProjectSettings.h"
 #include "Hub/ProjectHub.h"
+#include "Tools/Projects/ProjectLibrary.h"
 #include "Utils/PlatformUtils.h"
 #include "VFS/VFS.h"
 #include "Tools/Build/BuildGame.h"
@@ -222,6 +223,40 @@ static int BuildGameCommand()
 }
 
 
+// --new-project <template> --name <Name> [--in <folder>]: creates <folder>/<Name> (default: the
+// working directory) from one of this executable's engine templates (Engine/Templates/<Id>/, by Id
+// or Name), as the Hub's New Project does, without opening a window. Prints the new project's root.
+// Returns non-zero if it failed.
+static int NewProjectCommand()
+{
+    // The engine isn't initialized here, so the log has no verbosity yet.
+    CLog::GetInstance().SetLogVerbosity( CLog::LogType::Info );
+    const std::string engine = Project::FindExecutableEngine();
+    const std::vector<ProjectLibrary::Template> templates = ProjectLibrary::ListTemplates( engine );
+    const std::string templateName = CommandLine::GetString( "--new-project" );
+    const ProjectLibrary::Template* found = ProjectLibrary::FindTemplate( templates, templateName );
+    if( !found )
+    {
+        std::string names;
+        for( const ProjectLibrary::Template& entry : templates )
+        {
+            names += ( names.empty() ? "" : ", " ) + entry.Id;
+        }
+        std::fprintf( stderr, "New Project: no template named '%s' in %s/Templates (%s)\n", templateName.c_str(), engine.c_str(), names.c_str() );
+        return 2;
+    }
+    std::string error;
+    const std::string root = ProjectLibrary::CreateProject( *found, CommandLine::GetString( "--in", "." ), CommandLine::GetString( "--name" ), error );
+    if( root.empty() )
+    {
+        std::fprintf( stderr, "New Project: %s\n", error.c_str() );
+        return 1;
+    }
+    std::printf( "%s\n", root.c_str() );
+    return 0;
+}
+
+
 // --hub, or no project to open: the Project Hub (SHIP-5, Engine/Docs/Projects.md) picks one, then
 // the editor opens it as `Havana --project <root>` with this run's other arguments. An interactive
 // Hub starts that editor and exits; an unattended one (--editor-exec) runs it, passes its output
@@ -299,6 +334,11 @@ static int RunHub()
 int main( int argc, char** argv )
 {
     CommandLine::Set( argc, argv );
+    // Before --project: the new project's folder is relative to where this was run.
+    if( CommandLine::Has( "--new-project" ) )
+    {
+        return NewProjectCommand();
+    }
     // --project <folder>: every mode below works on that project.
     if( !Project::InitFromCommandLine() )
     {

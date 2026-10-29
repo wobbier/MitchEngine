@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The project's scripts: every .cs under Assets, built against the engine's ScriptCore. The editor
+    and the Player build it themselves (dotnet build); there is no C++ to compile. MitchEngineDir is
+    the engine they run on: they pass it, and write it to .tmp/MitchEngine.props for IDEs.
+  -->
+  <Import Project="../.tmp/MitchEngine.props" Condition="'$(MitchEngineDir)' == '' And Exists('../.tmp/MitchEngine.props')" />
+  <PropertyGroup>
+    <MitchEngineDir Condition="'$(MitchEngineDir)' == ''">$(MSBuildThisFileDirectory)../Engine/</MitchEngineDir>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>Game.Script</AssemblyName>
+    <Nullable>annotations</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <DebugType>portable</DebugType>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Assets/**/*.cs" />
+    <ProjectReference Include="$(MitchEngineDir)Modules/ScriptCore/ScriptCore.csproj" />
+  </ItemGroup>
+  <Import Project="$(MitchEngineDir)Modules/ScriptCore/Generators/MitchEngine.Generators.targets" />
+</Project>

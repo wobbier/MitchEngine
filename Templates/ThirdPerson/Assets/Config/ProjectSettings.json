@@ -1,0 +1,7 @@
+{
+    "Product": {
+        "Name": "ThirdPerson",
+        "Org": "MitchEngine",
+        "StartupScene": "Assets/Scenes/Main.lvl"
+    }
+}

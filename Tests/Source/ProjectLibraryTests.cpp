@@ -211,3 +211,47 @@ TEST_CASE( "Project Hub: the engine ships the Empty template as a C#-only projec
     REQUIRE( settings.is_object() );
     CHECK( fs::is_regular_file( empty->Directory + "/" + settings["Product"]["StartupScene"].get<std::string>() ) );
 }
+
+
+TEST_CASE( "Project Hub: every engine template is a complete C#-only project" )
+{
+    const std::string engine = fs::absolute( "Engine" ).lexically_normal().generic_string();
+    if( !fs::is_directory( engine + "/Templates" ) )
+    {
+        MESSAGE( "Skipped: run from a project root with the engine at Engine/" );
+        return;
+    }
+    auto readText = []( const std::string& InPath ) {
+        std::ifstream stream( InPath, std::ios::binary );
+        std::stringstream text;
+        text << stream.rdbuf();
+        return text.str();
+    };
+    const std::vector<ProjectLibrary::Template> templates = ProjectLibrary::ListTemplates( engine );
+    const ProjectLibrary::Template* empty = ProjectLibrary::FindTemplate( templates, "Empty" );
+    REQUIRE( empty != nullptr );
+    for( const char* id : { "FirstPerson", "ThirdPerson", "TopDown" } )
+    {
+        CHECK_MESSAGE( ProjectLibrary::FindTemplate( templates, id ) != nullptr, id );
+    }
+    // Every template is a full project folder (openable on its own to edit it), so the files they
+    // all share are kept identical to Empty's: the scripts project, the ignore list, the input map
+    // and the default editor layout.
+    for( const ProjectLibrary::Template& entry : templates )
+    {
+        INFO( entry.Id );
+        for( const char* shared : { "Project/Game.Script.csproj", ".gitignore", "Assets/Config/Input.inputactions", "Assets/Config/imgui.cfg" } )
+        {
+            INFO( shared );
+            REQUIRE( fs::is_regular_file( entry.Directory + "/" + shared ) );
+            CHECK( readText( entry.Directory + "/" + shared ) == readText( empty->Directory + "/" + shared ) );
+        }
+        const json project = ReadJson( entry.Directory + "/Project/Game.meproj" );
+        REQUIRE( project.is_object() );
+        CHECK( project.value( "ProjectName", std::string() ) == entry.Id );
+        const json settings = ReadJson( entry.Directory + "/Assets/Config/ProjectSettings.json" );
+        REQUIRE( settings.is_object() );
+        CHECK( fs::is_regular_file( entry.Directory + "/" + settings["Product"]["StartupScene"].get<std::string>() ) );
+        CHECK( ReadJson( entry.Directory + "/Assets/Config/Input.inputactions" ).is_object() );
+    }
+}

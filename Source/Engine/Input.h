@@ -521,6 +521,12 @@ public:
         return m_devices;
     }
 
+    // Automation (the input-hold edscript command): keys held down on top of the device snapshot,
+    // so actions read them as pressed whether or not this input has focus (the raw IsKeyDown /
+    // WasKeyPressed queries read SDL and don't see them).
+    void SetSimulatedKey( KeyCode InKey, bool InDown );
+    void ClearSimulatedKeys();
+
     void Update();
     void PostUpdate();
 
@@ -565,6 +571,7 @@ private:
 
     InputDeviceState m_devices;
     InputDeviceState m_previousDevices;
+    std::array<uint8_t, kKeyCount> m_simulatedKeys{};
 
     struct Edges
     {

@@ -33,6 +33,8 @@
 #include "Core/CommandLine.h"
 #include "Cores/SceneCore.h"
 #include "Engine/Engine.h"
+#include "Engine/Input.h"
+#include <SDL_keyboard.h>
 #include "Engine/World.h"
 #include "World/Scene.h"
 #include "Renderer.h"
@@ -1001,6 +1003,26 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
     else if( command == "stop" )
     {
         InApp.Stop();
+    }
+    else if( command == "input-hold" || command == "input-release" )
+    {
+        // input-hold Keyboard/W   (the game's actions read the key as held until input-release)
+        // input-release Keyboard/W, or input-release alone for every held key
+        Input& input = GetEngine().GetInput();
+        const std::string prefix = "Keyboard/";
+        const SDL_Scancode key = args.rfind( prefix, 0 ) == 0 ? SDL_GetScancodeFromName( args.substr( prefix.size() ).c_str() ) : SDL_SCANCODE_UNKNOWN;
+        if( command == "input-release" && args.empty() )
+        {
+            input.ClearSimulatedKeys();
+        }
+        else if( key == SDL_SCANCODE_UNKNOWN )
+        {
+            Fail( command + ": unknown key '" + args + "' (Keyboard/<key name>, as in an input map)" );
+        }
+        else
+        {
+            input.SetSimulatedKey( static_cast<KeyCode>( key ), command == "input-hold" );
+        }
     }
     else if( command == "load" )
     {

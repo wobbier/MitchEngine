@@ -1,0 +1,5 @@
+{
+    "Name": "First-Person",
+    "Description": "Walk, look, sprint and jump around a blockout course in first person: a CharacterController with a mouse/stick look camera (FirstPersonController.cs).",
+    "Order": 1
+}

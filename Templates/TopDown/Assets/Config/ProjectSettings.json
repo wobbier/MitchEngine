@@ -1,0 +1,7 @@
+{
+    "Product": {
+        "Name": "TopDown",
+        "Org": "MitchEngine",
+        "StartupScene": "Assets/Scenes/Main.lvl"
+    }
+}

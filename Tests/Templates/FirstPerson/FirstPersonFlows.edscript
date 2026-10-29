@@ -1,0 +1,24 @@
+# First-Person template regression (SHIP-6), run by RunChecks' "Templates" step on a project just
+# created from Engine/Templates/FirstPerson with `Havana --new-project FirstPerson --name <Name>`:
+#   Havana --project <new project> --editor-exec Engine/Tests/Templates/FirstPerson/FirstPersonFlows.edscript
+# The editor builds the project's scripts; Play walks the player forward with a held key.
+wait-log Project: | 60
+wait 20
+
+# A first open lands on the startup scene: the body, its eye camera and the course
+assert-exists Player
+assert-parent Main Camera | Player
+assert-field Player | CharacterController.Height | 1.8
+assert-exists Crate 6
+assert-field Player | Transform.Position | [0.0, 1.0, -6.0] ~ 0.01
+
+# Play: W (Move up) walks the body forward, towards +Z
+# (anchored on state: the scripts may still be building when Play starts)
+play
+assert-playing 1
+input-hold Keyboard/W
+wait-field Player | Transform.Position.2 | != -6.0 ~ 2.0 | 900
+input-release
+assert-field Player | Transform.Position.0 | 0.0 ~ 0.25
+stop
+assert-field Player | Transform.Position | [0.0, 1.0, -6.0] ~ 0.01

@@ -1,0 +1,12 @@
+# Empty template regression (SHIP-6), run by RunChecks' "Templates" step on a project just created
+# from Engine/Templates/Empty with `Havana --new-project Empty --name <Name>`:
+#   Havana --project <new project> --editor-exec Engine/Tests/Templates/Empty/EmptyFlows.edscript
+wait-log Project: | 60
+wait 20
+assert-exists Main Camera
+assert-exists Sun
+assert-exists Ground
+play
+wait 30
+assert-playing 1
+stop

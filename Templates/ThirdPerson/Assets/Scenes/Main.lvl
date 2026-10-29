@@ -1,0 +1,1678 @@
+{
+    "Version": 2,
+    "Cores": [],
+    "Entities": [
+        {
+            "GUID": "cbe19514a28a0aaa",
+            "Name": "Main Camera",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0.0,
+                        3.5,
+                        -13.0
+                    ],
+                    "Rotation": [
+                        14.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.0,
+                        1.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Type": "Camera",
+                    "ClearType": "Procedural",
+                    "ClearColor": [
+                        0.3,
+                        0.4,
+                        0.55
+                    ],
+                    "IsCurrent": true,
+                    "Near": 0.1,
+                    "Far": 300.0,
+                    "Zoom": 55.0
+                },
+                {
+                    "Type": "PostProcess",
+                    "AutoExposure": false,
+                    "ExposureCompensation": 0.3,
+                    "Bloom": true,
+                    "BloomIntensity": 0.08,
+                    "BloomThreshold": 1.2,
+                    "AmbientOcclusion": true,
+                    "AORadius": 0.5,
+                    "AOIntensity": 1.0,
+                    "VignetteIntensity": 0.2,
+                    "FXAA": true
+                },
+                {
+                    "Type": "AudioListener"
+                },
+                {
+                    "Type": "ScriptComponent",
+                    "ScriptName": "ThirdPersonCamera",
+                    "ScriptFields": "{\"Target\": \"Player\", \"Distance\": 6.0, \"Height\": 1.4, \"Yaw\": 0.0, \"Pitch\": 18.0, \"Sensitivity\": 1.5, \"FollowHalfLife\": 0.05}"
+                }
+            ]
+        },
+        {
+            "GUID": "b3642b1932793637",
+            "Name": "Player",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0.0,
+                        1.0,
+                        -6.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.0,
+                        1.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Capsule",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.15,
+                            0.55,
+                            0.95
+                        ],
+                        "Metallic": 0.1,
+                        "Roughness": 0.35
+                    }
+                },
+                {
+                    "Type": "CharacterController",
+                    "Radius": 0.4,
+                    "Height": 1.8,
+                    "MaxSpeed": 5.0,
+                    "JumpHeight": 1.2
+                },
+                {
+                    "Type": "ScriptComponent",
+                    "ScriptName": "ThirdPersonController",
+                    "ScriptFields": "{\"CameraName\": \"Main Camera\", \"WalkSpeed\": 5.0, \"SprintSpeed\": 9.0, \"TurnHalfLife\": 0.06}"
+                }
+            ]
+        },
+        {
+            "GUID": "18f918e24a8b0188",
+            "Name": "Visor",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0.0,
+                        0.45,
+                        0.33
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        0.22,
+                        0.07,
+                        0.1
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.08,
+                            0.09,
+                            0.1
+                        ],
+                        "Metallic": 0.2,
+                        "Roughness": 0.25
+                    }
+                }
+            ],
+            "Parent": "b3642b1932793637"
+        },
+        {
+            "GUID": "0bb1e330f38d2e64",
+            "Name": "Sun",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0.0,
+                        20.0,
+                        0.0
+                    ],
+                    "Rotation": [
+                        48.0,
+                        -38.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.0,
+                        1.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Type": "Light",
+                    "LightType": "Directional",
+                    "Color": [
+                        1.0,
+                        0.95,
+                        0.88
+                    ],
+                    "Intensity": 3.0,
+                    "CastShadows": true,
+                    "ShadowDistance": 60.0
+                }
+            ]
+        },
+        {
+            "GUID": "e71b870396ac828f",
+            "Name": "Ground",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        20.0,
+                        1.0,
+                        20.0
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Plane",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.62,
+                            0.63,
+                            0.66
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.9,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            40,
+                            40
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        0.02,
+                        2
+                    ],
+                    "Center": [
+                        0,
+                        -0.01,
+                        0
+                    ]
+                }
+            ]
+        },
+        {
+            "GUID": "d3f18766336c7fcd",
+            "Name": "Wall North",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0.0,
+                        1.0,
+                        20.25
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        20.5,
+                        1.0,
+                        0.25
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.5,
+                            0.51,
+                            0.54
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.8,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            41.0,
+                            2
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        2,
+                        2
+                    ]
+                }
+            ]
+        },
+        {
+            "GUID": "e9a51fb2a7c88e4b",
+            "Name": "Wall South",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0.0,
+                        1.0,
+                        -20.25
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        20.5,
+                        1.0,
+                        0.25
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.5,
+                            0.51,
+                            0.54
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.8,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            41.0,
+                            2
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        2,
+                        2
+                    ]
+                }
+            ]
+        },
+        {
+            "GUID": "7c9881b15c41d5c5",
+            "Name": "Wall East",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        20.25,
+                        1.0,
+                        0.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        0.25,
+                        1.0,
+                        20.0
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.5,
+                            0.51,
+                            0.54
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.8,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            40,
+                            2
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        2,
+                        2
+                    ]
+                }
+            ]
+        },
+        {
+            "GUID": "d52d5759eec7ddb5",
+            "Name": "Wall West",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        -20.25,
+                        1.0,
+                        0.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        0.25,
+                        1.0,
+                        20.0
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.5,
+                            0.51,
+                            0.54
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.8,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            40,
+                            2
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        2,
+                        2
+                    ]
+                }
+            ]
+        },
+        {
+            "GUID": "3197d4e2e8d5b9e3",
+            "Name": "Ledge",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        7.0,
+                        0.5,
+                        6.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        3.0,
+                        0.5,
+                        3.0
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.95,
+                            0.52,
+                            0.18
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.8,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            6,
+                            6
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        2,
+                        2
+                    ]
+                }
+            ]
+        },
+        {
+            "GUID": "936d0e1e83c02da8",
+            "Name": "Platform",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        7.0,
+                        1.0,
+                        12.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        3.0,
+                        1.0,
+                        3.0
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.95,
+                            0.52,
+                            0.18
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.8,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            6,
+                            6
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        2,
+                        2
+                    ]
+                }
+            ]
+        },
+        {
+            "GUID": "f8540d95a502a86a",
+            "Name": "Step 1",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        -7.0,
+                        0.125,
+                        3.25
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.5,
+                        0.125,
+                        0.25
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.32,
+                            0.52,
+                            0.86
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.8,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            3.0,
+                            0.5
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        2,
+                        2
+                    ]
+                }
+            ]
+        },
+        {
+            "GUID": "e474e007b2aa40b4",
+            "Name": "Step 2",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        -7.0,
+                        0.25,
+                        3.75
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.5,
+                        0.25,
+                        0.25
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.32,
+                            0.52,
+                            0.86
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.8,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            3.0,
+                            0.5
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        2,
+                        2
+                    ]
+                }
+            ]
+        },
+        {
+            "GUID": "80f1de02ce359204",
+            "Name": "Step 3",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        -7.0,
+                        0.375,
+                        4.25
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.5,
+                        0.375,
+                        0.25
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.32,
+                            0.52,
+                            0.86
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.8,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            3.0,
+                            0.75
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        2,
+                        2
+                    ]
+                }
+            ]
+        },
+        {
+            "GUID": "ea9238ebf9f3b65b",
+            "Name": "Step 4",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        -7.0,
+                        0.5,
+                        4.75
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.5,
+                        0.5,
+                        0.25
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.32,
+                            0.52,
+                            0.86
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.8,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            3.0,
+                            1.0
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        2,
+                        2
+                    ]
+                }
+            ]
+        },
+        {
+            "GUID": "a22ba4d70746a9ba",
+            "Name": "Step 5",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        -7.0,
+                        0.625,
+                        5.25
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.5,
+                        0.625,
+                        0.25
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.32,
+                            0.52,
+                            0.86
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.8,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            3.0,
+                            1.25
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        2,
+                        2
+                    ]
+                }
+            ]
+        },
+        {
+            "GUID": "3eb17c275c832a51",
+            "Name": "Step 6",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        -7.0,
+                        0.75,
+                        5.75
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.5,
+                        0.75,
+                        0.25
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.32,
+                            0.52,
+                            0.86
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.8,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            3.0,
+                            1.5
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        2,
+                        2
+                    ]
+                }
+            ]
+        },
+        {
+            "GUID": "6e0012819a0c1b76",
+            "Name": "Landing",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        -7.0,
+                        0.75,
+                        7.5
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.5,
+                        0.75,
+                        1.5
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.32,
+                            0.52,
+                            0.86
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.8,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            3.0,
+                            3.0
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        2,
+                        2
+                    ]
+                }
+            ]
+        },
+        {
+            "GUID": "5b7d3b0f4de8344e",
+            "Name": "Ramp",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        -14.0,
+                        1.0,
+                        5.1
+                    ],
+                    "Rotation": [
+                        -15.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.5,
+                        0.1,
+                        4.0
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.36,
+                            0.7,
+                            0.42
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.8,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            8.0,
+                            3.0
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        2,
+                        2
+                    ]
+                }
+            ]
+        },
+        {
+            "GUID": "1e9d19e796d2f9e0",
+            "Name": "Deck",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        -14.0,
+                        1.05,
+                        11.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.5,
+                        1.05,
+                        2.0
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.36,
+                            0.7,
+                            0.42
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.8,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            4.0,
+                            3.0
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        2,
+                        2
+                    ]
+                }
+            ]
+        },
+        {
+            "GUID": "800a4c9416f5c1ee",
+            "Name": "Pillar 1",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        12.0,
+                        2.0,
+                        -6.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        0.5,
+                        2.0,
+                        0.5
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.5,
+                            0.51,
+                            0.54
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.8,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            1.0,
+                            4
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        2,
+                        2
+                    ]
+                }
+            ]
+        },
+        {
+            "GUID": "adb9ce1be14cd8df",
+            "Name": "Pillar 2",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        -12.0,
+                        2.0,
+                        -6.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        0.5,
+                        2.0,
+                        0.5
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.5,
+                            0.51,
+                            0.54
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.8,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            1.0,
+                            4
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        2,
+                        2
+                    ]
+                }
+            ]
+        },
+        {
+            "GUID": "32f9e2b08677a5f2",
+            "Name": "Pillar 3",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        12.0,
+                        2.0,
+                        -14.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        0.5,
+                        2.0,
+                        0.5
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.5,
+                            0.51,
+                            0.54
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.8,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            1.0,
+                            4
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        2,
+                        2
+                    ]
+                }
+            ]
+        },
+        {
+            "GUID": "9bb38b9c1de83405",
+            "Name": "Pillar 4",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        -12.0,
+                        2.0,
+                        -14.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        0.5,
+                        2.0,
+                        0.5
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.5,
+                            0.51,
+                            0.54
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.8,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            1.0,
+                            4
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        2,
+                        2
+                    ]
+                }
+            ]
+        },
+        {
+            "GUID": "44941663a9a967c1",
+            "Name": "Crate 1",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        -1.05,
+                        0.5,
+                        8.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        0.5,
+                        0.5,
+                        0.5
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.86,
+                            0.55,
+                            0.28
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.7,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            1,
+                            1
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        2,
+                        2
+                    ]
+                },
+                {
+                    "Type": "Rigidbody",
+                    "Mass": 2.0
+                }
+            ]
+        },
+        {
+            "GUID": "b8109a544ff1a001",
+            "Name": "Crate 2",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0.0,
+                        0.5,
+                        8.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        0.5,
+                        0.5,
+                        0.5
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.86,
+                            0.55,
+                            0.28
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.7,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            1,
+                            1
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        2,
+                        2
+                    ]
+                },
+                {
+                    "Type": "Rigidbody",
+                    "Mass": 2.0
+                }
+            ]
+        },
+        {
+            "GUID": "613b030a323bbeaf",
+            "Name": "Crate 3",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        1.05,
+                        0.5,
+                        8.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        0.5,
+                        0.5,
+                        0.5
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.86,
+                            0.55,
+                            0.28
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.7,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            1,
+                            1
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        2,
+                        2
+                    ]
+                },
+                {
+                    "Type": "Rigidbody",
+                    "Mass": 2.0
+                }
+            ]
+        },
+        {
+            "GUID": "390567c27bd6aa42",
+            "Name": "Crate 4",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        -0.525,
+                        1.5,
+                        8.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        0.5,
+                        0.5,
+                        0.5
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.86,
+                            0.55,
+                            0.28
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.7,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            1,
+                            1
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        2,
+                        2
+                    ]
+                },
+                {
+                    "Type": "Rigidbody",
+                    "Mass": 2.0
+                }
+            ]
+        },
+        {
+            "GUID": "98eb7bce235ae280",
+            "Name": "Crate 5",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0.525,
+                        1.5,
+                        8.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        0.5,
+                        0.5,
+                        0.5
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.86,
+                            0.55,
+                            0.28
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.7,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            1,
+                            1
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        2,
+                        2
+                    ]
+                },
+                {
+                    "Type": "Rigidbody",
+                    "Mass": 2.0
+                }
+            ]
+        },
+        {
+            "GUID": "d581460b35bb0a85",
+            "Name": "Crate 6",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0.0,
+                        2.5,
+                        8.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        0.5,
+                        0.5,
+                        0.5
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.86,
+                            0.55,
+                            0.28
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.7,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            1,
+                            1
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        2,
+                        2
+                    ]
+                },
+                {
+                    "Type": "Rigidbody",
+                    "Mass": 2.0
+                }
+            ]
+        }
+    ]
+}

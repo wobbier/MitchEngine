@@ -1,0 +1,28 @@
+# Top-Down template regression (SHIP-6), run by RunChecks' "Templates" step on a project just
+# created from Engine/Templates/TopDown with `Havana --new-project TopDown --name <Name>`:
+#   Havana --project <new project> --editor-exec Engine/Tests/Templates/TopDown/TopDownFlows.edscript
+# The editor builds the project's scripts; Play steers the player with held keys.
+wait-log Project: | 60
+wait 20
+
+# A first open lands on the startup scene: the player, its visor, the high camera and the course
+assert-exists Player
+assert-parent Visor | Player
+assert-exists Main Camera
+assert-exists Crate 6
+assert-field Player | Transform.Position | [0.0, 1.0, -6.0] ~ 0.01
+
+# Play: W runs up the screen (+Z), D right (+X), the player turns to face it and the camera follows
+# (anchored on state: the scripts may still be building when Play starts)
+play
+assert-playing 1
+input-hold Keyboard/W
+wait-field Player | Transform.Position.2 | != -6.0 ~ 2.0 | 900
+input-release Keyboard/W
+input-hold Keyboard/D
+wait-field Player | Transform.Position.0 | != 0.0 ~ 2.0 | 600
+input-release
+assert-field Player | Transform.Rotation | != [0.0, 0.0, 0.0, 1.0]
+assert-field Main Camera | Transform.Position.0 | != 0.0 ~ 0.5
+stop
+assert-field Player | Transform.Position | [0.0, 1.0, -6.0] ~ 0.01

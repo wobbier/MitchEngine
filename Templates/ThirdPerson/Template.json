@@ -1,0 +1,5 @@
+{
+    "Name": "Third-Person",
+    "Description": "A capsule hero on a CharacterController with an orbiting, collision-aware follow camera (ThirdPersonController.cs, ThirdPersonCamera.cs).",
+    "Order": 2
+}

@@ -119,6 +119,10 @@ void Input::Update()
         m_devices.Scroll = MouseScroll - PreviousMouseScroll;
         Gamepads::Get().Snapshot( m_devices.Gamepads );
     }
+    for( size_t key = 0; key < m_simulatedKeys.size(); ++key )
+    {
+        m_devices.Keys[key] |= m_simulatedKeys[key];
+    }
 
     if( m_actionAsset && m_actionAsset->Version != m_actionVersion )
     {
@@ -211,6 +215,19 @@ void Input::PostUpdate()
     PreviousMouseState = MouseState;
     PreviousMouseScroll = MouseScroll;
     m_keyEventsThisFrame.clear();
+}
+
+void Input::SetSimulatedKey( KeyCode InKey, bool InDown )
+{
+    if( static_cast<size_t>( InKey ) < m_simulatedKeys.size() )
+    {
+        m_simulatedKeys[static_cast<size_t>( InKey )] = InDown ? 1 : 0;
+    }
+}
+
+void Input::ClearSimulatedKeys()
+{
+    m_simulatedKeys.fill( 0 );
 }
 
 #pragma endregion

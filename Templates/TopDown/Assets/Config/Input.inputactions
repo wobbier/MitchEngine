@@ -1,0 +1,241 @@
+{
+    "Contexts": [
+        {
+            "Name": "Gameplay",
+            "Priority": 0,
+            "EnabledByDefault": true,
+            "ConsumeInput": false,
+            "Actions": [
+                {
+                    "Name": "Move",
+                    "Type": "Vector2",
+                    "PressThreshold": 0.5,
+                    "Bindings": [
+                        {
+                            "Kind": "Vector2",
+                            "Up": "Keyboard/W",
+                            "Down": "Keyboard/S",
+                            "Left": "Keyboard/A",
+                            "Right": "Keyboard/D",
+                            "Scale": 1.0,
+                            "InvertY": false
+                        },
+                        {
+                            "Kind": "Control",
+                            "Control": "Gamepad/LeftStick",
+                            "Scale": 1.0,
+                            "InvertY": false
+                        }
+                    ]
+                },
+                {
+                    "Name": "Look",
+                    "Type": "Vector2",
+                    "PressThreshold": 0.5,
+                    "Bindings": [
+                        {
+                            "Kind": "Control",
+                            "Control": "Mouse/Delta",
+                            "Scale": 0.1,
+                            "InvertY": false
+                        },
+                        {
+                            "Kind": "Control",
+                            "Control": "Gamepad/RightStick",
+                            "Scale": 1.0,
+                            "InvertY": false
+                        }
+                    ]
+                },
+                {
+                    "Name": "Jump",
+                    "Type": "Button",
+                    "PressThreshold": 0.5,
+                    "Bindings": [
+                        {
+                            "Kind": "Control",
+                            "Control": "Keyboard/Space",
+                            "Scale": 1.0,
+                            "InvertY": false
+                        },
+                        {
+                            "Kind": "Control",
+                            "Control": "Gamepad/South",
+                            "Scale": 1.0,
+                            "InvertY": false
+                        }
+                    ]
+                },
+                {
+                    "Name": "Sprint",
+                    "Type": "Button",
+                    "PressThreshold": 0.5,
+                    "Bindings": [
+                        {
+                            "Kind": "Control",
+                            "Control": "Keyboard/Left Shift",
+                            "Scale": 1.0,
+                            "InvertY": false
+                        },
+                        {
+                            "Kind": "Control",
+                            "Control": "Gamepad/LeftStickPress",
+                            "Scale": 1.0,
+                            "InvertY": false
+                        }
+                    ]
+                },
+                {
+                    "Name": "Fire",
+                    "Type": "Value",
+                    "PressThreshold": 0.5,
+                    "Bindings": [
+                        {
+                            "Kind": "Control",
+                            "Control": "Mouse/Left",
+                            "Scale": 1.0,
+                            "InvertY": false
+                        },
+                        {
+                            "Kind": "Control",
+                            "Control": "Gamepad/RightTrigger",
+                            "Scale": 1.0,
+                            "InvertY": false
+                        }
+                    ]
+                },
+                {
+                    "Name": "Aim",
+                    "Type": "Value",
+                    "PressThreshold": 0.5,
+                    "Bindings": [
+                        {
+                            "Kind": "Control",
+                            "Control": "Mouse/Right",
+                            "Scale": 1.0,
+                            "InvertY": false
+                        },
+                        {
+                            "Kind": "Control",
+                            "Control": "Gamepad/LeftTrigger",
+                            "Scale": 1.0,
+                            "InvertY": false
+                        }
+                    ]
+                },
+                {
+                    "Name": "Interact",
+                    "Type": "Button",
+                    "PressThreshold": 0.5,
+                    "Bindings": [
+                        {
+                            "Kind": "Control",
+                            "Control": "Keyboard/E",
+                            "Scale": 1.0,
+                            "InvertY": false
+                        },
+                        {
+                            "Kind": "Control",
+                            "Control": "Gamepad/West",
+                            "Scale": 1.0,
+                            "InvertY": false
+                        }
+                    ]
+                },
+                {
+                    "Name": "Pause",
+                    "Type": "Button",
+                    "PressThreshold": 0.5,
+                    "Bindings": [
+                        {
+                            "Kind": "Control",
+                            "Control": "Keyboard/Escape",
+                            "Scale": 1.0,
+                            "InvertY": false
+                        },
+                        {
+                            "Kind": "Control",
+                            "Control": "Gamepad/Start",
+                            "Scale": 1.0,
+                            "InvertY": false
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "Name": "Menu",
+            "Priority": 10,
+            "EnabledByDefault": false,
+            "ConsumeInput": true,
+            "Actions": [
+                {
+                    "Name": "Navigate",
+                    "Type": "Vector2",
+                    "PressThreshold": 0.5,
+                    "Bindings": [
+                        {
+                            "Kind": "Vector2",
+                            "Up": "Keyboard/Up",
+                            "Down": "Keyboard/Down",
+                            "Left": "Keyboard/Left",
+                            "Right": "Keyboard/Right",
+                            "Scale": 1.0,
+                            "InvertY": false
+                        },
+                        {
+                            "Kind": "Control",
+                            "Control": "Gamepad/DPad",
+                            "Scale": 1.0,
+                            "InvertY": false
+                        },
+                        {
+                            "Kind": "Control",
+                            "Control": "Gamepad/LeftStick",
+                            "Scale": 1.0,
+                            "InvertY": false
+                        }
+                    ]
+                },
+                {
+                    "Name": "Submit",
+                    "Type": "Button",
+                    "PressThreshold": 0.5,
+                    "Bindings": [
+                        {
+                            "Kind": "Control",
+                            "Control": "Keyboard/Return",
+                            "Scale": 1.0,
+                            "InvertY": false
+                        },
+                        {
+                            "Kind": "Control",
+                            "Control": "Gamepad/South",
+                            "Scale": 1.0,
+                            "InvertY": false
+                        }
+                    ]
+                },
+                {
+                    "Name": "Back",
+                    "Type": "Button",
+                    "PressThreshold": 0.5,
+                    "Bindings": [
+                        {
+                            "Kind": "Control",
+                            "Control": "Keyboard/Escape",
+                            "Scale": 1.0,
+                            "InvertY": false
+                        },
+                        {
+                            "Kind": "Control",
+                            "Control": "Gamepad/East",
+                            "Scale": 1.0,
+                            "InvertY": false
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

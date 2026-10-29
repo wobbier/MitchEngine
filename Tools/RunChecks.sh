@@ -12,6 +12,9 @@
 #      with Build Game (the Retail Player) and compares that, run from outside the repo the same way;
 #   8. starts the editor outside any project, so it opens the Project Hub, which creates a project
 #      from the Empty template and opens it in the editor (Tests/Hub/HubFlows.edscript).
+#   9. creates a project from every template (Havana --new-project) outside the repo, plays it in
+#      the editor (Tests/Templates/<Id>/<Id>Flows.edscript), ships it with Build Game and compares
+#      a frame of the shipped build with Tests/Templates/<Id>/Reference.
 # GUI runs go through Tools/Headless.sh (a private virtual display with software Vulkan), so nothing
 # opens on your desktop and nothing plays through your speakers.
 #
@@ -225,6 +228,54 @@ if [[ -f $hub_checks/HubFlows.edscript ]]; then
         echo "ok    HubFlows (Hub, then the editor on the new project)"
     fi
     rm -rf "$hub_dir"
+fi
+
+# Templates (SHIP-6): every engine template with checks under Tests/Templates/<Id>/ becomes a new
+# project outside the repo, as File > New Project would make it. Its flow plays it in the editor
+# (held keys move the player); Build Game ships it on the Retail Player, and a frame of that build,
+# run from an empty directory without DOTNET_ROOT, must match the template's reference. The runs are
+# byte-identical, so the limit is tight, and the log must show the scripts loaded on the app-local .NET.
+template_checks="$here/../Tests/Templates"
+if [[ -d $template_checks ]]; then
+    step "Templates"
+    templates_dir="$(mktemp -d)"
+    editor="$PWD/.build/Editor_Debug/Havana"
+    system_libs="$(tr ':' '\n' <<< "${LD_LIBRARY_PATH:-}" | grep -vF "$PWD" | paste -sd: -)"
+    mkdir -p "$templates_dir/Empty"
+    for checks in "$template_checks"/*/; do
+        id="$(basename "$checks")"
+        project="$templates_dir/New$id"
+        log=".tmp/RunChecks.template-$id.log"
+        if ! ( cd "$templates_dir" && "$here/Headless.sh" "$editor" --new-project "$id" --name "New$id" ) > "$log" 2>&1; then
+            tail -5 "$log"
+            failed+=("template $id: new project")
+            continue
+        fi
+        if ! "$here/Headless.sh" "$editor" --project "$project" --editor-exec "$checks/${id}Flows.edscript" >> "$log" 2>&1 \
+                || ! grep -q "\[editor-exec\] PASSED" "$log"; then
+            grep -E "editor-exec|Error" "$log" | tail -20
+            failed+=("template $id: editor")
+            continue
+        fi
+        echo "ok    ${id}Flows (new project in the editor)"
+        if ! "$here/Headless.sh" "$editor" --project "$project" --build-game --out "$templates_dir/Built$id" >> "$log" 2>&1; then
+            grep -E "Build Game|Error" "$log" | tail -20
+            failed+=("template $id: build game")
+            continue
+        fi
+        launcher="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["Launcher"])' "$templates_dir/Built$id/BuildInfo.json")"
+        out=".tmp/ScreenshotRegression/Template$id"
+        rm -rf "$out"
+        if ! env -u DOTNET_ROOT LD_LIBRARY_PATH="$system_libs" python3 "$here/ScreenshotRegression.py" --game "$templates_dir/Built$id/$launcher" \
+                --reference "$checks/Reference" --wrapper "$here/Headless.sh" --out "$out" --cwd "$templates_dir/Empty" --max-changed 0.002 Assets/Scenes/Main.lvl; then
+            failed+=("template $id: shipped build")
+        elif ! grep -q "Scripts: .NET runtime from the app-local install" "$out/Main.log" \
+                || ! grep -q "Loaded [0-9]* type(s) from Game.Script.dll" "$out/Main.log"; then
+            echo "The shipped $id build didn't load its scripts on the app-local .NET (see $out/Main.log)"
+            failed+=("template $id: shipped runtime")
+        fi
+    done
+    rm -rf "$templates_dir"
 fi
 
 # Test scenes with a committed reference (UITest and friends) regress the same way.

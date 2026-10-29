@@ -94,9 +94,30 @@ Creating a project copies the folder, leaving behind `Template.json` and anythin
 `ProjectSettings.json`'s `Product.Name` and `Engine.cfg`'s window `Title`. It never writes into a
 folder that exists and isn't empty, and leaves nothing behind when it fails.
 
-The engine ships one so far: **Empty**, a C#-only project with a camera, a sun and a floor in its
-startup scene and `Project/Game.Script.csproj`, so scripts build as soon as a `.cs` lands under
-`Assets/`. More templates are SHIP-6.
+The engine ships four (SHIP-6), all C#-only projects with `Project/Game.Script.csproj` (scripts
+build as soon as a `.cs` lands under `Assets/`), an input map (`Assets/Config/Input.inputactions`:
+Move, Look, Jump, Sprint, Fire, Aim, Interact and Pause for gamepad and keyboard/mouse, plus a Menu
+context) and a default editor layout (`Assets/Config/imgui.cfg`: Hierarchy left, the views in the
+middle over Log and Resource Monitor, Properties right):
+
+| Template | Startup scene | Scripts |
+| --- | --- | --- |
+| **Empty** | A camera, a sun and a floor | none |
+| **First-Person** (`FirstPerson`) | A CharacterController body with the camera at eye height, on the blockout course | `FirstPersonController.cs`: mouse/stick look (captured; Pause frees the cursor, Fire takes it back), walk, sprint, jump |
+| **Third-Person** (`ThirdPerson`) | A capsule hero with a visor on the course | `ThirdPersonController.cs` (camera-relative movement, turns to face it), `ThirdPersonCamera.cs` (orbit, eases after the hero, pulls in at walls) |
+| **Top-Down** (`TopDown`) | The same hero under a high camera | `TopDownController.cs` (screen-relative movement), `TopDownCamera.cs` (fixed angle, eases after the target) |
+
+The blockout course is 40 × 40 m inside walls: a 1 m ledge and a 2 m platform to jump up, stairs,
+a ramp, pillars and a stack of physics crates, on the engine's 1 m prototype grid
+(`Assets/Textures/Prototype/Grid.png`, served from the engine, tinted per material).
+
+Each template is a whole project, so `Havana --project Engine/Templates/<Id>` opens one to edit it
+(its `.tmp/` is ignored). The files every template shares (the scripts project, `.gitignore`, the
+input map and the layout) are copies of Empty's; a unit test keeps them identical.
+
+From a shell (or CI), `Havana --new-project <template> --name <Name> [--in <folder>]` creates
+`<folder>/<Name>` (default: the working directory) the same way without opening a window, and prints
+its root.
 
 ### Scripted runs
 
@@ -177,7 +198,8 @@ project files. Copy the folder anywhere to start a project.
   project's own engine.
 - `Tests/Source/ProjectLibraryTests.cpp`: project names, template discovery and order, creating a
   project (what's copied and left behind, naming, refusing occupied folders), the recent list (order,
-  reload, cap), and the engine's Empty template.
+  reload, cap), and the engine's templates (all four listed, each a complete C#-only project whose
+  shared files match Empty's).
 - RunChecks' **Project Hub** step starts the editor in an empty folder, so it opens the Hub, and runs
   `Tests/Hub/HubFlows.edscript`: the Empty template is listed, a project leaves the recent list,
   NewGame is created from Empty, and the editor the Hub starts opens NewGame on its startup scene
@@ -189,14 +211,21 @@ project files. Copy the folder anywhere to start a project.
   `Main.lvl` must match `Tests/Samples/ScriptOnly/Reference/Main.png` (byte-identical run to run).
   Last, it ships the copy with Build Game and the shipped Retail Player, run from outside the repo
   without a .NET install, must match the same reference.
+- RunChecks' **Templates** step creates a project from every template with checks under
+  `Tests/Templates/<Id>/` (`Havana --new-project`, outside the repo) and runs its
+  `<Id>Flows.edscript` in the editor: the startup scene opens, and in Play held keys
+  (`input-hold Keyboard/W`) move the player through the template's own scripts. It then ships the
+  project with Build Game, and a frame of the Retail build, run from an empty folder without a .NET
+  install, must match `Tests/Templates/<Id>/Reference/Main.png` with the scripts loaded.
 
 ## Not yet
 
 - The editor carries the game module of the checkout it was built in: a C#-only project opened in
   MitchGame's Havana lists MitchGame's components too. Prebuilt binaries (SHIP-7) would ship an
   editor without one.
-- One template (Empty). First-person, third-person, top-down and 2D templates with input maps, an
-  options menu and starter scripts are SHIP-6, and the Hub offers no C++ game template.
+- No 2D Platformer template until sprites exist (LOOK-S2, ME-270). The templates have no options
+  menu (PLAY-3) or starter kit of gameplay scripts (GAME-7) yet, and the Hub offers no C++ game
+  template.
 - The Hub shows no project thumbnails, and it can't move, rename or delete a project.
 - A C#-only project needs the engine's sources: its script project references
   `Modules/ScriptCore/ScriptCore.csproj`. A prebuilt engine would ship `ScriptCore.dll` to
