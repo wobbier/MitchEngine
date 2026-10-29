@@ -4,6 +4,7 @@ Node-based shaders, edited in Havana and compiled to ordinary bgfx shader source
 
 - **Targets:** what a graph renders.
   - **Lit** and **Unlit** surfaces, for meshes through `ShaderGraphMaterial`.
+  - **Custom Lit** surfaces (LOOK-S7), also through `ShaderGraphMaterial`: the graph does its own lighting (toon, cel, stylized) from the light nodes below.
   - **Particle** colour, through `ParticleSystem.Graph`.
   - **Decal** surfaces, through `Decal.Graph`.
   - **Post Process** passes, through `PostProcess.Graphs`.
@@ -83,7 +84,7 @@ Node-based shaders, edited in Havana and compiled to ordinary bgfx shader source
 
 | Target | Where | Notes |
 |--------|-------|-------|
-| Lit / Unlit | Mesh > **Use Shader Graph...** (or Material Type: Shader Graph); **Remove Shader Graph** goes back to Standard | `ShaderGraphMaterial`: exposed properties appear in the inspector; per-mesh overrides serialize as `Params` / `Textures` |
+| Lit / Unlit / Custom Lit | Mesh > **Use Shader Graph...** (or Material Type: Shader Graph); **Remove Shader Graph** goes back to Standard | `ShaderGraphMaterial`: exposed properties appear in the inspector; per-mesh overrides serialize as `Params` / `Textures` |
 | Particle | `ParticleSystem.Graph` | Replaces the particle fragment shader; the system's Texture is the **Particle Texture** node |
 | Decal | `Decal.Graph` | Replaces the decal's textures and surface values; angle fade still applies |
 | Post Process | `PostProcess.Graphs` (a list, applied in order) | **Injection**: Before Tonemap (HDR, bloom and exposure see it) or After Tonemap (display image) |
@@ -207,6 +208,25 @@ node.Expressions = { { "Out", "{In} / ((1.0 / {Bias} - 2.0) * (1.0 - {In}) + 1.0
 - Put anything bigger in `SGLib.sh` and call it.
 - Mark fragment-only nodes `Stages = StageFragment`, and restrict targets with `Targets`.
 - The every-node test compiles the new node in every target on SPIR-V, GLSL and Metal.
+
+### Custom Lit (LOOK-S7)
+
+A mesh target whose **Color** output is the final lit colour. It is fogged when **Fog** is on (transparent surfaces), HDR, casts shadows like any mesh, and keeps the vertex and alpha pins. Instead of the engine's PBR shading, the graph reads the lights with three fragment-only nodes, which are offered only in this target (Input/Lighting):
+
+| Node | Outputs |
+|------|---------|
+| **Main Light** (Normal input, default world normal) | Direction (towards the light), Color (colour × intensity), Shadow (its cascaded shadow, 1 = lit), N dot L |
+| **Additional Lights** (Normal, Threshold, Smoothness) | Diffuse: every clustered point, spot or area light's colour × attenuation × shadow by N·L. Banded: the same by a smoothstep band around Threshold (cel shading) |
+| **Ambient Light** (Normal) | Color: the sky or environment irradiance along the normal |
+
+- **How it's built.** The helpers live in `SGLib.sh` (`sgMainLightDirection`, `sgMainLightColor`, `sgMainLightShadow`, `sgAdditionalLights`, `sgAmbientLight`).
+  - `Templates/CustomLit.frag.sgt` includes `Lighting.sh` and defines `SG_LIGHTING`, so the helpers use the real lights: the directional uniforms, `sunShadow`, the cluster loop with `volumeLocalLightDir`, and the irradiance.
+  - Every other file (vertex, shadow, the editor preview) gets stand-ins: the preview rig's key light, no shadow, no local lights and a soft ambient.
+- **Limits.** The engine's view-shading debug modes (unlit, normals...) don't apply, because the graph owns the shading. The local-light shadows use the light's own direction for the receiver offset. Graphs can't loop, so per-light ramps beyond Banded need a Custom Function.
+- **The stock Toon material**, `../Assets/ShaderGraphs/Examples/Toon.shadergraph`:
+  - The main light's N·L goes through a smoothstep band (Threshold, Smoothness) times its shadow. The result lerps from Shade Color to white, times the light colour, plus ambient plus banded additional lights, times Base Color.
+  - A lit-side fresnel rim adds Rim Color × Rim Strength.
+  - `../Assets/Scenes/Showcase/Toon.lvl` (with outlines, a sun and two point lights) is its screenshot-regression reference.
 
 **Add a target.** Subclass `TargetDef` in `Targets.cpp`:
 - output pins, a builtin table per stage, the files and programs, and `MaxTextures`;

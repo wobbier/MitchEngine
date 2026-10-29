@@ -1751,7 +1751,7 @@ void AssetBrowserWidget::DrawCreateMenuItems()
     {
         static const std::pair<const char*, ShaderGraph::Target> kTargets[] = {
             { "Lit", ShaderGraph::Target::Lit }, { "Unlit", ShaderGraph::Target::Unlit }, { "Particle", ShaderGraph::Target::Particle },
-            { "Decal", ShaderGraph::Target::Decal }, { "Post Process", ShaderGraph::Target::PostProcess }
+            { "Decal", ShaderGraph::Target::Decal }, { "Post Process", ShaderGraph::Target::PostProcess }, { "Custom Lit", ShaderGraph::Target::CustomLit }
         };
         for( const auto& target : kTargets )
         {
@@ -1986,7 +1986,7 @@ void AssetBrowserWidget::DrawShaderGraphDetails()
         const auto& settings = m_previewGraph->Settings;
         HavanaUtils::Label( "Target" );
         ImGui::TextUnformatted( ShaderGraph::GetTargetName( settings.GraphTarget ) );
-        if( settings.GraphTarget == ShaderGraph::Target::Lit || settings.GraphTarget == ShaderGraph::Target::Unlit )
+        if( settings.GraphTarget == ShaderGraph::Target::Lit || settings.GraphTarget == ShaderGraph::Target::Unlit || settings.GraphTarget == ShaderGraph::Target::CustomLit )
         {
             HavanaUtils::Label( "Surface" );
             ImGui::TextUnformatted( settings.Surface == ShaderGraph::SurfaceType::Opaque ? "Opaque" : "Transparent" );

@@ -199,6 +199,46 @@ namespace ShaderGraph
 
     namespace
     {
+        // Custom Lit (LOOK-S7): a mesh target whose graph computes the final colour itself from the
+        // Main Light / Additional Lights / Ambient Light nodes (toon ramps, cel bands, rim lights).
+        class CustomLitTargetDef
+            : public MeshTargetDef
+        {
+        public:
+            CustomLitTargetDef()
+            {
+                Id = Target::CustomLit;
+                DisplayName = "Custom Lit";
+                Description = "Your own lighting: the graph reads the scene's lights (Main Light, Additional Lights, Ambient Light) and outputs the lit colour (fogged, HDR, shadowed like any mesh).";
+            }
+
+            void BuildOutputPins( const TargetSettings& InSettings, std::vector<PinDef>& OutPins ) const override
+            {
+                AddVertexPins( OutPins );
+                OutPins.push_back( PinDef( "Color", ValueType::Vec3, Vector4( 0.5f, 0.5f, 0.5f, 1.f ) ).Color().StageOnly( StageFragment ).Tip( "The lit colour, linear HDR." ) );
+                AddAlphaPins( InSettings, OutPins );
+            }
+
+            void GetDefines( const TargetSettings& InSettings, std::vector<std::string>& OutDefines ) const override
+            {
+                MeshTargetDef::GetDefines( InSettings, OutDefines );
+                if( InSettings.Fog )
+                {
+                    OutDefines.push_back( "SG_FOG 1" );
+                }
+            }
+
+        protected:
+            std::string FragmentTemplate() const override
+            {
+                return "CustomLit.frag.sgt";
+            }
+        };
+    }
+
+
+    namespace
+    {
         // Particles: the engine's Particle.vert draws the quads; the graph colours them.
         class ParticleTargetDef
             : public TargetDef
@@ -406,6 +446,7 @@ namespace ShaderGraph
         static const ParticleTargetDef particle;
         static const DecalTargetDef decal;
         static const PostProcessTargetDef post;
+        static const CustomLitTargetDef customLit;
         switch( InTarget )
         {
         case Target::Lit:
@@ -418,6 +459,8 @@ namespace ShaderGraph
             return &decal;
         case Target::PostProcess:
             return &post;
+        case Target::CustomLit:
+            return &customLit;
         default:
             return nullptr;
         }

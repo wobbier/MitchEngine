@@ -1,0 +1,37 @@
+$input v_worldPos, v_normal, v_tangent, v_bitangent, v_texcoord0, v_viewPos, v_objectPos, v_objectNormal
+
+// Generated from {{GRAPH}} by the shader graph compiler: edit the graph, not this file.
+{{DEFINES}}
+#include "Common.sh"
+#include "Lighting.sh"
+#include "Fog.sh"
+// Custom Lit (LOOK-S7): the lighting helpers in SGLib use the real lights here.
+#define SG_LIGHTING 1
+#include "ShaderGraph/SGLib.sh"
+
+{{DECLARATIONS}}
+
+void main()
+{
+	vec4 sg_fragCoord = gl_FragCoord;
+	bool sg_frontFacing = gl_FrontFacing;
+{{LOCALS}}
+{{BODY}}
+#if SG_ALPHA_CLIP
+	if (sgOut_Alpha < sgOut_AlphaClipThreshold)
+	{
+		discard;
+	}
+#endif
+
+	// The graph's own lighting result (Main Light, Additional Lights and Ambient Light nodes).
+	vec3 color = sgOut_Color;
+#if SG_FOG
+	// Opaque surfaces are fogged by the fog pass; transparent ones (drawn after it) fog themselves.
+	vec3 cameraPos = mul(u_invView, vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+	vec3 sunColor = u_lightParams.x > 0.5 ? directionalRadiance(0, v_worldPos) : vec3_splat(0.0);
+	vec4 fog = fogForward(cameraPos, v_worldPos, sunColor, u_dirLightDirection[0].xyz);
+	color = color * fog.a + fog.rgb;
+#endif
+	gl_FragColor = vec4(color, sgOut_Alpha);
+}

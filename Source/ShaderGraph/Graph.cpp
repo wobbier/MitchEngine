@@ -10,7 +10,7 @@ namespace ShaderGraph
 {
     namespace
     {
-        const char* kTargetNames[] = { "Lit", "Unlit", "Particle", "Decal", "PostProcess" };
+        const char* kTargetNames[] = { "Lit", "Unlit", "Particle", "Decal", "PostProcess", "CustomLit" };
 
 
         json VectorToJson( const Vector4& InValue )

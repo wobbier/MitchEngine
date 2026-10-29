@@ -214,7 +214,7 @@ namespace
         return std::max( score, 1 );
     }
 
-    const char* kTargetDisplayNames[] = { "Lit", "Unlit", "Particle", "Decal", "Post Process" };
+    const char* kTargetDisplayNames[] = { "Lit", "Unlit", "Particle", "Decal", "Post Process", "Custom Lit" };
 }
 
 
@@ -1205,7 +1205,7 @@ void ShaderGraphDocument::DrawGraphSettings()
     };
 
     Target target = settings.GraphTarget;
-    combo( "Target", target, { "Lit", "Unlit", "Particle", "Decal", "Post Process" } );
+    combo( "Target", target, { "Lit", "Unlit", "Particle", "Decal", "Post Process", "Custom Lit" } );
     if( target != settings.GraphTarget )
     {
         SetTarget( target );
@@ -1220,7 +1220,7 @@ void ShaderGraphDocument::DrawGraphSettings()
         ImGui::TextColored( ImGuiTheme::WarningText(), "This target isn't available yet." );
     }
 
-    const bool mesh = target == Target::Lit || target == Target::Unlit;
+    const bool mesh = target == Target::Lit || target == Target::Unlit || target == Target::CustomLit;
     if( mesh )
     {
         combo( "Surface", settings.Surface, { "Opaque", "Transparent" } );
@@ -1237,7 +1237,7 @@ void ShaderGraphDocument::DrawGraphSettings()
     {
         combo( "Normal Space", settings.FragmentNormalSpace, { "Tangent", "World" } );
     }
-    if( target == Target::Unlit )
+    if( target == Target::Unlit || target == Target::CustomLit )
     {
         checkbox( "Fog", settings.Fog, "Transparent surfaces apply height fog themselves." );
     }

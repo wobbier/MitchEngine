@@ -27,6 +27,7 @@ namespace
         { "ShaderGraph.NewParticle", "Particle", ShaderGraph::Target::Particle },
         { "ShaderGraph.NewDecal", "Decal", ShaderGraph::Target::Decal },
         { "ShaderGraph.NewPostProcess", "Post Process", ShaderGraph::Target::PostProcess },
+        { "ShaderGraph.NewCustomLit", "Custom Lit", ShaderGraph::Target::CustomLit },
     };
 
 

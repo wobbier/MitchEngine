@@ -98,7 +98,7 @@ namespace
         propertyIds.push_back( graph.AddProperty( "Bool Property", ValueType::Bool ).Id );
 
         const uint32_t outputNode = OutputOf( graph ).Id;
-        const std::string sink = InStage == Stage::Vertex ? "Position Offset" : ( InTarget == Target::Unlit || InTarget == Target::Particle || InTarget == Target::PostProcess ? "Color" : "Base Color" );
+        const std::string sink = InStage == Stage::Vertex ? "Position Offset" : ( InTarget == Target::Unlit || InTarget == Target::Particle || InTarget == Target::PostProcess || InTarget == Target::CustomLit ? "Color" : "Base Color" );
         uint32_t accumulator = 0;
         std::string accumulatorPin;
         auto fold = [&]( uint32_t InNode, const std::string& InPin ) {
@@ -544,7 +544,7 @@ namespace
 // fragment shader must take exactly the varyings its vertex shader writes (or they scramble).
 TEST_CASE( "ShaderGraph: generated stages agree on varyings" )
 {
-    for( const Target target : { Target::Lit, Target::Unlit } )
+    for( const Target target : { Target::Lit, Target::Unlit, Target::CustomLit } )
     {
         Graph graph = Graph::CreateDefault( target );
         graph.Settings.AlphaClip = true;
@@ -589,7 +589,7 @@ TEST_CASE( "ShaderGraph: shaderc errors map back to nodes" )
 
 TEST_CASE( "ShaderGraph: every node compiles with shaderc in every target" * doctest::timeout( 600 ) )
 {
-    for( const Target target : { Target::Lit, Target::Unlit, Target::Particle, Target::Decal, Target::PostProcess } )
+    for( const Target target : { Target::Lit, Target::Unlit, Target::Particle, Target::Decal, Target::PostProcess, Target::CustomLit } )
     {
         for( const Stage stage : { Stage::Fragment, Stage::Vertex } )
         {

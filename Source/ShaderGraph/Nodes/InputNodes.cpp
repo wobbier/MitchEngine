@@ -246,6 +246,39 @@ namespace ShaderGraph
             node.AliasOutputs = true;
             node.Expressions = { { "UV", "{B:ScreenUV}" }, { "Pixel", "{B:ScreenPixel}" } };
         }
+        // Custom Lit (LOOK-S7): the scene's lights, for graphs that shade themselves.
+        {
+            ExpressionNode& node = InRegistry.Expression( "MainLight", "Main Light", "Input/Lighting" );
+            node.Keywords = "sun directional light shadow toon cel ramp n dot l";
+            node.Description = "The main (first directional) light: direction towards it, colour x intensity, its cascaded shadow (1 = lit) and N.L for a normal.";
+            node.Stages = StageFragment;
+            node.Targets = TargetBit( Target::CustomLit );
+            node.Inputs = { Pin( "Normal", ValueType::Vec3 ).Bind( Builtin::NormalWorld ) };
+            node.Outputs = { Pin( "Direction", ValueType::Vec3 ), Pin( "Color", ValueType::Vec3 ), Pin( "Shadow", ValueType::Float ), Pin( "N dot L", ValueType::Float ) };
+            node.Expressions = { { "Direction", "sgMainLightDirection()" }, { "Color", "sgMainLightColor({B:PositionWorld})" },
+                { "Shadow", "sgMainLightShadow({B:PositionWorld}, {Normal}, {B:PositionView}.z)" }, { "N dot L", "dot(sgSafeNormalize({Normal}), sgMainLightDirection())" } };
+        }
+        {
+            ExpressionNode& node = InRegistry.Expression( "AdditionalLights", "Additional Lights", "Input/Lighting" );
+            node.Keywords = "point spot local lights clustered toon cel ramp band";
+            node.Description = "The point, spot and area lights at this pixel: each light's colour x attenuation x shadow by N.L (Diffuse), or by a smoothstep band around Threshold (Banded: cel shading).";
+            node.Stages = StageFragment;
+            node.Targets = TargetBit( Target::CustomLit );
+            node.Inputs = { Pin( "Normal", ValueType::Vec3 ).Bind( Builtin::NormalWorld ), Pin( "Threshold", ValueType::Float, Vector4( 0.f ) ), Pin( "Smoothness", ValueType::Float, Vector4( 0.05f ) ) };
+            node.Outputs = { Pin( "Diffuse", ValueType::Vec3 ), Pin( "Banded", ValueType::Vec3 ) };
+            node.Expressions = { { "Diffuse", "sgAdditionalLights({B:PositionWorld}, {Normal}, {B:ScreenPixel}, {B:PositionView}.z, 0.0, 0.0, 1.0)" },
+                { "Banded", "sgAdditionalLights({B:PositionWorld}, {Normal}, {B:ScreenPixel}, {B:PositionView}.z, 1.0, {Threshold}, {Smoothness})" } };
+        }
+        {
+            ExpressionNode& node = InRegistry.Expression( "AmbientLight", "Ambient Light", "Input/Lighting" );
+            node.Keywords = "ambient sky irradiance environment fill";
+            node.Description = "The ambient light (sky / environment irradiance) arriving along a normal.";
+            node.Stages = StageFragment;
+            node.Targets = TargetBit( Target::CustomLit );
+            node.Inputs = { Pin( "Normal", ValueType::Vec3 ).Bind( Builtin::NormalWorld ) };
+            node.Outputs = { Pin( "Color", ValueType::Vec3 ) };
+            node.Expressions = { { "Color", "sgAmbientLight({Normal})" } };
+        }
         {
             ExpressionNode& node = InRegistry.Expression( "SceneDepth", "Scene Depth", "Input/Scene" );
             node.Keywords = "depth buffer distance z soft intersection";

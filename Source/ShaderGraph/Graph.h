@@ -18,6 +18,7 @@ namespace ShaderGraph
         Particle,     // ParticleSystem.Graph
         Decal,        // Decal.Graph
         PostProcess,  // PostProcess.Graphs
+        CustomLit,    // ShaderGraphMaterial: the graph shades itself from the light nodes (toon, cel, stylized)
         Count
     };
 

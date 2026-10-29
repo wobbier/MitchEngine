@@ -430,4 +430,103 @@ vec2 sgParallaxOffset(sampler2D _heightMap, vec2 _uv, float _amplitude, vec3 _vi
 }
 #endif
 
+// ---- Custom Lit target (LOOK-S7): the scene's lights for graphs that shade themselves ----
+// The Custom Lit fragment template includes Lighting.sh and defines SG_LIGHTING first; every other
+// file (vertex, shadow, the editor preview) gets stand-ins: the preview rig's key light, no shadow,
+// no local lights and a soft sky ambient.
+#ifdef SG_LIGHTING
+// Towards the main (first directional) light.
+vec3 sgMainLightDirection()
+{
+	return u_lightParams.x > 0.5 ? sgSafeNormalize(-u_dirLightDirection[0].xyz) : vec3(0.0, 1.0, 0.0);
+}
+
+vec3 sgMainLightColor(vec3 _position)
+{
+	return u_lightParams.x > 0.5 ? directionalRadiance(0, _position) : vec3_splat(0.0);
+}
+
+// 1 = lit, 0 = in the main light's cascaded shadow.
+float sgMainLightShadow(vec3 _position, vec3 _normal, float _viewZ)
+{
+	if (u_lightParams.x < 0.5 || u_dirLightDirection[0].w < 0.5)
+	{
+		return 1.0;
+	}
+	Surface s;
+	s.position = _position;
+	s.normal = sgSafeNormalize(_normal);
+	s.view = vec3(0.0, 0.0, 1.0);
+	s.diffuseColor = vec3_splat(0.0);
+	s.f0 = vec3_splat(0.0);
+	s.roughness = 1.0;
+	s.NoV = 1.0;
+	return sunShadow(s, sgMainLightDirection(), _viewZ);
+}
+
+// The clustered point / spot / area lights at a point: each light's colour x attenuation x shadow,
+// weighted by N.L (_ramp: by a smoothstep band around _threshold instead: cel shading).
+vec3 sgAdditionalLights(vec3 _position, vec3 _normal, vec2 _pixel, float _viewZ, float _ramp, float _threshold, float _smoothness)
+{
+	vec3 total = vec3_splat(0.0);
+	if (u_lightParams.y < 0.5)
+	{
+		return total;
+	}
+	vec3 normal = sgSafeNormalize(_normal);
+	vec2 range = clusterRange(_pixel, _viewZ);
+	int count = int(range.y);
+	for (int i = 0; i < MAX_LIGHTS_PER_CLUSTER; ++i)
+	{
+		if (i >= count)
+		{
+			break;
+		}
+		vec3 toLight;
+		vec3 radiance = volumeLocalLightDir(_position, clusterLight(range, i), toLight);
+		float ndl = dot(normal, toLight);
+		float halfBand = max(_smoothness, 0.0001) * 0.5;
+		float weight = _ramp > 0.5 ? smoothstep(_threshold - halfBand, _threshold + halfBand, ndl) : max(ndl, 0.0);
+		total += radiance * weight;
+	}
+	return total;
+}
+
+// The ambient light (irradiance) arriving along a normal.
+vec3 sgAmbientLight(vec3 _normal)
+{
+	vec3 normal = sgSafeNormalize(_normal);
+	if (u_envParams.z > 0.5)
+	{
+		return cubeLod(s_envIrradiance, normal, 0.0).rgb * u_envParams.x;
+	}
+	return mix(u_ambientGround.rgb, u_ambientSky.rgb, normal.y * 0.5 + 0.5) * u_lightParams.z;
+}
+#else
+vec3 sgMainLightDirection()
+{
+	return normalize(vec3(-0.45, 0.65, 0.6));
+}
+
+vec3 sgMainLightColor(vec3 _position)
+{
+	return vec3_splat(1.0);
+}
+
+float sgMainLightShadow(vec3 _position, vec3 _normal, float _viewZ)
+{
+	return 1.0;
+}
+
+vec3 sgAdditionalLights(vec3 _position, vec3 _normal, vec2 _pixel, float _viewZ, float _ramp, float _threshold, float _smoothness)
+{
+	return vec3_splat(0.0);
+}
+
+vec3 sgAmbientLight(vec3 _normal)
+{
+	return mix(vec3(0.08, 0.07, 0.06), vec3(0.18, 0.22, 0.3), sgSafeNormalize(_normal).y * 0.5 + 0.5);
+}
+#endif
+
 #endif // SHADER_GRAPH_LIB_SH
