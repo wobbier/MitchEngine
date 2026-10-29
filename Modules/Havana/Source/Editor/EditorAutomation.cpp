@@ -38,6 +38,8 @@
 #include "Engine/HardwareBudget.h"
 #include "Components/Graphics/Mesh.h"
 #include "Graphics/SpriteAtlas.h"
+#include "Window/SDLWindow.h"
+#include "Editor/SpriteRectGizmo.h"
 #include <array>
 #include <map>
 #include "Engine/SaveGames.h"
@@ -52,6 +54,7 @@
 #include "VFS/VFS.h"
 #include "Engine/Input.h"
 #include <SDL_keyboard.h>
+#include <SDL.h>
 #include "Engine/World.h"
 #include "World/Scene.h"
 #include "Renderer.h"
@@ -1453,6 +1456,63 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             {
                 Fail( name + " " + fieldText + " is " + actual->dump() + ", saved " + saved->dump() );
             }
+        }
+    }
+    else if( command == "sprite-handle-mouse" || command == "scene-mouse-offset" || command == "scene-mouse-down" || command == "scene-mouse-up" )
+    {
+        // Drives the World view's mouse through SDL as a user would (ImGui reads these events):
+        //   sprite-handle-mouse right   the pointer onto a handle of the selected sprite's rect gizmo
+        //   scene-mouse-offset 60 0     moves it by that many screen pixels
+        //   scene-mouse-down / scene-mouse-up   the left button
+        SDLWindow* window = static_cast<SDLWindow*>( GetEngine().GetWindow() );
+        SDL_Window* handle = window ? window->WindowHandle : nullptr;
+        static Vector2 s_pointer;
+        if( command == "sprite-handle-mouse" )
+        {
+            SceneViewWidget* sceneView = InApp.Editor ? InApp.Editor->GetSceneView() : nullptr;
+            const int which = SpriteRectGizmo::HandleFromName( args );
+            if( !sceneView || which < 0 || !SpriteRectGizmo::GetHandleScreenPosition( *sceneView, which, s_pointer ) )
+            {
+                Fail( "sprite-handle-mouse: no selected sprite, or no handle named " + args );
+            }
+        }
+        else if( command == "scene-mouse-offset" )
+        {
+            auto [xText, yText] = SplitWord( args );
+            s_pointer = s_pointer + Vector2( static_cast<float>( std::atof( xText.c_str() ) ), static_cast<float>( std::atof( yText.c_str() ) ) );
+        }
+        if( handle )
+        {
+            // ImGui's coordinates are the desktop's with viewports on, else the main window's.
+            int windowX = 0;
+            int windowY = 0;
+            const bool viewports = ( ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable ) != 0;
+            if( viewports )
+            {
+                SDL_GetWindowPosition( handle, &windowX, &windowY );
+            }
+            const int localX = static_cast<int>( std::lround( s_pointer.x ) ) - windowX;
+            const int localY = static_cast<int>( std::lround( s_pointer.y ) ) - windowY;
+            SDL_WarpMouseInWindow( handle, localX, localY );
+            SDL_Event event{};
+            if( command == "scene-mouse-down" || command == "scene-mouse-up" )
+            {
+                event.type = command == "scene-mouse-down" ? SDL_MOUSEBUTTONDOWN : SDL_MOUSEBUTTONUP;
+                event.button.windowID = SDL_GetWindowID( handle );
+                event.button.button = SDL_BUTTON_LEFT;
+                event.button.state = command == "scene-mouse-down" ? SDL_PRESSED : SDL_RELEASED;
+                event.button.clicks = 1;
+                event.button.x = localX;
+                event.button.y = localY;
+            }
+            else
+            {
+                event.type = SDL_MOUSEMOTION;
+                event.motion.windowID = SDL_GetWindowID( handle );
+                event.motion.x = localX;
+                event.motion.y = localY;
+            }
+            SDL_PushEvent( &event );
         }
     }
     else if( command == "atlas-pack" )
