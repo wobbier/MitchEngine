@@ -148,6 +148,21 @@ namespace Moonlight
 
         static bgfx::TextureFormat::Enum GetDepthFormat();
 
+        // True when bgfx couldn't create one of this camera's framebuffers: its fixed pool
+        // (BGFX_CONFIG_MAX_FRAME_BUFFERS) ran out (ME-274). The renderer then skips the camera,
+        // rather than letting the passes with no target draw into the backbuffer.
+        bool IsIncomplete() const;
+        // Frames skipped while incomplete (the renderer retries now and then).
+        uint32_t IncompleteFrames = 0;
+        bool LoggedIncomplete = false;
+
+        // The camera being rendered, for GuardTarget.
+        static void SetCurrent( FrameBuffer* InBuffer );
+        // The framebuffer to bind for one of the current camera's passes: InTarget, except a
+        // missing target of an incomplete camera, which gets its own scene buffer instead (an
+        // invalid handle means the backbuffer to bgfx).
+        static bgfx::FrameBufferHandle GuardTarget( bgfx::FrameBufferHandle InTarget );
+
     private:
         void Release();
     };

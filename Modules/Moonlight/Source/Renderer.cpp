@@ -467,7 +467,7 @@ namespace
             }
             Moonlight::FrameBuffer::Mip& target = pingPong[write];
             const bool toFinal = last && !hdr;
-            bgfx::setViewFrameBuffer( view, toFinal ? InFinal : target.Buffer );
+            bgfx::setViewFrameBuffer( view, toFinal ? InFinal : Moonlight::FrameBuffer::GuardTarget( target.Buffer ) );
             bgfx::setViewRect( view, toFinal ? InFinalX : 0, toFinal ? InFinalY : 0, toFinal ? InFinalWidth : target.Width, toFinal ? InFinalHeight : target.Height );
             bgfx::setViewTransform( view, nullptr, toFinal && flipFinal ? flippedOrtho : ortho );
             bgfx::touch( view );
@@ -965,6 +965,31 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         camera.Buffer->OwnsOutput = ownsOutput;
         camera.Buffer->ReCreate( m_resetFlags );
     }
+
+    // Out of framebuffers (bgfx's fixed pool, ME-274): skip the camera rather than let passes with
+    // no target draw into the backbuffer. Retried every couple of seconds, in case some came free.
+    if( camera.Buffer->IsIncomplete() )
+    {
+        if( ++camera.Buffer->IncompleteFrames % 120 == 0 )
+        {
+            camera.Buffer->ReCreate( m_resetFlags );
+        }
+        if( camera.Buffer->IsIncomplete() )
+        {
+            if( !camera.Buffer->LoggedIncomplete )
+            {
+                camera.Buffer->LoggedIncomplete = true;
+                YIKES( "Camera skipped: it's missing framebuffers (bgfx's pool is full). Turn off its post effects or use fewer cameras." );
+            }
+            return;
+        }
+    }
+    camera.Buffer->IncompleteFrames = 0;
+    struct CurrentBufferScope
+    {
+        explicit CurrentBufferScope( Moonlight::FrameBuffer* InBuffer ) { Moonlight::FrameBuffer::SetCurrent( InBuffer ); }
+        ~CurrentBufferScope() { Moonlight::FrameBuffer::SetCurrent( nullptr ); }
+    } currentBuffer( camera.Buffer );
 
     // Temporal AA: this frame's unjittered view-projection (for reprojection), then a sub-pixel
     // jitter on the projection the scene draws with (restored when the view is done).

@@ -27,6 +27,23 @@ namespace
         handle = BGFX_INVALID_HANDLE;
     }
 
+    Moonlight::FrameBuffer* s_current = nullptr;
+
+    // bgfx hands back an invalid handle when its framebuffer pool is full: say so (once).
+    bgfx::FrameBufferHandle CreateChecked( uint8_t InCount, const bgfx::TextureHandle* InAttachments, const char* InName )
+    {
+        const bgfx::FrameBufferHandle buffer = bgfx::createFrameBuffer( InCount, InAttachments, false );
+        static bool s_logged = false;
+        if( !bgfx::isValid( buffer ) && !s_logged )
+        {
+            s_logged = true;
+            const bgfx::Stats* stats = bgfx::getStats();
+            YIKES( std::string( "Out of framebuffers: couldn't create \"" ) + InName + "\" (" + std::to_string( stats ? stats->numFrameBuffers : 0 ) + " of "
+                + std::to_string( bgfx::getCaps()->limits.maxFrameBuffers ) + " in use). Cameras missing targets are skipped; turn off post effects or cameras to fit." );
+        }
+        return buffer;
+    }
+
     Moonlight::FrameBuffer::Mip CreateColorTarget( uint16_t width, uint16_t height, bgfx::TextureFormat::Enum format, const char* name, bool mips = false )
     {
         Moonlight::FrameBuffer::Mip mip;
@@ -34,9 +51,47 @@ namespace
         mip.Height = std::max<uint16_t>( height, 1 );
         mip.Color = bgfx::createTexture2D( mip.Width, mip.Height, mips, 1, format, BGFX_TEXTURE_RT | kClampLinear );
         bgfx::setName( mip.Color, name );
-        mip.Buffer = bgfx::createFrameBuffer( 1, &mip.Color, false );
+        mip.Buffer = CreateChecked( 1, &mip.Color, name );
         return mip;
     }
+}
+
+
+bool Moonlight::FrameBuffer::IsIncomplete() const
+{
+    if( !bgfx::isValid( SceneBuffer ) || !bgfx::isValid( PostBuffer ) || !bgfx::isValid( ParticleBuffer ) || ( OwnsOutput && !bgfx::isValid( Buffer ) ) )
+    {
+        return true;
+    }
+    // A target whose texture exists but whose framebuffer couldn't be made.
+    auto missing = []( const Mip& InMip ) { return bgfx::isValid( InMip.Color ) && !bgfx::isValid( InMip.Buffer ); };
+    for( const Mip& mip : BloomMips )
+    {
+        if( missing( mip ) ) return true;
+    }
+    for( const Mip* mip : { &AOBuffer, &AOBlurBuffer, &FogBuffer, &FogBlurBuffer, &FogHistory[0], &FogHistory[1], &LuminanceBuffer, &AdaptedLuminance[0], &AdaptedLuminance[1],
+             &TemporalHistory[0], &TemporalHistory[1], &DoFCoC, &DoFPrefilter, &DoFRadius[0], &DoFRadius[1], &DoFNear, &DoFFar, &DoFOutput, &DoFSplitOutput,
+             &CloudHistory[0], &CloudHistory[1], &GraphHdr[0], &GraphHdr[1], &GraphLdr[0], &GraphLdr[1], &GraphSceneMips, &UpscaleInput, &EraInput } )
+    {
+        if( missing( *mip ) ) return true;
+    }
+    return false;
+}
+
+
+void Moonlight::FrameBuffer::SetCurrent( FrameBuffer* InBuffer )
+{
+    s_current = InBuffer;
+}
+
+
+bgfx::FrameBufferHandle Moonlight::FrameBuffer::GuardTarget( bgfx::FrameBufferHandle InTarget )
+{
+    if( bgfx::isValid( InTarget ) || !s_current || !s_current->IsIncomplete() || !bgfx::isValid( s_current->SceneBuffer ) )
+    {
+        return InTarget;
+    }
+    return s_current->SceneBuffer;
 }
 
 
@@ -311,12 +366,12 @@ void Moonlight::FrameBuffer::ReCreate( uint32_t resetFlags )
     SceneColor = bgfx::createTexture2D( width, height, false, 1, bgfx::TextureFormat::RGBA16F, BGFX_TEXTURE_RT | kClampLinear );
     bgfx::setName( SceneColor, "Camera HDR Colour" );
     const bgfx::TextureHandle sceneAttachments[] = { SceneColor, DepthTexture };
-    SceneBuffer = bgfx::createFrameBuffer( 2, sceneAttachments, false );
+    SceneBuffer = CreateChecked( 2, sceneAttachments, "Camera Scene" );
 
     PostColor = bgfx::createTexture2D( width, height, false, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT | kClampLinear );
     bgfx::setName( PostColor, "Camera Post LDR" );
-    PostBuffer = bgfx::createFrameBuffer( 1, &PostColor, false );
-    ParticleBuffer = bgfx::createFrameBuffer( 1, &SceneColor, false );
+    PostBuffer = CreateChecked( 1, &PostColor, "Camera Post LDR" );
+    ParticleBuffer = CreateChecked( 1, &SceneColor, "Camera Particles" );
 
     if( OwnsOutput )
     {
@@ -331,7 +386,7 @@ void Moonlight::FrameBuffer::ReCreate( uint32_t resetFlags )
             bgfx::setName( OutputDepth, "Camera Output Depth" );
         }
         const bgfx::TextureHandle outputAttachments[] = { Texture, bgfx::isValid( OutputDepth ) ? OutputDepth : DepthTexture };
-        Buffer = bgfx::createFrameBuffer( 2, outputAttachments, false );
+        Buffer = CreateChecked( 2, outputAttachments, "Camera Output" );
     }
 
     LuminanceBuffer = CreateColorTarget( 1, 1, bgfx::TextureFormat::R16F, "Average Luminance" );
@@ -342,7 +397,7 @@ void Moonlight::FrameBuffer::ReCreate( uint32_t resetFlags )
         adapted.Width = adapted.Height = 1;
         adapted.Color = bgfx::createTexture2D( 1, 1, false, 1, bgfx::TextureFormat::R32F, BGFX_TEXTURE_RT | kClampLinear, bgfx::copy( &initial, sizeof( initial ) ) );
         bgfx::setName( adapted.Color, "Adapted Luminance" );
-        adapted.Buffer = bgfx::createFrameBuffer( 1, &adapted.Color, false );
+        adapted.Buffer = CreateChecked( 1, &adapted.Color, "Adapted Luminance" );
     }
     AdaptedIndex = 0;
 

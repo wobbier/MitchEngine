@@ -173,7 +173,7 @@ namespace Moonlight
         const bool flip = bgfx::isValid( InTarget ) && InTarget.idx == FlippedTarget.idx;
         float ortho[16];
         bx::mtxOrtho( ortho, 0.f, 1.f, flip ? 0.f : 1.f, flip ? 1.f : 0.f, 0.f, 100.f, 0.f, bgfx::getCaps()->homogeneousDepth );
-        bgfx::setViewFrameBuffer( InView, InTarget );
+        bgfx::setViewFrameBuffer( InView, FrameBuffer::GuardTarget( InTarget ) );
         bgfx::setViewRect( InView, InX, InY, InWidth, InHeight );
         bgfx::setViewTransform( InView, nullptr, ortho );
         bgfx::touch( InView );
