@@ -64,6 +64,13 @@ ME_REFLECT_BEGIN( PostProcess )
     ME_FIELD( LutContribution ).Display( "LUT Contribution" ).Category( "Color Grading" ).Range( 0.f, 1.f ).Tooltip( "Blend between the graded and ungraded image" );
     ME_FIELD( VignetteIntensity ).Category( "Vignette" ).Range( 0.f, 1.f );
     ME_FIELD( VignetteSmoothness ).Category( "Vignette" ).Range( 0.01f, 2.f );
+    ME_FIELD( EraVertexSnap ).Category( "Era" ).Display( "Vertex Snap" ).Range( 0.f, 2160.f ).Tooltip( "PS1 wobble: vertices snap to a grid this many virtual pixels tall (0 = off; try 120)" );
+    ME_FIELD( EraAffineTextures ).Category( "Era" ).Display( "Affine Textures" ).Tooltip( "PS1 warping: textures interpolate in screen space, without perspective correction" );
+    ME_FIELD( EraThreePointFilter ).Category( "Era" ).Display( "Three-Point Filter" ).Tooltip( "N64 texture filtering: three texels per sample instead of four" );
+    ME_FIELD( EraKuwahara ).Category( "Era" ).Display( "Painterly (Kuwahara)" ).Range( 0.f, 8.f ).Tooltip( "Painted strokes: a Kuwahara filter of this radius in pixels (0 = off)" );
+    ME_FIELD( EraColorBits ).Category( "Era" ).Display( "Color Bits" ).Range( 0.f, 8.f ).Tooltip( "Colour depth per channel (5 = 15-bit; 0 = full)" );
+    ME_FIELD( EraDither ).Category( "Era" ).Display( "Dither" ).Range( 0.f, 1.f ).Tooltip( "Ordered (Bayer) dithering when reducing colours" );
+    ME_FIELD( EraPalette ).Category( "Era" ).Display( "Palette" ).Asset( "Texture" ).Tooltip( "Quantize to these colours: an image one row tall (Format None, no mips). Stock: Engine/Assets/Textures/Palettes" );
     ME_FIELD( Graphs ).Category( "Shader Graphs" ).Asset( "ShaderGraph" ).Tooltip( "Post Process shader graphs, applied in order (each before or after tonemapping, per the graph)" );
     ME_FIELD( GraphParams ).Category( "Shader Graphs" ).Display( "Graph Properties" ).Tooltip( "This volume's values for each graph's exposed properties" );
 ME_REFLECT_END()
@@ -176,6 +183,19 @@ Moonlight::PostProcessSettings PostProcess::ToSettings() const
     settings.LutContribution = std::clamp( LutContribution, 0.f, 1.f );
     settings.VignetteIntensity = VignetteIntensity;
     settings.VignetteSmoothness = VignetteSmoothness;
+    settings.EraVertexSnap = std::max( EraVertexSnap, 0.f );
+    settings.EraAffineTextures = EraAffineTextures;
+    settings.EraThreePointFilter = EraThreePointFilter;
+    settings.EraKuwahara = std::clamp( EraKuwahara, 0, 8 );
+    settings.EraColorBits = std::clamp( EraColorBits, 0, 8 );
+    settings.EraDither = std::clamp( EraDither, 0.f, 1.f );
+    const std::string& palette = EraPalette.GetLocalPathString();
+    if( palette != m_loadedEraPalette )
+    {
+        m_loadedEraPalette = palette;
+        m_eraPalette = !palette.empty() && EraPalette.Exists ? ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( EraPalette ) : nullptr;
+    }
+    settings.EraPalette = m_eraPalette && !m_eraPalette->IsLoading() && !m_eraPalette->HasLoadFailed() ? m_eraPalette : nullptr;
     settings.FXAA = FXAA;
     settings.TemporalAA = TemporalAA;
     settings.TemporalSharpness = TemporalSharpness;

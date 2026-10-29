@@ -120,7 +120,7 @@ void Moonlight::FrameBuffer::Release()
         DestroyIfValid( fog.Color );
     }
     FogHistoryValid = false;
-    for( Mip* graph : { &GraphHdr[0], &GraphHdr[1], &GraphLdr[0], &GraphLdr[1], &GraphSceneMips, &UpscaleInput } )
+    for( Mip* graph : { &GraphHdr[0], &GraphHdr[1], &GraphLdr[0], &GraphLdr[1], &GraphSceneMips, &UpscaleInput, &EraInput } )
     {
         DestroyIfValid( graph->Buffer );
         DestroyIfValid( graph->Color );
@@ -276,6 +276,15 @@ void Moonlight::FrameBuffer::EnsureUpscaleTarget()
     if( !bgfx::isValid( UpscaleInput.Color ) )
     {
         UpscaleInput = CreateColorTarget( static_cast<uint16_t>( std::max<uint32_t>( Width, 1 ) ), static_cast<uint16_t>( std::max<uint32_t>( Height, 1 ) ), bgfx::TextureFormat::BGRA8, "Camera Upscale Input" );
+    }
+}
+
+
+void Moonlight::FrameBuffer::EnsureEraTarget()
+{
+    if( !bgfx::isValid( EraInput.Color ) )
+    {
+        EraInput = CreateColorTarget( static_cast<uint16_t>( std::max<uint32_t>( Width, 1 ) ), static_cast<uint16_t>( std::max<uint32_t>( Height, 1 ) ), bgfx::TextureFormat::BGRA8, "Camera Era Input" );
     }
 }
 

@@ -22,7 +22,15 @@
                 "VignetteIntensity": 0.2,
                 "Outline": false,
                 "Saturation": 1.0,
-                "Lut": ""
+                "Lut": "",
+                "EraVertexSnap": 0.0,
+                "EraAffineTextures": false,
+                "EraThreePointFilter": false,
+                "EraKuwahara": 0,
+                "EraColorBits": 0,
+                "EraDither": 0.0,
+                "EraPalette": "",
+                "Graphs": []
             }
         },
         {
@@ -44,7 +52,15 @@
                 "Lut": "Engine/Assets/Textures/LUTs/Warm.cube",
                 "LutContribution": 0.6,
                 "VignetteIntensity": 0.25,
-                "Outline": false
+                "Outline": false,
+                "EraVertexSnap": 0.0,
+                "EraAffineTextures": false,
+                "EraThreePointFilter": false,
+                "EraKuwahara": 0,
+                "EraColorBits": 0,
+                "EraDither": 0.0,
+                "EraPalette": "",
+                "Graphs": []
             }
         },
         {
@@ -70,7 +86,15 @@
                 "OutlineThickness": 1.5,
                 "VignetteIntensity": 0.0,
                 "Lut": "",
-                "ExposureCompensation": -0.5
+                "ExposureCompensation": -0.5,
+                "EraVertexSnap": 0.0,
+                "EraAffineTextures": false,
+                "EraThreePointFilter": false,
+                "EraKuwahara": 0,
+                "EraColorBits": 0,
+                "EraDither": 0.0,
+                "EraPalette": "",
+                "Graphs": []
             },
             "Material": {
                 "Type": "ShaderGraphMaterial",
@@ -98,7 +122,15 @@
                 "Outline": false,
                 "VignetteIntensity": 0.0,
                 "Fog": false,
-                "Lut": ""
+                "Lut": "",
+                "EraVertexSnap": 0.0,
+                "EraAffineTextures": false,
+                "EraThreePointFilter": false,
+                "EraKuwahara": 0,
+                "EraColorBits": 0,
+                "EraDither": 0.0,
+                "EraPalette": "",
+                "Graphs": []
             },
             "Material": {
                 "Type": "ShaderGraphMaterial",
@@ -129,7 +161,15 @@
                 "Bloom": false,
                 "Outline": false,
                 "VignetteIntensity": 0.0,
-                "Lut": ""
+                "Lut": "",
+                "EraVertexSnap": 0.0,
+                "EraAffineTextures": false,
+                "EraThreePointFilter": false,
+                "EraKuwahara": 0,
+                "EraColorBits": 0,
+                "EraDither": 0.0,
+                "EraPalette": "",
+                "Graphs": []
             },
             "Import": {
                 "Format": "None",
@@ -138,7 +178,7 @@
         },
         {
             "Name": "PS1",
-            "Description": "Late-90s console: about 320 x 240 internally with nearest upscaling, no AA, no SSAO, crushed vintage grade.",
+            "Description": "Late-90s console: about 320 x 240 internally with nearest upscaling, vertices snapped to a 120-line grid (wobble), affine texture warping, 15-bit colour with ordered dithering, no AA.",
             "Camera": {
                 "RenderScale": 0.33,
                 "Upscale": "Nearest",
@@ -156,7 +196,15 @@
                 "Lut": "Engine/Assets/Textures/LUTs/Vintage.cube",
                 "LutContribution": 0.7,
                 "Contrast": 1.1,
-                "VignetteIntensity": 0.3
+                "VignetteIntensity": 0.3,
+                "EraVertexSnap": 120.0,
+                "EraAffineTextures": true,
+                "EraColorBits": 5,
+                "EraDither": 1.0,
+                "EraThreePointFilter": false,
+                "EraKuwahara": 0,
+                "EraPalette": "",
+                "Graphs": []
             },
             "Import": {
                 "Format": "None",
@@ -165,7 +213,7 @@
         },
         {
             "Name": "N64",
-            "Description": "Soft and foggy: a low internal resolution smoothed by bilinear upscaling, thick distance fog, muted colour.",
+            "Description": "Soft and foggy: a low internal resolution smoothed by bilinear upscaling, three-point texture filtering, 15-bit colour lightly dithered, thick distance fog, muted colour.",
             "Camera": {
                 "RenderScale": 0.4,
                 "Upscale": "Bilinear",
@@ -189,12 +237,20 @@
                 "FogStartDistance": 4.0,
                 "Saturation": 0.8,
                 "Lut": "",
-                "VignetteIntensity": 0.0
+                "VignetteIntensity": 0.0,
+                "EraThreePointFilter": true,
+                "EraColorBits": 5,
+                "EraDither": 0.5,
+                "EraVertexSnap": 0.0,
+                "EraAffineTextures": false,
+                "EraKuwahara": 0,
+                "EraPalette": "",
+                "Graphs": []
             }
         },
         {
             "Name": "Retro-PC",
-            "Description": "Early PC VGA: 320 x 200 pixel-perfect blocks, no AA, high contrast, cool grade.",
+            "Description": "Early PC: 320 x 200 pixel-perfect blocks quantized to the 16 EGA colours with ordered dithering, no AA.",
             "Camera": {
                 "PixelPerfect": true,
                 "ReferenceResolution": [
@@ -213,13 +269,80 @@
                 "Bloom": false,
                 "Outline": false,
                 "Contrast": 1.2,
-                "Lut": "Engine/Assets/Textures/LUTs/Cool.cube",
-                "LutContribution": 0.5,
-                "VignetteIntensity": 0.0
+                "Lut": "",
+                "LutContribution": 0.0,
+                "VignetteIntensity": 0.0,
+                "EraPalette": "Engine/Assets/Textures/Palettes/EGA.png",
+                "EraDither": 0.6,
+                "EraVertexSnap": 0.0,
+                "EraAffineTextures": false,
+                "EraThreePointFilter": false,
+                "EraKuwahara": 0,
+                "EraColorBits": 0,
+                "Graphs": []
             },
             "Import": {
                 "Format": "None",
                 "MIPs": false
+            }
+        },
+        {
+            "Name": "Painterly",
+            "Description": "Painted: a Kuwahara filter turns the image into brush strokes, with richer colour and a soft glow.",
+            "Camera": {
+                "RenderScale": 1.0,
+                "PixelPerfect": false
+            },
+            "Post": {
+                "EraVertexSnap": 0.0,
+                "EraAffineTextures": false,
+                "EraThreePointFilter": false,
+                "EraKuwahara": 6,
+                "EraColorBits": 0,
+                "EraDither": 0.0,
+                "EraPalette": "",
+                "Tonemapper": "AgX",
+                "TemporalAA": false,
+                "FXAA": false,
+                "AmbientOcclusion": true,
+                "Bloom": true,
+                "BloomIntensity": 0.12,
+                "Saturation": 1.2,
+                "Outline": false,
+                "Lut": "",
+                "VignetteIntensity": 0.25,
+                "Graphs": []
+            }
+        },
+        {
+            "Name": "VHS",
+            "Description": "Home video: the VHSGlitch graph (tape noise, colour bleed, tracking) over a softened, slightly low-resolution image.",
+            "Camera": {
+                "RenderScale": 0.6,
+                "Upscale": "Bilinear",
+                "PixelPerfect": false
+            },
+            "Post": {
+                "EraVertexSnap": 0.0,
+                "EraAffineTextures": false,
+                "EraThreePointFilter": false,
+                "EraKuwahara": 0,
+                "EraColorBits": 0,
+                "EraDither": 0.0,
+                "EraPalette": "",
+                "Tonemapper": "Reinhard",
+                "TemporalAA": false,
+                "FXAA": true,
+                "AmbientOcclusion": false,
+                "Bloom": true,
+                "BloomIntensity": 0.15,
+                "Outline": false,
+                "Lut": "",
+                "Saturation": 0.9,
+                "VignetteIntensity": 0.35,
+                "Graphs": [
+                    "Assets/ShaderGraphs/Examples/VHSGlitch.shadergraph"
+                ]
             }
         }
     ]

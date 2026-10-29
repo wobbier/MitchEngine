@@ -115,6 +115,9 @@ namespace Moonlight
         // Render scaling: the post chain's internal-size LDR result, before the upscale pass.
         Mip UpscaleInput;
         void EnsureUpscaleTarget();
+        // Era image effects (LOOK-S11): the display image they read, at the render size.
+        Mip EraInput;
+        void EnsureEraTarget();
         // Dynamic resolution's current scale (1 = the camera's own RenderScale) and its frame count.
         float DynamicScale = 1.f;
         uint32_t DynamicFrames = 0;

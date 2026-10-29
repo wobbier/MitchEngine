@@ -87,6 +87,7 @@ namespace Moonlight
         m_taaProgram = LoadPost( "TAA" );
         m_copyProgram = LoadPost( "Copy" );
         m_upscaleProgram = LoadPost( "Upscale" );
+        m_eraProgram = LoadPost( "Era" );
         m_dofCoCProgram = LoadPost( "DoFCoC" );
         m_dofPrefilterProgram = LoadPost( "DoFPrefilter" );
         m_dofDilateProgram = LoadPost( "DoFDilate" );
@@ -108,6 +109,7 @@ namespace Moonlight
         s_input0 = bgfx::createUniform( "s_input0", bgfx::UniformType::Sampler );
         u_upscaleParams = bgfx::createUniform( "u_upscaleParams", bgfx::UniformType::Vec4 );
         u_upscaleSize = bgfx::createUniform( "u_upscaleSize", bgfx::UniformType::Vec4 );
+        u_eraPost = bgfx::createUniform( "u_eraPost", bgfx::UniformType::Vec4 );
         s_input1 = bgfx::createUniform( "s_input1", bgfx::UniformType::Sampler );
         s_hdrColor = bgfx::createUniform( "s_hdrColor", bgfx::UniformType::Sampler );
         s_bloom = bgfx::createUniform( "s_bloom", bgfx::UniformType::Sampler );
@@ -155,7 +157,7 @@ namespace Moonlight
     {
         for( bgfx::UniformHandle* uniform : { &s_input0, &s_input1, &s_hdrColor, &s_bloom, &s_exposure, &s_ldrColor, &u_tonemap, &u_grading, &u_grading2, &u_exposure, &u_bloom, &u_ssao, &u_ssaoProjection, &u_ssaoScreen, &u_ssaoInvProjection, &u_adapt,
             &u_fogProjection, &u_fogProjection2, &u_fogScreen, &u_fogInvView, &u_fogVolume2, &u_fogReproject, &s_fogHistory, &s_taaCurrent, &s_taaHistory, &s_taaDepth, &u_taaParams, &u_taaJitter, &u_taaReproject, &u_graphSceneFilter,
-            &s_dof0, &s_dof1, &s_dof2, &s_dof3, &s_dof4, &u_dofLens, &u_dofSplit, &u_dofProjection, &u_dofScreen, &u_dofPass, &u_dofJitter, &s_lut, &s_lutStrip, &u_lut, &u_outline, &u_outlineParams, &u_upscaleParams, &u_upscaleSize } )
+            &s_dof0, &s_dof1, &s_dof2, &s_dof3, &s_dof4, &u_dofLens, &u_dofSplit, &u_dofProjection, &u_dofScreen, &u_dofPass, &u_dofJitter, &s_lut, &s_lutStrip, &u_lut, &u_outline, &u_outlineParams, &u_upscaleParams, &u_upscaleSize, &u_eraPost } )
         {
             DestroyUniform( *uniform );
         }
@@ -572,6 +574,25 @@ namespace Moonlight
             scale += 0.05f;
         }
         return std::clamp( std::round( scale / 0.05f ) * 0.05f, minScale, maxScale );
+    }
+
+
+    void PostProcess::RenderEra( ViewAllocator& InViews, const CameraData& InCamera, FrameBuffer& InTargets, bgfx::FrameBufferHandle InOutput, uint16_t InOutputWidth, uint16_t InOutputHeight, uint16_t InOutputX, uint16_t InOutputY )
+    {
+        const bgfx::ViewId view = InViews.Allocate( "Era" );
+        if( view == UINT16_MAX || !m_eraProgram.IsLoaded() )
+        {
+            return;
+        }
+        const PostProcessSettings& settings = InCamera.Post;
+        const bool palette = settings.EraPalette && bgfx::isValid( settings.EraPalette->TexHandle );
+        const float params[4] = { static_cast<float>( settings.EraKuwahara ), static_cast<float>( settings.EraColorBits ), settings.EraDither,
+            palette ? static_cast<float>( std::min( settings.EraPalette->mWidth, 64 ) ) : 0.f };
+        SetupFullscreenView( view, InOutput, InOutputWidth, InOutputHeight, InOutputX, InOutputY );
+        bgfx::setUniform( u_eraPost, params );
+        bgfx::setTexture( 0, s_input0, InTargets.EraInput.Color );
+        bgfx::setTexture( 1, s_input1, palette ? settings.EraPalette->TexHandle : m_blackTexture, BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP );
+        SubmitFullscreen( view, m_eraProgram );
     }
 
 

@@ -88,6 +88,15 @@ public:
     float VignetteIntensity = 0.2f;
     float VignetteSmoothness = 0.6f;
 
+    // Era effects (LOOK-S11; PostProcessSettings documents each)
+    float EraVertexSnap = 0.f;
+    bool EraAffineTextures = false;
+    bool EraThreePointFilter = false;
+    int EraKuwahara = 0;
+    int EraColorBits = 0;
+    float EraDither = 0.f;
+    Path EraPalette;
+
     bool FXAA = true;
     bool TemporalAA = false;
     float TemporalSharpness = 0.25f;
@@ -113,6 +122,8 @@ private:
     mutable SharedPtr<Moonlight::ColorLut> m_lut;
     mutable SharedPtr<Moonlight::Texture> m_lutStrip;
     mutable std::string m_loadedLut;
+    mutable SharedPtr<Moonlight::Texture> m_eraPalette;
+    mutable std::string m_loadedEraPalette;
 };
 
 ME_REGISTER_COMPONENT_FOLDER( PostProcess, "Rendering" )

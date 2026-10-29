@@ -308,6 +308,7 @@ private:
     bgfx::TextureHandle m_spriteWhite = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_texSprite = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_texSpriteNormal = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_eraParams = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_spriteParams = BGFX_INVALID_HANDLE;
     // Particles: drawn after transparent meshes into HDR colour, depth-tested in the shader.
     void RenderParticles( Moonlight::CameraData& camera );
@@ -346,6 +347,8 @@ private:
     struct LightingUniforms
     {
         float ViewShading[4] = {};
+        // Era effects on Standard materials (Era.sh, LOOK-S11): snap grid, affine, three-point.
+        float EraParams[4] = {};
         bool Wireframe = false;
         bool BackfaceCulling = true;
         float Params[4] = { 0.f, 0.f, 1.f, 0.f };

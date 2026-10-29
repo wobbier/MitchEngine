@@ -34,7 +34,7 @@ TEST_CASE( "Look presets: parse, replace by name, and the Lite cap layer" )
 }
 
 
-TEST_CASE( "Look presets: the engine's eight looks load" )
+TEST_CASE( "Look presets: the engine's ten looks load (era effects included)" )
 {
     if( !Path( "Engine/Assets/Config/LookPresets.json" ).Exists )
     {
@@ -42,13 +42,15 @@ TEST_CASE( "Look presets: the engine's eight looks load" )
     }
     LookPresets looks;
     looks.Load();
-    for( const char* name : { "Realistic", "Stylized-Lit", "Toon", "Flat/Unlit", "Pixel-2D", "PS1", "N64", "Retro-PC" } )
+    for( const char* name : { "Realistic", "Stylized-Lit", "Toon", "Flat/Unlit", "Pixel-2D", "PS1", "N64", "Retro-PC", "Painterly", "VHS" } )
     {
         CHECK_MESSAGE( looks.Find( name ), name );
     }
     REQUIRE( looks.Find( "Flat/Unlit" ) );
     CHECK( looks.Find( "Flat/Unlit" )->Lite );
     CHECK( looks.Find( "Toon" )->Material.is_object() );
+    CHECK( looks.Find( "PS1" )->Post["EraAffineTextures"].get<bool>() );
+    CHECK( looks.Find( "Painterly" )->Post["EraKuwahara"].get<int>() == 6 );
 }
 
 

@@ -93,6 +93,20 @@ namespace Moonlight
         float VignetteIntensity = 0.2f;
         float VignetteSmoothness = 0.6f;
 
+        // Era effects (LOOK-S11). On the geometry (Standard materials): vertices snap to a grid
+        // EraVertexSnap virtual pixels tall (PS1 wobble), affine texture mapping (PS1 warping), and
+        // three-point texture filtering (N64). On the image, at the render size, before upscaling:
+        // a Kuwahara painterly filter (radius in pixels), colour depth (bits per channel, 5 = 15-bit)
+        // with ordered dithering, and quantizing to a palette image (one row of colours).
+        float EraVertexSnap = 0.f;
+        bool EraAffineTextures = false;
+        bool EraThreePointFilter = false;
+        int EraKuwahara = 0;
+        int EraColorBits = 0;
+        float EraDither = 0.f;
+        SharedPtr<Texture> EraPalette;
+        bool HasEraImageEffects() const { return EraKuwahara > 0 || EraColorBits > 0 || EraPalette != nullptr; }
+
         bool FXAA = true;
         // Temporal anti-aliasing: the projection is jittered by a sub-pixel each frame and the HDR
         // image is resolved against the reprojected history (camera motion through the depth).

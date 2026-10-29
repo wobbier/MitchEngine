@@ -221,6 +221,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         m_lightData.assign( 2048 * 4, 0.f );
         u_lightParams = bgfx::createUniform( "u_lightParams", bgfx::UniformType::Vec4 );
         u_viewShading = bgfx::createUniform( "u_viewShading", bgfx::UniformType::Vec4 );
+        u_eraParams = bgfx::createUniform( "u_eraParams", bgfx::UniformType::Vec4 );
         u_dirLightDirection = bgfx::createUniform( "u_dirLightDirection", bgfx::UniformType::Vec4, 4 );
         u_dirLightColor = bgfx::createUniform( "u_dirLightColor", bgfx::UniformType::Vec4, 4 );
         u_eclipseSun = bgfx::createUniform( "u_eclipseSun", bgfx::UniformType::Vec4 );
@@ -554,7 +555,7 @@ void BGFXRenderer::Destroy()
     m_splitMainBuffer = nullptr;
 
     const bgfx::UniformHandle uniforms[] = { s_texDiffuse, s_texNormal, s_texAlpha, s_texUI, s_time, u_wind, u_windParams, u_screenView,
-        u_lightParams, u_viewShading, u_dirLightDirection, u_dirLightColor, u_eclipseSun, u_eclipseMoon, u_eclipseParams, u_clusterParams, u_clusterGrid, u_ambientSky, u_ambientGround,
+        u_lightParams, u_viewShading, u_eraParams, u_dirLightDirection, u_dirLightColor, u_eclipseSun, u_eclipseMoon, u_eclipseParams, u_clusterParams, u_clusterGrid, u_ambientSky, u_ambientGround,
         s_lightData, s_clusterGrid, s_clusterIndices, s_texMetallicRoughness, s_texEmissive, s_texOcclusion, s_texMetallic, s_texRoughness,
         u_shadowMatrix, u_cascadeSplits, u_cascadeTexel, u_shadowParams, u_localShadowMatrix, u_spotShadowParams, u_pointShadowParams, u_shadowAlpha, u_shadowUvOffset, s_shadowMap, s_spotShadowMap,
         s_envSpecular, s_envIrradiance, s_brdfLut, u_envParams, u_fogParams, u_fogColor, u_fogVolume, u_fogForward,
@@ -1039,6 +1040,10 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     }
 
     PrepareCameraLighting( camera );
+    m_lighting.EraParams[0] = camera.Post.EraVertexSnap;
+    m_lighting.EraParams[1] = camera.Post.EraAffineTextures ? 1.f : 0.f;
+    m_lighting.EraParams[2] = camera.Post.EraThreePointFilter ? 1.f : 0.f;
+    m_lighting.EraParams[3] = 0.f;
 
     // Ambient: the camera's environment probe (captured and filtered on demand).
     const Moonlight::EnvironmentLighting::Probe* probe = lit && EnableEnvironmentLighting && FeatureCaps.EnvironmentLighting ? m_environment->Prepare( m_views, camera, m_dynamicSky.get(), m_frameIndex ) : nullptr;
@@ -1088,11 +1093,23 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     {
         camera.Buffer->EnsureUpscaleTarget();
     }
-    const bgfx::FrameBufferHandle chainTarget = scaled ? camera.Buffer->UpscaleInput.Buffer : target;
-    const uint16_t chainWidth = scaled ? width : targetWidth;
-    const uint16_t chainHeight = scaled ? height : targetHeight;
-    const uint16_t chainX = scaled ? 0 : targetX;
-    const uint16_t chainY = scaled ? 0 : targetY;
+    // Era image effects (LOOK-S11) run on the finished image at the render size: the chain then
+    // ends in EraInput, and the era pass writes where the chain would have.
+    const bool era = camera.Post.HasEraImageEffects();
+    if( era )
+    {
+        camera.Buffer->EnsureEraTarget();
+    }
+    const bgfx::FrameBufferHandle afterEra = scaled ? camera.Buffer->UpscaleInput.Buffer : target;
+    const uint16_t afterEraWidth = scaled ? width : targetWidth;
+    const uint16_t afterEraHeight = scaled ? height : targetHeight;
+    const uint16_t afterEraX = scaled ? 0 : targetX;
+    const uint16_t afterEraY = scaled ? 0 : targetY;
+    const bgfx::FrameBufferHandle chainTarget = era ? camera.Buffer->EraInput.Buffer : afterEra;
+    const uint16_t chainWidth = era ? width : afterEraWidth;
+    const uint16_t chainHeight = era ? height : afterEraHeight;
+    const uint16_t chainX = era ? 0 : afterEraX;
+    const uint16_t chainY = era ? 0 : afterEraY;
 
     auto setupSceneView = [&]( bgfx::ViewId view ) {
         bgfx::setViewTransform( view, &camera.View.GetInternalMatrix()[0][0], &camera.ProjectionMatrix.GetInternalMatrix()[0][0] );
@@ -1391,6 +1408,10 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     else
     {
         m_postProcess->Render( m_views, camera, *camera.Buffer, chainTarget, chainWidth, chainHeight, chainX, chainY );
+    }
+    if( era )
+    {
+        m_postProcess->RenderEra( m_views, camera, *camera.Buffer, afterEra, afterEraWidth, afterEraHeight, afterEraX, afterEraY );
     }
     if( scaled )
     {
@@ -2330,6 +2351,7 @@ void BGFXRenderer::BindLighting()
     // Uniform state is part of each draw in bgfx, so these go with every submit.
     bgfx::setUniform( u_lightParams, m_lighting.Params );
     bgfx::setUniform( u_viewShading, m_lighting.ViewShading );
+    bgfx::setUniform( u_eraParams, m_lighting.EraParams );
     bgfx::setUniform( u_dirLightDirection, m_lighting.DirectionalDirection, 4 );
     bgfx::setUniform( u_dirLightColor, m_lighting.DirectionalColor, 4 );
     bgfx::setUniform( u_eclipseSun, m_lighting.EclipseSun );

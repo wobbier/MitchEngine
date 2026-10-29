@@ -1,8 +1,9 @@
-$input v_worldPos, v_normal, v_tangent, v_bitangent, v_texcoord0, v_viewPos
+$input v_worldPos, v_normal, v_tangent, v_bitangent, v_texcoord0, v_viewPos, v_affine
 
 // Metallic-roughness PBR (glTF conventions): base colour, normal, metallic-roughness (G rough, B metal),
 // occlusion, emissive, opacity; alpha cutout via u_emissive.w.
 #include "Common.sh"
+#include "Era.sh"
 #include "StandardSurface.sh"
 
 SAMPLER2D(s_texDiffuse, 0);
@@ -22,8 +23,9 @@ uniform vec4 u_pbrTextureParams; // xy separate metallic/roughness maps, z inver
 
 void main()
 {
-	vec2 uv = v_texcoord0 * u_uvTransform.xy + u_uvTransform.zw;
-	vec4 base = toLinear(texture2D(s_texDiffuse, uv)) * u_baseColor;
+	vec2 meshUv = u_eraParams.y > 0.5 ? v_affine.xy / max(v_affine.z, 0.000001) : v_texcoord0;
+	vec2 uv = meshUv * u_uvTransform.xy + u_uvTransform.zw;
+	vec4 base = toLinear(u_eraParams.z > 0.5 ? eraThreePoint(s_texDiffuse, uv) : texture2D(s_texDiffuse, uv)) * u_baseColor;
 	float alpha = base.a * texture2D(s_texAlpha, uv).r;
 	if (u_emissive.w > 0.0 && alpha < u_emissive.w)
 	{

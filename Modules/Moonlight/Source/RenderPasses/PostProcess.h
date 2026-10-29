@@ -49,6 +49,9 @@ namespace Moonlight
 
         void Render( ViewAllocator& InViews, const CameraData& InCamera, FrameBuffer& InTargets, bgfx::FrameBufferHandle InOutput, uint16_t InOutputWidth, uint16_t InOutputHeight, uint16_t InOutputX = 0, uint16_t InOutputY = 0 );
 
+        // Era image effects (LOOK-S11): InTargets.EraInput through Kuwahara, palette and colour depth.
+        void RenderEra( ViewAllocator& InViews, const CameraData& InCamera, FrameBuffer& InTargets, bgfx::FrameBufferHandle InOutput, uint16_t InOutputWidth, uint16_t InOutputHeight, uint16_t InOutputX = 0, uint16_t InOutputY = 0 );
+
         // Render scaling (LOOK-S1): InTargets.UpscaleInput (the internal-size result) stretched
         // into InOutput's rect with the camera's UpscaleFilter.
         void RenderUpscale( ViewAllocator& InViews, const CameraData& InCamera, FrameBuffer& InTargets, uint32_t InPixelFactor, bgfx::FrameBufferHandle InOutput, uint16_t InOutputWidth, uint16_t InOutputHeight, uint16_t InOutputX = 0, uint16_t InOutputY = 0 );
@@ -93,6 +96,7 @@ namespace Moonlight
         ShaderCommand m_taaProgram;
         ShaderCommand m_copyProgram;
         ShaderCommand m_upscaleProgram;
+        ShaderCommand m_eraProgram;
         ShaderCommand m_dofCoCProgram;
         ShaderCommand m_dofPrefilterProgram;
         ShaderCommand m_dofDilateProgram;
@@ -114,6 +118,7 @@ namespace Moonlight
         bgfx::UniformHandle s_input0 = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_upscaleParams = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_upscaleSize = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_eraPost = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_input1 = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_hdrColor = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_bloom = BGFX_INVALID_HANDLE;
