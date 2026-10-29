@@ -11,9 +11,15 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <SDL_filesystem.h>
+#include "Engine/AutomationRunner.h"
 
-// Per-user editor state and preferences (.tmp/Havana.cfg): camera, panel visibility, recent
-// scenes and trees, and a free-form preference table used by the Preferences window.
+// Editor state and preferences. Per project (.tmp/Havana.cfg): camera, panel visibility, recent
+// scenes and trees, and project-flavoured preferences (asset browser folder, view options,
+// workspaces). Per user, across every project (ED-2): appearance, camera feel, snapping, gizmos,
+// shortcuts, the code editor and autosave live in Preferences.json in the OS preference folder
+// (SDL_GetPrefPath "MitchEngine/Havana", beside the Hub's recent projects); unattended runs leave
+// it alone so the user's taste never reaches a capture.
 class EditorConfig
 {
 	static constexpr const char* kConfigPath = ".tmp/Havana.cfg";
@@ -80,7 +86,59 @@ public:
 		}
 	}
 
+	// Keys that follow the user rather than the project.
+	static bool IsUserPreference(const std::string& key)
+	{
+		static const char* const kPrefixes[] = { "Appearance.", "Camera.LookSensitivity", "Camera.FlySpeed", "Camera.FocusSmoothing",
+			"Snap.", "Gizmo.", "Shortcuts", "CodeEditorCommand", "Autosave.", "GameView.MaximizeOnPlay", "Editor." };
+		for (const char* prefix : kPrefixes)
+		{
+			if (key.rfind(prefix, 0) == 0)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	// "" for unattended runs (and when the OS has no preference folder).
+	static std::string GetUserPreferencesPath()
+	{
+		if (AutomationRunner::IsUnattendedRun())
+		{
+			return {};
+		}
+		std::string folder;
+		if (char* prefPath = SDL_GetPrefPath("MitchEngine", "Havana"))
+		{
+			folder = prefPath;
+			SDL_free(prefPath);
+		}
+		return folder.empty() ? std::string() : folder + "Preferences.json";
+	}
+
 	void Load()
+	{
+		LoadProject();
+		// The user's preferences win over a project's copy (older projects kept them all here).
+		const std::string userPath = GetUserPreferencesPath();
+		if (userPath.empty())
+		{
+			return;
+		}
+		File userFile{ Path(userPath, true) };
+		userFile.Read();
+		const json user = userFile.Data.empty() ? json() : json::parse(userFile.Data, nullptr, false);
+		if (user.is_object())
+		{
+			for (auto& [key, value] : user.items())
+			{
+				Preferences[key] = value;
+			}
+		}
+	}
+
+	void LoadProject()
 	{
 		Path configPath(kConfigPath);
 		if (!configPath.Exists)
@@ -148,10 +206,23 @@ public:
 		}
 		config["RecentScenes"] = RecentScenes;
 		config["RecentTrees"] = RecentTrees;
-		config["Preferences"] = Preferences;
+		json project = json::object();
+		json user = json::object();
+		for (auto& [key, value] : Preferences.items())
+		{
+			(IsUserPreference(key) ? user : project)[key] = value;
+		}
+		const std::string userPath = GetUserPreferencesPath();
+		// Without a user file (unattended, no OS folder) everything stays with the project.
+		config["Preferences"] = userPath.empty() ? Preferences : project;
 
 		File configFile(configPath);
 		configFile.Write(config.dump(4));
+		if (!userPath.empty())
+		{
+			File userFile{ Path(userPath, true) };
+			userFile.Write(user.dump(4));
+		}
 	}
 
 	ME_SINGLETON_DEFINITION(EditorConfig)

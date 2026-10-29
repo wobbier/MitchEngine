@@ -1,0 +1,27 @@
+# Layouts and workspaces (ED-2), in a fresh project made from the Empty template (RunChecks
+# "Editor layouts"): its shipped imgui.cfg is the default layout. A named workspace opens its
+# subject's panels until it's arranged; switching with panels open and Reset Layout both rebuild
+# the dock tree; Reset puts the active workspace back to the shipped layout and its own panels.
+wait 20
+assert-window Profiler | false
+# Debug (workspace 5): the profiler and resource monitor.
+action Workspace.Select5
+wait 5
+assert-window Profiler | true
+assert-window Resource Monitor | true
+screenshot .tmp/LayoutFlows_debug.png
+# Shader (workspace 3), switched to with those panels open: the shader graph editor.
+action Workspace.Select3
+wait 5
+assert-window Shader Graph | true
+# A panel opened by hand goes with Reset Layout; the workspace's own panel comes back.
+show-window Localization
+wait 3
+assert-window Localization | true
+action View.ResetLayout
+wait-log Layout: reset workspace 3 (Shader) | 120
+wait 5
+assert-window Localization | false
+assert-window Shader Graph | true
+screenshot .tmp/LayoutFlows_shader.png
+quit

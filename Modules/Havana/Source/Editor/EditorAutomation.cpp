@@ -569,6 +569,20 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             InApp.Editor->ShowWidget( args );
         }
     }
+    else if( command == "assert-window" )
+    {
+        // assert-window Profiler | true   (whether that editor panel is open)
+        auto [name, expectedText] = SplitArgs( args );
+        const int open = InApp.Editor ? InApp.Editor->IsWidgetOpen( name ) : -1;
+        if( open < 0 )
+        {
+            Fail( "assert-window: no panel named " + name );
+        }
+        else if( ( open == 1 ) != ( expectedText == "true" ) )
+        {
+            Fail( "panel " + name + " is " + ( open == 1 ? "open" : "closed" ) + ", expected " + ( expectedText == "true" ? "open" : "closed" ) );
+        }
+    }
     else if( command == "build-game" )
     {
         // build-game <profile json> [| no-compile no-record]   (the Build Game window builds it as

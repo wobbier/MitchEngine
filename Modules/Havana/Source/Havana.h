@@ -1,4 +1,5 @@
 #pragma once
+#include <map>
 #include <functional>
 #include "ECS/Entity.h"
 #include "ECS/EntityHandle.h"
@@ -61,10 +62,17 @@ public:
 	void SetPlayMode(bool playing);
 	// Opens (and focuses) a registered widget by name.
 	void ShowWidget(const std::string& name);
+	// -1 when no panel has that title.
+	int IsWidgetOpen(const std::string& name) const;
+	int GetActiveWorkspace() const { return ActiveWorkspace; }
 	// Personal editor layouts. Ctrl+1 through Ctrl+9 select a workspace; the outgoing
 	// workspace is saved automatically so its dock tree and open panels are restored.
 	void SwitchWorkspace( int InWorkspace );
-	int GetActiveWorkspace() const { return ActiveWorkspace; }
+	// ED-2: the shipped layout (Assets/Config/imgui.cfg) and every panel's startup visibility, for
+	// the active workspace.
+	void ResetLayout();
+	// "Scene", "Animation", "Shader", "UI", "Debug" for workspaces 1-5, else "Workspace N".
+	static std::string GetWorkspaceName( int InWorkspace );
 	// True while the hierarchy or the world view has keyboard focus (scene-editing shortcuts).
 	bool IsSceneContextFocused() const;
 
@@ -86,6 +94,12 @@ private:
 	Path EngineConfigFilePath;
 	Path DefaultLayoutFilePath;
 	int ActiveWorkspace = 1;
+	// Each panel's visibility before any saved state applied (Reset Layout returns to it).
+	std::map<std::string, bool> DefaultPanelOpen;
+	// Reset Layout runs between frames (an ImGui NewFramePre hook, installed in InitUI).
+	bool m_resetLayoutPending = false;
+	int m_resetLayoutPhase = 0;
+	void ApplyLayoutReset();
 
 	Path GetWorkspaceLayoutPath( int InWorkspace ) const;
 	void SaveWorkspaceLayout( int InWorkspace );

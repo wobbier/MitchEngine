@@ -238,6 +238,24 @@ if [[ -f $hub_checks/HubFlows.edscript ]]; then
     rm -rf "$hub_dir"
 fi
 
+# Editor layouts (ED-2): named workspaces and Reset Layout, in a fresh project made from the Empty
+# template (its shipped imgui.cfg is the default layout, so the user's own layout can't vary it).
+layout_flow="$here/../Tests/Editor/LayoutFlows.edscript"
+if [[ -f $layout_flow ]]; then
+    step "Editor layouts"
+    layout_dir="$(mktemp -d)"
+    editor="$PWD/.build/Editor_Debug/Havana"
+    if ! "$here/Headless.sh" "$editor" --new-project Empty --name LayoutProbe --in "$layout_dir" > .tmp/RunChecks.layout.log 2>&1 \
+            || ! "$here/Headless.sh" "$editor" --project "$layout_dir/LayoutProbe" --editor-exec "$layout_flow" >> .tmp/RunChecks.layout.log 2>&1 \
+            || ! grep -q "\[editor-exec\] PASSED" .tmp/RunChecks.layout.log; then
+        grep -E "editor-exec|Assertion|Error" .tmp/RunChecks.layout.log | tail -20
+        failed+=("Editor layouts")
+    else
+        echo "ok    LayoutFlows (a fresh Empty project)"
+    fi
+    rm -rf "$layout_dir"
+fi
+
 # Templates (SHIP-6): every engine template with checks under Tests/Templates/<Id>/ becomes a new
 # project outside the repo, as File > New Project would make it. Its flow plays it in the editor
 # (held keys move the player); Build Game ships it on the Retail Player, and a frame of that build,

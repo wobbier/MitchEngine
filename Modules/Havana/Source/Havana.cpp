@@ -177,9 +177,11 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
     for( int workspace = 1; workspace <= 9; ++workspace )
     {
         const std::string id = "Workspace.Select" + std::to_string( workspace );
-        const std::string name = "Workspace " + std::to_string( workspace );
+        const std::string name = "Workspace " + std::to_string( workspace ) + ( workspace <= 5 ? ": " + GetWorkspaceName( workspace ) : std::string() );
         actions.Register( { id, name, "Workspace", ImGuiMod_Shortcut | workspaceKeys[workspace - 1], 0, [this, workspace]() { SwitchWorkspace( workspace ); } } );
     }
+
+    actions.Register( { "View.ResetLayout", "Reset Layout", "View", 0, 0, [this]() { ResetLayout(); } } );
 
     InitUI();
 }
@@ -194,6 +196,20 @@ Havana::~Havana()
 
 void Havana::InitUI()
 {
+    // Reset Layout reloads the dock settings between frames: ImGui rebuilds docking from settings
+    // in NewFrame, and a tree replaced mid-frame trips its tab bar asserts.
+    ImGuiContextHook layoutHook;
+    layoutHook.Type = ImGuiContextHookType_NewFramePre;
+    layoutHook.UserData = this;
+    layoutHook.Callback = []( ImGuiContext*, ImGuiContextHook* InHook ) {
+        Havana* self = static_cast<Havana*>( InHook->UserData );
+        if( self->m_resetLayoutPending )
+        {
+            self->ApplyLayoutReset();
+        }
+    };
+    ImGui::AddContextHook( ImGui::GetCurrentContext(), &layoutHook );
+
     // The dock layout is per user (.tmp/imgui.ini, never committed). The project's
     // Assets/Config/imgui.cfg is the default layout a fresh checkout starts from; it's never written.
     std::error_code ec;
@@ -260,6 +276,7 @@ void Havana::InitUI()
     for( auto i : RegisteredWidgets )//EditorConfig::GetInstance().PanelVisibility)
     {
         i->Init();
+        DefaultPanelOpen[i->Name] = i->IsOpen;
         auto& panelData = EditorConfig::GetInstance().PanelVisibility;
         if( panelData.find( i->Name ) != panelData.end() )
         {
@@ -380,6 +397,23 @@ void Havana::ShowWidget( const std::string& name )
 }
 
 
+int Havana::IsWidgetOpen( const std::string& name ) const
+{
+    for( const auto& widget : RegisteredWidgets )
+    {
+        if( widget->Name == name )
+        {
+            return widget->IsOpen ? 1 : 0;
+        }
+    }
+    if( ShaderGraphs && ShaderGraphs->Name == name )
+    {
+        return ShaderGraphs->IsOpen ? 1 : 0;
+    }
+    return -1;
+}
+
+
 Path Havana::GetWorkspaceLayoutPath( int InWorkspace ) const
 {
     return Path( ".tmp/imgui-workspace-" + std::to_string( InWorkspace ) + ".ini", true );
@@ -402,11 +436,100 @@ void Havana::StoreWorkspacePanelVisibility( int InWorkspace )
 }
 
 
+std::string Havana::GetWorkspaceName( int InWorkspace )
+{
+    static const char* const kNames[] = { "Scene", "Animation", "Shader", "UI", "Debug" };
+    return InWorkspace >= 1 && InWorkspace <= 5 ? kNames[InWorkspace - 1] : "Workspace " + std::to_string( InWorkspace );
+}
+
+
+void Havana::ResetLayout()
+{
+    m_resetLayoutPending = true;
+}
+
+
+void Havana::ApplyLayoutReset()
+{
+    // Two frames: first the panels go back to their startup visibility (closing a docked window and
+    // replacing the dock tree in one frame trips ImGui's tab bar asserts), then the layout reloads
+    // and the workspace's own panels open.
+    if( m_resetLayoutPhase == 0 )
+    {
+        for( const auto& widget : RegisteredWidgets )
+        {
+            const auto open = DefaultPanelOpen.find( widget->Name );
+            if( widget.get() != MainMenu.get() && open != DefaultPanelOpen.end() )
+            {
+                widget->IsOpen = open->second;
+            }
+        }
+        if( ShaderGraphs )
+        {
+            ShaderGraphs->IsOpen = false;
+        }
+        m_resetLayoutPhase = 1;
+        return;
+    }
+    m_resetLayoutPhase = 0;
+    m_resetLayoutPending = false;
+    ImGui::ClearIniSettings();
+    if( DefaultLayoutFilePath.Exists )
+    {
+        ImGui::LoadIniSettingsFromDisk( DefaultLayoutFilePath.FullPath.c_str() );
+    }
+    // NewFrame rebuilds the dock tree from the loaded settings (patching live nodes in place
+    // leaves the windows docked in them with stale tab bars).
+    ImGui::GetCurrentContext()->DockContext.WantFullRebuild = true;
+    std::error_code error;
+    std::filesystem::remove( GetWorkspaceLayoutPath( ActiveWorkspace ).FullPath, error );
+    json& workspaces = EditorConfig::GetInstance().Preferences["Workspaces"];
+    if( workspaces.is_object() )
+    {
+        workspaces.erase( std::to_string( ActiveWorkspace ) );
+    }
+    // The workspace's own panels on top of the defaults (Animation opens the Sequencer...).
+    RestoreWorkspacePanelVisibility( ActiveWorkspace );
+    if( !AutomationRunner::IsUnattendedRun() )
+    {
+        ImGui::SaveIniSettingsToDisk( EngineConfigFilePath.FullPath.c_str() );
+        EditorConfig::GetInstance().Save();
+    }
+    CLog::Log( CLog::LogType::Info, "Layout: reset workspace " + std::to_string( ActiveWorkspace ) + " (" + GetWorkspaceName( ActiveWorkspace ) + ")" );
+}
+
+
 void Havana::RestoreWorkspacePanelVisibility( int InWorkspace )
 {
+    // A named workspace nobody has arranged yet opens its subject's panels.
+    static const std::map<int, std::vector<std::string>> kNamedPanels = {
+        { 2, { "Sequencer", "Preview" } },
+        { 3, { "Shader Graph", "Preview" } },
+        { 4, { "Localization", "Preview" } },
+        { 5, { "Profiler", "Resource Monitor", "Log" } },
+    };
     const json& preferences = EditorConfig::GetInstance().Preferences;
     const auto workspace = preferences.find( "Workspaces" );
-    if( workspace == preferences.end() || !workspace->is_object() ) return;
+    const bool stored = workspace != preferences.end() && workspace->is_object() && workspace->contains( std::to_string( InWorkspace ) );
+    if( !stored )
+    {
+        const auto named = kNamedPanels.find( InWorkspace );
+        const auto openIfNamed = [&named]( HavanaWidget& InWidget ) {
+            if( named != kNamedPanels.end() && std::find( named->second.begin(), named->second.end(), InWidget.Name ) != named->second.end() )
+            {
+                InWidget.IsOpen = true;
+            }
+        };
+        for( const auto& widget : RegisteredWidgets )
+        {
+            openIfNamed( *widget );
+        }
+        if( ShaderGraphs )
+        {
+            openIfNamed( *ShaderGraphs );
+        }
+        return;
+    }
     const auto slot = workspace->find( std::to_string( InWorkspace ) );
     if( slot == workspace->end() || !slot->is_object() ) return;
     const auto panels = slot->find( "Panels" );
@@ -441,6 +564,9 @@ void Havana::SwitchWorkspace( int InWorkspace )
     ImGui::ClearIniSettings();
     if( target.Exists ) ImGui::LoadIniSettingsFromDisk( target.FullPath.c_str() );
     else if( DefaultLayoutFilePath.Exists ) ImGui::LoadIniSettingsFromDisk( DefaultLayoutFilePath.FullPath.c_str() );
+    // A full dock rebuild next frame: with panels open and docked, patching the live tree trips
+    // ImGui's tab bar asserts (as Reset Layout did).
+    ImGui::GetCurrentContext()->DockContext.WantFullRebuild = true;
     RestoreWorkspacePanelVisibility( InWorkspace );
     ActiveWorkspace = InWorkspace;
     EditorConfig::GetInstance().SetPreference( "ActiveWorkspace", ActiveWorkspace );
