@@ -330,4 +330,12 @@ struct ScriptEngineAPI
     void ( *Rigidbody2D_AddForce )( EntityID id, Vector2* force, int mode );
     void ( *Rigidbody2D_GetVelocity )( EntityID id, Vector2* outVelocity );
     void ( *Rigidbody2D_SetVelocity )( EntityID id, Vector2* velocity );
+
+    // Cameras and the mouse in pixels (CS-5 e): screen points are pixels from the top left of the
+
+    // camera's output; WorldToScreen's z is the distance in front of the camera (negative: behind)
+    void ( *Camera_ScreenToRay )( EntityID camera, Vector2* screen, Vector3* outOrigin, Vector3* outDirection );
+    void ( *Camera_WorldToScreen )( EntityID camera, const Vector3* world, Vector3* outScreen );
+    void ( *Camera_GetOutputSize )( EntityID camera, Vector2* outSize );
+    void ( *Input_GetMousePosition )( Vector2* outPosition );
 };

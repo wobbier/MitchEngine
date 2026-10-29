@@ -5,6 +5,9 @@
 
 #include "Components/Animation/Animator.h"
 #include "Components/Audio/AudioSource.h"
+#include "Components/Camera.h"
+#include <bgfx/bgfx.h>
+#include <glm/glm.hpp>
 #include "Components/Effects/ParticleSystem.h"
 #include "Components/Transform.h"
 #include "Components/Physics/Rigidbody2D.h"
@@ -23,7 +26,7 @@
 #include <cstring>
 
 // Entity queries, application calls, audio sources, particles and masked physics queries for
-// scripts, 3D and 2D (CS-5 areas a, b, c, f, g, h and j).
+// scripts, 3D and 2D, and camera projection (CS-5 areas a, b, c, e, f, g, h and j).
 
 namespace
 {
@@ -457,8 +460,88 @@ static void Eng_Rigidbody2D_SetVelocity( EntityID inId, Vector2* inVelocity )
 }
 
 
+namespace
+{
+    // World to clip space: projection * view (bx matrices, read as glm's column-major).
+    bool ViewProjection( EntityID InCamera, glm::mat4& OutMatrix, Vector2& OutSize )
+    {
+        Camera* camera = ComponentOf<Camera>( InCamera );
+        if( !camera )
+        {
+            return false;
+        }
+        OutSize = camera->GetViewportSize();
+        OutMatrix = camera->GetProjectionMatrix().GetInternalMatrix() * camera->WorldToCamera.GetInternalMatrix();
+        return OutSize.x > 0.f && OutSize.y > 0.f;
+    }
+}
+
+
+static void Eng_Camera_ScreenToRay( EntityID inCamera, Vector2* inScreen, Vector3* outOrigin, Vector3* outDirection )
+{
+    *outOrigin = Vector3();
+    *outDirection = Vector3( 0.f, 0.f, 1.f );
+    glm::mat4 viewProjection;
+    Vector2 size;
+    if( !ViewProjection( inCamera, viewProjection, size ) )
+    {
+        return;
+    }
+    const glm::mat4 inverse = glm::inverse( viewProjection );
+    const float x = inScreen->x / size.x * 2.f - 1.f;
+    const float y = 1.f - inScreen->y / size.y * 2.f;
+    const float nearDepth = bgfx::getCaps()->homogeneousDepth ? -1.f : 0.f;
+    glm::vec4 nearPoint = inverse * glm::vec4( x, y, nearDepth, 1.f );
+    glm::vec4 farPoint = inverse * glm::vec4( x, y, 1.f, 1.f );
+    nearPoint /= nearPoint.w;
+    farPoint /= farPoint.w;
+    const glm::vec3 direction = glm::normalize( glm::vec3( farPoint ) - glm::vec3( nearPoint ) );
+    *outOrigin = Vector3( nearPoint.x, nearPoint.y, nearPoint.z );
+    *outDirection = Vector3( direction.x, direction.y, direction.z );
+}
+
+
+static void Eng_Camera_WorldToScreen( EntityID inCamera, const Vector3* inWorld, Vector3* outScreen )
+{
+    *outScreen = Vector3();
+    glm::mat4 viewProjection;
+    Vector2 size;
+    if( !ViewProjection( inCamera, viewProjection, size ) )
+    {
+        return;
+    }
+    const glm::vec4 clip = viewProjection * glm::vec4( inWorld->x, inWorld->y, inWorld->z, 1.f );
+    if( std::abs( clip.w ) < 1e-6f )
+    {
+        return;
+    }
+    const float x = clip.x / clip.w;
+    const float y = clip.y / clip.w;
+    *outScreen = Vector3( ( x + 1.f ) * 0.5f * size.x, ( 1.f - y ) * 0.5f * size.y, clip.w );
+}
+
+
+static void Eng_Camera_GetOutputSize( EntityID inCamera, Vector2* outSize )
+{
+    Camera* camera = ComponentOf<Camera>( inCamera );
+    *outSize = camera ? camera->GetViewportSize() : Vector2();
+}
+
+
+// The mouse in the game's pixels (in the editor: relative to the game view).
+static void Eng_Input_GetMousePosition( Vector2* outPosition )
+{
+    Input& input = GetEngine().GetInput();
+    *outPosition = input.GetMousePosition() - input.GetMouseOffset();
+}
+
+
 void Register_QueryBindings( ScriptEngineAPI& inAPI )
 {
+    inAPI.Camera_ScreenToRay = Eng_Camera_ScreenToRay;
+    inAPI.Camera_WorldToScreen = Eng_Camera_WorldToScreen;
+    inAPI.Camera_GetOutputSize = Eng_Camera_GetOutputSize;
+    inAPI.Input_GetMousePosition = Eng_Input_GetMousePosition;
     inAPI.Physics2D_Raycast = Eng_Physics2D_Raycast;
     inAPI.Physics2D_OverlapCircle = Eng_Physics2D_OverlapCircle;
     inAPI.Physics2D_OverlapPoint = Eng_Physics2D_OverlapPoint;

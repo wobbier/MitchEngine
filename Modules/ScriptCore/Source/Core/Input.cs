@@ -501,6 +501,8 @@ public static unsafe class Input
 
     // Mouse motion this frame in pixels (+Y up).
     public static Vector2 MouseDelta { get { Vector2 v; Engine._api.Input_GetMouseDelta(&v); return v; } }
+    // The mouse in the game's pixels, from the top left (in the editor: of the game view).
+    public static Vector2 MousePosition { get { Vector2 v; Engine._api.Input_GetMousePosition(&v); return v; } }
 
     // Locks and hides the cursor so the mouse only reports motion (FPS-style look).
     public static bool MouseCaptured

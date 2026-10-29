@@ -319,4 +319,12 @@ public unsafe struct EngineAPIBindings
     public delegate* unmanaged<Entity, Vector2*, int, void> Rigidbody2D_AddForce;
     public delegate* unmanaged<Entity, Vector2*, void> Rigidbody2D_GetVelocity;
     public delegate* unmanaged<Entity, Vector2*, void> Rigidbody2D_SetVelocity;
+
+    // Cameras and the mouse in pixels (CS-5 e): screen points are pixels from the top left of the
+
+    // camera's output; WorldToScreen's z is the distance in front of the camera (negative: behind)
+    public delegate* unmanaged<Entity, Vector2*, Vector3*, Vector3*, void> Camera_ScreenToRay;
+    public delegate* unmanaged<Entity, Vector3*, Vector3*, void> Camera_WorldToScreen;
+    public delegate* unmanaged<Entity, Vector2*, void> Camera_GetOutputSize;
+    public delegate* unmanaged<Vector2*, void> Input_GetMousePosition;
 }

@@ -30,6 +30,58 @@ public class Camera : Component
         set => Entity.SetField("Camera", "TargetTexture", value ?? "");
     }
 
+    // CS-5 e: projection. FieldOfView is the vertical angle in degrees (the engine's Zoom field).
+    public float FieldOfView
+    {
+        get => Entity.GetField<float>("Camera", "Zoom", 45f);
+        set => Entity.SetField("Camera", "Zoom", value);
+    }
+
+    public float Near
+    {
+        get => Entity.GetField<float>("Camera", "Near", 0.1f);
+        set => Entity.SetField("Camera", "Near", value);
+    }
+
+    public float Far
+    {
+        get => Entity.GetField<float>("Camera", "Far", 1000f);
+        set => Entity.SetField("Camera", "Far", value);
+    }
+
+    // Half the view height in metres, for an orthographic camera.
+    public float OrthographicSize
+    {
+        get => Entity.GetField<float>("Camera", "OrthographicSize", 5f);
+        set => Entity.SetField("Camera", "OrthographicSize", value);
+    }
+
+    // The pixels it renders (its output size times its viewport rect).
+    public Vector2 OutputSize
+    {
+        get { unsafe { Vector2 size; Engine._api.Camera_GetOutputSize(Entity, &size); return size; } }
+    }
+
+    // A ray from the camera through a screen point (pixels from the top left), e.g. the mouse:
+    //   camera.ScreenToRay(Input.MousePosition, out var origin, out var direction);
+    public void ScreenToRay(Vector2 screen, out Vector3 origin, out Vector3 direction)
+    {
+        unsafe
+        {
+            Vector3 o, d;
+            Engine._api.Camera_ScreenToRay(Entity, &screen, &o, &d);
+            origin = o;
+            direction = d;
+        }
+    }
+
+    // Where a world point lands on screen: x, y in pixels from the top left, z its distance in front
+    // of the camera (negative behind it).
+    public Vector3 WorldToScreen(Vector3 world)
+    {
+        unsafe { Vector3 s; Engine._api.Camera_WorldToScreen(Entity, &world, &s); return s; }
+    }
+
     // Renders every Nth frame (1 = every frame); the texture keeps its last image in between.
     public int UpdateInterval
     {
