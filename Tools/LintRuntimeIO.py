@@ -30,6 +30,7 @@ ALLOWED = {
     "Engine/Modules/Dementia/Source/Resource/AssetDatabase.cpp": "editor/tools asset database caches",
     "Engine/Modules/Dementia/Source/Core/StackTrace.cpp": "crash diagnostics",
     "Engine/Source/Tools/Build/BuildGame.cpp": "Build Game reads build-machine files (the solution makefile, the build's own runtimeconfig), not game content",
+    "Engine/Source/Tools/Projects/ProjectLibrary.cpp": "the Project Hub reads other projects, templates and the per-user recent list, outside the open project's mounts",
 }
 
 TOKEN = re.compile(r"std::ifstream|std::fstream|\bfopen\s*\(")

@@ -48,6 +48,9 @@ public:
 	// Reopens the editor on another project (Havana --project <root>), after the unsaved-changes
 	// prompt. Unattended runs only log the command: they never start a second editor.
 	void RequestOpenProject( const std::string& InFolder );
+	// File > Project Hub: reopens on the Hub (Havana --hub), after the unsaved-changes prompt.
+	// Unattended runs only log the command.
+	void RequestProjectHub();
 	void RequestQuit();
 	bool OnQuitRequested() override;
 

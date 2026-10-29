@@ -141,6 +141,7 @@ void MainMenuWidget::Render()
             }
             ImGui::Separator();
             actions.MenuItem( "File.OpenProject" );
+            actions.MenuItem( "File.ProjectHub" );
             ImGui::Separator();
             if( ImGui::BeginMenu( "New Shader Graph" ) )
             {

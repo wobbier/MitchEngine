@@ -9,6 +9,8 @@
 #      outside the repo without a .NET install;
 #   7. opens the C#-only sample project (Samples/ScriptOnly), copied out of the repo, in the editor
 #      and runs it in the Player, both on this checkout's engine with no C++ build.
+#   8. starts the editor outside any project, so it opens the Project Hub, which creates a project
+#      from the Empty template and opens it in the editor (Tests/Hub/HubFlows.edscript).
 # GUI runs go through Tools/Headless.sh (a private virtual display with software Vulkan), so nothing
 # opens on your desktop and nothing plays through your speakers.
 #
@@ -169,6 +171,31 @@ if [[ -d $sample && -d $sample_checks/Reference ]]; then
         failed+=("C#-only project in the Player")
     fi
     rm -rf "$projects"
+fi
+
+# The Project Hub (SHIP-5): the editor started in an empty folder (no project) opens the Hub. The
+# flow creates NewGame from the Empty template there; the editor the Hub starts opens it and runs
+# the rest of the flow. The Hub's recent list must name it, and the editor must have built its scripts.
+hub_checks="$here/../Tests/Hub"
+if [[ -f $hub_checks/HubFlows.edscript ]]; then
+    step "Project Hub"
+    hub_dir="$(mktemp -d)"
+    editor="$PWD/.build/Editor_Debug/Havana"
+    cp -a "$sample" "$hub_dir/Other"
+    if ! ( cd "$hub_dir" && "$here/Headless.sh" "$editor" --editor-exec "$hub_checks/HubFlows.edscript" ) \
+            > .tmp/RunChecks.hub.log 2>&1 || ! grep -q "\[editor-exec\] PASSED" .tmp/RunChecks.hub.log; then
+        grep -E "editor-exec|Project Hub|Error" .tmp/RunChecks.hub.log | tail -20
+        failed+=("Project Hub")
+    elif ! grep -q "\"Root\": \"$hub_dir/NewGame\"" "$hub_dir/.tmp/Hub/RecentProjects.json" 2>/dev/null; then
+        echo "The Hub's recent list doesn't name the new project (see .tmp/RunChecks.hub.log)"
+        failed+=("Project Hub recent list")
+    elif [[ ! -f $hub_dir/NewGame/.tmp/Scripts/Havana-Debug/Game.Script.dll ]]; then
+        echo "The editor didn't build the new project's scripts (see .tmp/RunChecks.hub.log)"
+        failed+=("Project Hub new project scripts")
+    else
+        echo "ok    HubFlows (Hub, then the editor on the new project)"
+    fi
+    rm -rf "$hub_dir"
 fi
 
 # Test scenes with a committed reference (UITest and friends) regress the same way.

@@ -56,9 +56,6 @@ pkgs.mkShell ((config.env or { }) // {
 
     # Optional Vulkan support for bgfx
     vulkan-loader
-
-    # The standalone HUB's folder picker (Tools/HUB, retired by SHIP-5); the engine needs no GTK
-    gtk3
   ] ++ (config.buildInputs or [ ]);
 
   # Provide GL/EGL so bgfx's dlopen("libEGL.so.1") succeeds.

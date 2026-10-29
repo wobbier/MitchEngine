@@ -9,6 +9,9 @@ public class Havana : BaseProject
     {
         Name = "Havana";
         SourceRootPath = "Source";
+        // The Project Hub runs on the Tool app framework (an ImGui window without the engine).
+        SourceFiles.Add(@"[project.SharpmakeCsPath]/../Tool/Source/Tool.h");
+        SourceFiles.Add(@"[project.SharpmakeCsPath]/../Tool/Source/Tool.cpp");
     }
 
     public override void ConfigureAll(Project.Configuration conf, CommonTarget target)
@@ -18,6 +21,7 @@ public class Havana : BaseProject
         conf.SolutionFolder = "Apps";
 
         conf.IncludePaths.Add("[project.SourceRootPath]");
+        conf.IncludePaths.Add("[project.SharpmakeCsPath]/../Tool/Source");
         conf.TargetPath = Globals.RootDir + "/.build/[target.Name]/";
         conf.VcxprojUserFile.LocalDebuggerWorkingDirectory = Globals.RootDir;
 

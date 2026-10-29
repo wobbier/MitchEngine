@@ -463,6 +463,8 @@ private:
     Moonlight::ViewAllocator m_views;
     UniquePtr<Moonlight::PostProcess> m_postProcess;
     bool NeedsReset = false;
+    // Created with InitAssets (false for tool windows, which only draw ImGui).
+    bool m_hasAssets = true;
     uint32_t m_currentFrame = 0;
 
 #if USING( ME_ENABLE_RENDERDOC )

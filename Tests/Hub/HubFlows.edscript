@@ -1,0 +1,29 @@
+# Project Hub regression (SHIP-5), run by RunChecks' "Project Hub" step from an empty folder (no
+# project there, so Havana opens the Hub) with a copy of Engine/Samples/ScriptOnly named Other beside:
+#   Havana --editor-exec Engine/Tests/Hub/HubFlows.edscript
+# The Hub runs the hub-* lines, creates NewGame from the Empty template and opens it; the editor it
+# starts runs this script again on NewGame, skipping the hub-* lines.
+
+# The engine's templates
+hub-assert-template Empty
+hub-screenshot .tmp/Hub.png
+
+# Remove from List: the project leaves the list, its folder stays
+hub-add Other
+hub-assert-recent Other | 1
+hub-remove Other
+hub-assert-recent Other | 0
+
+# New Project > Create: the Empty template becomes NewGame, which the editor opens
+hub-create Empty | NewGame
+
+# ...in the editor, on the new project's startup scene (its first open)
+assert-project NewGame
+wait 20
+assert-exists Main Camera
+assert-exists Sun
+assert-exists Ground
+
+# File > Project Hub would reopen on the Hub (logged; automation never relaunches)
+project-hub
+wait-log Project Hub: would reopen the editor with | 60

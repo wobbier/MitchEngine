@@ -46,7 +46,7 @@ flowchart TD
     GL --> EP["EntryPointGameProject<br/>Game_EntryPoint exe (+UWP variant)"]
     SC["ScriptCore (C# net8.0)"] -.script assembly.-> EP
     UGS["UserGameScript (C#)<br/>→ Game.Script.dll"] -.-> EP
-    BT["BaseTool"] --> SE2["HUB app"]
+    TL["Tool (Modules/Tool)"] --> H
     BP --- E
 ```
 
@@ -123,7 +123,7 @@ dotnet build Project/Game.Script.csproj -c Release -o .build/Game_linux_Retail \
 
 ### Tools (`Tools/` at engine root)
 
-Prebuilt per-platform binaries in `Tools/Win64|macOS|linux/` (**`shaderc`**, `texturec` — used by the asset cook, `Docs/Resources-and-Assets.md`), the vendored **Sharpmake** application, **Optick.exe** (profiler viewer), and the standalone **HUB** app (MitchHub project launcher; shader graphs are edited inside Havana, `Docs/Materials-and-Shaders.md`), plus `ProjectTemplate`/`NewProjectSetup` scripts for spinning up new game projects. Python helpers: `GenerateScriptAPI.py` (the script ABI, `Docs/Scripting-DotNet.md`) and `ScreenshotRegression.py` (capture scenes with `--frame-time` and compare with reference PNGs; `Docs/Architecture.md`).
+Prebuilt per-platform binaries in `Tools/Win64|macOS|linux/` (**`shaderc`**, `texturec` — used by the asset cook, `Docs/Resources-and-Assets.md`), the vendored **Sharpmake** application and **Optick.exe** (profiler viewer; projects are picked in Havana's Project Hub, `Docs/Projects.md`, and shader graphs edited inside Havana, `Docs/Materials-and-Shaders.md`), plus `ProjectTemplate`/`NewProjectSetup` scripts for spinning up new game projects. Python helpers: `GenerateScriptAPI.py` (the script ABI, `Docs/Scripting-DotNet.md`) and `ScreenshotRegression.py` (capture scenes with `--frame-time` and compare with reference PNGs; `Docs/Architecture.md`).
 
 **Checks (Linux).** One command guards the engine. Run it from the project root inside the dev shell:
 
@@ -140,7 +140,7 @@ Engine/Tools/RunChecks.sh --only Nav    # only the editor flows whose path conta
 
 The engine owns `nix/flake.nix`, its lock, and the shared shell definition. New projects get VS Code tasks/launch configuration that call `Tools/BuildProject.sh` and `Tools/NixGdb.sh`. Both enter the engine environment, so F5 works when VS Code starts outside a development terminal. Builds generate missing third-party headers and regenerate the project before invoking make.
 
-Run `Engine/Tools/DevShell.sh` from a game root for an interactive shell, or `Engine/Tools/NixEnv.sh <command>` for a command. Optional game-specific additions live in the game's `devshell.nix`; no project flake, copied lock, or engine-side game profile is needed. The base environment includes Python, bear, patchelf, Xvfb and the matching lavapipe ICD alongside the C++/.NET, SDL, graphics and GTK dependencies.
+Run `Engine/Tools/DevShell.sh` from a game root for an interactive shell, or `Engine/Tools/NixEnv.sh <command>` for a command. Optional game-specific additions live in the game's `devshell.nix`; no project flake, copied lock, or engine-side game profile is needed. The base environment includes Python, bear, patchelf, Xvfb and the matching lavapipe ICD alongside the C++/.NET, SDL and graphics dependencies.
 
 See [Development-Environment.md](Development-Environment.md) for the extension API, CLI, SDK installation support, ownership, and maintenance. Linux CI uses the same launchers.
 
@@ -155,7 +155,7 @@ When `Globals.DOTNET_Linux_Dir` (from `DOTNET_LINUX_NATIVE_DIR`) exists at gener
 - **Prebuilt `ThirdParty/Lib` archives can drift from submodule headers**: the Linux BGFX *Release* archives sat stale for a long time (undefined `bgfx::setViewName`/`createTexture2D` at link) while Debug was current. If a `*_release` config fails with undefined bgfx symbols, refresh via `GenerateSolutions.sh --build-bgfx` and copy the `.a` files from `bgfx/.build/linux64_gcc/bin` into `Lib/BGFX/linux/Release` (only the already-tracked set — the shaderc-only deps like `spirv-opt`/`tint-*` are ~700MB and stay uncommitted).
 - **Hardcoded SDK paths on Windows** (e.g. FMOD under Program Files, the .NET host pack version in `Globals.DOTNET_Win64_Dir`) — version bumps of installed SDKs require editing `Engine.sharpmake.cs`.
 - **macOS scripting is unwired** (no `DEFINE_ME_DOTNET` path or host-pack link) and Optick is Win64-only — platform feature parity is uneven by construction (see the matrix in `Docs/State-of-the-Engine.md`).
-- **The dev shell is load-bearing on Linux**: outside the SDK environment, the .NET native dir, GTK stack, and EGL paths must be assembled by hand.
+- **The dev shell is load-bearing on Linux**: outside the SDK environment, the .NET native dir and EGL paths must be assembled by hand.
 - **`ScriptCore`/`UserGameScript` sharpmake configs are near-duplicates** (in-code TODO: factor a common base "when there's a third one"), and the SDK-style `.csproj` files mirror them for CLI builds; a new script-side setting belongs in both.
 - **Retail game builds omit development tools**: compile code that depends on editor inspection, ImGui or profiling behind the corresponding feature flag. Retail editor targets still need editor tools.
 

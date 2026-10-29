@@ -1,4 +1,5 @@
 #include "Tool.h"
+#include "Dementia.h"
 
 #include <functional>
 
@@ -8,13 +9,12 @@
 #include "Math/Vector2.h"
 #include "Window/SDLWindow.h"
 #include "imgui.h"
-#include "UI/Colors.h"
+#include "ImGuiTheme.h"
 #include "Window/PlatformWindowHooks.h"
 #include <Camera/CameraData.h>
 
-extern bool ImGui_ImplSDL2_InitForMetal( SDL_Window* window );
-extern bool ImGui_ImplSDL2_InitForD3D( SDL_Window* window );
-extern bool ImGui_ImplSDL2_InitForVulkan( SDL_Window* window );
+extern bool ImGui_ImplSDL2_InitForOther( SDL_Window* window );
+extern void ImGui_ImplSDL2_Shutdown();
 static SDL_Cursor* g_imgui_to_sdl_cursor[ImGuiMouseCursor_COUNT];
 
 Tool::Tool( ToolCreationFlags& inToolCreationFlags )
@@ -24,10 +24,7 @@ Tool::Tool( ToolCreationFlags& inToolCreationFlags )
 
 Tool::~Tool()
 {
-    for( ImGuiMouseCursor imgui_cursor = 0; imgui_cursor < ImGuiMouseCursor_COUNT; imgui_cursor++ )
-    {
-        SDL_FreeCursor( g_imgui_to_sdl_cursor[imgui_cursor] );
-    }
+    Shutdown();
 }
 
 void Tool::Start()
@@ -47,26 +44,22 @@ void Tool::Start()
             }
         };
 
-    m_window = new SDLWindow( m_toolCreationFlags.toolName, ResizeFunc, 500, 300, Vector2( 1280, 720 ) );
+    // X 0 centers the window.
+    m_window = new SDLWindow( m_toolCreationFlags.toolName, ResizeFunc, 0, 0, m_toolCreationFlags.windowSize );
     m_window->SetBorderless( m_toolCreationFlags.isBorderless );
-    ResizeFunc( Vector2( 1280, 720 ) );
+    ResizeFunc( m_toolCreationFlags.windowSize );
     RendererCreationSettings set;
     set.WindowPtr = m_window->GetWindowPtr();
+#if USING( ME_PLATFORM_LINUX )
     set.DisplayPtr = static_cast<SDLWindow*>( m_window )->GetDisplayPtr();
     set.WindowType = static_cast<SDLWindow*>( m_window )->GetWindowType();
+#endif
     set.InitialSize = m_window->GetSize();
     set.InitAssets = false;
     m_renderer->Create( set );
 
-#if USING( ME_PLATFORM_WIN64 )
-    ImGui_ImplSDL2_InitForD3D( static_cast<SDLWindow*>( m_window )->WindowHandle );
-#endif
-#if USING( ME_PLATFORM_MACOS )
-    ImGui_ImplSDL2_InitForMetal( static_cast<SDLWindow*>( m_window )->WindowHandle );
-#endif
-#if USING( ME_PLATFORM_LINUX )
-    ImGui_ImplSDL2_InitForVulkan( static_cast<SDLWindow*>( m_window )->WindowHandle );
-#endif
+    // As the engine does: bgfx creates the graphics surfaces itself.
+    ImGui_ImplSDL2_InitForOther( static_cast<SDLWindow*>( m_window )->WindowHandle );
 
     g_imgui_to_sdl_cursor[ImGuiMouseCursor_Arrow] = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_ARROW );
     g_imgui_to_sdl_cursor[ImGuiMouseCursor_TextInput] = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_IBEAM );
@@ -76,92 +69,21 @@ void Tool::Start()
     g_imgui_to_sdl_cursor[ImGuiMouseCursor_ResizeNESW] = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_SIZENESW );
     g_imgui_to_sdl_cursor[ImGuiMouseCursor_ResizeNWSE] = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_SIZENWSE );
 
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    Path EngineConfigFilePath = Path( ".tmp/" + m_toolCreationFlags.toolName + ".cfg" );
-    io.IniFilename = EngineConfigFilePath.FullPath.c_str();
-
-    io.BackendFlags |= ImGuiBackendFlags_PlatformHasViewports | ImGuiBackendFlags_RendererHasViewports;
+    ImGuiIO& io = ImGui::GetIO();
+    io.IniFilename = m_toolCreationFlags.layoutFile.empty() ? nullptr : m_toolCreationFlags.layoutFile.c_str();
 
     if( m_toolCreationFlags.isDockingEnabled )
     {
         io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     }
 
-    // Colors
-    {
-        ImVec4* colors = ImGui::GetStyle().Colors;
-        colors[ImGuiCol_Text] = COLOR_TEXT;
-        colors[ImGuiCol_TextDisabled] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
-        colors[ImGuiCol_WindowBg] = COLOR_FOREGROUND;
-        colors[ImGuiCol_ChildBg] = ImVec4( 1.00f, 1.00f, 1.00f, 0.00f );
-        colors[ImGuiCol_PopupBg] = ImVec4( 0.08f, 0.08f, 0.08f, 0.94f );
-        colors[ImGuiCol_Border] = ImVec4( 0.43f, 0.43f, 0.50f, 0.50f );
-        colors[ImGuiCol_BorderShadow] = ImVec4( 0.00f, 0.00f, 0.00f, 0.00f );
-        colors[ImGuiCol_FrameBg] = COLOR_DROPDOWN;
-        colors[ImGuiCol_FrameBgHovered] = ImVec4( 0.40f, 0.40f, 0.40f, 0.40f );
-        colors[ImGuiCol_FrameBgActive] = ImVec4( 0.18f, 0.18f, 0.18f, 0.67f );
-        colors[ImGuiCol_TitleBg] = COLOR_BACKGROUND_BORDER;
-        colors[ImGuiCol_TitleBgActive] = COLOR_BACKGROUND_BORDER;
-        colors[ImGuiCol_TitleBgCollapsed] = ImVec4( 0.00f, 0.00f, 0.00f, 0.51f );
-        colors[ImGuiCol_MenuBarBg] = COLOR_FOREGROUND;
-        colors[ImGuiCol_ScrollbarBg] = COLOR_FOREGROUND;
-        colors[ImGuiCol_ScrollbarGrab] = COLOR_WHITE_25;
-        colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4( 0.41f, 0.41f, 0.41f, 1.00f );
-        colors[ImGuiCol_ScrollbarGrabActive] = ImVec4( 0.51f, 0.51f, 0.51f, 1.00f );
-        colors[ImGuiCol_CheckMark] = ImVec4( 0.94f, 0.94f, 0.94f, 1.00f );
-        colors[ImGuiCol_SliderGrab] = ImVec4( 0.51f, 0.51f, 0.51f, 1.00f );
-        colors[ImGuiCol_SliderGrabActive] = ImVec4( 0.86f, 0.86f, 0.86f, 1.00f );
-        colors[ImGuiCol_Button] = { 0.220f, 0.220f, 0.220f, 0.25f };
-        colors[ImGuiCol_ButtonHovered] = COLOR_PRIMARY_HOVER;
-        colors[ImGuiCol_ButtonActive] = COLOR_PRIMARY_PRESS;
-        colors[ImGuiCol_Header] = COLOR_WHITE_25;
-        colors[ImGuiCol_HeaderHovered] = COLOR_PRIMARY_HOVER;
-        colors[ImGuiCol_HeaderActive] = COLOR_PRIMARY_PRESS;
-        colors[ImGuiCol_Separator] = COLOR_BACKGROUND_BORDER;
-        colors[ImGuiCol_SeparatorHovered] = COLOR_PRIMARY_HOVER;
-        colors[ImGuiCol_SeparatorActive] = COLOR_PRIMARY_PRESS;
-        colors[ImGuiCol_ResizeGrip] = ImVec4( 0.91f, 0.91f, 0.91f, 0.25f );
-        colors[ImGuiCol_ResizeGripHovered] = ImVec4( 0.81f, 0.81f, 0.81f, 0.67f );
-        colors[ImGuiCol_ResizeGripActive] = ImVec4( 0.46f, 0.46f, 0.46f, 0.95f );
-        colors[ImGuiCol_PlotLines] = ImVec4( 0.61f, 0.61f, 0.61f, 1.00f );
-        colors[ImGuiCol_PlotLinesHovered] = ImVec4( 1.00f, 0.43f, 0.35f, 1.00f );
-        colors[ImGuiCol_PlotHistogram] = ImVec4( 0.73f, 0.60f, 0.15f, 1.00f );
-        colors[ImGuiCol_PlotHistogramHovered] = ImVec4( 1.00f, 0.60f, 0.00f, 1.00f );
-        colors[ImGuiCol_TextSelectedBg] = ImVec4( 0.87f, 0.87f, 0.87f, 0.35f );
-        //colors[ImGuiCol_ModalWindowDarkening] = ImVec4(0.80f, 0.80f, 0.80f, 0.35f);
-        colors[ImGuiCol_DragDropTarget] = ImVec4( 1.00f, 1.00f, 0.00f, 0.90f );
-        colors[ImGuiCol_NavHighlight] = ImVec4( 0.60f, 0.60f, 0.60f, 1.00f );
-        colors[ImGuiCol_NavWindowingHighlight] = ImVec4( 1.00f, 1.00f, 1.00f, 0.70f );
-        colors[ImGuiCol_Tab] = COLOR_FOREGROUND;
-        colors[ImGuiCol_TabHovered] = COLOR_PRIMARY_HOVER;
-        colors[ImGuiCol_TabActive] = COLOR_PRIMARY;
-        colors[ImGuiCol_TabUnfocused] = COLOR_TITLE;
-        colors[ImGuiCol_TabUnfocusedActive] = COLOR_FOREGROUND;
-        colors[ImGuiCol_TableHeaderBg] = COLOR_HEADER;
-        colors[ImGuiCol_TableRowBg] = COLOR_TITLE;
-        colors[ImGuiCol_TableRowBgAlt] = COLOR_RECESSED;
-    }
+    // The editor's look (OnStart can apply the user's own).
+    ImGuiTheme::Apply( ImGuiTheme::Mode::Dark, ImGuiTheme::DefaultAccent() );
 
     // Hooking into ImGui
     {
         ImGui::InitHooks();
     }
-
-    /*{
-        ProjectEntry p;
-        p.BackgroundImage = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("fl.png"));
-        p.TitleImage = logo;
-        p.Name = "Fruit Loops";
-        Cache.Projects.push_back(p);
-    }
-
-    {
-        ProjectEntry p;
-        p.BackgroundImage = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("run.png"));
-        p.TitleImage = logo;
-        p.Name = "Fruit Loops: Secret Department";
-        Cache.Projects.push_back(p);
-    }*/
 
     // Setup the borderless window
     {
@@ -181,11 +103,27 @@ void Tool::Start()
     OnStart();
 
     Run();
+
+    OnEnd();
+    Shutdown();
+}
+
+void Tool::RequestScreenshot( const std::string& InPath )
+{
+    if( m_renderer )
+    {
+        m_renderer->RequestScreenshot( InPath );
+    }
+}
+
+uint32_t Tool::GetScreenshotCount() const
+{
+    return m_renderer ? m_renderer->GetScreenshotCount() : 0;
 }
 
 void Tool::Run()
 {
-    while( !m_window->ShouldClose() )
+    while( !m_window->ShouldClose() && !m_closeRequested )
     {
         m_window->ParseMessageQueue();
 
@@ -256,3 +194,27 @@ void Tool::Run()
     }
 }
 
+void Tool::Shutdown()
+{
+    if( !m_renderer )
+    {
+        return;
+    }
+    if( ImGui::GetCurrentContext() && ImGui::GetIO().BackendPlatformUserData )
+    {
+        ImGui_ImplSDL2_Shutdown();
+    }
+    m_renderer->Destroy();
+    delete m_renderer;
+    m_renderer = nullptr;
+    for( SDL_Cursor*& cursor : g_imgui_to_sdl_cursor )
+    {
+        if( cursor )
+        {
+            SDL_FreeCursor( cursor );
+            cursor = nullptr;
+        }
+    }
+    delete m_window;
+    m_window = nullptr;
+}

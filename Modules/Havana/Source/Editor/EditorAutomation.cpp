@@ -4,6 +4,7 @@
 
 #include "EditorActions.h"
 #include "EditorOperations.h"
+#include "Engine/Project.h"
 #include "PrefabTools.h"
 #include "World/SceneSerializer.h"
 #include "Selection.h"
@@ -593,6 +594,24 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         {
             Fail( "build-game-wait: no BuildInfo.json in " + widget->GetOutputDirectory() );
         }
+    }
+    else if( command.rfind( "hub-", 0 ) == 0 )
+    {
+        // The Project Hub ran these before it opened this project (Hub/ProjectHub.cpp); the editor
+        // runs the same script from the top and skips them.
+    }
+    else if( command == "assert-project" )
+    {
+        // assert-project NewGame   (the open project's name: its Game.meproj ProjectName)
+        if( Project::GetName() != args )
+        {
+            Fail( "assert-project: the open project is " + Project::GetName() + " (" + Project::GetRoot() + "), expected " + args );
+        }
+    }
+    else if( command == "project-hub" )
+    {
+        // project-hub   (File > Project Hub; an unattended run logs the reopen command)
+        InApp.RequestProjectHub();
     }
     else if( command == "open-project" )
     {

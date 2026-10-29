@@ -144,6 +144,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         , 0
     );
 
+    m_hasAssets = settings.InitAssets;
     if( settings.InitAssets )
     {
         EditorCameraBuffer = new Moonlight::FrameBuffer( init.swapChain.width, init.swapChain.height );
@@ -654,6 +655,23 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
     // Enable stats or debug text.
     bgfx::setDebug( ( s_showStats ? BGFX_DEBUG_STATS : BGFX_DEBUG_TEXT ) | ( FrameStats::Get().DetailedGpuTimings ? BGFX_DEBUG_PROFILER : 0 ) );
     // Advance to next frame. Process submitted rendering primitives.
+
+    if( !m_hasAssets )
+    {
+        // A tool window (Tool, the Project Hub): nothing but ImGui to draw.
+        if( CurrentSize != PreviousSize || NeedsReset )
+        {
+            PreviousSize = CurrentSize;
+            NeedsReset = false;
+            ResetMainSwapChain();
+        }
+#if USING( ME_IMGUI )
+        ImGuiRender->EndFrame();
+#endif
+        m_currentFrame = bgfx::frame();
+        inFrameData.m_currentFrame = m_currentFrame;
+        return;
+    }
 
     if( CurrentSize != PreviousSize || NeedsReset )
     {

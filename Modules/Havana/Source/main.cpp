@@ -7,9 +7,14 @@
 #include "Resource/MetaFile.h"
 #include "CLog.h"
 #include "Engine/Project.h"
+#include "Engine/AutomationRunner.h"
 #include "Engine/ProjectSettings.h"
+#include "Hub/ProjectHub.h"
+#include "Utils/PlatformUtils.h"
+#include "VFS/VFS.h"
 #include "Tools/Build/BuildGame.h"
 #include "Tools/Cook/Cooker.h"
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdio>
@@ -217,6 +222,80 @@ static int BuildGameCommand()
 }
 
 
+// --hub, or no project to open: the Project Hub (SHIP-5, Engine/Docs/Projects.md) picks one, then
+// the editor opens it as `Havana --project <root>` with this run's other arguments. An interactive
+// Hub starts that editor and exits; an unattended one (--editor-exec) runs it, passes its output
+// through and returns its exit code, so one script drives the Hub and then the editor.
+static int RunHub()
+{
+    // The engine isn't initialized here, so the log has no verbosity yet.
+    CLog::GetInstance().SetLogVerbosity( CLog::LogType::Info );
+    std::error_code error;
+    if( Project::FindProjectRoot( Project::GetRoot() ).empty() )
+    {
+        // No project: the Hub runs on this executable's engine (its templates and fonts).
+        const std::string engine = Project::FindExecutableEngine();
+        if( engine.empty() )
+        {
+            std::fprintf( stderr, "Project Hub: no engine found at or above %s\n", Project::GetExecutableDirectory().c_str() );
+            return 2;
+        }
+        VFS::Get().SetDefaultRoots( Project::GetRoot(), engine );
+    }
+
+    std::string chosen;
+    bool failed = false;
+    {
+        ToolCreationFlags flags;
+        flags.toolName = "Project Hub";
+        flags.windowSize = Vector2( 1100.f, 680.f );
+        ProjectHub hub( flags );
+        hub.Start();
+        chosen = hub.GetChosenProject();
+        failed = hub.HasFailures();
+    }
+    if( failed || chosen.empty() )
+    {
+        return failed ? 1 : 0;
+    }
+
+    // Everything but --hub and --project, with file arguments made absolute: the editor runs in
+    // the project's folder.
+    std::vector<std::string> args = { "--project", chosen };
+    const std::vector<std::string>& given = CommandLine::GetArgs();
+    for( size_t i = 1; i < given.size(); ++i )
+    {
+        if( given[i] == "--hub" )
+        {
+            continue;
+        }
+        if( given[i] == "--project" )
+        {
+            ++i;
+            continue;
+        }
+        args.push_back( given[i] );
+        static const char* kFileArgs[] = { "--editor-exec", "--editor-exec-result", "--recent-projects", "--screenshot", "--perf-report", "--trace" };
+        if( i + 1 < given.size() && std::find( std::begin( kFileArgs ), std::end( kFileArgs ), given[i] ) != std::end( kFileArgs ) )
+        {
+            args.push_back( std::filesystem::absolute( given[++i], error ).lexically_normal().generic_string() );
+        }
+    }
+    const std::string command = ProjectHub::EditorCommand( args );
+    if( !AutomationRunner::IsUnattendedRun() )
+    {
+        PlatformUtils::RunDetached( command );
+        return 0;
+    }
+    CLog::Log( CLog::LogType::Info, "Project Hub: running " + command );
+    CLog::GetInstance().Flush();
+    return PlatformUtils::RunCommand( command, []( const std::string& InLine ) {
+        std::printf( "%s\n", InLine.c_str() );
+        std::fflush( stdout );
+    } );
+}
+
+
 int main( int argc, char** argv )
 {
     CommandLine::Set( argc, argv );
@@ -236,6 +315,11 @@ int main( int argc, char** argv )
     if( CommandLine::Has( "--build-game" ) )
     {
         return BuildGameCommand();
+    }
+
+    if( CommandLine::Has( "--hub" ) || Project::FindProjectRoot( Project::GetRoot() ).empty() )
+    {
+        return RunHub();
     }
 
     if( CommandLine::Has( "--capture-startup" ) )

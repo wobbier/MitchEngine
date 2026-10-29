@@ -1,4 +1,6 @@
 #include "EditorApp.h"
+#include "Hub/ProjectHub.h"
+#include "Tools/Projects/ProjectLibrary.h"
 #include "ECS/Component.h"
 #include "Editor/ReflectionUI.h"
 #include "Scripting/ScriptInspectorRows.h"
@@ -284,6 +286,15 @@ void EditorApp::OnInitialize()
             EditorConfig::GetInstance().ReadOnly = AutomationRunner::IsUnattendedRun();
             EditorConfig::GetInstance().Init();
             EditorConfig::GetInstance().Load();
+        }
+        // The Project Hub lists every project the editor opens (interactive runs only: unattended ones
+        // never touch the user's list).
+        if( !AutomationRunner::IsUnattendedRun() )
+        {
+            ProjectLibrary::RecentProjects recent;
+            recent.Load();
+            recent.Add( Project::GetRoot() );
+            recent.Save();
         }
         InitialLevel = GetEngine().GetConfig().GetValue( "CurrentScene" );
         // A project opened for the first time (or whose last scene is gone) opens its startup scene.
@@ -571,18 +582,29 @@ void EditorApp::RequestOpenProject( const std::string& InFolder )
         return;
     }
     RunWithUnsavedCheck( [root]() {
-#if USING( ME_PLATFORM_WINDOWS )
-        const std::string editor = Project::GetExecutableDirectory() + "Havana.exe";
-#else
-        const std::string editor = Project::GetExecutableDirectory() + "Havana";
-#endif
-        const std::string command = "\"" + editor + "\" --project \"" + root + "\"";
+        const std::string command = ProjectHub::EditorCommand( { "--project", root } );
         if( AutomationRunner::IsUnattendedRun() )
         {
             CLog::Log( CLog::LogType::Info, "Open Project: would reopen the editor with " + command );
             return;
         }
         CLog::Log( CLog::LogType::Info, "Open Project: reopening the editor on " + root );
+        PlatformUtils::RunDetached( command );
+        GetEngine().Quit( true );
+    } );
+}
+
+
+void EditorApp::RequestProjectHub()
+{
+    RunWithUnsavedCheck( []() {
+        const std::string command = ProjectHub::EditorCommand( { "--hub" } );
+        if( AutomationRunner::IsUnattendedRun() )
+        {
+            CLog::Log( CLog::LogType::Info, "Project Hub: would reopen the editor with " + command );
+            return;
+        }
+        CLog::Log( CLog::LogType::Info, "Project Hub: closing the editor for the Hub" );
         PlatformUtils::RunDetached( command );
         GetEngine().Quit( true );
     } );

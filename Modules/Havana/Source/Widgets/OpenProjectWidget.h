@@ -3,8 +3,7 @@
 #include "Dementia.h"
 
 #if USING( ME_EDITOR )
-#include <string>
-#include <vector>
+#include "Widgets/ProjectBrowser.h"
 
 // File > Open Project (SHIP-4, Engine/Docs/Projects.md): browse to a project folder (one holding
 // Project/Game.meproj) and reopen the editor on it. Switching projects starts a fresh editor
@@ -21,19 +20,8 @@ public:
     void Render() override;
 
 private:
-    struct Entry
-    {
-        std::string Name;
-        std::string Path;
-        bool IsProject = false;
-    };
-
-    void Browse( const std::string& InFolder );
-
     class EditorApp* m_app = nullptr;
-    std::string m_folder;
-    std::string m_selected;
-    std::vector<Entry> m_entries;
+    ProjectBrowser m_browser;
     bool m_browsed = false;
 };
 

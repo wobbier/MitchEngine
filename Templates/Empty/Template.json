@@ -1,0 +1,5 @@
+{
+    "Name": "Empty",
+    "Description": "A camera, a sun and a floor. C# scripting is on: any .cs under Assets/ builds into the game.",
+    "Order": 0
+}

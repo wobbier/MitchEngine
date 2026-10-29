@@ -12,7 +12,6 @@ using Sharpmake;
 [module: Sharpmake.Include("Tests/Tests.sharpmake.cs")]
 [module: Sharpmake.Include("Tools/BaseProject.sharpmake.cs")]
 [module: Sharpmake.Include("Tools/CommonTarget.sharpmake.cs")]
-[module: Sharpmake.Include("Tools/HUB/MitchHub.sharpmake.cs")]
 [module: Sharpmake.Include("Tools/SharpmakeProject.sharpmake.cs")]
 [module: Sharpmake.Include("Tools/BaseTool.sharpmake.cs")]
 [module: Sharpmake.Include("ThirdParty/Box2D.sharpmake.cs")]
@@ -445,7 +444,6 @@ public class BaseGameSolution : Solution
         if (target.SelectedMode == CommonTarget.Mode.Editor)
         {
             conf.AddProject<Havana>(target);
-            conf.AddProject<MitchHubProject>(target);
         }
         else
         {

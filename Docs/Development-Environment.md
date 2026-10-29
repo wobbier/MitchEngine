@@ -106,7 +106,7 @@ evaluation aborts before any build or debugger starts. Commands keep their exit
 status and receive arguments without shell re-parsing.
 
 The base environment preserves the C++/.NET, SDL, X11/Wayland and graphics loader
-dependencies (GTK3 only for the standalone HUB's folder picker). It also provides Python, bear, patchelf, Git,
+dependencies (no GTK: the old standalone HUB that needed it is now Havana's Project Hub). It also provides Python, bear, patchelf, Git,
 Xvfb, and the matching Mesa lavapipe ICD for engine tools. Host GPU driver
 compatibility still needs testing when updating the lock; naming
 `nixos-unstable` does not automatically update a locked package revision.

@@ -1,0 +1,7 @@
+{
+    "Product": {
+        "Name": "Empty",
+        "Org": "MitchEngine",
+        "StartupScene": "Assets/Scenes/Main.lvl"
+    }
+}
