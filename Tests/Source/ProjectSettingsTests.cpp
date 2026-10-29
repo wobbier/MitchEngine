@@ -26,6 +26,8 @@ TEST_CASE( "ProjectSettings: product, startup and build settings round-trip" )
     saved.BuildProfiles = { ProjectSettings::BuildProfile(), demo };
     saved.SetLayerName( 3, "Probe Layer" );
     saved.BusVolumes[1] = 0.25f;
+    saved.LoadingDocument = "Assets/UI/Probe/Loading.rml";
+    saved.Splash = { { "Assets/UI/Loading/Splash.rml", 1.5f }, { "Assets/UI/Probe/Studio.rml", 3.f } };
     saved.SaveTo( path );
 
     ProjectSettings loaded;
@@ -35,6 +37,11 @@ TEST_CASE( "ProjectSettings: product, startup and build settings round-trip" )
     CHECK( loaded.ProductVersion == saved.ProductVersion );
     CHECK( loaded.ProductIcon == saved.ProductIcon );
     CHECK( loaded.StartupScene == saved.StartupScene );
+    CHECK( loaded.LoadingDocument == "Assets/UI/Probe/Loading.rml" );
+    REQUIRE( loaded.Splash.size() == 2 );
+    CHECK( loaded.Splash[0].Document == "Assets/UI/Loading/Splash.rml" );
+    CHECK( loaded.Splash[0].Seconds == doctest::Approx( 1.5f ) );
+    CHECK( loaded.Splash[1].Seconds == doctest::Approx( 3.f ) );
     CHECK( loaded.BuildScenes == saved.BuildScenes );
     CHECK( loaded.BuildAlwaysInclude == saved.BuildAlwaysInclude );
     CHECK( loaded.BuildExclude == saved.BuildExclude );

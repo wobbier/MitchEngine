@@ -194,6 +194,24 @@ void ProjectSettings::LoadFrom( const std::string& InPath )
         {
             StartupScene = product["StartupScene"].get<std::string>();
         }
+        if( product.contains( "LoadingDocument" ) && product["LoadingDocument"].is_string() )
+        {
+            LoadingDocument = product["LoadingDocument"].get<std::string>();
+        }
+        if( product.contains( "Splash" ) && product["Splash"].is_array() )
+        {
+            Splash.clear();
+            for( const json& entry : product["Splash"] )
+            {
+                if( entry.is_object() && entry.contains( "Document" ) && entry["Document"].is_string() )
+                {
+                    SplashScreen splash;
+                    splash.Document = entry["Document"].get<std::string>();
+                    splash.Seconds = entry.contains( "Seconds" ) && entry["Seconds"].is_number() ? std::max( entry["Seconds"].get<float>(), 0.f ) : splash.Seconds;
+                    Splash.push_back( std::move( splash ) );
+                }
+            }
+        }
     }
     if( root.contains( "Build" ) && root["Build"].is_object() )
     {
@@ -312,6 +330,19 @@ void ProjectSettings::SaveTo( const std::string& InPath ) const
     root["HardwareProfile"] = { { "Name", HardwareProfileName }, { "Enforce", EnforceHardwareProfile } };
     root["Product"] = { { "Org", ProductOrg }, { "Name", ProductName }, { "Version", ProductVersion },
         { "Icon", ProductIcon }, { "StartupScene", StartupScene } };
+    // Written only when set, so projects that never touched them keep their file as is.
+    if( LoadingDocument != kDefaultLoadingDocument )
+    {
+        root["Product"]["LoadingDocument"] = LoadingDocument;
+    }
+    if( !Splash.empty() )
+    {
+        json& splash = root["Product"]["Splash"] = json::array();
+        for( const SplashScreen& entry : Splash )
+        {
+            splash.push_back( { { "Document", entry.Document }, { "Seconds", entry.Seconds } } );
+        }
+    }
     root["Build"] = { { "Scenes", BuildScenes }, { "AlwaysInclude", BuildAlwaysInclude }, { "Exclude", BuildExclude } };
     // Written only when there are any, so projects that never made one keep their file as is.
     if( !BuildProfiles.empty() )

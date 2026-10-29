@@ -638,6 +638,21 @@ namespace Cook
                 {
                     AddFileOrFolder( always );
                 }
+                // Loading screens and splashes show outside recorded runs: ship their folders
+                // (document, stylesheet and images) whole.
+                std::vector<std::string> documents = { InSettings.LoadingDocument };
+                for( const ProjectSettings::SplashScreen& splash : InSettings.Splash )
+                {
+                    documents.push_back( splash.Document );
+                }
+                for( const std::string& document : documents )
+                {
+                    const size_t slash = document.find_last_of( "/\\" );
+                    if( !document.empty() && slash != std::string::npos && Path( document ).Exists )
+                    {
+                        AddFileOrFolder( document.substr( 0, slash ) );
+                    }
+                }
                 // The window icon decodes from its source bytes (Engine::Init), so it ships as is.
                 if( !InSettings.ProductIcon.empty() )
                 {

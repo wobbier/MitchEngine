@@ -35,6 +35,7 @@
 #include "Engine/Engine.h"
 #include "Engine/PlayerSettings.h"
 #include "Engine/SaveGames.h"
+#include "Engine/LoadingScreen.h"
 #include "Engine/Input.h"
 #include <SDL_keyboard.h>
 #include "Engine/World.h"
@@ -1039,6 +1040,25 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         {
             Fail( "action " + actionName + " is " + ( input.GetAction( actionName ).IsPressed() ? "pressed" : "not pressed" ) + ", expected " + ( expectedText == "true" ? "pressed" : "not pressed" ) );
         }
+    }
+    else if( command == "load-scene-async" )
+    {
+        // load-scene-async Assets/Scenes/X.lvl | 2   (the loading screen stays up at least 2 s)
+        auto [scene, holdText] = SplitArgs( args );
+        LoadingScreen::Get().MinimumSeconds = holdText.empty() ? 0.f : static_cast<float>( std::atof( holdText.c_str() ) );
+        if( !LoadingScreen::Get().LoadSceneAsync( scene ) )
+        {
+            Fail( "load-scene-async: couldn't start loading " + scene );
+        }
+    }
+    else if( command == "play-splash" )
+    {
+        // play-splash Assets/UI/Loading/Splash.rml | 1.5   (one splash screen for 1.5 s)
+        auto [document, secondsText] = SplitArgs( args );
+        ProjectSettings::SplashScreen splash;
+        splash.Document = document;
+        splash.Seconds = secondsText.empty() ? splash.Seconds : static_cast<float>( std::atof( secondsText.c_str() ) );
+        LoadingScreen::Get().PlaySplash( { splash } );
     }
     else if( command == "save-game" || command == "load-game" || command == "delete-save" )
     {

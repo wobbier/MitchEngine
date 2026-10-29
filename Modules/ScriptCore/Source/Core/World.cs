@@ -34,6 +34,20 @@ public static unsafe class World
     }
 
 
+    // Loads a scene in the background under a loading screen (PLAY-5): the current scene keeps
+    // running while the file is read, and the screen stays up until the new scene's assets have
+    // loaded. loadingScreen: "" = the project's (Assets/UI/Loading/Loading.rml by default), "none"
+    // = no screen. False when the scene doesn't exist or a load is already running.
+    public static bool LoadSceneAsync( string scene, string loadingScreen = "" )
+    {
+        fixed (byte* p = Engine.Utf8(scene)) fixed (byte* d = Engine.Utf8(loadingScreen ?? "")) return Engine._api.World_LoadSceneAsync(p, d) != 0;
+    }
+
+    // 0..1 while LoadSceneAsync runs; 1 otherwise.
+    public static float LoadProgress => Engine._api.World_GetLoadProgress();
+    public static bool IsLoadingScene => Engine._api.World_IsLoadingScene() != 0;
+
+
     // Loads a scene on top of this one (a streamed level chunk, a shared lighting scene) and returns
     // its id. Async (the default) reads it in the background and adds it at the start of a later
     // frame: watch SceneState. Its entities unload together and go when the main scene changes.

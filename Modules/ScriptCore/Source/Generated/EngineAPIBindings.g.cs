@@ -245,4 +245,11 @@ public unsafe struct EngineAPIBindings
     public delegate* unmanaged<byte*, int, int> SaveGame_List;
     public delegate* unmanaged<byte> SaveGame_IsWriting;
     public delegate* unmanaged<float> SaveGame_GetPlaytime;
+
+    // Loading screens (PLAY-5): a main-scene load in the background under a loading document
+
+    // ("" = the project's LoadingDocument, "none" = no screen); progress is 0..1, 1 while idle.
+    public delegate* unmanaged<byte*, byte*, byte> World_LoadSceneAsync;
+    public delegate* unmanaged<float> World_GetLoadProgress;
+    public delegate* unmanaged<byte> World_IsLoadingScene;
 }

@@ -5,6 +5,7 @@
 
 #include "Engine/Engine.h"
 #include "Engine/World.h"
+#include "Engine/LoadingScreen.h"
 #include "Cores/SceneCore.h"
 #include "Components/Transform.h"
 #include "ECS/Entity.h"
@@ -67,8 +68,29 @@ static bool Eng_World_FindByGuid( const uint8_t* inGuid, EntityID* outId )
 }
 
 
+static bool Eng_World_LoadSceneAsync( const uint8_t* inScene, const uint8_t* inDocument )
+{
+    return LoadingScreen::Get().LoadSceneAsync( reinterpret_cast<const char*>( inScene ), inDocument ? reinterpret_cast<const char*>( inDocument ) : "" );
+}
+
+
+static float Eng_World_GetLoadProgress()
+{
+    return LoadingScreen::Get().GetProgress();
+}
+
+
+static bool Eng_World_IsLoadingScene()
+{
+    return LoadingScreen::Get().IsLoading();
+}
+
+
 void Register_WorldBindings( ScriptEngineAPI& inAPI )
 {
+    inAPI.World_LoadSceneAsync = Eng_World_LoadSceneAsync;
+    inAPI.World_GetLoadProgress = Eng_World_GetLoadProgress;
+    inAPI.World_IsLoadingScene = Eng_World_IsLoadingScene;
     inAPI.World_CreateEntity = Eng_World_CreateEntity;
     inAPI.World_FindByName = Eng_World_FindByName;
     inAPI.World_FindByGuid = Eng_World_FindByGuid;

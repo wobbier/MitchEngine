@@ -1,0 +1,15 @@
+<rml>
+<head>
+	<title>Splash</title>
+	<link type="text/rcss" href="Loading.rcss"/>
+</head>
+<!-- A stock splash screen (PLAY-5): list it in Project Settings > Product.Splash
+     ({ "Document": "Assets/UI/Loading/Splash.rml", "Seconds": 2 }). Binds "product" from the
+     "loading" data model. -->
+<body class="splash" data-model="loading">
+	<div id="splash">
+		<div id="splash-product">{{ product }}</div>
+		<div id="splash-engine">Made with MitchEngine</div>
+	</div>
+</body>
+</rml>

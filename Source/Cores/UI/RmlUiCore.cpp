@@ -20,6 +20,7 @@
 #include "UI/Rml/RmlInterfaces.h"
 #include "UI/Rml/RmlRenderInterface.h"
 #include "UI/Rml/RmlSettings.h"
+#include "Engine/LoadingScreen.h"
 #include <RmlUi/Core.h>
 #include <RmlUi/Debugger.h>
 #include <SDL_mouse.h>
@@ -40,6 +41,7 @@ namespace
     // Inline event actions: menus and flows (ui-click) get common engine verbs without code.
     //   <button onclick="set-text:#target|New text">       replace an element's content
     //   <button onclick="load-scene:Assets/Main.lvl">        queue a scene load
+    //   <button onclick="load-scene-async:Assets/Main.lvl">  load it under the loading screen
     //   <button onclick="play-sound:Assets/Sounds/Click.wav"> a 2D one-shot on the UI bus
     //   <button onclick="quit">                              leave the game (ignored in the editor)
     //   <button onclick="hide-document">                     hide this document (a menu's Back)
@@ -68,6 +70,10 @@ namespace
                 evt.Level = Path( rest ).GetLocalPath();
                 evt.Queue();
                 INFO( "UI", "UI: load-scene " + rest );
+            }
+            else if( action == "load-scene-async" )
+            {
+                LoadingScreen::Get().LoadSceneAsync( Path( rest ).GetLocalPathString() );
             }
             else if( action == "play-sound" )
             {
@@ -167,6 +173,11 @@ void RmlUiCore::ReleaseRml()
         return;
     }
     m_rmlInitialized = false;
+    // The context owns the documents: the overlays reload into the next one.
+    for( Overlay& overlay : m_overlays )
+    {
+        overlay.Document = nullptr;
+    }
     if( m_context != nullptr )
     {
         Rml::RemoveContext( m_contextName );
@@ -329,6 +340,82 @@ void RmlUiCore::HideDocument( const void* InDocument )
         if( document.m_document != nullptr && document.m_document == InDocument )
         {
             document.Visible = false;
+        }
+    }
+}
+
+
+void RmlUiCore::ShowOverlay( const std::string& InPath, int InSortOrder )
+{
+    if( IsOverlayShown( InPath ) )
+    {
+        return;
+    }
+    Overlay overlay;
+    overlay.Path = InPath;
+    overlay.SortOrder = InSortOrder;
+    m_overlays.push_back( std::move( overlay ) );
+}
+
+
+void RmlUiCore::HideOverlay( const std::string& InPath )
+{
+    for( auto it = m_overlays.begin(); it != m_overlays.end(); )
+    {
+        if( it->Path == InPath )
+        {
+            if( it->Document != nullptr )
+            {
+                it->Document->Close();
+            }
+            it = m_overlays.erase( it );
+        }
+        else
+        {
+            ++it;
+        }
+    }
+}
+
+
+bool RmlUiCore::IsOverlayShown( const std::string& InPath ) const
+{
+    return std::any_of( m_overlays.begin(), m_overlays.end(), [&]( const Overlay& InOverlay ) { return InOverlay.Path == InPath; } );
+}
+
+
+void RmlUiCore::LoadOverlays()
+{
+    for( Overlay& overlay : m_overlays )
+    {
+        if( overlay.Document != nullptr || overlay.Failed )
+        {
+            continue;
+        }
+        const Path path( overlay.Path );
+        overlay.Document = path.Exists ? m_context->LoadDocument( path.GetLocalPathString() ) : nullptr;
+        if( overlay.Document == nullptr )
+        {
+            YIKES( "[UI] Failed to load overlay: " + overlay.Path );
+            overlay.Failed = true;
+            continue;
+        }
+        overlay.Document->SetProperty( "z-index", std::to_string( overlay.SortOrder ) );
+        RmlSettings::OnDocumentLoaded( *overlay.Document );
+        overlay.Document->Show();
+        INFO( "UI", "UI: overlay " + overlay.Path );
+    }
+}
+
+
+void RmlUiCore::CloseOverlays()
+{
+    for( Overlay& overlay : m_overlays )
+    {
+        if( overlay.Document != nullptr )
+        {
+            overlay.Document->Close();
+            overlay.Document = nullptr;
         }
     }
 }
@@ -748,6 +835,11 @@ void RmlUiCore::SyncModels()
                 ++reloaded;
             }
         }
+        for( const Overlay& overlay : m_overlays )
+        {
+            reloaded += overlay.Document != nullptr ? 1 : 0;
+        }
+        CloseOverlays();
         if( reloaded > 0 )
         {
             INFO( "UI", "UI: rebound " + std::to_string( reloaded ) + " document(s) to script models" );
@@ -846,7 +938,8 @@ void RmlUiCore::Update( const UpdateContext& inUpdateContext )
     HotReload();
     SyncModels();
 
-    bool anyVisible = false;
+    LoadOverlays();
+    bool anyVisible = std::any_of( m_overlays.begin(), m_overlays.end(), []( const Overlay& InOverlay ) { return InOverlay.Document != nullptr; } );
     for( Entity& entity : GetEntities() )
     {
         UIDocument& document = entity.GetComponent<UIDocument>();
@@ -871,6 +964,13 @@ void RmlUiCore::Update( const UpdateContext& inUpdateContext )
             if( document.m_document != nullptr )
             {
                 RmlSettings::Refresh( *static_cast<Rml::ElementDocument*>( document.m_document ) );
+            }
+        }
+        for( Overlay& overlay : m_overlays )
+        {
+            if( overlay.Document != nullptr )
+            {
+                RmlSettings::Refresh( *overlay.Document );
             }
         }
     }

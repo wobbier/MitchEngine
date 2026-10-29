@@ -256,4 +256,11 @@ struct ScriptEngineAPI
     int ( *SaveGame_List )( uint8_t* outJson, int size );
     bool ( *SaveGame_IsWriting )();
     float ( *SaveGame_GetPlaytime )();
+
+    // Loading screens (PLAY-5): a main-scene load in the background under a loading document
+
+    // ("" = the project's LoadingDocument, "none" = no screen); progress is 0..1, 1 while idle.
+    bool ( *World_LoadSceneAsync )( const uint8_t* scene, const uint8_t* loadingDocument );
+    float ( *World_GetLoadProgress )();
+    bool ( *World_IsLoadingScene )();
 };

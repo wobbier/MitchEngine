@@ -53,6 +53,7 @@
 #include "Engine/HardwareBudget.h"
 #include "Engine/PlayerSettings.h"
 #include "Engine/SaveGames.h"
+#include "Engine/LoadingScreen.h"
 #include "Engine/Project.h"
 #include "Engine/ProjectSettings.h"
 #include "Tools/Cook/CookDependencies.h"
@@ -498,6 +499,11 @@ void Engine::Run()
     {
         LoadScene( ProjectSettings::Get().StartupScene );
     }
+    // The splash plays over the boot scene; automated runs (captures) skip it unless --splash.
+    if( !ProjectSettings::Get().Splash.empty() && ( !AutomationRunner::IsUnattendedRun() || CommandLine::Has( "--splash" ) ) )
+    {
+        LoadingScreen::Get().PlaySplash( ProjectSettings::Get().Splash );
+    }
 #endif
 
     GameClock.Reset();
@@ -848,6 +854,7 @@ void Engine::Run()
             PlayerSettings::Get().Update();
             // Playtime, and a queued save-game load (it replaces the scene, so never mid-frame).
             SaveGames::Get().Update( updateContext.GetUnscaledDeltaTime() );
+            LoadingScreen::Get().Update( updateContext.GetUnscaledDeltaTime() );
 
             if( m_automation.IsActive() )
             {

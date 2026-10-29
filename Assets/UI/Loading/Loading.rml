@@ -1,0 +1,17 @@
+<rml>
+<head>
+	<title>Loading</title>
+	<link type="text/rcss" href="Loading.rcss"/>
+</head>
+<!-- The stock loading screen (PLAY-5), shown by LoadingScreen while a scene loads in the
+     background. It binds the "loading" data model: scene, phase, progress (0..1), percent and
+     width ("42%"). A project replaces it with its own Assets/UI/Loading/Loading.rml, or points
+     Project Settings > Product.LoadingDocument elsewhere. -->
+<body data-model="loading">
+	<div id="loading">
+		<div id="loading-scene">{{ scene }}</div>
+		<div id="loading-bar"><div id="loading-fill" data-style-width="width"></div></div>
+		<div id="loading-status"><span id="loading-phase">{{ phase }}</span><span id="loading-percent">{{ width }}</span></div>
+	</div>
+</body>
+</rml>

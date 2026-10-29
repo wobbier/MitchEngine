@@ -16,6 +16,7 @@ class UIDocument;
 namespace Rml
 {
     class Context;
+    class ElementDocument;
 }
 
 // Shows UIDocument components through RmlUi, the engine's game UI. Documents render into an
@@ -49,6 +50,13 @@ public:
     bool IsDocumentVisible( const std::string& InEntityName );
     // The hide-document action: hides the UIDocument showing InDocument (an Rml::ElementDocument).
     void HideDocument( const void* InDocument );
+
+    // Engine-owned documents with no entity (loading screens, splashes): they stay up while the
+    // scene changes under them. Shown from the next update; InSortOrder stacks them like a
+    // UIDocument's SortOrder (above the scene's documents by default).
+    void ShowOverlay( const std::string& InPath, int InSortOrder = 1000 );
+    void HideOverlay( const std::string& InPath );
+    bool IsOverlayShown( const std::string& InPath ) const;
 
     Rml::Context* GetContext() const { return m_context; }
     // True while the pointer is over (or dragging in) a document: game input should yield.
@@ -104,6 +112,16 @@ private:
         bool Created = false;
     };
     std::map<std::string, Model> m_models;
+    struct Overlay
+    {
+        std::string Path;
+        int SortOrder = 1000;
+        Rml::ElementDocument* Document = nullptr;
+        bool Failed = false;   // logged once, not retried every frame
+    };
+    std::vector<Overlay> m_overlays;
+    void LoadOverlays();
+    void CloseOverlays();
     bool m_modelsMaterialized = false;   // a model/variable appeared: reload loaded documents once
     float m_textScale = 1.f;
     std::string m_language;

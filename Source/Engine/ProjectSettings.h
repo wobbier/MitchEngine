@@ -80,6 +80,16 @@ public:
     // The scene a game build boots when no --scene overrides it ("" = none; the editor
     // never auto-boots it).
     std::string StartupScene;
+    // PLAY-5: documents shown in turn over the startup scene when a game build boots (never in the
+    // editor or unattended runs), and the document async scene loads show (LoadingScreen).
+    struct SplashScreen
+    {
+        std::string Document;
+        float Seconds = 2.f;
+    };
+    std::vector<SplashScreen> Splash;
+    static constexpr const char* kDefaultLoadingDocument = "Assets/UI/Loading/Loading.rml";
+    std::string LoadingDocument = kDefaultLoadingDocument;
     // Build settings, consumed by the SHIP-2 cooker: the scenes a shipped build includes,
     // assets always packed even when nothing references them, and path prefixes to exclude.
     std::vector<std::string> BuildScenes;

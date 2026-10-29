@@ -45,6 +45,9 @@ public:
     // Loaded scenes, oldest first.
     std::vector<uint16_t> GetLoaded() const;
 
+    // Reads, parses and migrates a scene file (any thread). Null on failure.
+    static json ReadScene( const std::string& InPath );
+
 private:
     struct Entry
     {
@@ -59,7 +62,5 @@ private:
     uint16_t NextId();
     Entry* Find( uint16_t InId );
     const Entry* Find( uint16_t InId ) const;
-    // Reads, parses and migrates the scene (any thread). Null on failure.
-    static json ReadScene( const std::string& InPath );
     void Instantiate( World& InWorld, Entry& InEntry, json InData );
 };

@@ -1,0 +1,69 @@
+body {
+	font-family: Inter;
+	font-size: 18dp;
+	color: #EEF1F6;
+	width: 100%;
+	height: 100%;
+	background-color: #07090D;
+}
+
+#loading {
+	position: absolute;
+	left: 50%;
+	bottom: 12%;
+	width: 520dp;
+	margin-left: -260dp;
+}
+
+#loading-scene {
+	display: block;
+	font-size: 26dp;
+	margin-bottom: 14dp;
+}
+
+#loading-bar {
+	display: block;
+	height: 8dp;
+	background-color: #1D2331;
+	border-radius: 4dp;
+}
+
+#loading-fill {
+	display: block;
+	height: 8dp;
+	width: 0%;
+	background-color: #6E8EF0;
+	border-radius: 4dp;
+}
+
+#loading-status {
+	display: block;
+	margin-top: 10dp;
+	font-size: 15dp;
+	color: #9AA4B8;
+}
+
+#loading-percent {
+	float: right;
+}
+
+#splash {
+	position: absolute;
+	left: 0;
+	top: 42%;
+	width: 100%;
+	text-align: center;
+}
+
+#splash-product {
+	display: block;
+	font-size: 44dp;
+	color: #FFFFFF;
+	margin-bottom: 12dp;
+}
+
+#splash-engine {
+	display: block;
+	font-size: 16dp;
+	color: #8E98AC;
+}
