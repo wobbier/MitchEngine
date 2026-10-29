@@ -24,6 +24,8 @@ class AssetPreviewWidget;
 class AssetBrowserWidget;
 class HistoryWidget;
 class LocalizationWidget;
+class TourWidget;
+class WhatsNewWidget;
 class ProfilerWidget;
 class PreferencesWidget;
 class ProjectSettingsWidget;
@@ -117,6 +119,8 @@ private:
 	SharedPtr<AssetBrowserWidget> AssetBrowser;
 	SharedPtr<HistoryWidget> History;
 	SharedPtr<LocalizationWidget> LocalizationTables;
+	SharedPtr<TourWidget> Tour;
+	SharedPtr<WhatsNewWidget> WhatsNew;
 	SharedPtr<ProfilerWidget> Profiler;
 	SharedPtr<PreferencesWidget> Preferences;
 	SharedPtr<ProjectSettingsWidget> ProjectSettingsView;

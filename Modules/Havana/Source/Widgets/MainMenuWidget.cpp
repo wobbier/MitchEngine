@@ -249,6 +249,12 @@ void MainMenuWidget::Render()
 
         if( ImGui::BeginMenu( "Help" ) )
         {
+            // ED-3: the docs, the tour and the release notes (Help.* actions; F1 opens the docs).
+            if( ImGui::MenuItem( "Documentation", "F1" ) ) EditorActions::Get().Execute( "Help.Documentation" );
+            if( ImGui::MenuItem( "Getting Started" ) ) EditorActions::Get().Execute( "Help.GettingStarted" );
+            if( ImGui::MenuItem( "Take the Tour" ) ) EditorActions::Get().Execute( "Help.Tour" );
+            if( ImGui::MenuItem( "What's New" ) ) EditorActions::Get().Execute( "Help.WhatsNew" );
+            ImGui::Separator();
             if( ImGui::MenuItem( "Show ImGui Demo" ) )
             {
                 ShowDemoWindow = !ShowDemoWindow;
@@ -357,7 +363,7 @@ void MainMenuWidget::Render()
     {
         ImGui::Image( Icons["Logo"]->TexHandle, ImVec2( ImGuiTheme::Em( 2.f ), ImGuiTheme::Em( 2.f ) ), ImVec2( 0, 0 ), ImVec2( 1, 1 ), ImGui::GetStyleColorVec4( ImGuiCol_Text ) );
         ImGui::SameLine();
-        ImGui::Text( "A hobby game engine project for making simple games.\nMitch Andrews 2023\n" );
+        ImGui::Text( "MitchEngine and the Havana editor: C# games, from the first hour to a shipped build.\nMitch Andrews, 2017-2026\n" );
         ImGui::Separator();
 #if USING( ME_FMOD )
         ImGui::Text( "FMOD is set up correctly!\n\n" );

@@ -163,6 +163,11 @@ A searchable project-wide table is the default: type icon, name, local path and 
 - **Preferences.** They come in two kinds:
   - **Per user, across every project:** appearance, camera feel, snapping, gizmos, shortcuts, the code editor command, autosave and Maximize On Play (`EditorConfig::IsUserPreference`). These live in `Preferences.json` in the OS preference folder (`SDL_GetPrefPath("MitchEngine", "Havana")`, beside the Hub's recent projects). They win over a project's older copy, and unattended runs neither read nor write the file.
   - **Per project:** everything else (asset browser folder, view options, workspaces), in `.tmp/Havana.cfg`.
+- **Help and onboarding (ED-3).** The Help menu has these entries, each also a `Help.*` action:
+  - **Documentation** (F1) opens `Docs/README.md`, and **Getting Started** opens `Docs/Projects.md`, in the OS viewer. Unattended runs log `Help: <doc>` instead.
+  - **Take the Tour** steps through six stops, opening and focusing Hierarchy, Properties, the asset browser and the Log. It starts on a user's first launch, records `Editor.TourDone`, and `Help.TourNext` / `TourBack` drive it from scripts.
+  - **What's New** renders `Docs/WhatsNew.md` (headings and bullets). It opens by itself once whenever the page changes (`Editor.WhatsNewSeen`).
+  - **Code:** `Widgets/OnboardingWidgets.cpp`. **Proof:** `HelpFlows.edscript`.
 - **Workspaces (ED-2).** Ctrl+1..9 switch between nine workspaces, each with its own dock layout (`.tmp/imgui-workspace-N.ini`) and open panels. Workspaces 1..5 are named Scene, Animation, Shader, UI and Debug. Until you arrange a named workspace, it opens its subject's panels: the Sequencer, the Shader Graph editor, Localization, or the Profiler, Resource Monitor and Log. **View > Reset Layout** (`View.ResetLayout`) puts the active workspace back to the shipped layout and its own panels.
   - **Reloading the layout.** The reload runs between frames (an ImGui `NewFramePre` hook) and asks for a full dock rebuild (`DockContext.WantFullRebuild`), as workspace switches do too.
   - **Proof:** `Tests/Editor/LayoutFlows.edscript`, run by RunChecks' "Editor layouts" step in a fresh Empty project. The `assert-window` command checks a panel is open.

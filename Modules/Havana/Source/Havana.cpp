@@ -39,6 +39,8 @@
 #include "Window/IWindow.h"
 #include "Widgets/HistoryWidget.h"
 #include "Widgets/LocalizationWidget.h"
+#include "Widgets/OnboardingWidgets.h"
+#include "Utils/PlatformUtils.h"
 #include "Widgets/SequenceWidget.h"
 #include "Widgets/ProfilerWidget.h"
 #include "Widgets/SettingsWidgets.h"
@@ -132,6 +134,11 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
     RegisteredWidgets.push_back( History );
     LocalizationTables.reset( new LocalizationWidget() );
     RegisteredWidgets.push_back( LocalizationTables );
+    Tour.reset( new TourWidget() );
+    Tour->ShowPanel = [this]( const std::string& InPanel ) { ShowWidget( InPanel ); };
+    RegisteredWidgets.push_back( Tour );
+    WhatsNew.reset( new WhatsNewWidget() );
+    RegisteredWidgets.push_back( WhatsNew );
 
     Sequencer.reset( new SequenceWidget() );
     RegisteredWidgets.push_back( Sequencer );
@@ -182,6 +189,20 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
     }
 
     actions.Register( { "View.ResetLayout", "Reset Layout", "View", 0, 0, [this]() { ResetLayout(); } } );
+    // ED-3: help and onboarding. Docs open in the OS's viewer (unattended runs only log them).
+    const auto openDoc = []( const std::string& InDoc ) {
+        CLog::Log( CLog::LogType::Info, "Help: " + InDoc );
+        if( !AutomationRunner::IsUnattendedRun() )
+        {
+            PlatformUtils::OpenFile( Path( InDoc ) );
+        }
+    };
+    actions.Register( { "Help.Documentation", "Documentation", "Help", ImGuiKey_F1, 0, [openDoc]() { openDoc( "Engine/Docs/README.md" ); } } );
+    actions.Register( { "Help.GettingStarted", "Getting Started", "Help", 0, 0, [openDoc]() { openDoc( "Engine/Docs/Projects.md" ); } } );
+    actions.Register( { "Help.Tour", "Take the Tour", "Help", 0, 0, [this]() { Tour->Start(); } } );
+    actions.Register( { "Help.TourNext", "Tour: Next", "Help", 0, 0, [this]() { if( Tour->IsOpen ) Tour->Next(); } } );
+    actions.Register( { "Help.TourBack", "Tour: Back", "Help", 0, 0, [this]() { if( Tour->IsOpen ) Tour->Back(); } } );
+    actions.Register( { "Help.WhatsNew", "What's New", "Help", 0, 0, [this]() { WhatsNew->IsOpen = true; } } );
 
     InitUI();
 }
@@ -295,6 +316,11 @@ void Havana::InitUI()
         customWidget->Init();
     }
     RestoreWorkspacePanelVisibility( ActiveWorkspace );
+    // A user's first launch starts the tour (ED-3); it records when it's done or skipped.
+    if( !AutomationRunner::IsUnattendedRun() && !EditorConfig::GetInstance().GetPreference<bool>( "Editor.TourDone", false ) )
+    {
+        Tour->Start();
+    }
 
     ShaderGraphs->Init();
     Sequencer->InstallActionRouting();
@@ -362,6 +388,8 @@ void Havana::NewFrame()
     ResourceMonitor->Render();
     History->Render();
     LocalizationTables->Render();
+    Tour->Render();
+    WhatsNew->Render();
     Sequencer->Render();
     Profiler->Render();
     Preferences->Render();
