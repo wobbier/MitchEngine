@@ -475,6 +475,14 @@ A camera can render into a texture asset that any material samples: a security m
   - Normal maps join the batch key.
   - 2D shadow casters aren't done.
   - `../Assets/Scenes/Showcase/Lights2D.lvl` shows it: a tiled stone wall and crates with generated normal maps (`../Tools/BuildSpriteArt.py`), three flat crates for comparison, a rotated crate and a hero, under three coloured point lights (two bob) and a dim moonlight.
+- **World-space text** (LOOK-S12, `TextRenderer`, `Text/FontAtlas.h`): UTF-8 lines (`\n` breaks) in the entity's XY plane, facing -Z like sprites.
+  - Fields: `Size` (line height in world units), `LineSpacing`, `Alignment` (left, center, right), `Anchor` (top, middle, bottom), `Color` and `Opacity`, and `Billboard`, which turns it to the main camera for name tags and damage numbers.
+  - Lit or unlit, with sorting.
+  - The glyphs: FreeType renders each one as a signed distance field (`FT_RENDER_MODE_SDF`, a 6 px spread at 48 px line height) into a 1024² atlas per font, shelf-packed on first use, with kerning.
+  - Each glyph is a sprite command with `Sdf` set, so the sprite pass turns the distance into a pixel-wide antialiased edge (`fwidth`). Text stays crisp up close and far away, and batches with other glyphs of its font.
+  - C#: `TextRenderer.Text`, `Color`.
+  - Proof: `../Assets/Scenes/Showcase/WorldText.lvl`, a screenshot-regression reference with a sign, a floating title, billboarded tags and a damage number, lit text under a lamp, and small text far away. `WorldTextTests.cpp` covers UTF-8, glyph metrics and measuring.
+  - Not done: screen-door dither fades (LOD crossfade, camera occluders); see the follow-up issue.
 - **Tilemaps** (LOOK-S5, `Components/Graphics/Tilemap.h`): a grid in the entity's local XY plane. Cell (x, y) covers [x, x+1) × [y, y+1) times `CellSize`.
   - Cells hold an index into `Palette`, whose entries name sprites of `Sheet`.
   - An entry `@Base` autotiles: a cell shows `Base_<mask>`, where the mask holds its same-entry neighbours (1 up, 2 right, 4 down, 8 left), falling back to `Base`.

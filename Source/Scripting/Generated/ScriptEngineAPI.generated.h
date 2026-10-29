@@ -361,4 +361,9 @@ struct ScriptEngineAPI
     void ( *Tilemap_Clear )( EntityID id );
     int ( *Tilemap_GetTileCount )( EntityID id );
     void ( *Tilemap_WorldToCell )( EntityID id, const Vector3* world, int* outCell );
+
+    // World-space text (LOOK-S12): the entity's TextRenderer
+    void ( *Text_SetText )( EntityID id, const uint8_t* text );
+    int ( *Text_GetText )( EntityID id, uint8_t* outText, int size );
+    void ( *Text_SetColor )( EntityID id, Vector4* color );
 };

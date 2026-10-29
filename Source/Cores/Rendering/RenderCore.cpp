@@ -19,6 +19,7 @@
 #include "Components/Graphics/Decal.h"
 #include "Components/Graphics/SpriteRenderer.h"
 #include "Components/Graphics/Tilemap.h"
+#include "Components/Graphics/TextRenderer.h"
 #include "Components/Graphics/Outline.h"
 #include "Components/Graphics/WindZone.h"
 #include "Components/Graphics/Mesh.h"
@@ -601,6 +602,22 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                 command.Sequence = static_cast<uint32_t>( sprites.size() );
                 command.ID = entity.GetId().Value();
                 sprites.push_back( command );
+            }
+        } );
+        // World-space text (LOOK-S12): one SDF glyph sprite per character; billboards face the main camera.
+        glm::mat3 cameraRotation( 1.f );
+        for( const Moonlight::CameraData& camera : renderer.GetCameraCache().Commands )
+        {
+            if( camera.IsMain )
+            {
+                cameraRotation = glm::transpose( glm::mat3( camera.View.GetInternalMatrix() ) );
+                break;
+            }
+        }
+        GetWorld().Each<Transform, TextRenderer>( [&]( Entity& entity, Transform& transform, TextRenderer& text ) {
+            if( entity.IsActiveInHierarchy() && text.IsEnabled() )
+            {
+                text.BuildCommands( transform, cameraRotation, sprites, entity.GetId().Value() );
             }
         } );
         // Tilemaps (LOOK-S5): one sprite per filled cell, batched like any sprites.

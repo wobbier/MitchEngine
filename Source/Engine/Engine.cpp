@@ -7,6 +7,7 @@
 #include "Cores/TerrainCore.h"
 #include "Cores/Physics2DCore.h"
 #include "Cores/AnimationCore.h"
+#include "Text/FontAtlas.h"
 #include "Cores/SequenceCore.h"
 #include "Cores/NavigationCore.h"
 #include "Cores/Cameras/CameraCore.h"
@@ -996,6 +997,8 @@ void Engine::Shutdown()
     {
         AudioThread->Shutdown();
     }
+    // World-text glyph atlases hold GPU textures: free them while the renderer is alive.
+    FontAtlas::ReleaseAll();
 #if USING( ME_SCRIPTING )
     if( RmlUi )
     {

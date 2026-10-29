@@ -245,14 +245,14 @@ void BGFXRenderer::RenderSprites( Moonlight::CameraData& camera )
             const bool last = i + 1 == end;
             const Moonlight::SpriteCommand* following = last ? nullptr : &m_sprites[m_spriteOrder[i + 1].second];
             const bool sameBatch = following && following->Texture.idx == sprite.Texture.idx && following->NormalMap.idx == sprite.NormalMap.idx && following->Lit == sprite.Lit
-                && following->Blend == sprite.Blend && following->PointFilter == sprite.PointFilter;
+                && following->Blend == sprite.Blend && following->PointFilter == sprite.PointFilter && following->Sdf == sprite.Sdf;
             if( sameBatch )
             {
                 continue;
             }
             const bgfx::TextureHandle texture = bgfx::isValid( sprite.Texture ) ? sprite.Texture : m_spriteWhite;
             const bool normalMapped = sprite.Lit && bgfx::isValid( sprite.NormalMap );
-            const float params[4] = { sprite.Lit ? 1.f : 0.f, sprite.Blend == Moonlight::SpriteBlend::Additive ? 1.f : 0.f, normalMapped ? 1.f : 0.f, 0.f };
+            const float params[4] = { sprite.Lit ? 1.f : 0.f, sprite.Blend == Moonlight::SpriteBlend::Additive ? 1.f : 0.f, normalMapped ? 1.f : 0.f, sprite.Sdf ? 1.f : 0.f };
             const uint64_t blend = sprite.Blend == Moonlight::SpriteBlend::Additive ? BGFX_STATE_BLEND_FUNC( BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE ) : BGFX_STATE_BLEND_ALPHA;
             const uint32_t sampler = sprite.PointFilter ? ( BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP ) : UINT32_MAX;
             bgfx::setVertexBuffer( 0, &tvb );

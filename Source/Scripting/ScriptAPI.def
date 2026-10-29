@@ -343,3 +343,8 @@ void Tilemap_FillRect( Entity id, int x0, int y0, int x1, int y1, int index )
 void Tilemap_Clear( Entity id )
 int Tilemap_GetTileCount( Entity id )
 void Tilemap_WorldToCell( Entity id, const Vector3* world, int* outCell )
+
+## World-space text (LOOK-S12): the entity's TextRenderer
+void Text_SetText( Entity id, cstr text )
+int Text_GetText( Entity id, byte* outText, int size )
+void Text_SetColor( Entity id, Vector4* color )

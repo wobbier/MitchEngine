@@ -237,6 +237,8 @@ namespace Moonlight
         bool FlipY = false;
         bool Lit = false;
         bool PointFilter = false;
+        // The texture's alpha is a signed distance field (0.5 = the edge): world-space text glyphs.
+        bool Sdf = false;
         SpriteBlend Blend = SpriteBlend::Alpha;
         int32_t Layer = 0;
         int32_t Order = 0;

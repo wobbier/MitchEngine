@@ -150,6 +150,8 @@ public class Engine : BaseProject
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "Modules/Singleton/Source"));
 
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/SDL/include"));
+        // World-space text (TextRenderer) rasterizes SDF glyphs with FreeType (linked through RmlUi).
+        conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/freetype/include"));
 
         // TODO: Fix other API's
         //if (target.SubPlatform == CommonTarget.SubPlatformType.Win64 || target.SubPlatform == CommonTarget.SubPlatformType.macOS)

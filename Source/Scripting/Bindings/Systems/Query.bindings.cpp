@@ -11,6 +11,7 @@
 #include "Components/Effects/ParticleSystem.h"
 #include "Components/Graphics/SpriteRenderer.h"
 #include "Components/Graphics/Tilemap.h"
+#include "Components/Graphics/TextRenderer.h"
 #include "Components/Transform.h"
 #include "Components/Physics/Rigidbody2D.h"
 #include "Cores/Physics2DCore.h"
@@ -685,6 +686,36 @@ static void Eng_Tilemap_WorldToCell( EntityID inId, const Vector3* inWorld, int*
 }
 
 
+static void Eng_Text_SetText( EntityID inId, const uint8_t* inText )
+{
+    if( TextRenderer* text = ComponentOf<TextRenderer>( inId ) ) text->Text = Text( inText );
+}
+
+
+static int Eng_Text_GetText( EntityID inId, uint8_t* outText, int inSize )
+{
+    TextRenderer* text = ComponentOf<TextRenderer>( inId );
+    const std::string value = text ? text->Text : std::string();
+    if( outText && inSize > 0 )
+    {
+        const int length = std::min( static_cast<int>( value.size() ), inSize - 1 );
+        std::memcpy( outText, value.data(), static_cast<size_t>( length ) );
+        outText[length] = 0;
+    }
+    return static_cast<int>( value.size() );
+}
+
+
+static void Eng_Text_SetColor( EntityID inId, Vector4* inColor )
+{
+    if( TextRenderer* text = ComponentOf<TextRenderer>( inId ); text && inColor )
+    {
+        text->Color = Vector3( inColor->x, inColor->y, inColor->z );
+        text->Opacity = inColor->w;
+    }
+}
+
+
 void Register_QueryBindings( ScriptEngineAPI& inAPI )
 {
     inAPI.Camera_ScreenToRay = Eng_Camera_ScreenToRay;
@@ -736,6 +767,9 @@ void Register_QueryBindings( ScriptEngineAPI& inAPI )
     inAPI.Tilemap_Clear = Eng_Tilemap_Clear;
     inAPI.Tilemap_GetTileCount = Eng_Tilemap_GetTileCount;
     inAPI.Tilemap_WorldToCell = Eng_Tilemap_WorldToCell;
+    inAPI.Text_SetText = Eng_Text_SetText;
+    inAPI.Text_GetText = Eng_Text_GetText;
+    inAPI.Text_SetColor = Eng_Text_SetColor;
     inAPI.World_FindAllWithComponent = Eng_World_FindAllWithComponent;
     inAPI.World_FindAllByName = Eng_World_FindAllByName;
     inAPI.Transform_GetChildren = Eng_Transform_GetChildren;

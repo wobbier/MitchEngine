@@ -11,7 +11,7 @@ SAMPLER2D(s_texSprite, 0);
 SAMPLER2D(s_sceneDepth, 1);
 SAMPLER2D(s_texSpriteNormal, 2);
 
-uniform vec4 u_spriteParams;   // x 1 = lit, y 1 = additive (premultiply), z 1 = normal mapped
+uniform vec4 u_spriteParams;   // x 1 = lit, y 1 = additive (premultiply), z 1 = normal mapped, w 1 = SDF alpha (text)
 uniform vec4 u_particleDepth;  // x P[2][2], y P[3][2], z orthographic, w depth range -1..1
 
 float sceneViewDepth(vec2 _uv)
@@ -28,6 +28,12 @@ float sceneViewDepth(vec2 _uv)
 void main()
 {
 	vec4 tex = texture2D(s_texSprite, v_texcoord0);
+	if (u_spriteParams.w > 0.5)
+	{
+		// Signed distance glyphs: a pixel-wide antialiased edge at any scale.
+		float width = max(fwidth(tex.a) * 0.75, 0.0001);
+		tex.a = smoothstep(0.5 - width, 0.5 + width, tex.a);
+	}
 	vec4 color = vec4(toLinear(tex.rgb), tex.a) * v_color0;
 	if (color.a < 0.002)
 	{

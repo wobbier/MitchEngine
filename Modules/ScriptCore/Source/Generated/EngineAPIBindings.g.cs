@@ -349,4 +349,9 @@ public unsafe struct EngineAPIBindings
     public delegate* unmanaged<Entity, void> Tilemap_Clear;
     public delegate* unmanaged<Entity, int> Tilemap_GetTileCount;
     public delegate* unmanaged<Entity, Vector3*, int*, void> Tilemap_WorldToCell;
+
+    // World-space text (LOOK-S12): the entity's TextRenderer
+    public delegate* unmanaged<Entity, byte*, void> Text_SetText;
+    public delegate* unmanaged<Entity, byte*, int, int> Text_GetText;
+    public delegate* unmanaged<Entity, Vector4*, void> Text_SetColor;
 }
