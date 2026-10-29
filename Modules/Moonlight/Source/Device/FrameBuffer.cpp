@@ -112,6 +112,12 @@ void Moonlight::FrameBuffer::Release()
         DestroyIfValid( clouds.Color );
     }
     CloudValid = false;
+    for( Mip& fog : FogHistory )
+    {
+        DestroyIfValid( fog.Buffer );
+        DestroyIfValid( fog.Color );
+    }
+    FogHistoryValid = false;
     for( Mip* graph : { &GraphHdr[0], &GraphHdr[1], &GraphLdr[0], &GraphLdr[1], &GraphSceneMips } )
     {
         DestroyIfValid( graph->Buffer );
@@ -156,6 +162,19 @@ void Moonlight::FrameBuffer::EnsureDepthOfFieldTargets( bool InSplit )
     DoFNear = CreateColorTarget( halfWidth, halfHeight, bgfx::TextureFormat::RGBA16F, "DoF Near" );
     DoFFar = CreateColorTarget( halfWidth, halfHeight, bgfx::TextureFormat::RGBA16F, "DoF Far" );
     DoFOutput = CreateColorTarget( width, height, bgfx::TextureFormat::RGBA16F, "DoF Composite" );
+}
+
+
+void Moonlight::FrameBuffer::EnsureFogHistoryTargets()
+{
+    for( Mip& fog : FogHistory )
+    {
+        if( !bgfx::isValid( fog.Color ) )
+        {
+            fog = CreateColorTarget( static_cast<uint16_t>( std::max<uint32_t>( Width / 2, 1 ) ), static_cast<uint16_t>( std::max<uint32_t>( Height / 2, 1 ) ), bgfx::TextureFormat::RGBA16F, "Volumetric Fog History" );
+            FogHistoryValid = false;
+        }
+    }
 }
 
 

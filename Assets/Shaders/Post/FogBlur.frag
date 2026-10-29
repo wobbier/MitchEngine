@@ -1,6 +1,7 @@
 $input v_texcoord0
 
-// Depth-aware 5x5 blur of the raymarched fog (half resolution): hides the per-pixel step jitter.
+// Depth-aware blur of the raymarched fog (half resolution): hides the per-pixel step jitter. 5x5
+// for a single frame's march, 3x3 (u_fogVolume2.w) once the temporal history has converged.
 #include "../Common.sh"
 #include "../Fog.sh"
 
@@ -24,6 +25,10 @@ void main()
 	{
 		for (int x = -2; x <= 2; ++x)
 		{
+			if (abs(float(x)) > u_fogVolume2.w || abs(float(y)) > u_fogVolume2.w)
+			{
+				continue;
+			}
 			// Each fog value must use the depth of the ray that produced it. Sampling between
 			// texels blends across silhouettes before the depth weight can reject the other side.
 			vec2 tap = clamp(center + vec2(float(x), float(y)), vec2_splat(0.0), halfSize - 1.0);

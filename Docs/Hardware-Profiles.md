@@ -2,7 +2,7 @@
 
 A project picks a **hardware profile**: a target machine such as "Xbox 360", "2004 PC", "Switch" or "Steam Deck". The profile sets a frame-time target, memory budgets, per-frame draw limits and the GPU features the target has. `HardwareBudget` measures every frame against it, and the editor shows the verdict. When the profile is **enforced**, the renderer turns off the features the target lacks and caps texture and shadow sizes, so the game shows the target's look. Profiles are JSON data.
 
-> Verified against engine commit 3f04199c plus the hardware profiles change, 2026-10-22.
+> Verified against engine commit 3f04199c plus the hardware profiles change, 2026-10-22; `MaxVolumetricSteps` against 94407e9d plus the concert lighting change, 2026-10-29.
 
 ## Overview
 
@@ -87,7 +87,7 @@ A line is **Near** at 90% of its limit and **Over** above it. `Peak` holds the h
   - `Shadows` off masks `Shadows.Enabled` (`AreShadowsActive`).
   - `MaxShadowResolution` clamps the cascade, spot and point tile sizes (`CapShadowResolution`); the atlases are recreated at the clamped size.
   - `EnvironmentLighting` off skips the IBL probe, so ambient falls back to the fallback cube.
-  - `RenderCameraView` clears `AmbientOcclusion`, `Bloom`, `DepthOfField`, `VolumetricFog` and `TemporalAA` from the camera's post settings for that render. `CameraRestore` puts them back afterwards.
+  - `RenderCameraView` clears `AmbientOcclusion`, `Bloom`, `DepthOfField`, `VolumetricFog` and `TemporalAA` from the camera's post settings for that render, and clamps `VolumetricSteps` to `MaxVolumetricSteps` (0 = no cap; the Steam Deck profile sets 64). `CameraRestore` puts them back afterwards.
   - `Instancing` off limits every instanced submit, opaque and shadow casters, to one instance per draw. The draw count rises the way it would on hardware without instancing, and every mesh keeps its shader. Particles stay batched.
 - **Textures** (`Texture::SetMaxUploadSize`): `FinishAsyncLoad` uploads a single-layer mipped 2D texture from its first mip that fits the cap. `mWidth` / `mHeight` report that size, so decals sample with the right texel size. Changing the cap reloads every cached file texture that has a compiled `.dds`.
 

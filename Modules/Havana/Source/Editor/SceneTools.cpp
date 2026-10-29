@@ -432,6 +432,26 @@ namespace SceneTools
                         DebugDraw::Arrow( position, position + command.Direction * std::min( command.Range, selected ? 2.f : 1.f ), color, 0.2f, 0.f, DebugDraw::EditorOnly );
                         if( selected )
                         {
+                            // The beam: each corner's edge leaves the face tilted outwards by the outer
+                            // cone angle (the cone is measured from the closest point on the face), with
+                            // the inner angle's full-intensity core drawn fainter inside it.
+                            auto drawBeam = [&]( float angleDegrees, const Vector4& beamColor ) {
+                                const float tangent = std::tan( glm::radians( std::clamp( angleDegrees, 0.f, 89.f ) ) );
+                                const float length = std::min( command.Range, 40.f );
+                                Vector3 far[4];
+                                for( int i = 0; i < 4; ++i )
+                                {
+                                    const Vector3 outward = ( corners[i] - position ).Normalized();
+                                    far[i] = corners[i] + ( command.Direction + outward * tangent ) * length;
+                                    DebugDraw::Line( corners[i], far[i], beamColor, 0.f, DebugDraw::EditorOnly );
+                                }
+                                for( int i = 0; i < 4; ++i )
+                                {
+                                    DebugDraw::Line( far[i], far[( i + 1 ) % 4], beamColor, 0.f, DebugDraw::EditorOnly );
+                                }
+                            };
+                            drawBeam( light->OuterConeAngle, color );
+                            drawBeam( light->InnerConeAngle, Vector4( color.x, color.y, color.z, 0.35f ) );
                             glm::mat4 axes( 1.f );
                             axes[0] = glm::vec4( command.AxisX.InternalVector, 0.f );
                             axes[1] = glm::vec4( command.AxisY.InternalVector, 0.f );

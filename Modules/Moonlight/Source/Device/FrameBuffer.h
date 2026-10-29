@@ -46,6 +46,16 @@ namespace Moonlight
         // Half-resolution volumetric fog (raymarched and blurred): rgb in-scattering, a transmittance.
         Mip FogBuffer;
         Mip FogBlurBuffer;
+        // Volumetric fog history (created on first use): the march accumulated over frames,
+        // ping-ponged with the history it was resolved against (PostProcess::RenderFog).
+        Mip FogHistory[2];
+        uint32_t FogHistoryIndex = 0;       // the target written last
+        bool FogHistoryValid = false;       // FogHistory[FogHistoryIndex] holds last frame's resolve
+        uint32_t FogFrame = 0;              // position in the march jitter sequence
+        float FogPreviousViewProjection[16] = {};   // last frame's (unjittered), kept by the fog pass
+        float FogPreviousOrigin[3] = {};            // last frame's camera position and forward axis
+        float FogPreviousForward[3] = {};
+        void EnsureFogHistoryTargets();
 
         // Auto exposure: this frame's average luminance and the adapted value (ping-pong).
         Mip LuminanceBuffer;

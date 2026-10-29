@@ -338,6 +338,8 @@ TEST_CASE( "Light: extended emitter properties round-trip through component seri
         source.Size = Vector3( 3.f, 2.f, 1.f );
         source.RectangleWidth = 2.5f;
         source.RectangleHeight = 0.75f;
+        source.InnerConeAngle = 6.f;
+        source.OuterConeAngle = 11.f;
         json saved;
         source.Serialize( saved );
         const char* name = type == Moonlight::LightType::Bar ? "Bar" : type == Moonlight::LightType::Box ? "Box" : "Rectangle";
@@ -351,7 +353,39 @@ TEST_CASE( "Light: extended emitter properties round-trip through component seri
         CHECK( ( restored.Size == source.Size ) );
         CHECK( restored.RectangleWidth == doctest::Approx( 2.5f ) );
         CHECK( restored.RectangleHeight == doctest::Approx( 0.75f ) );
+        CHECK( restored.InnerConeAngle == doctest::Approx( 6.f ) );
+        CHECK( restored.OuterConeAngle == doctest::Approx( 11.f ) );
     }
+}
+
+TEST_CASE( "Light: rectangle beams take their cone from the spot cone angles" )
+{
+    constexpr float kDegrees = 3.14159265f / 180.f;
+    Transform transform;
+    Light light;
+    light.LightType = Moonlight::LightType::Rectangle;
+    light.RectangleWidth = 0.8f;
+    light.RectangleHeight = 0.5f;
+    light.InnerConeAngle = 4.f;
+    light.OuterConeAngle = 9.f;
+    Moonlight::LightCommand command = light.BuildCommand( transform );
+    // The same cosines a spot light packs, so the shader's shared cone test applies unchanged.
+    CHECK( command.CosOuter == doctest::Approx( std::cos( 9.f * kDegrees ) ) );
+    CHECK( command.CosInner == doctest::Approx( std::cos( 4.f * kDegrees ) ) );
+    CHECK( command.OuterConeAngle == doctest::Approx( 9.f ) );
+    CHECK( command.HalfSize.x == doctest::Approx( 0.4f ) );
+    CHECK( command.HalfSize.y == doctest::Approx( 0.25f ) );
+
+    // The inner angle never reaches the outer one (the ramp keeps a finite width), and the outer
+    // angle stops short of the face plane: 89 is the near-hemisphere panel.
+    light.InnerConeAngle = 40.f;
+    light.OuterConeAngle = 30.f;
+    command = light.BuildCommand( transform );
+    CHECK( command.CosInner > command.CosOuter );
+    light.OuterConeAngle = 180.f;
+    command = light.BuildCommand( transform );
+    CHECK( command.CosOuter == doctest::Approx( std::cos( 89.f * kDegrees ) ) );
+    CHECK( command.OuterConeAngle == doctest::Approx( 89.f ) );
 }
 
 TEST_CASE( "Light: legacy scenes keep their type and default emitter dimensions" )

@@ -52,6 +52,7 @@ struct HardwareProfile
         bool Bloom = true;
         bool DepthOfField = true;
         bool VolumetricFog = true;
+        int MaxVolumetricSteps = 0;     // raymarch samples per pixel the target affords (0 = no cap)
         bool TemporalAA = true;
         bool EnvironmentLighting = true;
         bool Instancing = true;

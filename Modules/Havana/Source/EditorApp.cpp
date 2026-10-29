@@ -473,6 +473,8 @@ void EditorApp::StopGame()
         buffer->TemporalFrame = 0;
         buffer->CloudValid = false;
         buffer->CloudFrame = 0;
+        buffer->FogHistoryValid = false;
+        buffer->FogFrame = 0;
     }
 
     UndoStack::Get().SetSuspended( false );

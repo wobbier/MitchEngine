@@ -50,7 +50,9 @@ ME_REFLECT_BEGIN( PostProcess )
     ME_FIELD( FogAnisotropy ).Category( "Fog" ).Range( 0.f, 0.95f ).Tooltip( "0 scatters evenly; towards 1 the fog glows around the sun" );
     ME_FIELD( VolumetricFog ).Category( "Fog" ).Tooltip( "Raymarch the fog's lighting: shafts through the sun's shadows, point and spot lights" );
     ME_FIELD( VolumetricDistance ).Display( "Volumetric Distance (m)" ).Category( "Fog" ).Range( 5.f, 300.f ).Tooltip( "Metres raymarched (fog beyond is analytic)" );
-    ME_FIELD( VolumetricSteps ).Category( "Fog" ).Range( 4.f, 64.f );
+    ME_FIELD( VolumetricSteps ).Category( "Fog" ).Range( 4.f, 256.f ).Tooltip( "Raymarch samples per pixel (hardware profiles may cap it)" );
+    ME_FIELD( VolumetricTemporal ).Display( "Volumetric Temporal" ).Category( "Fog" ).Tooltip( "Accumulate the raymarch over frames against a reprojected history (independent of Temporal AA): smooth shafts for the same step count; a fast cut or a moving light trails for a few frames" );
+    ME_FIELD( FogLocalAnisotropy ).Display( "Local Light Anisotropy" ).Category( "Fog" ).Range( 0.f, 0.95f ).Tooltip( "Henyey-Greenstein g for point, spot and area lights in volumetric fog: 0 scatters evenly; towards 1 beams brighten when seen from in front of the fixture" );
     ME_FIELD( Saturation ).Category( "Color Grading" ).Range( 0.f, 2.f );
     ME_FIELD( Contrast ).Category( "Color Grading" ).Range( 0.f, 2.f );
     ME_FIELD( Temperature ).Category( "Color Grading" ).Range( -1.f, 1.f );
@@ -148,6 +150,8 @@ Moonlight::PostProcessSettings PostProcess::ToSettings() const
     settings.VolumetricFog = VolumetricFog;
     settings.VolumetricDistance = VolumetricDistance;
     settings.VolumetricSteps = VolumetricSteps;
+    settings.VolumetricTemporal = VolumetricTemporal;
+    settings.FogLocalAnisotropy = FogLocalAnisotropy;
     settings.Saturation = Saturation;
     settings.Contrast = Contrast;
     settings.Temperature = Temperature;

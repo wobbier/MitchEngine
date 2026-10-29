@@ -13,13 +13,13 @@ ME_REFLECT_BEGIN( Light )
     ME_FIELD( Color ).Color();
     ME_FIELD( Intensity ).Range( 0.f, 100.f ).Speed( 0.05f );
     ME_FIELD( Range ).Display( "Range (m)" ).Range( 0.01f, 1000.f ).Tooltip( "Local lights: fade distance from the source; bar/box/rectangle: measured from the emitter surface" );
-    ME_FIELD( InnerConeAngle ).Range( 0.f, 89.f ).Tooltip( "Spot: full intensity inside this half-angle (degrees)" );
-    ME_FIELD( OuterConeAngle ).Range( 0.f, 89.f ).Tooltip( "Spot: no light outside this half-angle (degrees)" );
+    ME_FIELD( InnerConeAngle ).Range( 0.f, 89.f ).Tooltip( "Spot / rectangle: full intensity inside this half-angle (degrees); the gap to the outer angle is the beam's feathered edge" );
+    ME_FIELD( OuterConeAngle ).Range( 0.f, 89.f ).Tooltip( "Spot / rectangle: no light outside this half-angle (degrees). A rectangle measures it from the closest point on its face, so its beam starts the full panel size; 89 is a near hemisphere" );
     ME_FIELD( Length ).Display( "Bar Length (m)" ).Range( 0.f, 1000.f ).Speed( 0.01f ).Tooltip( "Bar: segment length along local X, before transform scale; rounded ends extend by Radius" );
     ME_FIELD( Radius ).Display( "Bar Radius (m)" ).Range( 0.001f, 100.f ).Speed( 0.001f ).Tooltip( "Bar: fluorescent tube radius before transform scale" );
     ME_FIELD( Size ).Display( "Box Size (m)" ).Range( 0.001f, 1000.f ).Speed( 0.01f ).Tooltip( "Box: full emitter dimensions on local X/Y/Z, before transform scale; emits in all directions" );
     ME_FIELD( RectangleWidth ).Display( "Rectangle Width (m)" ).Range( 0.001f, 1000.f ).Speed( 0.01f ).Tooltip( "Rectangle: face width along local X before transform scale; emits only forwards (+Z)" );
-    ME_FIELD( RectangleHeight ).Display( "Rectangle Height (m)" ).Range( 0.001f, 1000.f ).Speed( 0.01f ).Tooltip( "Rectangle: face height along local Y before transform scale; cosine falloff towards the edges of the forward hemisphere" );
+    ME_FIELD( RectangleHeight ).Display( "Rectangle Height (m)" ).Range( 0.001f, 1000.f ).Speed( 0.01f ).Tooltip( "Rectangle: face height along local Y before transform scale; the beam shape comes from the cone angles" );
     ME_FIELD( CastShadows ).Category( "Shadows" ).Tooltip( "Directional, point and spot lights support shadows; bar, box and rectangle lights are unshadowed" );
     ME_FIELD( ShadowBias ).Category( "Shadows" ).Range( 0.f, 5.f ).Speed( 0.01f ).Tooltip( "Shadow texels the receiver is pushed towards the light (fixes acne)" );
     ME_FIELD( ShadowNormalBias ).Category( "Shadows" ).Range( 0.f, 5.f ).Speed( 0.01f ).Tooltip( "Shadow texels the receiver is pushed along its normal (fixes acne on slopes)" );

@@ -77,7 +77,7 @@ TEST_CASE( "Hardware profiles: keys read over the defaults, frame budgets follow
 {
     HardwareProfile profile;
     profile.Deserialize( json::parse( R"({ "Name": "Test", "TargetFps": 30, "GpuMs": 20, "Resolution": [ 1280, 720 ], "RamMiB": 512,
-        "MaxDrawCalls": -5, "Caps": { "MaxTextureSize": 1024, "VolumetricFog": false } })" ) );
+        "MaxDrawCalls": -5, "Caps": { "MaxTextureSize": 1024, "VolumetricFog": false, "MaxVolumetricSteps": 48 } })" ) );
     CHECK( profile.Name == "Test" );
     CHECK( profile.GetCpuBudgetMs() == doctest::Approx( 1000.f / 30.f ) );
     CHECK( profile.GetGpuBudgetMs() == doctest::Approx( 20.f ) );
@@ -87,6 +87,7 @@ TEST_CASE( "Hardware profiles: keys read over the defaults, frame budgets follow
     CHECK( profile.MaxDrawCalls == 0 );         // negative means no limit
     CHECK( profile.Caps.MaxTextureSize == 1024 );
     CHECK_FALSE( profile.Caps.VolumetricFog );
+    CHECK( profile.Caps.MaxVolumetricSteps == 48 );
     CHECK( profile.Caps.Shadows );              // not mentioned: the target has it
 }
 

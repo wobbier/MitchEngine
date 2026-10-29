@@ -820,7 +820,7 @@ void SceneHierarchyWidget::DrawCreateTemplates(Transform* parent)
 		}
 		if (ImGui::MenuItem("Rectangle Light"))
 		{
-			create("Rectangle Light", json::array({ json{ { "Type", "Transform" }, { "Rotation", { 90.0, 0.0, 0.0 } } }, json{ { "Type", "Light" }, { "LightType", "Rectangle" }, { "Intensity", 10.0 }, { "Range", 10.0 }, { "RectangleWidth", 2.0 }, { "RectangleHeight", 1.0 } } }));
+			create("Rectangle Light", json::array({ json{ { "Type", "Transform" }, { "Rotation", { 90.0, 0.0, 0.0 } } }, json{ { "Type", "Light" }, { "LightType", "Rectangle" }, { "Intensity", 10.0 }, { "Range", 10.0 }, { "RectangleWidth", 2.0 }, { "RectangleHeight", 1.0 }, { "InnerConeAngle", 40.0 }, { "OuterConeAngle", 60.0 } } }));
 		}
 		ImGui::EndMenu();
 	}

@@ -33,6 +33,9 @@ namespace Moonlight
         // Height fog over the opaque HDR colour (after SSAO, before transparents). InBindLighting
         // binds the renderer's lighting state for each fog draw: the lights, clusters and shadow
         // atlases volumetric fog raymarches, and the fog uniforms themselves (FogUniforms).
+        // With VolumetricTemporal the half-resolution march is resolved against its reprojected
+        // history (InTargets.FogHistory, its own frame counter and previous matrix, so it works
+        // without temporal AA) before the blur.
         void RenderFog( ViewAllocator& InViews, const CameraData& InCamera, FrameBuffer& InTargets, const std::function<void()>& InBindLighting );
 
         // Temporal anti-aliasing (PostProcessSettings::TemporalAA) once the HDR scene is complete:
@@ -51,6 +54,10 @@ namespace Moonlight
         static void TemporalJitter( uint32_t InFrame, float OutJitter[2] );
         // How much of the history each resolve keeps.
         static constexpr float kTemporalHistoryWeight = 0.9f;
+        // How much of the fog history each volumetric fog resolve keeps (VolumetricTemporal).
+        static constexpr float kFogHistoryWeight = 0.9f;
+        // The most raymarch steps a volumetric fog pixel takes (FogScatter.frag's loop bound).
+        static constexpr int kMaxVolumetricSteps = 256;
 
         // Seconds since the last frame, for eye adaptation.
         float DeltaSeconds = 1.f / 60.f;
@@ -74,6 +81,7 @@ namespace Moonlight
         ShaderCommand m_adaptProgram;
         ShaderCommand m_fogScatterProgram;
         ShaderCommand m_fogBlurProgram;
+        ShaderCommand m_fogResolveProgram;
         ShaderCommand m_fogProgram;
         ShaderCommand m_taaProgram;
         ShaderCommand m_copyProgram;
@@ -115,6 +123,9 @@ namespace Moonlight
         bgfx::UniformHandle u_fogProjection2 = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_fogScreen = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_fogInvView = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_fogVolume2 = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_fogReproject = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_fogHistory = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_taaCurrent = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_taaHistory = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_taaDepth = BGFX_INVALID_HANDLE;

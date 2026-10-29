@@ -109,6 +109,7 @@
                 "Bloom": true,
                 "DepthOfField": true,
                 "VolumetricFog": true,
+                "MaxVolumetricSteps": 64,
                 "TemporalAA": true,
                 "EnvironmentLighting": true,
                 "Instancing": true
