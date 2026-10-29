@@ -20,4 +20,20 @@ public class Camera : Component
     {
         unsafe { Engine._api.Camera_ClearClipPlane(Entity); }
     }
+
+    // Render texture: renders into this .rendertexture asset (a project path such as
+    // "Assets/Textures/Feed.rendertexture"), at the asset's size, instead of to the screen. Materials
+    // show the image by naming the same asset in a texture slot. Empty renders normally.
+    public string TargetTexture
+    {
+        get => Entity.GetField<string>("Camera", "TargetTexture", "");
+        set => Entity.SetField("Camera", "TargetTexture", value ?? "");
+    }
+
+    // Renders every Nth frame (1 = every frame); the texture keeps its last image in between.
+    public int UpdateInterval
+    {
+        get => Entity.GetField<int>("Camera", "UpdateInterval", 1);
+        set => Entity.SetField("Camera", "UpdateInterval", value);
+    }
 }

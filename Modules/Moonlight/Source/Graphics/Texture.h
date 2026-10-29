@@ -8,10 +8,7 @@
 #include "bgfx/bgfx.h"
 #include <JSON.h>
 #include <Resource/MetaRegistry.h>
-
-namespace Moonlight {
-    struct FrameBuffer;
-}
+#include "Graphics/RenderTextureSettings.h"
 
 namespace bimg {
     struct ImageContainer;
@@ -53,17 +50,38 @@ namespace Moonlight
         int mChannels;
         Texture() = delete;
         Texture( const Path& InFilePath, WrapMode mode = WrapMode::Wrap );
-        Texture( FrameBuffer* InFilePath, WrapMode mode = WrapMode::Wrap );
         ~Texture();
 
         virtual bool Load() override;
         virtual void Reload() override;
         // Async: the compiled DDS is read and parsed on a loader thread, then uploaded here.
+        // A render texture (.rendertexture) reads its settings there and creates its target here.
         bool SupportsAsyncLoad() const override;
         bool LoadAsync() override;
         bool FinishAsyncLoad() override;
 
-        void UpdateBuffer( FrameBuffer* NewBuffer );
+        // Render textures: a camera renders into the target (its final, tonemapped image), materials
+        // sample TexHandle. They hold display-encoded LDR colour, like an image file, so shaders decode
+        // them the same way. The texture owns both handles; a reload with new settings replaces them,
+        // so read them when binding, never keep them.
+        bool IsRenderTarget() const { return m_isRenderTarget; }
+        bgfx::FrameBufferHandle GetRenderTarget() const { return m_renderTarget; }
+        const RenderTextureSettings& GetRenderTextureSettings() const { return m_renderSettings; }
+        // Changes whenever the target is (re)created.
+        uint32_t GetRenderTargetRevision() const { return m_renderRevision; }
+        // A camera finished rendering into the target this frame (renderer frame index). The count
+        // carries on across reloads.
+        void MarkRendered( uint64_t InFrame ) { ++m_renderCount; m_lastRenderedFrame = InFrame; }
+        uint32_t GetRenderCount() const { return m_renderCount; }
+        uint64_t GetLastRenderedFrame() const { return m_lastRenderedFrame; }
+
+        // The render texture a camera is drawing into right now (the renderer sets it around that
+        // camera's views). A camera never samples its own image: binders pass their handles through
+        // Sampleable, which swaps that texture for InInstead (black by default).
+        static void SetDrawingTarget( bgfx::TextureHandle InHandle ) { s_drawingTarget = InHandle; }
+        static bgfx::TextureHandle GetDrawingTarget() { return s_drawingTarget; }
+        static bgfx::TextureHandle Sampleable( bgfx::TextureHandle InHandle );
+        static bgfx::TextureHandle Sampleable( bgfx::TextureHandle InHandle, bgfx::TextureHandle InInstead );
 
         // A texture from an image built in memory, uploaded now (main thread). Takes ownership of
         // InImage; InName only labels it (nothing is read from or cached under it).
@@ -97,10 +115,25 @@ namespace Moonlight
         uint8_t m_mips = 0;
 
     private:
+        // Render textures: (re)creates the target for m_renderSettings (main thread).
+        bool CreateRenderTarget();
+        void DestroyRenderTarget();
+
         static inline uint32_t s_maxUploadSize = 0;
+        static inline bgfx::TextureHandle s_drawingTarget = BGFX_INVALID_HANDLE;
         WrapMode m_wrapMode = WrapMode::Wrap;
         // Parsed by LoadAsync, uploaded (and handed to bgfx) by FinishAsyncLoad.
         bimg::ImageContainer* m_pendingImage = nullptr;
+
+        bool m_isRenderTarget = false;
+        // Parsed by LoadAsync (loader thread) for FinishAsyncLoad.
+        bool m_hasPendingRenderSettings = false;
+        RenderTextureSettings m_pendingRenderSettings;
+        RenderTextureSettings m_renderSettings;
+        bgfx::FrameBufferHandle m_renderTarget = BGFX_INVALID_HANDLE;
+        uint32_t m_renderRevision = 0;
+        uint32_t m_renderCount = 0;
+        uint64_t m_lastRenderedFrame = 0;
     };
 }
 
@@ -216,6 +249,38 @@ struct TextureResourceMetadataTga
 };
 
 
+// A .rendertexture is its own runtime form: nothing is imported or cooked, the meta only carries the
+// asset's GUID. The asset browser edits the file's settings, and saving them hot reloads the texture.
+struct RenderTextureMetadata
+    : public MetaBase
+{
+    explicit RenderTextureMetadata( const Path& InPath )
+        : MetaBase( InPath )
+    {
+    }
+
+    std::string GetExtension2() const override
+    {
+        return Moonlight::RenderTextureSettings::kExtension;
+    }
+    void OnSerialize( json& OutJson ) override
+    {
+    }
+    void OnDeserialize( const json& InJson ) override
+    {
+    }
+
+    const Reflection::TypeInfo* GetEditableType() override;
+    void* GetEditableData() override;
+    void SaveEditableData() override;
+
+private:
+    Moonlight::RenderTextureSettings m_settings;
+    bool m_loaded = false;
+};
+
+
 ME_REGISTER_METADATA( "png", TextureResourceMetadata );
 ME_REGISTER_METADATA( "jpg", TextureResourceMetadataJpg );
 ME_REGISTER_METADATA( "tga", TextureResourceMetadataTga );
+ME_REGISTER_METADATA( "rendertexture", RenderTextureMetadata );

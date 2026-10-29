@@ -14,7 +14,7 @@ Node-based shaders, edited in Havana and compiled to ordinary bgfx shader source
   - Per-graph undo, and generated code in view.
 - **Runtime:** `ShaderGraphAsset` loads a manifest and its variant programs, and reloads in place when the graph is recompiled.
 
-> Verified against engine commit 71a95192 and later, 2026-10-16 (shader graph rebuild).
+> Verified against engine commit 71a95192 and later, 2026-10-16 (shader graph rebuild); render texture inputs against 89e036be plus the render texture change, 2026-10-29.
 
 ## Overview
 
@@ -142,6 +142,7 @@ Generated sources are committed with the graph. Game builds cook them like any s
 - All graph programs share `u_sgParams[16]` and the samplers `s_sgTex0..7` on stages 0-7. bgfx uniforms are global by name, so the layout is fixed and nothing is created per material.
 - Lighting keeps stages 8-15 (`BindLighting`).
 - Every declared sampler is always bound: the assigned texture, else the property's fallback (`Moonlight::GetDefaultTexture`: white, black, gray, flat normal, black cube).
+- A texture can be a `.rendertexture`, a camera's live image (`Rendering-Pipeline.md`, Render textures); in that camera's own views it binds black. `../Assets/ShaderGraphs/Examples/CameraFeed.shadergraph` (scan lines over a feed, on a monitor in the RenderTexture showcase) flips v with a Tiling And Offset node (tiling (1, -1), offset (0, 1)), so the image reads upright on a built-in primitive.
 - Colour properties are authored in sRGB and packed as linear.
 
 **Meshes.**

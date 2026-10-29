@@ -253,6 +253,10 @@ void EditorApp::UpdateCameras()
     }
     EditorCamera.Projection = editorCamera->Projection;
     EditorCamera.OrthographicSize = editorCamera->OrthographicSize;
+    // Its own pass switches (World View camera settings): heavy scenes can edit without them.
+    EditorCamera.SunShadows = editorCamera->SunShadows;
+    EditorCamera.AmbientOcclusion = editorCamera->AmbientOcclusion;
+    EditorCamera.VolumetricFog = editorCamera->VolumetricFog;
     //EditorCamera.ShouldCull = false;
 
     Vector3& eye = EditorCamera.Position;

@@ -2,7 +2,7 @@
 
 Game scripts are C# classes implementing `IGameScript` (usually through the `Script` base class), hosted in-process via **hostfxr** (.NET 8). C++ loads `[UnmanagedCallersOnly]` bridge functions from `ScriptCore.dll`; C# gets a struct of engine callbacks (`ScriptEngineAPI`) that is **generated from one manifest** for both languages. Scripts live in a collectible `AssemblyLoadContext`, and editing a `.cs` file in a tools build **hot reloads** them with their field values kept. This doc covers the build, the bootstrap chain, the script lifecycle, hot reload, the API surface, platform status and the add-a-binding recipe.
 
-> Verified against engine commit 6a4b006f, 2026-10-09; the navigation API against 8d6769a5, 2026-10-10; collision callbacks and field access against f4ed921c, 2026-10-10.
+> Verified against engine commit 6a4b006f, 2026-10-09; the navigation API against 8d6769a5, 2026-10-10; collision callbacks and field access against f4ed921c, 2026-10-10; `Camera.TargetTexture` / `UpdateInterval` against 89e036be plus the render texture change, 2026-10-29.
 
 ## Overview
 
@@ -149,7 +149,7 @@ The API is 120 functions (`ScriptAPI.def`). Strings cross as UTF-8 `byte*`, enti
 | Math | `Vector3` (`Zero`/`Up`/`Forward`…, `Normalized`, `Dot`, `Cross`, `Distance`, `Lerp`), `Mathf` (`Clamp`, `Atan2`, `Deg2Rad`, frame-rate independent `Damp`) |
 | Any component | `Entity.GetField<T>( component, path, fallback )`, `SetField( component, path, value )` and the raw `GetFieldJson` / `SetFieldJson`: any reflected field by path (`"Light", "Intensity"`, `"Color.0"`), or any key of a hand-serialized component's JSON. Vectors are `[x, y, z]` arrays and enums are names. Setting calls the component's `OnPropertyChanged` |
 | Navigation | `NavMeshAgent.SetDestination`, `IsStopped`, `ResetPath`, `Warp`, `HasPath`, `HasArrived`, `RemainingDistance`, `Velocity`, `DesiredVelocity`, `Speed`; `Navigation.FindPath`, `SamplePosition`, `Raycast`, `GetRandomPoint` (`Docs/Navigation.md`) |
-| Camera / UI | Clear colour; `Camera.SetClipPlane(point, normal)` / `ClearClipPlane()` (hide everything behind a world plane, for portals and mirrors); `Mesh.ShowCameraView(camera)` (the mesh becomes a screen-space window onto that camera's view, see `Rendering-Pipeline.md`); `UI.Model` view models for RmlUi documents |
+| Camera / UI | Clear colour; `Camera.SetClipPlane(point, normal)` / `ClearClipPlane()` (hide everything behind a world plane, for portals and mirrors); `Camera.TargetTexture` (a `.rendertexture` path the camera renders into instead of the screen; empty renders normally) and `UpdateInterval` (every Nth frame), properties over `GetField` / `SetField` (`Rendering-Pipeline.md`, Render textures); `Mesh.ShowCameraView(camera)` (the mesh becomes a screen-space window onto that camera's view, see `Rendering-Pipeline.md`); `UI.Model` view models for RmlUi documents |
 | ImGui | A subset for `OnEditorInspect`, plus `Begin`/`End`/`Text`/`Checkbox`/`Button` for a script's own debug window. Those do nothing in builds without ImGui (Retail), so a debug window never crashes a shipped game |
 
 ### Data assets (CS-7)

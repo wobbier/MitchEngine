@@ -134,6 +134,50 @@ void Moonlight::FrameBuffer::Release()
 }
 
 
+void Moonlight::FrameBuffer::EnsureBloomTargets()
+{
+    if( !BloomMips.empty() )
+    {
+        return;
+    }
+    // Successive half-resolution mips starting at half size.
+    uint16_t mipWidth = static_cast<uint16_t>( std::max<uint32_t>( Width, 1 ) / 2 );
+    uint16_t mipHeight = static_cast<uint16_t>( std::max<uint32_t>( Height, 1 ) / 2 );
+    for( int i = 0; i < kMaxBloomMips && mipWidth >= 8 && mipHeight >= 8; ++i )
+    {
+        BloomMips.push_back( CreateColorTarget( mipWidth, mipHeight, bgfx::TextureFormat::RGBA16F, "Bloom Mip" ) );
+        mipWidth /= 2;
+        mipHeight /= 2;
+    }
+}
+
+
+void Moonlight::FrameBuffer::EnsureAmbientOcclusionTargets()
+{
+    if( bgfx::isValid( AOBuffer.Color ) )
+    {
+        return;
+    }
+    const uint16_t width = static_cast<uint16_t>( std::max<uint32_t>( Width / 2, 1 ) );
+    const uint16_t height = static_cast<uint16_t>( std::max<uint32_t>( Height / 2, 1 ) );
+    AOBuffer = CreateColorTarget( width, height, bgfx::TextureFormat::R8, "SSAO" );
+    AOBlurBuffer = CreateColorTarget( width, height, bgfx::TextureFormat::R8, "SSAO Blurred" );
+}
+
+
+void Moonlight::FrameBuffer::EnsureVolumetricFogTargets()
+{
+    if( bgfx::isValid( FogBuffer.Color ) )
+    {
+        return;
+    }
+    const uint16_t width = static_cast<uint16_t>( std::max<uint32_t>( Width / 2, 1 ) );
+    const uint16_t height = static_cast<uint16_t>( std::max<uint32_t>( Height / 2, 1 ) );
+    FogBuffer = CreateColorTarget( width, height, bgfx::TextureFormat::RGBA16F, "Volumetric Fog" );
+    FogBlurBuffer = CreateColorTarget( width, height, bgfx::TextureFormat::RGBA16F, "Volumetric Fog Blurred" );
+}
+
+
 void Moonlight::FrameBuffer::EnsureTemporalTargets()
 {
     for( Mip& history : TemporalHistory )
@@ -253,25 +297,13 @@ void Moonlight::FrameBuffer::ReCreate( uint32_t resetFlags )
     PostBuffer = bgfx::createFrameBuffer( 1, &PostColor, false );
     ParticleBuffer = bgfx::createFrameBuffer( 1, &SceneColor, false );
 
-    Texture = bgfx::createTexture2D( width, height, false, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT | kClampLinear );
-    bgfx::setName( Texture, "Camera Output" );
-    const bgfx::TextureHandle outputAttachments[] = { Texture, DepthTexture };
-    Buffer = bgfx::createFrameBuffer( 2, outputAttachments, false );
-
-    // Bloom: successive half-resolution mips starting at half size.
-    uint16_t mipWidth = width / 2;
-    uint16_t mipHeight = height / 2;
-    for( int i = 0; i < kMaxBloomMips && mipWidth >= 8 && mipHeight >= 8; ++i )
+    if( OwnsOutput )
     {
-        BloomMips.push_back( CreateColorTarget( mipWidth, mipHeight, bgfx::TextureFormat::RGBA16F, "Bloom Mip" ) );
-        mipWidth /= 2;
-        mipHeight /= 2;
+        Texture = bgfx::createTexture2D( width, height, false, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT | kClampLinear );
+        bgfx::setName( Texture, "Camera Output" );
+        const bgfx::TextureHandle outputAttachments[] = { Texture, DepthTexture };
+        Buffer = bgfx::createFrameBuffer( 2, outputAttachments, false );
     }
-
-    AOBuffer = CreateColorTarget( width / 2, height / 2, bgfx::TextureFormat::R8, "SSAO" );
-    AOBlurBuffer = CreateColorTarget( width / 2, height / 2, bgfx::TextureFormat::R8, "SSAO Blurred" );
-    FogBuffer = CreateColorTarget( width / 2, height / 2, bgfx::TextureFormat::RGBA16F, "Volumetric Fog" );
-    FogBlurBuffer = CreateColorTarget( width / 2, height / 2, bgfx::TextureFormat::RGBA16F, "Volumetric Fog Blurred" );
 
     LuminanceBuffer = CreateColorTarget( 1, 1, bgfx::TextureFormat::R16F, "Average Luminance" );
     for( Mip& adapted : AdaptedLuminance )

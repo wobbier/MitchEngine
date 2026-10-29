@@ -45,7 +45,7 @@ public:
     void Render() override;
 
     // Picker / save dialog. With a callback the browser opens in picking mode; without one it toggles.
-    void RequestOverlay( const std::function<void( Path )> cb = nullptr, AssetType forcedType = AssetType::Unknown, bool isRequestingSave = false );
+    void RequestOverlay( const std::function<void( Path )> cb = nullptr, AssetType forcedType = AssetType::Unknown, bool isRequestingSave = false, bool imagesOnly = false );
 
     // Compiles every texture and shader (command line / pre-cooking helper).
     // Cooks every texture, model and shader in place (Cook::CookInPlace).
@@ -179,6 +179,8 @@ private:
     // Picker / save dialog
     std::function<void( Path )> m_pickCallback;
     AssetType m_forcedType = AssetType::Unknown;
+    // A forced Texture filter that leaves out render textures (RequestAssetSelectionEvent::ImagesOnly).
+    bool m_imagesOnly = false;
     bool m_isSaveDialog = false;
     char m_saveName[256] = {};
 

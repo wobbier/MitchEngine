@@ -13,6 +13,7 @@
 #include "Events/EditorEvents.h"
 #include "Events/HavanaEvents.h"
 #include "Types/AssetDescriptor.h"
+#include "Utils/ImGuiUtils.h"
 #endif
 
 ME_REFLECT_ENUM( Moonlight::ProjectionType, { { "Perspective", Moonlight::ProjectionType::Perspective }, { "Orthographic", Moonlight::ProjectionType::Orthographic } } )
@@ -51,6 +52,11 @@ ME_REFLECT_BEGIN( Camera )
     ME_FIELD( ProceduralSky ).Display( "Procedural Sky" ).CustomInspector();
     ME_FIELD( MatchMainCamera ).Display( "Match Main Camera" ).Tooltip( "Render at the main camera's size, field of view, far plane and background (for portal and screen-space views)" );
     ME_FIELD( Zoom ).Hidden();
+    ME_FIELD( TargetTexture ).Category( "Render Texture" ).Display( "Target Texture" ).Asset( "RenderTexture" ).Tooltip( "Render into this render texture, at its size, instead of the screen. Materials show the image by using the same asset as a texture" );
+    ME_FIELD( UpdateInterval ).Category( "Render Texture" ).Display( "Update Interval" ).Range( 1.f, 60.f ).Tooltip( "Render every Nth frame; the texture keeps its last image in between" );
+    ME_FIELD( SunShadows ).Category( "Render Passes" ).Display( "Sun Shadows" ).Tooltip( "Draw the sun's shadow cascades for this camera. Spot and point light shadows are shared by every camera and stay" );
+    ME_FIELD( AmbientOcclusion ).Category( "Render Passes" ).Display( "Ambient Occlusion" ).Tooltip( "Allow screen-space ambient occlusion when the post settings turn it on" );
+    ME_FIELD( VolumetricFog ).Category( "Render Passes" ).Display( "Volumetric Fog" ).Tooltip( "Allow volumetric fog when the post settings turn it on; off falls back to the analytic height fog" );
 ME_REFLECT_END()
 
 
@@ -76,7 +82,8 @@ Camera::~Camera()
 
 void Camera::Init()
 {
-    if( !CurrentCamera )
+    // A render texture camera never takes over the screen by itself.
+    if( !CurrentCamera && !HasTargetTexture() )
     {
         CurrentCamera = this;
     }
@@ -86,8 +93,44 @@ void Camera::OnPropertyChanged( const std::string& InFieldName )
 {
     Near = std::max( Near, 0.01f );
     Far = std::max( Far, Near + 0.01f );
+    UpdateInterval = std::max( UpdateInterval, 1 );
     ProceduralSky.Clamp();
 }
+
+
+bool Camera::HasTargetTexture() const
+{
+    return !TargetTexture.GetLocalPathString().empty();
+}
+
+
+bool Camera::RendersToTexture() const
+{
+    return HasTargetTexture() && !IsMain();
+}
+
+
+Moonlight::Texture* Camera::ResolveTargetTexture()
+{
+    const std::string& path = TargetTexture.GetLocalPathString();
+    if( path != m_loadedTarget )
+    {
+        m_loadedTarget = path;
+        m_target = nullptr;
+        if( !path.empty() && TargetTexture.Exists && Moonlight::RenderTextureSettings::IsRenderTexturePath( path ) )
+        {
+            // The same cached texture the materials showing it hold.
+            m_target = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( TargetTexture );
+        }
+    }
+    // A fixed file reloads a texture that failed to load, so check the target rather than the state.
+    if( !m_target || m_target->IsLoading() || !m_target->IsRenderTarget() || !bgfx::isValid( m_target->GetRenderTarget() ) )
+    {
+        return nullptr;
+    }
+    return m_target.get();
+}
+
 
 void Camera::ResetSkyClock()
 {
@@ -154,12 +197,16 @@ float Camera::GetAspectRatio() const
 
 bool Camera::HasPartialViewport() const
 {
-    return Viewport.x != 0.f || Viewport.y != 0.f || Viewport.z != 1.f || Viewport.w != 1.f;
+    return !RendersToTexture() && ( Viewport.x != 0.f || Viewport.y != 0.f || Viewport.z != 1.f || Viewport.w != 1.f );
 }
 
 
 Vector2 Camera::GetViewportSize() const
 {
+    if( RendersToTexture() )
+    {
+        return Vector2( std::max( 1.f, OutputSize.x ), std::max( 1.f, OutputSize.y ) );
+    }
     const float width = std::clamp( Viewport.z, 0.01f, 1.f );
     const float height = std::clamp( Viewport.w, 0.01f, 1.f );
     return Vector2( std::max( 1.f, std::round( OutputSize.x * width ) ), std::max( 1.f, std::round( OutputSize.y * height ) ) );
@@ -248,7 +295,7 @@ void Camera::OnDeserialize( const json& inJson )
     Reflection::FromJson( StaticType(), this, inJson );
     OnPropertyChanged( "" );
     ResetSkyClock();
-    if( inJson.contains( "Skybox" ) && inJson["Skybox"].is_string() )
+    if( inJson.contains( "Skybox" ) && inJson["Skybox"].is_string() && !Moonlight::RenderTextureSettings::IsRenderTexturePath( inJson["Skybox"].get<std::string>() ) )
     {
         Skybox = new Moonlight::SkyBox( inJson["Skybox"].get<std::string>() );
     }
@@ -295,6 +342,34 @@ namespace
     }
 }
 
+
+void Camera::DrawTargetPreview()
+{
+    const Moonlight::Texture* target = ResolveTargetTexture();
+    if( !target )
+    {
+        const char* reason = !TargetTexture.Exists ? "The target texture doesn't exist."
+            : !Moonlight::RenderTextureSettings::IsRenderTexturePath( TargetTexture.GetLocalPathString() ) ? "The target must be a .rendertexture asset."
+            : m_target && m_target->IsLoading() ? "Loading the target texture..."
+            : "The target texture couldn't be loaded (see the log).";
+        ImGui::TextWrapped( "%s", reason );
+        return;
+    }
+    // Live: the texture as materials see it this frame.
+    const float width = std::max( 1.f, std::min( ImGui::GetContentRegionAvail().x, ImGuiTheme::Em( 21.f ) ) );
+    const float height = width * target->mHeight / std::max( 1.f, static_cast<float>( target->mWidth ) );
+    ImGui::Image( target->TexHandle, ImVec2( width, height ) );
+    if( target->GetRenderCount() == 0 )
+    {
+        ImGui::TextDisabled( "%d x %d, not rendered yet", target->mWidth, target->mHeight );
+    }
+    else
+    {
+        ImGui::TextDisabled( "%d x %d, every %d frame%s", target->mWidth, target->mHeight, UpdateInterval, UpdateInterval == 1 ? "" : "s" );
+    }
+}
+
+
 void Camera::OnEditorInspect()
 {
     ImGui::SeparatorText( "Camera Output" );
@@ -306,6 +381,17 @@ void Camera::OnEditorInspect()
             ImGui::AlignTextToFramePadding();
             ImGui::TextColored( ImGuiTheme::AccentText(), "Active Camera" );
             CameraTooltip( "This camera supplies the Game View." );
+            if( HasTargetTexture() )
+            {
+                ImGui::TextWrapped( "The main camera renders to the screen, so its Target Texture is ignored. Make another camera current to render this one into the texture." );
+            }
+        }
+        else if( HasTargetTexture() )
+        {
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextColored( ImGuiTheme::AccentText(), "Render Texture" );
+            CameraTooltip( "This camera renders into its Target Texture." );
+            DrawTargetPreview();
         }
         else
         {
@@ -344,6 +430,7 @@ void Camera::OnEditorInspect()
         if( ImGui::Button( ( name + "##SkyboxTexture" ).c_str(), ImVec2( std::max( width - clearWidth, 1.f ), 0.f ) ) )
         {
             RequestAssetSelectionEvent evt( assignTexture, AssetType::Texture );
+            evt.ImagesOnly = true;
             evt.Fire();
         }
         CameraTooltip( texture ? std::string( texture->GetPath().GetLocalPath() ).c_str() : "Select a skybox texture or drop one here." );

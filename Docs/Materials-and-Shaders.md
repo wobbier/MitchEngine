@@ -4,7 +4,7 @@ Materials are code-defined `Material` subclasses (a `Resource` specialization) r
 
 Shaders are bgfx `.vert`/`.frag` sources compiled to per-backend binaries by `shaderc`, either in batch (`Tools/BuildShaders.sh`) or on demand by the resource-metadata cook. In tools builds they **hot reload**: editing a shader, a shared `.sh` include or a `.var` file recompiles it and swaps the program in place. This doc covers the material contract, the instancing batch key, the shader pipeline and how to add a material.
 
-> Verified against engine commit 1fa55311, 2026-10-09 (overhaul Wave 3); shader loading and the program registry against 488b07f1 plus the non-blocking shaders change, 2026-10-16.
+> Verified against engine commit 1fa55311, 2026-10-09 (overhaul Wave 3); shader loading and the program registry against 488b07f1 plus the non-blocking shaders change, 2026-10-16; `Offset` and render texture inputs against 89e036be plus the render texture change, 2026-10-29.
 
 ## Overview
 
@@ -80,6 +80,9 @@ classDiagram
 | Occlusion | `Occlusion` texture R, blended by `OcclusionStrength`; also drives specular occlusion |
 | Emissive | `EmissiveColor` × `EmissiveIntensity` (HDR) × Emissive texture |
 | Opacity | Alpha of base colour × Opacity texture R; `AlphaCutoff > 0` alpha-tests (also in shadow maps) |
+| UVs | Every map samples at `uv × Tiling + Offset` (`u_uvTransform`; `Foliage.frag` too, and alpha-tested shadow casters and the overdraw view cut their holes there: `u_shadowAlpha` carries the tiling, `u_shadowUvOffset` the offset). `Offset` is saved only when it isn't (0, 0). The built-in primitives map v up their faces, so `Tiling` (1, -1) with `Offset` (0, 1) shows an image upright on them |
+
+Any texture slot can name a `.rendertexture` instead of an image: a camera's live, tonemapped image, display-encoded and decoded like any image (`Docs/Rendering-Pipeline.md`, Render textures). Emissive suits a screen, Diffuse a lit print. The material inspector, its pickers and drag and drop take render textures too.
 
 `Standard.frag` evaluates the sun (shadowed) and the other directional lights, clustered point/spot lights (optionally shadowed), unshadowed bar/box/rectangle emitters, and image-based ambient. See `Docs/Rendering-Pipeline.md`.
 
@@ -119,7 +122,7 @@ Model meshes save `ImportedMaterialDefaults` alongside their material. Reopening
 - the program index;
 - the diffuse, normal and opacity texture indices;
 - `GetRenderState(0)`;
-- `DiffuseColor` and `Tiling`, bit-exact.
+- `DiffuseColor`, `Tiling` and `Offset`, bit-exact.
 
 `StandardMaterial` extends it with its other three textures and all of its scalar parameters. Meshes with `SupportsInstancing == true` and equal `(vertexBuffer, indexBuffer, batchKey)` draw as one instanced batch using the *first* command's material.
 
@@ -198,7 +201,7 @@ ME_REGISTER_MATERIAL_NAME( ClearcoatMaterial, "Clearcoat" )
    - Include `Fog.sh` and end with `fogForward` like `Standard.frag`. Otherwise the shader stays unfogged when drawn as a transparent (after the fog pass); for opaque draws it's a no-op.
    - Instanced shaders read the model matrix from `i_data0..3`.
    - Note that bgfx's shaderc only allows `gl_FragCoord` inside `main()`.
-3. Override `OnSerialize`/`OnDeserialize` for new fields; the base handles modes, colour, tiling and textures.
+3. Override `OnSerialize`/`OnDeserialize` for new fields; the base handles modes, colour, tiling, offset and textures.
 4. Run `Tools/BuildShaders.sh Foo`, or just open the editor (it cooks), then edit live.
 
 ## Caveats & Fragility

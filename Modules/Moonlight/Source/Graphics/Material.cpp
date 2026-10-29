@@ -16,6 +16,7 @@ namespace Moonlight
         , Textures( TextureType::Count, nullptr )
         , DiffuseColor( 1.f, 1.f, 1.f )
         , Tiling( 1.f, 1.f )
+        , Offset( 0.f, 0.f )
         , TypeName( MaterialTypeName )
     {
         LoadShader( ShaderPath );
@@ -68,6 +69,10 @@ namespace Moonlight
         OutJson["RenderMode"] = RenderMode;
         OutJson["DiffuseColor"] = { DiffuseColor.x, DiffuseColor.y, DiffuseColor.z };
         OutJson["Tiling"] = { Tiling.x, Tiling.y };
+        if( Offset.x != 0.f || Offset.y != 0.f )
+        {
+            OutJson["Offset"] = { Offset.x, Offset.y };
+        }
         for( unsigned int type = 0; type < TextureType::Count; ++type )
         {
             auto texture = Textures[type];
@@ -93,6 +98,12 @@ namespace Moonlight
         if( InJson.contains( "Tiling" ) )
         {
             Tiling = Vector2( (float)InJson["Tiling"][0], (float)InJson["Tiling"][1] );
+        }
+        // Saved only when set: a missing key is no offset (undo and pasting values rely on that).
+        Offset = Vector2( 0.f, 0.f );
+        if( InJson.contains( "Offset" ) && InJson["Offset"].is_array() && InJson["Offset"].size() >= 2 )
+        {
+            Offset = Vector2( (float)InJson["Offset"][0], (float)InJson["Offset"][1] );
         }
         if( InJson.contains( "FaceMode" ) )
         {
@@ -125,6 +136,7 @@ namespace Moonlight
         Textures = mat->Textures;
         RenderMode = mat->RenderMode;
         Tiling = mat->Tiling;
+        Offset = mat->Offset;
         MeshShader = mat->MeshShader;
         AlphaBlendMode = mat->AlphaBlendMode;
     }
@@ -244,6 +256,7 @@ namespace Moonlight
         }
 
         HavanaUtils::EditableVector( "Tiling", Tiling );
+        HavanaUtils::EditableVector( "Offset", Offset );
 
         //static std::vector<Path> Textures;
         //Path path = Path("Assets");
@@ -341,7 +354,7 @@ namespace Moonlight
                         if( !_p ) return;
                         AssetDescriptor& payload_n = *_p;
 
-                        if( payload_n.Type == AssetType::Texture )
+                        if( payload_n.Type == AssetType::Texture || payload_n.Type == AssetType::RenderTexture )
                         {
                             SetTexture( static_cast<Moonlight::TextureType>( i ), ResourceCache::GetInstance().Get<Moonlight::Texture>( payload_n.FullPath ) );
                         }

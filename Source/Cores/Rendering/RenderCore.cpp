@@ -459,7 +459,9 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
     // Terrain honors every rendering camera plus World View, using the current late-update snapshot.
     std::vector<TerrainData::LodView> terrainViews;
     const auto addTerrainView = [&]( const Moonlight::CameraData& camera ) {
-        if( !camera.ShouldRender || camera.RenderGroup != 0 || camera.OutputSize.x <= 0 || camera.OutputSize.y <= 0 ) return;
+        // Render texture cameras skip frames (UpdateInterval) but stay views, or the terrain they see
+        // would change detail every other frame.
+        if( ( !camera.ShouldRender && !camera.Target ) || camera.RenderGroup != 0 || camera.OutputSize.x <= 0 || camera.OutputSize.y <= 0 ) return;
         const auto& projection = camera.ProjectionMatrix.GetInternalMatrix();
         TerrainData::LodView view;
         view.Position = camera.Position; view.Forward = camera.Front; view.Up = camera.Up;

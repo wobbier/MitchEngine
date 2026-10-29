@@ -235,9 +235,19 @@ namespace
         case AssetType::ShaderGraph: return ".shadergraph";
         case AssetType::Terrain: return ".terrain";
         case AssetType::Sequence: return ".sequence";
+        case AssetType::RenderTexture: return ".rendertexture";
         default: return {};
         }
     }
+
+
+    // Texture pickers take render textures too (they're sampled like images), unless they need
+    // the image's pixels.
+    bool MatchesType( AssetType InType, AssetType InFilter, bool InImagesOnly )
+    {
+        return InType == InFilter || ( InFilter == AssetType::Texture && InType == AssetType::RenderTexture && !InImagesOnly );
+    }
+
 
     // Project-relative form (AssetDatabase keys, prefab links): "Assets/...", "Engine/Assets/...".
     std::string ProjectRelative( const std::string& absolute )
@@ -319,6 +329,8 @@ AssetType AssetBrowserWidget::GetAssetType( const std::string& InPath )
         return AssetType::Sequence;
     if( EndsWith( path, ".terrain" ) || EndsWith( path, ".terrainc" ) )
         return AssetType::Terrain;
+    if( EndsWith( path, ".rendertexture" ) )
+        return AssetType::RenderTexture;
     if( EndsWith( path, ".vert" ) || EndsWith( path, ".frag" ) || EndsWith( path, ".sh" ) || EndsWith( path, ".sc" ) )
         return AssetType::Shader;
     if( EndsWith( path, ".cpp" ) || EndsWith( path, ".h" ) )
@@ -340,7 +352,7 @@ void AssetBrowserWidget::Init()
     Icons["UI"] = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/Havana/UI/UI.png" ) );
 
     Listen<RequestAssetSelectionEvent>( [this]( const RequestAssetSelectionEvent& InEvent ) {
-        RequestOverlay( InEvent.Callback, InEvent.ForcedFilter, InEvent.IsRequestingSave );
+        RequestOverlay( InEvent.Callback, InEvent.ForcedFilter, InEvent.IsRequestingSave, InEvent.ImagesOnly );
     } );
     Listen<AssetsChangedEvent>( [this]( const AssetsChangedEvent& InEvent ) {
         for( const std::string& path : InEvent.Paths )
@@ -379,11 +391,12 @@ void AssetBrowserWidget::Update()
 }
 
 
-void AssetBrowserWidget::RequestOverlay( const std::function<void( Path )> cb, AssetType forcedType, bool isRequestingSave )
+void AssetBrowserWidget::RequestOverlay( const std::function<void( Path )> cb, AssetType forcedType, bool isRequestingSave, bool imagesOnly )
 {
     IsOpen = cb ? true : !IsOpen;
     m_pickCallback = cb;
     m_forcedType = cb ? forcedType : AssetType::Unknown;
+    m_imagesOnly = cb && imagesOnly;
     m_isSaveDialog = cb && isRequestingSave;
     m_saveName[0] = '\0';
     m_entriesDirty = true;
@@ -452,11 +465,11 @@ bool AssetBrowserWidget::PassesFilters( const Entry& InEntry ) const
     {
         if( InEntry.IsDirectory ) return false;
         const bool typeMatches = m_forcedType != AssetType::Unknown
-            ? InEntry.Type == m_forcedType : m_projectTypes.empty() || m_projectTypes.count( InEntry.Type ) != 0;
+            ? MatchesType( InEntry.Type, m_forcedType, m_imagesOnly ) : m_projectTypes.empty() || m_projectTypes.count( InEntry.Type ) != 0;
         return typeMatches && m_projectFilter.PassFilter( RelativeToProject( InEntry.FullPath ).c_str() );
     }
     const AssetType filter = m_forcedType != AssetType::Unknown ? m_forcedType : m_typeFilter;
-    if( !InEntry.IsDirectory && filter != AssetType::Unknown && InEntry.Type != filter )
+    if( !InEntry.IsDirectory && filter != AssetType::Unknown && !MatchesType( InEntry.Type, filter, m_imagesOnly ) )
     {
         return false;
     }
@@ -587,7 +600,8 @@ SharedPtr<Moonlight::Texture> AssetBrowserWidget::GetIcon( const Entry& InEntry 
     switch( InEntry.Type )
     {
     case AssetType::Level: return Icons["World"];
-    case AssetType::Texture: return Icons["Image"];
+    case AssetType::Texture:
+    case AssetType::RenderTexture: return Icons["Image"];
     case AssetType::Model: return Icons["Model"];
     case AssetType::Shader:
     case AssetType::ShaderGraph:
@@ -604,6 +618,12 @@ SharedPtr<Moonlight::Texture> AssetBrowserWidget::GetIcon( const Entry& InEntry 
 
 SharedPtr<Moonlight::Texture> AssetBrowserWidget::GetThumbnail( const Entry& InEntry )
 {
+    if( InEntry.Type == AssetType::RenderTexture )
+    {
+        // Only one a camera or material already has loaded (live); creating a render target just
+        // for a thumbnail would cost a GPU target per file.
+        return std::dynamic_pointer_cast<Moonlight::Texture>( ResourceCache::GetInstance().GetCached( Path( InEntry.FullPath ) ) );
+    }
     if( InEntry.Type != AssetType::Texture )
     {
         return nullptr;
@@ -647,6 +667,7 @@ void AssetBrowserWidget::Render()
     {
         m_pickCallback = nullptr;
         m_forcedType = AssetType::Unknown;
+        m_imagesOnly = false;
         m_isSaveDialog = false;
         TryDestroyMetaFile();
         return;
@@ -1711,6 +1732,11 @@ void AssetBrowserWidget::DrawCreateMenuItems()
     {
         CreateAsset( "New Material", ".mat", json{ { "Type", "DiffuseMaterial" }, { "DiffuseColor", { 1.0, 1.0, 1.0 } } }.dump( 4 ) );
     }
+    if( ImGui::MenuItem( "Render Texture" ) )
+    {
+        // A camera renders into it (Camera > Target Texture); materials use it like any texture.
+        CreateAsset( "New Render Texture", ".rendertexture", Moonlight::RenderTextureSettings().Write() );
+    }
     if( ImGui::BeginMenu( "Shader Graph" ) )
     {
         static const std::pair<const char*, ShaderGraph::Target> kTargets[] = {
@@ -2017,9 +2043,10 @@ void AssetBrowserWidget::SelectForDetails( const std::string& InPath )
     }
     Path path( InPath );
     m_focusedResource = ResourceCache::GetInstance().GetCached( path );
-    if( !m_focusedResource && GetAssetType( InPath ) == AssetType::Texture )
+    const AssetType type = GetAssetType( InPath );
+    if( !m_focusedResource && ( type == AssetType::Texture || type == AssetType::RenderTexture ) )
     {
-        m_focusedResource = GetThumbnail( Entry{ InPath, fs::path( InPath ).filename().string(), false, AssetType::Texture } );
+        m_focusedResource = GetThumbnail( Entry{ InPath, fs::path( InPath ).filename().string(), false, type } );
     }
     if( m_focusedResource )
     {

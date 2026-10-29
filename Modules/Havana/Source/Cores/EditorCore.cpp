@@ -295,16 +295,20 @@ void EditorCore::OnEditorInspect()
     {
         ImGui::TextWrapped( "Clear settings follow the main camera while Use Scene Environment is enabled." );
     }
-    // This camera is outside the ECS component inspector, so draw its reflected fields here too.
-    static const Reflection::TypeInfo lensSettings = []() {
+    // This camera is outside the ECS component inspector, so draw its reflected fields here too, but
+    // not the render texture ones: the scene view always renders to the editor.
+    auto editorFields = []( bool InClearSettings ) {
         Reflection::TypeInfo type = Camera::StaticType();
-        type.Fields.erase( std::remove_if( type.Fields.begin(), type.Fields.end(), []( const Reflection::FieldInfo& field ) {
-            return field.Name == "ClearType" || field.Name == "ClearColor";
+        type.Fields.erase( std::remove_if( type.Fields.begin(), type.Fields.end(), [InClearSettings]( const Reflection::FieldInfo& field ) {
+            return field.Name == "TargetTexture" || field.Name == "UpdateInterval"
+                || ( !InClearSettings && ( field.Name == "ClearType" || field.Name == "ClearColor" ) );
         } ), type.Fields.end() );
         return type;
-    }();
+    };
+    static const Reflection::TypeInfo lensSettings = editorFields( false );
+    static const Reflection::TypeInfo cameraSettings = editorFields( true );
     ReflectionUI::Context context;
-    if( ReflectionUI::DrawType( m_useSceneEnvironment ? lensSettings : Camera::StaticType(), EditorCamera, context ) )
+    if( ReflectionUI::DrawType( m_useSceneEnvironment ? lensSettings : cameraSettings, EditorCamera, context ) )
     {
         for( const std::string& field : context.ChangedFields ) EditorCamera->OnPropertyChanged( field );
     }

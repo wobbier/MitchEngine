@@ -248,6 +248,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         u_spotShadowParams = bgfx::createUniform( "u_spotShadowParams", bgfx::UniformType::Vec4 );
         u_pointShadowParams = bgfx::createUniform( "u_pointShadowParams", bgfx::UniformType::Vec4 );
         u_shadowAlpha = bgfx::createUniform( "u_shadowAlpha", bgfx::UniformType::Vec4 );
+        u_shadowUvOffset = bgfx::createUniform( "u_shadowUvOffset", bgfx::UniformType::Vec4 );
         s_shadowMap = bgfx::createUniform( "s_shadowMap", bgfx::UniformType::Sampler );
         s_spotShadowMap = bgfx::createUniform( "s_spotShadowMap", bgfx::UniformType::Sampler );
         m_shadowProgram = Moonlight::ShaderCommand( "Assets/Shaders/ShadowDepth" );
@@ -426,6 +427,10 @@ namespace
         const glm::mat4 invView = glm::inverse( InCamera.View.GetInternalMatrix() );
         float ortho[16];
         bx::mtxOrtho( ortho, 0.f, 1.f, 1.f, 0.f, 0.f, 100.f, 0.f, bgfx::getCaps()->homogeneousDepth );
+        // The final pass into a render texture on a bottom-up backend (PostProcess::FlippedTarget).
+        float flippedOrtho[16];
+        bx::mtxOrtho( flippedOrtho, 0.f, 1.f, 0.f, 1.f, 0.f, 100.f, 0.f, bgfx::getCaps()->homogeneousDepth );
+        const bool flipFinal = bgfx::isValid( InFinal ) && InFinal.idx == InPostProcess.FlippedTarget.idx;
 
         bgfx::TextureHandle input = InInput;
         // After tonemapping the first pass reads InInput (the tonemapped image in GraphLdr[0]).
@@ -455,7 +460,7 @@ namespace
             const bool toFinal = last && !hdr;
             bgfx::setViewFrameBuffer( view, toFinal ? InFinal : target.Buffer );
             bgfx::setViewRect( view, toFinal ? InFinalX : 0, toFinal ? InFinalY : 0, toFinal ? InFinalWidth : target.Width, toFinal ? InFinalHeight : target.Height );
-            bgfx::setViewTransform( view, nullptr, ortho );
+            bgfx::setViewTransform( view, nullptr, toFinal && flipFinal ? flippedOrtho : ortho );
             bgfx::touch( view );
 
             if( bindings[i] )
@@ -543,7 +548,7 @@ void BGFXRenderer::Destroy()
     const bgfx::UniformHandle uniforms[] = { s_texDiffuse, s_texNormal, s_texAlpha, s_texUI, s_time, u_wind, u_windParams, u_screenView,
         u_lightParams, u_viewShading, u_dirLightDirection, u_dirLightColor, u_eclipseSun, u_eclipseMoon, u_eclipseParams, u_clusterParams, u_clusterGrid, u_ambientSky, u_ambientGround,
         s_lightData, s_clusterGrid, s_clusterIndices, s_texMetallicRoughness, s_texEmissive, s_texOcclusion, s_texMetallic, s_texRoughness,
-        u_shadowMatrix, u_cascadeSplits, u_cascadeTexel, u_shadowParams, u_localShadowMatrix, u_spotShadowParams, u_pointShadowParams, u_shadowAlpha, s_shadowMap, s_spotShadowMap,
+        u_shadowMatrix, u_cascadeSplits, u_cascadeTexel, u_shadowParams, u_localShadowMatrix, u_spotShadowParams, u_pointShadowParams, u_shadowAlpha, u_shadowUvOffset, s_shadowMap, s_spotShadowMap,
         s_envSpecular, s_envIrradiance, s_brdfLut, u_envParams, u_fogParams, u_fogColor, u_fogVolume, u_fogForward,
         u_particleParams, u_particleParams2, u_particleDepth, s_texParticle, s_sceneDepth, u_bones, u_outlineHull,
         s_decalAlbedo, s_decalNormal, u_decalColor, u_decalEmissive, u_decalSurface, u_decalDepth, u_decalTexSize, u_decalWorldToLocal, u_decalAxes };
@@ -709,11 +714,30 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
 
     m_views.Reset();
     m_viewTriangles.assign( bgfx::getCaps()->limits.maxViews, 0 );
-    m_gameCounts = m_editorCounts = m_frameCounts = SceneCounts();
+    m_gameCounts = m_editorCounts = m_frameCounts = m_textureCounts = SceneCounts();
     m_counting = &m_frameCounts;
     ++m_frameIndex;
     DebugDraw::CollectFrame( m_debugLines );
     PrepareFrameLighting();
+
+    // Render texture cameras first, so every view after them (the editor's scene view, other
+    // cameras, the main camera) samples this frame's image. Between themselves they go by GUID: one
+    // sampling a texture rendered later in the frame sees last frame's image.
+    m_textureCameras.clear();
+    for( auto& camData : m_cameraCache.Commands )
+    {
+        if( camData.ShouldRender && RendersToTexture( camData ) )
+        {
+            m_textureCameras.push_back( &camData );
+        }
+    }
+    std::sort( m_textureCameras.begin(), m_textureCameras.end(), []( const Moonlight::CameraData* InA, const Moonlight::CameraData* InB ) {
+        return InA->TargetOrder < InB->TargetOrder;
+    } );
+    for( Moonlight::CameraData* camData : m_textureCameras )
+    {
+        RenderCameraView( *camData, false );
+    }
 
 #if USING( ME_EDITOR )
     EditorCamera.Buffer = EditorCameraBuffer;
@@ -747,7 +771,7 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
     // cameras draw into the main camera's output, so they wait until it has rendered.
     for( auto& camData : m_cameraCache.Commands )
     {
-        if( camData.IsMain || !camData.ShouldRender || ( mainCamera && isSplit( camData ) ) )
+        if( camData.IsMain || !camData.ShouldRender || RendersToTexture( camData ) || ( mainCamera && isSplit( camData ) ) )
         {
             continue;
         }
@@ -817,9 +841,10 @@ void BGFXRenderer::GatherFrameStats()
     out.RenderTargetMemoryUsed = stats->rtMemoryUsed;
     out.MeshMemoryUsed = Moonlight::MeshData::GetTotalGpuBytes();
     // The game's cameras when any rendered, else the editor's views; local shadows serve both.
+    // Render texture feeds render for both.
     const SceneCounts& scene = m_gameCounts.Rendered ? m_gameCounts : m_editorCounts;
-    out.SceneDrawCalls = scene.Draws + m_frameCounts.Draws;
-    out.SceneTriangles = scene.Triangles + m_frameCounts.Triangles;
+    out.SceneDrawCalls = scene.Draws + m_frameCounts.Draws + m_textureCounts.Draws;
+    out.SceneTriangles = scene.Triangles + m_frameCounts.Triangles + m_textureCounts.Triangles;
     out.SceneWidth = scene.Width;
     out.SceneHeight = scene.Height;
     out.Lights = static_cast<uint32_t>( m_lights.size() );
@@ -867,18 +892,36 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     // Camera targets match the output size exactly: post passes process whole textures.
     const uint16_t width = static_cast<uint16_t>( std::max( 1.f, camera.OutputSize.x ) );
     const uint16_t height = static_cast<uint16_t>( std::max( 1.f, camera.OutputSize.y ) );
-    // Editor previews (other render groups) aren't part of the scene's statistics.
-    m_counting = camera.RenderGroup != 0 ? &m_previewCounts : camera.IsEditorView ? &m_editorCounts : &m_gameCounts;
+
+    // A render texture camera writes its final image into its target texture, which it must never
+    // sample itself (materials showing it get black in this camera's views).
+    Moonlight::Texture* renderTexture = !toBackbuffer && !displayBuffer && RendersToTexture( camera ) ? camera.Target.get() : nullptr;
+    if( renderTexture && ( renderTexture->mWidth != width || renderTexture->mHeight != height ) )
+    {
+        // Resized since the camera update; it renders at the new size next frame.
+        return;
+    }
+    struct DrawingTargetScope
+    {
+        explicit DrawingTargetScope( bgfx::TextureHandle InHandle ) { Moonlight::Texture::SetDrawingTarget( InHandle ); }
+        ~DrawingTargetScope() { Moonlight::Texture::SetDrawingTarget( BGFX_INVALID_HANDLE ); }
+    } drawingTarget( renderTexture ? renderTexture->TexHandle : bgfx::TextureHandle( BGFX_INVALID_HANDLE ) );
+    // Editor previews (other render groups) aren't part of the scene's statistics; render texture
+    // feeds add to it without being the scene's view.
+    m_counting = camera.RenderGroup != 0 ? &m_previewCounts : renderTexture ? &m_textureCounts : camera.IsEditorView ? &m_editorCounts : &m_gameCounts;
     if( !m_counting->Rendered || camera.IsMain )
     {
         m_counting->Width = width;
         m_counting->Height = height;
     }
     m_counting->Rendered = true;
-    if( camera.Buffer->Width != width || camera.Buffer->Height != height || !bgfx::isValid( camera.Buffer->SceneBuffer ) )
+    // A render texture camera's final image goes into the texture: no output target of its own.
+    const bool ownsOutput = renderTexture == nullptr;
+    if( camera.Buffer->Width != width || camera.Buffer->Height != height || camera.Buffer->OwnsOutput != ownsOutput || !bgfx::isValid( camera.Buffer->SceneBuffer ) )
     {
         camera.Buffer->Width = width;
         camera.Buffer->Height = height;
+        camera.Buffer->OwnsOutput = ownsOutput;
         camera.Buffer->ReCreate( m_resetFlags );
     }
 
@@ -925,6 +968,9 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         camera.Post.VolumetricSteps = std::min( camera.Post.VolumetricSteps, FeatureCaps.MaxVolumetricSteps );
     }
     camera.Post.TemporalAA = camera.Post.TemporalAA && FeatureCaps.TemporalAA;
+    // The camera's own pass switches (cheaper render texture feeds).
+    camera.Post.AmbientOcclusion = camera.Post.AmbientOcclusion && camera.AmbientOcclusion;
+    camera.Post.VolumetricFog = camera.Post.VolumetricFog && camera.VolumetricFog;
     {
         const glm::mat4 viewProjection = camera.ProjectionMatrix.GetInternalMatrix() * camera.View.GetInternalMatrix();
         std::copy( &viewProjection[0][0], &viewProjection[0][0] + 16, targets.ViewProjection );
@@ -961,7 +1007,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     m_lighting.EnvParams[1] = static_cast<float>( Moonlight::EnvironmentLighting::kSpecularMips - 1 );
     m_lighting.EnvParams[2] = probe ? 1.f : 0.f;
 
-    if( lit && AreShadowsActive() )
+    if( lit && AreShadowsActive() && camera.SunShadows )
     {
         RenderSunShadows( camera );
     }
@@ -970,7 +1016,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         m_lighting.ShadowParams[3] = 0.f;
     }
 
-    const char* label = camera.IsEditorView ? "Editor" : ( camera.IsMain ? "Main" : "Camera" );
+    const char* label = camera.IsEditorView ? "Editor" : ( camera.IsMain ? "Main" : ( renderTexture ? "Texture" : "Camera" ) );
     char viewName[64];
     const bool hasSkybox = background && camera.ClearType == Moonlight::ClearColorType::Skybox && camera.Skybox
         && camera.Skybox->SkyModel && !camera.Skybox->SkyModel->GetAllMeshes().empty()
@@ -987,7 +1033,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
 
     // The scene renders in linear HDR; post-processing writes the final image here.
     Moonlight::FrameBuffer* display = displayBuffer ? displayBuffer : camera.Buffer;
-    const bgfx::FrameBufferHandle target = toBackbuffer ? bgfx::FrameBufferHandle( BGFX_INVALID_HANDLE ) : display->Buffer;
+    const bgfx::FrameBufferHandle target = renderTexture ? renderTexture->GetRenderTarget() : ( toBackbuffer ? bgfx::FrameBufferHandle( BGFX_INVALID_HANDLE ) : display->Buffer );
     const uint16_t displayWidth = toBackbuffer ? static_cast<uint16_t>( CurrentSize.x ) : static_cast<uint16_t>( display->Width );
     const uint16_t displayHeight = toBackbuffer ? static_cast<uint16_t>( CurrentSize.y ) : static_cast<uint16_t>( display->Height );
     // Split screen: the final image goes into the camera's rect of the display.
@@ -1046,7 +1092,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         // The sky shader always samples its panorama: a missing or failed one samples black (an
         // unbound sampler isn't safe on every backend).
         const Moonlight::Texture* diffuse = camera.Skybox->SkyMaterial->GetTexture( Moonlight::TextureType::Diffuse );
-        bgfx::setTexture( 0, s_texDiffuse, diffuse && bgfx::isValid( diffuse->TexHandle ) ? diffuse->TexHandle : m_blackTexture );
+        bgfx::setTexture( 0, s_texDiffuse, diffuse && bgfx::isValid( diffuse->TexHandle ) ? Moonlight::Texture::Sampleable( diffuse->TexHandle ) : m_blackTexture );
 
         //mesh.MeshMaterial->Use();
 
@@ -1269,12 +1315,17 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     if( options.DebugDraw && world ) SubmitDebugLines( camera, transparentView );
     if( sceneEffects && options.Particles && world ) RenderParticles( camera );
 
+    // A render texture holds its top row first, like an image file. Backends whose framebuffers
+    // start at the bottom (OpenGL) get the passes writing it flipped.
+    m_postProcess->FlippedTarget = renderTexture && bgfx::getCaps()->originBottomLeft ? target : bgfx::FrameBufferHandle( BGFX_INVALID_HANDLE );
+
     // HDR -> final image (bloom, exposure, tonemapping, grading, FXAA), with any Post Process shader
     // graphs on the HDR scene (they replace the image bloom and tonemapping read) and on the display
     // image (the stock chain then renders into a ping-pong target, and the last graph writes target).
     m_postProcess->RenderTemporalAA( m_views, camera, *camera.Buffer );
     camera.Buffer->PostInput = RenderGraphPostPasses( *m_postProcess, m_views, camera, *camera.Buffer, "BeforeTonemap", camera.Buffer->PostInput, BGFX_INVALID_HANDLE, 0, 0 );
-    m_postProcess->DeltaSeconds = std::max( m_time.x, 0.0001f );
+    // Eye adaptation follows the time since this camera last rendered (render textures can skip frames).
+    m_postProcess->DeltaSeconds = std::max( camera.RenderDeltaSeconds > 0.f ? camera.RenderDeltaSeconds : m_time.x, 0.0001f );
     const bool displayGraphs = std::any_of( camera.Post.Graphs.begin(), camera.Post.Graphs.end(), []( const SharedPtr<Moonlight::ShaderGraphAsset>& InGraph ) {
         return InGraph && InGraph->GetManifest().value( "Injection", std::string() ) == "AfterTonemap" && bgfx::isValid( InGraph->GetProgramHandle( "Forward" ) );
     } );
@@ -1288,6 +1339,11 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     else
     {
         m_postProcess->Render( m_views, camera, *camera.Buffer, target, targetWidth, targetHeight, targetX, targetY );
+    }
+    // (Not when the view band ran out: then the final passes were skipped.)
+    if( renderTexture && !m_views.IsExhausted() )
+    {
+        renderTexture->MarkRendered( m_frameIndex );
     }
 
     float orthoProj[16];
@@ -1320,6 +1376,13 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         bgfx::submit( view, UIProgram );
     }
 }
+
+
+bool BGFXRenderer::RendersToTexture( const Moonlight::CameraData& InCamera )
+{
+    return !InCamera.IsMain && !InCamera.IsEditorView && InCamera.Target && InCamera.Target->IsRenderTarget() && bgfx::isValid( InCamera.Target->GetRenderTarget() );
+}
+
 
 void BGFXRenderer::SubmitDebugLines( const Moonlight::CameraData& camera, bgfx::ViewId id )
 {
@@ -1805,12 +1868,16 @@ void BGFXRenderer::CullShadowCasters( const Frustum* InFrustums, uint32_t InCoun
 void BGFXRenderer::BindStockShadowCaster( const Moonlight::MeshCommand& InMesh, const float InAlpha[4] )
 {
     bgfx::setUniform( u_shadowAlpha, InAlpha );
+    // Holes are cut where the surface shows them: uv * Tiling + Offset.
+    const float uvOffset[4] = { InMesh.MeshMaterial->Offset.x, InMesh.MeshMaterial->Offset.y, 0.f, 0.f };
+    bgfx::setUniform( u_shadowUvOffset, uvOffset );
     if( InMesh.AlphaCutoff > 0.f )
     {
         const Moonlight::Texture* diffuse = InMesh.MeshMaterial->GetTexture( Moonlight::TextureType::Diffuse );
         const Moonlight::Texture* opacity = InMesh.MeshMaterial->GetTexture( Moonlight::TextureType::Opacity );
-        bgfx::setTexture( 0, s_texDiffuse, diffuse && bgfx::isValid( diffuse->TexHandle ) ? diffuse->TexHandle : m_whiteTexture );
-        bgfx::setTexture( 2, s_texAlpha, opacity && bgfx::isValid( opacity->TexHandle ) ? opacity->TexHandle : m_whiteTexture );
+        // Only their alpha cuts holes: a camera's own target counts as no map (white, no holes).
+        bgfx::setTexture( 0, s_texDiffuse, diffuse && bgfx::isValid( diffuse->TexHandle ) ? Moonlight::Texture::Sampleable( diffuse->TexHandle, m_whiteTexture ) : m_whiteTexture );
+        bgfx::setTexture( 2, s_texAlpha, opacity && bgfx::isValid( opacity->TexHandle ) ? Moonlight::Texture::Sampleable( opacity->TexHandle, m_whiteTexture ) : m_whiteTexture );
     }
 }
 
@@ -2107,12 +2174,12 @@ void BGFXRenderer::RenderParticles( Moonlight::CameraData& camera )
             if( bgfx::isValid( graphProgram ) )
             {
                 batch.Graph->Bind( batch.GraphBinding );
-                bgfx::setTexture( 6, GraphSampler( "s_sgParticleTexture" ), texture );
+                bgfx::setTexture( 6, GraphSampler( "s_sgParticleTexture" ), Moonlight::Texture::Sampleable( texture ) );
                 bgfx::setTexture( 7, GraphSampler( "s_sgSceneDepth" ), buffer.DepthTexture, BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP );
             }
             else
             {
-                bgfx::setTexture( 0, s_texParticle, texture );
+                bgfx::setTexture( 0, s_texParticle, Moonlight::Texture::Sampleable( texture ) );
                 bgfx::setTexture( 1, s_sceneDepth, buffer.DepthTexture, BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP );
             }
             bgfx::setUniform( u_particleParams, params );
@@ -2182,8 +2249,8 @@ void BGFXRenderer::RenderDecals( Moonlight::CameraData& camera )
         }
         else
         {
-            bgfx::setTexture( 0, s_decalAlbedo, bgfx::isValid( decal->Albedo ) ? decal->Albedo : m_whiteTexture, clamp );
-            bgfx::setTexture( 1, s_decalNormal, bgfx::isValid( decal->Normal ) ? decal->Normal : m_flatNormalTexture, clamp );
+            bgfx::setTexture( 0, s_decalAlbedo, bgfx::isValid( decal->Albedo ) ? Moonlight::Texture::Sampleable( decal->Albedo ) : m_whiteTexture, clamp );
+            bgfx::setTexture( 1, s_decalNormal, bgfx::isValid( decal->Normal ) ? Moonlight::Texture::Sampleable( decal->Normal, m_flatNormalTexture ) : m_flatNormalTexture, clamp );
             bgfx::setTexture( 2, s_sceneDepth, buffer.DepthTexture, pointClamp );
         }
         bgfx::setUniform( u_decalColor, decal->Color );
@@ -2257,9 +2324,16 @@ bgfx::ProgramHandle BGFXRenderer::BindMeshDrawState( const Moonlight::MeshComman
 
     // Every sampler gets a texture: a missing map falls back to a neutral 1x1 so the material's
     // colour shows through instead of whatever the backend leaves bound.
-    auto textureOr = [&mesh]( Moonlight::TextureType type, bgfx::TextureHandle fallback ) {
+    // A render texture camera's own target never shows in its views (Texture::Sampleable): colour
+    // slots get black, the rest their neutral fallback.
+    auto textureOr = [this, &mesh]( Moonlight::TextureType type, bgfx::TextureHandle fallback ) {
         const Moonlight::Texture* texture = mesh.MeshMaterial->GetTexture( type );
-        return ( texture && bgfx::isValid( texture->TexHandle ) ) ? texture->TexHandle : fallback;
+        if( !texture || !bgfx::isValid( texture->TexHandle ) )
+        {
+            return fallback;
+        }
+        const bool colour = type == Moonlight::TextureType::Diffuse || type == Moonlight::TextureType::Emissive;
+        return Moonlight::Texture::Sampleable( texture->TexHandle, colour ? m_blackTexture : fallback );
     };
     // PortalMaterial: the linked camera's HDR image in the diffuse slot, sampled in screen space by
     // the shader. A view cannot sample its own target, so there (and while that camera has no

@@ -73,7 +73,7 @@ the old `BuildAssets` / `-CompileAssets`, which only loaded textures and shaders
 | Textures (`png`, `jpg`, `jpeg`, `tga`) | `<path>.dds` |
 | Models (`fbx`, `obj`) | `<path>.assbin` (+ `<path>.vertexcache` when there is one) |
 | Shader stages (`vert`, `frag`) | `<path>.<profile>.bin` for the target: `spirv` on Linux (Vulkan is forced), `dx11` on Windows, `metal` on macOS |
-| Everything else (scenes, prefabs, sounds, fonts, navmeshes, UI documents, config) | as is |
+| Everything else (scenes, prefabs, sounds, fonts, navmeshes, UI documents, config, render textures: a `.rendertexture` is its own runtime form) | as is |
 | Never | `.meta`, shader build inputs (`.sh`, `.var`, `.sc`, depfiles), scripts and projects (`.cs`, `.csproj`, `.sln`; scripts ship compiled next to the executable), editor documents (`.shadergraph`, `.edscript`, `.md`), `Assets/Havana/`, `Assets/Icons/`, `imgui.cfg`, `.tmp/` |
 
 Before writing, the cooker cooks in place whatever is missing or stale: the same `Export` a tools
@@ -110,12 +110,15 @@ Files are read through the VFS, so the game-over-engine overlay bakes in: the tr
 Scripts load from the executable's directory as always. The script build copies
 `ScriptCore.runtimeconfig.json` there too, so a cooked tree runs scripts without the source tree.
 
-**Proof**: the "Cooked build" step of `RunChecks.sh` cooks the Lighting and Playground showcases
-into one tree and one pak. It runs the game on the tree (working directory `.tmp/Cook`), then
-from an empty directory with only `--pak`, and both must match the showcase references. On
-Linux (2026-10-25) the cooked captures are byte-identical to the source-tree ones. Lighting cooks
-to 82 files (71 MiB: five textures, 70 engine shaders, config, a font, the ICU data) with no
-`.png`, `.fbx` or `.meta` among them.
+**Proof**: the "Cooked build" step of `RunChecks.sh` cooks the Lighting, Playground and
+RenderTexture showcases into one tree and one pak. It runs the game on the tree (working directory
+`.tmp/Cook`), then from an empty directory with only `--pak`, and both must match the showcase
+references. RenderTexture's camera feeds render into `.rendertexture` assets that ship as data;
+its monitors are also checked region by region
+(`../Assets/Scenes/Showcase/Reference/RenderTexture.regions.json`). On Linux (2026-10-25) the
+Lighting and Playground cooked captures were byte-identical to the source-tree ones. Lighting
+cooks to 82 files (71 MiB: five textures, 70 engine shaders, config, a font, the ICU data) with
+no `.png`, `.fbx` or `.meta` among them.
 
 ## Not yet
 

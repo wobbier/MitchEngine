@@ -361,11 +361,13 @@ void Mesh::OnEditorInspect()
         if( usesGraph && reg.count( "StandardMaterial" ) && ImGui::Button( "Remove Shader Graph" ) )
         {
             const Vector2 tiling = MeshMaterial->Tiling;
+            const Vector2 offset = MeshMaterial->Offset;
             const Vector3 diffuse = MeshMaterial->DiffuseColor;
             MeshMaterial = reg["StandardMaterial"].CreateFunc();
             MeshMaterial->Init();
             MeshMaterial->DiffuseColor = diffuse;
             MeshMaterial->Tiling = tiling;
+            MeshMaterial->Offset = offset;
         }
         HavanaUtils::SkipLabel();
         if( ImGui::Button( "Save As Material File..." ) )
@@ -408,6 +410,7 @@ void Mesh::SelectMaterial( const std::pair<std::string, MaterialInfo*>& ptr, Mat
     {
         std::vector<SharedPtr<Moonlight::Texture>> textures = MeshMaterial->GetTextures();
         Vector2 tiling = MeshMaterial->Tiling;
+        Vector2 offset = MeshMaterial->Offset;
         Vector3 diffuse = MeshMaterial->DiffuseColor;
         MeshMaterial.reset();
 
@@ -421,6 +424,7 @@ void Mesh::SelectMaterial( const std::pair<std::string, MaterialInfo*>& ptr, Mat
         }
         MeshMaterial->DiffuseColor = diffuse;
         MeshMaterial->Tiling = tiling;
+        MeshMaterial->Offset = offset;
 
     }
 }

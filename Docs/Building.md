@@ -147,9 +147,10 @@ Builds/Default/
 
 ## Proof
 
-The "Build Game" step of `RunChecks.sh` builds the Lighting and Playground showcases as a Retail
-game into `.tmp/BuildGame/Checks`. It copies the build to a temporary folder outside the repo and
-captures both scenes from an empty working directory. The captures run with `DOTNET_ROOT` unset
+The "Build Game" step of `RunChecks.sh` builds the Lighting, Playground and RenderTexture
+showcases as a Retail game into `.tmp/BuildGame/Checks`, so camera render textures are proven in
+a shipped build too. It copies the build to a temporary folder outside the repo and captures the
+three scenes from an empty working directory. The captures run with `DOTNET_ROOT` unset
 and the repo's library paths removed from `LD_LIBRARY_PATH`. They must match the showcase
 references, and every run's log must show the app-local runtime. The project's main menu
 (`Assets/Main.lvl`) ships too, and must run for 60 frames: its scripts draw ImGui debug windows,

@@ -24,6 +24,7 @@
 #include "Widgets/ShaderGraph/ShaderGraphAutomation.h"
 #include "Widgets/Terrain/TerrainAutomation.h"
 #include "Editor/UIAutomation.h"
+#include "Editor/RenderTextureAutomation.h"
 #include "Widgets/Tree/TreeAutomation.h"
 #include "Widgets/ShaderGraph/ShaderGraphPreview.h"
 #include "Components/Audio/AudioSource.h"
@@ -391,6 +392,20 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         else if( retry )
         {
             // Run this line again next frame (sg-wait-* commands).
+            --m_nextLine;
+        }
+    }
+    else if( command.rfind( "rtt-", 0 ) == 0 )
+    {
+        std::string error;
+        bool retry = false;
+        if( !RenderTextureAutomation::Execute( command, args, error, retry ) )
+        {
+            Fail( command + ": " + error );
+        }
+        else if( retry )
+        {
+            // Run this line again next frame (waits and GPU read-backs).
             --m_nextLine;
         }
     }

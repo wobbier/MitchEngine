@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstring>
 #include <iostream>
 #include <fstream>
 #include "VFS/VFS.h"
@@ -15,7 +16,8 @@
 #include <bx/allocator.h>
 #include <Utils/HavanaUtils.h>
 #include <ImGuiTheme.h>
-#include <Device/FrameBuffer.h>
+#include "File.h"
+#include "Graphics/DefaultTextures.h"
 #include "Procedural/Tree/TreeTextures.h"
 
 
@@ -94,18 +96,13 @@ namespace Moonlight
         //Load();
     }
 
-    Texture::Texture( Moonlight::FrameBuffer* InFilePath, WrapMode mode /*= WrapMode::Wrap*/ )
-        : Resource( Path( "" ) )
-        , TexHandle( BGFX_INVALID_HANDLE )
-    {
-    }
-
     Texture::~Texture()
     {
         if( m_pendingImage )
         {
             bimg::imageFree( m_pendingImage );
         }
+        DestroyRenderTarget();
         if( bgfx::isValid( TexHandle ) && IsGpuAlive() )
         {
             bgfx::destroy( TexHandle );
@@ -136,6 +133,18 @@ namespace Moonlight
             m_pendingImage = MitchTree::BakeChannel( local.substr( 0, tree + 6 ), local.substr( tree + 7 ), error );
             if( !m_pendingImage ) CLog::Log( CLog::LogType::Error, "Tree texture " + local + ": " + error );
             return m_pendingImage != nullptr;
+        }
+        // Render textures are their settings file, read as is (no compiled twin).
+        if( RenderTextureSettings::IsRenderTexturePath( local ) )
+        {
+            std::string text;
+            if( !VFS::Get().ReadText( FilePath, text ) || !m_pendingRenderSettings.Parse( text ) )
+            {
+                CLog::Log( CLog::LogType::Error, "Render texture " + local + ": can't read its settings" );
+                return false;
+            }
+            m_hasPendingRenderSettings = true;
+            return true;
         }
         Path compiledTexture( FilePath.FullPath + ".dds" );
         if( !compiledTexture.Exists )
@@ -169,6 +178,13 @@ namespace Moonlight
 
     bool Texture::FinishAsyncLoad()
     {
+        if( m_hasPendingRenderSettings )
+        {
+            m_hasPendingRenderSettings = false;
+            m_isRenderTarget = true;
+            m_renderSettings = m_pendingRenderSettings;
+            return CreateRenderTarget();
+        }
         bimg::ImageContainer* imageContainer = m_pendingImage;
         m_pendingImage = nullptr;
         if( !imageContainer )
@@ -233,6 +249,22 @@ namespace Moonlight
 
     void Texture::Reload()
     {
+        if( m_isRenderTarget || RenderTextureSettings::IsRenderTexturePath( FilePath.GetLocalPathString() ) )
+        {
+            // Keep the image (and the handles materials bind) unless the settings changed.
+            if( !LoadAsync() )
+            {
+                return;
+            }
+            m_hasPendingRenderSettings = false;
+            if( !m_isRenderTarget || m_pendingRenderSettings != m_renderSettings || ( !bgfx::isValid( TexHandle ) && IsGpuAlive() ) )
+            {
+                m_isRenderTarget = true;
+                m_renderSettings = m_pendingRenderSettings;
+                CreateRenderTarget();
+            }
+            return;
+        }
         if( bgfx::isValid( TexHandle ) )
         {
             bgfx::destroy( TexHandle );
@@ -241,12 +273,95 @@ namespace Moonlight
         Load();
     }
 
-    void Texture::UpdateBuffer( FrameBuffer* NewBuffer )
+
+    bool Texture::CreateRenderTarget()
     {
-        TexHandle = NewBuffer->Texture;
-        mWidth = NewBuffer->Width;
-        mHeight = NewBuffer->Height;
+        DestroyRenderTarget();
+        if( bgfx::isValid( TexHandle ) && IsGpuAlive() )
+        {
+            bgfx::destroy( TexHandle );
+        }
+        TexHandle = BGFX_INVALID_HANDLE;
+
+        const RenderTextureSettings& settings = m_renderSettings;
+        mWidth = settings.Width;
+        mHeight = settings.Height;
+        mChannels = 4;
+        m_flags = BGFX_TEXTURE_RT;
+        if( settings.Wrap == RenderTextureWrap::Clamp )
+            m_flags |= BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
+        else if( settings.Wrap == RenderTextureWrap::Mirror )
+            m_flags |= BGFX_SAMPLER_U_MIRROR | BGFX_SAMPLER_V_MIRROR;
+        ++m_renderRevision;
+        if( !IsGpuAlive() )
+        {
+            // Cooks, tests and headless runs: the settings are enough.
+            m_mips = 1;
+            return true;
+        }
+
+        // Display-encoded 8-bit colour, like the camera's own output and like images (no sRGB
+        // flag: shaders decode with toLinear). Mips are regenerated after each render, where the
+        // format supports that.
+        constexpr bgfx::TextureFormat::Enum kFormat = bgfx::TextureFormat::BGRA8;
+        const bool mips = settings.Mips && ( bgfx::getCaps()->formats[kFormat] & BGFX_CAPS_FORMAT_TEXTURE_MIP_AUTOGEN ) != 0;
+        const uint16_t width = static_cast<uint16_t>( settings.Width );
+        const uint16_t height = static_cast<uint16_t>( settings.Height );
+        if( !bgfx::isTextureValid( 0, false, 1, kFormat, m_flags ) )
+        {
+            CLog::Log( CLog::LogType::Error, "Render texture " + FilePath.GetLocalPathString() + ": the GPU can't render to BGRA8 textures" );
+            return false;
+        }
+        // Opaque black until a camera renders into it (render targets start out undefined).
+        bgfx::TextureInfo info;
+        bgfx::calcTextureSize( info, width, height, 1, false, mips, 1, kFormat );
+        const bgfx::Memory* black = bgfx::alloc( info.storageSize );
+        std::memset( black->data, 0, black->size );
+        for( uint32_t alpha = 3; alpha < black->size; alpha += 4 )
+        {
+            black->data[alpha] = 0xff;
+        }
+        TexHandle = bgfx::createTexture2D( width, height, mips, 1, kFormat, m_flags, black );
+        if( !bgfx::isValid( TexHandle ) )
+        {
+            CLog::Log( CLog::LogType::Error, "Render texture " + FilePath.GetLocalPathString() + ": couldn't create the texture" );
+            return false;
+        }
+        m_mips = info.numMips;
+        bgfx::setName( TexHandle, FilePath.GetLocalPath().data() );
+        // Mipped attachments regenerate their mips whenever a view finishes rendering into them.
+        m_renderTarget = bgfx::createFrameBuffer( 1, &TexHandle, false );
+        if( !bgfx::isValid( m_renderTarget ) )
+        {
+            CLog::Log( CLog::LogType::Error, "Render texture " + FilePath.GetLocalPathString() + ": couldn't create the render target" );
+            return false;
+        }
+        bgfx::setName( m_renderTarget, FilePath.GetLocalPath().data() );
+        return true;
     }
+
+
+    bgfx::TextureHandle Texture::Sampleable( bgfx::TextureHandle InHandle )
+    {
+        return Sampleable( InHandle, GetDefaultTexture( DefaultTexture::Black ) );
+    }
+
+
+    bgfx::TextureHandle Texture::Sampleable( bgfx::TextureHandle InHandle, bgfx::TextureHandle InInstead )
+    {
+        return ( bgfx::isValid( InHandle ) && InHandle.idx == s_drawingTarget.idx ) ? InInstead : InHandle;
+    }
+
+
+    void Texture::DestroyRenderTarget()
+    {
+        if( bgfx::isValid( m_renderTarget ) && IsGpuAlive() )
+        {
+            bgfx::destroy( m_renderTarget );
+        }
+        m_renderTarget = BGFX_INVALID_HANDLE;
+    }
+
 
     std::string Texture::ToString( TextureType type )
     {
@@ -727,3 +842,32 @@ void TextureResourceMetadata::Export()
 }
 
 #endif
+
+
+const Reflection::TypeInfo* RenderTextureMetadata::GetEditableType()
+{
+    return &Moonlight::RenderTextureSettings::StaticType();
+}
+
+
+void* RenderTextureMetadata::GetEditableData()
+{
+    if( !m_loaded )
+    {
+        File file{ FilePath };
+        m_settings.Parse( file.Read() );
+        m_loaded = true;
+    }
+    return &m_settings;
+}
+
+
+void RenderTextureMetadata::SaveEditableData()
+{
+    if( m_loaded )
+    {
+        m_settings.Clamp();
+        File file{ FilePath };
+        file.Write( m_settings.Write() );
+    }
+}

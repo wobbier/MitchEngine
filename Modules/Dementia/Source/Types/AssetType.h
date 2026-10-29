@@ -17,6 +17,8 @@ enum class AssetType : unsigned int
     CS,
     Terrain,
     Sequence,
+    // A .rendertexture: a texture cameras render into. Texture pickers offer it too.
+    RenderTexture,
     Count
 };
 
@@ -53,6 +55,8 @@ namespace {
             return "Material";
         case AssetType::Sequence:
             return "Sequence";
+        case AssetType::RenderTexture:
+            return "RenderTexture";
         case AssetType::Count:
         default:
             return "";

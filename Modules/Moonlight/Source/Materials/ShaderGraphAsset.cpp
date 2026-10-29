@@ -311,6 +311,9 @@ namespace Moonlight
             {
                 handle = GetDefaultTexture( slot.Fallback );
             }
+            // Never the render texture this camera is drawing into: black, or a flat normal for
+            // normal maps.
+            handle = Texture::Sampleable( handle, GetDefaultTexture( slot.Fallback == DefaultTexture::FlatNormal ? DefaultTexture::FlatNormal : DefaultTexture::Black ) );
             if( bgfx::isValid( handle ) )
             {
                 bgfx::setTexture( static_cast<uint8_t>( slot.Slot ), s_samplers[slot.Slot], handle );

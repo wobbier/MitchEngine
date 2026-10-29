@@ -68,6 +68,11 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
         // Get our components that our Core required
         Camera& CameraComponent = InEntity.GetComponent<Camera>();
         Transform& TransformComponent = InEntity.GetComponent<Transform>();
+        // Render texture cameras render at their target's size (null until it has loaded). Resolved
+        // for every camera, so clearing the field lets the texture go.
+        Moonlight::Texture* resolved = CameraComponent.ResolveTargetTexture();
+        const bool toTexture = CameraComponent.RendersToTexture();
+        Moonlight::Texture* target = toTexture ? resolved : nullptr;
 
 #if USING( ME_EDITOR )
         // The editor sizes the main camera to the Game View panel; only fall back to the window
@@ -78,6 +83,13 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
 #endif
         {
             CameraComponent.OutputSize = windowSize;
+        }
+        else if( toTexture )
+        {
+            if( target )
+            {
+                CameraComponent.OutputSize = Vector2( static_cast<float>( target->mWidth ), static_cast<float>( target->mHeight ) );
+            }
         }
         else if( CameraComponent.MatchMainCamera && Camera::CurrentCamera )
         {
@@ -141,6 +153,56 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
             CamData->IsMain = CameraComponent.IsMain();
             const PostProcess* post = InEntity.TryGetComponent<PostProcess>();
             CamData->Post = ( post && post->IsEnabled() ) ? post->ToSettings() : Moonlight::PostProcessSettings();
+            CamData->SunShadows = CameraComponent.SunShadows;
+            CamData->AmbientOcclusion = CameraComponent.AmbientOcclusion;
+            CamData->VolumetricFog = CameraComponent.VolumetricFog;
+            CamData->Target = target ? CameraComponent.m_target : nullptr;
+            CamData->TargetOrder = InEntity.GetGUID();
+            CamData->RenderDeltaSeconds = 0.f;
+            if( toTexture )
+            {
+                // Render textures render on their own schedule, counted in frames so captures stay
+                // deterministic: every UpdateInterval frames, and at once for a new or recreated target.
+                // Without a target there's nothing to render into.
+                CamData->ShouldRender = false;
+                CameraComponent.m_secondsSinceRender += inUpdateContext.GetDeltaTime();
+                if( target )
+                {
+                    const bool retarget = target != CameraComponent.m_scheduledTarget || target->GetRenderTargetRevision() != CameraComponent.m_targetRevision;
+                    if( retarget || CameraComponent.m_framesUntilRender <= 0 )
+                    {
+                        CamData->ShouldRender = true;
+                        CamData->RenderDeltaSeconds = CameraComponent.m_secondsSinceRender;
+                        CameraComponent.m_secondsSinceRender = 0.f;
+                        const int interval = std::max( CameraComponent.UpdateInterval, 1 );
+                        CameraComponent.m_framesUntilRender = interval - 1;
+                        if( retarget )
+                        {
+                            // A new target renders at once; then feeds sharing an interval take turns
+                            // (by GUID, so it's the same every run).
+                            CameraComponent.m_framesUntilRender -= static_cast<int>( InEntity.GetGUID() % static_cast<uint64_t>( interval ) );
+                        }
+                        CameraComponent.m_scheduledTarget = target;
+                        CameraComponent.m_targetRevision = target->GetRenderTargetRevision();
+                    }
+                    else
+                    {
+                        --CameraComponent.m_framesUntilRender;
+                    }
+                }
+                // Nothing editor-only or screen-only belongs in a texture.
+                CamData->ViewOptions.DebugDraw = false;
+                CamData->ViewOptions.GameUI = false;
+                CameraComponent.m_renderedToTexture = true;
+            }
+            else if( CameraComponent.m_renderedToTexture )
+            {
+                // Back to an ordinary camera (target cleared, or made current: the Game View then
+                // decides for the current camera every frame).
+                CamData->ShouldRender = true;
+                CameraComponent.m_renderedToTexture = false;
+                CameraComponent.m_scheduledTarget = nullptr;
+            }
             //CamData.CameraFrustum = CameraComponent.CameraFrustum;
 
             Vector3 eye = { CamData->Position.x, CamData->Position.y, CamData->Position.z };
@@ -186,7 +248,8 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
 
 void CameraCore::OnEntityAdded( Entity& NewEntity )
 {
-    if( Camera::CurrentCamera == DefaultCamera )
+    // A render texture camera never takes over the screen by itself.
+    if( Camera::CurrentCamera == DefaultCamera && !NewEntity.GetComponent<Camera>().HasTargetTexture() )
     {
         NewEntity.GetComponent<Camera>().SetCurrent();
     }
@@ -231,8 +294,11 @@ Moonlight::CameraData CameraCore::CreateCameraData( Transform& InTransform, Came
 
 void CameraCore::OnEntityRemoved( Entity& InEntity )
 {
-    unsigned int id = InEntity.GetComponent<Camera>().m_id;
+    Camera& camera = InEntity.GetComponent<Camera>();
+    const unsigned int id = camera.m_id;
     Moonlight::CameraData* camData = GetEngine().GetRenderer().GetCameraCache().Get( id );
     delete camData->Buffer;
     GetEngine().GetRenderer().GetCameraCache().Pop( id );
+    // The slot goes to the next camera added: this one (deactivated, perhaps still current) has none.
+    camera.m_id = ~0u;
 }

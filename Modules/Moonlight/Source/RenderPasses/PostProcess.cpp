@@ -164,8 +164,10 @@ namespace Moonlight
 
     void PostProcess::SetupFullscreenView( bgfx::ViewId InView, bgfx::FrameBufferHandle InTarget, uint16_t InWidth, uint16_t InHeight, uint16_t InX, uint16_t InY )
     {
+        // Writing a render texture on a bottom-up backend: flipped, so it holds its top row first.
+        const bool flip = bgfx::isValid( InTarget ) && InTarget.idx == FlippedTarget.idx;
         float ortho[16];
-        bx::mtxOrtho( ortho, 0.f, 1.f, 1.f, 0.f, 0.f, 100.f, 0.f, bgfx::getCaps()->homogeneousDepth );
+        bx::mtxOrtho( ortho, 0.f, 1.f, flip ? 0.f : 1.f, flip ? 1.f : 0.f, 0.f, 100.f, 0.f, bgfx::getCaps()->homogeneousDepth );
         bgfx::setViewFrameBuffer( InView, InTarget );
         bgfx::setViewRect( InView, InX, InY, InWidth, InHeight );
         bgfx::setViewTransform( InView, nullptr, ortho );
@@ -199,7 +201,12 @@ namespace Moonlight
     void PostProcess::RenderAmbientOcclusion( ViewAllocator& InViews, const CameraData& InCamera, FrameBuffer& InTargets )
     {
         const PostProcessSettings& settings = InCamera.Post;
-        if( !settings.AmbientOcclusion || settings.AOIntensity <= 0.f || settings.AORadius <= 0.f || !bgfx::isValid( InTargets.AOBuffer.Buffer ) || !bgfx::isValid( InTargets.AOBlurBuffer.Buffer ) || !bgfx::isValid( InTargets.DepthTexture ) || !bgfx::isValid( InTargets.ParticleBuffer ) )
+        if( !settings.AmbientOcclusion || settings.AOIntensity <= 0.f || settings.AORadius <= 0.f )
+        {
+            return;
+        }
+        InTargets.EnsureAmbientOcclusionTargets();
+        if( !bgfx::isValid( InTargets.AOBuffer.Buffer ) || !bgfx::isValid( InTargets.AOBlurBuffer.Buffer ) || !bgfx::isValid( InTargets.DepthTexture ) || !bgfx::isValid( InTargets.ParticleBuffer ) )
         {
             return;
         }
@@ -286,7 +293,7 @@ namespace Moonlight
     void PostProcess::RenderFog( ViewAllocator& InViews, const CameraData& InCamera, FrameBuffer& InTargets, const std::function<void()>& InBindLighting )
     {
         const PostProcessSettings& settings = InCamera.Post;
-        if( !settings.Fog || settings.FogDensity <= 0.f || settings.FogMaxOpacity <= 0.f || !bgfx::isValid( InTargets.FogBuffer.Buffer ) || !bgfx::isValid( InTargets.ParticleBuffer ) )
+        if( !settings.Fog || settings.FogDensity <= 0.f || settings.FogMaxOpacity <= 0.f || !bgfx::isValid( InTargets.ParticleBuffer ) )
         {
             InTargets.FogHistoryValid = false;
             InTargets.FogFrame = 0;
@@ -301,6 +308,17 @@ namespace Moonlight
         float fogVolume[4];
         FogUniforms( settings, fogParams, fogColor, fogVolume );
         const bool volumetric = fogVolume[3] > 0.f;
+        if( volumetric )
+        {
+            // Created on first use: cameras with analytic fog never allocate them.
+            InTargets.EnsureVolumetricFogTargets();
+            if( !bgfx::isValid( InTargets.FogBuffer.Buffer ) || !bgfx::isValid( InTargets.FogBlurBuffer.Buffer ) )
+            {
+                InTargets.FogHistoryValid = false;
+                InTargets.FogFrame = 0;
+                return;
+            }
+        }
         const bool temporal = volumetric && settings.VolumetricTemporal;
         if( !temporal )
         {
@@ -314,7 +332,8 @@ namespace Moonlight
         const float fogJitter = temporal ? static_cast<float>( InTargets.FogFrame % 32 ) * 0.61803398875f
             : ( InCamera.Post.TemporalAA ? static_cast<float>( InTargets.TemporalFrame % 32 ) * 0.61803398875f : 0.f );
         const float fogProjection2[4] = { projection[0][0], projection[1][1], InCamera.Far, fogJitter };
-        const float fogScreen[4] = { static_cast<float>( InTargets.Width ), static_cast<float>( InTargets.Height ), static_cast<float>( InTargets.FogBuffer.Width ), static_cast<float>( InTargets.FogBuffer.Height ) };
+        // The volumetric targets' size (half resolution; analytic fog never allocates them).
+        const float fogScreen[4] = { static_cast<float>( InTargets.Width ), static_cast<float>( InTargets.Height ), static_cast<float>( std::max<uint32_t>( InTargets.Width / 2, 1 ) ), static_cast<float>( std::max<uint32_t>( InTargets.Height / 2, 1 ) ) };
         const uint64_t pointClamp = BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
         const uint64_t linearClamp = BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
 
@@ -632,6 +651,10 @@ namespace Moonlight
         }
 
         RenderDepthOfField( InViews, InCamera, InTargets );
+        if( settings.Bloom && settings.BloomIntensity > 0.f )
+        {
+            InTargets.EnsureBloomTargets();
+        }
         const bool bloom = settings.Bloom && settings.BloomIntensity > 0.f && !InTargets.BloomMips.empty();
         if( bloom )
         {
@@ -674,7 +697,7 @@ namespace Moonlight
                 lutSize = static_cast<float>( settings.Lut->GetSize() );
                 lutVolume = settings.Lut->GetHandle();
             }
-            else if( settings.LutStrip && bgfx::isValid( settings.LutStrip->TexHandle )
+            else if( settings.LutStrip && bgfx::isValid( settings.LutStrip->TexHandle ) && !settings.LutStrip->IsRenderTarget()
                 && settings.LutStrip->mHeight > 1 && settings.LutStrip->mWidth == settings.LutStrip->mHeight * settings.LutStrip->mHeight )
             {
                 lutMode = 2.f;

@@ -1,4 +1,5 @@
 #include "FoliageMaterial.h"
+#include "Graphics/DefaultTextures.h"
 #include "Utils/HavanaUtils.h"
 #include <algorithm>
 #include <cmath>
@@ -87,6 +88,7 @@ void FoliageMaterial::Init()
         u_foliageWind = bgfx::createUniform( "u_foliageWind", bgfx::UniformType::Vec4 );
         // Shared with the renderer's stock shadow caster (same names, same handles).
         u_shadowAlpha = bgfx::createUniform( "u_shadowAlpha", bgfx::UniformType::Vec4 );
+        u_shadowUvOffset = bgfx::createUniform( "u_shadowUvOffset", bgfx::UniformType::Vec4 );
         s_texDiffuse = bgfx::createUniform( "s_texDiffuse", bgfx::UniformType::Sampler );
     }
     if( !m_shadowShaderRequested )
@@ -122,9 +124,12 @@ void FoliageMaterial::UseShadowCaster()
     const bool textured = diffuse && bgfx::isValid( diffuse->TexHandle );
     const float shadowAlpha[4] = { textured ? AlphaCutoff : 0.f, Tiling.x, Tiling.y, 0.f };
     bgfx::setUniform( u_shadowAlpha, shadowAlpha );
+    const float shadowUvOffset[4] = { Offset.x, Offset.y, 0.f, 0.f };
+    bgfx::setUniform( u_shadowUvOffset, shadowUvOffset );
     if( textured )
     {
-        bgfx::setTexture( 0, s_texDiffuse, diffuse->TexHandle );
+        // Only its alpha cuts holes: a camera's own target counts as no map (white, no holes).
+        bgfx::setTexture( 0, s_texDiffuse, Moonlight::Texture::Sampleable( diffuse->TexHandle, Moonlight::GetDefaultTexture( Moonlight::DefaultTexture::White ) ) );
     }
 }
 

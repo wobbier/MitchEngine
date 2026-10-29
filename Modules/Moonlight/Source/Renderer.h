@@ -183,6 +183,8 @@ private:
     Moonlight::BGFXCallback m_bgfxCallback;
 
     bgfx::ProgramHandle BindMeshDrawState( const Moonlight::MeshCommand& mesh, uint64_t state );
+    // A render texture camera: it has a loaded target texture and isn't the main camera.
+    static bool RendersToTexture( const Moonlight::CameraData& InCamera );
 
     // Lighting: per frame (light data, directional lights) and per camera (clusters, ambient).
     void PrepareFrameLighting();
@@ -236,6 +238,9 @@ private:
     SceneCounts m_editorCounts;
     SceneCounts m_frameCounts;
     SceneCounts m_previewCounts;    // other render groups (not reported)
+    SceneCounts m_textureCounts;    // render texture cameras (added to the scene's draws)
+    // This frame's render texture cameras, in the order they render.
+    std::vector<Moonlight::CameraData*> m_textureCameras;
     SceneCounts* m_counting = nullptr;
 
     ShadowAtlas m_sunShadowAtlas;
@@ -387,6 +392,7 @@ private:
     bgfx::UniformHandle u_spotShadowParams = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_pointShadowParams = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_shadowAlpha = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_shadowUvOffset = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_shadowMap = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_spotShadowMap = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_envSpecular = BGFX_INVALID_HANDLE;

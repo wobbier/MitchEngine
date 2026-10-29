@@ -61,6 +61,9 @@ namespace Moonlight
 
         // Seconds since the last frame, for eye adaptation.
         float DeltaSeconds = 1.f / 60.f;
+        // A render texture's target on a backend whose framebuffers start at the bottom (OpenGL):
+        // passes writing it flip vertically, so it holds its top row first like an image.
+        bgfx::FrameBufferHandle FlippedTarget = BGFX_INVALID_HANDLE;
 
     private:
         void SetupFullscreenView( bgfx::ViewId InView, bgfx::FrameBufferHandle InTarget, uint16_t InWidth, uint16_t InHeight, uint16_t InX = 0, uint16_t InY = 0 );

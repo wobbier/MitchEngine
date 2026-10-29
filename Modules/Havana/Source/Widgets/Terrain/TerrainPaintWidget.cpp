@@ -49,6 +49,8 @@ void TerrainWidget::DrawLayerMap( unsigned kind, const char* label, std::string&
             std::string* maps[] = { &m_layerDraft.BaseColorMap, &m_layerDraft.NormalMap, &m_layerDraft.OrmMap };
             *maps[kind] = selected.GetLocalPathString();
         }, AssetType::Texture );
+        // Layers are packed from the images' pixels.
+        event.ImagesOnly = true;
         event.Fire();
     }
     ImGui::SameLine(); if( ImGui::Button( "Clear" ) ) path.clear();

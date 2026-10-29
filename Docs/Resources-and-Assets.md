@@ -2,7 +2,7 @@
 
 All asset loading funnels through the `ResourceCache` singleton: a thread-safe, string-keyed map of `SharedPtr<Resource>` with synchronous loading plus **background loading** for textures, models, shaders and resident terrain, `.meta` JSON sidecars per asset (carrying asset GUIDs), and an editor/tools-only cook step (`Export()`) that compiles sources (`.png`, `.fbx`, `.vert`…) into runtime formats (`.dds`, `.assbin`, `.<platform>.bin`). Unreferenced resources are kept alive for a grace period, and tools builds hot reload assets when files change. This doc covers the load flow, async loads, the metadata/cook system, hot reload, the resource type inventory, and how to add a new type.
 
-> Verified against engine commit dab803a2, 2026-10-08; model import (animation and skin data) against 07617c5f, 2026-10-09; pass-through assets against afce7083, 2026-10-09; async loading against 4d4de548, 2026-10-10; async shader loads against 488b07f1 plus the non-blocking shaders change, 2026-10-16; terrain resources against `73fbac9d` plus the resident terrain change, 2026-10-18.
+> Verified against engine commit dab803a2, 2026-10-08; model import (animation and skin data) against 07617c5f, 2026-10-09; pass-through assets against afce7083, 2026-10-09; async loading against 4d4de548, 2026-10-10; async shader loads against 488b07f1 plus the non-blocking shaders change, 2026-10-16; terrain resources against `73fbac9d` plus the resident terrain change, 2026-10-18; render textures against 89e036be plus the render texture change, 2026-10-29.
 
 ## Overview
 
@@ -75,7 +75,7 @@ Rules:
 - **`ReleaseAll()` cancels**: queued loads are dropped and marked failed, and the loader threads are joined. Engine shutdown does this before tearing the GPU down.
 - **`GetPendingLoadCount()`** counts queued, running and not-yet-finished loads, for progress bars.
 - To make a type async, override the three virtuals. Types that don't opt in load synchronously through `Load()` even when requested with `GetAsync`. Each async type's `Load()` is simply both parts:
-  - `Texture` reads and parses the DDS in `LoadAsync` (`m_pendingImage`) and creates the bgfx texture in `FinishAsyncLoad`.
+  - `Texture` reads and parses the DDS in `LoadAsync` (`m_pendingImage`) and creates the bgfx texture in `FinishAsyncLoad`. A `.rendertexture` reads its settings there instead and creates its render target (`Docs/Rendering-Pipeline.md`, Render textures).
   - `ModelResource` reads the cooked `.assbin` with Assimp and builds the animation clips in `LoadAsync`. It makes meshes (GPU buffers), materials and the node tree in `FinishAsyncLoad`.
   - `ShaderFile` reads its compiled binary in `LoadAsync` and creates the bgfx shader in `FinishAsyncLoad`, which also builds the programs that were waiting for it (`Docs/Materials-and-Shaders.md`).
 - **First-time cooks happen in the background too** (tools builds). When `GetAsync` finds an asset that needs cooking (no compiled file, or flagged for export) and its meta says the cook is safe off the main thread (`MetaBase::ExportsInBackground`: textures, models and shaders), the loader thread runs `Export()` and saves the meta before `LoadAsync`. The main thread only records the result in the meta cache, in `FinishAsyncLoad`. A scene full of new assets therefore opens at once, and its textures and models pop in as `texturec` and Assimp finish (several in parallel). A synchronous `Get` still cooks on the spot.
@@ -126,11 +126,12 @@ Registered metadata types:
 | `wav`, `mp3` | `AudioResourceMetadata` (+Mp3) — declared in `Source/Components/Audio/AudioSource.h` | — | none (pass-through: loaded by FMOD as is, see `Docs/Audio.md`) |
 | `mat` | `MaterialResourceMetadata` (declared in `Modules/Moonlight/Source/Graphics/Material.h`) | `mat` | none (pass-through) |
 | `inputactions` | `InputActionsMetadata` (`Source/Input/InputActionsAsset.h`) | `inputactions` | none (pass-through); a data asset, edited in the asset browser |
+| `rendertexture` | `RenderTextureMetadata` (`Modules/Moonlight/Source/Graphics/Texture.h`) | `rendertexture` | none (pass-through: the JSON settings are the asset, loaded as a `Texture` that owns a render target, `Docs/Rendering-Pipeline.md`); a data asset whose settings (size, mips, wrap) are edited in the asset browser. Saving hot reloads the texture, which recreates its target only when the settings changed |
 | `terrain`, `terrainc` | `TerrainMetadata`, `TerrainCookedMetadata` | same extension (pass-through) | Source manifest/pages or an explicit cooked package; `TerrainResource` decodes and prepares immutable resident CPU geometry in a background load (`Docs/Terrain.md`) |
 
 **Changing formats in bulk:** `Tools/SetTextureFormat.py` rewrites the `"Format"` of texture metas under a folder (`--from None --to Auto` by default, `--exclude` globs, `--tracked-only`, `--dry-run`) and deletes their `.dds`, and `Havana --cook-textures [folder]` then cooks every texture whose `.dds` is missing or stale on all cores, without opening the editor (only textures that already have an engine `.meta`). Moving MitchGame's 448 tracked textures from `None` to `Auto` on 2026-10-24 took their cooked size from 6.67 GiB to 1.81 GiB, and the recook 82 s on 32 cores.
 
-A metadata type can make its asset a **data asset** by returning a reflected object from `MetaBase::GetEditableType` / `GetEditableData`: the asset browser then draws it with the reflection inspector and writes it back through `SaveEditableData` (see `InputActionsMetadata`).
+A metadata type can make its asset a **data asset** by returning a reflected object from `MetaBase::GetEditableType` / `GetEditableData`: the asset browser then draws it with the reflection inspector and writes it back through `SaveEditableData` (see `InputActionsMetadata` and `RenderTextureMetadata`).
 
 Extensions **not** in this table (e.g. `.json`, `.lvl`, `.html`) get **no metadata**: `LoadMetadata` returns null, no cook step runs, and `Get` goes straight to `T::Load()` on the source file.
 

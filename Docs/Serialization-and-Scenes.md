@@ -2,7 +2,7 @@
 
 Scenes and prefabs are JSON in **scene format v2**: a `"Cores"` array naming the systems the scene needs and a flat, depth-first `"Entities"` array where each entity has a 64-bit GUID, an optional `Parent` GUID and a `Components` list. `SceneSerializer` owns both directions; version 1 files (nested `"Scene"`/`"Children"`) are migrated on load. Entity references are stored as GUIDs and remapped when prefabs or copies are instanced. Asset references are paths backed by asset GUIDs, so moving or renaming assets doesn't break the files that use them.
 
-> Verified against engine commit 7e869c6e, 2026-10-09; asset references against a76e6e79, 2026-10-10.
+> Verified against engine commit 7e869c6e, 2026-10-09; asset references against a76e6e79, 2026-10-10; render texture references against 89e036be plus the render texture change, 2026-10-29.
 
 ## Overview
 
@@ -115,7 +115,7 @@ Unit tested (tagging, save exclusion, double loads, background loads, unload, mi
 ## Caveats & Fragility
 
 - **Names are the schema** for types: component, core and material class names link files to code. Renaming one orphans data (one warning per instance at load) unless the rename is declared: `ME_REGISTER_COMPONENT_ALIAS`, `ME_REGISTER_CORE_ALIAS`, `.FormerName()` on reflected fields, and `[FormerName]` on scripts and their fields (`Docs/ECS.md`). Material class names have no alias yet.
-- **Asset references follow moves only for GUID-backed assets.** Assets with a `.meta` (textures, models, audio, shaders, materials, input actions) and prefabs saved since `AssetGUID` was added are tracked. Scenes (`.lvl`) and C# scripts are not; prefabs written before `AssetGUID` existed are tracked once they're saved again. Paths built in code at runtime have no table, but they still resolve within the editor session that moved the asset.
+- **Asset references follow moves only for GUID-backed assets.** Assets with a `.meta` (textures, render textures, models, audio, shaders, materials, input actions) and prefabs saved since `AssetGUID` was added are tracked. Scenes (`.lvl`) and C# scripts are not; prefabs written before `AssetGUID` existed are tracked once they're saved again. Paths built in code at runtime have no table, but they still resolve within the editor session that moved the asset.
 - **The table is written on save.** A file saved before this feature has no `AssetReferences`, so moves made before its next save can't be followed.
 - **Model child reuse is by name**: two same-named sibling nodes in a model map onto the first saved child.
 - **`DestroyOnLoad: false` entities survive `World::Unload`** but are written into whatever scene is saved while they're alive.

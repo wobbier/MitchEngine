@@ -83,7 +83,7 @@ void StandardMaterial::Use()
     const float baseColor[4] = { SrgbToLinear( DiffuseColor.x ), SrgbToLinear( DiffuseColor.y ), SrgbToLinear( DiffuseColor.z ), Opacity };
     const float pbr[4] = { Metallic, Roughness, NormalStrength, OcclusionStrength };
     const float emissive[4] = { SrgbToLinear( EmissiveColor.x ) * EmissiveIntensity, SrgbToLinear( EmissiveColor.y ) * EmissiveIntensity, SrgbToLinear( EmissiveColor.z ) * EmissiveIntensity, AlphaCutoff };
-    const float uvTransform[4] = { Tiling.x, Tiling.y, 0.f, 0.f };
+    const float uvTransform[4] = { Tiling.x, Tiling.y, Offset.x, Offset.y };
     bgfx::setUniform( u_baseColor, baseColor );
     bgfx::setUniform( u_pbrParams, pbr );
     bgfx::setUniform( u_emissive, emissive );

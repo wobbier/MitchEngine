@@ -2,7 +2,7 @@
 
 A project picks a **hardware profile**: a target machine such as "Xbox 360", "2004 PC", "Switch" or "Steam Deck". The profile sets a frame-time target, memory budgets, per-frame draw limits and the GPU features the target has. `HardwareBudget` measures every frame against it, and the editor shows the verdict. When the profile is **enforced**, the renderer turns off the features the target lacks and caps texture and shadow sizes, so the game shows the target's look. Profiles are JSON data.
 
-> Verified against engine commit 3f04199c plus the hardware profiles change, 2026-10-22; `MaxVolumetricSteps` against 94407e9d plus the concert lighting change, 2026-10-29.
+> Verified against engine commit 3f04199c plus the hardware profiles change, 2026-10-22; `MaxVolumetricSteps` against 94407e9d plus the concert lighting change, 2026-10-29; render texture draw counts against 89e036be plus the render texture change, 2026-10-29.
 
 ## Overview
 
@@ -66,7 +66,7 @@ A project picks a **hardware profile**: a target machine such as "Xbox 360", "20
 |------|---------------|
 | CPU frame | `FrameStats::GetSmoothedFrameMilliseconds` (main-thread work, the frame limiter's sleep excluded) |
 | GPU frame | `RenderStats::GpuMilliseconds`, smoothed the same way (0.1 EMA) |
-| Draw calls / Triangles | `RenderStats::SceneDrawCalls` / `SceneTriangles`: the mesh draws (every `CountTriangles` call) of the game's cameras, their sun cascades and the frame's local shadow passes |
+| Draw calls / Triangles | `RenderStats::SceneDrawCalls` / `SceneTriangles`: the mesh draws (every `CountTriangles` call) of the game's cameras and render texture cameras, their sun cascades and the frame's local shadow passes |
 | Lights | `RenderStats::Lights` (this frame's `LightCommand`s) |
 | Resolution | `RenderStats::SceneWidth` × `SceneHeight`: the main game camera's output, compared as pixel counts |
 | Memory | `PlatformUtils::GetProcessMemoryBytes`, plus GPU memory on unified targets |
@@ -77,7 +77,7 @@ A project picks a **hardware profile**: a target machine such as "Xbox 360", "20
 
 A line is **Near** at 90% of its limit and **Over** above it. `Peak` holds the highest value since the profile was picked or `ResetPeaks`. A line that stays over for a second logs one warning (`[Budget] Xbox 360: Draw calls 2,431 is over 2,500`). It logs again only after it drops below 95% of the limit, so a value hovering at the limit doesn't flood the log.
 
-**Editor views are left out of the draw counts.** `RenderCameraView` points `m_counting` at the game or the editor tally by `CameraData::IsEditorView`, and `GatherFrameStats` reports the game tally when any game camera rendered. When none did, it reports the scene view's tally. Fullscreen, post-processing and UI passes are not counted.
+**Editor views are left out of the draw counts.** `RenderCameraView` points `m_counting` at the game or the editor tally by `CameraData::IsEditorView`, and `GatherFrameStats` reports the game tally when any game camera rendered. When none did, it reports the scene view's tally. Render texture cameras count into a third tally that is always added: their images serve both. Fullscreen, post-processing and UI passes are not counted.
 
 ### Enforcement
 

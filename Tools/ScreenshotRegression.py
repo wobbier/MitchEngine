@@ -20,7 +20,13 @@ Captures pass --no-profile-enforcement (unless --game-args has --enforce-profile
 local ProjectSettings edit enforces can't cap what they render; each scene's line names the profile
 its log reports. --update also warns when Assets/Config has uncommitted changes, before and after
 capturing (an open editor can write ProjectSettings.json mid-run): other local settings still apply.
+
+A reference can name regions that matter more than their share of the frame (a screen showing a
+render texture, say) in <reference>/<scene name>.regions.json; each fails on its own limit:
+  {"Regions": [{"Name": "LED wall", "Rect": [x, y, width, height], "MaxChanged": 0.1}]}
+with the rect normalized (0..1, from the top left).
 """
+import json
 import argparse
 import os
 import shlex
@@ -120,24 +126,38 @@ def downscale(width, height, rows, factor):
 
 
 def compare(a, b, tolerance):
-    """Mean absolute difference (0..1) and the fraction of pixels off by more than tolerance."""
+    """Mean absolute difference (0..1), the fraction of pixels off by more than tolerance, the diff
+    image rows and those pixels (1 per changed pixel, by row)."""
     width, height, rows_a = a
     _, _, rows_b = b
-    total, bad, diff_rows = 0, 0, []
+    total, bad, diff_rows, bad_rows = 0, 0, [], []
     for y in range(height):
         ra, rb = rows_a[y], rows_b[y]
         diff = bytearray(width * 3)
+        changed = bytearray(width)
         for x in range(width):
             i = x * 3
             d = max(abs(ra[i] - rb[i]), abs(ra[i + 1] - rb[i + 1]), abs(ra[i + 2] - rb[i + 2]))
             total += d
             if d > tolerance:
                 bad += 1
+                changed[x] = 1
             v = min(255, d * 4)
             diff[i], diff[i + 1], diff[i + 2] = v, v // 4, v // 4
         diff_rows.append(diff)
+        bad_rows.append(changed)
     pixels = width * height
-    return total / (pixels * 255.0), bad / pixels, diff_rows
+    return total / (pixels * 255.0), bad / pixels, diff_rows, bad_rows
+
+
+def region_changed(bad_rows, width, height, rect):
+    """The fraction of changed pixels inside a normalized [x, y, w, h] rect."""
+    x0 = min(max(int(rect[0] * width), 0), width - 1)
+    y0 = min(max(int(rect[1] * height), 0), height - 1)
+    x1 = min(max(int(round((rect[0] + rect[2]) * width)), x0 + 1), width)
+    y1 = min(max(int(round((rect[1] + rect[3]) * height)), y0 + 1), height)
+    bad = sum(sum(bad_rows[y][x0:x1]) for y in range(y0, y1))
+    return bad / ((x1 - x0) * (y1 - y0))
 
 # ----------------------------------------------------------------------------------------- hygiene
 
@@ -241,11 +261,21 @@ def main():
             print(f"FAIL  {name}: capture is {small[0]}x{small[1]}, reference {reference[0]}x{reference[1]}")
             failures += 1
             continue
-        mean, changed, diff_rows = compare(small, reference, args.tolerance)
+        mean, changed, diff_rows, bad_rows = compare(small, reference, args.tolerance)
         write_png(os.path.join(args.out, name + ".diff.png"), small[0], small[1], diff_rows)
         ok = changed <= args.max_changed
         failures += 0 if ok else 1
         print(f"{'ok   ' if ok else 'FAIL '} {name}: {changed * 100:.2f}% of pixels changed (limit {args.max_changed * 100:.1f}%), mean difference {mean * 100:.2f}% {profile}")
+        regions_path = os.path.join(args.reference, name + ".regions.json")
+        if os.path.exists(regions_path):
+            with open(regions_path) as f:
+                regions = json.load(f).get("Regions", [])
+            for region in regions:
+                fraction = region_changed(bad_rows, small[0], small[1], region["Rect"])
+                limit = region.get("MaxChanged", args.max_changed)
+                region_ok = fraction <= limit
+                failures += 0 if region_ok else 1
+                print(f"{'ok   ' if region_ok else 'FAIL '} {name} / {region['Name']}: {fraction * 100:.2f}% of its pixels changed (limit {limit * 100:.1f}%)")
     if args.update:
         warn_dirty_config(args.cwd, "finished")
     return 1 if failures else 0

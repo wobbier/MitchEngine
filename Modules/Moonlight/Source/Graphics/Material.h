@@ -149,6 +149,9 @@ namespace Moonlight
         int ScreenViewCamera = -1;
         Vector3 DiffuseColor;
         Vector2 Tiling;
+        // Added after tiling (uv * Tiling + Offset). Tiling (1, -1) with Offset (0, 1) flips an image
+        // vertically within the edges: what upright images on the built-in primitives need.
+        Vector2 Offset;
         std::string ShaderName;
         RenderFaceMode FaceMode = RenderFaceMode::Front;
         BlendMode AlphaBlendMode = BlendMode::Alpha;
@@ -234,6 +237,8 @@ namespace Moonlight
             h = mix( h, floatBits( DiffuseColor.z ) );
             h = mix( h, floatBits( Tiling.x ) );
             h = mix( h, floatBits( Tiling.y ) );
+            h = mix( h, floatBits( Offset.x ) );
+            h = mix( h, floatBits( Offset.y ) );
             return h;
         }
     };

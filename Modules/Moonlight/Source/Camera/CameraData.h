@@ -7,11 +7,13 @@
 #include "Camera/PostProcessSettings.h"
 #include "Camera/ProceduralSkySettings.h"
 #include "RenderCommands.h"
+#include "Pointers.h"
 
 #include <vector>
 
 namespace Moonlight {
     class SkyBox;
+    class Texture;
 }
 namespace Moonlight {
     struct FrameBuffer;
@@ -103,6 +105,20 @@ namespace Moonlight
         bool IsEditorView = false;
         ViewShadingMode Shading = ViewShadingMode::Lit;
         ViewRenderOptions ViewOptions;
+
+        // A render texture camera's target (Camera::TargetTexture): its final image goes into the
+        // texture, which materials sample, instead of the camera's own output. These cameras render
+        // first each frame, and never as the main camera.
+        SharedPtr<Texture> Target;
+        // Render texture cameras render in this order (the entity's GUID: stable across play,
+        // reloads and builds, unlike cache slots).
+        uint64_t TargetOrder = 0;
+        // Per-camera pass switches (masks over the post settings, like the renderer's feature caps).
+        bool SunShadows = true;
+        bool AmbientOcclusion = true;
+        bool VolumetricFog = true;
+        // Seconds since this camera last rendered, for eye adaptation (0: one frame).
+        float RenderDeltaSeconds = 0.f;
 
         PostProcessSettings Post;
 

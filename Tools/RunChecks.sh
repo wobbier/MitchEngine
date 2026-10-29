@@ -4,7 +4,8 @@
 #   2. runs the unit tests;
 #   3. runs every editor regression script (Tools/RunEditorFlows.py);
 #   4. compares the showcase scenes with their reference screenshots (Tools/ScreenshotRegression.py);
-#   5. cooks two showcases (Havana --cook) and compares the game on the cooked tree and its pak;
+#   5. cooks three showcases (Havana --cook: Lighting, Playground and RenderTexture's camera feeds)
+#      and compares the game on the cooked tree and its pak;
 #   6. builds them as a shippable Retail game (Havana --build-game) and compares that, run from
 #      outside the repo without a .NET install;
 #   7. opens the C#-only sample project (Samples/ScriptOnly), copied out of the repo, in the editor
@@ -89,13 +90,20 @@ if [[ -d Assets/Scenes/Showcase/Reference ]]; then
     fi
 fi
 
-# The cooker (SHIP-2): cook two showcases (each recorded through the game first), then run the
-# game on the cooked tree and, from an empty directory, on its pak alone. Both must still match
-# the references: nothing the scenes need may be left behind with the sources.
-cook_scenes=(Assets/Scenes/Showcase/Lighting.lvl Assets/Scenes/Showcase/Playground.lvl)
-if [[ -f "${cook_scenes[0]}" && -f "${cook_scenes[1]}" && -d Assets/Scenes/Showcase/Reference ]]; then
+# The cooker (SHIP-2): cook three showcases (each recorded through the game first), then run the
+# game on the cooked tree and, from an empty directory, on its pak alone. All must still match
+# the references: nothing the scenes need may be left behind with the sources (RenderTexture's
+# .rendertexture assets ship as data, its monitors are checked region by region).
+cook_scenes=(Assets/Scenes/Showcase/Lighting.lvl Assets/Scenes/Showcase/Playground.lvl Assets/Scenes/Showcase/RenderTexture.lvl)
+cook_scene_args=()
+cook_scenes_present=1
+for scene in "${cook_scenes[@]}"; do
+    [[ -f $scene ]] || cook_scenes_present=0
+    cook_scene_args+=(--scene "$scene")
+done
+if [[ $cook_scenes_present == 1 && -d Assets/Scenes/Showcase/Reference ]]; then
     step "Cooked build"
-    if ! "$here/Headless.sh" ./.build/Editor_Debug/Havana --cook --scene "${cook_scenes[0]}" --scene "${cook_scenes[1]}" --out .tmp/Cook --pak .tmp/Cook.mpak \
+    if ! "$here/Headless.sh" ./.build/Editor_Debug/Havana --cook "${cook_scene_args[@]}" --out .tmp/Cook --pak .tmp/Cook.mpak \
             --game .build/Game_linux_Debug/Game_EntryPoint_x64 > .tmp/RunChecks.cook.log 2>&1; then
         grep -E "Cook|Error" .tmp/RunChecks.cook.log | tail -20
         failed+=("cook")
@@ -118,9 +126,9 @@ fi
 # scripts on the app-local .NET and still match the references. The project's main menu ships too:
 # its scripts draw ImGui debug windows, which Retail (no ImGui) must survive.
 smoke_scene=Assets/Main.lvl
-if [[ -f "${cook_scenes[0]}" && -f "${cook_scenes[1]}" && -f $smoke_scene && -d Assets/Scenes/Showcase/Reference ]]; then
+if [[ $cook_scenes_present == 1 && -f $smoke_scene && -d Assets/Scenes/Showcase/Reference ]]; then
     step "Build Game"
-    if ! "$here/Headless.sh" ./.build/Editor_Debug/Havana --build-game --scene "${cook_scenes[0]}" --scene "${cook_scenes[1]}" --scene "$smoke_scene" --out .tmp/BuildGame/Checks \
+    if ! "$here/Headless.sh" ./.build/Editor_Debug/Havana --build-game "${cook_scene_args[@]}" --scene "$smoke_scene" --out .tmp/BuildGame/Checks \
             --game .build/Game_linux_Debug/Game_EntryPoint_x64 > .tmp/RunChecks.buildgame.log 2>&1; then
         grep -E "Build Game|Error" .tmp/RunChecks.buildgame.log | tail -20
         failed+=("build game")

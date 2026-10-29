@@ -68,6 +68,7 @@ private:
     inline static bgfx::UniformHandle u_foliage = BGFX_INVALID_HANDLE;
     inline static bgfx::UniformHandle u_foliageWind = BGFX_INVALID_HANDLE;
     inline static bgfx::UniformHandle u_shadowAlpha = BGFX_INVALID_HANDLE;
+    inline static bgfx::UniformHandle u_shadowUvOffset = BGFX_INVALID_HANDLE;
     inline static bgfx::UniformHandle s_texDiffuse = BGFX_INVALID_HANDLE;
 };
 

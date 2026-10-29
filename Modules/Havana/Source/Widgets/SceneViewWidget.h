@@ -47,6 +47,8 @@ public:
 	void Init() override;
 	void Destroy() override;
 	void SetData(Moonlight::CameraData& data);
+	// Nothing to show (no camera).
+	void ClearData() { MainCamera = nullptr; }
 
 	void Update() override;
 	void Render() override;

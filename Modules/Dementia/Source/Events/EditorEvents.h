@@ -59,6 +59,9 @@ public:
     std::function<void( Path )> Callback;
     AssetType ForcedFilter;
     bool IsRequestingSave = false;
+    // A Texture filter also offers render textures, unless the picker needs image data (pixels
+    // read on the CPU, like terrain layers or sky panoramas).
+    bool ImagesOnly = false;
 };
 
 // Opens a shader graph (project path) in the editor's Shader Graph window.

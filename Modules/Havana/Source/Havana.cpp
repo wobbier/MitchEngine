@@ -529,10 +529,22 @@ void Havana::Render( Moonlight::CameraData& EditorCamera )
     // Game View
     {
         OPTICK_EVENT( "GameSceneView", Optick::Category::UI );
-        int cameraId = Camera::CurrentCamera->GetCameraId();
+        // The current scene camera. One outside the scene (the editor's own while the scene has no
+        // camera, or a deactivated one) has no cache entry: the Game View then shows nothing.
         BGFXRenderer& renderer = GetEngine().GetRenderer();
-        Moonlight::CameraData* camData = renderer.GetCameraCache().Get( cameraId );
-        GameSceneView->SetData( *camData );
+        Moonlight::CameraData* camData = Camera::CurrentCamera ? renderer.GetCameraCache().Get( Camera::CurrentCamera->GetCameraId() ) : nullptr;
+        if( camData && !camData->IsMain )
+        {
+            camData = nullptr;
+        }
+        if( camData )
+        {
+            GameSceneView->SetData( *camData );
+        }
+        else
+        {
+            GameSceneView->ClearData();
+        }
         GameSceneView->Render();
 
         if( m_app->IsGameRunning() )
@@ -555,7 +567,7 @@ void Havana::Render( Moonlight::CameraData& EditorCamera )
         // #TODO: Remove this
         // Update: This crashes macOS, but is needed for to display the game as the correct size in the editor
         Vector2 gameOutputSize = GetGameOutputSize();
-        Camera::CurrentCamera->OutputSize = gameOutputSize;
+        if( Camera::CurrentCamera ) Camera::CurrentCamera->OutputSize = gameOutputSize;
         if( camData && camData->Buffer && ((int)gameOutputSize.x != camData->Buffer->Width || (int)gameOutputSize.y != camData->Buffer->Height ) )
         {
             camData->Buffer->Resize( gameOutputSize );

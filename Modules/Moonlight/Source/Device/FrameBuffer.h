@@ -9,9 +9,12 @@ namespace Moonlight
     // A camera's render targets.
     //   SceneBuffer: HDR colour (RGBA16F) + sampleable depth; the scene renders here.
     //   PostBuffer:  LDR intermediate between post passes (tonemap output before FXAA).
-    //   Buffer:      the final LDR image (Texture), what views, editor panels and render-to-texture
-    //                users sample. Shares DepthTexture with the scene so late overlays depth-test.
+    //   Buffer:      the final LDR image (Texture), what views and editor panels sample. Shares
+    //                DepthTexture with the scene so late overlays depth-test. Render texture cameras
+    //                have none: their final image goes into the texture asset (OwnsOutput false).
     //   Bloom chain: half-resolution and smaller RGBA16F mips.
+    // Targets only some cameras use (bloom, ambient occlusion, volumetric fog, temporal histories,
+    // depth of field...) are created on first use: bgfx has a fixed number of framebuffers.
     struct FrameBuffer
     {
         FrameBuffer( uint32_t width, uint32_t height );
@@ -38,14 +41,17 @@ namespace Moonlight
             uint16_t Height = 0;
         };
         std::vector<Mip> BloomMips;
+        void EnsureBloomTargets();
 
         // Half-resolution ambient occlusion (raw and blurred).
         Mip AOBuffer;
         Mip AOBlurBuffer;
+        void EnsureAmbientOcclusionTargets();
 
         // Half-resolution volumetric fog (raymarched and blurred): rgb in-scattering, a transmittance.
         Mip FogBuffer;
         Mip FogBlurBuffer;
+        void EnsureVolumetricFogTargets();
         // Volumetric fog history (created on first use): the march accumulated over frames,
         // ping-ponged with the history it was resolved against (PostProcess::RenderFog).
         Mip FogHistory[2];
@@ -117,6 +123,8 @@ namespace Moonlight
         uint32_t Height = 0;
         uint32_t m_resetFlags = 0;
         bool MatchMainBufferSize = false;
+        // Whether ReCreate makes the final image (Texture, Buffer): off for render texture cameras.
+        bool OwnsOutput = true;
 
         static bgfx::TextureFormat::Enum GetDepthFormat();
 

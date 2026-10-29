@@ -17,7 +17,7 @@ Rendering is split into CPU **producers** and a serial **consumer**:
 
 Ambient light comes from per-camera image-based-lighting probes. This doc maps the frame, the view-ID scheme, the lighting data paths and the sharp edges.
 
-> Verified against engine commit 1fa55311, 2026-10-09 (overhaul Wave 3); skinned meshes against 07617c5f, 2026-10-09; fog against b7c61e56, 2026-10-10; decals against 8d958c0b plus the `Decal` component, 2026-10-15; background sky box loads against ac23d33f plus the background loads change, 2026-10-16; feature caps and scene draw statistics against 3f04199c plus the hardware profiles change, 2026-10-22; rectangle beams and temporal volumetric fog against 94407e9d plus the concert lighting change, 2026-10-29.
+> Verified against engine commit 1fa55311, 2026-10-09 (overhaul Wave 3); skinned meshes against 07617c5f, 2026-10-09; fog against b7c61e56, 2026-10-10; decals against 8d958c0b plus the `Decal` component, 2026-10-15; background sky box loads against ac23d33f plus the background loads change, 2026-10-16; feature caps and scene draw statistics against 3f04199c plus the hardware profiles change, 2026-10-22; rectangle beams and temporal volumetric fog against 94407e9d plus the concert lighting change, 2026-10-29; render textures, the camera order and lazy post targets against 89e036be plus the render texture change, 2026-10-29.
 
 ## Overview
 
@@ -45,6 +45,7 @@ Backend selection: Vulkan is forced on Linux and D3D11 on UWP; other platforms t
 | `Modules/Moonlight/Source/RenderViews.h` | The fixed view IDs and the per-frame `ViewAllocator` |
 | `Modules/Moonlight/Source/RenderCommands.h` | `MeshCommand`, `LightCommand`, `ParticleInstance` / `ParticleBatch` |
 | `Modules/Moonlight/Source/Device/FrameBuffer.h` | Per-camera targets: HDR scene, final, post, bloom mips, AO, fog (march, history, blur), luminance, cluster textures |
+| `Modules/Moonlight/Source/Graphics/Texture.h`, `RenderTextureSettings.h` | Render textures: a `.rendertexture` loads as a `Texture` that owns its render target; `Texture::Sampleable` keeps a camera from sampling its own |
 | `Modules/Moonlight/Source/Lighting/ClusterBuilder.cpp` | CPU light-to-froxel assignment for clustered forward |
 | `Modules/Moonlight/Source/Lighting/ShadowCascades.cpp` | Cascade splits and stable, texel-snapped fitting |
 | `Modules/Moonlight/Source/Lighting/EnvironmentLighting.cpp` | IBL probes: capture, prefilter, irradiance, BRDF LUT |
@@ -102,7 +103,7 @@ bgfx runs views in ascending ID order, so producers must have lower IDs than the
 `ViewAllocator::Allocate(name)` names each view for RenderDoc and returns `UINT16_MAX` when the band is exhausted; callers skip that pass. Allocation order per frame:
 
 1. Spot-light and point-light shadow maps (the local shadow atlas).
-2. For each camera (editor camera first, other cameras next, main camera last so it can sample render-to-texture cameras):
+2. For each camera: render texture cameras first (by entity GUID, see Render textures below), so every later view samples this frame's image; then the editor camera, the other cameras, the main camera, and split-screen cameras last (they draw into the main camera's output):
    1. Environment probe updates.
    2. 4 shadow cascades.
    3. Opaque.
@@ -129,9 +130,9 @@ bgfx runs views in ascending ID order, so producers must have lower IDs than the
 
 1. **Targets**: the camera's `FrameBuffer` is resized to `OutputSize` and holds the targets below. Depth uses the best of D32F → D24S8 → D24 → D16.
    - `SceneBuffer`: RGBA16F colour plus sampleable depth.
-   - `Buffer`: the BGRA8 final image, sharing that depth.
+   - `Buffer`: the BGRA8 final image, sharing that depth. A render texture camera has none (`OwnsOutput` false): its final image goes into the texture.
    - `PostBuffer`: LDR, used for FXAA.
-   - Half-resolution bloom mips and AO targets.
+   - Half-resolution bloom mips, AO and volumetric fog targets, created on first use like the temporal, depth of field, cloud and graph targets, so a camera that never uses them spends no bgfx framebuffers (128 in all by default).
    - 1×1 luminance targets.
    - The cluster textures.
    - `ParticleBuffer`: HDR colour *without* depth.
@@ -148,7 +149,7 @@ bgfx runs views in ascending ID order, so producers must have lower IDs than the
 6. **Fog** covers the opaque HDR colour (see Fog below). From here on, forward shaders fog themselves (`u_fogForward`).
 7. **Transparent view**: meshes sorted back to front, depth-write off; then legacy gizmo callbacks and the Debug Draw v2 lines.
 8. **Particles** (see below).
-9. **Post** into the final target, then the **UI composite** for the main camera.
+9. **Post** into the final target (a render texture camera's texture), then the **UI composite** for the main camera.
 
 ### Anti-aliasing and RenderCore controls
 
@@ -298,7 +299,7 @@ Per camera, from `CameraData::Post`, which `CameraCore` copies from a `PostProce
   - Captures stay repeatable: the jitter follows the camera's frame count, so `--frame-time` runs match.
 - **Depth of field** (`DepthOfField`, off by default; perspective cameras): thin-lens signed CoC at full resolution, layer-aware colour downsample, conservative foreground-radius dilation, separate 64-tap circular near/far gathers at half resolution, then composition with full-resolution focal-plane edges. Runs after TAA and HDR shader graphs, before bloom/exposure/tonemapping. Targets are allocated on first use and released on resize/destruction. `DoFFocusDistance` is in metres; `DoFAperture` is an f-number; focal length follows vertical FOV and `DoFSensorHeight`. See [Depth of Field](Depth-of-Field.md) for controls, verification and limitations.
 - **Bloom**: thresholded downsample chain (up to 6 RGBA16F mips) and additive tent upsample.
-- **Eye adaptation**: log-average luminance into 1×1, adapted over time between min/max EV (`AutoExposure`).
+- **Eye adaptation**: log-average luminance into 1×1, adapted between min/max EV (`AutoExposure`) over the time since the camera last rendered (render texture cameras can skip frames).
 - **Edge outlines** (`PostProcess.Outline`): a fullscreen pass over the opaque depth, before fog, inking view-depth silhouettes and crease folds (`OutlineThickness`, `OutlineDepthThreshold`, `OutlineNormalThreshold`, `OutlineColor`). **Per-object outlines** use the `Outline` component instead (colour + width in metres): the mesh is re-drawn inflated along its normals with the opposite cull after the sky — an inverted hull, so occlusion, skinning and vertex animation all apply. On a compact model's root the component outlines every part.
 - **Tonemap**:
   - Exposure (manual stops or adapted), bloom mix and white balance.
@@ -365,8 +366,8 @@ The editor draws each decal's box with an arrow along the projection (and the te
   - Filled triangles (`Triangle`, `Triangles`): alpha blended, depth tested, never written to depth, drawn before the lines (the navmesh overlay uses them).
   - Every call takes a colour, a duration and flags (`NoDepthTest`, `EditorOnly`).
   - Collected once per frame and drawn in each camera's transparent view. `EditorOnly` lines go only to the editor camera.
-- **Frame statistics**: `BGFXRenderer::GatherFrameStats` copies `bgfx::getStats()` into `FrameStats::RenderStats`, including bgfx's texture and render-target memory estimates and `MeshData::GetTotalGpuBytes`. Per-view GPU timings need `BGFX_DEBUG_PROFILER`, which is on only while the editor's Profiler window is open. `CountTriangles` also counts each mesh draw into a tally for the game's cameras, the editor's views, or the frame's local shadows (`SceneCounts`), and `RenderStats::SceneDrawCalls` / `SceneTriangles` report the game's (`Docs/Hardware-Profiles.md`).
-- **Feature caps** (`BGFXRenderer::FeatureCaps`, set by an enforced hardware profile): they mask shadows (`AreShadowsActive`), shadow tile sizes (`CapShadowResolution`), environment lighting, and the camera's AO, bloom, depth of field, volumetric fog and TAA at render time. With instancing off, every instanced submit (opaque and shadow casters, not particles) draws one instance at a time. The authored settings are never changed.
+- **Frame statistics**: `BGFXRenderer::GatherFrameStats` copies `bgfx::getStats()` into `FrameStats::RenderStats`, including bgfx's texture and render-target memory estimates and `MeshData::GetTotalGpuBytes`. Per-view GPU timings need `BGFX_DEBUG_PROFILER`, which is on only while the editor's Profiler window is open. `CountTriangles` also counts each mesh draw into a tally for the game's cameras, the editor's views, render texture cameras, or the frame's local shadows (`SceneCounts`), and `RenderStats::SceneDrawCalls` / `SceneTriangles` report the game's, with the local shadows and render texture cameras added (`Docs/Hardware-Profiles.md`).
+- **Feature caps** (`BGFXRenderer::FeatureCaps`, set by an enforced hardware profile): they mask shadows (`AreShadowsActive`), shadow tile sizes (`CapShadowResolution`), environment lighting, and the camera's AO, bloom, depth of field, volumetric fog and TAA at render time. With instancing off, every instanced submit (opaque and shadow casters, not particles) draws one instance at a time. The authored settings are never changed. A camera's own pass switches mask its sun cascades, AO and volumetric fog the same way (Render textures below).
 - **Picking**: `PickingPass` renders entity IDs into a 32×32 target around the click and reads it back (see `Docs/Editor-Havana.md`).
 
 ### Levels of detail
@@ -412,7 +413,7 @@ Texture stages:
 | 14 | Environment irradiance |
 | 15 | BRDF LUT |
 
-Missing maps fall back to neutral 1×1 textures (white; flat normal). `BindLighting` sets the lighting uniforms with every draw (bgfx uniform state is per draw), then `Material::Use()` and `GetRenderState()` apply.
+Missing maps fall back to neutral 1×1 textures (white; flat normal), and so does a render texture camera's own target in its views, except in the base colour and emissive stages, which get black (`Texture::Sampleable`). `BindLighting` sets the lighting uniforms with every draw (bgfx uniform state is per draw), then `Material::Use()` and `GetRenderState()` apply.
 
 ### Portals and screen-space camera views
 
@@ -422,6 +423,30 @@ Missing maps fall back to neutral 1×1 textures (white; flat normal). `BindLight
 - **Clip planes:** `Camera::SetClipPlane(point, normal)` stores a world plane. `CameraCore` moves it into view space each frame and `GetProjectionMatrix` makes it the near plane (Lengyel's oblique projection, both depth ranges). This hides everything behind a portal's exit. It is skipped while the camera is in front of the plane.
 - **Ordering:** secondary cameras render before the main camera. One portal seen in another shows the other camera's image from this frame if it rendered first, or from last frame otherwise (recursion with a frame of lag).
 - **From C#:** `Mesh.ShowCameraView(camera)` and `Camera.SetClipPlane`. The game's `Assets/Scripts/Portals/Portal.cs` builds a walk-through portal pair from these (`Assets/Scenes/Portals.lvl`).
+
+### Render textures
+
+A camera can render into a texture asset that any material samples: a security monitor, a studio feed, a live close-up on an LED wall. The asset is a `.rendertexture` file, the JSON of `RenderTextureSettings` (these are the defaults; sizes clamp to 1–4096, `Wrap` is `Clamp`, `Repeat` or `Mirror`, missing keys keep their defaults):
+
+```json
+{ "Width": 640, "Height": 360, "Mips": true, "Wrap": "Clamp" }
+```
+
+- **The texture.** It loads as an ordinary `Moonlight::Texture` (`Get` / `GetAsync<Texture>`), so anything that takes a texture path can name it: StandardMaterial slots (emissive for a screen, diffuse for a lit print), shader graph texture properties, decals and particles. Uses that need an image's pixels leave render textures out: terrain layers and a camera's skybox (their pickers don't list them) and grading LUT strips. `LoadAsync` reads the settings through the VFS, and `FinishAsyncLoad` creates a BGRA8 render-target texture (opaque black until a camera renders into it) and a framebuffer on it; the texture owns both. It holds the camera's final, tonemapped image display-encoded, like an image file, so shaders decode it with `toLinear` as usual. With `Mips` the chain is regenerated after every render (where the format supports that). Saving the file hot reloads it: the target, and the handles materials bind, are recreated only when the settings changed (`GetRenderTargetRevision`), and a file that doesn't parse keeps the last good target. It has a `.meta` for its GUID (`RenderTextureMetadata`) and ships as is in cooks (`Docs/Cooking.md`).
+- **The camera.** `Camera::TargetTexture` names the asset. A camera with one (`Camera::RendersToTexture`):
+  - renders at the asset's size (`CameraCore::LateUpdate` sets its `OutputSize`), ignoring `Viewport` and `MatchMainCamera`;
+  - never becomes the current camera on its own (`Camera::Init`, `CameraCore::OnEntityAdded`); made current anyway, it renders to the screen and ignores its target, and the inspector says so;
+  - leaves debug lines and game UI out of the image;
+  - renders every `UpdateInterval` frames (1, the default, is every frame), counted in frames so `--frame-time` captures stay repeatable. A new or recreated target renders at once, and feeds sharing an interval then take turns (phased by entity GUID). The texture keeps its last image in between, eye adaptation runs over the time since the camera last rendered (`CameraData::RenderDeltaSeconds`), and terrain keeps the camera as a LOD view on the frames it skips. While the target is loading, missing or not a `.rendertexture`, the camera renders nothing (its inspector says why).
+- **Pass switches.** `Camera::SunShadows`, `AmbientOcclusion` and `VolumetricFog` (default on, any camera) mask the camera's sun cascades, SSAO and volumetric fog whatever its `PostProcess` asks for; volumetric off falls back to analytic fog. Spot and point shadows render once a frame for every camera and stay. With the asset's size and the interval, they are a feed's cost controls.
+- **Order.** `BGFXRenderer::Render` renders the render texture cameras right after `PrepareFrameLighting`, before every other view, sorted by entity GUID (`CameraData::TargetOrder`: the same every run and in builds). The editor's scene view, the other cameras and the main camera therefore show this frame's image. A render texture camera that samples a texture rendered later in that order sees last frame's image, so chains and cycles lag a frame.
+- **Never its own image.** While a camera renders into a texture, the renderer marks it as the drawing target (`Texture::SetDrawingTarget`), and every binder passes texture handles through `Texture::Sampleable`, which swaps that texture out: black in a material's base colour and emissive slots, the neutral fallback in its other slots, black for shader graph textures, decals, particles and shadow casters. A screen in its own camera's shot is black there and shows the feed in every other view.
+- **Targets.** The camera's `FrameBuffer` has no output of its own (`OwnsOutput` false): the last post pass writes the texture's framebuffer. On a bottom-left-origin backend (OpenGL) the passes writing it flip (`PostProcess::FlippedTarget`), so the texture holds its top row first, like an image.
+- **Upright on primitives.** The built-in primitives map v up their faces, while images run top to bottom, so a screen made from a primitive uses `Tiling` (1, -1) with `Offset` (0, 1) (`Docs/Materials-and-Shaders.md`); a graph flips with a Tiling And Offset node (`../Assets/ShaderGraphs/Examples/CameraFeed.shadergraph`).
+- **Statistics.** Their draws count into a tally of their own that `GatherFrameStats` adds to the scene's draw calls and triangles. Their views are labelled "Texture".
+- **Editor and scripts.** The Camera inspector previews the target live (its size and interval, or why there's nothing to show). The asset browser creates render textures (Create > Render Texture) and edits their settings (`Docs/Editor-Havana.md`), the `rtt-*` edscript commands check them, and C# has `Camera.TargetTexture` and `UpdateInterval` (`Docs/Scripting-DotNet.md`).
+
+`../Assets/Scenes/Showcase/RenderTexture.lvl` (rebuilt by `../Tools/BuildRenderTextureShowcase.py`) shows each consumer, an update interval, masked passes and a screen in its own camera's shot; ConcertTest's LED wall shows a crowd camera's feed (`../Assets/Scenes/Tests/ConcertTest.md`).
 
 ## How to Extend
 
@@ -443,6 +468,7 @@ Missing maps fall back to neutral 1×1 textures (white; flat normal). `BindLight
 - **Fog is screen-space, not froxels**: volumetric lighting exists only in front of opaque surfaces. Transparents and particles get analytic fog (no shafts). The fog history reprojects through the opaque depth, so fog in front of a surface follows that surface; a light moving on its own trails for the few frames the neighbourhood clamp allows. With `VolumetricTemporal` off and no temporal AA the sample pattern stays fixed and only the depth-aware blur hides it. The march costs `VolumetricSteps` shadow taps plus cluster light loops per half-resolution pixel, so a 256-step march is a quality setting for static shots; `MaxVolumetricSteps` in a hardware profile caps it.
 - **Lit particles are per-pixel and isotropic**: no forward-scattering phase function, no self-shadowing within a plume, and each lit pixel walks its cluster's lights, which costs fill rate on big smoke.
 - **Skinned meshes aren't instanced**: each costs one draw per view (camera, cascade, spot light), and its palette is uploaded with every draw.
+- **A render texture costs a camera**: each feed runs the whole chain (clusters, sun cascades, post) at its asset's size, and its targets, plus the texture's own framebuffer, count against bgfx's framebuffer limit. `UpdateInterval`, a smaller asset and the pass switches are the controls. A feed that samples another rendered after it in the frame lags a frame.
 - **Decals paint everything opaque in their box**: there is no receiver mask, so a character walking through a floor decal gets it projected onto its legs. Transparents and particles never receive decals (they draw later).
 - **Decals replace, they don't modulate**: a decal is lit and alpha-blended over the finished surface. It can't change only the roughness or normal of what's underneath (no DBuffer), and the surface's own normal map doesn't show through its coverage.
 - **Transparent sorting is per object** (plus per particle within alpha systems); intersecting transparents sort wrong (no OIT).
