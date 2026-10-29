@@ -92,6 +92,13 @@ namespace Moonlight
         // The index buffer of the level of detail drawn this frame (Lod; 0 = full mesh).
         uint16_t IndexBufferIdx = UINT16_MAX;
         uint8_t Lod = 0;
+        // Screen-door dither (ME-279): 0 = solid. d in (0, 1] drops the texels whose 4x4 Bayer
+        // threshold is below d (fading out by d); -d keeps only those, the complement, so a d and a
+        // -d draw of the same surface cover it exactly once. Shadows dither the same way.
+        float DitherFade = 0.f;
+        // A LOD crossfade: the level fading out (0xFF = none). Drawn as a second command with the
+        // complementary mask (DitherFade negated), so the switch doesn't pop.
+        uint8_t CrossfadeLod = 0xFF;
         bool IsTransparent = false;
         bool SupportsInstancing = false;
         bool CastShadows = true;

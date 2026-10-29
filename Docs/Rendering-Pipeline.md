@@ -448,6 +448,28 @@ A camera can render into a texture asset that any material samples: a security m
 
 `../Assets/Scenes/Showcase/RenderTexture.lvl` (rebuilt by `../Tools/BuildRenderTextureShowcase.py`) shows each consumer, an update interval, masked passes and a screen in its own camera's shot; ConcertTest's LED wall shows a crowd camera's feed (`../Assets/Scenes/Tests/ConcertTest.md`).
 
+## Screen-door fades (ME-279)
+
+Opaque meshes fade without sorting by dropping texels against a 4x4 Bayer pattern (`Assets/Shaders/Dither.sh`).
+- **The value:** `MeshCommand::DitherFade` is per draw.
+  - 0 is solid.
+  - `d` in (0, 1] drops the texels whose threshold is below `d`.
+  - `-d` keeps only those, the complement.
+- **Where it applies:** `BindMeshDrawState` sends it as `u_drawParams.x` to `Standard.frag`. Shadow casters dither too (`u_shadowAlpha.w`).
+- **Batching:** instancing-capable materials draw only through instance data, so a fading mesh stays instanced. Its fade is mixed into its batch key (and its shadow caster's), so it batches only with equal fades.
+
+**LOD crossfade:**
+- When a mesh's selected level changes, `StepLodCrossfade` (in `MeshLod.h`) fades the new level in over `RenderCore::LodCrossfadeSeconds` (0.25; 0 switches at once). A change mid-fade restarts it from the level then shown, and the first frame takes the selection as is.
+- The command draws the incoming level with `-t` and sets `CrossfadeLod`; the renderer adds the outgoing level with `+t`, so the two cover the surface exactly once. Shadows cast the incoming level whole.
+- `LodCrossfadeFlows.edscript` pulls LodTest's camera back: mid-fade it draws the outgoing levels too (203 draws, against 185 before and 179 settled), with no holes and no pop.
+
+**Camera occluders:**
+- An `OccluderFade` component on a follow camera names a `Target`. Each frame `RenderCore` casts five rays from the camera to the target: the line, and four more `Radius` around it.
+- The meshes on the entities hit, and on those entities' children, fade to `Amount` over `FadeSeconds`, then back once they're clear. `Mesh::DitherFade` holds the runtime value; it isn't saved.
+- `Assets/Scenes/Tests/OccluderFadeTest.lvl` (reference in `Tests/Reference`): the wall in the way dithers 80% away while the one beside it stays solid.
+
+**Not yet:** shader-graph materials (Lit, Unlit, CustomLit templates) ignore the fade, and transparent meshes don't need it.
+
 ## How to Extend
 
 - **New pass that reads another pass's output**: allocate its view *after* the producer's (`m_views.Allocate`) and skip the pass when it returns `UINT16_MAX`.

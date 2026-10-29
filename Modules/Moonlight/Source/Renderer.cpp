@@ -249,6 +249,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         u_spotShadowParams = bgfx::createUniform( "u_spotShadowParams", bgfx::UniformType::Vec4 );
         u_pointShadowParams = bgfx::createUniform( "u_pointShadowParams", bgfx::UniformType::Vec4 );
         u_shadowAlpha = bgfx::createUniform( "u_shadowAlpha", bgfx::UniformType::Vec4 );
+        u_drawParams = bgfx::createUniform( "u_drawParams", bgfx::UniformType::Vec4 );
         u_shadowUvOffset = bgfx::createUniform( "u_shadowUvOffset", bgfx::UniformType::Vec4 );
         s_shadowMap = bgfx::createUniform( "s_shadowMap", bgfx::UniformType::Sampler );
         s_spotShadowMap = bgfx::createUniform( "s_spotShadowMap", bgfx::UniformType::Sampler );
@@ -557,7 +558,7 @@ void BGFXRenderer::Destroy()
     const bgfx::UniformHandle uniforms[] = { s_texDiffuse, s_texNormal, s_texAlpha, s_texUI, s_time, u_wind, u_windParams, u_screenView,
         u_lightParams, u_viewShading, u_eraParams, u_dirLightDirection, u_dirLightColor, u_eclipseSun, u_eclipseMoon, u_eclipseParams, u_clusterParams, u_clusterGrid, u_ambientSky, u_ambientGround,
         s_lightData, s_clusterGrid, s_clusterIndices, s_texMetallicRoughness, s_texEmissive, s_texOcclusion, s_texMetallic, s_texRoughness,
-        u_shadowMatrix, u_cascadeSplits, u_cascadeTexel, u_shadowParams, u_localShadowMatrix, u_spotShadowParams, u_pointShadowParams, u_shadowAlpha, u_shadowUvOffset, s_shadowMap, s_spotShadowMap,
+        u_shadowMatrix, u_cascadeSplits, u_cascadeTexel, u_shadowParams, u_localShadowMatrix, u_spotShadowParams, u_pointShadowParams, u_shadowAlpha, u_drawParams, u_shadowUvOffset, s_shadowMap, s_spotShadowMap,
         s_envSpecular, s_envIrradiance, s_brdfLut, u_envParams, u_fogParams, u_fogColor, u_fogVolume, u_fogForward,
         u_particleParams, u_particleParams2, u_particleDepth, s_texParticle, s_sceneDepth, s_texSprite, s_texSpriteNormal, u_spriteParams, u_bones, u_outlineHull,
         s_decalAlbedo, s_decalNormal, u_decalColor, u_decalEmissive, u_decalSurface, u_decalDepth, u_decalTexSize, u_decalWorldToLocal, u_decalAxes };
@@ -1286,6 +1287,26 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
                     continue;
                 }
 
+                // A LOD crossfade: the outgoing level too, through the complementary mask.
+                if( mesh.CrossfadeLod != 0xFF )
+                {
+                    Moonlight::MeshCommand outgoing = mesh;
+                    outgoing.Lod = mesh.CrossfadeLod;
+                    outgoing.DitherFade = -mesh.DitherFade;
+                    if( mesh.SkinBoneCount > 0 )
+                    {
+                        RenderSkinnedMesh( id, outgoing, state );
+                    }
+                    else if( mesh.MeshMaterial->SupportsInstancing )
+                    {
+                        // Instancing-capable shaders read the transform from instance data only.
+                        RenderMeshInstanced( id, outgoing, &outgoing.Transform, 1, state );
+                    }
+                    else
+                    {
+                        RenderSingleMesh( id, outgoing, state );
+                    }
+                }
                 if( mesh.SkinBoneCount > 0 )
                 {
                     RenderSkinnedMesh( id, mesh, state );
@@ -1910,6 +1931,13 @@ void BGFXRenderer::GatherShadowCasters()
                 // Opaque casters only differ by geometry; alpha-tested ones and materials with their
                 // own caster program also by their material.
                 caster.MaterialKey = ( mesh.AlphaCutoff > 0.f || mesh.CustomShadow ) ? mesh.BatchKey : 0u;
+                // A fading mesh's caster dithers by its own amount (ME-279): its own batch.
+                if( mesh.DitherFade != 0.f && mesh.CrossfadeLod == 0xFF )
+                {
+                    uint32_t fadeBits = 0;
+                    std::memcpy( &fadeBits, &mesh.DitherFade, sizeof( fadeBits ) );
+                    caster.MaterialKey = ( caster.MaterialKey ? caster.MaterialKey : mesh.BatchKey ) ^ ( ( uint64_t( fadeBits ) + 1 ) * 0xD6E8FEB86659FD93ull );
+                }
                 caster.VertexBuffer = mesh.VertexBufferIdx;
                 caster.IndexBuffer = mesh.IndexBufferIdx;
                 caster.Skinned = mesh.SkinBoneCount > 0 || bgfx::isValid( mesh.PosedVertices );
@@ -2048,7 +2076,8 @@ void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, uint32_t InViewIndex,
             continue;
         }
         const Moonlight::MeshCommand& mesh = m_meshCache.Commands[batch.representativeIndex];
-        const float alpha[4] = { mesh.AlphaCutoff, mesh.MeshMaterial->Tiling.x, mesh.MeshMaterial->Tiling.y, 0.f };
+        // Fading meshes cast dithered shadows; a LOD crossfade casts the incoming level's, whole.
+        const float alpha[4] = { mesh.AlphaCutoff, mesh.MeshMaterial->Tiling.x, mesh.MeshMaterial->Tiling.y, mesh.CrossfadeLod != 0xFF ? 0.f : mesh.DitherFade };
         const uint32_t count = static_cast<uint32_t>( batch.commands.size() );
         uint32_t offset = 0;
         while( offset < count )
@@ -2100,7 +2129,8 @@ void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, uint32_t InViewIndex,
         bgfx::InstanceDataBuffer idb;
         bgfx::allocInstanceDataBuffer( &idb, 1, kInstanceStride );
         std::memcpy( idb.data, &mesh.Transform, kInstanceStride );
-        const float alpha[4] = { mesh.AlphaCutoff, mesh.MeshMaterial->Tiling.x, mesh.MeshMaterial->Tiling.y, 0.f };
+        // Fading meshes cast dithered shadows; a LOD crossfade casts the incoming level's, whole.
+        const float alpha[4] = { mesh.AlphaCutoff, mesh.MeshMaterial->Tiling.x, mesh.MeshMaterial->Tiling.y, mesh.CrossfadeLod != 0xFF ? 0.f : mesh.DitherFade };
         mesh.SingleMesh->BindVertexBuffer( mesh.PosedVertices );
         if( skinned ) bgfx::setVertexBuffer( 1, mesh.SingleMesh->GetSkinBuffer() );
         bgfx::setIndexBuffer( mesh.SingleMesh->GetIndexBuffer( mesh.Lod ) );
@@ -2494,6 +2524,8 @@ bgfx::ProgramHandle BGFXRenderer::BindMeshDrawState( const Moonlight::MeshComman
     bgfx::setTexture( 6, s_texMetallic, textureOr( Moonlight::TextureType::Metallic, m_whiteTexture ) );
     bgfx::setTexture( 7, s_texRoughness, textureOr( Moonlight::TextureType::Roughness, m_whiteTexture ) );
     BindLighting();
+    const float drawParams[4] = { mesh.DitherFade, 0.f, 0.f, 0.f };
+    bgfx::setUniform( u_drawParams, drawParams );
 
     mesh.MeshMaterial->Use();
 
@@ -2583,7 +2615,7 @@ void BGFXRenderer::RenderOverdrawMesh( bgfx::ViewId id, const Moonlight::MeshCom
     }
     bgfx::setIndexBuffer( mesh.SingleMesh->GetIndexBuffer( mesh.Lod ) );
     bgfx::setInstanceDataBuffer( &idb );
-    const float alpha[4] = { mesh.AlphaCutoff, mesh.MeshMaterial->Tiling.x, mesh.MeshMaterial->Tiling.y, 0.f };
+    const float alpha[4] = { mesh.AlphaCutoff, mesh.MeshMaterial->Tiling.x, mesh.MeshMaterial->Tiling.y, mesh.CrossfadeLod != 0xFF ? 0.f : mesh.DitherFade };
     BindStockShadowCaster( mesh, alpha );
 
     // Every layer counts, hidden or not: no depth test or write, additive colour.

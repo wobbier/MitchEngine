@@ -109,3 +109,35 @@ TEST_CASE( "Mesh LODs: flat-shaded meshes (no shared vertices) still simplify" )
     REQUIRE( !lods.empty() );
     CHECK( lods[0].Indices.size() <= indices.size() * 7 / 10 );
 }
+
+TEST_CASE( "LOD crossfade: a new level fades in over the old one, restarts on a change mid-fade, and settles" )
+{
+    Moonlight::LodCrossfade state;
+    float progress = 0.f;
+    // First frame: the selection as is, no fade.
+    Moonlight::StepLodCrossfade( state, 1, 0.0, 0.25f, progress );
+    CHECK( state.Shown == 1 );
+    CHECK( state.From == 0xFF );
+    CHECK( progress == 1.f );
+    // A switch to 2 fades from 1 over a quarter second.
+    Moonlight::StepLodCrossfade( state, 2, 1.0, 0.25f, progress );
+    CHECK( state.Shown == 2 );
+    CHECK( state.From == 1 );
+    CHECK( progress == doctest::Approx( 0.f ) );
+    Moonlight::StepLodCrossfade( state, 2, 1.125, 0.25f, progress );
+    CHECK( progress == doctest::Approx( 0.5f ) );
+    CHECK( state.From == 1 );
+    // Back to 1 mid-fade: it restarts from 2 (what's shown now).
+    Moonlight::StepLodCrossfade( state, 1, 1.2, 0.25f, progress );
+    CHECK( state.Shown == 1 );
+    CHECK( state.From == 2 );
+    CHECK( progress == doctest::Approx( 0.f ) );
+    // Done: settled, nothing fading.
+    Moonlight::StepLodCrossfade( state, 1, 1.5, 0.25f, progress );
+    CHECK( progress == 1.f );
+    CHECK( state.From == 0xFF );
+    // Crossfade off: switches at once.
+    Moonlight::StepLodCrossfade( state, 3, 2.0, 0.f, progress );
+    CHECK( state.Shown == 3 );
+    CHECK( state.From == 0xFF );
+}

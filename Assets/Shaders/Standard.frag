@@ -5,6 +5,7 @@ $input v_worldPos, v_normal, v_tangent, v_bitangent, v_texcoord0, v_viewPos, v_a
 #include "Common.sh"
 #include "Era.sh"
 #include "StandardSurface.sh"
+#include "Dither.sh"
 
 SAMPLER2D(s_texDiffuse, 0);
 SAMPLER2D(s_texNormal, 1);
@@ -20,9 +21,14 @@ uniform vec4 u_pbrParams;   // x metallic, y roughness, z normal strength, w occ
 uniform vec4 u_emissive;    // rgb linear * intensity, w alpha cutoff (0 = off)
 uniform vec4 u_uvTransform; // xy tiling, zw offset
 uniform vec4 u_pbrTextureParams; // xy separate metallic/roughness maps, z invert roughness
+uniform vec4 u_drawParams;  // x screen-door fade (Dither.sh), per draw
 
 void main()
 {
+	if (ditherDrops(u_drawParams.x, gl_FragCoord.xy))
+	{
+		discard;
+	}
 	vec2 meshUv = u_eraParams.y > 0.5 ? v_affine.xy / max(v_affine.z, 0.000001) : v_texcoord0;
 	vec2 uv = meshUv * u_uvTransform.xy + u_uvTransform.zw;
 	vec4 base = toLinear(u_eraParams.z > 0.5 ? eraThreePoint(s_texDiffuse, uv) : texture2D(s_texDiffuse, uv)) * u_baseColor;

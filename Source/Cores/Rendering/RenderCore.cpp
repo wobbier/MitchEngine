@@ -23,6 +23,9 @@
 #include "Components/Graphics/Outline.h"
 #include "Components/Graphics/WindZone.h"
 #include "Components/Graphics/Mesh.h"
+#include "Components/Graphics/OccluderFade.h"
+#include <cstring>
+#include "Cores/PhysicsCore.h"
 #include "Components/Graphics/Terrain.h"
 #include "Components/Graphics/TerrainFoliage.h"
 #include "Materials/StandardMaterial.h"
@@ -692,6 +695,10 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         }
     }
     const float lodBias = LodBias;
+    const double now = inUpdateContext.GetTotalTime();
+    const float lodCrossfade = LodCrossfadeSeconds;
+    const float fadeStep = m_occluderFadeRate * inUpdateContext.GetDeltaTime();
+    UpdateOccluderFades();
 
     // Resize visible flag vector
 #if USING( ME_EDITOR )
@@ -799,7 +806,34 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                                     lod = Moonlight::SelectLod( height, model.MeshReferece->GetLodHeights(), lodCount, lodBias );
                                 }
                             }
+                            // A new level fades in over the old one through complementary dithers
+                            // (ME-279), rather than popping.
+                            float crossfade = 1.f;
+                            Moonlight::StepLodCrossfade( model.m_lodCrossfade, lod, now, lodCrossfade, crossfade );
+                            lod = model.m_lodCrossfade.Shown;
                             Moonlight::FillMeshCommand( command, model.MeshReferece, model.MeshMaterial, lod );
+                            // Occluders between an OccluderFade camera and its target dither away.
+                            auto target = m_occluderTargets.find( command.ID );
+                            const float fadeTo = target != m_occluderTargets.end() ? target->second : 0.f;
+                            model.DitherFade = model.DitherFade < fadeTo ? std::min( model.DitherFade + fadeStep, fadeTo ) : std::max( model.DitherFade - fadeStep, fadeTo );
+                            if( model.m_lodCrossfade.From != 0xFF && model.MeshReferece && model.m_lodCrossfade.From <= model.MeshReferece->GetLodCount() )
+                            {
+                                command.CrossfadeLod = model.m_lodCrossfade.From;
+                                // Never exactly 0: that would draw both levels whole.
+                                command.DitherFade = -std::max( crossfade, 1e-4f );
+                            }
+                            else if( model.DitherFade > 0.f )
+                            {
+                                command.DitherFade = std::min( model.DitherFade, 1.f );
+                            }
+                            // Instanced batches share one fade: a fading mesh only batches with its
+                            // equals (instancing-capable shaders draw nothing outside a batch).
+                            if( command.DitherFade != 0.f )
+                            {
+                                uint32_t fadeBits = 0;
+                                std::memcpy( &fadeBits, &command.DitherFade, sizeof( fadeBits ) );
+                                command.BatchKey ^= ( uint64_t( fadeBits ) + 1 ) * 0xD6E8FEB86659FD93ull;
+                            }
                             if( model.HasVertexAnimation() )
                             {
                                 command.PosedVertices = model.m_posedVertices;
@@ -827,6 +861,83 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
 
 void RenderCore::OnDeviceLost()
 {
+}
+
+
+void RenderCore::UpdateOccluderFades()
+{
+    m_occluderTargets.clear();
+    PhysicsCore* physics = GetEngine().Physics;
+    if( !physics || !m_playing )
+    {
+        return;
+    }
+    World& world = GetWorld();
+    std::vector<std::pair<EntityHandle, OccluderFade*>> cameras;
+    world.ForEachEntity( [&]( Entity& InEntity ) {
+        if( OccluderFade* fade = InEntity.TryGetComponent<OccluderFade>(); fade && fade->IsEnabled() && InEntity.IsActiveInHierarchy() && InEntity.HasComponent<Transform>() )
+        {
+            cameras.emplace_back( world.GetEntity( InEntity.GetId() ), fade );
+        }
+    } );
+    for( auto& [camera, fade] : cameras )
+    {
+        EntityHandle target;
+        world.ForEachEntity( [&]( Entity& InEntity ) {
+            if( !target && InEntity.GetName() == fade->Target && InEntity.HasComponent<Transform>() )
+            {
+                target = world.GetEntity( InEntity.GetId() );
+            }
+        } );
+        if( !target )
+        {
+            continue;
+        }
+        const Vector3 from = camera->GetComponent<Transform>().GetWorldPosition();
+        const Vector3 to = target->GetComponent<Transform>().GetWorldPosition();
+        const Vector3 line = to - from;
+        const float length = line.Length();
+        if( length < 1e-3f )
+        {
+            continue;
+        }
+        const Vector3 direction = line * ( 1.f / length );
+        // The line and four more around it, Radius out.
+        Vector3 side = direction.Cross( Vector3( 0.f, 1.f, 0.f ) );
+        side = side.Length() < 1e-3f ? Vector3( 1.f, 0.f, 0.f ) : side.Normalized();
+        const Vector3 up = side.Cross( direction ).Normalized();
+        const Vector3 offsets[5] = { Vector3(), side * fade->Radius, side * -fade->Radius, up * fade->Radius, up * -fade->Radius };
+        for( const Vector3& offset : offsets )
+        {
+            for( const RaycastHit& hit : physics->RaycastAll( from + offset, direction, length - 0.05f ) )
+            {
+                if( !hit.Entity || hit.Entity == target || hit.Entity == camera )
+                {
+                    continue;
+                }
+                // The hit entity and its children: their meshes.
+                std::vector<EntityHandle> pending{ hit.Entity };
+                while( !pending.empty() )
+                {
+                    EntityHandle entity = pending.back();
+                    pending.pop_back();
+                    float& amount = m_occluderTargets[entity->GetId().Value()];
+                    amount = std::max( amount, std::clamp( fade->Amount, 0.f, 1.f ) );
+                    if( Transform* transform = entity->TryGetComponent<Transform>() )
+                    {
+                        for( Transform* child : transform->GetChildren() )
+                        {
+                            if( child && child->Parent )
+                            {
+                                pending.push_back( child->Parent );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        m_occluderFadeRate = fade->FadeSeconds > 0.f ? fade->Amount / fade->FadeSeconds : 1000.f;
+    }
 }
 
 void RenderCore::OnDeviceRestored()

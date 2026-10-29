@@ -41,4 +41,17 @@ namespace Moonlight
     // The level to draw (0 = full detail) for a mesh covering InScreenHeight; InBias scales the
     // height first (above 1 keeps detail longer).
     uint8_t SelectLod( float InScreenHeight, const float* InLodHeights, size_t InLodCount, float InBias = 1.f );
+
+    // A mesh's LOD crossfade (ME-279): the level shown, the one fading out (0xFF = none) and when
+    // the fade began. StepLodCrossfade takes this frame's selected level and the time (seconds):
+    // a change starts a InSeconds fade from the level shown, and a change mid-fade restarts it
+    // from the level then shown. The first frame takes the selection as is. OutProgress is the
+    // incoming level's share, 0..1 (1 = settled).
+    struct LodCrossfade
+    {
+        uint8_t Shown = 0xFF;
+        uint8_t From = 0xFF;
+        double Start = 0.0;
+    };
+    void StepLodCrossfade( LodCrossfade& InOutState, uint8_t InSelected, double InNow, float InSeconds, float& OutProgress );
 }

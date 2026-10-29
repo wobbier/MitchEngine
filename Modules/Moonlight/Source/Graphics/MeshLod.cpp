@@ -78,4 +78,32 @@ namespace Moonlight
         }
         return level;
     }
+
+
+    void StepLodCrossfade( LodCrossfade& InOutState, uint8_t InSelected, double InNow, float InSeconds, float& OutProgress )
+    {
+        if( InOutState.Shown == 0xFF || InSeconds <= 0.f )
+        {
+            InOutState.Shown = InSelected;
+            InOutState.From = 0xFF;
+            OutProgress = 1.f;
+            return;
+        }
+        if( InSelected != InOutState.Shown )
+        {
+            InOutState.From = InOutState.Shown;
+            InOutState.Shown = InSelected;
+            InOutState.Start = InNow;
+        }
+        if( InOutState.From == 0xFF )
+        {
+            OutProgress = 1.f;
+            return;
+        }
+        OutProgress = static_cast<float>( std::clamp( ( InNow - InOutState.Start ) / InSeconds, 0.0, 1.0 ) );
+        if( OutProgress >= 1.f )
+        {
+            InOutState.From = 0xFF;
+        }
+    }
 }

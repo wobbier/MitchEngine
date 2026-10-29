@@ -415,6 +415,7 @@ private:
     bgfx::UniformHandle u_spotShadowParams = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_pointShadowParams = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_shadowAlpha = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_drawParams = BGFX_INVALID_HANDLE;     // x: the draw's screen-door fade (ME-279)
     bgfx::UniformHandle u_shadowUvOffset = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_shadowMap = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_spotShadowMap = BGFX_INVALID_HANDLE;

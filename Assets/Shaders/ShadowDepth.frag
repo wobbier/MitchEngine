@@ -2,15 +2,20 @@ $input v_texcoord0
 
 // Shadow caster: only depth matters; alpha-tested materials cut their holes here as well.
 #include "Common.sh"
+#include "Dither.sh"
 
 SAMPLER2D(s_texDiffuse, 0);
 SAMPLER2D(s_texAlpha, 2);
 
-uniform vec4 u_shadowAlpha; // x alpha cutoff (0 = opaque), yz uv tiling
+uniform vec4 u_shadowAlpha; // x alpha cutoff (0 = opaque), yz uv tiling, w screen-door fade (Dither.sh)
 uniform vec4 u_shadowUvOffset; // xy uv offset, added after the tiling (the material's Offset)
 
 void main()
 {
+	if (ditherDrops(u_shadowAlpha.w, gl_FragCoord.xy))
+	{
+		discard;
+	}
 	if (u_shadowAlpha.x > 0.0)
 	{
 		vec2 uv = v_texcoord0 * u_shadowAlpha.yz + u_shadowUvOffset.xy;

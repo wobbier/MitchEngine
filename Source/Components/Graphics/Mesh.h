@@ -1,4 +1,5 @@
 #pragma once
+#include "Graphics/MeshLod.h"
 #include "ECS/ComponentDetail.h"
 #include "ECS/Component.h"
 #include "RenderCommands.h"
@@ -41,6 +42,9 @@ public:
 
     // Renders into shadow maps (directional cascades and spot lights).
     bool CastShadows = true;
+    // Screen-door fade (ME-279), at runtime only (not saved): 0 = solid, up to 1 = gone, dithered
+    // so it needs no sorting. OccluderFade drives it for whatever blocks a camera's view.
+    float DitherFade = 0.f;
 
     // Skinned meshes: the bone node entities (found by name below the owning Model) and this
     // frame's palette of mesh-space bone matrices.
@@ -56,6 +60,8 @@ private:
     std::vector<EntityHandle> m_bones;
     bool m_bonesResolved = false;
     std::vector<glm::mat4> m_skinPalette;
+    // LOD crossfade (ME-279): the level shown and the one fading out.
+    Moonlight::LodCrossfade m_lodCrossfade;
     AABB m_skinBounds;
     // Finds the bone entities; returns false while any is missing.
     bool ResolveBones();

@@ -38,6 +38,8 @@ public:
     // Levels of detail: the relative screen height of each imported mesh is scaled by this before its level
     // is picked (above 1 keeps detail longer, 0 always draws the coarsest level). --lod-bias sets it.
     float LodBias = 1.f;
+    // Seconds a mesh crossfades between LOD levels through a dither (0 = switch at once; ME-279).
+    float LodCrossfadeSeconds = 0.25f;
 
     Cubemap* SkyboxMap = nullptr;
     Moonlight::ShaderCommand* SkyboxShader = nullptr;
@@ -85,4 +87,8 @@ private:
     // The world is playing (editor: levels of detail then follow the game camera).
     bool m_playing = false;
         //Moonlight::Renderer* m_renderer;
+    // OccluderFade (ME-279): this frame's fade target per entity id, and the cameras' update.
+    std::unordered_map<uint64_t, float> m_occluderTargets;
+    float m_occluderFadeRate = 5.f;
+    void UpdateOccluderFades();
 };
