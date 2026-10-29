@@ -48,6 +48,10 @@ public:
     // Left, top, right, bottom borders in texels (zero = a plain quad).
     Vector4 NineSlice = Vector4( 0.f, 0.f, 0.f, 0.f );
     bool Lit = false;
+    // Lit sprites (LOOK-S9): a tangent-space normal map laid over the texture (same size and
+    // regions; green = the image's up). The scene's point, spot and directional lights then shade
+    // the sprite's relief: place point lights a little in front of the sprite plane.
+    Path NormalMap;
     // Nearest-texel sampling (pixel art).
     bool PointFilter = false;
     Moonlight::SpriteBlend Blend = Moonlight::SpriteBlend::Alpha;
@@ -73,6 +77,8 @@ public:
 private:
     SharedPtr<Moonlight::Texture> m_texture;
     std::string m_loadedTexture;
+    SharedPtr<Moonlight::Texture> m_normalMap;
+    std::string m_loadedNormalMap;
     SharedPtr<Moonlight::SpriteSheet> m_sheet;
     std::string m_loadedSheet;
 };

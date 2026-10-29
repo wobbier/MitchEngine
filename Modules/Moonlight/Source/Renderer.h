@@ -307,6 +307,7 @@ private:
     Moonlight::ShaderCommand m_spriteProgram;
     bgfx::TextureHandle m_spriteWhite = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_texSprite = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle s_texSpriteNormal = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_spriteParams = BGFX_INVALID_HANDLE;
     // Particles: drawn after transparent meshes into HDR colour, depth-tested in the shader.
     void RenderParticles( Moonlight::CameraData& camera );

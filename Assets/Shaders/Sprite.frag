@@ -1,4 +1,4 @@
-$input v_texcoord0, v_color0, v_normal, v_viewPos, v_worldPos
+$input v_texcoord0, v_color0, v_normal, v_tangent, v_viewPos, v_worldPos
 
 // Sprites in linear HDR, after transparents. Like particles, no depth buffer is bound (the scene
 // depth is read as a texture), so the depth test against the opaque scene happens here. Unlit
@@ -9,8 +9,9 @@ $input v_texcoord0, v_color0, v_normal, v_viewPos, v_worldPos
 
 SAMPLER2D(s_texSprite, 0);
 SAMPLER2D(s_sceneDepth, 1);
+SAMPLER2D(s_texSpriteNormal, 2);
 
-uniform vec4 u_spriteParams;   // x 1 = lit, y 1 = additive (premultiply)
+uniform vec4 u_spriteParams;   // x 1 = lit, y 1 = additive (premultiply), z 1 = normal mapped
 uniform vec4 u_particleDepth;  // x P[2][2], y P[3][2], z orthographic, w depth range -1..1
 
 float sceneViewDepth(vec2 _uv)
@@ -42,6 +43,17 @@ void main()
 		// Two-sided: the face toward the viewer.
 		vec3 normal = normalize(v_normal);
 		normal = dot(normal, cameraPos - v_worldPos) < 0.0 ? -normal : normal;
+		if (u_spriteParams.z > 0.5)
+		{
+			// Tangent space: red along the image's +u, green its up, blue out of the sprite (z
+			// rebuilt, so two-channel BC5 maps work too).
+			vec3 tangentNormal;
+			tangentNormal.xy = texture2D(s_texSpriteNormal, v_texcoord0).xy * 2.0 - 1.0;
+			tangentNormal.z = sqrt(max(1.0 - dot(tangentNormal.xy, tangentNormal.xy), 0.0));
+			vec3 T = normalize(v_tangent.xyz);
+			vec3 B = cross(normal, T) * v_tangent.w;
+			normal = normalize(T * tangentNormal.x + B * tangentNormal.y + normal * tangentNormal.z);
+		}
 		SurfaceInput surface;
 		surface.baseColor = color.rgb;
 		surface.alpha = color.a;

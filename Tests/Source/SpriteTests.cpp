@@ -90,3 +90,29 @@ TEST_CASE( "Sprites: SpriteRenderer commands (size, tint, sorting) without a tex
     renderer.Size = Vector2( 3.f, 2.f );
     CHECK( Near( renderer.BuildCommand( transform ).Size.x, 3.f ) );
 }
+
+
+TEST_CASE( "Sprites: tangents follow the image's axes, flips included (normal maps, LOOK-S9)" )
+{
+    Moonlight::SpriteCommand sprite;
+    Moonlight::SpriteVertex vertices[4];
+    // Unflipped: +u along +x; cross(normal, tangent) * w is the image's up (+y).
+    REQUIRE( Moonlight::BuildSpriteVertices( sprite, vertices ) == 4 );
+    const glm::vec3 normal( vertices[0].Normal[0], vertices[0].Normal[1], vertices[0].Normal[2] );
+    glm::vec3 tangent( vertices[0].Tangent[0], vertices[0].Tangent[1], vertices[0].Tangent[2] );
+    glm::vec3 up = glm::cross( normal, tangent ) * vertices[0].Tangent[3];
+    CHECK( Near( tangent.x, 1.f ) );
+    CHECK( Near( up.y, 1.f ) );
+    // Flipped both ways: +u runs along -x and the image's up along -y.
+    sprite.FlipX = sprite.FlipY = true;
+    REQUIRE( Moonlight::BuildSpriteVertices( sprite, vertices ) == 4 );
+    tangent = glm::vec3( vertices[0].Tangent[0], vertices[0].Tangent[1], vertices[0].Tangent[2] );
+    up = glm::cross( normal, tangent ) * vertices[0].Tangent[3];
+    CHECK( Near( tangent.x, -1.f ) );
+    CHECK( Near( up.y, -1.f ) );
+    // Rotated a quarter turn about z: the tangent turns with it.
+    sprite.FlipX = sprite.FlipY = false;
+    sprite.World = glm::rotate( glm::mat4( 1.f ), glm::radians( 90.f ), glm::vec3( 0.f, 0.f, 1.f ) );
+    REQUIRE( Moonlight::BuildSpriteVertices( sprite, vertices ) == 4 );
+    CHECK( Near( vertices[0].Tangent[1], 1.f ) );
+}

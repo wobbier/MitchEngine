@@ -25,6 +25,7 @@ ME_REFLECT_BEGIN( SpriteRenderer )
     ME_FIELD( OrderInLayer ).Category( "Sorting" ).Display( "Order In Layer" ).Tooltip( "Within a layer, higher draws on top; equal sprites sort back to front" );
     ME_FIELD( NineSlice ).Category( "9-Slice" ).Display( "Borders" ).Tooltip( "Left, top, right, bottom borders in texels: corners keep their size, the middle stretches (zero = off)" );
     ME_FIELD( Lit ).Category( "Rendering" ).Tooltip( "Shaded by the scene's lights like a rough surface facing the viewer" );
+    ME_FIELD( NormalMap ).Category( "Rendering" ).Asset( "Texture" ).Display( "Normal Map" ).Tooltip( "Lit sprites: a tangent-space normal map over the texture (green = up), so lights show the relief" );
     ME_FIELD( PointFilter ).Category( "Rendering" ).Display( "Point Filter" ).Tooltip( "Nearest-texel sampling for pixel art" );
     ME_FIELD( Blend ).Category( "Rendering" );
 ME_REFLECT_END()
@@ -52,7 +53,13 @@ bool SpriteRenderer::Resolve()
         const Path texture( path );
         m_texture = ( !path.empty() && texture.Exists ) ? ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( texture ) : nullptr;
     }
-    return !m_texture || !m_texture->IsLoading();
+    const std::string& normal = NormalMap.GetLocalPathString();
+    if( normal != m_loadedNormalMap )
+    {
+        m_loadedNormalMap = normal;
+        m_normalMap = ( !normal.empty() && NormalMap.Exists ) ? ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( NormalMap ) : nullptr;
+    }
+    return ( !m_texture || !m_texture->IsLoading() ) && ( !m_normalMap || !m_normalMap->IsLoading() );
 }
 
 
@@ -136,6 +143,7 @@ Moonlight::SpriteCommand SpriteRenderer::BuildCommand( Transform& InTransform ) 
     command.Layer = SortingLayer;
     command.Order = OrderInLayer;
     command.Texture = m_texture && !m_texture->IsLoading() && !m_texture->HasLoadFailed() ? m_texture->TexHandle : bgfx::TextureHandle( BGFX_INVALID_HANDLE );
+    command.NormalMap = m_normalMap && !m_normalMap->IsLoading() && !m_normalMap->HasLoadFailed() ? m_normalMap->TexHandle : bgfx::TextureHandle( BGFX_INVALID_HANDLE );
 
     // World bounds of the quad's corners.
     const glm::vec2 lo( -command.Pivot.x * command.Size.x, -command.Pivot.y * command.Size.y );

@@ -243,6 +243,8 @@ namespace Moonlight
         uint32_t Sequence = 0;     // gathering order: the last tie-break
         uint64_t ID = 0u;          // the entity (editor picking)
         bgfx::TextureHandle Texture = BGFX_INVALID_HANDLE;     // invalid: white
+        // Lit sprites (LOOK-S9): a tangent-space normal map over the same region (invalid: flat).
+        bgfx::TextureHandle NormalMap = BGFX_INVALID_HANDLE;
         AABB Bounds;
     };
 
@@ -252,11 +254,12 @@ namespace Moonlight
     {
         float Position[3];
         float Normal[3];
+        float Tangent[4];   // the image's +u direction in world space, w = handedness (flips)
         float Uv[2];
         float Color[4];
     };
     uint32_t BuildSpriteVertices( const SpriteCommand& InSprite, SpriteVertex* OutVertices );
-    // The layout SpriteVertex matches (position, normal, uv, colour).
+    // The layout SpriteVertex matches (position, normal, tangent, uv, colour).
     const bgfx::VertexLayout& GetSpriteVertexLayout();
 
     enum class ParticleAlignment : uint8_t

@@ -314,6 +314,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
             m_spriteWhite = bgfx::createTexture2D( 1, 1, false, 1, bgfx::TextureFormat::RGBA8, BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP, bgfx::copy( &white, sizeof( white ) ) );
             bgfx::setName( m_spriteWhite, "Sprite White" );
             s_texSprite = bgfx::createUniform( "s_texSprite", bgfx::UniformType::Sampler );
+            s_texSpriteNormal = bgfx::createUniform( "s_texSpriteNormal", bgfx::UniformType::Sampler );
             u_spriteParams = bgfx::createUniform( "u_spriteParams", bgfx::UniformType::Vec4 );
             m_spriteProgram = Moonlight::ShaderCommand( "Assets/Shaders/Sprite" );
         }
@@ -557,7 +558,7 @@ void BGFXRenderer::Destroy()
         s_lightData, s_clusterGrid, s_clusterIndices, s_texMetallicRoughness, s_texEmissive, s_texOcclusion, s_texMetallic, s_texRoughness,
         u_shadowMatrix, u_cascadeSplits, u_cascadeTexel, u_shadowParams, u_localShadowMatrix, u_spotShadowParams, u_pointShadowParams, u_shadowAlpha, u_shadowUvOffset, s_shadowMap, s_spotShadowMap,
         s_envSpecular, s_envIrradiance, s_brdfLut, u_envParams, u_fogParams, u_fogColor, u_fogVolume, u_fogForward,
-        u_particleParams, u_particleParams2, u_particleDepth, s_texParticle, s_sceneDepth, s_texSprite, u_spriteParams, u_bones, u_outlineHull,
+        u_particleParams, u_particleParams2, u_particleDepth, s_texParticle, s_sceneDepth, s_texSprite, s_texSpriteNormal, u_spriteParams, u_bones, u_outlineHull,
         s_decalAlbedo, s_decalNormal, u_decalColor, u_decalEmissive, u_decalSurface, u_decalDepth, u_decalTexSize, u_decalWorldToLocal, u_decalAxes };
     m_particleProgram = Moonlight::ShaderCommand();
     m_spriteProgram = Moonlight::ShaderCommand();

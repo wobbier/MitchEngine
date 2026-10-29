@@ -22,6 +22,7 @@ namespace
             out.begin()
                 .add( bgfx::Attrib::Position, 3, bgfx::AttribType::Float )
                 .add( bgfx::Attrib::Normal, 3, bgfx::AttribType::Float )
+                .add( bgfx::Attrib::Tangent, 4, bgfx::AttribType::Float )
                 .add( bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float )
                 .add( bgfx::Attrib::Color0, 4, bgfx::AttribType::Float )
                 .end();
@@ -91,6 +92,11 @@ uint32_t Moonlight::BuildSpriteVertices( const SpriteCommand& InSprite, SpriteVe
     const int columns[3] = { 0, 1, 2 };
     const int count = nine ? 3 : 1;
     const glm::vec3 normal = glm::normalize( glm::mat3( InSprite.World ) * glm::vec3( 0.f, 0.f, -1.f ) );
+    // +u runs along local +x (or -x when flipped); +v (down the image) along local -y (or +y flipped).
+    const glm::vec3 tangent = glm::normalize( glm::mat3( InSprite.World ) * glm::vec3( InSprite.FlipX ? -1.f : 1.f, 0.f, 0.f ) );
+    const glm::vec3 bitangentUp = glm::normalize( glm::mat3( InSprite.World ) * glm::vec3( 0.f, InSprite.FlipY ? -1.f : 1.f, 0.f ) );
+    // The image's "up" (its green channel) is bitangentUp; w makes cross(normal, tangent) * w match it.
+    const float handedness = glm::dot( glm::cross( normal, tangent ), bitangentUp ) < 0.f ? -1.f : 1.f;
 
     uint32_t written = 0;
     auto emit = [&]( int InColumn, int InRow, int InCornerX, int InCornerY ) {
@@ -108,6 +114,10 @@ uint32_t Moonlight::BuildSpriteVertices( const SpriteCommand& InSprite, SpriteVe
         vertex.Normal[0] = normal.x;
         vertex.Normal[1] = normal.y;
         vertex.Normal[2] = normal.z;
+        vertex.Tangent[0] = tangent.x;
+        vertex.Tangent[1] = tangent.y;
+        vertex.Tangent[2] = tangent.z;
+        vertex.Tangent[3] = handedness;
         vertex.Uv[0] = u;
         vertex.Uv[1] = v;
         vertex.Color[0] = InSprite.Color.r;
@@ -234,20 +244,22 @@ void BGFXRenderer::RenderSprites( Moonlight::CameraData& camera )
             // A batch ends where the next sprite's texture or state differs.
             const bool last = i + 1 == end;
             const Moonlight::SpriteCommand* following = last ? nullptr : &m_sprites[m_spriteOrder[i + 1].second];
-            const bool sameBatch = following && following->Texture.idx == sprite.Texture.idx && following->Lit == sprite.Lit
+            const bool sameBatch = following && following->Texture.idx == sprite.Texture.idx && following->NormalMap.idx == sprite.NormalMap.idx && following->Lit == sprite.Lit
                 && following->Blend == sprite.Blend && following->PointFilter == sprite.PointFilter;
             if( sameBatch )
             {
                 continue;
             }
             const bgfx::TextureHandle texture = bgfx::isValid( sprite.Texture ) ? sprite.Texture : m_spriteWhite;
-            const float params[4] = { sprite.Lit ? 1.f : 0.f, sprite.Blend == Moonlight::SpriteBlend::Additive ? 1.f : 0.f, 0.f, 0.f };
+            const bool normalMapped = sprite.Lit && bgfx::isValid( sprite.NormalMap );
+            const float params[4] = { sprite.Lit ? 1.f : 0.f, sprite.Blend == Moonlight::SpriteBlend::Additive ? 1.f : 0.f, normalMapped ? 1.f : 0.f, 0.f };
             const uint64_t blend = sprite.Blend == Moonlight::SpriteBlend::Additive ? BGFX_STATE_BLEND_FUNC( BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE ) : BGFX_STATE_BLEND_ALPHA;
             const uint32_t sampler = sprite.PointFilter ? ( BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP ) : UINT32_MAX;
             bgfx::setVertexBuffer( 0, &tvb );
             bgfx::setIndexBuffer( &tib, batchStart / 4 * 6, ( written - batchStart ) / 4 * 6 );
             bgfx::setTexture( 0, s_texSprite, Moonlight::Texture::Sampleable( texture, m_spriteWhite ), sampler );
             bgfx::setTexture( 1, s_sceneDepth, buffer.DepthTexture, BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP );
+            bgfx::setTexture( 2, s_texSpriteNormal, normalMapped ? Moonlight::Texture::Sampleable( sprite.NormalMap, m_spriteWhite ) : m_spriteWhite, sampler );
             bgfx::setUniform( u_spriteParams, params );
             bgfx::setUniform( u_particleDepth, depthParams );
             // The sprite shader includes the lighting code, so its samplers are always bound.
