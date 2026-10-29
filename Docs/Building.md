@@ -145,6 +145,15 @@ Builds/Default/
 - **User state** goes to the OS per-user folder in Retail builds (`VFS.md`, `user://`). Logs
   and crash dumps still land in the working directory (ME-263).
 
+### What a shipped run writes (ME-263)
+
+A Retail run leaves its own folder byte-for-byte unchanged. Install folders can be read-only (Program Files, a system package), and Steam verifies them.
+
+- **Log:** `user://Logs/Engine.txt` (the OS per-user folder: `SDL_GetPrefPath( Org, Product )`). Lines logged before user:// is known are held, then written first. Unattended runs (`--frames`, `--screenshot`...) keep no log file unless given `--user-dir`; their output is stdout.
+- **Crash reports:** `user://Crashes/`. Before user:// is known they go to `<temp>/MitchEngine/Crashes/`. The handlers are installed once, at startup; later the directory only moves (`CrashHandler::SetDirectory`), because .NET chains its own signal handlers over them.
+- **Asset metadata cache:** never written in Retail or cooked/pak runs (`AssetMetaCache::SetReadOnly`), and never created just by starting up.
+- **FMOD:** Retail links FMOD's release libraries (`fmod`, `fmod_vc.lib`), not the logging ones that write `fmod_log.txt`; Build Game bundles `libfmod.so.13`.
+
 ## Proof
 
 The "Build Game" step of `RunChecks.sh` builds the Lighting, Playground and RenderTexture

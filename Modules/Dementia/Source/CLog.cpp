@@ -70,6 +70,31 @@ void CLog::SetLogFile( const std::string& filename )
     mLogFileLocation = filename;
     // Truncate: each run starts a fresh log.
     mLogFile.open( mLogFileLocation, std::ios_base::out | std::ios_base::trunc );
+    if( mLogFile.is_open() )
+    {
+        for( const std::string& line : mHeld )
+        {
+            mLogFile << line << '\n';
+        }
+        mLogFile.flush();
+    }
+    mHeld.clear();
+    mHolding = false;
+}
+
+
+void CLog::HoldUntilLogFile()
+{
+    std::lock_guard<std::recursive_mutex> lock( mMutex );
+    mHolding = true;
+}
+
+
+void CLog::DropHeldLines()
+{
+    std::lock_guard<std::recursive_mutex> lock( mMutex );
+    mHolding = false;
+    mHeld.clear();
 }
 
 
@@ -133,6 +158,10 @@ bool CLog::LogMessage( CLog::LogType priority, std::string message )
         {
             mLogFile.flush();
         }
+    }
+    else if( mHolding && mHeld.size() < 4096 )
+    {
+        mHeld.push_back( std::string( prefix ) + type + message );
     }
 
 #if USING( ME_PLATFORM_WIN64 )

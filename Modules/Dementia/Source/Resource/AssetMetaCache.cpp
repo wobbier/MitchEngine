@@ -11,14 +11,7 @@
 
 AssetMetaCache::AssetMetaCache()
 {
-    Path gameSpecificCnfigPath( kCachePath );
-
-    if( !gameSpecificCnfigPath.Exists )
-    {
-        PlatformUtils::CreateDirectory( gameSpecificCnfigPath );
-        File gameEngineCfg = File( gameSpecificCnfigPath );
-        gameEngineCfg.Write( "{}" );
-    }
+    // Nothing on disk until Save: shipped and cooked runs never write the cache (ME-263).
 }
 
 void AssetMetaCache::Init()
@@ -77,7 +70,10 @@ void AssetMetaCache::Load()
     {
         Path configPath( kCachePath );
         File cacheFile( configPath );
-        cacheFile.Read();
+        if( configPath.Exists )
+        {
+            cacheFile.Read();
+        }
         if( cacheFile.Data.length() > 0 )
         {
             // The cache only says which assets changed since their last export, so a damaged one
@@ -112,6 +108,10 @@ void AssetMetaCache::Save()
 
 void AssetMetaCache::SaveLocked()
 {
+    if( m_readOnly )
+    {
+        return;
+    }
     json j_map = json::array();
     for( auto& thing : m_cachedAssets )
     {

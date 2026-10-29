@@ -68,6 +68,7 @@
 #include "Events/EditorEvents.h"
 #include "Core/CommandLine.h"
 #include "Core/CrashHandler.h"
+#include "Resource/AssetMetaCache.h"
 #include "Resource/FileWatcher.h"
 #include "Graphics/ShaderDependencies.h"
 #include "Resource/AssetDatabase.h"
@@ -158,13 +159,21 @@ void Engine::Init( Game* game )
     // --record-deps <file>: note every asset this run reads, for the cooker (written on exit).
     Cook::StartRecordingIfRequested();
 
-    CLog::GetInstance().SetLogFile( "Engine.txt" );
 #if USING( ME_RETAIL )
+    // A shipped game writes nothing beside itself (install folders can be read-only, and Steam
+    // verifies them; ME-263): the log and crash reports go under user:// once that's known
+    // (below). Until then the log keeps its lines, and a crash reports to the temp directory.
+    CLog::GetInstance().HoldUntilLogFile();
     CLog::GetInstance().SetLogVerbosity( CLog::LogType::Info );
+    {
+        std::error_code error;
+        CrashHandler::Install( ( std::filesystem::temp_directory_path( error ) / "MitchEngine" / "Crashes" ).string() );
+    }
 #else
+    CLog::GetInstance().SetLogFile( "Engine.txt" );
     CLog::GetInstance().SetLogVerbosity( CLog::LogType::Trace );
-#endif
     CrashHandler::Install( ".tmp/Crashes" );
+#endif
 #if USING( ME_SCRIPTING )
     // .NET starts (and tools builds rebuild stale scripts) while the window and renderer come up;
     // ScriptCore's ScriptEngine::Init waits for it.
@@ -195,7 +204,12 @@ void Engine::Init( Game* game )
         VFS::Get().MountPak( "", pakFile, 150 );
     }
     // A cooked tree (Havana --cook) indexes what it stripped: sources, .meta files, GUIDs.
-    CookedAssets::Get().Load();
+    [[maybe_unused]] const bool cooked = CookedAssets::Get().Load();
+#if USING( ME_RETAIL )
+    AssetMetaCache::GetInstance().SetReadOnly( true );
+#else
+    AssetMetaCache::GetInstance().SetReadOnly( cooked || !pakFile.empty() );
+#endif
 
     // Project settings load first: the product identity names the user:// root.
     ProjectSettings::Get().Load();
@@ -222,6 +236,22 @@ void Engine::Init( Game* game )
         VFS::Get().SetUserRoot( userDir.generic_string() );
         CLog::GetInstance().Log( CLog::LogType::Info, "User state: " + userDir.generic_string() );
     }
+#if USING( ME_RETAIL )
+    // The log and crash reports join the player's other state. Unattended runs (automation reads
+    // stdout) keep no log file unless given a --user-dir.
+    if( !AutomationRunner::IsUnattendedRun() || CommandLine::Has( "--user-dir" ) )
+    {
+        const std::filesystem::path userRoot( VFS::Get().GetUserRoot() );
+        std::error_code error;
+        std::filesystem::create_directories( userRoot / "Logs", error );
+        CLog::GetInstance().SetLogFile( ( userRoot / "Logs" / "Engine.txt" ).string() );
+        CrashHandler::SetDirectory( ( userRoot / "Crashes" ).string() );
+    }
+    else
+    {
+        CLog::GetInstance().DropHeldLines();
+    }
+#endif
 
     Path engineCfg( "Assets\\Config\\Engine.cfg" );
 

@@ -173,7 +173,7 @@ namespace
 
 namespace CrashHandler
 {
-    void Install( const std::string& crashDirectory )
+    void SetDirectory( const std::string& crashDirectory )
     {
         std::error_code ec;
         std::filesystem::create_directories( crashDirectory, ec );
@@ -181,6 +181,12 @@ namespace CrashHandler
         const std::string stamp = MakeTimestamp();
         s_reportPath = ( std::filesystem::path( crashDirectory ) / ( "crash_" + stamp + ".txt" ) ).string();
         s_dumpPath = ( std::filesystem::path( crashDirectory ) / ( "crash_" + stamp + ".dmp" ) ).string();
+    }
+
+
+    void Install( const std::string& crashDirectory )
+    {
+        SetDirectory( crashDirectory );
 
         std::set_terminate( &OnTerminate );
 

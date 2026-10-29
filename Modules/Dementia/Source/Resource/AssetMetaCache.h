@@ -22,9 +22,13 @@ public:
 
     void Load();
     void Save();
+    // Shipped and cooked runs read the cache but never write it (they write nothing beside
+    // themselves; ME-263).
+    void SetReadOnly( bool InReadOnly ) { m_readOnly = InReadOnly; }
 
 private:
     bool IsLoaded = false;
+    bool m_readOnly = false;
 
     struct CachedAssetInfo
     {

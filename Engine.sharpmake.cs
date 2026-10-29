@@ -198,7 +198,8 @@ public class Engine : BaseProject
             conf.IncludePaths.Add(Path.Combine(Globals.FMOD_Win64_Dir, "api/core/inc"));
             conf.LibraryPaths.Add(Path.Combine(Globals.FMOD_Win64_Dir, "api/core/lib/x64"));
 
-            conf.LibraryFiles.Add("fmodL_vc.lib");
+            // Retail ships FMOD without its logging build (which writes fmod_log.txt beside the game).
+            conf.LibraryFiles.Add(target.Optimization == Optimization.Retail ? "fmod_vc.lib" : "fmodL_vc.lib");
 
             // FMOD DLL
             {
@@ -293,7 +294,7 @@ public class Engine : BaseProject
             conf.IncludePaths.Add(Path.Combine(Globals.FMOD_UWP_Dir, "api/core/inc"));
             conf.LibraryPaths.Add(Path.Combine(Globals.FMOD_UWP_Dir, "api/core/lib/x64"));
 
-            conf.LibraryFiles.Add("fmodL.lib");
+            conf.LibraryFiles.Add(target.Optimization == Optimization.Retail ? "fmod.lib" : "fmodL.lib");
 
             // FMOD DLL
             {
@@ -341,7 +342,7 @@ public class Engine : BaseProject
             conf.IncludePaths.Add(Path.Combine(Globals.FMOD_macOS_Dir, "api/core/inc"));
             conf.LibraryPaths.Add(Path.Combine(Globals.FMOD_macOS_Dir, "api/core/lib"));
 
-            conf.LibraryFiles.Add("fmodL");
+            conf.LibraryFiles.Add(target.Optimization == Optimization.Retail ? "fmod" : "fmodL");
 
             // FMOD LIB
             {
@@ -384,7 +385,7 @@ public class Engine : BaseProject
         {
             conf.IncludePaths.Add(Path.Combine(Globals.FMOD_Linux_Dir, "api/core/inc"));
             conf.LibraryPaths.Add(Path.Combine(Globals.FMOD_Linux_Dir, "api/core/lib/x86_64"));
-            conf.AdditionalLinkerOptions.Add("-lfmodL");
+            conf.AdditionalLinkerOptions.Add(target.Optimization == Optimization.Retail ? "-lfmod" : "-lfmodL");
         }
 
         // potentially use [target.Platform] and move this to ConfigureAll

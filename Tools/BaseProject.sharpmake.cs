@@ -300,7 +300,7 @@ public abstract class BaseProject : Project
         conf.LibraryFiles.Add("libwayland-egl.so");
         if (Directory.Exists(Globals.FMOD_Linux_Dir))
         {
-            conf.LibraryFiles.Add("libfmodL.so");
+            conf.LibraryFiles.Add(target.Optimization == Optimization.Retail ? "libfmod.so" : "libfmodL.so");
         }
         // .NET hosting (scripting): nethost finds hostfxr; the rpath finds nethost at runtime.
         if (Directory.Exists(Globals.DOTNET_Linux_Dir))

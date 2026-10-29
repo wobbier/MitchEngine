@@ -83,6 +83,14 @@ public:
     static LogFilter ToFilter( LogType type );
 
     void SetLogFile( const std::string& filename );
+
+    // Lines logged before SetLogFile are kept and written to the file when it opens (shipped
+
+    // builds name the file once user:// is known). DropHeldLines: there won't be a file.
+
+    void HoldUntilLogFile();
+
+    void DropHeldLines();
     void SetLogVerbosity( CLog::LogType priority );
 
     bool LogMessage( CLog::LogType priority, std::string message );
@@ -123,6 +131,8 @@ private:
 
     std::ofstream mLogFile;
     std::string mLogFileLocation;
+    bool mHolding = false;
+    std::vector<std::string> mHeld;
     LogType mPriority = LogType::None;
     std::recursive_mutex mMutex;
     uint64_t mTotalMessages = 0;
