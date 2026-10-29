@@ -13,4 +13,7 @@ public struct AssetRef
     public bool IsSet => !string.IsNullOrEmpty(Path);
 
     public override string ToString() => IsSet ? Path : "(none)";
+
+    // The data asset this references (DataAssets.Load: cached, shared, hot reloaded).
+    public T? Load<T>() where T : DataAsset => DataAssets.Load<T>(Path);
 }

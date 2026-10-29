@@ -268,4 +268,10 @@ struct ScriptEngineAPI
     int ( *Loc_Get )( const uint8_t* key, uint8_t* outText, int size );
     int ( *Loc_GetLanguage )( uint8_t* outCode, int size );
     int ( *Loc_GetLanguages )( uint8_t* outCodes, int size );
+
+    // Project files through the VFS (CS-7 data assets): text, or -1 when the file isn't there; writes
+
+    // go to the project (false in a shipped, read-only build).
+    int ( *Asset_ReadText )( const uint8_t* path, uint8_t* outText, int size );
+    bool ( *Asset_WriteText )( const uint8_t* path, const uint8_t* text );
 };

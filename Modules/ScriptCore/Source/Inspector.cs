@@ -63,6 +63,9 @@ public static class Inspector
         DrawObjectFields(target);
     }
 
+    // DrawDefault, reporting whether a field was edited (data assets save on it).
+    internal static bool DrawObjectFieldsChanged(object target) => DrawObjectFields(target);
+
     // Draws every visible field of the boxed object, mutating it in place.
     private static bool DrawObjectFields(object target)
     {

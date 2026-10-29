@@ -41,6 +41,7 @@
 #include "Utils/PlatformUtils.h"
 #include "Tools/Cook/Cooker.h"
 #include "Utils/ScriptNaming.h"
+#include "Scripting/ScriptEngine.h"
 #include <ImGuiTheme.h>
 #include <Utils/HavanaUtils.h>
 #include "Utils/ImGuiUtils.h"
@@ -1775,6 +1776,21 @@ void AssetBrowserWidget::DrawCreateMenuItems()
         }
         ImGui::EndMenu();
     }
+#if USING( ME_SCRIPTING )
+    // CS-7: one entry per DataAsset class in the game's scripts.
+    const std::vector<std::string> dataAssetTypes = ScriptEngine::GetDataAssetTypes();
+    if( ImGui::BeginMenu( "Data Asset", !dataAssetTypes.empty() ) )
+    {
+        for( const std::string& type : dataAssetTypes )
+        {
+            if( ImGui::MenuItem( type.c_str() ) )
+            {
+                CreateAsset( "New " + type, ".asset", json{ { "Type", type }, { "Fields", json::object() } }.dump( 4 ) );
+            }
+        }
+        ImGui::EndMenu();
+    }
+#endif
     if( ImGui::MenuItem( "C# Script" ) )
     {
         const std::string name = ScriptNaming::UniqueName( "NewScript", []( const std::string& InName ) { return ScriptNameTaken( InName ); } );
@@ -1818,6 +1834,14 @@ void AssetBrowserWidget::DrawDetails()
     {
         DrawTreeDetails();
     }
+#if USING( ME_SCRIPTING )
+    if( EndsWith( m_detailsPath, ".asset" ) )
+    {
+        // A C# data asset: its fields as property rows, saved as they're edited.
+        ImGui::SeparatorText( "Data Asset" );
+        ScriptEngine::InspectDataAsset( LocalPath( m_detailsPath ) );
+    }
+#endif
 
     if( m_focusedResource )
     {

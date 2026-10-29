@@ -130,6 +130,7 @@ public static class ScriptBridge
             _alc = alc;
             _alcRef = new WeakReference(_alc);
             ScriptRegistry.Scan(asm);
+            DataAssets.Scan(asm);
             Console.WriteLine($"[ScriptBridge] Loaded {ScriptRegistry.ScriptTypes.Count} type(s) from {System.IO.Path.GetFileName(path)}");
             return 0;
         }
@@ -181,6 +182,8 @@ public static class ScriptBridge
         _alc = newAlc;
         _alcRef = new WeakReference(newAlc);
         ScriptRegistry.Scan(newAsm);
+        DataAssets.Clear();
+        DataAssets.Scan(newAsm);
 
         int restored = 0;
         foreach (var (handle, typeName, entity, fields) in snapshots)
@@ -458,6 +461,24 @@ public static class ScriptBridge
             else Scheduler.Tick(deltaTime);
         }
         catch (Exception ex) { ReportException("SchedulerTick", ex); }
+    }
+
+    // CS-7: the game's DataAsset classes, newline-separated (the editor's Create menu).
+    [UnmanagedCallersOnly]
+    public static unsafe int GetDataAssetTypes(byte* outBuf, int bufSize)
+    {
+        var names = string.Join("\n", DataAssets.AssetTypes.Select(t => t.Name));
+        int length = Encoding.UTF8.GetByteCount(names);
+        if (length < bufSize) WriteUtf8(names, outBuf, bufSize);
+        return length;
+    }
+
+    // CS-7: the asset details pane draws a data asset's fields (and saves edits).
+    [UnmanagedCallersOnly]
+    public static unsafe void InspectDataAsset(byte* path)
+    {
+        try { DataAssets.Inspect(ReadUtf8(path)); }
+        catch (Exception ex) { ReportException("InspectDataAsset", ex); }
     }
 
     internal static void ReportHandlerException(string eventName, Exception ex) => ReportException($"EventBus handler for {eventName}", ex);

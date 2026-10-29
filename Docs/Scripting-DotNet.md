@@ -138,6 +138,7 @@ The API is 120 functions (`ScriptAPI.def`). Strings cross as UTF-8 `byte*`, enti
 | World | `CreateEntity`, `Find(name)` (any depth), `Instantiate(prefab, parent)`, `LoadScene(path)` (queued to the end of the frame), `LoadSceneAdditive(path, async = true)` / `UnloadScene(id)` / `GetSceneState(id)` (`Docs/Serialization-and-Scenes.md`) |
 | Input | `IsKeyDown`, `WasKeyPressed`, `MouseDelta`, `GetAction`, `GetActionVector2`, `IsActionPressed`, `WasActionPressed`, `WasActionReleased` (actions from `Docs/Input.md`); local multiplayer: `PlayerCount`, `Player(n)` (a `PlayerInput` with the same action methods and its `Gamepad`), `SetJoining(maxPlayers)` |
 | Audio | `Audio.PlayOneShot(clip, volume)`, `PlayOneShotAt(clip, position, volume)` |
+| Data assets | `DataAsset` subclasses in `.asset` files; `AssetRef.Load<T>()` / `DataAssets.Load<T>(path)` (cached, shared), `DataAssets.Save` (see below) |
 | Async | `await Async.Seconds(s)` / `Frames(n)` / `NextFrame()` / `Until(cond)`, `Async.Frame`; coroutines `StartCoroutine(IEnumerator)` with `WaitForSeconds` / `WaitFrames` / `WaitUntil` / `null`; `After(s, a)` / `Every(s, a)` (`Timer`); `Tween.Float` / `Vector` / `Move` with `Ease` (see below) |
 | Events | `EventBus.Publish(evt)` / `Subscribe<T>(handler)` (a disposable token) / `Unsubscribe`, `Script.On<T>(handler)`; engine events `SceneLoaded`, `AdditiveSceneChanged`, `GamepadChanged`, `PlayerChanged`, `AnimationMarker`, `WindowResized` (see below) |
 | Localization | `Loc.Get(key)`, `Loc.Language` (sets the player setting), `Loc.Languages` (`Docs/Localization.md`) |
@@ -150,6 +151,18 @@ The API is 120 functions (`ScriptAPI.def`). Strings cross as UTF-8 `byte*`, enti
 | Navigation | `NavMeshAgent.SetDestination`, `IsStopped`, `ResetPath`, `Warp`, `HasPath`, `HasArrived`, `RemainingDistance`, `Velocity`, `DesiredVelocity`, `Speed`; `Navigation.FindPath`, `SamplePosition`, `Raycast`, `GetRandomPoint` (`Docs/Navigation.md`) |
 | Camera / UI | Clear colour; `Camera.SetClipPlane(point, normal)` / `ClearClipPlane()` (hide everything behind a world plane, for portals and mirrors); `Mesh.ShowCameraView(camera)` (the mesh becomes a screen-space window onto that camera's view, see `Rendering-Pipeline.md`); `UI.Model` view models for RmlUi documents |
 | ImGui | A subset for `OnEditorInspect`, plus `Begin`/`End`/`Text`/`Checkbox`/`Button` for a script's own debug window. Those do nothing in builds without ImGui (Retail), so a debug window never crashes a shipped game |
+
+### Data assets (CS-7)
+
+A `DataAsset` subclass (`Modules/ScriptCore/Source/Core/DataAsset.cs`) is tuning data in a file: `{ "Type": "WeaponStats", "Fields": { ... } }`, read and written through the VFS (`Asset_ReadText` / `Asset_WriteText`).
+- **In the editor:**
+  - **Create > Data Asset > <Type>** in the asset browser lists the game's classes (`ScriptBridge.GetDataAssetTypes`).
+  - Selecting an `.asset` file draws its fields in the details pane with the script inspector's rows (`InspectDataAsset`). It re-reads the file first, and saves as you edit.
+- **References and caching.** Scripts reference an asset with an `AssetRef` (`[AssetFilter("asset")]`) and call `Load<T>()`. Loads are cached per path, so every holder shares one instance.
+- **Reloading.**
+  - When the file changes while playing (`AssetsChanged`, tools builds), the instance re-reads in place, `OnLoaded` runs again, and holders see the new values.
+  - A hot reload of the scripts drops the cache.
+- **Proof:** `DataAssetProbe.cs` + `DataAssetFlows.edscript`, which creates, edits, references and live-edits `Assets/Scenes/Tests/ProbeStats.asset` (the `data-asset-create`, `data-asset-set` and `data-asset-assert` commands) and captures the details pane.
 
 ### Async, coroutines, timers and tweens (CS-6)
 
@@ -184,6 +197,7 @@ The API is 120 functions (`ScriptAPI.def`). Strings cross as UTF-8 `byte*`, enti
 | `PlayerChanged(Player, GamepadSlot, Change)` | A local player joined, lost or regained its pad |
 | `AnimationMarker(Entity, State, Name)` | An Animator passed a marker |
 | `WindowResized(Size)` | The window resized |
+| `AssetsChanged(Paths)` | Project files changed while playing (tools builds; data assets re-read first) |
 
 - **Proof:** `EventProbe.cs` + `EventFlows.edscript`.
 

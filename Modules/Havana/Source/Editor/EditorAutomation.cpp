@@ -37,6 +37,7 @@
 #include "Engine/SaveGames.h"
 #include "Engine/LoadingScreen.h"
 #include "Engine/Localization.h"
+#include "VFS/VFS.h"
 #include "Engine/Input.h"
 #include <SDL_keyboard.h>
 #include "Engine/World.h"
@@ -1040,6 +1041,45 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         else if( input.GetAction( actionName ).IsPressed() != ( expectedText == "true" ) )
         {
             Fail( "action " + actionName + " is " + ( input.GetAction( actionName ).IsPressed() ? "pressed" : "not pressed" ) + ", expected " + ( expectedText == "true" ? "pressed" : "not pressed" ) );
+        }
+    }
+    else if( command == "data-asset-create" || command == "data-asset-set" || command == "data-asset-assert" )
+    {
+        // data-asset-create Assets/X.asset | WeaponStats        (an empty one: the class's defaults)
+        // data-asset-set Assets/X.asset | Damage | 25           (edits the file, as the inspector saves)
+        // data-asset-assert Assets/X.asset | Damage | 25
+        auto [path, rest] = SplitArgs( args );
+        std::string text;
+        json asset = VFS::Get().ReadText( path, text ) ? json::parse( text, nullptr, false ) : json();
+        if( command == "data-asset-create" )
+        {
+            asset = { { "Type", Trim( rest ) }, { "Fields", json::object() } };
+            if( !VFS::Get().WriteText( path, asset.dump( 4 ) ) )
+            {
+                Fail( "data-asset-create: can't write " + path );
+            }
+        }
+        else if( !asset.is_object() || !asset.contains( "Fields" ) || !asset["Fields"].is_object() )
+        {
+            Fail( command + ": " + path + " isn't a data asset" );
+        }
+        else
+        {
+            auto [field, valueText] = SplitArgs( rest );
+            const json value = json::parse( valueText, nullptr, false );
+            if( value.is_discarded() )
+            {
+                Fail( command + ": bad value " + valueText );
+            }
+            else if( command == "data-asset-set" )
+            {
+                asset["Fields"][field] = value;
+                VFS::Get().WriteText( path, asset.dump( 4 ) );
+            }
+            else if( !asset["Fields"].contains( field ) || !NearlyEqual( asset["Fields"][field], value ) )
+            {
+                Fail( "data asset " + path + " " + field + " is " + ( asset["Fields"].contains( field ) ? asset["Fields"][field].dump() : std::string( "<unset>" ) ) + ", expected " + valueText );
+            }
         }
     }
     else if( command == "loc-assert-missing" || command == "loc-clear-missing" )

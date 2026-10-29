@@ -68,6 +68,9 @@ public:
     static void        DispatchEngineEvents( const std::string& inJsonArray );
     // CS-6: advances C#'s awaits, coroutines, timers and tweens (reset: Stop drops them).
     static void        SchedulerTick( float inDeltaTime, bool inReset = false );
+    // CS-7: the game's DataAsset class names, and the asset details pane's inspector for one.
+    static std::vector<std::string> GetDataAssetTypes();
+    static void        InspectDataAsset( const std::string& inPath );
     static void        ScriptOnStart( int inHandle );
     static void        ScriptOnUpdate( int inHandle, float inDt );
     static void        ScriptOnFixedUpdate( int inHandle, float inDt );

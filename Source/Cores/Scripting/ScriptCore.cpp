@@ -17,6 +17,8 @@
 #include "Input/Gamepads.h"
 #include "Input/InputPlayers.h"
 #include "World/Scene.h"
+#include "Events/EditorEvents.h"
+#include "Path.h"
 #include "optick.h"
 
 #if USING( ME_EDITOR )
@@ -48,6 +50,19 @@ ScriptCore::ScriptCore()
     } );
     Listen<AnimationEvent>( [this, entityJson]( const AnimationEvent& InEvent ) {
         QueueEngineEvent( { { "Type", "Animation" }, { "Entity", entityJson( InEvent.Entity.GetID() ) }, { "State", InEvent.State }, { "Name", InEvent.Name } } );
+    } );
+    // Project files edited while playing (tools builds): data assets re-read in place.
+    Listen<AssetsChangedEvent>( [this]( const AssetsChangedEvent& InEvent ) {
+        if( !m_running )
+        {
+            return;
+        }
+        json paths = json::array();
+        for( const std::string& path : InEvent.Paths )
+        {
+            paths.push_back( Path( path ).GetLocalPathString() );
+        }
+        QueueEngineEvent( { { "Type", "AssetsChanged" }, { "Paths", paths } } );
     } );
     Listen<WindowResizedEvent>( [this]( const WindowResizedEvent& InEvent ) {
         QueueEngineEvent( { { "Type", "WindowResized" }, { "Size", { InEvent.NewSize.x, InEvent.NewSize.y } } } );

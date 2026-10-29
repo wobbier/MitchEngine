@@ -80,6 +80,14 @@ public static class EventBus
                     Publish(new AnimationMarker(new Entity(id[0].GetUInt32(), id[1].GetUInt32()), Text(e, "State"), Text(e, "Name")));
                     break;
                 }
+                case "AssetsChanged":
+                {
+                    var paths = new List<string>();
+                    foreach (var p in e.GetProperty("Paths").EnumerateArray()) paths.Add(p.GetString() ?? "");
+                    foreach (var path in paths) if (path.EndsWith(".asset", StringComparison.OrdinalIgnoreCase)) DataAssets.Refresh(path);
+                    Publish(new AssetsChanged(paths.ToArray()));
+                    break;
+                }
                 case "WindowResized":
                 {
                     var size = e.GetProperty("Size");
@@ -114,3 +122,5 @@ public readonly record struct PlayerChanged(int Player, int GamepadSlot, PlayerC
 // An Animator passed a named marker in a state.
 public readonly record struct AnimationMarker(Entity Entity, string State, string Name);
 public readonly record struct WindowResized(Vector2 Size);
+// Project files changed on disk while playing (tools builds): project-relative paths.
+public readonly record struct AssetsChanged(string[] Paths);

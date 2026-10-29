@@ -257,4 +257,10 @@ public unsafe struct EngineAPIBindings
     public delegate* unmanaged<byte*, byte*, int, int> Loc_Get;
     public delegate* unmanaged<byte*, int, int> Loc_GetLanguage;
     public delegate* unmanaged<byte*, int, int> Loc_GetLanguages;
+
+    // Project files through the VFS (CS-7 data assets): text, or -1 when the file isn't there; writes
+
+    // go to the project (false in a shipped, read-only build).
+    public delegate* unmanaged<byte*, byte*, int, int> Asset_ReadText;
+    public delegate* unmanaged<byte*, byte*, byte> Asset_WriteText;
 }

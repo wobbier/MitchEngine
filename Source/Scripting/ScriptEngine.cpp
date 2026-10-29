@@ -34,6 +34,7 @@
 #include "Bindings/Systems/Settings.bindings.h"
 #include "Bindings/Systems/SaveGame.bindings.h"
 #include "Bindings/Systems/Localization.bindings.h"
+#include "Bindings/Systems/Asset.bindings.h"
 
 namespace fs = std::filesystem;
 
@@ -112,6 +113,8 @@ struct ScriptAPI
     FnGetFieldsJson       GetSaveFieldsJson = nullptr;
     FnSetFieldsJson       DispatchEngineEvents = nullptr;   // (unused handle, JSON array)
     void ( *SchedulerTick )( float, int ) = nullptr;
+    int ( *GetDataAssetTypes )( uint8_t*, int ) = nullptr;
+    void ( *InspectDataAsset )( const uint8_t* ) = nullptr;
     FnSetFieldsJson       SetFieldsJson = nullptr;
     FnIsHandleAlive       IsHandleAlive = nullptr;
     FnGetHandleTypeName   GetHandleTypeName = nullptr;
@@ -148,6 +151,8 @@ static bool LoadAPI( ScriptHost& inHost, const std::string& inCoreDll, ScriptAPI
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetSaveFieldsJson", (void**)&outApi.GetSaveFieldsJson );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "DispatchEngineEvents", (void**)&outApi.DispatchEngineEvents );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "SchedulerTick", (void**)&outApi.SchedulerTick );
+    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetDataAssetTypes", (void**)&outApi.GetDataAssetTypes );
+    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "InspectDataAsset", (void**)&outApi.InspectDataAsset );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "SetFieldsJson", (void**)&outApi.SetFieldsJson );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ReloadGameAssembly", (void**)&outApi.ReloadGameAssembly );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "IsHandleAlive", (void**)&outApi.IsHandleAlive );
@@ -469,6 +474,7 @@ static int StartRuntime()
     Register_SettingsBindings( engineApi );
     Register_SaveGameBindings( engineApi );
     Register_LocalizationBindings( engineApi );
+    Register_AssetBindings( engineApi );
 
     // Every slot of the generated table must be filled, or a script call would jump to null.
     static_assert( sizeof( ScriptEngineAPI ) % sizeof( void* ) == 0, "ScriptEngineAPI holds only function pointers" );
@@ -725,6 +731,45 @@ std::string ScriptEngine::GetFieldsJson( int inHandle, bool InIncludeSaveFields 
     json.resize( static_cast<size_t>( std::max( length, 0 ) ) );
     return json;
 }
+
+std::vector<std::string> ScriptEngine::GetDataAssetTypes()
+{
+    std::vector<std::string> types;
+    if( !gDotnetAPI.GetDataAssetTypes )
+    {
+        return types;
+    }
+    std::string names( 1024, '\0' );
+    int length = gDotnetAPI.GetDataAssetTypes( reinterpret_cast<uint8_t*>( names.data() ), static_cast<int>( names.size() ) );
+    if( length >= static_cast<int>( names.size() ) )
+    {
+        names.assign( static_cast<size_t>( length ) + 1, '\0' );
+        length = gDotnetAPI.GetDataAssetTypes( reinterpret_cast<uint8_t*>( names.data() ), static_cast<int>( names.size() ) );
+    }
+    names.resize( static_cast<size_t>( std::max( length, 0 ) ) );
+    size_t start = 0;
+    while( start < names.size() )
+    {
+        const size_t end = names.find( '\n', start );
+        types.push_back( names.substr( start, end == std::string::npos ? std::string::npos : end - start ) );
+        if( end == std::string::npos )
+        {
+            break;
+        }
+        start = end + 1;
+    }
+    return types;
+}
+
+
+void ScriptEngine::InspectDataAsset( const std::string& inPath )
+{
+    if( gDotnetAPI.InspectDataAsset )
+    {
+        gDotnetAPI.InspectDataAsset( reinterpret_cast<const uint8_t*>( inPath.c_str() ) );
+    }
+}
+
 
 void ScriptEngine::SchedulerTick( float inDeltaTime, bool inReset )
 {
