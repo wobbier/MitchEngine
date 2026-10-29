@@ -187,7 +187,7 @@ namespace TerrainData
         try
         {
             if( !path.parent_path().empty() ) std::filesystem::create_directories( path.parent_path() );
-            temporary = path; temporary += "." + std::to_string( GUID::Generate() ) + ".tmp";
+            temporary = path; temporary += "." + std::to_string( EngineGUID::Generate() ) + ".tmp";
             std::ofstream file( temporary, std::ios::binary | std::ios::trunc );
             if( !file || !file.write( reinterpret_cast<const char*>( bytes.data() ), bytes.size() ) ) throw std::runtime_error( "Could not write terrain recovery" );
             file.flush(); if( !file ) throw std::runtime_error( "Could not flush terrain recovery" );

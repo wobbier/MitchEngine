@@ -218,6 +218,26 @@ namespace
         static std::string command;
         return command;
     }
+
+
+    std::string CodeEditorTemplate( const char* inFallback )
+    {
+        if( !CodeEditorCommand().empty() )
+        {
+            return CodeEditorCommand();
+        }
+#if USING( ME_PLATFORM_WINDOWS )
+        char* custom = nullptr;
+        size_t length = 0;
+        _dupenv_s( &custom, &length, "ME_CODE_EDITOR" );
+        const std::string command = custom ? custom : inFallback;
+        std::free( custom );
+        return command;
+#else
+        const char* custom = std::getenv( "ME_CODE_EDITOR" );
+        return custom ? custom : inFallback;
+#endif
+    }
 }
 
 
@@ -229,8 +249,7 @@ void PlatformUtils::SetCodeEditorCommand( const std::string& inCommand )
 
 void PlatformUtils::OpenInCodeEditor( const std::string& inFile, int inLine )
 {
-    const char* custom = std::getenv( "ME_CODE_EDITOR" );
-    std::string command = !CodeEditorCommand().empty() ? CodeEditorCommand() : ( custom ? custom : "code -g \"{file}:{line}\"" );
+    std::string command = CodeEditorTemplate( "code -g \"{file}:{line}\"" );
     auto replace = [&command]( const std::string& token, const std::string& value ) {
         for( size_t at = command.find( token ); at != std::string::npos; at = command.find( token, at + value.size() ) )
         {
@@ -245,8 +264,7 @@ void PlatformUtils::OpenInCodeEditor( const std::string& inFile, int inLine )
 
 void PlatformUtils::OpenFolderInCodeEditor( const std::string& inFolder )
 {
-    const char* custom = std::getenv( "ME_CODE_EDITOR" );
-    const std::string editorTemplate = !CodeEditorCommand().empty() ? CodeEditorCommand() : ( custom ? custom : "code" );
+    const std::string editorTemplate = CodeEditorTemplate( "code" );
     // The template opens file:line references; a workspace open only wants its command word.
     const std::string editor = editorTemplate.substr( 0, editorTemplate.find( ' ' ) );
     RunDetached( ( editor.empty() ? std::string( "code" ) : editor ) + " " + ShellQuote( inFolder ) );

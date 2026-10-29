@@ -90,16 +90,8 @@ void AssetPreviewWidget::Render()
 				ImVec2(Mathf::Clamp(0.f, 1.0f, SceneViewRenderSize.x / ViewTexture->mWidth), Mathf::Clamp(0.f, 1.0f, SceneViewRenderSize.y / ViewTexture->mHeight)));
 
             ImGui::SetCursorPos(ImVec2(OGCursorPos.x, OGCursorPos.y));
-            {
-                char sizeString[256];
-                sprintf(sizeString, "Texture Size: X: %f, Y: %f", SceneViewRenderSize.x, SceneViewRenderSize.y);
-                ImGui::Text(sizeString);
-            }
-            {
-                char sizeString[256];
-                sprintf(sizeString, "View Size: X: %f, Y: %f", Camera::CurrentCamera->OutputSize.x, Camera::CurrentCamera->OutputSize.y);
-                ImGui::Text(sizeString);
-            }
+            ImGui::Text("Texture Size: X: %f, Y: %f", SceneViewRenderSize.x, SceneViewRenderSize.y);
+            ImGui::Text("View Size: X: %f, Y: %f", Camera::CurrentCamera->OutputSize.x, Camera::CurrentCamera->OutputSize.y);
 		}
 	}
 	ImGui::End();

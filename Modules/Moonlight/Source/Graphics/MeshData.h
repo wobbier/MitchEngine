@@ -13,13 +13,15 @@
 #include <glm/mat4x4.hpp>
 #include "Graphics/VertexAnimation.h"
 
+class BGFXRenderer;
+
 namespace Moonlight
 {
     class Material;
 
     class MeshData
     {
-        friend class BGFXRenderer;
+        friend class ::BGFXRenderer;
     public:
         MeshData() = default;
         MeshData( std::vector<PosNormTexTanBiVertex> vertices, std::vector<uint32_t> indices, SharedPtr<Material> newMaterial = nullptr );

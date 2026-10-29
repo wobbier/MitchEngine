@@ -61,7 +61,7 @@ namespace TerrainLodAutomation
         auto* widget = TerrainWidget::Get();
         if( command == "terrain-lod-fixture" )
         {
-            s_directory = std::filesystem::path( Path( ".tmp/Tests/TerrainLodFlows" ).FullPath ) / std::to_string( GUID::Generate() );
+            s_directory = std::filesystem::path( Path( ".tmp/Tests/TerrainLodFlows" ).FullPath ) / std::to_string( EngineGUID::Generate() );
             TerrainData::Settings s; s.TileQuads = 64; s.PatchQuads = 8; s.MinTile = { -1, -1 }; s.TilesX = s.TilesZ = 2;
             TerrainData::Heightfield field( s );
             for( int x = -1; x <= 0; ++x ) for( int z = -1; z <= 0; ++z ) if( !field.CreateFlatTile( { x, z }, 0, error ) ) return false;

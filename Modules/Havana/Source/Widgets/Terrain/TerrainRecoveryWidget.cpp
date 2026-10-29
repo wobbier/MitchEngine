@@ -28,7 +28,7 @@ namespace
 
 void TerrainWidget::InitRecovery()
 {
-    m_recoverySession = GUID::Generate();
+    m_recoverySession = EngineGUID::Generate();
     // Unattended runs opt into their own test directory explicitly and never inspect a user's recovery.
     if( !AutomationRunner::IsUnattendedRun() )
     {
@@ -48,7 +48,7 @@ bool TerrainWidget::ConfigureRecovery( const std::filesystem::path& directory )
         if( directory.empty() || ( std::filesystem::exists( directory ) && !std::filesystem::is_directory( directory ) ) )
         { m_error = "Choose a directory for terrain recovery snapshots"; return false; }
         m_recoveryDirectory = std::filesystem::absolute( directory ).lexically_normal();
-        if( !m_recoverySession ) m_recoverySession = GUID::Generate();
+        if( !m_recoverySession ) m_recoverySession = EngineGUID::Generate();
         m_nextRecoveryAt = ImGui::GetTime() + 120; ScanRecoveries();
         return true;
     }

@@ -24,7 +24,7 @@ namespace TerrainEditingTests
     }
     struct Files
     {
-        std::filesystem::path Directory = std::filesystem::path( ".tmp/Tests/TerrainAuthoring" ) / std::to_string( GUID::Generate() );
+        std::filesystem::path Directory = std::filesystem::path( ".tmp/Tests/TerrainAuthoring" ) / std::to_string( EngineGUID::Generate() );
         Files() { std::filesystem::create_directories( Directory ); }
         ~Files() { std::error_code ignored; std::filesystem::remove_all( Directory, ignored ); }
     };

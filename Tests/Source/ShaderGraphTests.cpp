@@ -5,10 +5,10 @@
 #include "ShaderGraph/Targets.h"
 #include "Graphics/ShaderCompiler.h"
 #include "Path.h"
+#include <SDL_stdinc.h>
 #include <cstring>
 #include <filesystem>
 #include <set>
-#include <cstdlib>
 #include <fstream>
 #include <sstream>
 
@@ -637,7 +637,7 @@ TEST_CASE( "ShaderGraph: every node compiles with shaderc in every target" * doc
 // ME_SHADERGRAPH_UPDATE=1 to rewrite them.
 TEST_CASE( "ShaderGraph: project graphs match their generated sources" )
 {
-    const bool update = std::getenv( "ME_SHADERGRAPH_UPDATE" ) != nullptr;
+    const bool update = SDL_getenv( "ME_SHADERGRAPH_UPDATE" ) != nullptr;
     const std::filesystem::path root = Path( "Assets" ).FullPath;
     if( !std::filesystem::exists( root ) )
     {

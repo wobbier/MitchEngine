@@ -56,7 +56,7 @@ namespace TerrainPagingAutomation
             s_budget = ( s_hierarchical ? 8 : 1 ) * 1024 * 1024;
             s_compressed = s_hierarchical || args == "compressed" || args == "compressed-painted";
             const bool painted = args == "painted" || args == "compressed-painted" || args == "hierarchical-painted"; s_surface.reset();
-            const std::string local = std::string( s_hierarchical ? ".tmp/Tests/TerrainHierarchyFlows/" : s_compressed ? ".tmp/Tests/TerrainCompressedFlows/" : ( painted ? ".tmp/Tests/TerrainStreamedSurfaceFlows/" : ".tmp/Tests/TerrainPagedCoverageFlows/" ) ) + std::to_string( GUID::Generate() );
+            const std::string local = std::string( s_hierarchical ? ".tmp/Tests/TerrainHierarchyFlows/" : s_compressed ? ".tmp/Tests/TerrainCompressedFlows/" : ( painted ? ".tmp/Tests/TerrainStreamedSurfaceFlows/" : ".tmp/Tests/TerrainPagedCoverageFlows/" ) ) + std::to_string( EngineGUID::Generate() );
             s_directory = Path( local ).FullPath;
             TerrainData::Settings s; s.TileQuads = 16; s.PatchQuads = 8; s.MinTile = { -20, -20 }; s.TilesX = s.TilesZ = 41;
             TerrainData::Heightfield field( s );

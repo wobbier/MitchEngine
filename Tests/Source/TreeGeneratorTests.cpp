@@ -5,8 +5,8 @@
 #include "Procedural/Tree/TreeAsset.h"
 #include "Procedural/Tree/TreeSkeleton.h"
 #include "Path.h"
+#include <SDL_stdinc.h>
 #include <cmath>
-#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -221,7 +221,7 @@ TEST_CASE( "MitchTree: recipes round-trip through .mtree JSON" )
 // rewrite them.
 TEST_CASE( "MitchTree: preset assets match the code presets" )
 {
-    const bool update = std::getenv( "ME_TREE_PRESETS_UPDATE" ) != nullptr;
+    const bool update = SDL_getenv( "ME_TREE_PRESETS_UPDATE" ) != nullptr;
     const std::filesystem::path folder = std::filesystem::path( Path( "Engine/Assets" ).FullPath ) / "Trees" / "Presets";
     if( !std::filesystem::exists( folder.parent_path().parent_path() ) )
     {

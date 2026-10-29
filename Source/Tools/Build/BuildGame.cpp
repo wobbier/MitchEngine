@@ -882,8 +882,18 @@ namespace BuildGame
             {
                 const ProjectSettings& settings = ProjectSettings::Get();
                 const std::time_t now = std::time( nullptr );
+                std::tm utcTime{};
+#if USING( ME_PLATFORM_WINDOWS )
+                if( gmtime_s( &utcTime, &now ) != 0 )
+#else
+                if( !gmtime_r( &now, &utcTime ) )
+#endif
+                {
+                    Error( "Couldn't determine the build timestamp" );
+                    return false;
+                }
                 char built[32] = {};
-                std::strftime( built, sizeof( built ), "%Y-%m-%dT%H:%M:%SZ", std::gmtime( &now ) );
+                std::strftime( built, sizeof( built ), "%Y-%m-%dT%H:%M:%SZ", &utcTime );
                 json info;
                 info["Product"] = { { "Name", settings.ProductName }, { "Org", settings.ProductOrg }, { "Version", settings.ProductVersion } };
                 info["Profile"] = m_profile.Name;

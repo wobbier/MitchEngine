@@ -43,7 +43,7 @@ namespace TerrainHardeningAutomation
         if( document->IsDirty() ) { error = "Start this hardening check from a saved terrain"; return false; }
         if( command == "terrain-harden-limits" )
         {
-            const auto root = std::filesystem::path( Path( ".tmp/Tests/TerrainHardening/" + std::to_string( GUID::Generate() ) ).FullPath );
+            const auto root = std::filesystem::path( Path( ".tmp/Tests/TerrainHardening/" + std::to_string( EngineGUID::Generate() ) ).FullPath );
             std::filesystem::create_directories( root );
             TerrainData::Manifest manifest; manifest.AssetGUID = document->GetGUID();
             manifest.Config.TileQuads = 32; manifest.Config.PatchQuads = 16; manifest.Config.TilesX = manifest.Config.TilesZ = 32;

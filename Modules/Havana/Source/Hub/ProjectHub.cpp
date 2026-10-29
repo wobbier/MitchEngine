@@ -88,11 +88,17 @@ namespace
             return {};
         }
         const std::time_t time = static_cast<std::time_t>( InSeconds );
-        char text[32] = {};
-        if( const std::tm* local = std::localtime( &time ) )
+        std::tm local{};
+#if USING( ME_PLATFORM_WINDOWS )
+        if( localtime_s( &local, &time ) != 0 )
+#else
+        if( !localtime_r( &time, &local ) )
+#endif
         {
-            std::strftime( text, sizeof( text ), "%Y-%m-%d %H:%M", local );
+            return {};
         }
+        char text[32] = {};
+        std::strftime( text, sizeof( text ), "%Y-%m-%d %H:%M", &local );
         return text;
     }
 }

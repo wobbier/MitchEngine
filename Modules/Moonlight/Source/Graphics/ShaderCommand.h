@@ -6,11 +6,13 @@
 #include "Pointers.h"
 #include "Utils/BGFXUtils.h"
 
+class BGFXRenderer;
+
 namespace Moonlight
 {
     class ShaderCommand
     {
-        friend class BGFXRenderer;
+        friend class ::BGFXRenderer;
     public:
         ShaderCommand();
 

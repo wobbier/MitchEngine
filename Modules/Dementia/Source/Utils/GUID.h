@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <random>
 
-namespace GUID
+namespace EngineGUID
 {
     // Random, non-zero 64-bit identifier (entities, assets).
     inline uint64_t Generate()

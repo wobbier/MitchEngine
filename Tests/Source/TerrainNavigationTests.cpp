@@ -20,7 +20,7 @@ namespace TerrainNavigationTest
     using namespace TerrainData;
     struct Files
     {
-        std::filesystem::path Root = std::filesystem::path( ".tmp/Tests/TerrainNavigation" ) / std::to_string( GUID::Generate() );
+        std::filesystem::path Root = std::filesystem::path( ".tmp/Tests/TerrainNavigation" ) / std::to_string( EngineGUID::Generate() );
         Files() { std::filesystem::create_directories( Root ); }
 
 

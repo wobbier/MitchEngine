@@ -32,7 +32,7 @@ namespace TerrainFoliageAutomation
         }
         if( command == "foliage-fixture" )
         {
-            const std::string path = args == "playground" ? "Assets/Terrain/FoliagePlayground.terrain" : ".tmp/Tests/Foliage/" + std::to_string( GUID::Generate() ) + "/Source.terrain";
+            const std::string path = args == "playground" ? "Assets/Terrain/FoliagePlayground.terrain" : ".tmp/Tests/Foliage/" + std::to_string( EngineGUID::Generate() ) + "/Source.terrain";
             TerrainData::Settings s; s.TileQuads = 32; s.PatchQuads = 16; s.MinTile = { -1, -1 }; s.TilesX = s.TilesZ = 2;
             TerrainData::Heightfield field( s );
             for( int z = -1; z <= 0; ++z ) for( int x = -1; x <= 0; ++x ) if( !field.CreateFlatTile( { x, z }, 0, error ) ) return false;

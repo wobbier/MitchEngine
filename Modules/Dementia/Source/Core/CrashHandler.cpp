@@ -31,8 +31,17 @@ namespace
     std::string MakeTimestamp()
     {
         const std::time_t now = std::time( nullptr );
-        char buffer[32];
-        std::strftime( buffer, sizeof( buffer ), "%Y%m%d_%H%M%S", std::localtime( &now ) );
+        std::tm localTime{};
+#if USING( ME_PLATFORM_WINDOWS )
+        if( localtime_s( &localTime, &now ) != 0 )
+#else
+        if( !localtime_r( &now, &localTime ) )
+#endif
+        {
+            return std::to_string( now );
+        }
+        char buffer[32] = {};
+        std::strftime( buffer, sizeof( buffer ), "%Y%m%d_%H%M%S", &localTime );
         return buffer;
     }
 

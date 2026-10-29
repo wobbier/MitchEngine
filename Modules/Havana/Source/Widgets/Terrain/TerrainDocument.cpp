@@ -101,7 +101,7 @@ bool TerrainDocument::CreateFromField( TerrainData::Heightfield field )
 {
     const auto& settings = field.GetSettings();
     if( !TerrainData::ValidateAuthoringSettings( settings, m_error ) ) return false;
-    const uint64_t guid = GUID::Generate(); std::string text;
+    const uint64_t guid = EngineGUID::Generate(); std::string text;
     std::shared_ptr<const TerrainData::ResidentTerrain> preview;
     if( !TerrainData::BuildResidentTerrain( field, guid, preview, m_error ) ) return false;
     if( !TerrainData::SaveSource( Path( m_path ).FullPath, field, guid, nullptr, text, m_error ) ) return false;
@@ -128,7 +128,7 @@ bool TerrainDocument::Save()
 bool TerrainDocument::SaveCopy( const std::string& path )
 {
     EndStroke(); std::string text;
-    const uint64_t guid = GUID::Generate();
+    const uint64_t guid = EngineGUID::Generate();
     if( !TerrainData::SaveSource( Path( path ).FullPath, m_field, guid, nullptr, text, m_error ) ) return false;
     RegisterSource( path, guid );
     return true;

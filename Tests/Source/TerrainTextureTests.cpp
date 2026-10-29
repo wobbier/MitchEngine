@@ -14,7 +14,7 @@ namespace TerrainTextureTests
     using namespace Moonlight;
     struct Files
     {
-        std::filesystem::path Root = std::filesystem::path( ".tmp/Tests/TerrainTextures" ) / std::to_string( GUID::Generate() );
+        std::filesystem::path Root = std::filesystem::path( ".tmp/Tests/TerrainTextures" ) / std::to_string( EngineGUID::Generate() );
         Files() { std::filesystem::create_directories( Root ); }
         ~Files() { std::error_code ec; std::filesystem::remove_all( Root, ec ); }
     };

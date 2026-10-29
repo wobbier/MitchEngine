@@ -58,7 +58,7 @@ namespace TerrainAutomation
         auto* document = widget->GetActive();
         if( command == "terrain-fixture" )
         {
-            s_fixture = ".tmp/Tests/TerrainAuthoringFlows/" + std::to_string( GUID::Generate() ) + "/Source.terrain";
+            s_fixture = ".tmp/Tests/TerrainAuthoringFlows/" + std::to_string( EngineGUID::Generate() ) + "/Source.terrain";
             TerrainData::Settings settings; settings.TileQuads = 32; settings.PatchQuads = 16;
             settings.MinTile = { -1, -1 }; settings.TilesX = settings.TilesZ = 2;
             if( !args.empty() ) settings.SampleSpacing = std::stof( args );
@@ -209,7 +209,7 @@ namespace TerrainAutomation
             s_rawFormat.Height = s_rawSettings.TilesZ * s_rawSettings.TileQuads + 1;
             s_rawFormat.Encoding = TerrainData::HeightEncoding::Float32;
             s_rawFormat.BigEndian = true; s_rawFormat.FlipZ = true; s_rawFormat.Offset = 0; s_rawFormat.Scale = 1;
-            s_rawFile = ".tmp/Tests/TerrainHeightmapFlows/" + std::to_string( GUID::Generate() ) + "/Height.r32";
+            s_rawFile = ".tmp/Tests/TerrainHeightmapFlows/" + std::to_string( EngineGUID::Generate() ) + "/Height.r32";
             return TerrainData::WriteHeightmap( Path( s_rawFile ).FullPath, document->GetField(), s_rawFormat, error );
         }
         else if( command == "terrain-import-fixture" )
@@ -220,7 +220,7 @@ namespace TerrainAutomation
         }
         else if( command == "terrain-unique" )
         {
-            const std::string path = ".tmp/Tests/TerrainHeightmapFlows/" + std::to_string( GUID::Generate() ) + "/Unique.terrain";
+            const std::string path = ".tmp/Tests/TerrainHeightmapFlows/" + std::to_string( EngineGUID::Generate() ) + "/Unique.terrain";
             return widget->MakeUnique( path );
         }
         else if( command == "terrain-assert-independent" || command == "terrain-assert-marked-instance" )

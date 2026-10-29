@@ -75,7 +75,7 @@ PickingPass::~PickingPass()
 }
 
 
-void PickingPass::Render( BGFXRenderer* inRenderer, CameraData* inCamData, FrameRenderData& inFrameSettings )
+void PickingPass::Render( ::BGFXRenderer* inRenderer, CameraData* inCamData, FrameRenderData& inFrameSettings )
 {
     m_width = inCamData->OutputSize.x;
     m_height = inCamData->OutputSize.y;

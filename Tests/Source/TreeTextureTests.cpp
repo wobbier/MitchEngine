@@ -4,6 +4,7 @@
 #include "Procedural/Tree/TreePresets.h"
 #include "Procedural/Tree/TreeTextures.h"
 #include "Path.h"
+#include <SDL_stdinc.h>
 #include <bimg/bimg.h>
 #include <cmath>
 #include <cstdlib>
@@ -139,7 +140,7 @@ TEST_CASE( "MitchTree textures: baked channels are mipmapped and keep leaf cover
 // Writes every preset's generated maps to .tmp/TreeTextures for a look (ME_TREE_TEXTURE_EXPORT=1).
 TEST_CASE( "MitchTree textures: export preset maps" )
 {
-    if( !std::getenv( "ME_TREE_TEXTURE_EXPORT" ) ) return;
+    if( !SDL_getenv( "ME_TREE_TEXTURE_EXPORT" ) ) return;
     const std::filesystem::path folder = std::filesystem::path( Path( ".tmp" ).FullPath ) / "TreeTextures";
     std::filesystem::create_directories( folder );
     for( const std::string& name : MitchTree::PresetNames() )

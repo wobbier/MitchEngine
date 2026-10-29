@@ -837,7 +837,7 @@ namespace SceneSerializer
             }
             if( guid == 0 )
             {
-                guid = ::GUID::Generate();
+                guid = ::EngineGUID::Generate();
             }
             InOutData["AssetGUID"] = GUIDToString( guid );
             AssetDatabase::Get().Register( asset, guid );

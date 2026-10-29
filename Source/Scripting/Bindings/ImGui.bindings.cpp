@@ -383,8 +383,7 @@ static bool Eng_ImGui_AssetRef( const uint8_t* inLabel, uint8_t* inOutPath, int 
         std::string path( reinterpret_cast<const char*>( inOutPath ) );
         if( ScriptInspectorRows::AssetRow( label, path, reinterpret_cast<const char*>( inExtensions ) ) )
         {
-            std::strncpy( reinterpret_cast<char*>( inOutPath ), path.c_str(), static_cast<size_t>( inSize ) - 1 );
-            inOutPath[inSize - 1] = 0;
+            std::snprintf( reinterpret_cast<char*>( inOutPath ), static_cast<size_t>( inSize ), "%s", path.c_str() );
             return true;
         }
         return false;

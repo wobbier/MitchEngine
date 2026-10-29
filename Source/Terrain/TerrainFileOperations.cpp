@@ -74,7 +74,7 @@ namespace TerrainData
             Heightfield field; uint64_t sourceGUID; SourceTransfer result;
             if( !LoadSource( from, field, sourceGUID, result.BeforeManifest, error ) ) return false;
             const uint64_t guid = hadMeta ? Identity( metadata ) : sourceGUID;
-            result.AssetGUID = duplicate ? GUID::Generate() : guid;
+            result.AssetGUID = duplicate ? EngineGUID::Generate() : guid;
             std::ostringstream id; id << std::hex << std::setw( 16 ) << std::setfill( '0' ) << result.AssetGUID;
             metadata["GUID"] = id.str(); metadata["FileType"] = "terrain";
             const std::string nextMeta = !duplicate && hadMeta ? originalMeta : metadata.dump( 4 );
@@ -83,7 +83,7 @@ namespace TerrainData
                     throw std::runtime_error( "Terrain source or metadata changed during the file operation" );
             };
             if( !fs::is_directory( to.parent_path() ) ) throw std::runtime_error( "Terrain destination folder does not exist" );
-            const std::string token = std::to_string( GUID::Generate() );
+            const std::string token = std::to_string( EngineGUID::Generate() );
             staging = to.parent_path() / ( ".terrain-transfer-" + token );
             if( !fs::create_directory( staging ) ) throw std::runtime_error( "Terrain transfer staging directory already exists" );
             ownsStaging = true;

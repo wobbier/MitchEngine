@@ -194,9 +194,18 @@ namespace
         {
             return {};
         }
-        std::time_t time = static_cast<std::time_t>( seconds );
-        char buffer[64];
-        std::strftime( buffer, sizeof( buffer ), "%Y-%m-%d %H:%M", std::localtime( &time ) );
+        const std::time_t time = static_cast<std::time_t>( seconds );
+        std::tm localTime{};
+#if USING( ME_PLATFORM_WINDOWS )
+        if( localtime_s( &localTime, &time ) != 0 )
+#else
+        if( !localtime_r( &time, &localTime ) )
+#endif
+        {
+            return {};
+        }
+        char buffer[64] = {};
+        std::strftime( buffer, sizeof( buffer ), "%Y-%m-%d %H:%M", &localTime );
         return buffer;
     }
 
@@ -2237,7 +2246,7 @@ void AssetBrowserWidget::DuplicateSelection()
             json data = json::parse( copy.Read(), nullptr, false );
             if( data.is_object() && data.contains( "AssetGUID" ) )
             {
-                const uint64_t guid = GUID::Generate();
+                const uint64_t guid = EngineGUID::Generate();
                 data["AssetGUID"] = SceneSerializer::GUIDToString( guid );
                 copy.Write( data.dump( 4 ) );
                 AssetDatabase::Get().Register( ProjectRelative( destination ), guid );

@@ -173,9 +173,17 @@ void EditorApp::OnUpdate( const UpdateContext& inUpdateContext )
             if( s_captureFramesLeft == 0 )
             {
                 OPTICK_STOP_CAPTURE();
-                char filename[64];
-                std::time_t t = std::time( nullptr );
-                std::strftime( filename, sizeof( filename ), "capture_%Y%m%d_%H%M%S.opt", std::localtime( &t ) );
+                char filename[64] = "capture.opt";
+                const std::time_t t = std::time( nullptr );
+                std::tm localTime{};
+#if USING( ME_PLATFORM_WINDOWS )
+                if( localtime_s( &localTime, &t ) == 0 )
+#else
+                if( localtime_r( &t, &localTime ) )
+#endif
+                {
+                    std::strftime( filename, sizeof( filename ), "capture_%Y%m%d_%H%M%S.opt", &localTime );
+                }
                 const std::string path = CapturePath( filename );
                 OPTICK_SAVE_CAPTURE( path.c_str() );
                 PruneCaptures();

@@ -24,6 +24,12 @@ public class Freetype : BaseProject
         conf.ProjectPath = Path.Combine("[project.SharpmakeCsPath]", ".tmp/freetype");
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "freetype/include"));
         conf.Defines.Add("FT2_BUILD_LIBRARY");
+        // Upstream uses the portable C runtime API; MSVC's secure-CRT warnings
+        // would otherwise become errors under the shared /WX policy.
+        if (target.Platform == Platform.win64)
+        {
+            conf.Defines.Add("_CRT_SECURE_NO_WARNINGS");
+        }
         conf.ExportAdditionalLibrariesEvenForStaticLib = true;
     }
 

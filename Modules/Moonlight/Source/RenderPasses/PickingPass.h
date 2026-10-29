@@ -25,7 +25,7 @@ namespace Moonlight
         PickingPass();
         ~PickingPass();
 
-        void Render( BGFXRenderer* inRenderer, CameraData* inCamData, FrameRenderData& inFrameSettings );
+        void Render( ::BGFXRenderer* inRenderer, CameraData* inCamData, FrameRenderData& inFrameSettings );
 
         virtual bool IsSupported() final;
 
