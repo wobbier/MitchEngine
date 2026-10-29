@@ -237,4 +237,12 @@ public unsafe struct EngineAPIBindings
     // mode: 0 hide, 1 show, 2 toggle; false when no UIDocument entity has that name.
     public delegate* unmanaged<byte*, int, byte> UI_SetDocumentVisible;
     public delegate* unmanaged<byte*, byte> UI_IsDocumentVisible;
+
+    // Save games (PLAY-4): slots under user://Saves; a load is queued for the end of the frame.
+    public delegate* unmanaged<byte*, byte*, byte> SaveGame_Save;
+    public delegate* unmanaged<byte*, byte> SaveGame_Load;
+    public delegate* unmanaged<byte*, byte> SaveGame_Delete;
+    public delegate* unmanaged<byte*, int, int> SaveGame_List;
+    public delegate* unmanaged<byte> SaveGame_IsWriting;
+    public delegate* unmanaged<float> SaveGame_GetPlaytime;
 }

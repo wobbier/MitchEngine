@@ -248,4 +248,12 @@ struct ScriptEngineAPI
     // mode: 0 hide, 1 show, 2 toggle; false when no UIDocument entity has that name.
     bool ( *UI_SetDocumentVisible )( const uint8_t* entityName, int mode );
     bool ( *UI_IsDocumentVisible )( const uint8_t* entityName );
+
+    // Save games (PLAY-4): slots under user://Saves; a load is queued for the end of the frame.
+    bool ( *SaveGame_Save )( const uint8_t* slot, const uint8_t* name );
+    bool ( *SaveGame_Load )( const uint8_t* slot );
+    bool ( *SaveGame_Delete )( const uint8_t* slot );
+    int ( *SaveGame_List )( uint8_t* outJson, int size );
+    bool ( *SaveGame_IsWriting )();
+    float ( *SaveGame_GetPlaytime )();
 };

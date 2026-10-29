@@ -52,6 +52,7 @@
 #include <Debug/DebugDraw.h>
 #include "Engine/HardwareBudget.h"
 #include "Engine/PlayerSettings.h"
+#include "Engine/SaveGames.h"
 #include "Engine/Project.h"
 #include "Engine/ProjectSettings.h"
 #include "Tools/Cook/CookDependencies.h"
@@ -845,6 +846,8 @@ void Engine::Run()
             FrameStats::Get().EndFrame( std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - frameStartTime ).count() );
             HardwareBudget::Get().Update();
             PlayerSettings::Get().Update();
+            // Playtime, and a queued save-game load (it replaces the scene, so never mid-frame).
+            SaveGames::Get().Update( updateContext.GetUnscaledDeltaTime() );
 
             if( m_automation.IsActive() )
             {
@@ -907,6 +910,7 @@ void Engine::Run()
     {
         PlayerSettings::Get().Save();
     }
+    SaveGames::Get().WaitForWrites();
     Shutdown();
 }
 

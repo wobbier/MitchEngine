@@ -13,6 +13,9 @@ public:
     ScriptComponent();
     ~ScriptComponent();
 
+    // Set while SaveGames snapshots the world: serialized fields include non-public [Save] ones.
+    static inline bool s_includeSaveFields = false;
+
     void Init() override;
 
     const std::string& GetScriptName() const

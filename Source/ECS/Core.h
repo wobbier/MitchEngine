@@ -77,6 +77,11 @@ public:
     TypeId GetTypeIdInternal() const { return m_coreTypeId; }
 
     const std::string& GetName() const;
+    // Between the world's Start and Stop (Play in the editor; always, once loaded, in a game).
+    bool IsStarted() const
+    {
+        return IsRunning;
+    }
 
 #if USING( ME_EDITOR )
     virtual void OnEditorInspect();

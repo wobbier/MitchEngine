@@ -24,6 +24,27 @@ internal static class FieldReflection
         }
     }
 
+    // Of(type) plus every [Save] field the inspector doesn't show (non-public or hidden): what a
+    // save game stores, and what loading one restores.
+    public static IEnumerable<FieldInfo> WithSaved(Type type)
+    {
+        foreach (var f in Of(type))
+        {
+            yield return f;
+        }
+        for (var t = type; t != null && t != typeof(object); t = t.BaseType)
+        {
+            foreach (var f in t.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+            {
+                bool shown = f.IsPublic && !f.IsDefined(typeof(HideInInspectorAttribute), true);
+                if (!shown && f.IsDefined(typeof(SaveAttribute), true))
+                {
+                    yield return f;
+                }
+            }
+        }
+    }
+
     public static byte[] Utf8(string s)
     {
         var b = new byte[Encoding.UTF8.GetByteCount(s) + 1];
@@ -297,10 +318,11 @@ public static class ScriptSerializer
 
     internal static void ResetCaches() => Options = new() { IncludeFields = true };
 
-    public static string Serialize(object target)
+    public static string Serialize(object target, bool includeSaveFields = false)
     {
         var dict = new Dictionary<string, object?>();
-        foreach (var f in FieldReflection.Of(target.GetType()))
+        var fields = includeSaveFields ? FieldReflection.WithSaved(target.GetType()) : FieldReflection.Of(target.GetType());
+        foreach (var f in fields)
         {
             dict[f.Name] = f.GetValue(target);
         }
@@ -313,7 +335,8 @@ public static class ScriptSerializer
         if (string.IsNullOrEmpty(json)) return;
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
-        foreach (var f in FieldReflection.Of(target.GetType()))
+        // Scenes only hold the shown fields; a save game's snapshot also has the [Save] ones.
+        foreach (var f in FieldReflection.WithSaved(target.GetType()))
         {
             if (root.TryGetProperty(f.Name, out var el) || TryFormerName(root, f, out el))
             {

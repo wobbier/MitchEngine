@@ -237,3 +237,11 @@ int Settings_GetQualityPresets( byte* outNames, int size )
 ## mode: 0 hide, 1 show, 2 toggle; false when no UIDocument entity has that name.
 bool UI_SetDocumentVisible( cstr entityName, int mode )
 bool UI_IsDocumentVisible( cstr entityName )
+
+## Save games (PLAY-4): slots under user://Saves; a load is queued for the end of the frame.
+bool SaveGame_Save( cstr slot, cstr name )
+bool SaveGame_Load( cstr slot )
+bool SaveGame_Delete( cstr slot )
+int SaveGame_List( byte* outJson, int size )
+bool SaveGame_IsWriting()
+float SaveGame_GetPlaytime()

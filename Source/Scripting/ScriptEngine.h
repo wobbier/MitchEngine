@@ -61,8 +61,8 @@ public:
 
     static int         CreateScript( const std::string& inName, EntityID inEntity );
 
-    // public-field serialization
-    static std::string GetFieldsJson( int inHandle );
+    // public-field serialization; InIncludeSaveFields adds non-public [Save] fields (save games)
+    static std::string GetFieldsJson( int inHandle, bool InIncludeSaveFields = false );
     static void        SetFieldsJson( int inHandle, const std::string& inJson );
     static void        ScriptOnStart( int inHandle );
     static void        ScriptOnUpdate( int inHandle, float inDt );

@@ -34,6 +34,7 @@
 #include "Cores/SceneCore.h"
 #include "Engine/Engine.h"
 #include "Engine/PlayerSettings.h"
+#include "Engine/SaveGames.h"
 #include "Engine/Input.h"
 #include <SDL_keyboard.h>
 #include "Engine/World.h"
@@ -1037,6 +1038,94 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         else if( input.GetAction( actionName ).IsPressed() != ( expectedText == "true" ) )
         {
             Fail( "action " + actionName + " is " + ( input.GetAction( actionName ).IsPressed() ? "pressed" : "not pressed" ) + ", expected " + ( expectedText == "true" ? "pressed" : "not pressed" ) );
+        }
+    }
+    else if( command == "save-game" || command == "load-game" || command == "delete-save" )
+    {
+        // save-game slot1 | Name   (snapshots and waits for the write, so the next line can read it)
+        // load-game slot1          (queued: wait-log "SaveGame: loaded slot1" before asserting)
+        // delete-save slot1        (fine when the slot doesn't exist)
+        auto [slot, name] = SplitArgs( args );
+        SaveGames& saves = SaveGames::Get();
+        if( command == "save-game" )
+        {
+            if( !saves.Save( slot, name ) || !saves.WaitForWrites() )
+            {
+                Fail( "save-game: couldn't save slot " + slot );
+            }
+        }
+        else if( command == "load-game" && !saves.Load( slot ) )
+        {
+            Fail( "load-game: no save in slot " + slot );
+        }
+        else if( command == "delete-save" && saves.Exists( slot ) && !saves.Delete( slot ) )
+        {
+            Fail( "delete-save: couldn't delete slot " + slot );
+        }
+    }
+    else if( command == "assert-save" || command == "save-assert" )
+    {
+        // assert-save slot1 | Name | "Flow save"          a key of the slot's metadata
+        // save-assert slot1 | Crate 0 | Transform.Position ~ 0.05
+        //     the live entity's field matches what the slot saved for the entity of that name
+        auto [slot, rest] = SplitArgs( args );
+        json meta;
+        json world;
+        std::string error;
+        if( !SaveGames::ReadSlot( SaveGames::GetSlotDirectory( slot ), meta, world, &error ) )
+        {
+            Fail( command + ": " + error );
+        }
+        else if( command == "assert-save" )
+        {
+            auto [key, valueText] = SplitArgs( rest );
+            const json expected = json::parse( valueText, nullptr, false );
+            const json actual = meta.contains( key ) ? meta[key] : json();
+            if( expected.is_discarded() || !NearlyEqual( actual, expected, 1e-3 ) )
+            {
+                Fail( "save " + slot + " " + key + " is " + actual.dump() + ", expected " + valueText );
+            }
+        }
+        else
+        {
+            auto [name, fieldText] = SplitArgs( rest );
+            double tolerance = 1e-3;
+            if( const size_t tilde = fieldText.find( " ~ " ); tilde != std::string::npos )
+            {
+                tolerance = std::atof( fieldText.c_str() + tilde + 3 );
+                fieldText = Trim( fieldText.substr( 0, tilde ) );
+            }
+            std::string type;
+            json::json_pointer pointer;
+            EntityHandle entity = FindEntity( name );
+            const json* saved = nullptr;
+            if( SplitFieldPath( fieldText, type, pointer ) && world.contains( "Entities" ) )
+            {
+                for( const json& entry : world["Entities"] )
+                {
+                    if( entry.value( "Name", std::string() ) != name || !entry.contains( "Components" ) )
+                    {
+                        continue;
+                    }
+                    for( const json& component : entry["Components"] )
+                    {
+                        if( component.value( "Type", std::string() ) == type )
+                        {
+                            saved = Resolve( component, pointer );
+                        }
+                    }
+                }
+            }
+            const json live = entity ? EditorOps::CaptureComponent( *entity.Get(), type ) : json();
+            const json* actual = entity ? Resolve( live, pointer ) : nullptr;
+            if( !saved || !actual )
+            {
+                Fail( "save-assert: " + std::string( !saved ? "slot " + slot + " has no " : "no live " ) + name + " " + fieldText );
+            }
+            else if( !NearlyEqual( *actual, *saved, tolerance ) )
+            {
+                Fail( name + " " + fieldText + " is " + actual->dump() + ", saved " + saved->dump() );
+            }
         }
     }
     else if( command.rfind( "settings-", 0 ) == 0 )

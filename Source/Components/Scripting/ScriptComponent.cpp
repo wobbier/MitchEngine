@@ -123,6 +123,13 @@ void ScriptComponent::OnSerialize( json& outJson )
     // serialize script for saving
     if( m_dotnetHandle >= 0 && ScriptEngine::IsHandleAlive( m_dotnetHandle ) )
     {
+        // A save game's snapshot carries the [Save] fields too, but never into m_savedFields:
+        // the scene's own copy stays public fields only.
+        if( s_includeSaveFields )
+        {
+            outJson["ScriptFields"] = ScriptEngine::GetFieldsJson( m_dotnetHandle, true );
+            return;
+        }
         m_savedFields = ScriptEngine::GetFieldsJson( m_dotnetHandle );
     }
 

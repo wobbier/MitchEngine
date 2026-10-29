@@ -32,6 +32,7 @@
 #include "Bindings/Systems/Navigation.bindings.h"
 #include "Bindings/Systems/UIModel.bindings.h"
 #include "Bindings/Systems/Settings.bindings.h"
+#include "Bindings/Systems/SaveGame.bindings.h"
 
 namespace fs = std::filesystem;
 
@@ -107,6 +108,7 @@ struct ScriptAPI
     FnRestoreScript       RestoreScript = nullptr;
     FnOnEditorInspect     ScriptOnEditorInspect = nullptr;
     FnGetFieldsJson       GetFieldsJson = nullptr;
+    FnGetFieldsJson       GetSaveFieldsJson = nullptr;
     FnSetFieldsJson       SetFieldsJson = nullptr;
     FnIsHandleAlive       IsHandleAlive = nullptr;
     FnGetHandleTypeName   GetHandleTypeName = nullptr;
@@ -140,6 +142,7 @@ static bool LoadAPI( ScriptHost& inHost, const std::string& inCoreDll, ScriptAPI
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptOnDestroy", (void**)&outApi.ScriptOnDestroy );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptOnEditorInspect", (void**)&outApi.ScriptOnEditorInspect );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetFieldsJson", (void**)&outApi.GetFieldsJson );
+    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetSaveFieldsJson", (void**)&outApi.GetSaveFieldsJson );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "SetFieldsJson", (void**)&outApi.SetFieldsJson );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ReloadGameAssembly", (void**)&outApi.ReloadGameAssembly );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "IsHandleAlive", (void**)&outApi.IsHandleAlive );
@@ -459,6 +462,7 @@ static int StartRuntime()
     Register_NavigationBindings( engineApi );
     Register_UIModelBindings( engineApi );
     Register_SettingsBindings( engineApi );
+    Register_SaveGameBindings( engineApi );
 
     // Every slot of the generated table must be filled, or a script call would jump to null.
     static_assert( sizeof( ScriptEngineAPI ) % sizeof( void* ) == 0, "ScriptEngineAPI holds only function pointers" );
@@ -696,20 +700,21 @@ int ScriptEngine::CreateScript( const std::string& inName, EntityID inEntity )
     return gDotnetAPI.CreateScript( reinterpret_cast<const uint8_t*>( inName.c_str() ), inEntity );
 }
 
-std::string ScriptEngine::GetFieldsJson( int inHandle )
+std::string ScriptEngine::GetFieldsJson( int inHandle, bool InIncludeSaveFields )
 {
-    if( inHandle < 0 || !gDotnetAPI.GetFieldsJson )
+    const FnGetFieldsJson getFields = InIncludeSaveFields ? gDotnetAPI.GetSaveFieldsJson : gDotnetAPI.GetFieldsJson;
+    if( inHandle < 0 || !getFields )
     {
         return {};
     }
 
     // Try a small buffer first; the call reports the size it needs when that's not enough.
     std::string json( 1024, '\0' );
-    int length = gDotnetAPI.GetFieldsJson( inHandle, reinterpret_cast<uint8_t*>( json.data() ), static_cast<int>( json.size() ) );
+    int length = getFields( inHandle, reinterpret_cast<uint8_t*>( json.data() ), static_cast<int>( json.size() ) );
     if( length >= static_cast<int>( json.size() ) )
     {
         json.assign( static_cast<size_t>( length ) + 1, '\0' );
-        length = gDotnetAPI.GetFieldsJson( inHandle, reinterpret_cast<uint8_t*>( json.data() ), static_cast<int>( json.size() ) );
+        length = getFields( inHandle, reinterpret_cast<uint8_t*>( json.data() ), static_cast<int>( json.size() ) );
     }
     json.resize( static_cast<size_t>( std::max( length, 0 ) ) );
     return json;

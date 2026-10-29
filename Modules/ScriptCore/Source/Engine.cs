@@ -486,6 +486,22 @@ public static class ScriptBridge
         catch (Exception ex) { ReportException($"GetFieldsJson(handle={handle})", ex); return 0; }
     }
 
+    // GetFieldsJson plus the non-public [Save] fields: a save game's snapshot.
+    [UnmanagedCallersOnly]
+    public static unsafe int GetSaveFieldsJson(int handle, byte* outBuf, int bufSize)
+    {
+        if (outBuf is not null && bufSize > 0) outBuf[0] = 0;
+        if (!Instances.TryGetValue(handle, out var s)) return 0;
+        try
+        {
+            var json = ScriptSerializer.Serialize(s, includeSaveFields: true);
+            int length = Encoding.UTF8.GetByteCount(json);
+            if (length < bufSize) WriteUtf8(json, outBuf, bufSize);
+            return length;
+        }
+        catch (Exception ex) { ReportException($"GetSaveFieldsJson(handle={handle})", ex); return 0; }
+    }
+
     [UnmanagedCallersOnly]
     public static unsafe void SetFieldsJson(int handle, byte* json)
     {
