@@ -1,0 +1,5 @@
+{
+    "Name": "2D Platformer",
+    "Description": "A sprite hero running and jumping on a tilemap level under a side-on follow camera (PlatformerController.cs, PlatformerCamera.cs).",
+    "Order": 4
+}

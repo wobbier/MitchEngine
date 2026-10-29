@@ -1,0 +1,30 @@
+# 2D Platformer template regression (ME-270), run by RunChecks' "Templates" step on a project just
+# created from Engine/Templates/Platformer2D with `Havana --new-project Platformer2D --name <Name>`:
+#   Havana --project <new project> --editor-exec Engine/Tests/Templates/Platformer2D/Platformer2DFlows.edscript
+# The editor builds the project's scripts; Play runs and jumps the hero with held keys.
+wait-log Project: | 60
+wait 20
+
+# A first open lands on the startup scene: the hero on the tilemap level, coins, the side-on camera
+assert-exists Player
+assert-exists Level
+assert-exists Main Camera
+assert-exists Coin 5
+assert-field Player | Transform.Position | [0.0, 0.0, 0.0] ~ 0.01
+
+# Play: D runs right (+X) and the camera leads after it; Space jumps (+Y); A turns the sprite around
+# (anchored on state: the scripts may still be building when Play starts)
+play
+assert-playing 1
+input-hold Keyboard/D
+wait-field Player | Transform.Position.0 | != 0.0 ~ 3.0 | 900
+input-hold Keyboard/Space
+wait-field Player | Transform.Position.1 | != 0.0 ~ 1.0 | 300
+input-release Keyboard/Space
+input-release Keyboard/D
+assert-field Main Camera | Transform.Position.0 | != 0.0 ~ 1.0
+input-hold Keyboard/A
+wait-field Player | SpriteRenderer.FlipX | true | 120
+input-release
+stop
+assert-field Player | Transform.Position | [0.0, 0.0, 0.0] ~ 0.01

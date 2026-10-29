@@ -230,7 +230,7 @@ TEST_CASE( "Project Hub: every engine template is a complete C#-only project" )
     const std::vector<ProjectLibrary::Template> templates = ProjectLibrary::ListTemplates( engine );
     const ProjectLibrary::Template* empty = ProjectLibrary::FindTemplate( templates, "Empty" );
     REQUIRE( empty != nullptr );
-    for( const char* id : { "FirstPerson", "ThirdPerson", "TopDown" } )
+    for( const char* id : { "FirstPerson", "ThirdPerson", "TopDown", "Platformer2D" } )
     {
         CHECK_MESSAGE( ProjectLibrary::FindTemplate( templates, id ) != nullptr, id );
     }

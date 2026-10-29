@@ -1,0 +1,9 @@
+# Everything the editor and the Player derive or keep per user lives in .tmp/ (script builds,
+# caches, editor layout and preferences); Build Game writes to Builds/.
+.tmp/
+.build/
+Builds/
+*.sln
+# Run logs
+Engine.txt
+fmod_log.txt

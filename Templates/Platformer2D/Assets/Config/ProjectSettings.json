@@ -1,0 +1,7 @@
+{
+    "Product": {
+        "Name": "Platformer2D",
+        "Org": "MitchEngine",
+        "StartupScene": "Assets/Scenes/Main.lvl"
+    }
+}

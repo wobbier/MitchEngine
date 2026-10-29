@@ -331,6 +331,13 @@ struct ScriptEngineAPI
     void ( *Rigidbody2D_AddForce )( EntityID id, Vector2* force, int mode );
     void ( *Rigidbody2D_GetVelocity )( EntityID id, Vector2* outVelocity );
     void ( *Rigidbody2D_SetVelocity )( EntityID id, Vector2* velocity );
+    void ( *Character2D_SetMoveInput )( EntityID id, float horizontal );
+    void ( *Character2D_Jump )( EntityID id );
+    bool ( *Character2D_IsGrounded )( EntityID id );
+    void ( *Character2D_GetVelocity )( EntityID id, Vector2* outVelocity );
+    float ( *Character2D_GetMaxSpeed )( EntityID id );
+    void ( *Character2D_SetMaxSpeed )( EntityID id, float speed );
+    void ( *Character2D_Teleport )( EntityID id, Vector2* position );
 
     // Cameras and the mouse in pixels (CS-5 e): screen points are pixels from the top left of the
 

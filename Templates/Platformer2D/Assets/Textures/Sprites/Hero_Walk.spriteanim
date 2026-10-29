@@ -1,0 +1,11 @@
+{
+    "Sheet": "Assets/Textures/Sprites/Hero.spritesheet",
+    "FramesPerSecond": 8.0,
+    "Loop": true,
+    "Frames": [
+        "Hero_2",
+        "Hero_3",
+        "Hero_4",
+        "Hero_5"
+    ]
+}

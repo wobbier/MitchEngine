@@ -1,0 +1,9 @@
+{
+    "Sheet": "Assets/Textures/Sprites/Hero.spritesheet",
+    "FramesPerSecond": 2.0,
+    "Loop": true,
+    "Frames": [
+        "Hero_0",
+        "Hero_1"
+    ]
+}

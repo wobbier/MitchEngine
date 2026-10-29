@@ -1,5 +1,6 @@
 #include "PCH.h"
 #include "Query.bindings.h"
+#include "Components/Physics/CharacterController2D.h"
 
 #if USING( ME_SCRIPTING )
 
@@ -463,6 +464,51 @@ static void Eng_Rigidbody2D_SetVelocity( EntityID inId, Vector2* inVelocity )
 }
 
 
+static void Eng_Character2D_SetMoveInput( EntityID inId, float inHorizontal )
+{
+    if( CharacterController2D* character = ComponentOf<CharacterController2D>( inId ) ) character->SetMoveInput( inHorizontal );
+}
+
+
+static void Eng_Character2D_Jump( EntityID inId )
+{
+    if( CharacterController2D* character = ComponentOf<CharacterController2D>( inId ) ) character->Jump();
+}
+
+
+static bool Eng_Character2D_IsGrounded( EntityID inId )
+{
+    CharacterController2D* character = ComponentOf<CharacterController2D>( inId );
+    return character && character->IsOnGround();
+}
+
+
+static void Eng_Character2D_GetVelocity( EntityID inId, Vector2* outVelocity )
+{
+    CharacterController2D* character = ComponentOf<CharacterController2D>( inId );
+    *outVelocity = character ? character->GetVelocity() : Vector2();
+}
+
+
+static float Eng_Character2D_GetMaxSpeed( EntityID inId )
+{
+    CharacterController2D* character = ComponentOf<CharacterController2D>( inId );
+    return character ? character->MaxSpeed : 0.f;
+}
+
+
+static void Eng_Character2D_SetMaxSpeed( EntityID inId, float inSpeed )
+{
+    if( CharacterController2D* character = ComponentOf<CharacterController2D>( inId ) ) character->MaxSpeed = std::max( inSpeed, 0.f );
+}
+
+
+static void Eng_Character2D_Teleport( EntityID inId, Vector2* inPosition )
+{
+    if( CharacterController2D* character = ComponentOf<CharacterController2D>( inId ) ) character->Teleport( *inPosition );
+}
+
+
 namespace
 {
     // World to clip space: projection * view (bx matrices, read as glm's column-major).
@@ -728,6 +774,13 @@ void Register_QueryBindings( ScriptEngineAPI& inAPI )
     inAPI.Rigidbody2D_AddForce = Eng_Rigidbody2D_AddForce;
     inAPI.Rigidbody2D_GetVelocity = Eng_Rigidbody2D_GetVelocity;
     inAPI.Rigidbody2D_SetVelocity = Eng_Rigidbody2D_SetVelocity;
+    inAPI.Character2D_SetMoveInput = Eng_Character2D_SetMoveInput;
+    inAPI.Character2D_Jump = Eng_Character2D_Jump;
+    inAPI.Character2D_IsGrounded = Eng_Character2D_IsGrounded;
+    inAPI.Character2D_GetVelocity = Eng_Character2D_GetVelocity;
+    inAPI.Character2D_GetMaxSpeed = Eng_Character2D_GetMaxSpeed;
+    inAPI.Character2D_SetMaxSpeed = Eng_Character2D_SetMaxSpeed;
+    inAPI.Character2D_Teleport = Eng_Character2D_Teleport;
     inAPI.Animator_Play = Eng_Animator_Play;
     inAPI.Animator_Stop = Eng_Animator_Stop;
     inAPI.Animator_IsPlaying = Eng_Animator_IsPlaying;

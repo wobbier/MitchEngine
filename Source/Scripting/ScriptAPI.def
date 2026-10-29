@@ -315,6 +315,13 @@ int Physics2D_OverlapPoint( Vector2* point, int layerMask, Entity* outEntities, 
 void Rigidbody2D_AddForce( Entity id, Vector2* force, int mode )
 void Rigidbody2D_GetVelocity( Entity id, Vector2* outVelocity )
 void Rigidbody2D_SetVelocity( Entity id, Vector2* velocity )
+void Character2D_SetMoveInput( Entity id, float horizontal )
+void Character2D_Jump( Entity id )
+bool Character2D_IsGrounded( Entity id )
+void Character2D_GetVelocity( Entity id, Vector2* outVelocity )
+float Character2D_GetMaxSpeed( Entity id )
+void Character2D_SetMaxSpeed( Entity id, float speed )
+void Character2D_Teleport( Entity id, Vector2* position )
 
 ## Cameras and the mouse in pixels (CS-5 e): screen points are pixels from the top left of the
 ## camera's output; WorldToScreen's z is the distance in front of the camera (negative: behind)

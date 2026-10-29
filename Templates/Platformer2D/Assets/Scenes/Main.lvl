@@ -1,0 +1,1308 @@
+{
+    "Version": 2,
+    "Cores": [],
+    "Entities": [
+        {
+            "GUID": "81d3ed84d358beda",
+            "Name": "Main Camera",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0.0,
+                        1.5,
+                        -10.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.0,
+                        1.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Type": "Camera",
+                    "ClearType": "Color",
+                    "ClearColor": [
+                        0.42,
+                        0.62,
+                        0.88
+                    ],
+                    "IsCurrent": true,
+                    "Near": 0.1,
+                    "Far": 100.0,
+                    "Projection": "Orthographic",
+                    "OrthographicSize": 5.0,
+                    "SunShadows": false,
+                    "AmbientOcclusion": false,
+                    "VolumetricFog": false
+                },
+                {
+                    "Type": "ScriptComponent",
+                    "ScriptName": "PlatformerCamera",
+                    "ScriptFields": "{}"
+                }
+            ]
+        },
+        {
+            "GUID": "2114df3b100b873d",
+            "Name": "Sky",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        14.0,
+                        4.0,
+                        5.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        40.0,
+                        12.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Type": "SpriteRenderer",
+                    "Texture": "Assets/Textures/Sprites/Sky.png",
+                    "Size": [
+                        2.0,
+                        2.0
+                    ],
+                    "SortingLayer": -1,
+                    "Lit": false
+                }
+            ]
+        },
+        {
+            "GUID": "5f87239e8e0ca3f2",
+            "Name": "Level",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.0,
+                        1.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Type": "Tilemap",
+                    "Sheet": "Assets/Textures/Sprites/Tiles.spritesheet",
+                    "Palette": [
+                        "@Ground",
+                        "Brick"
+                    ],
+                    "CellSize": 1.0,
+                    "PointFilter": true,
+                    "Lit": false,
+                    "Tiles": [
+                        [
+                            -12,
+                            -3,
+                            0
+                        ],
+                        [
+                            -11,
+                            -3,
+                            0
+                        ],
+                        [
+                            -10,
+                            -3,
+                            0
+                        ],
+                        [
+                            -9,
+                            -3,
+                            0
+                        ],
+                        [
+                            -8,
+                            -3,
+                            0
+                        ],
+                        [
+                            -7,
+                            -3,
+                            0
+                        ],
+                        [
+                            -6,
+                            -3,
+                            0
+                        ],
+                        [
+                            -5,
+                            -3,
+                            0
+                        ],
+                        [
+                            -4,
+                            -3,
+                            0
+                        ],
+                        [
+                            -3,
+                            -3,
+                            0
+                        ],
+                        [
+                            -2,
+                            -3,
+                            0
+                        ],
+                        [
+                            -1,
+                            -3,
+                            0
+                        ],
+                        [
+                            0,
+                            -3,
+                            0
+                        ],
+                        [
+                            1,
+                            -3,
+                            0
+                        ],
+                        [
+                            2,
+                            -3,
+                            0
+                        ],
+                        [
+                            3,
+                            -3,
+                            0
+                        ],
+                        [
+                            4,
+                            -3,
+                            0
+                        ],
+                        [
+                            5,
+                            -3,
+                            0
+                        ],
+                        [
+                            6,
+                            -3,
+                            0
+                        ],
+                        [
+                            7,
+                            -3,
+                            0
+                        ],
+                        [
+                            8,
+                            -3,
+                            0
+                        ],
+                        [
+                            9,
+                            -3,
+                            0
+                        ],
+                        [
+                            12,
+                            -3,
+                            0
+                        ],
+                        [
+                            13,
+                            -3,
+                            0
+                        ],
+                        [
+                            14,
+                            -3,
+                            0
+                        ],
+                        [
+                            15,
+                            -3,
+                            0
+                        ],
+                        [
+                            16,
+                            -3,
+                            0
+                        ],
+                        [
+                            17,
+                            -3,
+                            0
+                        ],
+                        [
+                            18,
+                            -3,
+                            0
+                        ],
+                        [
+                            19,
+                            -3,
+                            0
+                        ],
+                        [
+                            20,
+                            -3,
+                            0
+                        ],
+                        [
+                            21,
+                            -3,
+                            0
+                        ],
+                        [
+                            22,
+                            -3,
+                            0
+                        ],
+                        [
+                            23,
+                            -3,
+                            0
+                        ],
+                        [
+                            24,
+                            -3,
+                            0
+                        ],
+                        [
+                            25,
+                            -3,
+                            0
+                        ],
+                        [
+                            26,
+                            -3,
+                            0
+                        ],
+                        [
+                            27,
+                            -3,
+                            0
+                        ],
+                        [
+                            28,
+                            -3,
+                            0
+                        ],
+                        [
+                            29,
+                            -3,
+                            0
+                        ],
+                        [
+                            30,
+                            -3,
+                            0
+                        ],
+                        [
+                            31,
+                            -3,
+                            0
+                        ],
+                        [
+                            32,
+                            -3,
+                            0
+                        ],
+                        [
+                            33,
+                            -3,
+                            0
+                        ],
+                        [
+                            34,
+                            -3,
+                            0
+                        ],
+                        [
+                            35,
+                            -3,
+                            0
+                        ],
+                        [
+                            36,
+                            -3,
+                            0
+                        ],
+                        [
+                            37,
+                            -3,
+                            0
+                        ],
+                        [
+                            38,
+                            -3,
+                            0
+                        ],
+                        [
+                            39,
+                            -3,
+                            0
+                        ],
+                        [
+                            40,
+                            -3,
+                            0
+                        ],
+                        [
+                            -12,
+                            -2,
+                            0
+                        ],
+                        [
+                            -11,
+                            -2,
+                            0
+                        ],
+                        [
+                            -10,
+                            -2,
+                            0
+                        ],
+                        [
+                            -9,
+                            -2,
+                            0
+                        ],
+                        [
+                            -8,
+                            -2,
+                            0
+                        ],
+                        [
+                            -7,
+                            -2,
+                            0
+                        ],
+                        [
+                            -6,
+                            -2,
+                            0
+                        ],
+                        [
+                            -5,
+                            -2,
+                            0
+                        ],
+                        [
+                            -4,
+                            -2,
+                            0
+                        ],
+                        [
+                            -3,
+                            -2,
+                            0
+                        ],
+                        [
+                            -2,
+                            -2,
+                            0
+                        ],
+                        [
+                            -1,
+                            -2,
+                            0
+                        ],
+                        [
+                            0,
+                            -2,
+                            0
+                        ],
+                        [
+                            1,
+                            -2,
+                            0
+                        ],
+                        [
+                            2,
+                            -2,
+                            0
+                        ],
+                        [
+                            3,
+                            -2,
+                            0
+                        ],
+                        [
+                            4,
+                            -2,
+                            0
+                        ],
+                        [
+                            5,
+                            -2,
+                            0
+                        ],
+                        [
+                            6,
+                            -2,
+                            0
+                        ],
+                        [
+                            7,
+                            -2,
+                            0
+                        ],
+                        [
+                            8,
+                            -2,
+                            0
+                        ],
+                        [
+                            9,
+                            -2,
+                            0
+                        ],
+                        [
+                            12,
+                            -2,
+                            0
+                        ],
+                        [
+                            13,
+                            -2,
+                            0
+                        ],
+                        [
+                            14,
+                            -2,
+                            0
+                        ],
+                        [
+                            15,
+                            -2,
+                            0
+                        ],
+                        [
+                            16,
+                            -2,
+                            0
+                        ],
+                        [
+                            17,
+                            -2,
+                            0
+                        ],
+                        [
+                            18,
+                            -2,
+                            0
+                        ],
+                        [
+                            19,
+                            -2,
+                            0
+                        ],
+                        [
+                            20,
+                            -2,
+                            0
+                        ],
+                        [
+                            21,
+                            -2,
+                            0
+                        ],
+                        [
+                            22,
+                            -2,
+                            0
+                        ],
+                        [
+                            23,
+                            -2,
+                            0
+                        ],
+                        [
+                            24,
+                            -2,
+                            0
+                        ],
+                        [
+                            25,
+                            -2,
+                            0
+                        ],
+                        [
+                            26,
+                            -2,
+                            0
+                        ],
+                        [
+                            27,
+                            -2,
+                            0
+                        ],
+                        [
+                            28,
+                            -2,
+                            0
+                        ],
+                        [
+                            29,
+                            -2,
+                            0
+                        ],
+                        [
+                            30,
+                            -2,
+                            0
+                        ],
+                        [
+                            31,
+                            -2,
+                            0
+                        ],
+                        [
+                            32,
+                            -2,
+                            0
+                        ],
+                        [
+                            33,
+                            -2,
+                            0
+                        ],
+                        [
+                            34,
+                            -2,
+                            0
+                        ],
+                        [
+                            35,
+                            -2,
+                            0
+                        ],
+                        [
+                            36,
+                            -2,
+                            0
+                        ],
+                        [
+                            37,
+                            -2,
+                            0
+                        ],
+                        [
+                            38,
+                            -2,
+                            0
+                        ],
+                        [
+                            39,
+                            -2,
+                            0
+                        ],
+                        [
+                            40,
+                            -2,
+                            0
+                        ],
+                        [
+                            -12,
+                            -1,
+                            0
+                        ],
+                        [
+                            -11,
+                            -1,
+                            0
+                        ],
+                        [
+                            -10,
+                            -1,
+                            0
+                        ],
+                        [
+                            -9,
+                            -1,
+                            0
+                        ],
+                        [
+                            -8,
+                            -1,
+                            0
+                        ],
+                        [
+                            -7,
+                            -1,
+                            0
+                        ],
+                        [
+                            -6,
+                            -1,
+                            0
+                        ],
+                        [
+                            -5,
+                            -1,
+                            0
+                        ],
+                        [
+                            -4,
+                            -1,
+                            0
+                        ],
+                        [
+                            -3,
+                            -1,
+                            0
+                        ],
+                        [
+                            -2,
+                            -1,
+                            0
+                        ],
+                        [
+                            -1,
+                            -1,
+                            0
+                        ],
+                        [
+                            0,
+                            -1,
+                            0
+                        ],
+                        [
+                            1,
+                            -1,
+                            0
+                        ],
+                        [
+                            2,
+                            -1,
+                            0
+                        ],
+                        [
+                            3,
+                            -1,
+                            0
+                        ],
+                        [
+                            4,
+                            -1,
+                            0
+                        ],
+                        [
+                            5,
+                            -1,
+                            0
+                        ],
+                        [
+                            6,
+                            -1,
+                            0
+                        ],
+                        [
+                            7,
+                            -1,
+                            0
+                        ],
+                        [
+                            8,
+                            -1,
+                            0
+                        ],
+                        [
+                            9,
+                            -1,
+                            0
+                        ],
+                        [
+                            12,
+                            -1,
+                            0
+                        ],
+                        [
+                            13,
+                            -1,
+                            0
+                        ],
+                        [
+                            14,
+                            -1,
+                            0
+                        ],
+                        [
+                            15,
+                            -1,
+                            0
+                        ],
+                        [
+                            16,
+                            -1,
+                            0
+                        ],
+                        [
+                            17,
+                            -1,
+                            0
+                        ],
+                        [
+                            18,
+                            -1,
+                            0
+                        ],
+                        [
+                            19,
+                            -1,
+                            0
+                        ],
+                        [
+                            20,
+                            -1,
+                            0
+                        ],
+                        [
+                            21,
+                            -1,
+                            0
+                        ],
+                        [
+                            22,
+                            -1,
+                            0
+                        ],
+                        [
+                            23,
+                            -1,
+                            0
+                        ],
+                        [
+                            24,
+                            -1,
+                            0
+                        ],
+                        [
+                            25,
+                            -1,
+                            0
+                        ],
+                        [
+                            26,
+                            -1,
+                            0
+                        ],
+                        [
+                            27,
+                            -1,
+                            0
+                        ],
+                        [
+                            28,
+                            -1,
+                            0
+                        ],
+                        [
+                            29,
+                            -1,
+                            0
+                        ],
+                        [
+                            30,
+                            -1,
+                            0
+                        ],
+                        [
+                            31,
+                            -1,
+                            0
+                        ],
+                        [
+                            32,
+                            -1,
+                            0
+                        ],
+                        [
+                            33,
+                            -1,
+                            0
+                        ],
+                        [
+                            34,
+                            -1,
+                            0
+                        ],
+                        [
+                            35,
+                            -1,
+                            0
+                        ],
+                        [
+                            36,
+                            -1,
+                            0
+                        ],
+                        [
+                            37,
+                            -1,
+                            0
+                        ],
+                        [
+                            38,
+                            -1,
+                            0
+                        ],
+                        [
+                            39,
+                            -1,
+                            0
+                        ],
+                        [
+                            40,
+                            -1,
+                            0
+                        ],
+                        [
+                            -12,
+                            0,
+                            0
+                        ],
+                        [
+                            24,
+                            0,
+                            0
+                        ],
+                        [
+                            25,
+                            0,
+                            0
+                        ],
+                        [
+                            26,
+                            0,
+                            0
+                        ],
+                        [
+                            27,
+                            0,
+                            0
+                        ],
+                        [
+                            28,
+                            0,
+                            0
+                        ],
+                        [
+                            29,
+                            0,
+                            0
+                        ],
+                        [
+                            40,
+                            0,
+                            0
+                        ],
+                        [
+                            -12,
+                            1,
+                            0
+                        ],
+                        [
+                            26,
+                            1,
+                            0
+                        ],
+                        [
+                            27,
+                            1,
+                            0
+                        ],
+                        [
+                            28,
+                            1,
+                            0
+                        ],
+                        [
+                            29,
+                            1,
+                            0
+                        ],
+                        [
+                            40,
+                            1,
+                            0
+                        ],
+                        [
+                            -12,
+                            2,
+                            0
+                        ],
+                        [
+                            4,
+                            2,
+                            1
+                        ],
+                        [
+                            5,
+                            2,
+                            1
+                        ],
+                        [
+                            6,
+                            2,
+                            1
+                        ],
+                        [
+                            7,
+                            2,
+                            1
+                        ],
+                        [
+                            28,
+                            2,
+                            0
+                        ],
+                        [
+                            29,
+                            2,
+                            0
+                        ],
+                        [
+                            40,
+                            2,
+                            0
+                        ],
+                        [
+                            -12,
+                            3,
+                            0
+                        ],
+                        [
+                            16,
+                            3,
+                            1
+                        ],
+                        [
+                            17,
+                            3,
+                            1
+                        ],
+                        [
+                            18,
+                            3,
+                            1
+                        ],
+                        [
+                            19,
+                            3,
+                            1
+                        ],
+                        [
+                            40,
+                            3,
+                            0
+                        ],
+                        [
+                            -12,
+                            4,
+                            0
+                        ],
+                        [
+                            40,
+                            4,
+                            0
+                        ],
+                        [
+                            -12,
+                            5,
+                            0
+                        ],
+                        [
+                            40,
+                            5,
+                            0
+                        ],
+                        [
+                            -12,
+                            6,
+                            0
+                        ],
+                        [
+                            40,
+                            6,
+                            0
+                        ]
+                    ]
+                },
+                {
+                    "Type": "TilemapCollider2D",
+                    "Friction": 0.6
+                }
+            ]
+        },
+        {
+            "GUID": "02b396e1add2d173",
+            "Name": "Coin 1",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        5.5,
+                        3.2,
+                        0.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.0,
+                        1.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Type": "SpriteRenderer",
+                    "Sheet": "Assets/Textures/Sprites/Coins.spritesheet",
+                    "SpriteName": "Coins_0",
+                    "PixelsPerUnit": 24.0,
+                    "PointFilter": true,
+                    "Lit": false,
+                    "SortingLayer": 1
+                }
+            ]
+        },
+        {
+            "GUID": "a81767c60300d045",
+            "Name": "Coin 2",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        6.5,
+                        3.2,
+                        0.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.0,
+                        1.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Type": "SpriteRenderer",
+                    "Sheet": "Assets/Textures/Sprites/Coins.spritesheet",
+                    "SpriteName": "Coins_0",
+                    "PixelsPerUnit": 24.0,
+                    "PointFilter": true,
+                    "Lit": false,
+                    "SortingLayer": 1
+                }
+            ]
+        },
+        {
+            "GUID": "33f3032241f3564e",
+            "Name": "Coin 3",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        17.5,
+                        4.2,
+                        0.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.0,
+                        1.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Type": "SpriteRenderer",
+                    "Sheet": "Assets/Textures/Sprites/Coins.spritesheet",
+                    "SpriteName": "Coins_0",
+                    "PixelsPerUnit": 24.0,
+                    "PointFilter": true,
+                    "Lit": false,
+                    "SortingLayer": 1
+                }
+            ]
+        },
+        {
+            "GUID": "b4c4fc098a70eeea",
+            "Name": "Coin 4",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        18.5,
+                        4.2,
+                        0.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.0,
+                        1.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Type": "SpriteRenderer",
+                    "Sheet": "Assets/Textures/Sprites/Coins.spritesheet",
+                    "SpriteName": "Coins_0",
+                    "PixelsPerUnit": 24.0,
+                    "PointFilter": true,
+                    "Lit": false,
+                    "SortingLayer": 1
+                }
+            ]
+        },
+        {
+            "GUID": "bc89de167e405dd8",
+            "Name": "Coin 5",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        28.5,
+                        3.2,
+                        0.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.0,
+                        1.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Type": "SpriteRenderer",
+                    "Sheet": "Assets/Textures/Sprites/Coins.spritesheet",
+                    "SpriteName": "Coins_0",
+                    "PixelsPerUnit": 24.0,
+                    "PointFilter": true,
+                    "Lit": false,
+                    "SortingLayer": 1
+                }
+            ]
+        },
+        {
+            "GUID": "2f01b2be1472a28f",
+            "Name": "Player",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.0,
+                        1.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Type": "SpriteRenderer",
+                    "Sheet": "Assets/Textures/Sprites/Hero.spritesheet",
+                    "SpriteName": "Hero_0",
+                    "PixelsPerUnit": 24.0,
+                    "PointFilter": true,
+                    "Lit": false,
+                    "SortingLayer": 2
+                },
+                {
+                    "Type": "Animator",
+                    "SpriteClips": [
+                        "Assets/Textures/Sprites/Hero_Idle.spriteanim",
+                        "Assets/Textures/Sprites/Hero_Walk.spriteanim"
+                    ],
+                    "DefaultState": "Idle",
+                    "States": [
+                        {
+                            "Name": "Idle",
+                            "Clip": "Hero_Idle",
+                            "Speed": 1.0,
+                            "Loop": true
+                        },
+                        {
+                            "Name": "Walk",
+                            "Clip": "Hero_Walk",
+                            "Speed": 1.0,
+                            "Loop": true
+                        }
+                    ],
+                    "Transitions": []
+                },
+                {
+                    "Type": "CharacterController2D",
+                    "Offset": [
+                        0.0,
+                        -0.47
+                    ],
+                    "Radius": 0.3,
+                    "Height": 0.94,
+                    "MaxSpeed": 6.0,
+                    "JumpHeight": 2.2
+                },
+                {
+                    "Type": "ScriptComponent",
+                    "ScriptName": "PlatformerController",
+                    "ScriptFields": "{}"
+                }
+            ]
+        }
+    ]
+}

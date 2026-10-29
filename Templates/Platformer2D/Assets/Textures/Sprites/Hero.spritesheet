@@ -1,0 +1,134 @@
+{
+    "Texture": "Assets/Textures/Sprites/Hero.png",
+    "Slicing": {
+        "Mode": "Grid",
+        "CellWidth": 24,
+        "CellHeight": 24,
+        "OffsetX": 0,
+        "OffsetY": 0,
+        "PaddingX": 0,
+        "PaddingY": 0,
+        "AlphaThreshold": 1,
+        "SkipEmpty": true,
+        "Pivot": [
+            0.5,
+            0.0
+        ]
+    },
+    "Sprites": [
+        {
+            "Name": "Hero_0",
+            "Rect": [
+                0.0,
+                0.0,
+                24.0,
+                24.0
+            ],
+            "Pivot": [
+                0.5,
+                0.0
+            ],
+            "Border": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ]
+        },
+        {
+            "Name": "Hero_1",
+            "Rect": [
+                24.0,
+                0.0,
+                24.0,
+                24.0
+            ],
+            "Pivot": [
+                0.5,
+                0.0
+            ],
+            "Border": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ]
+        },
+        {
+            "Name": "Hero_2",
+            "Rect": [
+                48.0,
+                0.0,
+                24.0,
+                24.0
+            ],
+            "Pivot": [
+                0.5,
+                0.0
+            ],
+            "Border": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ]
+        },
+        {
+            "Name": "Hero_3",
+            "Rect": [
+                72.0,
+                0.0,
+                24.0,
+                24.0
+            ],
+            "Pivot": [
+                0.5,
+                0.0
+            ],
+            "Border": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ]
+        },
+        {
+            "Name": "Hero_4",
+            "Rect": [
+                96.0,
+                0.0,
+                24.0,
+                24.0
+            ],
+            "Pivot": [
+                0.5,
+                0.0
+            ],
+            "Border": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ]
+        },
+        {
+            "Name": "Hero_5",
+            "Rect": [
+                120.0,
+                0.0,
+                24.0,
+                24.0
+            ],
+            "Pivot": [
+                0.5,
+                0.0
+            ],
+            "Border": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ]
+        }
+    ]
+}

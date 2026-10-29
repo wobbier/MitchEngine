@@ -319,6 +319,13 @@ public unsafe struct EngineAPIBindings
     public delegate* unmanaged<Entity, Vector2*, int, void> Rigidbody2D_AddForce;
     public delegate* unmanaged<Entity, Vector2*, void> Rigidbody2D_GetVelocity;
     public delegate* unmanaged<Entity, Vector2*, void> Rigidbody2D_SetVelocity;
+    public delegate* unmanaged<Entity, float, void> Character2D_SetMoveInput;
+    public delegate* unmanaged<Entity, void> Character2D_Jump;
+    public delegate* unmanaged<Entity, byte> Character2D_IsGrounded;
+    public delegate* unmanaged<Entity, Vector2*, void> Character2D_GetVelocity;
+    public delegate* unmanaged<Entity, float> Character2D_GetMaxSpeed;
+    public delegate* unmanaged<Entity, float, void> Character2D_SetMaxSpeed;
+    public delegate* unmanaged<Entity, Vector2*, void> Character2D_Teleport;
 
     // Cameras and the mouse in pixels (CS-5 e): screen points are pixels from the top left of the
 

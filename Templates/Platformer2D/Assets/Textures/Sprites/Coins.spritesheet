@@ -1,0 +1,44 @@
+{
+    "Slicing": {
+        "AlphaThreshold": 1,
+        "CellHeight": 16,
+        "CellWidth": 16,
+        "Mode": "Grid",
+        "OffsetX": 0,
+        "OffsetY": 0,
+        "PaddingX": 0,
+        "PaddingY": 0,
+        "Pivot": [
+            0.5,
+            0.0
+        ],
+        "SkipEmpty": true
+    },
+    "Sprites": [
+        {
+            "Border": [ 0.0, 0.0, 0.0, 0.0 ],
+            "Name": "Coins_0",
+            "Pivot": [ 0.5, 0.0 ],
+            "Rect": [ 0.0, 0.0, 16.0, 16.0 ]
+        },
+        {
+            "Border": [ 0.0, 0.0, 0.0, 0.0 ],
+            "Name": "Coins_1",
+            "Pivot": [ 0.5, 0.0 ],
+            "Rect": [ 16.0, 0.0, 16.0, 16.0 ]
+        },
+        {
+            "Border": [ 0.0, 0.0, 0.0, 0.0 ],
+            "Name": "Coins_2",
+            "Pivot": [ 0.5, 0.0 ],
+            "Rect": [ 32.0, 0.0, 16.0, 16.0 ]
+        },
+        {
+            "Border": [ 0.0, 0.0, 0.0, 0.0 ],
+            "Name": "Coins_3",
+            "Pivot": [ 0.5, 0.0 ],
+            "Rect": [ 48.0, 0.0, 16.0, 16.0 ]
+        }
+    ],
+    "Texture": "Assets/Textures/Sprites/Coins.png"
+}
