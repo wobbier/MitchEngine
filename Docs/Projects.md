@@ -158,6 +158,11 @@ empty scene and the engine boots the startup scene. Every game solution builds i
 (`--scene`, `--frames`, `--screenshot`, `--pak`, ...), and its debug and release builds compile the
 project's scripts as the editor does.
 
+**Build Game** ships a C#-only project on the Player: it compiles the Retail Player in the
+editor's checkout and packages it as the product's executable, with the scripts, the pak and an
+app-local .NET beside it (`Docs/Building.md`). The Retail Player loads the scripts from beside
+itself, like any shipped game.
+
 ## The sample
 
 `Samples/ScriptOnly/` is the smallest C#-only project: one scene (`Samples/ScriptOnly/Assets/Scenes/Main.lvl`,
@@ -182,11 +187,11 @@ project files. Copy the folder anywhere to start a project.
   plays the script (the cube spins and bobs), and asks File > Open Project for the sibling. The
   step then checks the editor built the scripts into the copy, and the Player's capture of
   `Main.lvl` must match `Tests/Samples/ScriptOnly/Reference/Main.png` (byte-identical run to run).
+  Last, it ships the copy with Build Game and the shipped Retail Player, run from outside the repo
+  without a .NET install, must match the same reference.
 
 ## Not yet
 
-- **Build Game** still compiles the project's own `Game_EntryPoint`, so it can't ship a C#-only
-  project yet (ME-266: package the Player instead).
 - The editor carries the game module of the checkout it was built in: a C#-only project opened in
   MitchGame's Havana lists MitchGame's components too. Prebuilt binaries (SHIP-7) would ship an
   editor without one.

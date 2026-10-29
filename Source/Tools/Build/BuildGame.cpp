@@ -3,6 +3,7 @@
 
 #include "CLog.h"
 #include "Dementia.h"
+#include "Engine/Project.h"
 #include "JSON.h"
 #include "VFS/VFS.h"
 #include "Resource/CookedAssets.h"
@@ -76,20 +77,21 @@ namespace BuildGame
     }
 
 
-    std::string GameExecutable( const std::string& InConfiguration )
-    {
-#if USING( ME_PLATFORM_WINDOWS )
-        return ".build/Game_win64_" + InConfiguration + "/Game_EntryPoint_x64.exe";
-#elif USING( ME_PLATFORM_MACOS )
-        return ".build/Game_macos_" + InConfiguration + "/Game_EntryPoint_x64";
-#else
-        return ".build/Game_linux_" + InConfiguration + "/Game_EntryPoint_x64";
-#endif
-    }
-
-
     namespace
     {
+        // An executable in a configuration's game build folder, e.g. ".build/Game_linux_Retail/Player".
+        std::string BuildExecutable( const std::string& InConfiguration, const std::string& InStem )
+        {
+#if USING( ME_PLATFORM_WINDOWS )
+            return ".build/Game_win64_" + InConfiguration + "/" + InStem + ".exe";
+#elif USING( ME_PLATFORM_MACOS )
+            return ".build/Game_macos_" + InConfiguration + "/" + InStem;
+#else
+            return ".build/Game_linux_" + InConfiguration + "/" + InStem;
+#endif
+        }
+
+
         // This editor build's directory (".../.build/Editor_Debug").
         fs::path EditorBuildDirectory()
         {
@@ -102,6 +104,39 @@ namespace BuildGame
             std::error_code error;
             return fs::absolute( base.empty() ? fs::path( "." ) : fs::path( base ), error ).lexically_normal().parent_path();
         }
+
+
+        // InExecutable (a BuildExecutable path) in the game build folders beside this editor build.
+        fs::path BesideEditor( const std::string& InExecutable )
+        {
+            return EditorBuildDirectory().parent_path() / fs::path( InExecutable ).lexically_relative( ".build" );
+        }
+    }
+
+
+    std::string GameExecutable( const std::string& InConfiguration )
+    {
+        return BuildExecutable( InConfiguration, "Game_EntryPoint_x64" );
+    }
+
+
+    std::string PlayerExecutable( const std::string& InConfiguration )
+    {
+        return BuildExecutable( InConfiguration, "Player" );
+    }
+
+
+    bool ShipsPlayer()
+    {
+        return !Project::HasGameModule();
+    }
+
+
+    std::string RuntimeExecutable( const std::string& InConfiguration )
+    {
+        std::error_code error;
+        const fs::path executable = ShipsPlayer() ? BesideEditor( PlayerExecutable( InConfiguration ) ) : fs::absolute( GameExecutable( InConfiguration ), error );
+        return executable.lexically_normal().generic_string();
     }
 
 
@@ -115,13 +150,12 @@ namespace BuildGame
     {
         // The newest, not the first: a configuration nobody built for a while may predate engine
         // changes and no longer start.
-        const fs::path builds = EditorBuildDirectory().parent_path();
         std::error_code error;
         fs::path newest;
         fs::file_time_type newestTime = fs::file_time_type::min();
         for( const char* configuration : { "Debug", "Release" } )
         {
-            const fs::path game = builds / fs::path( GameExecutable( configuration ) ).lexically_relative( ".build" );
+            const fs::path game = BesideEditor( ShipsPlayer() ? PlayerExecutable( configuration ) : GameExecutable( configuration ) );
             if( fs::is_regular_file( game, error ) && fs::last_write_time( game, error ) > newestTime )
             {
                 newest = game;
@@ -443,11 +477,12 @@ namespace BuildGame
             }
 
 
-            // The solution makefile Sharpmake generates in the project root (<Solution>.make).
-            static std::string FindSolutionMakefile()
+            // The solution makefile Sharpmake generates in a checkout's root (<Solution>.make)
+            // that has InTarget.
+            static std::string FindSolutionMakefile( const fs::path& InDirectory, const std::string& InTarget )
             {
                 std::error_code error;
-                for( fs::directory_iterator it( fs::current_path( error ), error ), end; !error && it != end; it.increment( error ) )
+                for( fs::directory_iterator it( InDirectory, error ), end; !error && it != end; it.increment( error ) )
                 {
                     if( it->path().extension() != ".make" )
                     {
@@ -456,7 +491,7 @@ namespace BuildGame
                     std::ifstream file( it->path() );
                     for( std::string line; std::getline( file, line ); )
                     {
-                        if( line.rfind( "Game_EntryPoint:", 0 ) == 0 )
+                        if( line.rfind( InTarget + ":", 0 ) == 0 )
                         {
                             return it->path().filename().string();
                         }
@@ -466,21 +501,30 @@ namespace BuildGame
             }
 
 
-            // Builds a configuration's game executable through the solution makefile.
+            // Builds a configuration's game executable through the solution makefile: the
+            // project's Game_EntryPoint, or for a C#-only project (no solution of its own) the
+            // Player, in the checkout this editor was built in.
             bool MakeGame( const std::string& InConfiguration )
             {
 #if USING( ME_PLATFORM_LINUX )
-                const std::string makefile = FindSolutionMakefile();
+                const bool player = ShipsPlayer();
+                const std::string target = player ? "Player" : "Game_EntryPoint";
+                std::error_code error;
+                const fs::path checkout = player ? EditorBuildDirectory().parent_path().parent_path() : fs::current_path( error );
+                const std::string makefile = FindSolutionMakefile( checkout, target );
                 if( makefile.empty() )
                 {
-                    Error( "No solution makefile with a Game_EntryPoint target in the project root; generate the project first (Project/GenerateSolution.sh)" );
+                    Error( player ? "No solution makefile with a Player target in " + checkout.generic_string()
+                            + ", the checkout this editor was built in; build the Player there yourself, then Build Game without compiling (--no-compile)"
+                                  : "No solution makefile with a Game_EntryPoint target in the project root; generate the project first (Project/GenerateSolution.sh)" );
                     return false;
                 }
                 const unsigned jobs = std::max( 1u, std::thread::hardware_concurrency() );
-                const int status = Command( "make -f \"" + makefile + "\" Game_EntryPoint config=game_linux_" + Lower( InConfiguration ) + " -j" + std::to_string( jobs ) );
+                const int status = Command( "make -C \"" + checkout.generic_string() + "\" -f \"" + makefile + "\" " + target + " config=game_linux_" + Lower( InConfiguration )
+                    + " -j" + std::to_string( jobs ) );
                 if( status != 0 )
                 {
-                    CommandFailed( "Compiling the " + InConfiguration + " game", status );
+                    CommandFailed( "Compiling the " + InConfiguration + ( player ? " Player" : " game" ), status );
                     return false;
                 }
                 return true;
@@ -493,7 +537,7 @@ namespace BuildGame
 
             bool Compile()
             {
-                m_executable = fs::absolute( GameExecutable( m_profile.Configuration ) );
+                m_executable = RuntimeExecutable( m_profile.Configuration );
                 // The cooker records through a tools game build. Unless one was named, it's the one
                 // matching this editor, compiled here too, so a stale build never records.
                 const std::string recordConfiguration = RecordingConfiguration();
@@ -505,14 +549,16 @@ namespace BuildGame
                 std::error_code error;
                 if( !fs::is_regular_file( m_executable, error ) )
                 {
-                    Error( "No " + m_profile.Configuration + " game executable at " + m_executable.generic_string() );
+                    Error( "No " + m_profile.Configuration + ( ShipsPlayer() ? " Player at " : " game executable at " ) + m_executable.generic_string() );
                     return false;
                 }
-                Info( "Game executable: " + m_executable.generic_string() );
+                Info( std::string( ShipsPlayer() ? "Player (a C#-only project): " : "Game executable: " ) + m_executable.generic_string() );
+                // Its libraries come from the tree it was built in (<tree>/.build/<config>/<exe>).
+                m_buildTree = m_executable.parent_path().parent_path().parent_path();
                 if( m_request.Record )
                 {
                     m_recordExecutable = !m_request.RecordExecutable.empty() ? m_request.RecordExecutable
-                        : m_request.Compile ? fs::absolute( GameExecutable( recordConfiguration ) ).generic_string()
+                        : m_request.Compile ? RuntimeExecutable( recordConfiguration )
                         : FindRecordingExecutable();
                     if( m_recordExecutable.empty() || !fs::is_regular_file( m_recordExecutable, error ) )
                     {
@@ -540,10 +586,12 @@ namespace BuildGame
                 }
                 const fs::path scripts = m_staging / "Scripts";
                 fs::remove_all( scripts, error );
-                // Retail ships optimized scripts; Debug keeps them debuggable.
+                // Retail ships optimized scripts; Debug keeps them debuggable. MitchEngineDir points
+                // the script project at this engine's ScriptCore, as ScriptEngine::BuildScripts
+                // does: a C#-only project has no Engine/ of its own.
                 const std::string configuration = m_profile.Configuration == "Debug" ? "Debug" : "Release";
                 const int status = Command( std::string( "dotnet build \"" ) + ScriptEngine::kScriptProject + "\" -c " + configuration + " -o \"" + scripts.generic_string()
-                    + "\" --artifacts-path \"" + ( m_staging / "dotnet" ).generic_string() + "\" --nologo -v q -clp:NoSummary" );
+                    + "\" -p:MitchEngineDir=\"" + Project::GetEngineRoot() + "/\" --artifacts-path \"" + ( m_staging / "dotnet" ).generic_string() + "\" --nologo -v q -clp:NoSummary" );
                 if( status != 0 )
                 {
                     CommandFailed( "Building the scripts", status );
@@ -672,8 +720,8 @@ namespace BuildGame
 
 #if USING( ME_PLATFORM_LINUX )
             // The shared libraries a distro doesn't provide (or provides in other versions) go
-            // into lib/: SDL2, the C++ runtime, nethost and whatever links from the project tree
-            // (FMOD). Left to the system: glibc, the GL/Vulkan drivers, X11/Wayland, ALSA, curl.
+            // into lib/: SDL2, the C++ runtime, nethost and whatever links from the tree the
+            // executable was built in (FMOD). Left to the system: glibc, the GL/Vulkan drivers, X11/Wayland, ALSA, curl.
             bool BundleLibraries( const fs::path& InExecutable )
             {
                 std::string output;
@@ -682,8 +730,7 @@ namespace BuildGame
                     Error( "ldd couldn't read " + InExecutable.generic_string() + ":\n" + output );
                     return false;
                 }
-                std::error_code error;
-                const std::string project = fs::current_path( error ).generic_string() + "/";
+                const std::string tree = m_buildTree.generic_string() + "/";
                 const fs::path lib = m_out / "lib";
                 std::vector<std::string> bundled;
                 size_t start = 0;
@@ -704,7 +751,7 @@ namespace BuildGame
                     const size_t pathEnd = line.find( " (", arrow );
                     const std::string path = line.substr( arrow + 4, pathEnd == std::string::npos ? std::string::npos : pathEnd - arrow - 4 );
                     const bool runtime = name.rfind( "libSDL2", 0 ) == 0 || name.rfind( "libstdc++", 0 ) == 0 || name.rfind( "libgcc_s", 0 ) == 0 || name.rfind( "libnethost", 0 ) == 0;
-                    if( runtime || path.rfind( project, 0 ) == 0 )
+                    if( runtime || path.rfind( tree, 0 ) == 0 )
                     {
                         if( !CopyFile( path, lib / name ) )
                         {
@@ -863,6 +910,7 @@ namespace BuildGame
             fs::path m_staging;
             fs::path m_logPath;
             fs::path m_executable;
+            fs::path m_buildTree;
             std::ofstream m_log;
             std::vector<std::string> m_errorLines;
             std::string m_recordExecutable;

@@ -8,7 +8,8 @@
 #   6. builds them as a shippable Retail game (Havana --build-game) and compares that, run from
 #      outside the repo without a .NET install;
 #   7. opens the C#-only sample project (Samples/ScriptOnly), copied out of the repo, in the editor
-#      and runs it in the Player, both on this checkout's engine with no C++ build.
+#      and runs it in the Player, both on this checkout's engine with no C++ build, then ships it
+#      with Build Game (the Retail Player) and compares that, run from outside the repo the same way;
 #   8. starts the editor outside any project, so it opens the Project Hub, which creates a project
 #      from the Empty template and opens it in the editor (Tests/Hub/HubFlows.edscript).
 # GUI runs go through Tools/Headless.sh (a private virtual display with software Vulkan), so nothing
@@ -149,7 +150,8 @@ fi
 # A C#-only project (SHIP-4): the engine's sample, copied out of the repo beside a second copy.
 # Neither has C++ or an Engine/ of its own; the editor and the Player run them on this checkout's
 # engine and build their scripts into the project. The editor flow plays the scripts and asks
-# File > Open Project for the sibling; the Player's capture must match the sample's reference.
+# File > Open Project for the sibling; the Player's capture must match the sample's reference, and
+# so must the Retail Player that Build Game ships.
 sample="$here/../Samples/ScriptOnly"
 sample_checks="$here/../Tests/Samples/ScriptOnly"
 if [[ -d $sample && -d $sample_checks/Reference ]]; then
@@ -166,9 +168,36 @@ if [[ -d $sample && -d $sample_checks/Reference ]]; then
     else
         echo "ok    ScriptOnlyFlows (editor)"
     fi
+    # The runs are byte-identical, and the scene without its script differs by about 1.4%, so the
+    # limit is tight and the log must show the script assembly loaded.
     if ! python3 "$here/ScreenshotRegression.py" --game .build/Game_linux_Debug/Player --reference "$sample_checks/Reference" --wrapper "$here/Headless.sh" \
-            --out .tmp/ScreenshotRegression/ScriptOnly --cwd "$projects/ScriptOnly" Assets/Scenes/Main.lvl; then
+            --out .tmp/ScreenshotRegression/ScriptOnly --cwd "$projects/ScriptOnly" --max-changed 0.002 Assets/Scenes/Main.lvl; then
         failed+=("C#-only project in the Player")
+    elif ! grep -q "Loaded 1 type(s) from Game.Script.dll" .tmp/ScreenshotRegression/ScriptOnly/Main.log; then
+        echo "The Player didn't load the project's scripts (see .tmp/ScreenshotRegression/ScriptOnly/Main.log)"
+        failed+=("C#-only project scripts in the Player")
+    fi
+    # Build Game (ME-266) ships the Player: a Retail build of the copy, moved out beside it and
+    # captured from an empty directory with no DOTNET_ROOT and none of the repo's library paths.
+    if ! "$here/Headless.sh" ./.build/Editor_Debug/Havana --project "$projects/ScriptOnly" --build-game --out "$projects/Built" \
+            > .tmp/RunChecks.scriptonly-build.log 2>&1; then
+        grep -E "Build Game|Error" .tmp/RunChecks.scriptonly-build.log | tail -20
+        failed+=("C#-only project build game")
+    else
+        grep -E "Build Game finished" .tmp/RunChecks.scriptonly-build.log
+        mv "$projects/Built" "$projects/Game" && mkdir -p "$projects/Empty"
+        launcher="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["Launcher"])' "$projects/Game/BuildInfo.json")"
+        system_libs="$(tr ':' '\n' <<< "${LD_LIBRARY_PATH:-}" | grep -vF "$PWD" | paste -sd: -)"
+        rm -rf .tmp/ScreenshotRegression/ScriptOnlyShipped
+        if ! env -u DOTNET_ROOT LD_LIBRARY_PATH="$system_libs" python3 "$here/ScreenshotRegression.py" --game "$projects/Game/$launcher" \
+                --reference "$sample_checks/Reference" --wrapper "$here/Headless.sh" --out .tmp/ScreenshotRegression/ScriptOnlyShipped \
+                --cwd "$projects/Empty" --max-changed 0.002 Assets/Scenes/Main.lvl; then
+            failed+=("C#-only project shipped build")
+        elif ! grep -q "Scripts: .NET runtime from the app-local install" .tmp/ScreenshotRegression/ScriptOnlyShipped/Main.log \
+                || ! grep -q "Loaded 1 type(s) from Game.Script.dll" .tmp/ScreenshotRegression/ScriptOnlyShipped/Main.log; then
+            echo "The shipped C#-only build didn't run its scripts on the app-local .NET (see .tmp/ScreenshotRegression/ScriptOnlyShipped/Main.log)"
+            failed+=("C#-only project shipped runtime")
+        fi
     fi
     rm -rf "$projects"
 fi

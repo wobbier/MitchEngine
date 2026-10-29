@@ -4,7 +4,8 @@
 shipping configuration, the C# scripts, the cooked content in one pak, a private copy of .NET,
 the libraries the executable needs and a launcher. The output runs from any directory on a
 machine with no .NET install and no engine sources. It is the SHIP-3 step of the build pipeline,
-on top of the cooker (`Cooking.md`).
+on top of the cooker (`Cooking.md`). A C#-only project (`Projects.md`) builds the same way and
+ships the generic **Player** as its executable (ME-266).
 
 Code: `Source/Tools/Build/BuildGame.h` / `.cpp`; the profiles live in `ProjectSettings`
 (`Source/Engine/ProjectSettings.h`); the editor window is `Modules/Havana/Source/Widgets/BuildGameWidget.cpp`. The runtime side is in `Source/Engine/Engine.cpp` (the
@@ -79,10 +80,15 @@ Builds are made for the machine building them: a Linux editor builds Linux games
 1. **Compile.** On Linux, `make -f <Solution>.make Game_EntryPoint config=game_linux_<configuration>`
    through the generated solution makefile. When the cook records scenes and no `--game` was
    named, the tools game it records through (the editor's configuration) is compiled too, so an
-   out-of-date one can't fail the cook. Windows and macOS need `--no-compile` and an IDE build for
+   out-of-date one can't fail the cook. A C#-only project has no solution or game module
+   (`Project::HasGameModule`), so it ships the **Player** instead: `make -C <checkout> -f
+   <Solution>.make Player config=game_linux_<configuration>` in the checkout this editor was
+   built in (the parent of its `.build/`), output `<checkout>/.build/Game_<platform>_<Configuration>/Player`.
+   The cook records through that checkout's tools Player, run in the project. Windows and macOS need `--no-compile` and an IDE build for
    now (ME-265).
 2. **Scripts.** `dotnet build Project/Game.Script.csproj -c Release` (`Debug` for Debug builds)
-   into the staging folder. The assemblies, their `.deps.json` and `ScriptCore.runtimeconfig.json`
+   into the staging folder, with `-p:MitchEngineDir=<engine>/` so the script project finds this
+   engine's `ScriptCore` (a C#-only project has no `Engine/`). The assemblies, their `.deps.json` and `ScriptCore.runtimeconfig.json`
    ship next to the executable. The source generator (`MitchEngine.Generators`) stays behind, and
    so do `.pdb` files in Retail. A project without a script project ships without scripts.
 3. **Cook.** The SHIP-2 cooker (`Cooking.md`) on the profile's scenes, recording each through the
@@ -98,7 +104,7 @@ Builds are made for the machine building them: a Linux editor builds Linux games
      (Windows) or `<Product Name>` (macOS).
    - **Linux:** `ldd` picks the libraries a distro doesn't provide, or provides in other
      versions: SDL2, `libstdc++`, `libgcc_s`, `libnethost` and anything linked from the
-     project tree (FMOD). These go into `lib/`, and `<Product Name>.sh` launches the game with
+     tree the executable was built in (FMOD): the project, or the Player's checkout. These go into `lib/`, and `<Product Name>.sh` launches the game with
      them. glibc, the GL/Vulkan drivers, X11/Wayland, ALSA and curl are left to the system.
    - **Windows:** the DLLs the build copied next to the executable ship beside it.
    - The product icon is copied as `icon.<ext>`.
@@ -149,6 +155,13 @@ references, and every run's log must show the app-local runtime. The project's m
 (`Assets/Main.lvl`) ships too, and must run for 60 frames: its scripts draw ImGui debug windows,
 which crashed Retail builds until those calls learned to do nothing without ImGui.
 
+The "C#-only project" step does the same for `Samples/ScriptOnly`, copied out of the repo:
+`Havana --project <copy> --build-game` ships the Retail Player, and the build, moved beside the
+copy and started from an empty directory the same way, must match
+`Tests/Samples/ScriptOnly/Reference/Main.png` (0.2% limit; the runs are byte-identical, and the
+scene without its script is 1.4% off) with the log showing the app-local runtime and
+`Game.Script.dll` loaded. It is 124 MiB: a 46 MiB Player, a 1 MiB pak, .NET and the libraries.
+
 Results on Linux (2026-10-25):
 
 - **Size:** the build takes 20 s with a warm compiler cache and is 192 MiB: a 47 MiB
@@ -167,5 +180,8 @@ Results on Linux (2026-10-25):
 - **Windows and macOS:** no compile step yet, and no `.exe` icon resource or `.app` bundle
   (ME-265, SHIP-8).
 - **Install-folder writes:** see ME-263.
+- **C#-only projects need the editor's checkout:** the Player is compiled there through its
+  solution makefile. An editor without one (an install, SHIP-7) can only package a Player that
+  is already built beside it (`--no-compile`).
 - **Engine CI artifacts** still use the older `Tools/PackageLinuxBuild.sh`, which is kept for
   the editor packages until SHIP-7 (ME-264).

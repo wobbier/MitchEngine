@@ -25,7 +25,7 @@ Engine/Tools/Headless.sh ./.build/Editor_Debug/Havana --cook --scene Assets/Scen
 | `--out <dir>` | The cooked tree (default `.tmp/Cook`). It is replaced each time. Only an earlier cook (it has a `CookManifest.json`) or an empty directory is ever cleared |
 | `--pak <file.mpak>` | Also packs the tree into one archive (`Docs/VFS.md`); the game mounts it with `--pak` |
 | `--platform linux\|windows\|macos` | Target platform (default: this one). Picks the shader profile |
-| `--game <exe>` | The game build to record scenes with. Default: the newest tools game build (Debug or Release) next to this editor build (`.build/Game_<platform>_<config>/Game_EntryPoint_x64`). A failed recording quotes the game's last output lines |
+| `--game <exe>` | The game build to record scenes with. Default: the newest tools game build (Debug or Release) next to this editor build (`.build/Game_<platform>_<config>/Game_EntryPoint_x64`, or the `Player` there for a C#-only project). A failed recording quotes the game's last output lines |
 | `--no-record` | Skip recording: a static cook only |
 | `--deps <file>` (repeatable) | Extra `--record-deps` recordings to ship (a playthrough, a test run) |
 | `--record-frames <n>` | How long each recording plays (default 240 frames) |
