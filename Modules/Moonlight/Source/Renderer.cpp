@@ -908,6 +908,30 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     // LOOK-S1). Camera targets match the internal size exactly: post passes process whole textures.
     const uint16_t outputWidth = static_cast<uint16_t>( std::max( 1.f, camera.OutputSize.x ) );
     const uint16_t outputHeight = static_cast<uint16_t>( std::max( 1.f, camera.OutputSize.y ) );
+    // The player's graphics settings scale every game camera (editor views and pixel-perfect
+    // cameras keep theirs), restored when the camera's done: the cached data persists.
+    struct PlayerGraphicsScope
+    {
+        Moonlight::CameraData& Camera;
+        float RenderScale;
+        bool DynamicResolution;
+        Moonlight::UpscaleFilter Upscale;
+        ~PlayerGraphicsScope()
+        {
+            Camera.RenderScale = RenderScale;
+            Camera.DynamicResolution = DynamicResolution;
+            Camera.Upscale = Upscale;
+        }
+    } playerGraphics{ camera, camera.RenderScale, camera.DynamicResolution, camera.Upscale };
+    if( !camera.IsEditorView && camera.RenderGroup == 0 && !camera.PixelPerfect )
+    {
+        camera.RenderScale *= std::clamp( FeatureCaps.PlayerRenderScale, 0.1f, 1.f );
+        camera.DynamicResolution = camera.DynamicResolution || FeatureCaps.PlayerDynamicResolution;
+        if( FeatureCaps.PlayerUpscale >= 0 && FeatureCaps.PlayerUpscale <= static_cast<int>( Moonlight::UpscaleFilter::Sharp ) )
+        {
+            camera.Upscale = static_cast<Moonlight::UpscaleFilter>( FeatureCaps.PlayerUpscale );
+        }
+    }
     float renderScale = camera.RenderScale;
     if( camera.DynamicResolution )
     {

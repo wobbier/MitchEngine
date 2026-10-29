@@ -30,6 +30,24 @@
 					<button class="choice" id="window-fullscreen" onclick="window-mode:fullscreen" data-window-mode="fullscreen">Fullscreen</button>
 				</div>
 			</div>
+			<div class="row">
+				<span class="label">Render scale</span>
+				<button class="step" id="render-scale-down" onclick="setting-step:Graphics.RenderScale|-0.1">-</button>
+				<span class="value" id="render-scale-value" data-setting-text="Graphics.RenderScale" data-format="percent"></span>
+				<button class="step" id="render-scale-up" onclick="setting-step:Graphics.RenderScale|0.1">+</button>
+			</div>
+			<div class="row">
+				<span class="label">Upscaling</span>
+				<div class="choices">
+					<button class="choice" id="upscale-default" onclick="setting:Graphics.Upscale|&quot;&quot;" data-setting-selected="Graphics.Upscale|&quot;&quot;">Default</button>
+					<button class="choice" id="upscale-Bilinear" onclick="setting:Graphics.Upscale|Bilinear" data-setting-selected="Graphics.Upscale|Bilinear">Smooth</button>
+					<button class="choice" id="upscale-Sharp" onclick="setting:Graphics.Upscale|Sharp" data-setting-selected="Graphics.Upscale|Sharp">Sharp</button>
+				</div>
+			</div>
+			<div class="row">
+				<span class="label">Dynamic resolution</span>
+				<button class="choice" id="dynamic-resolution" onclick="setting-toggle:Graphics.DynamicResolution" data-setting-text="Graphics.DynamicResolution" data-format="onoff"></button>
+			</div>
 		</div>
 
 		<div class="tab-page" id="page-audio" style="display: none;">

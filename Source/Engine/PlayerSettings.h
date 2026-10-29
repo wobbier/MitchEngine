@@ -13,6 +13,9 @@ class RmlUiCore;
 // boot and applied to the engine's systems. Everything is a dotted key:
 //
 //   Graphics.Quality            "" (no player caps) or a HardwareBudget quality preset ("Low".."Ultra")
+//   Graphics.RenderScale        0.5..1, a scale on every game camera's render scale (ME-275)
+//   Graphics.DynamicResolution  bool, dynamic resolution on every game camera
+//   Graphics.Upscale            "" (each camera's own) or Bilinear / Nearest / Pixel / Sharp
 //   Audio.Master|Music|SFX|UI|Voice   0..1, scaling the project's bus mix
 //   Language                    "" or a string table code (Assets/UI/Strings/<code>.json)
 //   Accessibility.TextScale     0.5..3, the UI's dp text scale

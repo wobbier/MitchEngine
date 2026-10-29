@@ -82,10 +82,41 @@ public class Camera : Component
         unsafe { Vector3 s; Engine._api.Camera_WorldToScreen(Entity, &world, &s); return s; }
     }
 
+    // Render scaling (LOOK-S1, ME-275): the scene renders at OutputSize * RenderScale (0.1..1)
+    // and is stretched back up with Upscale. Dynamic resolution lowers the scale while the GPU is
+    // over budget. The player's Graphics.RenderScale setting multiplies on top.
+    public float RenderScale
+    {
+        get => Entity.GetField<float>("Camera", "RenderScale", 1f);
+        set => Entity.SetField("Camera", "RenderScale", value);
+    }
+
+    public UpscaleFilter Upscale
+    {
+        get => System.Enum.TryParse(Entity.GetField<string>("Camera", "Upscale", "Bilinear"), out UpscaleFilter filter) ? filter : UpscaleFilter.Bilinear;
+        set => Entity.SetField("Camera", "Upscale", value.ToString());
+    }
+
+    public bool DynamicResolution
+    {
+        get => Entity.GetField<bool>("Camera", "DynamicResolution", false);
+        set => Entity.SetField("Camera", "DynamicResolution", value);
+    }
+
     // Renders every Nth frame (1 = every frame); the texture keeps its last image in between.
     public int UpdateInterval
     {
         get => Entity.GetField<int>("Camera", "UpdateInterval", 1);
         set => Entity.SetField("Camera", "UpdateInterval", value);
     }
+}
+
+
+// How a camera's scaled-down image is stretched to its output.
+public enum UpscaleFilter
+{
+    Bilinear,
+    Nearest,
+    Pixel,      // whole-number blocks, for pixel art
+    Sharp,      // Catmull-Rom plus contrast-adaptive sharpening
 }

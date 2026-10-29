@@ -169,6 +169,9 @@ public:
     // The project look's cap layer (LookPresets: its Caps, plus the Lite pipeline), combined like
     // the quality preset: the stricter cap wins. Default caps = none.
     void SetLookCaps( const HardwareProfile::FeatureCaps& InCaps );
+    // The player's graphics settings (PlayerSettings Graphics.RenderScale / DynamicResolution /
+    // Upscale; ME-275): passed to the renderer with the caps. InUpscale -1 keeps each camera's.
+    void SetPlayerGraphics( float InRenderScale, bool InDynamicResolution, int InUpscale );
     const std::string& GetQualityPresetName() const { return m_qualityName; }
     // What ApplyCaps hands the renderer: the enforced profile's caps and the quality preset's.
     HardwareProfile::FeatureCaps GetEffectiveCaps() const;
@@ -218,6 +221,9 @@ private:
     std::vector<QualityPreset> m_qualityPresets;
     std::string m_qualityName;
     HardwareProfile::FeatureCaps m_lookCaps;
+    float m_playerRenderScale = 1.f;
+    bool m_playerDynamicResolution = false;
+    int m_playerUpscale = -1;
 
     std::vector<Line> m_lines;
     // Per line: when it went over (seconds, < 0 while under) and whether that was logged.

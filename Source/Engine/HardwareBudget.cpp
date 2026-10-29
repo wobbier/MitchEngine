@@ -390,6 +390,15 @@ HardwareProfile::FeatureCaps HardwareBudget::GetEffectiveCaps() const
 }
 
 
+void HardwareBudget::SetPlayerGraphics( float InRenderScale, bool InDynamicResolution, int InUpscale )
+{
+    m_playerRenderScale = std::clamp( InRenderScale, 0.1f, 1.f );
+    m_playerDynamicResolution = InDynamicResolution;
+    m_playerUpscale = InUpscale;
+    ApplyCaps();
+}
+
+
 void HardwareBudget::SetLookCaps( const HardwareProfile::FeatureCaps& InCaps )
 {
     m_lookCaps = InCaps;
@@ -448,6 +457,9 @@ void HardwareBudget::ApplyCaps()
         out.TemporalAA = caps.TemporalAA;
         out.Instancing = caps.Instancing;
         out.MaxRenderScale = caps.MaxRenderScale;
+        out.PlayerRenderScale = m_playerRenderScale;
+        out.PlayerDynamicResolution = m_playerDynamicResolution;
+        out.PlayerUpscale = m_playerUpscale;
         // Render-resolution enforcement: cameras render no more pixels than the profile's resolution.
         const HardwareProfile* profile = m_enforced ? GetActiveProfile() : nullptr;
         out.MaxRenderPixels = profile && profile->Width > 0 && profile->Height > 0 ? uint64_t( profile->Width ) * uint64_t( profile->Height ) : 0;

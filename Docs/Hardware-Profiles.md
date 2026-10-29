@@ -138,6 +138,15 @@ Without enforcement the Hardware tab still reports what exceeds the target: came
 - **Game camera visibility in the editor.** Draw counts follow the game cameras that rendered this frame. When the Game view is hidden they follow the scene view, which can differ from the game camera.
 - **Not covered:** shader model and MRT limits (bgfx's shader profiles are per backend), shadow cascade count (fixed at four), the number of lights (reported, not enforced), and backbuffer MSAA (it doesn't affect scene targets; `Docs/Rendering-Pipeline.md`).
 
+### Edscript checks
+
+- **`budget-profile <name>`:** measures against a profile (`""` for none). It's measuring only: it turns enforcement off.
+- **`budget-mark`:** remembers every line's measure.
+- **`budget-assert <line> | used|width|height | <value> ~ tol`:** checks a line against a value.
+- **`budget-assert <line> | used|width|height | x<ratio> ~ tol`:** checks a line as a ratio of the mark.
+
+OptionsFlows uses these to prove `Graphics.RenderScale` 0.5 halves the Resolution line.
+
 ## Related Docs
 
 - `Docs/Architecture.md` — frame loop, `FrameStats`, automation flags

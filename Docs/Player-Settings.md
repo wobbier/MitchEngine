@@ -33,6 +33,9 @@ The player's own choices (graphics quality, volumes, rebinds, language, accessib
 | Key | Type | Drives |
 |-----|------|--------|
 | `Graphics.Quality` | string, `""` = no player caps | `HardwareBudget::SetQualityPreset` |
+| `Graphics.RenderScale` | number 0.5..1, `1` | `HardwareBudget::SetPlayerGraphics`: a scale on every game camera's own render scale, under the quality preset's and an enforced profile's caps; editor views and pixel-perfect cameras keep theirs (ME-275) |
+| `Graphics.DynamicResolution` | bool, `false` | `HardwareBudget::SetPlayerGraphics`: dynamic resolution on every game camera |
+| `Graphics.Upscale` | string, `""` = each camera's | `HardwareBudget::SetPlayerGraphics`: `Bilinear`, `Nearest`, `Pixel` or `Sharp` replaces each camera's filter |
 | `Audio.Master`, `Audio.Music`, `Audio.SFX`, `Audio.UI`, `Audio.Voice` | number 0..1 | `AudioCore::SetPlayerVolume` |
 | `Language` | string, `""` = no table | `RmlUiCore::SetLanguage` (only when it changes: a switch reloads every document) |
 | `Accessibility.TextScale` | number 0.5..3 | `RmlUiCore::SetTextScale` |

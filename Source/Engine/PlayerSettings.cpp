@@ -96,6 +96,10 @@ namespace
         {
             return std::make_pair( 0.5, 3.0 );
         }
+        if( InKey == "Graphics.RenderScale" )
+        {
+            return std::make_pair( 0.5, 1.0 );
+        }
         return std::nullopt;
     }
 
@@ -247,7 +251,7 @@ json PlayerSettings::Defaults()
     }
     return {
         { "Version", kVersion },
-        { "Graphics", { { "Quality", "" } } },
+        { "Graphics", { { "Quality", "" }, { "RenderScale", 1.0 }, { "DynamicResolution", false }, { "Upscale", "" } } },
         { "Audio", audio },
         { "Language", "" },
         { "Accessibility", { { "TextScale", 1.0 }, { "ReduceMotion", false } } },
@@ -495,6 +499,7 @@ void PlayerSettings::CaptureBindings()
 void PlayerSettings::Apply()
 {
     ApplyKey( "Graphics.Quality" );
+    ApplyKey( "Graphics.RenderScale" );
     for( int bus = 0; bus < static_cast<int>( AudioBus::Count ); ++bus )
     {
         ApplyKey( std::string( "Audio." ) + AudioBusName( static_cast<AudioBus>( bus ) ) );
@@ -518,6 +523,24 @@ void PlayerSettings::ApplyKey( const std::string& InKey )
         {
             BRUH( "Settings: quality preset '" + value->get<std::string>() + "' isn't defined (QualityPresets in HardwareProfiles.json)" );
         }
+    }
+    else if( ( InKey == "Graphics.RenderScale" || InKey == "Graphics.DynamicResolution" || InKey == "Graphics.Upscale" ) && m_targets.Budget )
+    {
+        // The three go together: a scale on every game camera, dynamic resolution, a filter.
+        const json* scale = Find( m_document, "Graphics.RenderScale" );
+        const json* dynamic = Find( m_document, "Graphics.DynamicResolution" );
+        const json* upscale = Find( m_document, "Graphics.Upscale" );
+        int filter = -1;
+        if( upscale && upscale->is_string() )
+        {
+            const std::string name = upscale->get<std::string>();
+            const char* filters[] = { "Bilinear", "Nearest", "Pixel", "Sharp" };
+            for( int i = 0; i < 4; ++i )
+            {
+                filter = name == filters[i] ? i : filter;
+            }
+        }
+        m_targets.Budget->SetPlayerGraphics( scale && scale->is_number() ? scale->get<float>() : 1.f, dynamic && dynamic->is_boolean() && dynamic->get<bool>(), filter );
     }
     else if( InKey.rfind( "Audio.", 0 ) == 0 && m_targets.Audio && value->is_number() )
     {

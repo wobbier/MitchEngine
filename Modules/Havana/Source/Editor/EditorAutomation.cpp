@@ -35,6 +35,9 @@
 #include "Cores/SceneCore.h"
 #include "Engine/Engine.h"
 #include "Engine/PlayerSettings.h"
+#include "Engine/HardwareBudget.h"
+#include <array>
+#include <map>
 #include "Engine/SaveGames.h"
 #include "Engine/LoadingScreen.h"
 #include "Engine/Localization.h"
@@ -1438,6 +1441,82 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             else if( !NearlyEqual( *actual, *saved, tolerance ) )
             {
                 Fail( name + " " + fieldText + " is " + actual->dump() + ", saved " + saved->dump() );
+            }
+        }
+    }
+    else if( command == "budget-profile" )
+    {
+        // budget-profile Steam Deck: the hardware profile whose budget lines are measured ("": none).
+        // Measuring only: the profile isn't enforced.
+        HardwareBudget::Get().SetEnforced( false );
+        HardwareBudget::Get().SetActiveProfile( args );
+    }
+    else if( command == "budget-mark" || command == "budget-assert" )
+    {
+        // budget-mark                                  remembers every budget line's measure
+        // budget-assert Resolution | width | x0.5 ~ 0.02   a ratio of the marked value
+        // budget-assert Resolution | width | 960 ~ 2       or a value (fields: used, width, height)
+        static std::map<std::string, std::array<double, 3>> s_marks;
+        auto measure = []( const HardwareBudget::Line& InLine ) {
+            return std::array<double, 3>{ InLine.Used, static_cast<double>( InLine.Width ), static_cast<double>( InLine.Height ) };
+        };
+        if( command == "budget-mark" )
+        {
+            for( const HardwareBudget::Line& line : HardwareBudget::Get().GetLines() )
+            {
+                s_marks[line.Name] = measure( line );
+            }
+        }
+        else
+        {
+            std::vector<std::string> parts;
+            for( size_t start = 0; start <= args.size(); )
+            {
+                const size_t bar = args.find( '|', start );
+                const size_t end = bar == std::string::npos ? args.size() : bar;
+                std::string part = args.substr( start, end - start );
+                part.erase( 0, part.find_first_not_of( ' ' ) );
+                part.erase( part.find_last_not_of( ' ' ) + 1 );
+                parts.push_back( part );
+                start = end + 1;
+            }
+            const HardwareBudget::Line* found = nullptr;
+            for( const HardwareBudget::Line& line : HardwareBudget::Get().GetLines() )
+            {
+                found = parts.size() == 3 && parts[0] == line.Name ? &line : found;
+            }
+            const int field = parts.size() == 3 ? ( parts[1] == "used" ? 0 : parts[1] == "width" ? 1 : parts[1] == "height" ? 2 : -1 ) : -1;
+            if( !found || field < 0 )
+            {
+                Fail( "budget-assert: expected <line> | used|width|height | <value or xRatio> [~ tolerance], got " + args );
+            }
+            else
+            {
+                std::string expectedText = parts[2];
+                double tolerance = 1e-6;
+                if( const size_t tilde = expectedText.find( '~' ); tilde != std::string::npos )
+                {
+                    tolerance = std::atof( expectedText.c_str() + tilde + 1 );
+                    expectedText = expectedText.substr( 0, tilde );
+                }
+                const double actual = measure( *found )[field];
+                double expected = std::atof( expectedText.c_str() + ( expectedText.rfind( 'x', 0 ) == 0 ? 1 : 0 ) );
+                bool ok = true;
+                if( expectedText.rfind( 'x', 0 ) == 0 )
+                {
+                    auto mark = s_marks.find( found->Name );
+                    ok = mark != s_marks.end() && mark->second[field] > 0.0;
+                    // A ratio: compared as one, so the tolerance is relative.
+                    const double ratio = ok ? actual / mark->second[field] : 0.0;
+                    if( !ok || std::abs( ratio - expected ) > tolerance )
+                    {
+                        Fail( "budget " + parts[0] + " " + parts[1] + " is " + std::to_string( actual ) + ", " + std::to_string( ratio ) + " of the mark; expected " + parts[2] );
+                    }
+                }
+                else if( std::abs( actual - expected ) > tolerance )
+                {
+                    Fail( "budget " + parts[0] + " " + parts[1] + " is " + std::to_string( actual ) + ", expected " + parts[2] );
+                }
             }
         }
     }

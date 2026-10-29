@@ -172,6 +172,11 @@ public:
         bool Instancing = true;              // off: every instanced mesh is its own draw call
         float MaxRenderScale = 0.f;          // cameras' render scale ceiling (0 = no cap)
         uint64_t MaxRenderPixels = 0;        // internal pixels per camera (0 = no cap): the profile's resolution
+        // The player's graphics settings (ME-275), on every game camera: a scale on its own
+        // RenderScale, dynamic resolution forced on, an upscale filter (-1: the camera's).
+        float PlayerRenderScale = 1.f;
+        bool PlayerDynamicResolution = false;
+        int PlayerUpscale = -1;
     };
     FeatureCapSettings FeatureCaps;
 
