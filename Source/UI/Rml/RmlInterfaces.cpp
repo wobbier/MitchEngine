@@ -6,6 +6,7 @@
 #include "CLog.h"
 #include "Engine/Localization.h"
 #include "Path.h"
+#include "Resource/ResourceCache.h"
 #include "VFS/VFS.h"
 
 double RmlSystemInterface::GetElapsedTime()
@@ -52,9 +53,34 @@ bool RmlSystemInterface::LogMessage( Rml::Log::Type InType, const Rml::String& I
 }
 
 
+std::map<std::string, std::string> RmlFileInterface::s_overrides;
+
+
+void RmlFileInterface::SetOverride( const std::string& InPath, const std::string& InText )
+{
+    s_overrides[ResourceCache::CacheKey( InPath )] = InText;
+}
+
+
+void RmlFileInterface::ClearOverride( const std::string& InPath )
+{
+    s_overrides.erase( ResourceCache::CacheKey( InPath ) );
+}
+
+
 Rml::FileHandle RmlFileInterface::Open( const Rml::String& InPath )
 {
     const Path resolved( InPath );
+    if( !s_overrides.empty() )
+    {
+        const auto found = s_overrides.find( ResourceCache::CacheKey( resolved ) );
+        if( found != s_overrides.end() )
+        {
+            auto* file = new OpenFile();
+            file->Bytes.assign( found->second.begin(), found->second.end() );
+            return reinterpret_cast<Rml::FileHandle>( file );
+        }
+    }
     if( !resolved.Exists )
     {
         return 0;

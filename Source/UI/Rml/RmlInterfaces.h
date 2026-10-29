@@ -46,7 +46,14 @@ public:
     bool Seek( Rml::FileHandle InFile, long InOffset, int InOrigin ) override;
     size_t Tell( Rml::FileHandle InFile ) override;
 
+    // Unsaved text served in place of a file (the UI designer's live preview, UI-6): reads of
+    // InPath (any spelling ResourceCache::CacheKey maps to the same key) get InText until cleared.
+    static void SetOverride( const std::string& InPath, const std::string& InText );
+    static void ClearOverride( const std::string& InPath );
+
 private:
+    static std::map<std::string, std::string> s_overrides;
+
     struct OpenFile
     {
         std::vector<uint8_t> Bytes;

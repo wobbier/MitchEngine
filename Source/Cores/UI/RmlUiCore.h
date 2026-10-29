@@ -59,6 +59,10 @@ public:
         Rml::ElementDocument* Document = nullptr;
     };
     std::vector<LoadedDocument> GetLoadedDocuments();
+    // The designer's live preview: documents and stylesheets read InText for InPath (an .rml or
+    // .rcss) instead of the file, reloaded like a hot reload. Clearing reloads from the file.
+    void SetSourceOverride( const std::string& InPath, const std::string& InText );
+    void ClearSourceOverride( const std::string& InPath );
 
     // Engine-owned documents with no entity (loading screens, splashes): they stay up while the
     // scene changes under them. Shown from the next update; InSortOrder stacks them like a
@@ -80,6 +84,8 @@ public:
     void ModelRegisterEvent( const std::string& InModel, const std::string& InKey );
     double ModelGetNumber( const std::string& InModel, const std::string& InKey ) const;
     std::string ModelGetString( const std::string& InModel, const std::string& InKey ) const;
+    // The model's values as text, by key (the UI designer's Bindings panel).
+    std::vector<std::pair<std::string, std::string>> ModelListValues( const std::string& InModel ) const;
     // Pops the oldest queued data-event name ("" when none are waiting).
     std::string ModelPollEvent( const std::string& InModel );
 

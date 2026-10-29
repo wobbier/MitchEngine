@@ -103,16 +103,24 @@ Three levels, simplest first:
 - **Cooking:** the cooker ships the folders of those documents.
 - **Proof:** `LoadingFlows.edscript` (the `load-scene-async` and `play-splash` commands; a capture mid-load).
 
-### The UI designer (UI-6, first phase)
+### The UI designer (UI-6)
 
-**Window > UI Designer** (`Modules/Havana/Source/Widgets/UIDesigner/`) edits a loaded document:
-- **Tree:** the document's element tree (`tag#id.class`). Click an element with an id to select it.
-- **Styles:** its inline styles (color, background, font size, size, margin, padding, alignment) as fields. An edit applies to the live element at once.
-- **Write-back:** `RmlSourceEdit` (`Source/UI/Rml/RmlSourceEdit.h`) writes the edit into the `.rml` surgically: only that element's start tag changes, so whitespace, comments and attribute order survive, and the file stays the source of truth.
-- **Saving:** Save writes it, and hot reload re-renders. Undo steps back through the document's edits.
-- **Flow commands:** `designer-open <entity>`, `designer-select <selector>`, `designer-set <property> | <value>`, `designer-save`, `designer-undo`, plus `assert-file-contains <path> | <text>` (`!=` negates).
-- **Proof:** `UIDesignerFlows.edscript`, with `RmlSourceEditTests.cpp` for the write-back.
-- **Still to come:** an offscreen preview with device presets, picking in the view, computed styles, a widget palette, a binding panel from the C# schema, and RCSS rule write-back.
+**Window > UI Designer** (`Modules/Havana/Source/Widgets/UIDesigner/`) edits a loaded document and the stylesheets it links:
+- **Tree:** the document's element tree (`tag#id.class`). Click an element with an id to select it, or press **Pick** and click it in the Game view (the nearest ancestor with an id is selected). An orange outline marks the selection over the Game view.
+- **Style tab:** the color, background, font size, size, margin, padding and alignment as fields. They are written to the element's **inline style** in the `.rml` or to the **stylesheet rule** `#id`: the last linked `.rcss` that has that rule, else a new rule at the end of the first one.
+- **Computed tab:** the border box (position and size in UI pixels) and every property RmlUi resolved. Properties set on the element come first; inherited ones and defaults are dimmed. It has a filter box.
+- **Bindings tab:** the element's `data-*` attributes, plus its data model's current values (Copy puts `{{ key }}` on the clipboard).
+- **Palette tab:** adds a panel, heading, text, button, image, text field, slider or checkbox as the selection's last child, each with a fresh id. Delete removes the selected element.
+- **Preview:** the Game view's display presets (Freeform, aspect ratios, 720p, 1080p, 1440p, **Steam Deck** 1280×800). The UI lays out at the preset's size, and the Game view letterboxes it.
+- **Write-back:** `RmlSourceEdit` (`Source/UI/Rml/RmlSourceEdit.h`) edits the text surgically. Only the edited start tag, declaration or element's lines change, so whitespace, comments and attribute order survive and the files stay the source of truth.
+- **Live preview:** unsaved text is served to RmlUi in place of the files (`RmlUiCore::SetSourceOverride`, through `RmlFileInterface`) and reloaded like a hot reload. Save writes the files and drops the overrides. Undo steps back through every edit, across files. Opening another document discards unsaved edits, and the log says so.
+- **Flow commands:**
+  - `designer-open <entity>`, `designer-select <selector>`, `designer-pick <x> <y>` (UI pixels)
+  - `designer-set <property> | <value>` (inline), `designer-rule <selector> | <property>: <value>` (an empty value removes)
+  - `designer-insert <div|h1|p|button|img|text|range|checkbox>`, `designer-delete`
+  - `designer-preview <preset>`, `designer-save`, `designer-undo`
+  - Assertions: `designer-assert-selected #id`, `designer-assert-computed <property> | <value>` (as RmlUi prints it: colors are `#rrggbb`), `designer-assert-preview <w>x<h>`, `assert-file-contains <path> | <text>` (`!=` negates)
+- **Proof:** `UIDesignerFlows.edscript` (inline and rule edits, a Steam Deck preview, picking, a palette button added and deleted; both test files end as committed), with `RmlSourceEditTests.cpp` for the write-back.
 
 ### Hot reload
 

@@ -39,6 +39,8 @@
 #include "Engine/LoadingScreen.h"
 #include "Engine/Localization.h"
 #include "Widgets/UIDesigner/UIDesignerWidget.h"
+#include "Cores/UI/RmlUiCore.h"
+#include <RmlUi/Core/Context.h>
 #include "VFS/VFS.h"
 #include "Engine/Input.h"
 #include <SDL_keyboard.h>
@@ -575,6 +577,13 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         // designer-open UI            the UIDocument on that entity (its .rml source)
         // designer-select #title      an element by selector (it needs an id)
         // designer-set color | #ff3366   an inline style, live and in the source ("" removes)
+        // designer-rule #hint | color: #ff3366   a declaration in a stylesheet rule ("color:" removes)
+        // designer-insert button      a palette widget as the selection's last child (selects it)
+        // designer-delete             removes the selected element
+        // designer-pick 300 110       selects what's at a point (context pixels)
+        // designer-preview Steam Deck the Game view's display preset
+        // designer-assert-selected #title, designer-assert-preview 1280x800
+        // designer-assert-computed color | #ff3366   (as RmlUi prints it)
         // designer-save, designer-undo
         UIDesignerWidget* designer = InApp.Editor ? InApp.Editor->GetUIDesigner() : nullptr;
         auto [first, second] = SplitArgs( args );
@@ -584,6 +593,43 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         else if( command == "designer-open" ) ok = designer->Open( args, error );
         else if( command == "designer-select" ) ok = designer->Select( args, error );
         else if( command == "designer-set" ) ok = designer->SetStyle( first, second, error );
+        else if( command == "designer-rule" )
+        {
+            const size_t colon = second.find( ':' );
+            ok = colon != std::string::npos;
+            error = "usage: designer-rule <selector> | <property>: <value>";
+            if( ok ) ok = designer->SetRule( first, Trim( second.substr( 0, colon ) ), Trim( second.substr( colon + 1 ) ), error );
+        }
+        else if( command == "designer-insert" ) ok = designer->Insert( args, error );
+        else if( command == "designer-delete" ) ok = designer->DeleteSelected( error );
+        else if( command == "designer-pick" )
+        {
+            float x = 0.f;
+            float y = 0.f;
+            ok = std::sscanf( args.c_str(), "%f %f", &x, &y ) == 2;
+            error = "usage: designer-pick <x> <y>";
+            if( ok ) ok = designer->PickAt( x, y, error );
+        }
+        else if( command == "designer-preview" ) ok = designer->SetPreview( args, error );
+        else if( command == "designer-assert-selected" )
+        {
+            ok = "#" + designer->GetSelectedId() == args;
+            error = "selected #" + designer->GetSelectedId() + ", not " + args;
+        }
+        else if( command == "designer-assert-computed" )
+        {
+            const std::string value = designer->GetComputed( first );
+            ok = value == second;
+            error = first + " is '" + value + "', not '" + second + "'";
+        }
+        else if( command == "designer-assert-preview" )
+        {
+            RmlUiCore* core = GetEngine().RmlUi;
+            const Rml::Vector2i size = core && core->GetContext() ? core->GetContext()->GetDimensions() : Rml::Vector2i( 0, 0 );
+            const std::string actual = std::to_string( size.x ) + "x" + std::to_string( size.y );
+            ok = actual == args;
+            error = "the UI is " + actual + ", not " + args;
+        }
         else if( command == "designer-save" ) ok = designer->Save( error );
         else if( command == "designer-undo" ) { ok = designer->Undo(); error = "nothing to undo"; }
         else { ok = false; error = "unknown command"; }

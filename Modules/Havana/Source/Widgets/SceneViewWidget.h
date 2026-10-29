@@ -69,6 +69,12 @@ public:
 	// The OS window showing the viewport image and the image's rectangle in that window's
 	// coordinates; false when the image wasn't shown this frame (closed, hidden tab, collapsed).
 	bool GetImageWindowRect(SDL_Window*& OutWindow, Vector2& OutMin, Vector2& OutSize) const;
+	// Draws over the viewport image (the UI designer's selection outline): the foreground list
+	// of the image's OS window and the image's screen rectangle; null when it wasn't shown.
+	ImDrawList* GetImageDrawList(Vector2& OutMin, Vector2& OutSize) const;
+	// The display presets ("Freeform", "1080p", "Steam Deck", ...): false for an unknown name.
+	bool SetDisplayPreset(const std::string& InName);
+	std::vector<std::string> GetDisplayPresetNames() const;
 
 	Moonlight::CameraData* MainCamera = nullptr;
 	EditorApp* App = nullptr;

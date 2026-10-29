@@ -329,6 +329,20 @@ std::vector<RmlUiCore::LoadedDocument> RmlUiCore::GetLoadedDocuments()
 }
 
 
+void RmlUiCore::SetSourceOverride( const std::string& InPath, const std::string& InText )
+{
+    RmlFileInterface::SetOverride( InPath, InText );
+    m_changedUIFiles.push_back( InPath );
+}
+
+
+void RmlUiCore::ClearSourceOverride( const std::string& InPath )
+{
+    RmlFileInterface::ClearOverride( InPath );
+    m_changedUIFiles.push_back( InPath );
+}
+
+
 bool RmlUiCore::ToggleDocument( const std::string& InEntityName )
 {
     return SetDocumentVisible( InEntityName, !IsDocumentVisible( InEntityName ) );
@@ -727,6 +741,22 @@ std::string RmlUiCore::ModelGetString( const std::string& InModel, const std::st
         return {};
     }
     return value->second.IsString ? value->second.String : std::to_string( value->second.Number );
+}
+
+
+std::vector<std::pair<std::string, std::string>> RmlUiCore::ModelListValues( const std::string& InModel ) const
+{
+    std::vector<std::pair<std::string, std::string>> values;
+    const auto model = m_models.find( InModel );
+    if( model == m_models.end() )
+    {
+        return values;
+    }
+    for( const auto& [key, value] : model->second.Values )
+    {
+        values.emplace_back( key, value.IsString ? "\"" + value.String + "\"" : Rml::ToString( value.Number ) );
+    }
+    return values;
 }
 
 

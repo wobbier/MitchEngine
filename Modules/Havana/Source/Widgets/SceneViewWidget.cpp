@@ -186,6 +186,8 @@ void SceneViewWidget::Init()
 	DisplayOptions.push_back({ "4:3", { 4, 3 }, DisplayType::Ratio });
 	DisplayOptions.push_back({ "720p", { 1280, 720 }, DisplayType::Fixed });
 	DisplayOptions.push_back({ "1080p", { 1920, 1080 }, DisplayType::Fixed });
+	DisplayOptions.push_back({ "1440p", { 2560, 1440 }, DisplayType::Fixed });
+	DisplayOptions.push_back({ "Steam Deck", { 1280, 800 }, DisplayType::Fixed });
 
 	EditorConfig& config = EditorConfig::GetInstance();
 	MaximizeOnPlayPreference = config.GetPreference<bool>("GameView.MaximizeOnPlay", false);
@@ -407,6 +409,40 @@ void SceneViewWidget::WrapNavigationCursor()
 	// Reset ImGui's delta baseline so the warp does not rotate the camera next frame.
 	ImGui::TeleportMousePos(mouse);
 	io.WantSetMousePos = false; // SDL already moved it; avoid a second warp next frame.
+}
+
+
+bool SceneViewWidget::SetDisplayPreset(const std::string& InName)
+{
+	for (const DisplayParams& params : DisplayOptions)
+	{
+		if (params.Name == InName)
+		{
+			CurrentDisplayParams = params;
+			return true;
+		}
+	}
+	return false;
+}
+
+
+std::vector<std::string> SceneViewWidget::GetDisplayPresetNames() const
+{
+	std::vector<std::string> names;
+	for (const DisplayParams& params : DisplayOptions)
+	{
+		names.push_back(params.Name);
+	}
+	return names;
+}
+
+
+ImDrawList* SceneViewWidget::GetImageDrawList(Vector2& OutMin, Vector2& OutSize) const
+{
+	ImGuiViewport* viewport = m_imageShown ? ImGui::FindViewportByID(m_viewportId) : nullptr;
+	OutMin = m_viewportScreenMin;
+	OutSize = m_viewportScreenSize;
+	return viewport && OutSize.x > 1.f && OutSize.y > 1.f ? ImGui::GetForegroundDrawList(viewport) : nullptr;
 }
 
 
