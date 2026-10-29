@@ -21,11 +21,10 @@ public:
     bool LogMessage( Rml::Log::Type InType, const Rml::String& InMessage ) override;
     void SetMouseCursor( const Rml::String& InCursorName ) override;
     // The localization hook: document text that exactly matches a string-table key (whitespace
-    // trimmed) renders its translation. RmlUiCore::SetLanguage fills the table.
+    // trimmed) renders its translation (Localization, Engine/Source/Engine/Localization.h).
     int TranslateString( Rml::String& OutTranslated, const Rml::String& InInput ) override;
 
     void AdvanceTime( double InDeltaSeconds );
-    void SetStringTable( std::map<std::string, std::string> InTable );
 
     // The cursor the UI wants ("" = default); RmlUiCore applies it through SDL.
     const Rml::String& GetRequestedCursor() const { return m_cursor; }
@@ -33,7 +32,6 @@ public:
 private:
     double m_elapsedTime = 0.0;
     Rml::String m_cursor;
-    std::map<std::string, std::string> m_strings;
 };
 
 // Documents, stylesheets and fonts read through the VFS, so overlays (and later paks and mods)

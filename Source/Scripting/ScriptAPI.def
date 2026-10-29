@@ -251,3 +251,8 @@ float SaveGame_GetPlaytime()
 bool World_LoadSceneAsync( cstr scene, cstr loadingDocument )
 float World_GetLoadProgress()
 bool World_IsLoadingScene()
+
+## Localization (PLAY-6): string tables by key (Engine/Docs/Localization.md); a missing key returns itself.
+int Loc_Get( cstr key, byte* outText, int size )
+int Loc_GetLanguage( byte* outCode, int size )
+int Loc_GetLanguages( byte* outCodes, int size )

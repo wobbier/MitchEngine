@@ -21,6 +21,7 @@
 #include "UI/Rml/RmlRenderInterface.h"
 #include "UI/Rml/RmlSettings.h"
 #include "Engine/LoadingScreen.h"
+#include "Engine/Localization.h"
 #include <RmlUi/Core.h>
 #include <RmlUi/Debugger.h>
 #include <SDL_mouse.h>
@@ -864,34 +865,10 @@ void RmlUiCore::SetTextScale( float InScale )
 void RmlUiCore::SetLanguage( const std::string& InCode )
 {
     m_language = InCode;
-    std::map<std::string, std::string> table;
-    if( !InCode.empty() )
-    {
-        std::string contents;
-        if( !VFS::Get().ReadText( std::string( "Assets/UI/Strings/" ) + InCode + ".json", contents ) )
-        {
-            YIKES( "[UI] No string table for language '" + InCode + "'" );
-        }
-        else
-        {
-            const json root = json::parse( contents, nullptr, false );
-            if( root.is_object() )
-            {
-                for( const auto& [key, value] : root.items() )
-                {
-                    if( value.is_string() )
-                    {
-                        table[key] = value.get<std::string>();
-                    }
-                }
-            }
-        }
-    }
-    const size_t count = table.size();
-    s_systemInterface.SetStringTable( std::move( table ) );
+    Localization::Get().SetLanguage( InCode );
     // Translation happens at document load: rebuild what's on screen.
     m_modelsMaterialized = true;
-    INFO( "UI", "UI: language '" + InCode + "' (" + std::to_string( count ) + " strings)" );
+    INFO( "UI", "UI: language '" + InCode + "' (" + std::to_string( Localization::LoadTable( InCode ).size() ) + " strings)" );
 }
 
 

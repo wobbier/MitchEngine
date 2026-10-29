@@ -33,6 +33,7 @@
 #include "Bindings/Systems/UIModel.bindings.h"
 #include "Bindings/Systems/Settings.bindings.h"
 #include "Bindings/Systems/SaveGame.bindings.h"
+#include "Bindings/Systems/Localization.bindings.h"
 
 namespace fs = std::filesystem;
 
@@ -463,6 +464,7 @@ static int StartRuntime()
     Register_UIModelBindings( engineApi );
     Register_SettingsBindings( engineApi );
     Register_SaveGameBindings( engineApi );
+    Register_LocalizationBindings( engineApi );
 
     // Every slot of the generated table must be filled, or a script call would jump to null.
     static_assert( sizeof( ScriptEngineAPI ) % sizeof( void* ) == 0, "ScriptEngineAPI holds only function pointers" );

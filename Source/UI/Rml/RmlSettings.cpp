@@ -7,6 +7,7 @@
 #include "Engine/Engine.h"
 #include "Engine/HardwareBudget.h"
 #include "Engine/Input.h"
+#include "Engine/Localization.h"
 #include "Engine/PlayerSettings.h"
 #include "Input/InputActions.h"
 #include "JSON.h"
@@ -109,7 +110,7 @@ namespace
         if( InValue.is_boolean() )
         {
             const bool on = InValue.get<bool>();
-            return InFormat == "onoff" || InFormat.empty() ? ( on ? "On" : "Off" ) : ( on ? "true" : "false" );
+            return Localization::Get().Get( on ? "On" : "Off" );
         }
         if( InValue.is_number() )
         {
@@ -127,14 +128,14 @@ namespace
             {
                 std::snprintf( text, sizeof( text ), "%g", number );
             }
+            Localization::Get().MarkData( text );
             return text;
         }
-        if( InValue.is_string() )
+        if( InValue.is_string() && !InValue.get<std::string>().empty() )
         {
-            const std::string text = InValue.get<std::string>();
-            return text.empty() ? InEmpty : text;
+            return Localization::Get().Get( InValue.get<std::string>() );
         }
-        return InEmpty;
+        return InEmpty.empty() ? InEmpty : Localization::Get().Get( InEmpty );
     }
 
 
@@ -144,8 +145,16 @@ namespace
         const std::vector<std::string> parts = Split( InBinding, '|' );
         const size_t index = parts.size() > 1 ? static_cast<size_t>( std::max( 0, std::atoi( parts[1].c_str() ) ) ) : 0;
         const std::string part = parts.size() > 2 ? parts[2] : std::string();
-        const std::string control = InBinding == s_rebinding ? std::string( "Press a key..." ) : Actions().GetBindingPartDisplay( parts[0], index, part );
-        return InLabel.empty() ? control : InLabel + ": " + control;
+        // Key names are data; the prompt and the part labels translate.
+        std::string control = Actions().GetBindingPartDisplay( parts[0], index, part );
+        Localization::Get().MarkData( control );
+        if( InBinding == s_rebinding )
+        {
+            control = Localization::Get().Get( "Press a key..." );
+        }
+        const std::string text = InLabel.empty() ? control : Localization::Get().Get( InLabel ) + ": " + control;
+        Localization::Get().MarkData( text );
+        return text;
     }
 
 
@@ -166,8 +175,11 @@ namespace
 
 
     // Only touches the element when the text changes: rewriting it would restart transitions.
+    // The text is already translated (Localization::Get) or data, so RmlUi's pass over it at parse
+    // mustn't report it missing.
     void SetText( Rml::Element& InElement, const std::string& InText )
     {
+        Localization::Get().MarkData( InText );
         const std::string escaped = Escape( InText );
         if( InElement.GetInnerRML() != escaped )
         {
@@ -196,29 +208,15 @@ namespace
 
     std::string LanguageChoices()
     {
-        // "" (nothing after the bar) keeps the documents' own text; each string table can name
-        // itself ("language.name").
+        // "" (nothing after the bar) keeps the documents' own text. Each language shows its own
+        // name ("language.name"), which is data in every other language.
         std::string rml = ChoiceButton( "language-default", "Language", "", "Default" );
-        VFS::Get().Enumerate( "Assets/UI/Strings", false, [&rml]( const std::string& InPath, bool InIsDirectory ) {
-            const size_t slash = InPath.find_last_of( '/' );
-            const std::string file = InPath.substr( slash == std::string::npos ? 0 : slash + 1 );
-            if( InIsDirectory || file.size() < 6 || file.compare( file.size() - 5, 5, ".json" ) != 0 )
-            {
-                return;
-            }
-            const std::string code = file.substr( 0, file.size() - 5 );
-            std::string label = code;
-            std::string text;
-            if( VFS::Get().ReadText( InPath, text ) )
-            {
-                const json table = json::parse( text, nullptr, false );
-                if( table.is_object() && table.contains( "language.name" ) && table["language.name"].is_string() )
-                {
-                    label = table["language.name"].get<std::string>();
-                }
-            }
+        for( const std::string& code : Localization::Get().GetLanguages() )
+        {
+            const std::string label = Localization::Get().GetLanguageName( code );
+            Localization::Get().MarkData( label );
             rml += ChoiceButton( "language-" + IdPart( code ), "Language", code, label );
-        } );
+        }
         return rml;
     }
 

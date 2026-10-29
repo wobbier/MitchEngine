@@ -36,6 +36,7 @@
 #include "Engine/PlayerSettings.h"
 #include "Engine/SaveGames.h"
 #include "Engine/LoadingScreen.h"
+#include "Engine/Localization.h"
 #include "Engine/Input.h"
 #include <SDL_keyboard.h>
 #include "Engine/World.h"
@@ -1039,6 +1040,24 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         else if( input.GetAction( actionName ).IsPressed() != ( expectedText == "true" ) )
         {
             Fail( "action " + actionName + " is " + ( input.GetAction( actionName ).IsPressed() ? "pressed" : "not pressed" ) + ", expected " + ( expectedText == "true" ? "pressed" : "not pressed" ) );
+        }
+    }
+    else if( command == "loc-assert-missing" || command == "loc-clear-missing" )
+    {
+        // loc-assert-missing 0   (text looked up with no translation since the language was set)
+        Localization& localization = Localization::Get();
+        if( command == "loc-clear-missing" )
+        {
+            localization.ClearMissing();
+        }
+        else if( static_cast<int>( localization.GetMissing().size() ) != std::atoi( args.c_str() ) )
+        {
+            std::string list;
+            for( const std::string& missing : localization.GetMissing() )
+            {
+                list += ( list.empty() ? "" : ", " ) + ( "'" + missing + "'" );
+            }
+            Fail( std::to_string( localization.GetMissing().size() ) + " untranslated in '" + localization.GetLanguage() + "', expected " + args + ": " + list );
         }
     }
     else if( command == "load-scene-async" )

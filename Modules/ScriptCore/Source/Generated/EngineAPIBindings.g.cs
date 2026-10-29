@@ -252,4 +252,9 @@ public unsafe struct EngineAPIBindings
     public delegate* unmanaged<byte*, byte*, byte> World_LoadSceneAsync;
     public delegate* unmanaged<float> World_GetLoadProgress;
     public delegate* unmanaged<byte> World_IsLoadingScene;
+
+    // Localization (PLAY-6): string tables by key (Engine/Docs/Localization.md); a missing key returns itself.
+    public delegate* unmanaged<byte*, byte*, int, int> Loc_Get;
+    public delegate* unmanaged<byte*, int, int> Loc_GetLanguage;
+    public delegate* unmanaged<byte*, int, int> Loc_GetLanguages;
 }

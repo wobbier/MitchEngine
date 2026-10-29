@@ -38,6 +38,7 @@
 #include "Editor/WidgetRegistry.h"
 #include "Window/IWindow.h"
 #include "Widgets/HistoryWidget.h"
+#include "Widgets/LocalizationWidget.h"
 #include "Widgets/SequenceWidget.h"
 #include "Widgets/ProfilerWidget.h"
 #include "Widgets/SettingsWidgets.h"
@@ -129,6 +130,8 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
 
     History.reset( new HistoryWidget() );
     RegisteredWidgets.push_back( History );
+    LocalizationTables.reset( new LocalizationWidget() );
+    RegisteredWidgets.push_back( LocalizationTables );
 
     Sequencer.reset( new SequenceWidget() );
     RegisteredWidgets.push_back( Sequencer );
@@ -341,6 +344,7 @@ void Havana::NewFrame()
     AssetBrowser->Render();
     ResourceMonitor->Render();
     History->Render();
+    LocalizationTables->Render();
     Sequencer->Render();
     Profiler->Render();
     Preferences->Render();

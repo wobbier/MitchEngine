@@ -236,11 +236,11 @@ TEST_CASE( "Project Hub: every engine template is a complete C#-only project" )
     }
     // Every template is a full project folder (openable on its own to edit it), so the files they
     // all share are kept identical to Empty's: the scripts project, the ignore list, the input map,
-    // the default editor layout and the pause menu script.
+    // the default editor layout, the pause menu script and the English table (the actions' names).
     for( const ProjectLibrary::Template& entry : templates )
     {
         INFO( entry.Id );
-        for( const char* shared : { "Project/Game.Script.csproj", ".gitignore", "Assets/Config/Input.inputactions", "Assets/Config/imgui.cfg", "Assets/Scripts/PauseMenu.cs" } )
+        for( const char* shared : { "Project/Game.Script.csproj", ".gitignore", "Assets/Config/Input.inputactions", "Assets/Config/imgui.cfg", "Assets/Scripts/PauseMenu.cs", "Assets/Localization/en.json" } )
         {
             INFO( shared );
             REQUIRE( fs::is_regular_file( entry.Directory + "/" + shared ) );

@@ -31,6 +31,7 @@ Technical documentation for MitchEngine — a C++20, ECS-based game engine built
 | [UI-RmlUi-and-ImGui.md](UI-RmlUi-and-ImGui.md) | RmlUi game UI (documents, inline actions, C# view models, navigation, hot reload, Ultralight migration) and ImGui |
 | [Editor-Havana.md](Editor-Havana.md) | `EditorApp`/`Havana`, widgets, command/undo system, entity picking, play-in-editor lifecycle |
 | [Input.md](Input.md) | Action maps (`.inputactions`): contexts with priority and consumption, control paths, composites, rebinding and overrides; gamepads (hotplug slots, deadzones, rumble) |
+| [Localization.md](Localization.md) | String tables per language (`Assets/Localization/<code>.json` over the engine's), RmlUi text translation, C# `Loc`, the `qps` pseudo-locale, the missing-string report and the editor's Localization window |
 | [Save-Games.md](Save-Games.md) | Save slots in `user://Saves`: world snapshots with `[Save]` script fields, metadata and thumbnails, atomic async writes, queued loads, migrations; C# `SaveGame` |
 | [Player-Settings.md](Player-Settings.md) | The player's settings in `user://Settings.json`: quality presets, bus volumes, persisted rebinds, language, accessibility, game values; C# `Settings`, hermetic automated runs and `--user-dir` |
 | [Hardware-Profiles.md](Hardware-Profiles.md) | Target hardware profiles ("Xbox 360", "2004 PC"): frame, memory and draw budgets measured every frame, editor and HUD verdicts, enforced GPU feature caps, perf-report budgets |

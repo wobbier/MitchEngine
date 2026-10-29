@@ -263,4 +263,9 @@ struct ScriptEngineAPI
     bool ( *World_LoadSceneAsync )( const uint8_t* scene, const uint8_t* loadingDocument );
     float ( *World_GetLoadProgress )();
     bool ( *World_IsLoadingScene )();
+
+    // Localization (PLAY-6): string tables by key (Engine/Docs/Localization.md); a missing key returns itself.
+    int ( *Loc_Get )( const uint8_t* key, uint8_t* outText, int size );
+    int ( *Loc_GetLanguage )( uint8_t* outCode, int size );
+    int ( *Loc_GetLanguages )( uint8_t* outCodes, int size );
 };
