@@ -18,7 +18,7 @@ struct NetVersion
     uint64_t Build = 0;         // the game (product name + version) and the engine's net protocol
     uint64_t ScriptSchema = 0;  // the C# script classes (NET-3 adds their replicated fields)
     uint64_t ModSet = 0;        // net-required mods (MOD-3); 0 = none
-    uint64_t Scene = 0;         // the placed entities (static NetIds): the scene's GUIDs, sorted
+    uint64_t Scene = 0;         // the placed networked entities (static NetIds): their GUIDs, sorted
 
     void Write( BitWriter& InWriter ) const;
     static NetVersion Read( BitReader& InReader );

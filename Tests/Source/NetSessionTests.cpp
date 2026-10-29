@@ -197,7 +197,9 @@ TEST_CASE( "Net: a client with another build or scene is rejected and told why" 
     // A different set of placed entities.
     Harness scene( Link( 20.f, 0.f, 0.f, 1 ), Link( 20.f, 0.f, 0.f, 2 ) );
     scene.Place( 0xAB );
-    scene.ClientWorld->CreateEntityWithGUID( 0xCD )->AddComponent<Transform>();
+    EntityHandle extra = scene.ClientWorld->CreateEntityWithGUID( 0xCD );
+    extra->AddComponent<Transform>();
+    extra->AddComponent<NetIdentity>();
     scene.Start();
     scene.Run( 1.0 );
     CHECK( scene.ClientNet.GetClient()->GetState() == NetClient::State::Rejected );

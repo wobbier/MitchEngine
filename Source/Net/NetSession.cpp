@@ -13,7 +13,7 @@ namespace
     constexpr float kSlackRange = 64.f;
     constexpr int kSlackBits = 14;
 
-    void Send( NetConnection& InConnection, const BitWriter& InWriter, bool InReliable )
+    void SendOn( NetConnection& InConnection, const BitWriter& InWriter, bool InReliable )
     {
         if( InReliable )
         {
@@ -94,7 +94,16 @@ void NetServer::Receive( double InNow )
 void NetServer::HandleReliable( Client& InClient, const std::vector<uint8_t>& InMessage )
 {
     BitReader reader( InMessage );
-    if( reader.ReadBits( 8 ) != NetMessage::Hello || InClient.Accepted || InClient.Rejected )
+    const uint8_t type = static_cast<uint8_t>( reader.ReadBits( 8 ) );
+    if( type != NetMessage::Hello )
+    {
+        if( InClient.Accepted && OnMessage )
+        {
+            OnMessage( InClient, type, reader, true );
+        }
+        return;
+    }
+    if( InClient.Accepted || InClient.Rejected )
     {
         return;
     }
@@ -134,15 +143,34 @@ void NetServer::HandleReliable( Client& InClient, const std::vector<uint8_t>& In
         reply.WriteBits( m_tickRate, 16 );
         reply.WriteBits( m_tick, 32 );
     }
-    Send( *InClient.Connection, reply, true );
+    SendOn( *InClient.Connection, reply, true );
+    if( InClient.Accepted && OnClientAccepted )
+    {
+        OnClientAccepted( InClient );
+    }
+}
+
+
+void NetServer::Send( Client& InClient, const BitWriter& InMessage, bool InReliable )
+{
+    SendOn( *InClient.Connection, InMessage, InReliable );
 }
 
 
 void NetServer::HandleUnreliable( Client& InClient, const std::vector<uint8_t>& InMessage )
 {
     BitReader reader( InMessage );
-    if( !InClient.Accepted || reader.ReadBits( 8 ) != NetMessage::Commands )
+    const uint8_t type = static_cast<uint8_t>( reader.ReadBits( 8 ) );
+    if( !InClient.Accepted )
     {
+        return;
+    }
+    if( type != NetMessage::Commands )
+    {
+        if( OnMessage )
+        {
+            OnMessage( InClient, type, reader, false );
+        }
         return;
     }
     std::vector<InputCommand> commands;
@@ -185,7 +213,11 @@ void NetServer::EndTick( double InNow )
             state.WriteBool( client->Commands.HasReceived() );
             state.WriteBits( client->Commands.GetNewestTick(), 32 );
             NetQuantize::WriteFloat( state, client->Commands.GetSlack(), -kSlackRange, kSlackRange, kSlackBits );
-            Send( *client->Connection, state, false );
+            SendOn( *client->Connection, state, false );
+            if( OnPacket )
+            {
+                OnPacket( *client );
+            }
         }
         client->Connection->SendPacket( InNow );
     }
@@ -257,10 +289,27 @@ void NetClient::Receive( double InNow )
 }
 
 
+void NetClient::Send( const BitWriter& InMessage, bool InReliable )
+{
+    if( m_state == State::Connected )
+    {
+        SendOn( m_connection, InMessage, InReliable );
+    }
+}
+
+
 void NetClient::HandleReliable( const std::vector<uint8_t>& InMessage, double InNow )
 {
     BitReader reader( InMessage );
     const uint32_t type = reader.ReadBits( 8 );
+    if( m_state == State::Connected && type != NetMessage::Welcome && type != NetMessage::Reject )
+    {
+        if( OnMessage )
+        {
+            OnMessage( static_cast<uint8_t>( type ), reader, true );
+        }
+        return;
+    }
     if( m_state != State::Connecting )
     {
         return;
@@ -291,8 +340,17 @@ void NetClient::HandleReliable( const std::vector<uint8_t>& InMessage, double In
 void NetClient::HandleUnreliable( const std::vector<uint8_t>& InMessage )
 {
     BitReader reader( InMessage );
-    if( m_state != State::Connected || reader.ReadBits( 8 ) != NetMessage::ServerState )
+    const uint8_t type = static_cast<uint8_t>( reader.ReadBits( 8 ) );
+    if( m_state != State::Connected )
     {
+        return;
+    }
+    if( type != NetMessage::ServerState )
+    {
+        if( OnMessage )
+        {
+            OnMessage( type, reader, false );
+        }
         return;
     }
     const uint32_t serverTick = reader.ReadBits( 32 );

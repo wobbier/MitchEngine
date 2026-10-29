@@ -1,4 +1,5 @@
 #pragma once
+#include "Components/Networking/NetIdentity.h"
 #include "Components/Transform.h"
 #include "Cores/NetCore.h"
 #include "Engine/World.h"
@@ -6,6 +7,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <vector>
 
 // A server world and a client world in one process (NET-2), joined by conditioned loopbacks and
 // stepped in simulated real time at 1 ms resolution. The server ticks at exactly its tick rate,
@@ -16,6 +18,23 @@ namespace NetHarness
     constexpr NetAddress kServer = 1;
     constexpr NetAddress kClient = 2;
 
+    // A client beyond the first (late joiners): its own address, link, world and NetCore.
+    struct Peer
+    {
+        LoopbackTransport Raw;
+        ConditionedTransport Link;
+        NetCore Net;    // before the world: it must outlive it
+        std::shared_ptr<World> GameWorld = std::make_shared<World>();
+
+        Peer( LoopbackNetwork& InNetwork, NetAddress InAddress, const NetConditions& InToServer )
+            : Raw( InNetwork, InAddress )
+            , Link( Raw, InToServer )
+        {
+            GameWorld->IsLoading = false;
+            GameWorld->AddCore( Net );
+        }
+    };
+
     struct Harness
     {
         LoopbackNetwork Network;
@@ -23,10 +42,11 @@ namespace NetHarness
         LoopbackTransport ClientRaw{ Network, kClient };
         ConditionedTransport ServerLink;   // server -> client
         ConditionedTransport ClientLink;   // client -> server
-        std::shared_ptr<World> ServerWorld = std::make_shared<World>();
-        std::shared_ptr<World> ClientWorld = std::make_shared<World>();
+        // Cores before the worlds: they must outlive them.
         NetCore ServerNet;
         NetCore ClientNet;
+        std::shared_ptr<World> ServerWorld = std::make_shared<World>();
+        std::shared_ptr<World> ClientWorld = std::make_shared<World>();
         int64_t Milliseconds = 0;
         double ClientFrameSeconds = 1.0 / 60.0;
         int64_t ClientFrameOffsetMs = 7;    // the two loops aren't in phase
@@ -45,11 +65,30 @@ namespace NetHarness
             ClientWorld->AddCore( ClientNet );
         }
 
-        // The same placed entity in both worlds (the scene hash matches).
+        // The same placed networked entity in both worlds (the scene hash matches).
         void Place( uint64_t InGUID )
         {
-            ServerWorld->CreateEntityWithGUID( InGUID )->AddComponent<Transform>();
-            ClientWorld->CreateEntityWithGUID( InGUID )->AddComponent<Transform>();
+            for( World* world : { ServerWorld.get(), ClientWorld.get() } )
+            {
+                EntityHandle entity = world->CreateEntityWithGUID( InGUID );
+                entity->AddComponent<Transform>();
+                entity->AddComponent<NetIdentity>();
+            }
+        }
+
+        std::vector<std::unique_ptr<Peer>> ExtraClients;
+
+        // Another client, connecting now (call Place-style setup on its world first if needed).
+        Peer& AddClient( const NetConditions& InToServer, const std::function<void( World& )>& InSetup = {} )
+        {
+            ExtraClients.push_back( std::make_unique<Peer>( Network, kClient + ExtraClients.size() + 1, InToServer ) );
+            Peer& peer = *ExtraClients.back();
+            if( InSetup )
+            {
+                InSetup( *peer.GameWorld );
+            }
+            peer.Net.Connect( peer.Link, kServer );
+            return peer;
         }
 
         void Start( const NetClockSettings& InClock = NetClockSettings() )
@@ -70,6 +109,10 @@ namespace NetHarness
                 const double now = Now();
                 ServerLink.Update( now );
                 ClientLink.Update( now );
+                for( auto& peer : ExtraClients )
+                {
+                    peer->Link.Update( now );
+                }
 
                 // Server ticks on its exact schedule (to the millisecond).
                 NetServer* server = ServerNet.GetServer();
@@ -85,31 +128,41 @@ namespace NetHarness
                     ServerNet.EndTick( now );
                 }
 
-                // Client frames at 60 Hz: due ticks, then one packet.
+                // Client frames at 60 Hz: due ticks, interpolated poses, then one packet.
                 if( ClientFrame( Milliseconds ) != ClientFrame( Milliseconds - 1 ) )
                 {
-                    NetClient* client = ClientNet.GetClient();
-                    ClientNet.Receive( now );
-                    if( client->GetState() == NetClient::State::Connected )
-                    {
-                        const int ticks = client->GetClock().Advance( ClientFrameSeconds );
-                        for( int i = 0; i < ticks; ++i )
-                        {
-                            if( MakeCommand )
-                            {
-                                ClientNet.SetLocalCommand( MakeCommand( client->GetClock().GetTick() ) );
-                            }
-                            ClientNet.BeginTick();
-                            ClientNet.EndTick( now );
-                        }
-                    }
-                    ClientNet.Flush( now );
+                    ClientStep( ClientNet, now );
                     if( OnClientFrame )
                     {
-                        OnClientFrame( *client );
+                        OnClientFrame( *ClientNet.GetClient() );
+                    }
+                    for( auto& peer : ExtraClients )
+                    {
+                        ClientStep( peer->Net, now );
                     }
                 }
             }
+        }
+
+        void ClientStep( NetCore& InNet, double InNow )
+        {
+            NetClient* client = InNet.GetClient();
+            InNet.Receive( InNow );
+            if( client->GetState() == NetClient::State::Connected )
+            {
+                const int ticks = client->GetClock().Advance( ClientFrameSeconds );
+                for( int i = 0; i < ticks; ++i )
+                {
+                    if( MakeCommand )
+                    {
+                        InNet.SetLocalCommand( MakeCommand( client->GetClock().GetTick() ) );
+                    }
+                    InNet.BeginTick();
+                    InNet.EndTick( InNow );
+                }
+            }
+            InNet.WriteInterpolated( ClientFrameSeconds );
+            InNet.Flush( InNow );
         }
 
         double ServerStart = 0.0;

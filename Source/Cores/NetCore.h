@@ -1,5 +1,6 @@
 #pragma once
 #include "ECS/Core.h"
+#include "Net/NetReplication.h"
 #include "Net/NetSession.h"
 #include <memory>
 #include <optional>
@@ -10,6 +11,8 @@
 // - Receive( now ) after the frame's events: packets, the handshake, commands, server reports.
 // - BeginTick / EndTick around each fixed step: the server takes each client's command for the
 //   tick, then reports; the client stamps the local command with its tick.
+// - WriteInterpolated( frame seconds ) after the frame's physics poses: the client poses what the
+//   server replicates (NET-3), interpolated.
 // - Flush( now ) before the frame limiter: the client's one packet of unconfirmed commands.
 // - GetClockScale: the client's time dilation; the engine scales its fixed-step accumulator by it,
 //   so ticks run up to 5% faster or slower without changing their length.
@@ -33,9 +36,11 @@ public:
     bool IsClient() const { return m_client != nullptr; }
     NetServer* GetServer() { return m_server.get(); }
     NetClient* GetClient() { return m_client.get(); }
+    NetReplicationServer* GetReplicationServer() { return m_replicationServer.get(); }
+    NetReplicationClient* GetReplicationClient() { return m_replicationClient.get(); }
 
     // What this world presents in the handshake: the project's product name and version, the C#
-    // script classes, and the entities placed when the session starts.
+    // script classes, and the networked (NetIdentity) entities placed when the session starts.
     NetVersion MakeVersion();
     // Pins the version instead (tests; a mismatched build).
     void SetVersionOverride( const NetVersion& InVersion ) { m_versionOverride = InVersion; }
@@ -45,6 +50,8 @@ public:
     void BeginTick();
     void EndTick( double InNow );
     void Flush( double InNow );
+    // After the frame's physics poses: the client shows mirrored entities interpolated (NET-3).
+    void WriteInterpolated( double InFrameSeconds );
     double GetClockScale() const;
     // A server never drops ticks to catch up: every client's commands need simulating.
     bool KeepsBacklog() const { return IsServer(); }
@@ -61,6 +68,8 @@ public:
 private:
     std::unique_ptr<NetServer> m_server;
     std::unique_ptr<NetClient> m_client;
+    std::unique_ptr<NetReplicationServer> m_replicationServer;
+    std::unique_ptr<NetReplicationClient> m_replicationClient;
     std::optional<NetVersion> m_versionOverride;
     InputCommand m_localCommand;
     uint32_t m_tick = 0;

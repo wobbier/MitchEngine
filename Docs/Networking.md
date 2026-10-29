@@ -11,7 +11,14 @@ Multiplayer follows the Overwatch model: an authoritative server, client predict
   - the engine-owned `NetCore` in the frame;
   - a two-world test harness.
 
-Replication, prediction and the C# API come next (NET-3 onwards).
+- **NET-3:** replication of `NetIdentity` entities:
+  - static and dynamic NetIds;
+  - reliable spawns and despawns;
+  - delta snapshots built with `NetSchema` from reflection;
+  - client interpolation;
+  - kinematic remotes.
+
+Prediction, relevancy and the C# API come next (NET-4 onwards).
 
 ## Key Files
 
@@ -25,6 +32,9 @@ Replication, prediction and the C# API come next (NET-3 onwards).
 | `Source/Net/NetCommands.h` | `InputCommand` (tick, buttons, 4 axes at 16 bits), delta-coded lists of up to 16, and `NetCommandBuffer`, the server's per-client queue |
 | `Source/Net/NetClock.h` | The client's command-frame clock: target slack, dilation up to ±5%, a resync beyond 8 ticks |
 | `Source/Net/NetSession.h` | `NetServer` and `NetClient`: the handshake, commands up, and server reports down |
+| `Source/Components/Networking/NetIdentity.h` | Marks an entity networked: NetId, owner, the prefab clients spawn |
+| `Source/Net/NetSnapshot.h` | `NetEntityState`: pose at 1/1024 m, rotation smallest-three at 12 bits, replicated field bytes. `NetSchema` (fields flagged `.Replicated()` in `ME_REFLECT`). `NetSnapshotCodec`: deltas against a baseline |
+| `Source/Net/NetReplication.h` | `NetReplicationServer` (ids, spawns, snapshots per client) and `NetReplicationClient` (mirrors, interpolation) |
 | `Source/Cores/NetCore.h` | Engine-owned (`Engine::Net`): `Host` / `Connect`, the frame hooks, the version of its world |
 | `Tests/Source/NetTests.cpp`, `NetSessionTests.cpp`, `NetHarness.h` | The proofs (below). The harness runs a server world and a client world in one process at 1 ms resolution |
 
@@ -80,6 +90,32 @@ Messages are at most 1024 bytes (`kMaxMessageBytes`); there is no fragmentation 
 
 **Defaults:** the target slack is 3 ticks. That covers ±10 ms of jitter plus two lost packets in a row at 60 Hz.
 
+### Replication (NET-3)
+
+**Ids:**
+
+- **Static:** placed `NetIdentity` entities get NetIds 1..N on both sides, in GUID order. The handshake's scene hash covers exactly these entities, so the orders match.
+- **Dynamic:** entities the server gives a `NetIdentity` during the session get ids from `0x10000`. A reliable **Spawn** `{NetId, owner, prefab, pose}` goes to every client; the client creates it from `Prefab`, or as a bare entity with a Transform.
+- **Despawn:** destroying a networked entity sends a reliable Despawn.
+- **Late joiners:** they get Spawns for every dynamic entity, and Despawns for the static ones already destroyed.
+
+**Snapshots:**
+
+1. **Capture:** after each server tick, `CaptureTick` records every networked entity's `NetEntityState` (quantized world pose plus `NetSchema` bytes).
+2. **Delta:** each client's packet carries a delta against the newest snapshot that client acked (`SnapshotAck`, sent every client packet), or the full state with no baseline. The server keeps the last 32 sent per client. Changed entities write only the parts that changed, gone ones are listed, and the 900-byte budget defers the rest; the "sent" copy records what the client will really have.
+3. **Skip when idle:** a snapshot identical to the last one sent is skipped, with a keep-alive every 15 ticks. The next snapshot names the previous one sent, so a client that has it knows entities held still in between (it adds a hold sample) rather than gliding from an old pose.
+
+**Clients:**
+
+- **Baselines:** decoded snapshots are kept (the last 32) as delta baselines.
+- **Samples:** each entity gets a sample buffer.
+- **Render tick:** `WriteInterpolated` (after physics poses) shows each entity at render tick = `newest server tick − delay`. It's steered gently and snaps when more than 6 ticks off.
+- **Interpolation:** linear for position, slerp for rotation, holding past the last sample. Replicated fields apply from the sample at or before the render tick.
+- **Adaptive delay:** it grows by 0.25 tick when a moving entity runs out of samples (up to 8), and shrinks slowly after 2 s without that (down to 1.5).
+- **Kinematic remotes:** a client's copy of a networked `Rigidbody` is made kinematic; only the server simulates.
+
+**`NetSchema` field types:** bool, ints and enums (VarUInt), float, double, Vector2/3/4, Quaternion (raw floats), and strings. Flag fields with `ME_FIELD( X ).Replicated()`. `.Predicted()` implies Replicated and is for NET-5.
+
 ## Proofs
 
 `NetTests.cpp`:
@@ -90,19 +126,29 @@ Messages are at most 1024 bytes (`kMaxMessageBytes`); there is no fragmentation 
 - **Commands (`NetSessionTests.cpp`):** delta-coded lists round-trip, including a resync's tick gap. The server buffer serves, repeats, and ignores late copies.
 - **Clock:** dilates towards the target, caps at 5%, resyncs when 13 ticks off, and ignores the next stale report.
 - **Two worlds, the NET-2 done-when:** 60 s at 50 ± 10 ms each way (100 ± 20 ms RTT) with 5% loss. All 3600 commands arrived on time, ≥ 99.9% required. Worst slack error 0.82 tick (≤ 1), worst dilation 1.6% (≤ 5%), no resyncs. The server simulated exactly the client's commands. After the link slows by 60 ms each way, the slack is back within 1 tick in 10 s.
+- **Replication (`NetReplicationTests.cpp`):**
+  - `NetSchema` writes exactly the Replicated fields.
+  - Deltas carry only changes and gone ids, a wrong baseline is refused, and an unchanged snapshot is ≤ 10 bytes. The budget defers entities, with "sent" matching what's decoded.
+- **The NET-3 done-when:** 50 boxes (25 placed, 25 spawned) fall onto a floor on the server, over 100 ± 20 ms RTT with 5% loss.
+  - **Mirroring:** at each client frame's render tick, 99.8% of 12000 samples are within 1 cm of the server's pose at that tick (≥ 99.5% required). The rest are boxes landing inside a lost-snapshot gap, which straight-line interpolation can't know about; the worst was 5.5 cm (< 10 cm required). The placed copies are kinematic.
+  - **Idle:** once asleep, snapshots cost 480 bit/s (< 1 kbps).
+  - **Despawn and late join:** destroying every seventh box, plus a late joiner at 140 ms RTT, converge. Both clients mirror exactly the server's set within 2 mm.
 - **Handshake:** another build is rejected (`"version mismatch: build"`) and the server lets it go; so is another scene (`"version mismatch: scene"`); a match connects.
 - **Round trip:** at 50 ms each way, 5% loss, with 0 or ±10 ms jitter, both ends estimate within 10% of 100 ms. Garbage and lying packets are rejected, and oversized messages are refused.
 
 ## How to Extend
 
 - **A real transport (Steam, UDP):** implement `INetTransport`. `Update` can stay empty, and `NetConnection` doesn't change.
-- **Bigger messages:** need fragmentation (a reliable slice stream). Until then, keep replicated state under 1 KB a message.
+- **Bigger messages:** need fragmentation (a reliable slice stream). Until then, keep replicated state under 1 KB a message. Snapshots defer entities past their 900-byte budget; NET-4 adds priorities.
+- **A replicated component field:** add `.Replicated()` to its `ME_FIELD`. Clients apply it from the snapshot at the render tick.
 
 ## Caveats & Fragility
 
 - **Clock:** the connection trusts the clock it's given. Pass the same monotonic `now` to `SendPacket` and `ReceivePacket`.
 - **Reliable window:** a stalled link holds at most 1024 messages in flight. Messages queued beyond that wait in memory, unbounded, until acks free the window.
 - **No encryption or authentication:** the protocol id only filters strays.
+- **NetSchema is positional:** both sides must have the same components with the same replicated fields, in the same order. NET-3 doesn't hash that into the handshake yet; the build hash covers it for the same game.
+- **Spawned prefabs:** clients create spawned entities from `NetIdentity::Prefab`, which must exist on the client.
 
 ## Related Docs
 

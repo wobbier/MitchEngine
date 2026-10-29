@@ -79,6 +79,8 @@ namespace Reflection
             Asset = 1 << 7,         // String holds an asset path; AssetFilter names the asset kind.
             CustomInspector = 1 << 8, // Custom single-object UI; use reflection when multi-editing.
             Drag = 1 << 9,         // Float uses a drag at Speed, retaining any range as bounds.
+            Replicated = 1 << 10,  // Sent from the server to every client in snapshots (NET-3).
+            Predicted = 1 << 11,   // Predicted by the owning client and rolled back (NET-5).
         };
     }
 
@@ -362,6 +364,8 @@ namespace Reflection
         FieldBuilder& Speed( float speed ) { Field().Speed = speed; return *this; }
         FieldBuilder& Drag( float speed ) { Field().Flags |= FieldFlags::Drag; Field().Speed = speed; return *this; }
         FieldBuilder& Hidden() { Field().Flags |= FieldFlags::Hidden; return *this; }
+        FieldBuilder& Replicated() { Field().Flags |= FieldFlags::Replicated; return *this; }
+        FieldBuilder& Predicted() { Field().Flags |= FieldFlags::Predicted | FieldFlags::Replicated; return *this; }
         FieldBuilder& CustomInspector() { Field().Flags |= FieldFlags::CustomInspector; return *this; }
         FieldBuilder& ReadOnly() { Field().Flags |= FieldFlags::ReadOnly; return *this; }
         FieldBuilder& NoSerialize() { Field().Flags |= FieldFlags::NoSerialize; return *this; }

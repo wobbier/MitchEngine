@@ -4,9 +4,13 @@
 #include "Net/NetConnection.h"
 #include "Net/NetVersion.h"
 #include <deque>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
+
+class BitReader;
+class BitWriter;
 
 // Sessions (NET-2): the handshake, command frames and the clock on top of NetConnection. Neither
 // side touches the engine; NetCore drives them from the frame, tests drive them directly.
@@ -22,8 +26,12 @@ namespace NetMessage
         Hello = 1,
         Welcome = 2,
         Reject = 3,
+        Spawn = 4,
+        Despawn = 5,
         Commands = 16,
         ServerState = 17,
+        Snapshot = 18,
+        SnapshotAck = 19,
     };
 }
 
@@ -52,6 +60,14 @@ public:
     void BeginTick();
     // The tick was simulated: state to every client, one packet each.
     void EndTick( double InNow );
+
+    // Messages beyond the session's own (replication): InReader is past the type byte.
+    std::function<void( Client&, uint8_t InType, BitReader& InReader, bool InReliable )> OnMessage;
+    // A client was just accepted (a late joiner needs the world sent).
+    std::function<void( Client& )> OnClientAccepted;
+    // Each accepted client's packet is about to go (EndTick): add what belongs in it.
+    std::function<void( Client& )> OnPacket;
+    void Send( Client& InClient, const BitWriter& InMessage, bool InReliable );
 
     uint32_t GetTick() const { return m_tick; }
     uint16_t GetTickRate() const { return m_tickRate; }
@@ -98,6 +114,10 @@ public:
     void SubmitCommand( InputCommand InCommand );
     // Sends one packet: the handshake while connecting, then the unconfirmed commands.
     void Flush( double InNow );
+
+    // Messages beyond the session's own (replication): InReader is past the type byte.
+    std::function<void( uint8_t InType, BitReader& InReader, bool InReliable )> OnMessage;
+    void Send( const BitWriter& InMessage, bool InReliable );
 
     State GetState() const { return m_state; }
     const std::string& GetRejectReason() const { return m_rejectReason; }

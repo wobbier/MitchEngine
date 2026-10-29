@@ -717,6 +717,8 @@ void Engine::Run()
                 // Interpolated body poses land before gameplay reads them (cameras following bodies).
                 Physics->Update( updateContext );
                 Physics2D->Update( updateContext );
+                // Replicated entities land after local physics poses, before gameplay reads them.
+                Net->WriteInterpolated( scaledSeconds );
             }
 
             // Update Loaded Cores
