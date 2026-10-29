@@ -142,8 +142,8 @@ Builds/Default/
   `Scripts: .NET runtime from the app-local install (...)` (`Scripting-DotNet.md`).
 - **Window icon:** `Engine::Init` decodes the product icon (Project Settings > Product > Icon)
   with bimg and sets it on the window. The cooker ships the icon's source bytes for this.
-- **User state** goes to the OS per-user folder in Retail builds (`VFS.md`, `user://`). Logs
-  and crash dumps still land in the working directory (ME-263).
+- **User state** goes to the OS per-user folder in Retail builds (`VFS.md`, `user://`), and so
+  do the log and crash reports (below).
 
 ### What a shipped run writes (ME-263)
 
