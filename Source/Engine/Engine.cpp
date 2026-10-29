@@ -51,6 +51,7 @@
 #include <Debug/DebugDrawer.h>
 #include <Debug/DebugDraw.h>
 #include "Engine/HardwareBudget.h"
+#include "Engine/PlayerSettings.h"
 #include "Engine/Project.h"
 #include "Engine/ProjectSettings.h"
 #include "Tools/Cook/CookDependencies.h"
@@ -207,6 +208,15 @@ void Engine::Init( Game* game )
         }
     }
 #endif
+    // --user-dir <folder>: user state for this run lives there (tests, two-launch flows). It also
+    // opts an unattended run into the player's settings (see PlayerSettings).
+    if( CommandLine::Has( "--user-dir" ) )
+    {
+        std::error_code error;
+        const std::filesystem::path userDir = std::filesystem::absolute( CommandLine::GetString( "--user-dir" ), error );
+        VFS::Get().SetUserRoot( userDir.generic_string() );
+        CLog::GetInstance().Log( CLog::LogType::Info, "User state: " + userDir.generic_string() );
+    }
 
     Path engineCfg( "Assets\\Config\\Engine.cfg" );
 
@@ -379,6 +389,8 @@ void Engine::Init( Game* game )
     m_debugOverlayVisible = CommandLine::Has( "--debug-overlay" ) && !CommandLine::Has( "--no-debug-overlay" );
 
     InitGame();
+    // The player's settings (quality, volumes, rebinds, language), once the action map is loaded.
+    PlayerSettings::Get().Init( { &m_input.GetActions(), AudioThread, RmlUi, &HardwareBudget::Get() } );
 
     ResizeFunc( engineConfig.WindowSize );
 
@@ -832,6 +844,7 @@ void Engine::Run()
             }
             FrameStats::Get().EndFrame( std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - frameStartTime ).count() );
             HardwareBudget::Get().Update();
+            PlayerSettings::Get().Update();
 
             if( m_automation.IsActive() )
             {
@@ -890,6 +903,10 @@ void Engine::Run()
     Cook::WriteRecordingIfRequested();
     // Window placement and the open scene are per-user state (never written by unattended runs).
     engineConfig.SaveUserState();
+    if( PlayerSettings::Get().IsDirty() )
+    {
+        PlayerSettings::Get().Save();
+    }
     Shutdown();
 }
 

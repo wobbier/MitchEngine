@@ -290,6 +290,7 @@ AudioCore::AudioCore( AudioOutput InOutput )
 {
     SetIsSerializable( false );
     m_busVolumes.fill( 1.f );
+    m_playerVolumes.fill( 1.f );
     m_busMuted.fill( false );
 
 #if USING( ME_FMOD )
@@ -482,9 +483,28 @@ void AudioCore::SetBusVolume( AudioBus InBus, float InVolume )
 #if USING( ME_FMOD )
     if( FMOD::ChannelGroup* group = GetBusGroup( InBus ) )
     {
-        group->setVolume( m_busVolumes[index] );
+        group->setVolume( m_busVolumes[index] * m_playerVolumes[index] );
     }
 #endif
+}
+
+
+void AudioCore::SetPlayerVolume( AudioBus InBus, float InVolume )
+{
+    const size_t index = static_cast<size_t>( InBus );
+    if( index >= m_playerVolumes.size() )
+    {
+        return;
+    }
+    m_playerVolumes[index] = std::clamp( InVolume, 0.f, 1.f );
+    SetBusVolume( InBus, m_busVolumes[index] );
+}
+
+
+float AudioCore::GetPlayerVolume( AudioBus InBus ) const
+{
+    const size_t index = static_cast<size_t>( InBus );
+    return index < m_playerVolumes.size() ? m_playerVolumes[index] : 0.f;
 }
 
 

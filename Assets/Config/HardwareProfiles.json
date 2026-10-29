@@ -1,5 +1,5 @@
 {
-    "About": "Hardware target profiles (HardwareBudget). Pick one in Project Settings > Hardware. A project's Assets/Config/HardwareProfiles.json adds profiles, replaces one with the same Name, or starts from one with \"Extends\". Missing keys and 0 mean no limit. Memory is in MiB; Caps are what the target can do, applied when the profile is enforced. The figures are budgets for a game on that machine, not its hardware maximums.",
+    "About": "Hardware target profiles (HardwareBudget). Pick one in Project Settings > Hardware. A project's Assets/Config/HardwareProfiles.json adds profiles, replaces one with the same Name, or starts from one with \"Extends\". Missing keys and 0 mean no limit. Memory is in MiB; Caps are what the target can do, applied when the profile is enforced. The figures are budgets for a game on that machine, not its hardware maximums. QualityPresets are the player's graphics levels (PlayerSettings Graphics.Quality): Caps in the same shape, replaced by Name or started with \"Extends\" the same way; under an enforced profile the stricter cap wins.",
     "Profiles": [
         {
             "Name": "2004 PC",
@@ -114,6 +114,41 @@
                 "EnvironmentLighting": true,
                 "Instancing": true
             }
+        }
+    ],
+    "QualityPresets": [
+        {
+            "Name": "Low",
+            "Description": "Older and integrated GPUs: no volumetric fog, ambient occlusion, depth of field or temporal AA; 1024 shadows and 1024 textures.",
+            "Caps": {
+                "MaxTextureSize": 1024,
+                "MaxShadowResolution": 1024,
+                "AmbientOcclusion": false,
+                "DepthOfField": false,
+                "VolumetricFog": false,
+                "TemporalAA": false
+            }
+        },
+        {
+            "Name": "Medium",
+            "Description": "Mid-range GPUs: everything on, with 2048 shadows and textures and a coarser volumetric fog.",
+            "Caps": {
+                "MaxTextureSize": 2048,
+                "MaxShadowResolution": 2048,
+                "MaxVolumetricSteps": 16
+            }
+        },
+        {
+            "Name": "High",
+            "Description": "Everything on; shadows up to 4096 and volumetric fog up to 64 steps.",
+            "Caps": {
+                "MaxShadowResolution": 4096,
+                "MaxVolumetricSteps": 64
+            }
+        },
+        {
+            "Name": "Ultra",
+            "Description": "No player caps: what the scenes ask for."
         }
     ]
 }

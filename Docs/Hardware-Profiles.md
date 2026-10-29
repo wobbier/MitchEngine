@@ -91,6 +91,8 @@ A line is **Near** at 90% of its limit and **Over** above it. `Peak` holds the h
   - `Instancing` off limits every instanced submit, opaque and shadow casters, to one instance per draw. The draw count rises the way it would on hardware without instancing, and every mesh keeps its shader. Particles stay batched.
 - **Textures** (`Texture::SetMaxUploadSize`): `FinishAsyncLoad` uploads a single-layer mipped 2D texture from its first mip that fits the cap. `mWidth` / `mHeight` report that size, so decals sample with the right texel size. Changing the cap reloads every cached file texture that has a compiled `.dds`.
 
+**Quality presets** (`QualityPresets` in the same files, picked by the player's `Graphics.Quality` setting) are a second cap set. `GetEffectiveCaps` combines them with the enforced profile's: a feature stays on only if both allow it, and a size cap takes the smaller nonzero limit (`HardwareProfile::Combine`). See `Docs/Player-Settings.md`.
+
 Without enforcement the Hardware tab still reports what exceeds the target: cameras using effects it lacks, shadow resolutions above the cap, and loaded textures larger than the size cap.
 
 ### Where it shows

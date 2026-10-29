@@ -72,8 +72,12 @@ public:
     // Loads an AudioSource's clip now (sources added to the world load on their own).
     void InitComponent( AudioSource& InSource );
 
+    // The project's mix (Project Settings), 0..1.
     void SetBusVolume( AudioBus InBus, float InVolume );
     float GetBusVolume( AudioBus InBus ) const;
+    // The player's volume (PlayerSettings "Audio.<Bus>"), 0..1: scales the project's mix.
+    void SetPlayerVolume( AudioBus InBus, float InVolume );
+    float GetPlayerVolume( AudioBus InBus ) const;
     void SetBusMuted( AudioBus InBus, bool InMuted );
     bool IsBusMuted( AudioBus InBus ) const;
     bool IsPaused() const
@@ -135,6 +139,7 @@ private:
     EntityHandle m_listenerEntity;
     OcclusionQuery m_occlusionQuery;
     std::array<float, static_cast<size_t>( AudioBus::Count )> m_busVolumes;
+    std::array<float, static_cast<size_t>( AudioBus::Count )> m_playerVolumes;
     std::array<bool, static_cast<size_t>( AudioBus::Count )> m_busMuted;
 
     // Legacy PlayAudioEvent callers that want the playing source back (one per path).

@@ -33,6 +33,7 @@
 #include "Core/CommandLine.h"
 #include "Cores/SceneCore.h"
 #include "Engine/Engine.h"
+#include "Engine/PlayerSettings.h"
 #include "Engine/Input.h"
 #include <SDL_keyboard.h>
 #include "Engine/World.h"
@@ -1022,6 +1023,71 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         else
         {
             input.SetSimulatedKey( static_cast<KeyCode>( key ), command == "input-hold" );
+        }
+    }
+    else if( command == "assert-action" )
+    {
+        // assert-action Jump | true   (whether the game input's action reads pressed)
+        auto [actionName, expectedText] = SplitArgs( args );
+        Input& input = GetEngine().GetInput();
+        if( !input.GetActions().HasAction( actionName ) )
+        {
+            Fail( "assert-action: no action named " + actionName );
+        }
+        else if( input.GetAction( actionName ).IsPressed() != ( expectedText == "true" ) )
+        {
+            Fail( "action " + actionName + " is " + ( input.GetAction( actionName ).IsPressed() ? "pressed" : "not pressed" ) + ", expected " + ( expectedText == "true" ? "pressed" : "not pressed" ) );
+        }
+    }
+    else if( command.rfind( "settings-", 0 ) == 0 )
+    {
+        // settings-set Audio.Music | 0.25      any PlayerSettings key, a JSON value
+        // settings-assert Audio.Music | 0.25   numbers within 1e-3; Input.Bindings reads the live rebinds
+        // settings-save, settings-reset, settings-reload (reads the file again, the way a boot does)
+        PlayerSettings& settings = PlayerSettings::Get();
+        auto [key, valueText] = SplitArgs( args );
+        const json value = json::parse( valueText, nullptr, false );
+        std::string error;
+        if( command == "settings-set" )
+        {
+            if( value.is_discarded() || !settings.SetValue( key, value, &error ) )
+            {
+                Fail( "settings-set: " + ( value.is_discarded() ? "bad value " + valueText : error ) );
+            }
+        }
+        else if( command == "settings-assert" )
+        {
+            const json actual = settings.GetValue( key );
+            if( value.is_discarded() )
+            {
+                Fail( "settings-assert: bad value " + valueText );
+            }
+            else if( !NearlyEqual( actual, value, 1e-3 ) )
+            {
+                Fail( "setting " + key + " is " + actual.dump() + ", expected " + value.dump() );
+            }
+        }
+        else if( command == "settings-save" )
+        {
+            if( !settings.Save() )
+            {
+                Fail( "settings-save: the settings are in memory only (run with --user-dir <folder>)" );
+            }
+        }
+        else if( command == "settings-reload" )
+        {
+            if( !settings.IsPersistent() || !settings.Load() )
+            {
+                Fail( "settings-reload: " + std::string( settings.IsPersistent() ? "can't read " + settings.GetPath() : "the settings are in memory only (run with --user-dir <folder>)" ) );
+            }
+        }
+        else if( command == "settings-reset" )
+        {
+            settings.Reset();
+        }
+        else
+        {
+            Fail( "Unknown command: " + command );
         }
     }
     else if( command == "load" )

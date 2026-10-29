@@ -5,7 +5,7 @@ Audio runs on FMOD Core through the engine-owned `AudioCore`. The building block
 - **Sources:** `AudioSource` components play clips on mixer buses, either in 2D or positioned in 3D at their entity with distance rolloff and doppler.
 - **Listener:** an `AudioListener` component, or the camera when there is none.
 - **One-shots:** fire-and-forget sounds (`AudioCore::PlayOneShot`, `AudioSource::PlayOneShot`, `PlayAudioEvent`). Each gets its own voice, so repeats overlap instead of restarting.
-- **Buses:** Master > Music / SFX / UI / Voice. Their volumes live in Project Settings. Music, SFX and Voice pause with the game.
+- **Buses:** Master > Music / SFX / UI / Voice. Their volumes live in Project Settings (the mix), scaled by the player's volume per bus (`AudioCore::SetPlayerVolume`, the `Audio.<Bus>` player settings in `Docs/Player-Settings.md`). Music, SFX and Voice pause with the game.
 - **Environment:** `AudioReverbZone`s give places their acoustics, and colliders between the listener and a 3D source muffle it (occlusion).
 
 Automated runs never use the speakers.

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Runs every editor regression script (*.edscript) in the editor and reports which pass.
 
-Each script names its scene in its header (the usage line: --scene <file>). From the project root:
+Each script names its scene in its header (the usage line: --scene <file>); a header that also
+names --user-dir <folder> runs with user:// state there (so a pair of flows can prove settings
+survive a restart). From the project root:
 
     Engine/Tools/RunEditorFlows.py --editor .build/Editor_Debug/Havana --wrapper Engine/Tools/Headless.sh
     Engine/Tools/RunEditorFlows.py ... --only Nav          # scripts whose path contains "Nav"
@@ -21,10 +23,18 @@ import sys
 import time
 
 
-def scene_of(script):
+def header_of(script):
     with open(script, encoding="utf-8") as f:
-        head = "".join(f.readline() for _ in range(6))
-    match = re.search(r"--scene\s+(\S+)", head)
+        return "".join(f.readline() for _ in range(6))
+
+
+def scene_of(script):
+    match = re.search(r"--scene\s+(\S+)", header_of(script))
+    return match.group(1) if match else None
+
+
+def user_dir_of(script):
+    match = re.search(r"--user-dir\s+(\S+)", header_of(script))
     return match.group(1) if match else None
 
 
@@ -68,6 +78,9 @@ def main():
             continue
         log_path = os.path.join(args.logs, name + ".log")
         command = shlex.split(args.wrapper) + [args.editor, "--scene", scene, "--editor-exec", script]
+        user_dir = user_dir_of(script)
+        if user_dir:
+            command += ["--user-dir", user_dir]
         start = time.time()
         try:
             with open(log_path, "w") as log:

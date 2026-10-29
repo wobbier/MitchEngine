@@ -221,3 +221,14 @@ void UIModel_RegisterEvent( cstr model, cstr key )
 double UIModel_GetNumber( cstr model, cstr key )
 int UIModel_GetString( cstr model, cstr key, byte* outValue, int size )
 int UIModel_PollEvent( cstr model, byte* outName, int size )
+
+## Player settings (PLAY-2): dotted keys over user://Settings.json ("Audio.Music", "Graphics.Quality",
+## "Game.<yours>"), values as JSON text. Rebinds land in the game input and save with the settings.
+int Settings_Get( cstr key, byte* outJson, int size )
+bool Settings_Set( cstr key, cstr json )
+bool Settings_Save()
+void Settings_Reset()
+bool Settings_Rebind( cstr action, int binding, cstr part, cstr control )
+void Settings_ResetBindings()
+int Settings_GetBindingDisplay( cstr action, int binding, byte* outText, int size )
+int Settings_GetQualityPresets( byte* outNames, int size )

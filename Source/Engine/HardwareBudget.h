@@ -59,10 +59,27 @@ struct HardwareProfile
     };
     FeatureCaps Caps;
 
+    // The stricter of two cap sets: a feature stays on only if both have it, and a size takes the
+    // smaller nonzero limit (0 = no limit).
+    static FeatureCaps Combine( const FeatureCaps& InA, const FeatureCaps& InB );
+
     float GetCpuBudgetMs() const;
     float GetGpuBudgetMs() const;
     // Reads the keys InJson has over the current values.
     void Deserialize( const json& InJson );
+};
+
+
+// A player-facing graphics quality level ("Low" .. "Ultra"): feature caps the player picks in
+// the game's settings (PlayerSettings "Graphics.Quality"). Presets are data, in the profiles
+// files' "QualityPresets" list (engine first, then the project's; same Name replaces, "Extends"
+// starts from an earlier preset). The caps reuse the profile enforcement: under an enforced
+// profile the stricter of the two applies.
+struct QualityPreset
+{
+    std::string Name;
+    std::string Description;
+    HardwareProfile::FeatureCaps Caps;
 };
 
 
@@ -128,8 +145,8 @@ public:
     void Init( BGFXRenderer& InRenderer );
     // Re-reads both profile files (the active profile keeps its name).
     void ReloadProfiles();
-    // Adds the profiles of a profiles document ({ "Profiles": [ ... ] }), replacing same-named
-    // ones; "Extends" starts from a profile added before. Returns false if it isn't one.
+    // Adds the profiles of a profiles document ({ "Profiles": [ ... ], "QualityPresets": [ ... ] }),
+    // replacing same-named ones; "Extends" starts from one added before. Returns false if it isn't one.
     bool AddProfiles( const json& InRoot, const std::string& InSource );
 
     const std::vector<HardwareProfile>& GetProfiles() const { return m_profiles; }
@@ -140,6 +157,16 @@ public:
     void SetActiveProfile( const std::string& InName );
     bool IsEnforced() const { return m_enforced; }
     void SetEnforced( bool InEnforced );
+
+    // Player quality presets, in file order (lowest first by convention).
+    const std::vector<QualityPreset>& GetQualityPresets() const { return m_qualityPresets; }
+    const QualityPreset* FindQualityPreset( const std::string& InName ) const;
+    // Picks a preset ("" = none: no player caps) and re-applies the caps. False when InName
+    // isn't defined (the choice is kept, so a preset added by a later reload takes effect).
+    bool SetQualityPreset( const std::string& InName );
+    const std::string& GetQualityPresetName() const { return m_qualityName; }
+    // What ApplyCaps hands the renderer: the enforced profile's caps and the quality preset's.
+    HardwareProfile::FeatureCaps GetEffectiveCaps() const;
 
     // Once a frame, after rendering.
     void Update();
@@ -173,6 +200,7 @@ private:
 
     void LoadProfilesFile( const Path& InPath );
     bool ParseProfiles( const json& InRoot, const std::string& InSource );
+    void ParseQualityPresets( const json& InList, const std::string& InSource );
     void ApplyCaps();
     void ReloadTextures();
     void RebuildLines();
@@ -182,6 +210,8 @@ private:
     std::vector<HardwareProfile> m_profiles;
     std::string m_activeName;
     bool m_enforced = false;
+    std::vector<QualityPreset> m_qualityPresets;
+    std::string m_qualityName;
 
     std::vector<Line> m_lines;
     // Per line: when it went over (seconds, < 0 while under) and whether that was logged.

@@ -230,4 +230,16 @@ struct ScriptEngineAPI
     double ( *UIModel_GetNumber )( const uint8_t* model, const uint8_t* key );
     int ( *UIModel_GetString )( const uint8_t* model, const uint8_t* key, uint8_t* outValue, int size );
     int ( *UIModel_PollEvent )( const uint8_t* model, uint8_t* outName, int size );
+
+    // Player settings (PLAY-2): dotted keys over user://Settings.json ("Audio.Music", "Graphics.Quality",
+
+    // "Game.<yours>"), values as JSON text. Rebinds land in the game input and save with the settings.
+    int ( *Settings_Get )( const uint8_t* key, uint8_t* outJson, int size );
+    bool ( *Settings_Set )( const uint8_t* key, const uint8_t* json );
+    bool ( *Settings_Save )();
+    void ( *Settings_Reset )();
+    bool ( *Settings_Rebind )( const uint8_t* action, int binding, const uint8_t* part, const uint8_t* control );
+    void ( *Settings_ResetBindings )();
+    int ( *Settings_GetBindingDisplay )( const uint8_t* action, int binding, uint8_t* outText, int size );
+    int ( *Settings_GetQualityPresets )( uint8_t* outNames, int size );
 };

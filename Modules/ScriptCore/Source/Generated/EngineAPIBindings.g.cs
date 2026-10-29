@@ -219,4 +219,16 @@ public unsafe struct EngineAPIBindings
     public delegate* unmanaged<byte*, byte*, double> UIModel_GetNumber;
     public delegate* unmanaged<byte*, byte*, byte*, int, int> UIModel_GetString;
     public delegate* unmanaged<byte*, byte*, int, int> UIModel_PollEvent;
+
+    // Player settings (PLAY-2): dotted keys over user://Settings.json ("Audio.Music", "Graphics.Quality",
+
+    // "Game.<yours>"), values as JSON text. Rebinds land in the game input and save with the settings.
+    public delegate* unmanaged<byte*, byte*, int, int> Settings_Get;
+    public delegate* unmanaged<byte*, byte*, byte> Settings_Set;
+    public delegate* unmanaged<byte> Settings_Save;
+    public delegate* unmanaged<void> Settings_Reset;
+    public delegate* unmanaged<byte*, int, byte*, byte*, byte> Settings_Rebind;
+    public delegate* unmanaged<void> Settings_ResetBindings;
+    public delegate* unmanaged<byte*, int, byte*, int, int> Settings_GetBindingDisplay;
+    public delegate* unmanaged<byte*, int, int> Settings_GetQualityPresets;
 }

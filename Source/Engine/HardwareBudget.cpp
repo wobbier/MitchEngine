@@ -163,6 +163,27 @@ void HardwareProfile::Deserialize( const json& InJson )
 }
 
 
+HardwareProfile::FeatureCaps HardwareProfile::Combine( const FeatureCaps& InA, const FeatureCaps& InB )
+{
+    const auto stricter = []( int InLeft, int InRight ) {
+        return InLeft <= 0 ? std::max( InRight, 0 ) : InRight <= 0 ? InLeft : std::min( InLeft, InRight );
+    };
+    FeatureCaps caps;
+    caps.MaxTextureSize = stricter( InA.MaxTextureSize, InB.MaxTextureSize );
+    caps.MaxShadowResolution = stricter( InA.MaxShadowResolution, InB.MaxShadowResolution );
+    caps.Shadows = InA.Shadows && InB.Shadows;
+    caps.AmbientOcclusion = InA.AmbientOcclusion && InB.AmbientOcclusion;
+    caps.Bloom = InA.Bloom && InB.Bloom;
+    caps.DepthOfField = InA.DepthOfField && InB.DepthOfField;
+    caps.VolumetricFog = InA.VolumetricFog && InB.VolumetricFog;
+    caps.MaxVolumetricSteps = stricter( InA.MaxVolumetricSteps, InB.MaxVolumetricSteps );
+    caps.TemporalAA = InA.TemporalAA && InB.TemporalAA;
+    caps.EnvironmentLighting = InA.EnvironmentLighting && InB.EnvironmentLighting;
+    caps.Instancing = InA.Instancing && InB.Instancing;
+    return caps;
+}
+
+
 HardwareBudget& HardwareBudget::Get()
 {
     static HardwareBudget instance;
@@ -202,6 +223,7 @@ void HardwareBudget::Init( BGFXRenderer& InRenderer )
 void HardwareBudget::ReloadProfiles()
 {
     m_profiles.clear();
+    m_qualityPresets.clear();
     const Path engineFile( kEngineProfilesPath );
     const Path projectFile( kProjectProfilesPath );
     LoadProfilesFile( engineFile );
@@ -248,6 +270,16 @@ bool HardwareBudget::ParseProfiles( const json& InRoot, const std::string& InSou
     {
         list = &InRoot["Profiles"];
     }
+    if( InRoot.is_object() )
+    {
+        if( auto presets = InRoot.find( "QualityPresets" ); presets != InRoot.end() && presets->is_array() )
+        {
+            ParseQualityPresets( *presets, InSource );
+            // A document of presets alone is still a profiles document.
+            static const json kNoProfiles = json::array();
+            list = list ? list : &kNoProfiles;
+        }
+    }
     if( !list )
     {
         return false;
@@ -287,6 +319,72 @@ bool HardwareBudget::ParseProfiles( const json& InRoot, const std::string& InSou
 }
 
 
+void HardwareBudget::ParseQualityPresets( const json& InList, const std::string& InSource )
+{
+    for( const json& entry : InList )
+    {
+        const std::string name = entry.is_object() ? entry.value( "Name", std::string() ) : std::string();
+        if( name.empty() )
+        {
+            continue;
+        }
+        // Presets share the profiles' "Caps" reader.
+        HardwareProfile reader;
+        if( auto base = entry.find( "Extends" ); base != entry.end() && base->is_string() )
+        {
+            if( const QualityPreset* found = FindQualityPreset( base->get<std::string>() ) )
+            {
+                reader.Caps = found->Caps;
+            }
+            else
+            {
+                BRUH( "Quality preset '" + name + "' (" + InSource + ") extends '" + base->get<std::string>() + "', which isn't defined before it" );
+            }
+        }
+        reader.Deserialize( entry );
+        QualityPreset preset{ name, reader.Description, reader.Caps };
+        auto existing = std::find_if( m_qualityPresets.begin(), m_qualityPresets.end(), [&]( const QualityPreset& InPreset ) { return InPreset.Name == name; } );
+        if( existing != m_qualityPresets.end() )
+        {
+            *existing = std::move( preset );
+        }
+        else
+        {
+            m_qualityPresets.push_back( std::move( preset ) );
+        }
+    }
+}
+
+
+const QualityPreset* HardwareBudget::FindQualityPreset( const std::string& InName ) const
+{
+    auto found = std::find_if( m_qualityPresets.begin(), m_qualityPresets.end(), [&]( const QualityPreset& InPreset ) { return InPreset.Name == InName; } );
+    return found != m_qualityPresets.end() ? &*found : nullptr;
+}
+
+
+bool HardwareBudget::SetQualityPreset( const std::string& InName )
+{
+    const bool known = InName.empty() || FindQualityPreset( InName ) != nullptr;
+    if( InName != m_qualityName )
+    {
+        m_qualityName = InName;
+        ApplyCaps();
+        CLog::Log( CLog::LogType::Info, "Quality preset: " + ( InName.empty() ? std::string( "none" ) : InName ) + ( known ? "" : " (not defined)" ) );
+    }
+    return known;
+}
+
+
+HardwareProfile::FeatureCaps HardwareBudget::GetEffectiveCaps() const
+{
+    const HardwareProfile* profile = m_enforced ? GetActiveProfile() : nullptr;
+    const QualityPreset* quality = m_qualityName.empty() ? nullptr : FindQualityPreset( m_qualityName );
+    const HardwareProfile::FeatureCaps none;
+    return HardwareProfile::Combine( profile ? profile->Caps : none, quality ? quality->Caps : none );
+}
+
+
 const HardwareProfile* HardwareBudget::GetActiveProfile() const
 {
     if( m_activeName.empty() )
@@ -323,8 +421,7 @@ void HardwareBudget::SetEnforced( bool InEnforced )
 
 void HardwareBudget::ApplyCaps()
 {
-    const HardwareProfile* profile = m_enforced ? GetActiveProfile() : nullptr;
-    const HardwareProfile::FeatureCaps caps = profile ? profile->Caps : HardwareProfile::FeatureCaps();
+    const HardwareProfile::FeatureCaps caps = GetEffectiveCaps();
     if( m_renderer )
     {
         BGFXRenderer::FeatureCapSettings& out = m_renderer->FeatureCaps;
@@ -546,6 +643,7 @@ json HardwareBudget::ToJson() const
     out["Profile"] = m_activeName;
     out["Defined"] = GetActiveProfile() != nullptr;
     out["Enforced"] = m_enforced;
+    out["Quality"] = m_qualityName;
     out["OverCount"] = GetOverCount();
     int peakOver = 0;
     json lines = json::array();
