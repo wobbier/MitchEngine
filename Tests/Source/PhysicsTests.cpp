@@ -12,9 +12,11 @@
 #include "Engine/World.h"
 #include "Events/EventReceiver.h"
 #include "Physics/CollisionRouter.h"
+#include "Scripting/Bindings/BindingContext.h"
 #include "World/SceneSerializer.h"
 #include <cmath>
 #include <memory>
+#include <thread>
 
 namespace PhysicsTest
 {
@@ -391,6 +393,115 @@ TEST_CASE( "Physics: the character controller walks, is stopped by walls, and ju
     RaycastHit hit;
     REQUIRE( scene.Physics.Raycast( Vector3( PositionOf( player ).x, 10.f, 0.f ), Vector3( 0.f, -1.f, 0.f ), 20.f, hit ) );
     CHECK( hit.Entity == player );
+}
+
+TEST_CASE( "Physics: a character's NetState saved at tick 10 replays ticks 10-60 bit-identically (NET-0)" )
+{
+    Scene scene;
+    scene.Ground();
+    EntityHandle wall = scene.Create( "Wall", Vector3( 3.f, 1.f, 0.f ) );
+    wall->AddComponent<BoxCollider>().Size = Vector3( 1.f, 2.f, 10.f );
+    EntityHandle ramp = scene.Create( "Ramp", Vector3( -2.f, 0.f, 2.f ) );
+    ramp->GetComponent<Transform>().SetRotation( Vector3( 20.f, 0.f, 0.f ) );
+    ramp->AddComponent<BoxCollider>().Size = Vector3( 3.f, 0.5f, 4.f );
+    EntityHandle player = scene.Create( "Player", Vector3( 0.f, 0.95f, 0.f ) );
+    CharacterController& controller = player->AddComponent<CharacterController>();
+    scene.Start();
+    CHECK( scene.Physics.GetSimTick() == 0 );
+
+    // Inputs are a function of the tick, the way a replay feeds them back in: steer into the
+    // wall, then across the ramp, jumping twice.
+    auto step = [&]( uint64_t InTick ) {
+        const float angle = static_cast<float>( InTick ) * 0.07f;
+        controller.SetMoveInput( Vector3( std::cos( angle ), 0.f, std::sin( angle ) ) );
+        if( InTick == 18 || InTick == 41 )
+        {
+            controller.Jump();
+        }
+        if( InTick % 7 == 0 )
+        {
+            controller.Move( Vector3( 0.f, 0.f, 0.01f ) );
+        }
+        scene.Run( kStep );
+    };
+    for( uint64_t tick = 0; tick < 10; ++tick )
+    {
+        step( tick );
+    }
+    REQUIRE( scene.Physics.GetSimTick() == 10 );
+    const CharacterController::NetState saved = controller.GetNetState();
+
+    std::vector<CharacterController::NetState> first;
+    bool leftTheGround = false;
+    for( uint64_t tick = 10; tick < 60; ++tick )
+    {
+        step( tick );
+        first.push_back( controller.GetNetState() );
+        leftTheGround = leftTheGround || !first.back().Grounded;
+    }
+    CHECK( scene.Physics.GetSimTick() == 60 );
+    // It did something worth replaying: moved, jumped.
+    CHECK( leftTheGround );
+    CHECK( ( first.back().Position - saved.Position ).Length() > 0.5f );
+
+    controller.SetNetState( saved );
+    CHECK( controller.GetNetState() == saved );
+    for( uint64_t tick = 10; tick < 60; ++tick )
+    {
+        step( tick );
+        const CharacterController::NetState& expected = first[tick - 10];
+        const CharacterController::NetState replayed = controller.GetNetState();
+        DOCTEST_INFO( "tick " << tick );
+        REQUIRE( replayed == expected );
+    }
+
+    // The stepping is the same one FixedUpdate runs: stepping it by hand moves the character too.
+    const CharacterController::NetState before = controller.GetNetState();
+    controller.SetMoveInput( Vector3( 0.f, 0.f, -1.f ) );
+    scene.Physics.StepCharacter( *player.Get(), controller, kStep );
+    CHECK( ( controller.GetNetState().Position - before.Position ).Length() > 0.f );
+    CHECK( controller.GetVelocity().z < before.Velocity.z );   // steering towards -z
+}
+
+TEST_CASE( "Physics: collision events name their world, and script bindings resolve the scoped world's physics (NET-0)" )
+{
+    CollisionLog log;
+    Scene client;
+    Scene server;
+    for( Scene* scene : { &client, &server } )
+    {
+        scene->Ground();
+    }
+    server.DynamicBox( "Crate", Vector3( 0.f, 2.f, 0.f ) );
+    client.Start();
+    server.Start();
+    server.Run( 1.f );
+    REQUIRE( log.Count( CollisionEvent::Phase::Enter, false ) >= 1 );
+    for( const CollisionEvent& event : log.Events )
+    {
+        CHECK( event.Source == server.GameWorld.get() );
+    }
+
+#if USING( ME_SCRIPTING )
+    const WeakPtr<World> previous = ScriptBindings::GetWorld();
+    ScriptBindings::SetWorld( client.GameWorld );
+    CHECK( ScriptBindings::Physics() == &client.Physics );
+    {
+        ScriptBindings::WorldScope scope( server.GameWorld );
+        CHECK( ScriptBindings::Physics() == &server.Physics );
+        {
+            ScriptBindings::WorldScope inner( client.GameWorld );
+            CHECK( ScriptBindings::Physics() == &client.Physics );
+        }
+        CHECK( ScriptBindings::GetWorld().lock() == server.GameWorld );
+        // Another thread has no scope: it sees the default world.
+        SharedPtr<World> seen;
+        std::thread( [&seen]() { seen = ScriptBindings::GetWorld().lock(); } ).join();
+        CHECK( seen == client.GameWorld );
+    }
+    CHECK( ScriptBindings::GetWorld().lock() == client.GameWorld );
+    ScriptBindings::SetWorld( previous );
+#endif
 }
 
 TEST_CASE( "Physics: Bullet-era rigidbodies migrate to a Rigidbody plus a collider" )

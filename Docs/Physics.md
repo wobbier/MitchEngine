@@ -174,6 +174,19 @@ Joints have their own signature and are re-created when it changes.
 - **Whole world:** `PhysicsCore::DebugDrawEnabled` (Scene View > View > Physics, the `View.Physics` action, or the core's inspector) draws every shape, joint and contact through `b3World_Draw`. `PhysicsDebugDraw` turns Box3D's debug shapes into wireframes: hull edges, mesh triangles up to 40000, spheres and capsules.
 - **Selection:** the editor draws gizmos for the selected entity's colliders (green, or blue for triggers), its character capsule, and its joint anchor, axis and connection (`SceneTools::DrawPhysicsGizmos`).
 
+### Determinism and net state (NET-0)
+
+This is the prep for networking.
+
+- **Sim tick:** `PhysicsCore::GetSimTick()` counts the fixed steps since the world started; `OnStart` resets it.
+- **Single-character step:** `PhysicsCore::StepCharacter( entity, controller, dt )` is the mover step that `FixedUpdate` runs for each character. It covers steering, gravity, jump, collide-and-slide, ground snap and pushes.
+- **Net state:** `CharacterController::NetState` is everything the step reads and writes: the capsule centre, velocity, move input, pending move, ground normal, jump request and grounded flag.
+  - `GetNetState()` saves it.
+  - `SetNetState()` restores it, and moves the Transform and the capsule body to match.
+  - `NetState::operator==` compares bits, not approximately.
+- **Proof:** a doctest saves the state at tick 10 and runs to tick 60 with tick-driven inputs (steering, jumps, `Move`). It then restores the state and re-runs, and every tick's state matches bit for bit. This holds for a given world: dynamic bodies the character pushes aren't part of its NetState.
+- **Collision events:** a `CollisionEvent` carries `Source`, the world whose physics stepped. `ScriptCore` drops events from other worlds, so a server or rollback world stepping beside the game's doesn't call the game's scripts.
+
 ### Old scenes
 
 `SceneSerializer::UpgradeComponent` converts the Bullet-era `Rigidbody` (identified by its `ColliderType` key):

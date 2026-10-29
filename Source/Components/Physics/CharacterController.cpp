@@ -1,4 +1,5 @@
 #include "PCH.h"
+#include <cstring>
 #include "CharacterController.h"
 #include "Components/Transform.h"
 #include "Physics/Box3DUtils.h"
@@ -50,6 +51,56 @@ void CharacterController::Move( const Vector3& InDisplacement )
 void CharacterController::Jump()
 {
     m_wantsJump = true;
+}
+
+
+bool CharacterController::NetState::operator==( const NetState& InOther ) const
+{
+    // Exact: replays must be bit-identical, not merely close.
+    auto same = []( const Vector3& InA, const Vector3& InB ) { return std::memcmp( &InA, &InB, sizeof( Vector3 ) ) == 0; };
+    return same( Position, InOther.Position ) && same( Velocity, InOther.Velocity ) && same( MoveInput, InOther.MoveInput )
+        && same( PendingMove, InOther.PendingMove ) && same( GroundNormal, InOther.GroundNormal )
+        && WantsJump == InOther.WantsJump && Grounded == InOther.Grounded;
+}
+
+
+CharacterController::NetState CharacterController::GetNetState() const
+{
+    NetState state;
+    state.Position = m_position;
+    state.Velocity = m_velocity;
+    state.MoveInput = m_moveInput;
+    state.PendingMove = m_pendingMove;
+    state.GroundNormal = m_groundNormal;
+    state.WantsJump = m_wantsJump;
+    state.Grounded = m_grounded;
+    return state;
+}
+
+
+void CharacterController::SetNetState( const NetState& InState )
+{
+    m_position = m_previousPosition = m_appliedCenter = InState.Position;
+    m_hasPosition = true;
+    m_velocity = InState.Velocity;
+    m_moveInput = InState.MoveInput;
+    m_pendingMove = InState.PendingMove;
+    m_groundNormal = InState.GroundNormal;
+    m_wantsJump = InState.WantsJump;
+    m_grounded = InState.Grounded;
+    if( Parent )
+    {
+        if( Transform* transform = Parent->TryGetComponent<Transform>() )
+        {
+            transform->SetWorldPosition( InState.Position + Center );
+            // The step compares the Transform with the centre it last wrote: read back what stuck.
+            m_appliedCenter = transform->GetWorldPosition() - Center;
+        }
+    }
+    if( Box3DUtils::IsBody( m_body ) )
+    {
+        b3Body_SetTransform( Box3DUtils::Body( m_body ), Box3DUtils::ToB3( m_position ), b3Quat_identity );
+    }
 }
 
 

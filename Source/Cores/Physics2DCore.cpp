@@ -1235,6 +1235,7 @@ void Physics2DCore::ProcessEvents()
     events.swap( m_pendingEvents );
     for( CollisionEvent& event : events )
     {
+        event.Source = &GetWorld();
         event.Fire();
     }
 }

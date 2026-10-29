@@ -45,6 +45,25 @@ public:
     bool IsOnGround() const { return m_grounded; }
     Vector3 GetGroundNormal() const { return m_groundNormal; }
 
+    // Everything a step reads and writes (NET-0): saved at a tick and restored, the next steps
+    // replay bit-identically against the same world. The capsule centre, not the Transform.
+    struct NetState
+    {
+        Vector3 Position;
+        Vector3 Velocity;
+        Vector3 MoveInput;
+        Vector3 PendingMove;
+        Vector3 GroundNormal = Vector3( 0.f, 1.f, 0.f );
+        bool WantsJump = false;
+        bool Grounded = false;
+
+        bool operator==( const NetState& InOther ) const;
+        bool operator!=( const NetState& InOther ) const { return !( *this == InOther ); }
+    };
+    NetState GetNetState() const;
+    // Puts the character back in that state: the Transform and the capsule body follow.
+    void SetNetState( const NetState& InState );
+
     // Older gameplay code passed per-frame displacements.
     void Walk( const Vector3& InDisplacement ) { Move( InDisplacement ); }
     void Walk( Vector2 InDirection ) { SetMoveInput( Vector3( InDirection.x, 0.f, InDirection.y ) ); }

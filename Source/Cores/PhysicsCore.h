@@ -69,6 +69,14 @@ public:
     bool IsTerrainCollisionReady() const { return m_terrainShapesReady; }
     void WaitForTerrainCollision() { if( m_terrainCook.valid() ) m_terrainCook.wait(); }
     float GetLastStepMilliseconds() const { return m_lastStepMs; }
+    // Fixed steps simulated since the world started (0 before the first; NET-0: the tick a
+    // snapshot or an input belongs to).
+    uint64_t GetSimTick() const { return m_simTick; }
+
+    // One character's mover step, as FixedUpdate runs it for each (steer, fall, jump,
+    // collide-and-slide, ground snap, pushes). Deterministic for a given NetState and world, so
+    // networking can re-run it to predict, and to replay inputs after a correction (NET-0).
+    void StepCharacter( Entity& InEntity, CharacterController& InController, float InDeltaSeconds );
 
     // Draw every body, shape and joint (Scene View > View > Physics, or the inspector).
     static inline bool DebugDrawEnabled = false;
@@ -140,6 +148,7 @@ private:
     uint64_t m_groundBody = 0;      // static anchor for joints connected to the world
     bool m_simulating = false;
     float m_lastStepMs = 0.f;
+    uint64_t m_simTick = 0;
     std::unordered_map<uint64_t, BodyRecord> m_bodies;  // by owner entity id
     std::unordered_map<Moonlight::MeshData*, void*> m_hulls;
     std::unordered_map<Moonlight::MeshData*, void*> m_meshes;

@@ -217,6 +217,14 @@ A `DataAsset` subclass (`Modules/ScriptCore/Source/Core/DataAsset.cs`) is tuning
 | macOS | ❌ No `DEFINE_ME_DOTNET` path yet, so scripting compiles out. The CLI build would carry over; the host pack lookup and link are what's missing |
 | UWP | ❌ Not wired |
 
+### The script world (NET-0)
+
+Script calls act on `ScriptBindings::GetWorld()`:
+
+- **Default:** the engine's game world (`ScriptEngine::SetWorld`).
+- **Scoped:** inside a `ScriptBindings::WorldScope` on the current thread, they act on the scope's world. Scopes nest and are per-thread, so a server or rollback simulation can run its scripts against its own world.
+- **Core lookup:** bindings reach physics, 2D physics and navigation through `ScriptBindings::Physics()` / `Physics2D()` / `Navigation()`, which are that world's cores, not `GetEngine()`'s. `ScriptCore` syncs its own world's cores before `OnStart`.
+
 ## How to Extend
 
 ### Add a script binding (engine function callable from C#)

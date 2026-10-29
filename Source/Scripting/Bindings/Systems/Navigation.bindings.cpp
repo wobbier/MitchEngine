@@ -109,7 +109,7 @@ static void Eng_NavAgent_SetSpeed( EntityID inId, float inSpeed )
 
 static int Eng_Navigation_FindPath( const Vector3* inStart, const Vector3* inEnd, Vector3* outCorners, int inMaxCorners )
 {
-    NavigationCore* navigation = GetEngine().Navigation;
+    NavigationCore* navigation = ScriptBindings::Navigation();
     if( !navigation || inMaxCorners <= 0 )
     {
         return 0;
@@ -127,7 +127,7 @@ static int Eng_Navigation_FindPath( const Vector3* inStart, const Vector3* inEnd
 
 static bool Eng_Navigation_SamplePosition( const Vector3* inPoint, float inMaxDistance, Vector3* outPosition )
 {
-    NavigationCore* navigation = GetEngine().Navigation;
+    NavigationCore* navigation = ScriptBindings::Navigation();
     NavMeshHit hit;
     if( !navigation || !navigation->SamplePosition( *inPoint, inMaxDistance, hit ) )
     {
@@ -141,7 +141,7 @@ static bool Eng_Navigation_SamplePosition( const Vector3* inPoint, float inMaxDi
 
 static bool Eng_Navigation_Raycast( const Vector3* inStart, const Vector3* inEnd, Vector3* outHit )
 {
-    NavigationCore* navigation = GetEngine().Navigation;
+    NavigationCore* navigation = ScriptBindings::Navigation();
     NavMeshHit hit;
     const bool blocked = navigation && navigation->Raycast( *inStart, *inEnd, hit );
     *outHit = blocked ? hit.Position : *inEnd;
@@ -151,7 +151,7 @@ static bool Eng_Navigation_Raycast( const Vector3* inStart, const Vector3* inEnd
 
 static bool Eng_Navigation_GetRandomPoint( Vector3* outPoint )
 {
-    NavigationCore* navigation = GetEngine().Navigation;
+    NavigationCore* navigation = ScriptBindings::Navigation();
     return navigation && navigation->GetRandomPoint( *outPoint );
 }
 

@@ -45,6 +45,8 @@ struct RaycastHit
 // Fired (on the main thread, after each physics step) when two colliders start or stop touching,
 // or a collider enters or leaves a trigger. A is the entity whose collider is the trigger, when one
 // of them is.
+class World;
+
 class CollisionEvent
     : public Event<CollisionEvent>
 {
@@ -67,4 +69,5 @@ public:
     bool Is2D = false;
     Vector3 Point;              // contact point (Enter, non-trigger 3D contacts)
     Vector3 Normal;             // from A towards B
+    const World* Source = nullptr;  // the world whose physics stepped (NET-0: several can step)
 };

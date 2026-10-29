@@ -105,15 +105,16 @@ void ScriptCore::StartPendingScripts()
         return InA->m_executionOrder < InB->m_executionOrder;
     } );
     // OnStart sees every body and navmesh that exists by now, including ones spawned this frame.
-    if( NavigationCore* navigation = GetEngine().Navigation )
+    // This world's cores (NET-0: a world simulated alongside the game's has its own).
+    if( NavigationCore* navigation = GetWorld().GetCore<NavigationCore>() )
     {
         navigation->SyncNow();
     }
-    if( PhysicsCore* physics = GetEngine().Physics )
+    if( PhysicsCore* physics = GetWorld().GetCore<PhysicsCore>() )
     {
         physics->SyncNow();
     }
-    if( Physics2DCore* physics2D = GetEngine().Physics2D )
+    if( Physics2DCore* physics2D = GetWorld().GetCore<Physics2DCore>() )
     {
         physics2D->SyncNow();
     }
@@ -305,7 +306,8 @@ void ScriptCore::OnEntityRemoved( Entity& InEntity )
 void ScriptCore::OnCollision( const CollisionEvent& collision )
 {
 #if USING( ME_SCRIPTING )
-    if( !m_running )
+    // Another world's physics (a server or rollback simulation) isn't this world's business.
+    if( !m_running || ( collision.Source != nullptr && collision.Source != &GetWorld() ) )
     {
         return;
     }

@@ -185,6 +185,7 @@ void PhysicsCore::OnRemovedFromWorld()
 void PhysicsCore::OnStart()
 {
     m_simulating = true;
+    m_simTick = 0;
     SetGravity( ProjectSettings::Get().Gravity );
     // Bodies exist from the first frame of play (queries in OnStart work).
     SyncBodies();
@@ -1091,8 +1092,6 @@ void PhysicsCore::SyncCharacterBody( CharacterController& InController, Entity& 
 void PhysicsCore::StepCharacters( float InDeltaSeconds )
 {
     OPTICK_EVENT( "PhysicsCore::StepCharacters" );
-    const b3WorldId world = WorldId( m_world );
-    const Vector3 gravity = FromB3( b3World_GetGravity( world ) );
     for( Entity& entity : GetEntities() )
     {
         CharacterController* controller = Enabled<CharacterController>( entity );
@@ -1105,146 +1104,153 @@ void PhysicsCore::StepCharacters( float InDeltaSeconds )
             }
             continue;
         }
-        CharacterController& c = *controller;
-        Transform& transform = entity.GetComponent<Transform>();
-        const Vector3 transformCenter = transform.GetWorldPosition() - c.Center;
-        if( !c.m_hasPosition || ( transformCenter - c.m_appliedCenter ).LengthSquared() > 1e-6f )
-        {
-            // First step, or something else moved the Transform: start from there.
-            c.m_position = c.m_previousPosition = c.m_appliedCenter = transformCenter;
-            c.m_hasPosition = true;
-        }
-        SyncCharacterBody( c, entity );
-        const b3BodyId ownBody = Body( c.m_body );
-
-        // Velocity: steer horizontally, fall, jump.
-        const Vector3 desired = c.m_moveInput * c.MaxSpeed;
-        Vector3 horizontal( c.m_velocity.x, 0.f, c.m_velocity.z );
-        const float acceleration = c.Acceleration * ( c.m_grounded ? 1.f : c.AirControl ) * InDeltaSeconds;
-        const Vector3 change = desired - horizontal;
-        const float changeLength = change.Length();
-        horizontal = changeLength <= acceleration || changeLength < 1e-6f ? desired : horizontal + change * ( acceleration / changeLength );
-        float vertical = c.m_velocity.y;
-        const float g = gravity.y * c.GravityScale;
-        bool jumped = false;
-        if( c.m_wantsJump && c.m_grounded )
-        {
-            vertical = std::sqrt( 2.f * std::abs( g ) * std::max( c.JumpHeight, 0.f ) );
-            jumped = true;
-        }
-        else if( c.m_grounded && vertical < 0.f )
-        {
-            vertical = 0.f;
-        }
-        vertical += g * InDeltaSeconds;
-        c.m_wantsJump = false;
-        c.m_velocity = Vector3( horizontal.x, vertical, horizontal.z );
-
-        // Mover: collide, solve against the contact planes, sweep, repeat.
-        const float half = std::max( c.Height * 0.5f - c.Radius, 0.f );
-        const b3Capsule mover{ b3Vec3{ 0.f, -half, 0.f }, b3Vec3{ 0.f, half, 0.f }, c.Radius };
-        const b3QueryFilter filter = QueryFilterFor( ProjectSettings::Get().GetCollisionMask( entity.GetLayer() ) );
-        struct MoverContext
-        {
-            b3BodyId Self;
-            float MinGroundY;
-            std::vector<b3CollisionPlane> Planes;
-            bool Grounded = false;
-            Vector3 GroundNormal = Vector3( 0.f, 1.f, 0.f );
-            std::vector<b3ShapeId> Pushed;
-        } context{ ownBody, std::cos( c.SlopeLimit * kPi / 180.f ) };
-        auto ignoreSelf = []( b3ShapeId shape, void* ctx ) -> bool {
-            const MoverContext* self = static_cast<const MoverContext*>( ctx );
-            return !B3_ID_EQUALS( b3Shape_GetBody( shape ), self->Self );
-        };
-        auto collectPlanes = []( b3ShapeId shape, const b3PlaneResult* planes, int count, void* ctx ) -> bool {
-            MoverContext* self = static_cast<MoverContext*>( ctx );
-            if( B3_ID_EQUALS( b3Shape_GetBody( shape ), self->Self ) || b3Shape_IsSensor( shape ) )
-            {
-                return true;
-            }
-            for( int i = 0; i < count; ++i )
-            {
-                const b3Vec3 normal = planes[i].plane.normal;
-                self->Planes.push_back( b3CollisionPlane{ planes[i].plane, FLT_MAX, 0.f, true } );
-                if( normal.y >= self->MinGroundY )
-                {
-                    self->Grounded = true;
-                    self->GroundNormal = Vector3( normal.x, normal.y, normal.z );
-                }
-            }
-            if( b3Body_GetType( b3Shape_GetBody( shape ) ) == b3_dynamicBody )
-            {
-                self->Pushed.push_back( shape );
-            }
-            return true;
-        };
-
-        const Vector3 delta = c.m_velocity * InDeltaSeconds + c.m_pendingMove;
-        const Vector3 intended = c.m_velocity;
-        c.m_pendingMove = Vector3();
-        b3Vec3 position = ToB3( c.m_position );
-        const b3Vec3 target = b3Add( position, ToB3( delta ) );
-        const bool wasGrounded = c.m_grounded;
-        auto collideAt = [&]( b3Vec3 InPosition ) {
-            context.Planes.clear();
-            context.Grounded = false;
-            b3World_CollideMover( world, InPosition, &mover, filter, collectPlanes, &context );
-        };
-        for( int iteration = 0; iteration < 5; ++iteration )
-        {
-            collideAt( position );
-            const b3PlaneSolverResult solved = b3SolvePlanes( b3Sub( target, position ), context.Planes.data(), static_cast<int>( context.Planes.size() ) );
-            const float fraction = b3World_CastMover( world, position, &mover, solved.delta, filter, ignoreSelf, &context );
-            const b3Vec3 step = b3MulSV( fraction, solved.delta );
-            position = b3Add( position, step );
-            if( b3Dot( step, step ) < 1e-8f )
-            {
-                break;
-            }
-        }
-
-        // Contact state where we ended up: grounding, and velocity lost into walls / the floor.
-        collideAt( position );
-        bool grounded = context.Grounded && !jumped;
-        if( !grounded && wasGrounded && !jumped && c.GroundSnap > 0.f && c.m_velocity.y <= 0.f )
-        {
-            // Stay on the ground over small drops and down slopes.
-            const b3Vec3 down{ 0.f, -c.GroundSnap, 0.f };
-            const float fraction = b3World_CastMover( world, position, &mover, down, filter, ignoreSelf, &context );
-            if( fraction < 1.f )
-            {
-                position = b3MulAdd( position, fraction, down );
-                collideAt( position );
-                grounded = context.Grounded;
-            }
-        }
-        c.m_velocity = FromB3( b3ClipVector( ToB3( c.m_velocity ), context.Planes.data(), static_cast<int>( context.Planes.size() ) ) );
-        c.m_grounded = grounded;
-        c.m_groundNormal = grounded ? context.GroundNormal : Vector3( 0.f, 1.f, 0.f );
-
-        // Shove dynamic bodies we walked into (once each, along the intended horizontal velocity).
-        if( c.PushStrength > 0.f && !context.Pushed.empty() )
-        {
-            const Vector3 push( intended.x, 0.f, intended.z );
-            std::vector<b3BodyId> pushed;
-            for( b3ShapeId shape : context.Pushed )
-            {
-                const b3BodyId other = b3Shape_GetBody( shape );
-                if( std::any_of( pushed.begin(), pushed.end(), [other]( b3BodyId id ) { return B3_ID_EQUALS( id, other ); } ) )
-                {
-                    continue;
-                }
-                pushed.push_back( other );
-                b3Body_ApplyLinearImpulseToCenter( other, ToB3( push * ( c.PushStrength * InDeltaSeconds * b3Body_GetMass( other ) ) ), true );
-            }
-        }
-
-        c.m_previousPosition = c.m_position;
-        c.m_position = FromB3( position );
-        b3WorldTransform bodyTarget{ position, b3Quat_identity };
-        b3Body_SetTargetTransform( ownBody, bodyTarget, InDeltaSeconds, true );
+        StepCharacter( entity, *controller, InDeltaSeconds );
     }
+}
+
+
+void PhysicsCore::StepCharacter( Entity& entity, CharacterController& c, float InDeltaSeconds )
+{
+    const b3WorldId world = WorldId( m_world );
+    const Vector3 gravity = FromB3( b3World_GetGravity( world ) );
+    Transform& transform = entity.GetComponent<Transform>();
+    const Vector3 transformCenter = transform.GetWorldPosition() - c.Center;
+    if( !c.m_hasPosition || ( transformCenter - c.m_appliedCenter ).LengthSquared() > 1e-6f )
+    {
+        // First step, or something else moved the Transform: start from there.
+        c.m_position = c.m_previousPosition = c.m_appliedCenter = transformCenter;
+        c.m_hasPosition = true;
+    }
+    SyncCharacterBody( c, entity );
+    const b3BodyId ownBody = Body( c.m_body );
+
+    // Velocity: steer horizontally, fall, jump.
+    const Vector3 desired = c.m_moveInput * c.MaxSpeed;
+    Vector3 horizontal( c.m_velocity.x, 0.f, c.m_velocity.z );
+    const float acceleration = c.Acceleration * ( c.m_grounded ? 1.f : c.AirControl ) * InDeltaSeconds;
+    const Vector3 change = desired - horizontal;
+    const float changeLength = change.Length();
+    horizontal = changeLength <= acceleration || changeLength < 1e-6f ? desired : horizontal + change * ( acceleration / changeLength );
+    float vertical = c.m_velocity.y;
+    const float g = gravity.y * c.GravityScale;
+    bool jumped = false;
+    if( c.m_wantsJump && c.m_grounded )
+    {
+        vertical = std::sqrt( 2.f * std::abs( g ) * std::max( c.JumpHeight, 0.f ) );
+        jumped = true;
+    }
+    else if( c.m_grounded && vertical < 0.f )
+    {
+        vertical = 0.f;
+    }
+    vertical += g * InDeltaSeconds;
+    c.m_wantsJump = false;
+    c.m_velocity = Vector3( horizontal.x, vertical, horizontal.z );
+
+    // Mover: collide, solve against the contact planes, sweep, repeat.
+    const float half = std::max( c.Height * 0.5f - c.Radius, 0.f );
+    const b3Capsule mover{ b3Vec3{ 0.f, -half, 0.f }, b3Vec3{ 0.f, half, 0.f }, c.Radius };
+    const b3QueryFilter filter = QueryFilterFor( ProjectSettings::Get().GetCollisionMask( entity.GetLayer() ) );
+    struct MoverContext
+    {
+        b3BodyId Self;
+        float MinGroundY;
+        std::vector<b3CollisionPlane> Planes;
+        bool Grounded = false;
+        Vector3 GroundNormal = Vector3( 0.f, 1.f, 0.f );
+        std::vector<b3ShapeId> Pushed;
+    } context{ ownBody, std::cos( c.SlopeLimit * kPi / 180.f ) };
+    auto ignoreSelf = []( b3ShapeId shape, void* ctx ) -> bool {
+        const MoverContext* self = static_cast<const MoverContext*>( ctx );
+        return !B3_ID_EQUALS( b3Shape_GetBody( shape ), self->Self );
+    };
+    auto collectPlanes = []( b3ShapeId shape, const b3PlaneResult* planes, int count, void* ctx ) -> bool {
+        MoverContext* self = static_cast<MoverContext*>( ctx );
+        if( B3_ID_EQUALS( b3Shape_GetBody( shape ), self->Self ) || b3Shape_IsSensor( shape ) )
+        {
+            return true;
+        }
+        for( int i = 0; i < count; ++i )
+        {
+            const b3Vec3 normal = planes[i].plane.normal;
+            self->Planes.push_back( b3CollisionPlane{ planes[i].plane, FLT_MAX, 0.f, true } );
+            if( normal.y >= self->MinGroundY )
+            {
+                self->Grounded = true;
+                self->GroundNormal = Vector3( normal.x, normal.y, normal.z );
+            }
+        }
+        if( b3Body_GetType( b3Shape_GetBody( shape ) ) == b3_dynamicBody )
+        {
+            self->Pushed.push_back( shape );
+        }
+        return true;
+    };
+
+    const Vector3 delta = c.m_velocity * InDeltaSeconds + c.m_pendingMove;
+    const Vector3 intended = c.m_velocity;
+    c.m_pendingMove = Vector3();
+    b3Vec3 position = ToB3( c.m_position );
+    const b3Vec3 target = b3Add( position, ToB3( delta ) );
+    const bool wasGrounded = c.m_grounded;
+    auto collideAt = [&]( b3Vec3 InPosition ) {
+        context.Planes.clear();
+        context.Grounded = false;
+        b3World_CollideMover( world, InPosition, &mover, filter, collectPlanes, &context );
+    };
+    for( int iteration = 0; iteration < 5; ++iteration )
+    {
+        collideAt( position );
+        const b3PlaneSolverResult solved = b3SolvePlanes( b3Sub( target, position ), context.Planes.data(), static_cast<int>( context.Planes.size() ) );
+        const float fraction = b3World_CastMover( world, position, &mover, solved.delta, filter, ignoreSelf, &context );
+        const b3Vec3 step = b3MulSV( fraction, solved.delta );
+        position = b3Add( position, step );
+        if( b3Dot( step, step ) < 1e-8f )
+        {
+            break;
+        }
+    }
+
+    // Contact state where we ended up: grounding, and velocity lost into walls / the floor.
+    collideAt( position );
+    bool grounded = context.Grounded && !jumped;
+    if( !grounded && wasGrounded && !jumped && c.GroundSnap > 0.f && c.m_velocity.y <= 0.f )
+    {
+        // Stay on the ground over small drops and down slopes.
+        const b3Vec3 down{ 0.f, -c.GroundSnap, 0.f };
+        const float fraction = b3World_CastMover( world, position, &mover, down, filter, ignoreSelf, &context );
+        if( fraction < 1.f )
+        {
+            position = b3MulAdd( position, fraction, down );
+            collideAt( position );
+            grounded = context.Grounded;
+        }
+    }
+    c.m_velocity = FromB3( b3ClipVector( ToB3( c.m_velocity ), context.Planes.data(), static_cast<int>( context.Planes.size() ) ) );
+    c.m_grounded = grounded;
+    c.m_groundNormal = grounded ? context.GroundNormal : Vector3( 0.f, 1.f, 0.f );
+
+    // Shove dynamic bodies we walked into (once each, along the intended horizontal velocity).
+    if( c.PushStrength > 0.f && !context.Pushed.empty() )
+    {
+        const Vector3 push( intended.x, 0.f, intended.z );
+        std::vector<b3BodyId> pushed;
+        for( b3ShapeId shape : context.Pushed )
+        {
+            const b3BodyId other = b3Shape_GetBody( shape );
+            if( std::any_of( pushed.begin(), pushed.end(), [other]( b3BodyId id ) { return B3_ID_EQUALS( id, other ); } ) )
+            {
+                continue;
+            }
+            pushed.push_back( other );
+            b3Body_ApplyLinearImpulseToCenter( other, ToB3( push * ( c.PushStrength * InDeltaSeconds * b3Body_GetMass( other ) ) ), true );
+        }
+    }
+
+    c.m_previousPosition = c.m_position;
+    c.m_position = FromB3( position );
+    b3WorldTransform bodyTarget{ position, b3Quat_identity };
+    b3Body_SetTargetTransform( ownBody, bodyTarget, InDeltaSeconds, true );
 }
 
 
@@ -1308,6 +1314,7 @@ void PhysicsCore::FixedUpdate( const UpdateContext& inUpdateContext )
     m_taskCount = 0;
     b3World_Step( WorldId( m_world ), dt, kSubSteps );
     m_lastStepMs = std::chrono::duration<float, std::milli>( std::chrono::steady_clock::now() - start ).count();
+    ++m_simTick;
 
     for( auto& [id, record] : m_bodies )
     {
@@ -1413,6 +1420,7 @@ void PhysicsCore::ProcessEvents()
     events.swap( m_pendingEvents );
     for( CollisionEvent& event : events )
     {
+        event.Source = &GetWorld();
         event.Fire();
     }
 }

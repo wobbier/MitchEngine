@@ -6,29 +6,72 @@
 #include "ECS/ComponentDetail.h"
 #include "ECS/ComponentPool.h"
 #include "Engine/World.h"
+#include "Cores/NavigationCore.h"
+#include "Cores/Physics2DCore.h"
+#include "Cores/PhysicsCore.h"
 #include <unordered_map>
 
 namespace ScriptBindings
 {
-    static WeakPtr<World> gScriptWorld;
+    static WeakPtr<World> gDefaultWorld;
+    // The innermost WorldScope on this thread.
+    static thread_local WeakPtr<World> tScopedWorld;
+    static thread_local bool tHasScope = false;
     static std::unordered_map<std::string, std::function<bool( EntityHandle )>> gHasComponent;
     static std::unordered_map<std::string, std::function<void( EntityHandle )>> gAddComponent;
 
     void SetWorld( WeakPtr<World> inWorld )
     {
-        gScriptWorld = inWorld;
+        gDefaultWorld = inWorld;
     }
 
 
     WeakPtr<World> GetWorld()
     {
-        return gScriptWorld;
+        return tHasScope ? tScopedWorld : gDefaultWorld;
+    }
+
+
+    WorldScope::WorldScope( WeakPtr<World> InWorld )
+        : m_previous( tScopedWorld )
+        , m_hadPrevious( tHasScope )
+    {
+        tScopedWorld = std::move( InWorld );
+        tHasScope = true;
+    }
+
+
+    WorldScope::~WorldScope()
+    {
+        tScopedWorld = std::move( m_previous );
+        tHasScope = m_hadPrevious;
+    }
+
+
+    PhysicsCore* Physics()
+    {
+        SharedPtr<World> world = GetWorld().lock();
+        return world ? world->GetCore<PhysicsCore>() : nullptr;
+    }
+
+
+    Physics2DCore* Physics2D()
+    {
+        SharedPtr<World> world = GetWorld().lock();
+        return world ? world->GetCore<Physics2DCore>() : nullptr;
+    }
+
+
+    NavigationCore* Navigation()
+    {
+        SharedPtr<World> world = GetWorld().lock();
+        return world ? world->GetCore<NavigationCore>() : nullptr;
     }
 
 
     EntityHandle MakeHandle( EntityID inId )
     {
-        return EntityHandle( inId, gScriptWorld );
+        return EntityHandle( inId, GetWorld() );
     }
 
 
@@ -42,7 +85,7 @@ namespace ScriptBindings
     // Whether the entity has a component of that type (Entity's by-type check is World's).
     bool HasComponentOfType( const Entity& InEntity, TypeId InType )
     {
-        SharedPtr<World> world = gScriptWorld.lock();
+        SharedPtr<World> world = GetWorld().lock();
         IComponentPool* pool = world ? world->GetComponentPool( InType ) : nullptr;
         return pool != nullptr && pool->Get( InEntity.GetId().Index ) != nullptr;
     }

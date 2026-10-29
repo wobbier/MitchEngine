@@ -409,7 +409,7 @@ static void Eng_Audio_PlayOneShotAt( const uint8_t* inClip, const Vector3* inPos
 static bool Eng_Physics_Raycast( const Vector3* inOrigin, const Vector3* inDirection, float inMaxDistance, ScriptRaycastHit* outHit )
 {
     *outHit = ScriptRaycastHit();
-    PhysicsCore* physics = GetEngine().Physics;
+    PhysicsCore* physics = ScriptBindings::Physics();
     RaycastHit hit;
     if( !physics || !physics->Raycast( *inOrigin, *inDirection, inMaxDistance, hit ) )
     {
@@ -425,7 +425,7 @@ static bool Eng_Physics_Raycast( const Vector3* inOrigin, const Vector3* inDirec
 
 static int Eng_Physics_OverlapSphere( const Vector3* inCenter, float inRadius, EntityID* outEntities, int inMaxEntities )
 {
-    PhysicsCore* physics = GetEngine().Physics;
+    PhysicsCore* physics = ScriptBindings::Physics();
     if( !physics )
     {
         return 0;

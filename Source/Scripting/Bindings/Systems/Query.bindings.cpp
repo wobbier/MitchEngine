@@ -257,7 +257,7 @@ namespace
 static bool Eng_Physics_RaycastMasked( const Vector3* inOrigin, const Vector3* inDirection, float inMaxDistance, int inMask, ScriptRaycastHit* outHit )
 {
     *outHit = ScriptRaycastHit();
-    PhysicsCore* physics = GetEngine().Physics;
+    PhysicsCore* physics = ScriptBindings::Physics();
     RaycastHit hit;
     if( !physics || !physics->Raycast( *inOrigin, *inDirection, inMaxDistance, hit, Mask( inMask ) ) )
     {
@@ -270,7 +270,7 @@ static bool Eng_Physics_RaycastMasked( const Vector3* inOrigin, const Vector3* i
 
 static int Eng_Physics_RaycastAll( const Vector3* inOrigin, const Vector3* inDirection, float inMaxDistance, int inMask, ScriptRaycastHit* outHits, int inMaxHits )
 {
-    PhysicsCore* physics = GetEngine().Physics;
+    PhysicsCore* physics = ScriptBindings::Physics();
     if( !physics )
     {
         return 0;
@@ -288,7 +288,7 @@ static int Eng_Physics_RaycastAll( const Vector3* inOrigin, const Vector3* inDir
 static bool Eng_Physics_SphereCast( const Vector3* inOrigin, float inRadius, const Vector3* inDirection, float inMaxDistance, int inMask, ScriptRaycastHit* outHit )
 {
     *outHit = ScriptRaycastHit();
-    PhysicsCore* physics = GetEngine().Physics;
+    PhysicsCore* physics = ScriptBindings::Physics();
     RaycastHit hit;
     if( !physics || !physics->SphereCast( *inOrigin, inRadius, *inDirection, inMaxDistance, hit, Mask( inMask ) ) )
     {
@@ -301,7 +301,7 @@ static bool Eng_Physics_SphereCast( const Vector3* inOrigin, float inRadius, con
 
 static int Eng_Physics_OverlapBox( const Vector3* inCenter, const Vector3* inHalfExtents, const Vector3* inEuler, int inMask, EntityID* outEntities, int inMax )
 {
-    PhysicsCore* physics = GetEngine().Physics;
+    PhysicsCore* physics = ScriptBindings::Physics();
     if( !physics )
     {
         return 0;
@@ -405,7 +405,7 @@ static void Eng_Animator_SetLayerWeight( EntityID inId, const uint8_t* inLayer, 
 static bool Eng_Physics2D_Raycast( Vector2* inOrigin, Vector2* inDirection, float inMaxDistance, int inMask, ScriptRaycastHit* outHit )
 {
     *outHit = ScriptRaycastHit();
-    Physics2DCore* physics = GetEngine().Physics2D;
+    Physics2DCore* physics = ScriptBindings::Physics2D();
     RaycastHit hit;
     if( !physics || !physics->Raycast( *inOrigin, *inDirection, inMaxDistance, hit, Mask( inMask ) ) )
     {
@@ -419,7 +419,7 @@ static bool Eng_Physics2D_Raycast( Vector2* inOrigin, Vector2* inDirection, floa
 static int Eng_Physics2D_OverlapCircle( Vector2* inCenter, float inRadius, int inMask, EntityID* outEntities, int inMax )
 {
     std::vector<EntityID> found;
-    if( Physics2DCore* physics = GetEngine().Physics2D )
+    if( Physics2DCore* physics = ScriptBindings::Physics2D() )
     {
         for( const EntityHandle& entity : physics->OverlapCircle( *inCenter, inRadius, Mask( inMask ) ) )
         {
@@ -433,7 +433,7 @@ static int Eng_Physics2D_OverlapCircle( Vector2* inCenter, float inRadius, int i
 static int Eng_Physics2D_OverlapPoint( Vector2* inPoint, int inMask, EntityID* outEntities, int inMax )
 {
     std::vector<EntityID> found;
-    if( Physics2DCore* physics = GetEngine().Physics2D )
+    if( Physics2DCore* physics = ScriptBindings::Physics2D() )
     {
         for( const EntityHandle& entity : physics->OverlapPoint( *inPoint, Mask( inMask ) ) )
         {
