@@ -223,7 +223,7 @@ A mesh target whose **Color** output is the final lit colour. It is fogged when 
   - `Templates/CustomLit.frag.sgt` includes `Lighting.sh` and defines `SG_LIGHTING`, so the helpers use the real lights: the directional uniforms, `sunShadow`, the cluster loop with `volumeLocalLightDir`, and the irradiance.
   - Every other file (vertex, shadow, the editor preview) gets stand-ins: the preview rig's key light, no shadow, no local lights and a soft ambient.
 - **Limits.** The engine's view-shading debug modes (unlit, normals...) don't apply, because the graph owns the shading. The local-light shadows use the light's own direction for the receiver offset. Graphs can't loop, so per-light ramps beyond Banded need a Custom Function.
-- **The stock Toon material**, `../Assets/ShaderGraphs/Examples/Toon.shadergraph`:
+- **The stock Toon material**, `../Assets/ShaderGraphs/Stock/Toon.shadergraph`:
   - The main light's N·L goes through a smoothstep band (Threshold, Smoothness) times its shadow. The result lerps from Shade Color to white, times the light colour, plus ambient plus banded additional lights, times Base Color.
   - A lit-side fresnel rim adds Rim Color × Rim Strength.
   - `../Assets/Scenes/Showcase/Toon.lvl` (with outlines, a sun and two point lights) is its screenshot-regression reference.

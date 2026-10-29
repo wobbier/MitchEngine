@@ -1,0 +1,139 @@
+{
+	"AlphaClip": false,
+	"Blend": "Alpha",
+	"CastShadows": true,
+	"Graph": "Assets/ShaderGraphs/Stock/VHS.shadergraph",
+	"Injection": "AfterTonemap",
+	"Parameters": [
+		{
+			"Default": [
+				2.0,
+				2.0,
+				2.0,
+				2.0
+			],
+			"Exposed": true,
+			"Id": "p1",
+			"Name": "Burst Rate",
+			"Range": [
+				0.10000000149011612,
+				10.0
+			],
+			"Slot": 0,
+			"Type": "Float"
+		},
+		{
+			"Default": [
+				0.3499999940395355,
+				0.3499999940395355,
+				0.3499999940395355,
+				0.3499999940395355
+			],
+			"Exposed": true,
+			"Id": "p2",
+			"Name": "Burst Chance",
+			"Range": [
+				0.0,
+				1.0
+			],
+			"Slot": 1,
+			"Type": "Float"
+		},
+		{
+			"Default": [
+				0.05999999865889549,
+				0.05999999865889549,
+				0.05999999865889549,
+				0.05999999865889549
+			],
+			"Exposed": true,
+			"Id": "p3",
+			"Name": "Tear",
+			"Range": [
+				0.0,
+				0.30000001192092896
+			],
+			"Slot": 2,
+			"Type": "Float"
+		},
+		{
+			"Default": [
+				28.0,
+				28.0,
+				28.0,
+				28.0
+			],
+			"Exposed": true,
+			"Id": "p4",
+			"Name": "Rows",
+			"Range": [
+				4.0,
+				120.0
+			],
+			"Slot": 3,
+			"Type": "Float"
+		},
+		{
+			"Default": [
+				0.0024999999441206455,
+				0.0024999999441206455,
+				0.0024999999441206455,
+				0.0024999999441206455
+			],
+			"Exposed": true,
+			"Id": "p5",
+			"Name": "Color Split",
+			"Range": [
+				0.0,
+				0.019999999552965164
+			],
+			"Slot": 4,
+			"Type": "Float"
+		},
+		{
+			"Default": [
+				0.11999999731779099,
+				0.11999999731779099,
+				0.11999999731779099,
+				0.11999999731779099
+			],
+			"Exposed": true,
+			"Id": "p6",
+			"Name": "Scanlines",
+			"Range": [
+				0.0,
+				1.0
+			],
+			"Slot": 5,
+			"Type": "Float"
+		},
+		{
+			"Default": [
+				0.05000000074505806,
+				0.05000000074505806,
+				0.05000000074505806,
+				0.05000000074505806
+			],
+			"Exposed": true,
+			"Id": "p7",
+			"Name": "Grain",
+			"Range": [
+				0.0,
+				0.30000001192092896
+			],
+			"Slot": 6,
+			"Type": "Float"
+		}
+	],
+	"Programs": {
+		"Forward": [
+			"@Assets/Shaders/Post/Fullscreen",
+			"Post"
+		]
+	},
+	"RenderFace": "Front",
+	"Surface": "Transparent",
+	"Target": "PostProcess",
+	"Textures": [],
+	"Version": 1
+}

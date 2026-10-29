@@ -98,7 +98,7 @@
             },
             "Material": {
                 "Type": "ShaderGraphMaterial",
-                "Graph": "Assets/ShaderGraphs/Examples/Toon.shadergraph",
+                "Graph": "Engine/Assets/ShaderGraphs/Stock/Toon.shadergraph",
                 "Params": {},
                 "Textures": {}
             }
@@ -134,7 +134,7 @@
             },
             "Material": {
                 "Type": "ShaderGraphMaterial",
-                "Graph": "Assets/ShaderGraphs/Examples/FlatColor.shadergraph",
+                "Graph": "Engine/Assets/ShaderGraphs/Stock/FlatColor.shadergraph",
                 "Params": {},
                 "Textures": {}
             },
@@ -341,7 +341,7 @@
                 "Saturation": 0.9,
                 "VignetteIntensity": 0.35,
                 "Graphs": [
-                    "Assets/ShaderGraphs/Examples/VHSGlitch.shadergraph"
+                    "Engine/Assets/ShaderGraphs/Stock/VHS.shadergraph"
                 ]
             }
         }

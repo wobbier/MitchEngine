@@ -1,4 +1,5 @@
 #include <doctest/doctest.h>
+#include <algorithm>
 #include "ShaderGraph/Compiler.h"
 #include "ShaderGraph/Graph.h"
 #include "ShaderGraph/NodeDef.h"
@@ -638,12 +639,25 @@ TEST_CASE( "ShaderGraph: every node compiles with shaderc in every target" * doc
 TEST_CASE( "ShaderGraph: project graphs match their generated sources" )
 {
     const bool update = SDL_getenv( "ME_SHADERGRAPH_UPDATE" ) != nullptr;
-    const std::filesystem::path root = Path( "Assets" ).FullPath;
-    if( !std::filesystem::exists( root ) )
+    // The project's graphs and the engine's stock ones (the look presets' Toon, FlatColor, VHS).
+    std::vector<std::filesystem::path> roots;
+    for( const char* folder : { "Assets", "Engine/Assets/ShaderGraphs" } )
     {
-        return;
+        const std::filesystem::path root = Path( folder ).FullPath;
+        if( std::filesystem::exists( root ) && std::find( roots.begin(), roots.end(), root ) == roots.end() )
+        {
+            roots.push_back( root );
+        }
     }
-    for( const auto& entry : std::filesystem::recursive_directory_iterator( root ) )
+    std::vector<std::filesystem::directory_entry> entries;
+    for( const std::filesystem::path& root : roots )
+    {
+        for( const auto& entry : std::filesystem::recursive_directory_iterator( root ) )
+        {
+            entries.push_back( entry );
+        }
+    }
+    for( const auto& entry : entries )
     {
         if( entry.path().extension() != Graph::kExtension )
         {

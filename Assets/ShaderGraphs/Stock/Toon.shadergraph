@@ -1,0 +1,497 @@
+{
+	"Version": 1,
+	"Settings": {
+		"Target": "CustomLit",
+		"Surface": "Opaque",
+		"RenderFace": "Front",
+		"CastShadows": true
+	},
+	"Properties": [
+		{
+			"Id": "p1",
+			"Name": "Base Color",
+			"Type": "Vec3",
+			"Exposed": true,
+			"Default": [
+				0.95,
+				0.55,
+				0.35,
+				1.0
+			],
+			"IsColor": true
+		},
+		{
+			"Id": "p2",
+			"Name": "Shade Color",
+			"Type": "Vec3",
+			"Exposed": true,
+			"Default": [
+				0.42,
+				0.34,
+				0.62,
+				1.0
+			],
+			"IsColor": true
+		},
+		{
+			"Id": "p3",
+			"Name": "Threshold",
+			"Type": "Float",
+			"Exposed": true,
+			"Default": [
+				0.05,
+				0,
+				0,
+				0
+			]
+		},
+		{
+			"Id": "p4",
+			"Name": "Smoothness",
+			"Type": "Float",
+			"Exposed": true,
+			"Default": [
+				0.03,
+				0,
+				0,
+				0
+			]
+		},
+		{
+			"Id": "p5",
+			"Name": "Rim Color",
+			"Type": "Vec3",
+			"Exposed": true,
+			"Default": [
+				1.0,
+				0.95,
+				0.85,
+				1.0
+			],
+			"IsColor": true
+		},
+		{
+			"Id": "p6",
+			"Name": "Rim Power",
+			"Type": "Float",
+			"Exposed": true,
+			"Default": [
+				3.5,
+				0,
+				0,
+				0
+			]
+		},
+		{
+			"Id": "p7",
+			"Name": "Rim Strength",
+			"Type": "Float",
+			"Exposed": true,
+			"Default": [
+				0.55,
+				0,
+				0,
+				0
+			]
+		}
+	],
+	"Nodes": [
+		{
+			"Id": 1,
+			"Type": "Output",
+			"Position": [
+				1400,
+				0
+			]
+		},
+		{
+			"Id": 2,
+			"Type": "Property",
+			"Position": [
+				-1200,
+				0
+			],
+			"Settings": {
+				"Property": "p1"
+			}
+		},
+		{
+			"Id": 3,
+			"Type": "Property",
+			"Position": [
+				-1200,
+				120
+			],
+			"Settings": {
+				"Property": "p2"
+			}
+		},
+		{
+			"Id": 4,
+			"Type": "Property",
+			"Position": [
+				-1200,
+				240
+			],
+			"Settings": {
+				"Property": "p3"
+			}
+		},
+		{
+			"Id": 5,
+			"Type": "Property",
+			"Position": [
+				-1200,
+				360
+			],
+			"Settings": {
+				"Property": "p4"
+			}
+		},
+		{
+			"Id": 6,
+			"Type": "Property",
+			"Position": [
+				-1200,
+				480
+			],
+			"Settings": {
+				"Property": "p5"
+			}
+		},
+		{
+			"Id": 7,
+			"Type": "Property",
+			"Position": [
+				-1200,
+				600
+			],
+			"Settings": {
+				"Property": "p6"
+			}
+		},
+		{
+			"Id": 8,
+			"Type": "Property",
+			"Position": [
+				-1200,
+				720
+			],
+			"Settings": {
+				"Property": "p7"
+			}
+		},
+		{
+			"Id": 10,
+			"Type": "MainLight",
+			"Position": [
+				-900,
+				-200
+			]
+		},
+		{
+			"Id": 11,
+			"Type": "Add",
+			"Position": [
+				-700,
+				200
+			]
+		},
+		{
+			"Id": 12,
+			"Type": "Smoothstep",
+			"Position": [
+				-500,
+				-100
+			]
+		},
+		{
+			"Id": 13,
+			"Type": "Multiply",
+			"Position": [
+				-300,
+				-100
+			]
+		},
+		{
+			"Id": 14,
+			"Type": "Lerp",
+			"Position": [
+				-100,
+				-100
+			],
+			"Defaults": {
+				"B": [
+					1,
+					1,
+					1,
+					1
+				]
+			}
+		},
+		{
+			"Id": 15,
+			"Type": "Multiply",
+			"Position": [
+				100,
+				-100
+			]
+		},
+		{
+			"Id": 16,
+			"Type": "AmbientLight",
+			"Position": [
+				-100,
+				150
+			]
+		},
+		{
+			"Id": 17,
+			"Type": "AdditionalLights",
+			"Position": [
+				-100,
+				300
+			]
+		},
+		{
+			"Id": 18,
+			"Type": "Add",
+			"Position": [
+				300,
+				0
+			]
+		},
+		{
+			"Id": 19,
+			"Type": "Add",
+			"Position": [
+				500,
+				0
+			]
+		},
+		{
+			"Id": 20,
+			"Type": "Multiply",
+			"Position": [
+				700,
+				0
+			]
+		},
+		{
+			"Id": 21,
+			"Type": "FresnelEffect",
+			"Position": [
+				300,
+				400
+			]
+		},
+		{
+			"Id": 22,
+			"Type": "Multiply",
+			"Position": [
+				500,
+				400
+			]
+		},
+		{
+			"Id": 23,
+			"Type": "Multiply",
+			"Position": [
+				700,
+				400
+			]
+		},
+		{
+			"Id": 24,
+			"Type": "Multiply",
+			"Position": [
+				900,
+				400
+			]
+		},
+		{
+			"Id": 25,
+			"Type": "Add",
+			"Position": [
+				1100,
+				0
+			]
+		}
+	],
+	"Links": [
+		[
+			4,
+			"Out",
+			11,
+			"A"
+		],
+		[
+			5,
+			"Out",
+			11,
+			"B"
+		],
+		[
+			4,
+			"Out",
+			12,
+			"Edge1"
+		],
+		[
+			11,
+			"Out",
+			12,
+			"Edge2"
+		],
+		[
+			10,
+			"N dot L",
+			12,
+			"In"
+		],
+		[
+			12,
+			"Out",
+			13,
+			"A"
+		],
+		[
+			10,
+			"Shadow",
+			13,
+			"B"
+		],
+		[
+			3,
+			"Out",
+			14,
+			"A"
+		],
+		[
+			13,
+			"Out",
+			14,
+			"T"
+		],
+		[
+			14,
+			"Out",
+			15,
+			"A"
+		],
+		[
+			10,
+			"Color",
+			15,
+			"B"
+		],
+		[
+			4,
+			"Out",
+			17,
+			"Threshold"
+		],
+		[
+			5,
+			"Out",
+			17,
+			"Smoothness"
+		],
+		[
+			15,
+			"Out",
+			18,
+			"A"
+		],
+		[
+			16,
+			"Color",
+			18,
+			"B"
+		],
+		[
+			18,
+			"Out",
+			19,
+			"A"
+		],
+		[
+			17,
+			"Banded",
+			19,
+			"B"
+		],
+		[
+			2,
+			"Out",
+			20,
+			"A"
+		],
+		[
+			19,
+			"Out",
+			20,
+			"B"
+		],
+		[
+			7,
+			"Out",
+			21,
+			"Power"
+		],
+		[
+			21,
+			"Out",
+			22,
+			"A"
+		],
+		[
+			8,
+			"Out",
+			22,
+			"B"
+		],
+		[
+			22,
+			"Out",
+			23,
+			"A"
+		],
+		[
+			13,
+			"Out",
+			23,
+			"B"
+		],
+		[
+			6,
+			"Out",
+			24,
+			"A"
+		],
+		[
+			23,
+			"Out",
+			24,
+			"B"
+		],
+		[
+			20,
+			"Out",
+			25,
+			"A"
+		],
+		[
+			24,
+			"Out",
+			25,
+			"B"
+		],
+		[
+			25,
+			"Out",
+			1,
+			"Color"
+		]
+	]
+}

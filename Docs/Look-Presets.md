@@ -8,7 +8,7 @@ A project's look in one pick (LOOK-S0): **Realistic**, **Stylized-Lit**, **Toon*
 |-----|--------------|
 | `Camera` | Partial `Camera` component JSON merged onto every camera in the scene: render scale and upscale filter, pixel perfect (reference resolution, pixels per unit, snap), and the per-camera pass switches (sun shadows, SSAO, volumetric fog) |
 | `Post` | Partial `PostProcess` JSON merged onto the camera, which gets a PostProcess when it has none: tonemapper, exposure, AA, SSAO, bloom, edge outlines, fog, grade, LUT, vignette |
-| `Material` | The material for meshes still on the stock `StandardMaterial`, applied on request. A graph material keeps each mesh's colour as its `Base Color`. Toon uses `Examples/Toon.shadergraph` (Custom Lit, LOOK-S7) and Flat/Unlit uses `Examples/FlatColor.shadergraph` |
+| `Material` | The material for meshes still on the stock `StandardMaterial`, applied on request. A graph material keeps each mesh's colour as its `Base Color`. Toon uses `Engine/Assets/ShaderGraphs/Stock/Toon.shadergraph` (Custom Lit, LOOK-S7) and Flat/Unlit uses `Engine/Assets/ShaderGraphs/Stock/FlatColor.shadergraph` |
 | `Import` | Texture import defaults for new images (`Format`, `MIPs`). The pixel looks import uncompressed and without mips. Existing `.meta` files keep their settings |
 | `Caps` / `Lite` | A project-wide cap layer (the HardwareProfiles `Caps` shape), combined with the hardware profile and the player's quality preset; the stricter cap wins. `Lite: true` adds the **Lite pipeline** for low-end PCs and handhelds: no SSAO, shadows (cascades or local), image-based lighting, volumetric fog, depth of field or temporal AA |
 

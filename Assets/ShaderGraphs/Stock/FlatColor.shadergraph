@@ -1,0 +1,52 @@
+{
+	"Version": 1,
+	"Settings": {
+		"Target": "Unlit",
+		"Surface": "Opaque",
+		"RenderFace": "Front"
+	},
+	"Properties": [
+		{
+			"Id": "p1",
+			"Name": "Base Color",
+			"Type": "Vec3",
+			"Exposed": true,
+			"Default": [
+				0.8,
+				0.8,
+				0.8,
+				1.0
+			],
+			"IsColor": true
+		}
+	],
+	"Nodes": [
+		{
+			"Id": 1,
+			"Type": "Output",
+			"Position": [
+				400,
+				0
+			]
+		},
+		{
+			"Id": 2,
+			"Type": "Property",
+			"Position": [
+				0,
+				0
+			],
+			"Settings": {
+				"Property": "p1"
+			}
+		}
+	],
+	"Links": [
+		[
+			2,
+			"Out",
+			1,
+			"Color"
+		]
+	]
+}

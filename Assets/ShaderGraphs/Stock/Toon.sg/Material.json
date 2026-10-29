@@ -1,0 +1,117 @@
+{
+	"AlphaClip": false,
+	"Blend": "Alpha",
+	"CastShadows": true,
+	"Graph": "Assets/ShaderGraphs/Stock/Toon.shadergraph",
+	"Parameters": [
+		{
+			"Color": true,
+			"Default": [
+				0.949999988079071,
+				0.550000011920929,
+				0.3499999940395355,
+				1.0
+			],
+			"Exposed": true,
+			"Id": "p1",
+			"Name": "Base Color",
+			"Slot": 0,
+			"Type": "Vec3"
+		},
+		{
+			"Color": true,
+			"Default": [
+				0.41999998688697815,
+				0.3400000035762787,
+				0.6200000047683716,
+				1.0
+			],
+			"Exposed": true,
+			"Id": "p2",
+			"Name": "Shade Color",
+			"Slot": 1,
+			"Type": "Vec3"
+		},
+		{
+			"Default": [
+				0.05000000074505806,
+				0.0,
+				0.0,
+				0.0
+			],
+			"Exposed": true,
+			"Id": "p3",
+			"Name": "Threshold",
+			"Slot": 2,
+			"Type": "Float"
+		},
+		{
+			"Default": [
+				0.029999999329447746,
+				0.0,
+				0.0,
+				0.0
+			],
+			"Exposed": true,
+			"Id": "p4",
+			"Name": "Smoothness",
+			"Slot": 3,
+			"Type": "Float"
+		},
+		{
+			"Color": true,
+			"Default": [
+				1.0,
+				0.949999988079071,
+				0.8500000238418579,
+				1.0
+			],
+			"Exposed": true,
+			"Id": "p5",
+			"Name": "Rim Color",
+			"Slot": 4,
+			"Type": "Vec3"
+		},
+		{
+			"Default": [
+				3.5,
+				0.0,
+				0.0,
+				0.0
+			],
+			"Exposed": true,
+			"Id": "p6",
+			"Name": "Rim Power",
+			"Slot": 5,
+			"Type": "Float"
+		},
+		{
+			"Default": [
+				0.550000011920929,
+				0.0,
+				0.0,
+				0.0
+			],
+			"Exposed": true,
+			"Id": "p7",
+			"Name": "Rim Strength",
+			"Slot": 6,
+			"Type": "Float"
+		}
+	],
+	"Programs": {
+		"Forward": [
+			"Forward",
+			"Forward"
+		],
+		"Skinned": [
+			"Skinned",
+			"Forward"
+		]
+	},
+	"RenderFace": "Front",
+	"Surface": "Opaque",
+	"Target": "CustomLit",
+	"Textures": [],
+	"Version": 1
+}

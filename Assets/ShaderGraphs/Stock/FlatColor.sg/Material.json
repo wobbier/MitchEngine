@@ -1,0 +1,37 @@
+{
+	"AlphaClip": false,
+	"Blend": "Alpha",
+	"CastShadows": true,
+	"Graph": "Assets/ShaderGraphs/Stock/FlatColor.shadergraph",
+	"Parameters": [
+		{
+			"Color": true,
+			"Default": [
+				0.800000011920929,
+				0.800000011920929,
+				0.800000011920929,
+				1.0
+			],
+			"Exposed": true,
+			"Id": "p1",
+			"Name": "Base Color",
+			"Slot": 0,
+			"Type": "Vec3"
+		}
+	],
+	"Programs": {
+		"Forward": [
+			"Forward",
+			"Forward"
+		],
+		"Skinned": [
+			"Skinned",
+			"Forward"
+		]
+	},
+	"RenderFace": "Front",
+	"Surface": "Opaque",
+	"Target": "Unlit",
+	"Textures": [],
+	"Version": 1
+}
