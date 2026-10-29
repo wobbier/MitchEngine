@@ -81,5 +81,10 @@ private:
     std::string m_loadedNormalMap;
     SharedPtr<Moonlight::SpriteSheet> m_sheet;
     std::string m_loadedSheet;
+    // Shipped builds (ME-277): the cook packed this sprite into an atlas; it draws from there.
+    SharedPtr<Moonlight::SpriteSheet> m_atlas;
+    std::string m_atlasSprite;
+    std::string m_atlasKey;
+    bool m_atlasFromTexture = false;
 };
 ME_REGISTER_COMPONENT_FOLDER( SpriteRenderer, "Rendering" )

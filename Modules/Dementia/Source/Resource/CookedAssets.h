@@ -66,6 +66,14 @@ public:
     {
         return m_platform;
     }
+    // Sprite atlases (ME-277): where a sprite image (its path) or a sheet's sprite ("<sheet>|<name>")
+    // was packed: the atlas sheet and its sprite. Null when it wasn't.
+    struct AtlasSprite
+    {
+        std::string Sheet;
+        std::string Sprite;
+    };
+    const AtlasSprite* FindAtlasSprite( const std::string& InKey ) const;
 
 private:
     CookedAssets() = default;
@@ -76,4 +84,5 @@ private:
     std::unordered_map<std::string, std::unordered_map<std::string, std::string>> m_textureReferences;
     std::unordered_map<std::string, uint64_t> m_guids;
     std::vector<std::string> m_engineShaderStages;
+    std::unordered_map<std::string, AtlasSprite> m_atlasSprites;
 };

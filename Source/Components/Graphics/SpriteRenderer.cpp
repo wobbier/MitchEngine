@@ -1,4 +1,5 @@
 #include "PCH.h"
+#include "Resource/CookedAssets.h"
 #include "SpriteRenderer.h"
 #include "Components/Transform.h"
 #include "Graphics/SpriteSheet.h"
@@ -45,8 +46,36 @@ bool SpriteRenderer::Resolve()
         m_loadedSheet = sheet;
         m_sheet = ( !sheet.empty() && Sheet.Exists ) ? ResourceCache::GetInstance().Get<Moonlight::SpriteSheet>( Sheet ) : nullptr;
     }
-    // The sheet's image unless Texture names one.
-    const std::string path = !Texture.GetLocalPathString().empty() || !m_sheet ? Texture.GetLocalPathString() : m_sheet->Texture;
+    // A cooked build may have packed this sprite into an atlas: a plain image by its path, a
+    // sheet's sprite by "<sheet>|<sprite>" (normal-mapped sprites and sheets drawn over another
+    // image keep their own texture).
+    std::string atlasKey;
+    if( NormalMap.GetLocalPathString().empty() && CookedAssets::Get().IsCooked() )
+    {
+        if( !Texture.GetLocalPathString().empty() )
+        {
+            atlasKey = Texture.GetLocalPathString();
+        }
+        else if( m_sheet && !SpriteName.empty() )
+        {
+            atlasKey = sheet + "|" + SpriteName;
+        }
+    }
+    if( atlasKey != m_atlasKey )
+    {
+        m_atlasKey = atlasKey;
+        m_atlas = nullptr;
+        const CookedAssets::AtlasSprite* packed = atlasKey.empty() ? nullptr : CookedAssets::Get().FindAtlasSprite( atlasKey );
+        const Path atlasSheet( packed ? packed->Sheet : std::string() );
+        if( packed && atlasSheet.Exists )
+        {
+            m_atlas = ResourceCache::GetInstance().Get<Moonlight::SpriteSheet>( atlasSheet );
+            m_atlasSprite = packed->Sprite;
+            m_atlasFromTexture = !Texture.GetLocalPathString().empty();
+        }
+    }
+    // The sheet's image unless Texture names one (the atlas's, when packed).
+    const std::string path = m_atlas ? m_atlas->Texture : !Texture.GetLocalPathString().empty() || !m_sheet ? Texture.GetLocalPathString() : m_sheet->Texture;
     if( path != m_loadedTexture )
     {
         m_loadedTexture = path;
@@ -68,6 +97,23 @@ void SpriteRenderer::GetFrame( Vector4& OutRegion, Vector2& OutPivot, Vector4& O
     OutRegion = Region;
     OutPivot = Pivot;
     OutBorder = NineSlice;
+    if( const Moonlight::SpriteFrame* packed = m_atlas ? m_atlas->Find( m_atlasSprite ) : nullptr )
+    {
+        if( m_atlasFromTexture )
+        {
+            // An image's sprite: its place in the atlas, the authored region within it.
+            const bool region = Region.z > 0.f && Region.w > 0.f;
+            OutRegion = region ? Vector4( packed->Rect.x + Region.x, packed->Rect.y + Region.y, Region.z, Region.w ) : Vector4( packed->Rect.x, packed->Rect.y, packed->Rect.z, packed->Rect.w );
+        }
+        else
+        {
+            // A sheet's sprite: pivot and borders came along into the atlas sheet.
+            OutRegion = Vector4( packed->Rect.x, packed->Rect.y, packed->Rect.z, packed->Rect.w );
+            OutPivot = Vector2( packed->Pivot.x, packed->Pivot.y );
+            OutBorder = Vector4( packed->Border.x, packed->Border.y, packed->Border.z, packed->Border.w );
+        }
+        return;
+    }
     const Moonlight::SpriteFrame* frame = m_sheet && !SpriteName.empty() ? m_sheet->Find( SpriteName ) : nullptr;
     if( frame )
     {

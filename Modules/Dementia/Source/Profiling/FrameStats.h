@@ -48,6 +48,8 @@ public:
         // Mesh draws and triangles for the game's cameras and their shadows. The editor's own views
         // are left out unless nothing else rendered this frame (then the scene view counts).
         uint32_t SceneDrawCalls = 0;
+        // Sprite batches drawn (every camera): one per run of sprites sharing a texture and state.
+        uint32_t SpriteBatches = 0;
         uint64_t SceneTriangles = 0;
         // Output size of the main game camera (else the scene view), and this frame's lights.
         uint32_t SceneWidth = 0;

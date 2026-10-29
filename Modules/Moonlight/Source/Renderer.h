@@ -309,6 +309,7 @@ private:
     void RenderSprites( Moonlight::CameraData& camera );
     std::vector<Moonlight::SpriteCommand> m_sprites;
     std::vector<std::pair<float, uint32_t>> m_spriteOrder;
+    uint32_t m_spriteBatches = 0;       // this frame's (FrameStats::RenderStats::SpriteBatches)
     Moonlight::ShaderCommand m_spriteProgram;
     bgfx::TextureHandle m_spriteWhite = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_texSprite = BGFX_INVALID_HANDLE;

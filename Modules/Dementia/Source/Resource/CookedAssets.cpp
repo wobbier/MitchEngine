@@ -108,6 +108,16 @@ bool CookedAssets::LoadFrom( const json& InRegistry )
         return false;
     }
     m_platform = InRegistry.value( "Platform", std::string() );
+    if( auto atlases = InRegistry.find( "SpriteAtlases" ); atlases != InRegistry.end() && atlases->is_object() )
+    {
+        for( auto it = atlases->begin(); it != atlases->end(); ++it )
+        {
+            if( it.value().is_object() )
+            {
+                m_atlasSprites[it.key()] = AtlasSprite{ it.value().value( "Sheet", std::string() ), it.value().value( "Sprite", std::string() ) };
+            }
+        }
+    }
     std::set<std::string> stripped;
     for( auto it = InRegistry["Assets"].begin(); it != InRegistry["Assets"].end(); ++it )
     {
@@ -179,6 +189,7 @@ void CookedAssets::Reset()
     m_metas.clear();
     m_textureReferences.clear();
     m_guids.clear();
+    m_atlasSprites.clear();
     m_engineShaderStages.clear();
 }
 
@@ -207,4 +218,15 @@ std::string CookedAssets::FindTextureReference( const std::string& InModel, cons
     }
     auto texture = model->second.find( InReference );
     return texture == model->second.end() ? std::string() : texture->second;
+}
+
+
+const CookedAssets::AtlasSprite* CookedAssets::FindAtlasSprite( const std::string& InKey ) const
+{
+    if( !IsCooked() )
+    {
+        return nullptr;
+    }
+    auto it = m_atlasSprites.find( InKey );
+    return it != m_atlasSprites.end() ? &it->second : nullptr;
 }

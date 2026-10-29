@@ -266,6 +266,7 @@ void BGFXRenderer::RenderSprites( Moonlight::CameraData& camera )
             BindLighting();
             bgfx::setState( BGFX_STATE_WRITE_RGB | blend );
             bgfx::submit( view, m_spriteProgram.GetProgram() );
+            ++m_spriteBatches;
             batchStart = written;
         }
         next = end;

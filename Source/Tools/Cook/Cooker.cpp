@@ -15,6 +15,7 @@
 #include "Graphics/ModelResource.h"
 #include "Graphics/ShaderCompiler.h"
 #include "Graphics/ShaderDependencies.h"
+#include "Graphics/SpriteAtlas.h"
 #include "Materials/ShaderGraphAsset.h"
 #include "Utils/BGFXUtils.h"
 #include "Utils/PlatformUtils.h"
@@ -26,6 +27,7 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <map>
 #include <mutex>
 #include <thread>
@@ -434,6 +436,7 @@ namespace Cook
 
                 GatherDependencies( settings );
                 ExpandModels();
+                PackSpriteAtlases();
                 CookTwins();
                 if( !m_report.Errors.empty() )
                 {
@@ -758,6 +761,128 @@ namespace Cook
             }
 
 
+            // Sprite atlases (ME-277): every .spriteatlas whose sources a cooked sprite uses is
+            // packed now, into <atlas>.spriteatlas.png / .spritesheet beside it (generated, like a
+            // texture's .dds), and shipped. The registry maps each packed image ("<path>") and sheet
+            // sprite ("<sheet>|<sprite>") to its atlas sprite, which SpriteRenderer draws from in a
+            // cooked run. Packed source images stay home unless something besides a SpriteRenderer
+            // or a sprite sheet names them.
+            void PackSpriteAtlases()
+            {
+                // What the cooked sprites use, and every path anything else names.
+                std::set<std::string> spriteImages;
+                std::set<std::string> spriteSheets;
+                std::set<std::string> otherReferences;
+                std::function<void( const json&, bool )> walk = [&]( const json& InNode, bool InSprite ) {
+                    if( InNode.is_object() )
+                    {
+                        const bool sprite = InNode.value( "Type", std::string() ) == "SpriteRenderer";
+                        if( sprite )
+                        {
+                            const std::string texture = InNode.value( "Texture", std::string() );
+                            const std::string sheet = InNode.value( "Sheet", std::string() );
+                            const bool normalMapped = !InNode.value( "NormalMap", std::string() ).empty();
+                            if( !texture.empty() && !normalMapped )
+                            {
+                                spriteImages.insert( CanonicalAsset( texture ) );
+                            }
+                            else if( !texture.empty() )
+                            {
+                                otherReferences.insert( CanonicalAsset( texture ) );
+                            }
+                            if( !sheet.empty() )
+                            {
+                                spriteSheets.insert( CanonicalAsset( sheet ) );
+                            }
+                        }
+                        for( auto it = InNode.begin(); it != InNode.end(); ++it )
+                        {
+                            walk( it.value(), InSprite || sprite );
+                        }
+                    }
+                    else if( InNode.is_array() )
+                    {
+                        for( const json& item : InNode )
+                        {
+                            walk( item, InSprite );
+                        }
+                    }
+                    else if( InNode.is_string() && !InSprite )
+                    {
+                        otherReferences.insert( InNode.get<std::string>() );
+                    }
+                };
+                for( const std::string& asset : m_assets )
+                {
+                    const std::string extension = std::filesystem::path( asset ).extension().string();
+                    if( !IsJsonAsset( asset ) || extension == std::string( "." ) + Moonlight::SpriteSheet::kExtension )
+                    {
+                        continue;   // a sheet's image is used by its sprites, not on its own
+                    }
+                    std::string text;
+                    const json document = VFS::Get().ReadText( Path( asset ), text ) ? json::parse( text, nullptr, false ) : json();
+                    if( !document.is_discarded() )
+                    {
+                        walk( document, false );
+                    }
+                }
+
+                std::vector<std::string> atlases;
+                VFS::Get().Enumerate( "Assets", true, [&atlases]( const std::string& InPath, bool InIsDirectory ) {
+                    if( !InIsDirectory && std::filesystem::path( InPath ).extension() == std::string( "." ) + Moonlight::SpriteAtlasDesc::kExtension )
+                    {
+                        atlases.push_back( InPath );
+                    }
+                } );
+                std::sort( atlases.begin(), atlases.end() );
+                atlases.erase( std::unique( atlases.begin(), atlases.end() ), atlases.end() );
+
+                std::set<std::string> packed;
+                for( const std::string& atlas : atlases )
+                {
+                    Moonlight::SpriteAtlasImage image;
+                    std::vector<Moonlight::AtlasInput> inputs;
+                    std::string error;
+                    if( !Moonlight::BuildSpriteAtlas( atlas, image, inputs, error ) )
+                    {
+                        Warn( "Sprite atlas " + atlas + ": " + error );
+                        continue;
+                    }
+                    const bool used = std::any_of( inputs.begin(), inputs.end(), [&]( const Moonlight::AtlasInput& InInput ) {
+                        return InInput.SourceSheet.empty() ? spriteImages.count( CanonicalAsset( InInput.SourceTexture ) ) > 0 : spriteSheets.count( CanonicalAsset( InInput.SourceSheet ) ) > 0;
+                    } );
+                    if( !used )
+                    {
+                        continue;
+                    }
+                    const std::string base = atlas;
+                    if( !Moonlight::WriteSpriteAtlas( image, base, error ) )
+                    {
+                        Error( "Sprite atlas " + atlas + ": " + error );
+                        continue;
+                    }
+                    AddAsset( base + ".png" );
+                    AddAsset( base + ".spritesheet" );
+                    for( size_t i = 0; i < inputs.size(); ++i )
+                    {
+                        const Moonlight::AtlasInput& input = inputs[i];
+                        const std::string key = input.SourceSheet.empty() ? CanonicalAsset( input.SourceTexture ) : CanonicalAsset( input.SourceSheet ) + "|" + input.SourceSprite;
+                        m_spriteAtlases[key] = { { "Sheet", base + ".spritesheet" }, { "Sprite", image.Frames[i].Name } };
+                        packed.insert( CanonicalAsset( input.SourceTexture ) );
+                    }
+                    CLog::Log( CLog::LogType::Info, "Cook: packed " + std::to_string( inputs.size() ) + " sprites into " + base + ".png (" + std::to_string( image.Width ) + " x "
+                        + std::to_string( image.Height ) + ")" );
+                }
+                for( const std::string& source : packed )
+                {
+                    if( !otherReferences.count( source ) )
+                    {
+                        m_assets.erase( source );
+                    }
+                }
+            }
+
+
             // Models: the textures their materials name, resolved the way the loader does; the
             // answers go into the registry, so cooked runs don't search for near matches.
             void ExpandModels()
@@ -868,6 +993,10 @@ namespace Cook
                     }
                 }
                 registry["EngineShaderStages"] = engineStages;
+                if( !m_spriteAtlases.empty() )
+                {
+                    registry["SpriteAtlases"] = m_spriteAtlases;
+                }
 
                 json manifest;
                 manifest["Version"] = 1;
@@ -995,6 +1124,7 @@ namespace Cook
             std::set<std::string> m_assets;
             std::set<std::string> m_rawReads;
             json m_registry = json::object();
+            json m_spriteAtlases = json::object();
         };
     }
 #endif

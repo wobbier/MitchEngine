@@ -157,6 +157,7 @@ void AutomationRunner::WritePerfReport() const
     const FrameStats::RenderStats& render = FrameStats::Get().GetRenderStats();
     report["DrawCalls"] = render.DrawCalls;
     report["Triangles"] = render.Triangles;
+    report["SpriteBatches"] = render.SpriteBatches;
     json views = json::array();
     for( const FrameStats::GpuView& view : render.Views )
     {

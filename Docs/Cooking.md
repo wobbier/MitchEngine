@@ -73,6 +73,7 @@ the old `BuildAssets` / `-CompileAssets`, which only loaded textures and shaders
 | Textures (`png`, `jpg`, `jpeg`, `tga`) | `<path>.dds` |
 | Models (`fbx`, `obj`) | `<path>.assbin` (+ `<path>.vertexcache` when there is one) |
 | Shader stages (`vert`, `frag`) | `<path>.<profile>.bin` for the target: `spirv` on Linux (Vulkan is forced), `dx11` on Windows, `metal` on macOS |
+| Sprite images a `.spriteatlas` packs (see below) | packed into `<atlas>.spriteatlas.png.dds` + `.spritesheet`; the sources stay home |
 | Everything else (scenes, prefabs, sounds, fonts, navmeshes, UI documents, config, render textures: a `.rendertexture` is its own runtime form) | as is |
 | Never | `.meta`, shader build inputs (`.sh`, `.var`, `.sc`, depfiles), scripts and projects (`.cs`, `.csproj`, `.sln`; scripts ship compiled next to the executable), editor documents (`.shadergraph`, `.edscript`, `.md`), `Assets/Havana/`, `Assets/Icons/`, `imgui.cfg`, `.tmp/` |
 
@@ -90,6 +91,40 @@ Files are read through the VFS, so the game-over-engine overlay bakes in: the tr
 - **`AssetRegistry.json`** (format in `CookedAssets.h`): per asset, whether its source was
   stripped, its `.meta` JSON, its GUID and (models) its texture answers, plus the engine shader
   stages that shipped.
+
+## Sprite atlases (ME-277)
+
+A `.spriteatlas` lists sprite images to pack together so they batch:
+
+```json
+{ "Sources": [ "Assets/Textures/Sprites/Crate.png", "Assets/Textures/Sprites/Props/", "Assets/Textures/Sprites/Coins.spritesheet" ],
+  "Padding": 2, "MaxSize": 2048, "Extrude": 1 }
+```
+
+Sources are images, folders of images (not recursive), or sprite sheets. A sheet adds each of its sprites, named `<sheet>/<sprite>`, with its pivot and borders; an image's sprite is named after the file. `Moonlight::SpriteAtlas` packs them with MaxRects (best short side fit, no rotation, deterministic order), with `Extrude` edge texels repeated outwards so filtering doesn't bleed. It writes a power-of-two RGBA image.
+
+**At cook** (`PackSpriteAtlases`, after models expand):
+
+1. **Find the sprites:** the cooker reads the cooked JSON assets for SpriteRenderers: their `Texture` (unless normal-mapped) and their `Sheet`.
+2. **Pack and ship:** every atlas whose sources those sprites use is packed into `<atlas>.spriteatlas.png` and `.spriteatlas.spritesheet` beside it. These are generated and gitignored, like a texture's `.dds`. The atlas ships as a texture plus its sheet.
+3. **Map:** `AssetRegistry.json`'s `SpriteAtlases` maps each packed image (`"<path>"`) and sheet sprite (`"<sheet>|<sprite>"`) to `{ Sheet, Sprite }`.
+4. **Drop sources:** packed source images are left out of the cook unless a non-sprite field of a cooked JSON asset names them.
+
+**In a cooked run**, `SpriteRenderer::Resolve` looks itself up (`CookedAssets::FindAtlasSprite`) and draws from the atlas:
+
+- **Image sprites** keep their authored pivot, 9-slice and region, offset into the atlas.
+- **Sheet sprites** take the atlas sheet's copy.
+
+Source trees never see the map, so editing keeps using the sources.
+
+**Proof:** cooking `Physics2D.lvl` with `Assets/Textures/Sprites/Physics2D.spriteatlas` packs 10 sprites into one 1024 × 128 atlas, and the cook carries no sprite `.png`.
+- **Captures:** the cooked tree and its pak both match the Physics2D reference (0.19%).
+- **Batches:** sprite batches go from 8 to 3 (`SpriteBatches` in `--perf-report`). The three that remain are render-state splits that a shared texture can't merge: the unlit sky, the lit sprites, and the unlit point-filtered coins.
+- **Unit tests:** packing (no overlaps, in bounds, deterministic), composing (copies, extrusion, pivots and borders) and the registry map are covered.
+
+**Limits:**
+- RmlUi's `<sprite>` element and C# code that load a sheet's image directly still need that image. List it in `Build.AlwaysInclude`, or keep it out of atlases.
+- The editor has no Pack button or preview yet.
 
 ## Cooked runs
 

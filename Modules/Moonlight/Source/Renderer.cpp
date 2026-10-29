@@ -859,6 +859,8 @@ void BGFXRenderer::GatherFrameStats()
     // Render texture feeds render for both.
     const SceneCounts& scene = m_gameCounts.Rendered ? m_gameCounts : m_editorCounts;
     out.SceneDrawCalls = scene.Draws + m_frameCounts.Draws + m_textureCounts.Draws;
+    out.SpriteBatches = m_spriteBatches;
+    m_spriteBatches = 0;
     out.SceneTriangles = scene.Triangles + m_frameCounts.Triangles + m_textureCounts.Triangles;
     out.SceneWidth = scene.Width;
     out.SceneHeight = scene.Height;

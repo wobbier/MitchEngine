@@ -240,3 +240,9 @@ desktop.ini
 # dotnet CLI bin/obj from ad-hoc builds (RunChecks and the engine build with --artifacts-path)
 Modules/ScriptCore/**/bin/
 Modules/ScriptCore/**/obj/
+
+# Sprite atlases the cooker packs (ME-277), and their twins
+*.spriteatlas.png
+*.spriteatlas.png.*
+*.spriteatlas.spritesheet
+*.spriteatlas.spritesheet.meta
