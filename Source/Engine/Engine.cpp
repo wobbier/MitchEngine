@@ -6,6 +6,7 @@
 #include "Cores/PhysicsCore.h"
 #include "Cores/TerrainCore.h"
 #include "Cores/Physics2DCore.h"
+#include "Cores/NetCore.h"
 #include "Cores/AnimationCore.h"
 #include "Text/FontAtlas.h"
 #include "Engine/LookPresets.h"
@@ -356,6 +357,7 @@ void Engine::Init( Game* game )
             Physics = new PhysicsCore();
             Physics2D = new Physics2DCore();
         }
+        Net = new NetCore();
         Collisions = new CollisionRouter();
         Animation = new AnimationCore();
         Sequences = new SequenceCore();
@@ -453,6 +455,7 @@ void Engine::InitGame()
         GameWorld->AddCore<TerrainCore>( *Terrains );
         GameWorld->AddCore<PhysicsCore>( *Physics );
         GameWorld->AddCore<Physics2DCore>( *Physics2D );
+        GameWorld->AddCore<NetCore>( *Net );
         GameWorld->AddCore<AnimationCore>( *Animation );
         GameWorld->AddCore<SequenceCore>( *Sequences );
         GameWorld->AddCore<NavigationCore>( *Navigation );
@@ -539,6 +542,8 @@ void Engine::Run()
             OPTICK_EVENT( "EventManager", Optick::Category::Cloth );
             EventManager::GetInstance().FirePendingEvents();
         }
+        // Network packets in (handshakes, commands, server reports) before the frame simulates.
+        Net->Receive( NetSeconds() );
 
 #if USING( ME_TOOLS )
         PollAssetChanges();
@@ -670,11 +675,14 @@ void Engine::Run()
                 OPTICK_EVENT( "FixedUpdate" );
                 ME_FRAMEPROFILE_SCOPED( "Physics", ProfileCategory::Physics );
                 ME_STAT_SCOPE( "Fixed Update" );
-                m_fixedAccumulator += scaledSeconds;
+                // A networked client time-dilates (NET-2): ticks keep their length but come up to 5%
+                // faster or slower, holding its commands just ahead of the server.
+                m_fixedAccumulator += scaledSeconds * Net->GetClockScale();
                 int steps = 0;
                 while( m_fixedAccumulator >= m_fixedTimeStep && steps < m_maxFixedStepsPerFrame )
                 {
                     updateContext.IsFixedStepActive = true;
+                    Net->BeginTick();
                     // Gameplay in a step sees each press and release once, whatever the frame rate.
                     GetInput().BeginFixedStep();
                     GameWorld->FixedUpdateLoadedCores( updateContext );
@@ -687,6 +695,7 @@ void Engine::Run()
                     // Gameplay applied its forces; now the world steps.
                     Physics->FixedUpdate( updateContext );
                     Physics2D->FixedUpdate( updateContext );
+                    Net->EndTick( NetSeconds() );
                     updateContext.IsFixedStepActive = false;
                     GameWorld->Simulate();
                     m_fixedAccumulator -= m_fixedTimeStep;
@@ -697,9 +706,10 @@ void Engine::Run()
                     // Paused: presses made now shouldn't fire once the simulation resumes.
                     GetInput().DiscardFixedStepEdges();
                 }
-                if( steps == m_maxFixedStepsPerFrame && m_fixedAccumulator >= m_fixedTimeStep )
+                if( steps == m_maxFixedStepsPerFrame && m_fixedAccumulator >= m_fixedTimeStep && !Net->KeepsBacklog() )
                 {
-                    // Too far behind: drop the backlog rather than spiral.
+                    // Too far behind: drop the backlog rather than spiral (a server catches up instead:
+                    // every client's commands need simulating).
                     m_fixedAccumulator = std::fmod( m_fixedAccumulator, static_cast<double>( m_fixedTimeStep ) );
                 }
                 updateContext.InterpolationAlpha = static_cast<float>( m_fixedAccumulator / m_fixedTimeStep );
@@ -901,6 +911,8 @@ void Engine::Run()
             GameWindow->InitDeferredSubsystems();
         }
 
+        // The client's packet of unconfirmed commands, once a frame.
+        Net->Flush( NetSeconds() );
         LimitFrameRate( frameStartTime );
     }
 
@@ -1027,6 +1039,12 @@ void Engine::Shutdown()
     Jobs::JobSystem::Get().Shutdown();
     CLog::GetInstance().Flush();
 }
+
+double Engine::NetSeconds() const
+{
+    return std::chrono::duration<double>( std::chrono::steady_clock::now().time_since_epoch() ).count();
+}
+
 
 void Engine::LimitFrameRate( std::chrono::steady_clock::time_point frameStart )
 {

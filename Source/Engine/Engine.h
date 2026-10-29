@@ -92,6 +92,8 @@ public:
     class TerrainCore* Terrains = nullptr;
     class PhysicsCore* Physics = nullptr;
     class Physics2DCore* Physics2D = nullptr;
+    // Networking (NET-2): idle until a session is hosted or joined.
+    class NetCore* Net = nullptr;
     // Per-entity C++ collision callbacks (Physics/CollisionRouter.h).
     class CollisionRouter* Collisions = nullptr;
     class AnimationCore* Animation = nullptr;
@@ -128,6 +130,8 @@ private:
     IWindow* GameWindow = nullptr;
     EngineConfig engineConfig;
     Game* m_game = nullptr;
+    // A monotonic clock for the network layer, in seconds.
+    double NetSeconds() const;
     void LimitFrameRate( std::chrono::steady_clock::time_point frameStart );
     void LoadSceneInternal( const std::string& SceneFile, const json* InData );
 
