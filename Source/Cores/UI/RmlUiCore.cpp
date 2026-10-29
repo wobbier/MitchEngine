@@ -314,6 +314,21 @@ bool RmlUiCore::SetDocumentVisible( const std::string& InEntityName, bool InVisi
 }
 
 
+std::vector<RmlUiCore::LoadedDocument> RmlUiCore::GetLoadedDocuments()
+{
+    std::vector<LoadedDocument> documents;
+    for( Entity& entity : GetEntities() )
+    {
+        UIDocument& document = entity.GetComponent<UIDocument>();
+        if( document.m_document != nullptr )
+        {
+            documents.push_back( { entity.GetName(), document.DocumentPath.GetLocalPathString(), static_cast<Rml::ElementDocument*>( document.m_document ) } );
+        }
+    }
+    return documents;
+}
+
+
 bool RmlUiCore::ToggleDocument( const std::string& InEntityName )
 {
     return SetDocumentVisible( InEntityName, !IsDocumentVisible( InEntityName ) );

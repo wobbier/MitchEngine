@@ -38,6 +38,7 @@
 #include "Engine/SaveGames.h"
 #include "Engine/LoadingScreen.h"
 #include "Engine/Localization.h"
+#include "Widgets/UIDesigner/UIDesignerWidget.h"
 #include "VFS/VFS.h"
 #include "Engine/Input.h"
 #include <SDL_keyboard.h>
@@ -567,6 +568,44 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         if( InApp.Editor )
         {
             InApp.Editor->ShowWidget( args );
+        }
+    }
+    else if( command.rfind( "designer-", 0 ) == 0 )
+    {
+        // designer-open UI            the UIDocument on that entity (its .rml source)
+        // designer-select #title      an element by selector (it needs an id)
+        // designer-set color | #ff3366   an inline style, live and in the source ("" removes)
+        // designer-save, designer-undo
+        UIDesignerWidget* designer = InApp.Editor ? InApp.Editor->GetUIDesigner() : nullptr;
+        auto [first, second] = SplitArgs( args );
+        std::string error;
+        bool ok = designer != nullptr;
+        if( !designer ) error = "no designer";
+        else if( command == "designer-open" ) ok = designer->Open( args, error );
+        else if( command == "designer-select" ) ok = designer->Select( args, error );
+        else if( command == "designer-set" ) ok = designer->SetStyle( first, second, error );
+        else if( command == "designer-save" ) ok = designer->Save( error );
+        else if( command == "designer-undo" ) { ok = designer->Undo(); error = "nothing to undo"; }
+        else { ok = false; error = "unknown command"; }
+        if( !ok )
+        {
+            Fail( command + ": " + error );
+        }
+    }
+    else if( command == "assert-file-contains" )
+    {
+        // assert-file-contains Assets/UI/X.rml | color: #ff3366     (!= text: must not contain it)
+        auto [path, text] = SplitArgs( args );
+        const bool negate = text.rfind( "!=", 0 ) == 0;
+        if( negate ) text = Trim( text.substr( 2 ) );
+        std::string contents;
+        if( !VFS::Get().ReadText( path, contents ) )
+        {
+            Fail( "assert-file-contains: can't read " + path );
+        }
+        else if( ( contents.find( text ) != std::string::npos ) == negate )
+        {
+            Fail( path + ( negate ? " still contains '" : " doesn't contain '" ) + text + "'" );
         }
     }
     else if( command == "imgui-key" || command == "imgui-focus" )

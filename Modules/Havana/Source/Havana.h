@@ -25,6 +25,7 @@ class AssetBrowserWidget;
 class HistoryWidget;
 class LocalizationWidget;
 class TourWidget;
+class UIDesignerWidget;
 class WhatsNewWidget;
 class ProfilerWidget;
 class PreferencesWidget;
@@ -66,6 +67,7 @@ public:
 	void ShowWidget(const std::string& name);
 	// -1 when no panel has that title.
 	int IsWidgetOpen(const std::string& name) const;
+	UIDesignerWidget* GetUIDesigner() const { return UIDesigner.get(); }
 	int GetActiveWorkspace() const { return ActiveWorkspace; }
 	// Personal editor layouts. Ctrl+1 through Ctrl+9 select a workspace; the outgoing
 	// workspace is saved automatically so its dock tree and open panels are restored.
@@ -120,6 +122,7 @@ private:
 	SharedPtr<HistoryWidget> History;
 	SharedPtr<LocalizationWidget> LocalizationTables;
 	SharedPtr<TourWidget> Tour;
+	SharedPtr<UIDesignerWidget> UIDesigner;
 	SharedPtr<WhatsNewWidget> WhatsNew;
 	SharedPtr<ProfilerWidget> Profiler;
 	SharedPtr<PreferencesWidget> Preferences;

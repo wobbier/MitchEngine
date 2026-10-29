@@ -103,6 +103,17 @@ Three levels, simplest first:
 - **Cooking:** the cooker ships the folders of those documents.
 - **Proof:** `LoadingFlows.edscript` (the `load-scene-async` and `play-splash` commands; a capture mid-load).
 
+### The UI designer (UI-6, first phase)
+
+**Window > UI Designer** (`Modules/Havana/Source/Widgets/UIDesigner/`) edits a loaded document:
+- **Tree:** the document's element tree (`tag#id.class`). Click an element with an id to select it.
+- **Styles:** its inline styles (color, background, font size, size, margin, padding, alignment) as fields. An edit applies to the live element at once.
+- **Write-back:** `RmlSourceEdit` (`Source/UI/Rml/RmlSourceEdit.h`) writes the edit into the `.rml` surgically: only that element's start tag changes, so whitespace, comments and attribute order survive, and the file stays the source of truth.
+- **Saving:** Save writes it, and hot reload re-renders. Undo steps back through the document's edits.
+- **Flow commands:** `designer-open <entity>`, `designer-select <selector>`, `designer-set <property> | <value>`, `designer-save`, `designer-undo`, plus `assert-file-contains <path> | <text>` (`!=` negates).
+- **Proof:** `UIDesignerFlows.edscript`, with `RmlSourceEditTests.cpp` for the write-back.
+- **Still to come:** an offscreen preview with device presets, picking in the view, computed styles, a widget palette, a binding panel from the C# schema, and RCSS rule write-back.
+
 ### Hot reload
 
 `.rml`/`.rcss` edits arrive as `AssetsChangedEvent`. An `.rcss` edit reloads stylesheets in place (DOM state survives); an `.rml` edit reloads the documents loaded from it. Both log `UI: reloaded N document(s)`, which flows wait on.

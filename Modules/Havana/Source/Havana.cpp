@@ -40,6 +40,7 @@
 #include "Widgets/HistoryWidget.h"
 #include "Widgets/LocalizationWidget.h"
 #include "Widgets/OnboardingWidgets.h"
+#include "Widgets/UIDesigner/UIDesignerWidget.h"
 #include "Utils/PlatformUtils.h"
 #include "Widgets/SequenceWidget.h"
 #include "Widgets/ProfilerWidget.h"
@@ -143,6 +144,8 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
     RegisteredWidgets.push_back( Tour );
     WhatsNew.reset( new WhatsNewWidget() );
     RegisteredWidgets.push_back( WhatsNew );
+    UIDesigner.reset( new UIDesignerWidget() );
+    RegisteredWidgets.push_back( UIDesigner );
 
     Sequencer.reset( new SequenceWidget() );
     RegisteredWidgets.push_back( Sequencer );
@@ -396,6 +399,7 @@ void Havana::NewFrame()
     LocalizationTables->Render();
     Tour->Render();
     WhatsNew->Render();
+    UIDesigner->Render();
     Sequencer->Render();
     Profiler->Render();
     Preferences->Render();

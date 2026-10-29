@@ -51,6 +51,15 @@ public:
     // The hide-document action: hides the UIDocument showing InDocument (an Rml::ElementDocument).
     void HideDocument( const void* InDocument );
 
+    // The scene's loaded documents (UI-6, the editor's UI designer): entity name, .rml path.
+    struct LoadedDocument
+    {
+        std::string EntityName;
+        std::string Path;
+        Rml::ElementDocument* Document = nullptr;
+    };
+    std::vector<LoadedDocument> GetLoadedDocuments();
+
     // Engine-owned documents with no entity (loading screens, splashes): they stay up while the
     // scene changes under them. Shown from the next update; InSortOrder stacks them like a
     // UIDocument's SortOrder (above the scene's documents by default).
