@@ -17,6 +17,7 @@
 #include "RenderCommands.h"
 #include "Components/Lighting/Light.h"
 #include "Components/Graphics/Decal.h"
+#include "Components/Graphics/SpriteRenderer.h"
 #include "Components/Graphics/Outline.h"
 #include "Components/Graphics/WindZone.h"
 #include "Components/Graphics/Mesh.h"
@@ -588,6 +589,20 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         } );
     }
 
+    // Sprites (LOOK-S2): one command each, numbered in gathering order for stable sorting ties.
+    {
+        std::vector<Moonlight::SpriteCommand>& sprites = renderer.GetSprites();
+        sprites.clear();
+        GetWorld().Each<Transform, SpriteRenderer>( [&]( Entity& entity, Transform& transform, SpriteRenderer& sprite ) {
+            if( entity.IsActiveInHierarchy() && sprite.IsEnabled() && sprite.Resolve() )
+            {
+                Moonlight::SpriteCommand command = sprite.BuildCommand( transform );
+                command.Sequence = static_cast<uint32_t>( sprites.size() );
+                sprites.push_back( command );
+            }
+        } );
+    }
+
     if( items.empty() )
     {
         return;
@@ -840,7 +855,7 @@ void RenderCore::OnEditorInspect()
             ImGui::TextUnformatted( bgfx::getRendererName( caps->rendererType ) );
         }
         HavanaUtils::Label( "Scene" );
-        ImGui::Text( "%zu cameras, %zu lights, %zu decals", renderer.GetCameraCache().Commands.size(), renderer.GetLights().size(), renderer.GetDecals().size() );
+        ImGui::Text( "%zu cameras, %zu lights, %zu decals, %zu sprites", renderer.GetCameraCache().Commands.size(), renderer.GetLights().size(), renderer.GetDecals().size(), renderer.GetSprites().size() );
         if( checkbox( "Enable Debug Draw", EnableDebugDraw ) )
         {
             renderer.SetDebugDrawEnabled( EnableDebugDraw );

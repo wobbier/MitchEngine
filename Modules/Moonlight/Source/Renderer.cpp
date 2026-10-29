@@ -309,6 +309,13 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
             s_texParticle = bgfx::createUniform( "s_texParticle", bgfx::UniformType::Sampler );
             s_sceneDepth = bgfx::createUniform( "s_sceneDepth", bgfx::UniformType::Sampler );
             m_particleProgram = Moonlight::ShaderCommand( "Assets/Shaders/Particle" );
+
+            const uint32_t white = 0xffffffff;
+            m_spriteWhite = bgfx::createTexture2D( 1, 1, false, 1, bgfx::TextureFormat::RGBA8, BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP, bgfx::copy( &white, sizeof( white ) ) );
+            bgfx::setName( m_spriteWhite, "Sprite White" );
+            s_texSprite = bgfx::createUniform( "s_texSprite", bgfx::UniformType::Sampler );
+            u_spriteParams = bgfx::createUniform( "u_spriteParams", bgfx::UniformType::Vec4 );
+            m_spriteProgram = Moonlight::ShaderCommand( "Assets/Shaders/Sprite" );
         }
         // Decals: a unit box (its outward faces wind clockwise seen from outside) and the decal shader.
         {
@@ -550,9 +557,15 @@ void BGFXRenderer::Destroy()
         s_lightData, s_clusterGrid, s_clusterIndices, s_texMetallicRoughness, s_texEmissive, s_texOcclusion, s_texMetallic, s_texRoughness,
         u_shadowMatrix, u_cascadeSplits, u_cascadeTexel, u_shadowParams, u_localShadowMatrix, u_spotShadowParams, u_pointShadowParams, u_shadowAlpha, u_shadowUvOffset, s_shadowMap, s_spotShadowMap,
         s_envSpecular, s_envIrradiance, s_brdfLut, u_envParams, u_fogParams, u_fogColor, u_fogVolume, u_fogForward,
-        u_particleParams, u_particleParams2, u_particleDepth, s_texParticle, s_sceneDepth, u_bones, u_outlineHull,
+        u_particleParams, u_particleParams2, u_particleDepth, s_texParticle, s_sceneDepth, s_texSprite, u_spriteParams, u_bones, u_outlineHull,
         s_decalAlbedo, s_decalNormal, u_decalColor, u_decalEmissive, u_decalSurface, u_decalDepth, u_decalTexSize, u_decalWorldToLocal, u_decalAxes };
     m_particleProgram = Moonlight::ShaderCommand();
+    m_spriteProgram = Moonlight::ShaderCommand();
+    if( bgfx::isValid( m_spriteWhite ) )
+    {
+        bgfx::destroy( m_spriteWhite );
+        m_spriteWhite = BGFX_INVALID_HANDLE;
+    }
     m_decalProgram = Moonlight::ShaderCommand();
     if( bgfx::isValid( m_decalBoxVB ) )
     {
@@ -1350,6 +1363,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         m_debugDraw->End();
     }
     if( options.DebugDraw && world ) SubmitDebugLines( camera, transparentView );
+    if( world ) RenderSprites( camera );
     if( sceneEffects && options.Particles && world ) RenderParticles( camera );
 
     // A render texture holds its top row first, like an image file. Backends whose framebuffers

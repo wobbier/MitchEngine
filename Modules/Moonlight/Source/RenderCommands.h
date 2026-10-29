@@ -214,6 +214,48 @@ namespace Moonlight
         Alpha,          // matter: smoke, dust, debris
     };
 
+    // Sprites (LOOK-S2): textured quads from SpriteRenderer, drawn after transparents.
+    enum class SpriteBlend : uint8_t
+    {
+        Alpha = 0,
+        Additive,
+    };
+
+    // One sprite this frame (filled by SpriteCore). The quad lies in the entity's local XY plane,
+    // facing local -Z; Size, Pivot and borders are in world units, UVs in 0..1.
+    struct SpriteCommand
+    {
+        glm::mat4 World = glm::mat4( 1.f );
+        glm::vec4 UvRect = glm::vec4( 0.f, 0.f, 1.f, 1.f );   // u0, v0 (top), u1, v1 (bottom)
+        glm::vec4 Color = glm::vec4( 1.f );                     // linear tint, alpha
+        glm::vec2 Size = glm::vec2( 1.f );
+        glm::vec2 Pivot = glm::vec2( 0.5f );
+        // 9-slice: borders left, top, right, bottom in world units and in UV units (0 = plain quad).
+        glm::vec4 Border = glm::vec4( 0.f );
+        glm::vec4 BorderUv = glm::vec4( 0.f );
+        bool FlipX = false;
+        bool FlipY = false;
+        bool Lit = false;
+        bool PointFilter = false;
+        SpriteBlend Blend = SpriteBlend::Alpha;
+        int32_t Layer = 0;
+        int32_t Order = 0;
+        uint32_t Sequence = 0;     // gathering order: the last tie-break
+        bgfx::TextureHandle Texture = BGFX_INVALID_HANDLE;     // invalid: white
+        AABB Bounds;
+    };
+
+    // The vertices of a sprite's quad (4) or 9-slice (9 quads, 36) in world space, in quad order
+    // (each quad: bottom left, bottom right, top right, top left). Returns the vertex count.
+    struct SpriteVertex
+    {
+        float Position[3];
+        float Normal[3];
+        float Uv[2];
+        float Color[4];
+    };
+    uint32_t BuildSpriteVertices( const SpriteCommand& InSprite, SpriteVertex* OutVertices );
+
     enum class ParticleAlignment : uint8_t
     {
         Billboard = 0,  // faces the camera

@@ -97,6 +97,8 @@ public:
     std::vector<Moonlight::LightCommand>& GetLights() { return m_lights; }
     // This frame's decals (RenderCore fills it every update from Decal components).
     std::vector<Moonlight::DecalCommand>& GetDecals() { return m_decals; }
+    // This frame's sprites (SpriteCore fills them every update; LOOK-S2).
+    std::vector<Moonlight::SpriteCommand>& GetSprites() { return m_sprites; }
     // This frame's particles, one batch per system (ParticleCore fills them every update).
     std::vector<Moonlight::ParticleBatch>& GetParticleBatches() { return m_particleBatches; }
 
@@ -297,6 +299,15 @@ private:
 
     std::vector<Moonlight::LightCommand> m_lights;
 
+    // Sprites (RenderPasses/SpritePass.cpp): after transparent meshes, before particles, into
+    // HDR colour, depth-tested in the shader like particles.
+    void RenderSprites( Moonlight::CameraData& camera );
+    std::vector<Moonlight::SpriteCommand> m_sprites;
+    std::vector<std::pair<float, uint32_t>> m_spriteOrder;
+    Moonlight::ShaderCommand m_spriteProgram;
+    bgfx::TextureHandle m_spriteWhite = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle s_texSprite = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_spriteParams = BGFX_INVALID_HANDLE;
     // Particles: drawn after transparent meshes into HDR colour, depth-tested in the shader.
     void RenderParticles( Moonlight::CameraData& camera );
     // Decals onto the opaque scene (before SSAO and fog), lit like the surfaces around them.
