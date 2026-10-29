@@ -17,6 +17,7 @@
 #endif
 
 ME_REFLECT_ENUM( Moonlight::ProjectionType, { { "Perspective", Moonlight::ProjectionType::Perspective }, { "Orthographic", Moonlight::ProjectionType::Orthographic } } )
+ME_REFLECT_ENUM( Moonlight::UpscaleFilter, { { "Bilinear", Moonlight::UpscaleFilter::Bilinear }, { "Nearest", Moonlight::UpscaleFilter::Nearest }, { "Pixel", Moonlight::UpscaleFilter::Pixel }, { "Sharp", Moonlight::UpscaleFilter::Sharp } } )
 ME_REFLECT_ENUM( Moonlight::ClearColorType, { { "Color", Moonlight::ClearColorType::Color }, { "Skybox", Moonlight::ClearColorType::Skybox }, { "Procedural", Moonlight::ClearColorType::Procedural } } )
 
 ME_REFLECT_BEGIN( Moonlight::ProceduralSkySettings )
@@ -57,6 +58,12 @@ ME_REFLECT_BEGIN( Camera )
     ME_FIELD( SunShadows ).Category( "Render Passes" ).Display( "Sun Shadows" ).Tooltip( "Draw the sun's shadow cascades for this camera. Spot and point light shadows are shared by every camera and stay" );
     ME_FIELD( AmbientOcclusion ).Category( "Render Passes" ).Display( "Ambient Occlusion" ).Tooltip( "Allow screen-space ambient occlusion when the post settings turn it on" );
     ME_FIELD( VolumetricFog ).Category( "Render Passes" ).Display( "Volumetric Fog" ).Tooltip( "Allow volumetric fog when the post settings turn it on; off falls back to the analytic height fog" );
+    ME_FIELD( RenderScale ).Category( "Render Scale" ).Display( "Render Scale" ).Range( 0.1f, 1.f ).Tooltip( "Render the scene at this fraction of the output size, then upscale it (0.5 = a quarter of the pixels)" );
+    ME_FIELD( Upscale ).Category( "Render Scale" ).Display( "Upscale Filter" ).Tooltip( "Bilinear: smooth. Nearest: blocky. Pixel: whole N x N texel blocks for pixel art (the scale snaps to 1/N). Sharp: bicubic plus contrast-adaptive sharpening" );
+    ME_FIELD( UpscaleSharpness ).Category( "Render Scale" ).Display( "Sharpness" ).Range( 0.f, 1.f ).Tooltip( "Sharp filter only" );
+    ME_FIELD( DynamicResolution ).Category( "Render Scale" ).Display( "Dynamic Resolution" ).Tooltip( "Lower the scale while the GPU frame takes longer than the target, and raise it back when there's headroom" );
+    ME_FIELD( DynamicMinScale ).Category( "Render Scale" ).Display( "Minimum Scale" ).Range( 0.1f, 1.f );
+    ME_FIELD( DynamicTargetMs ).Category( "Render Scale" ).Display( "Target GPU ms" ).Range( 1.f, 100.f );
 ME_REFLECT_END()
 
 

@@ -156,6 +156,12 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
             CamData->SunShadows = CameraComponent.SunShadows;
             CamData->AmbientOcclusion = CameraComponent.AmbientOcclusion;
             CamData->VolumetricFog = CameraComponent.VolumetricFog;
+            CamData->RenderScale = CameraComponent.RenderScale;
+            CamData->Upscale = CameraComponent.Upscale;
+            CamData->UpscaleSharpness = CameraComponent.UpscaleSharpness;
+            CamData->DynamicResolution = CameraComponent.DynamicResolution;
+            CamData->DynamicMinScale = CameraComponent.DynamicMinScale;
+            CamData->DynamicTargetMs = CameraComponent.DynamicTargetMs;
             CamData->Target = target ? CameraComponent.m_target : nullptr;
             CamData->TargetOrder = InEntity.GetGUID();
             CamData->RenderDeltaSeconds = 0.f;

@@ -51,6 +51,15 @@ public:
     bool AmbientOcclusion = true;
     // Off falls back to the analytic height fog.
     bool VolumetricFog = true;
+    // Render scaling (LOOK-S1): the scene renders at the output size times RenderScale and is
+    // upscaled with Upscale (Pixel: integer nearest for pixel art; Sharp: FSR1-style). Dynamic
+    // resolution lowers the scale toward DynamicMinScale while the GPU misses DynamicTargetMs.
+    float RenderScale = 1.f;
+    Moonlight::UpscaleFilter Upscale = Moonlight::UpscaleFilter::Bilinear;
+    float UpscaleSharpness = 0.5f;
+    bool DynamicResolution = false;
+    float DynamicMinScale = 0.5f;
+    float DynamicTargetMs = 16.6f;
 
     Camera();
     ~Camera();

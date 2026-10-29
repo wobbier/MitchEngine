@@ -732,7 +732,7 @@ void Havana::Render( Moonlight::CameraData& EditorCamera )
         // Update: This crashes macOS, but is needed for to display the game as the correct size in the editor
         Vector2 gameOutputSize = GetGameOutputSize();
         if( Camera::CurrentCamera ) Camera::CurrentCamera->OutputSize = gameOutputSize;
-        if( camData && camData->Buffer && ((int)gameOutputSize.x != camData->Buffer->Width || (int)gameOutputSize.y != camData->Buffer->Height ) )
+        if( camData && camData->Buffer && ((int)gameOutputSize.x != (int)camData->Buffer->GetOutputWidth() || (int)gameOutputSize.y != (int)camData->Buffer->GetOutputHeight() ) )
         {
             camData->Buffer->Resize( gameOutputSize );
         }

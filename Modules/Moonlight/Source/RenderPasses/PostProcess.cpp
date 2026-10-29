@@ -86,6 +86,7 @@ namespace Moonlight
         m_fogProgram = LoadPost( "Fog" );
         m_taaProgram = LoadPost( "TAA" );
         m_copyProgram = LoadPost( "Copy" );
+        m_upscaleProgram = LoadPost( "Upscale" );
         m_dofCoCProgram = LoadPost( "DoFCoC" );
         m_dofPrefilterProgram = LoadPost( "DoFPrefilter" );
         m_dofDilateProgram = LoadPost( "DoFDilate" );
@@ -105,6 +106,8 @@ namespace Moonlight
         u_dofJitter = bgfx::createUniform( "u_dofJitter", bgfx::UniformType::Vec4 );
 
         s_input0 = bgfx::createUniform( "s_input0", bgfx::UniformType::Sampler );
+        u_upscaleParams = bgfx::createUniform( "u_upscaleParams", bgfx::UniformType::Vec4 );
+        u_upscaleSize = bgfx::createUniform( "u_upscaleSize", bgfx::UniformType::Vec4 );
         s_input1 = bgfx::createUniform( "s_input1", bgfx::UniformType::Sampler );
         s_hdrColor = bgfx::createUniform( "s_hdrColor", bgfx::UniformType::Sampler );
         s_bloom = bgfx::createUniform( "s_bloom", bgfx::UniformType::Sampler );
@@ -152,7 +155,7 @@ namespace Moonlight
     {
         for( bgfx::UniformHandle* uniform : { &s_input0, &s_input1, &s_hdrColor, &s_bloom, &s_exposure, &s_ldrColor, &u_tonemap, &u_grading, &u_grading2, &u_exposure, &u_bloom, &u_ssao, &u_ssaoProjection, &u_ssaoScreen, &u_ssaoInvProjection, &u_adapt,
             &u_fogProjection, &u_fogProjection2, &u_fogScreen, &u_fogInvView, &u_fogVolume2, &u_fogReproject, &s_fogHistory, &s_taaCurrent, &s_taaHistory, &s_taaDepth, &u_taaParams, &u_taaJitter, &u_taaReproject, &u_graphSceneFilter,
-            &s_dof0, &s_dof1, &s_dof2, &s_dof3, &s_dof4, &u_dofLens, &u_dofSplit, &u_dofProjection, &u_dofScreen, &u_dofPass, &u_dofJitter, &s_lut, &s_lutStrip, &u_lut, &u_outline, &u_outlineParams } )
+            &s_dof0, &s_dof1, &s_dof2, &s_dof3, &s_dof4, &u_dofLens, &u_dofSplit, &u_dofProjection, &u_dofScreen, &u_dofPass, &u_dofJitter, &s_lut, &s_lutStrip, &u_lut, &u_outline, &u_outlineParams, &u_upscaleParams, &u_upscaleSize } )
         {
             DestroyUniform( *uniform );
         }
@@ -493,6 +496,72 @@ namespace Moonlight
         SubmitFullscreen( adaptView, m_adaptProgram );
         InTargets.AdaptedIndex = 1 - InTargets.AdaptedIndex;
         return next.Color;
+    }
+
+
+    void ComputeRenderSize( uint32_t InOutputWidth, uint32_t InOutputHeight, float InScale, UpscaleFilter InFilter, float InMaxScale, uint64_t InMaxPixels, uint32_t& OutWidth, uint32_t& OutHeight, uint32_t& OutPixelFactor )
+    {
+        const uint32_t outputWidth = std::max<uint32_t>( InOutputWidth, 1 );
+        const uint32_t outputHeight = std::max<uint32_t>( InOutputHeight, 1 );
+        float scale = std::clamp( InScale > 0.f ? InScale : 1.f, 0.05f, 1.f );
+        if( InMaxScale > 0.f )
+        {
+            scale = std::min( scale, InMaxScale );
+        }
+        const double outputPixels = double( outputWidth ) * double( outputHeight );
+        if( InMaxPixels > 0 && outputPixels * scale * scale > double( InMaxPixels ) )
+        {
+            scale = static_cast<float>( std::sqrt( double( InMaxPixels ) / outputPixels ) );
+        }
+        OutPixelFactor = 1;
+        if( InFilter == UpscaleFilter::Pixel )
+        {
+            // The nearest whole block size at or above 1 / scale (so the caps still hold).
+            OutPixelFactor = std::max<uint32_t>( 1, static_cast<uint32_t>( std::ceil( 1.f / scale - 0.01f ) ) );
+            OutWidth = ( outputWidth + OutPixelFactor - 1 ) / OutPixelFactor;
+            OutHeight = ( outputHeight + OutPixelFactor - 1 ) / OutPixelFactor;
+            return;
+        }
+        OutWidth = std::clamp<uint32_t>( static_cast<uint32_t>( std::lround( outputWidth * scale ) ), 1, outputWidth );
+        OutHeight = std::clamp<uint32_t>( static_cast<uint32_t>( std::lround( outputHeight * scale ) ), 1, outputHeight );
+    }
+
+
+    float StepDynamicScale( float InScale, float InGpuMs, float InTargetMs, float InMinScale, float InMaxScale )
+    {
+        const float minScale = std::clamp( std::min( InMinScale, InMaxScale ), 0.05f, 1.f );
+        const float maxScale = std::clamp( InMaxScale, minScale, 1.f );
+        float scale = InScale;
+        if( InGpuMs > InTargetMs * 1.05f )
+        {
+            // Pixel cost is about proportional to the area: aim for the target directly.
+            scale *= std::max( std::sqrt( InTargetMs / InGpuMs ), 0.8f );
+            scale = std::floor( scale / 0.05f + 0.001f ) * 0.05f;
+        }
+        else if( InGpuMs < InTargetMs * 0.8f )
+        {
+            scale += 0.05f;
+        }
+        return std::clamp( std::round( scale / 0.05f ) * 0.05f, minScale, maxScale );
+    }
+
+
+    void PostProcess::RenderUpscale( ViewAllocator& InViews, const CameraData& InCamera, FrameBuffer& InTargets, uint32_t InPixelFactor, bgfx::FrameBufferHandle InOutput, uint16_t InOutputWidth, uint16_t InOutputHeight, uint16_t InOutputX, uint16_t InOutputY )
+    {
+        const bgfx::ViewId view = InViews.Allocate( "Upscale" );
+        if( view == UINT16_MAX || !m_upscaleProgram.IsLoaded() )
+        {
+            return;
+        }
+        SetupFullscreenView( view, InOutput, InOutputWidth, InOutputHeight, InOutputX, InOutputY );
+        // The output's own depth (overlays drawn after this test against a clean one).
+        bgfx::setViewClear( view, BGFX_CLEAR_DEPTH, 0, 1.f, 0 );
+        const float params[4] = { static_cast<float>( InCamera.Upscale ), InCamera.UpscaleSharpness, static_cast<float>( InPixelFactor ), 0.f };
+        const float size[4] = { static_cast<float>( InTargets.UpscaleInput.Width ), static_cast<float>( InTargets.UpscaleInput.Height ), static_cast<float>( InOutputWidth ), static_cast<float>( InOutputHeight ) };
+        bgfx::setUniform( u_upscaleParams, params );
+        bgfx::setUniform( u_upscaleSize, size );
+        bgfx::setTexture( 0, s_input0, InTargets.UpscaleInput.Color );
+        SubmitFullscreen( view, m_upscaleProgram );
     }
 
 

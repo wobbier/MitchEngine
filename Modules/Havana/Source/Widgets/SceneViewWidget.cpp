@@ -577,7 +577,7 @@ void SceneViewWidget::Render()
 		ImGui::Image(bgfx::getTexture(currentView->Buffer),
 			ImVec2(viewportRenderSize.x, viewportRenderSize.y),
 			ImVec2(0, 0),
-			ImVec2(Mathf::Clamp(0.f, 1.0f, SceneViewRenderSize.x / currentView->Width), Mathf::Clamp(0.f, 1.0f, SceneViewRenderSize.y / currentView->Height)));
+			ImVec2(Mathf::Clamp(0.f, 1.0f, SceneViewRenderSize.x / currentView->GetOutputWidth()), Mathf::Clamp(0.f, 1.0f, SceneViewRenderSize.y / currentView->GetOutputHeight())));
 
 		// Panel resize grips and dock splitters own their drags, even over the image.
 		IsViewportHovered = ImGui::IsItemHovered();

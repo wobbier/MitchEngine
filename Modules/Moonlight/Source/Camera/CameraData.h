@@ -71,6 +71,25 @@ namespace Moonlight
         float DepthRange = 50.f;    // metres, near = white, range and beyond = black
     };
 
+    // How a camera's internal-resolution image is stretched to its output (render scaling, LOOK-S1).
+    enum class UpscaleFilter : uint8_t
+    {
+        Bilinear = 0,
+        Nearest,    // blocky at any ratio
+        Pixel,      // integer nearest: the scale snaps to 1/N, every texel an exact N x N block
+        Sharp,      // Catmull-Rom + contrast-adaptive sharpening (FSR1-style spatial upscale)
+    };
+
+    // The internal size a camera renders at for an output size (LOOK-S1): OutputSize * InScale,
+    // under InMaxScale (0 = none) and InMaxPixels (0 = none: an enforced hardware profile's
+    // resolution). Pixel snaps the scale to 1/N and rounds up, so N x N blocks cover the output.
+    // Never below 1 px or above the output.
+    void ComputeRenderSize( uint32_t InOutputWidth, uint32_t InOutputHeight, float InScale, UpscaleFilter InFilter, float InMaxScale, uint64_t InMaxPixels, uint32_t& OutWidth, uint32_t& OutHeight, uint32_t& OutPixelFactor );
+    // Dynamic resolution: the next scale for a measured GPU frame time against a target (ms),
+    // within [InMinScale, InMaxScale] in steps of 0.05. Drops quickly when over budget, climbs
+    // slowly when well under it, holds in between (so targets aren't recreated every frame).
+    float StepDynamicScale( float InScale, float InGpuMs, float InTargetMs, float InMinScale, float InMaxScale );
+
     struct CameraData
     {
         Vector3 Position = Vector3( 0.f, 0.f, 0.f );
@@ -117,6 +136,16 @@ namespace Moonlight
         bool SunShadows = true;
         bool AmbientOcclusion = true;
         bool VolumetricFog = true;
+        // Render scaling (Camera component, LOOK-S1): the scene and post passes run at
+        // OutputSize * RenderScale, and the result is upscaled to OutputSize with Upscale.
+        float RenderScale = 1.f;
+        UpscaleFilter Upscale = UpscaleFilter::Bilinear;
+        float UpscaleSharpness = 0.5f;    // Sharp: 0 = soft, 1 = strongest
+        // Dynamic resolution: RenderScale is the ceiling, lowered toward DynamicMinScale while the
+        // GPU frame takes longer than DynamicTargetMs.
+        bool DynamicResolution = false;
+        float DynamicMinScale = 0.5f;
+        float DynamicTargetMs = 16.6f;
         // Seconds since this camera last rendered, for eye adaptation (0: one frame).
         float RenderDeltaSeconds = 0.f;
 

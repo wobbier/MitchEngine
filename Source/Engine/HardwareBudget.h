@@ -24,7 +24,8 @@ struct HardwareProfile
     float TargetFps = 0.f;
     float CpuMs = 0.f;
     float GpuMs = 0.f;
-    // Render resolution: the output of the game's main camera.
+    // Render resolution: the game main camera's render size (output x render scale). Enforced, it caps
+    // every camera's internal pixel count (LOOK-S1).
     int Width = 0;
     int Height = 0;
     // Memory, MiB. A unified-memory target has one pool: process memory plus GPU memory count
@@ -56,6 +57,7 @@ struct HardwareProfile
         bool TemporalAA = true;
         bool EnvironmentLighting = true;
         bool Instancing = true;
+        float MaxRenderScale = 0.f;     // cameras' render scale ceiling (0 = no cap)
     };
     FeatureCaps Caps;
 

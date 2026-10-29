@@ -348,7 +348,7 @@ void TreePreview::Draw( const ImVec2& InSize )
     const ImVec2 origin = ImGui::GetCursorScreenPos();
     if( m_buffer && bgfx::isValid( m_buffer->Buffer ) && m_buffer->Width > 0 && m_buffer->Height > 0 )
     {
-        ImGui::Image( bgfx::getTexture( m_buffer->Buffer ), InSize, ImVec2( 0.f, 0.f ), ImVec2( std::min( 1.f, InSize.x / m_buffer->Width ), std::min( 1.f, InSize.y / m_buffer->Height ) ) );
+        ImGui::Image( bgfx::getTexture( m_buffer->Buffer ), InSize, ImVec2( 0.f, 0.f ), ImVec2( std::min( 1.f, InSize.x / m_buffer->GetOutputWidth() ), std::min( 1.f, InSize.y / m_buffer->GetOutputHeight() ) ) );
     }
     else
     {

@@ -454,6 +454,35 @@ A camera can render into a texture asset that any material samples: a security m
 - **New per-light data**: extend `LightCommand`, pack it into the light-data texels (`PrepareFrameLighting`, 8 texels per light; the texture is 2048 wide) and read it in surface and volume lighting (`Lighting.sh`).
 - **New lit material**: include `Lighting.sh`, build a `Surface` and call `shadeLight` / `shadeClusteredLights` / `ambientLighting` like `Standard.frag`. See `Docs/Materials-and-Shaders.md`.
 
+### Render scaling
+
+A camera can render below its output size and upscale the result (LOOK-S1): cheaper pixels for low-end targets and the Steam Deck, or the chunky look of pixel art.
+
+- **Settings** (Camera component, "Render Scale" category; copied into `CameraData` by `CameraCore`):
+  - `RenderScale`: 0.1–1, the fraction of the output size the scene renders at (0.5 = a quarter of the pixels).
+  - `Upscale`: one of four filters (`Moonlight::UpscaleFilter`):
+    - **Bilinear**: smooth.
+    - **Nearest**: blocky at any ratio.
+    - **Pixel**: integer nearest for pixel art. The scale snaps to 1/N, the internal size rounds up, and each texel becomes an exact N×N block anchored at the top left (the overflow is cropped).
+    - **Sharp**: Catmull-Rom bicubic in 9 bilinear taps, then contrast-adaptive sharpening (AMD CAS) with `UpscaleSharpness`. This is an FSR1-style spatial upscale.
+  - `DynamicResolution`: retunes the scale every 30 frames from the last frame's GPU time (`StepDynamicScale`) toward `DynamicTargetMs`, between `DynamicMinScale` and `RenderScale`.
+    - It steps by 0.05: it drops at once when over budget and climbs one step when under 80% of the target.
+    - Each change recreates the camera's targets. It is off by default because it makes captures timing dependent.
+- **Two sizes per camera.**
+  - `FrameBuffer::Width/Height` is the internal size that the scene, the clusters, TAA jitter and every post pass use.
+  - `OutputWidth/OutputHeight` is the final image's size: the camera `Texture`, what the editor shows and its UV clamp.
+  - `RenderCameraView` computes the internal size with `ComputeRenderSize` and recreates the targets when either size changes.
+  - When the sizes differ, the output gets its own depth (`OutputDepth`, cleared by the upscale pass), because the scene's depth is the wrong size to share.
+- **Where it runs.** When scaled, the post chain (tonemap, FXAA or AfterTonemap graphs) ends in `FrameBuffer::UpscaleInput` (BGRA8, internal size). `PostProcess::RenderUpscale` (`Assets/Shaders/Post/Upscale.frag`) then writes the real target: the camera's output, the backbuffer, a split-screen rect or a render texture.
+  - The game UI composites afterwards at the output size, so it stays crisp.
+  - At scale 1 nothing changes: no extra pass or target.
+- **Caps** (`Docs/Hardware-Profiles.md`):
+  - A quality preset or profile can set `MaxRenderScale`.
+  - An *enforced* profile caps every camera's internal pixels at its `Resolution` (`FeatureCaps.MaxRenderPixels`): render-resolution enforcement.
+  - The Resolution budget line reports the main camera's render size.
+- **Pixel-sized settings follow the internal size**: outline thickness, the depth-of-field radius and star size. Mouse picking, `ScreenToRay` and the UI stay in output pixels.
+- **Proof:** `../Assets/Scenes/Showcase/RenderScale.lvl`, rebuilt by `../Tools/BuildRenderScaleShowcase.py` from the Lighting showcase. It is four split-screen cameras, one per filter: Bilinear and Sharp at 0.5, Nearest at 0.35 and Pixel at 0.25, so their blocks survive the regression's 2× downscale. `RenderScaleTests.cpp` covers sizes, caps and dynamic steps.
+
 ## Caveats & Fragility
 
 - **Shadow cost on huge scenes**: the casters are gathered once a frame (a parallel scan of the mesh commands into compact records, grouped into instance batches) and culled against all of a pass's views in one parallel sweep (a bit per view). Each view then collects its casters' indices and copies their matrices straight into the instance buffer. At 57k meshes the four cascades cost about 1.4 ms of CPU in release on the software-rendering test machine, against 1.84 ms before; the frame's local shadow views share one cull. On the lavapipe software renderer the 57k-cube bench goes from 44 to 82 ms/frame with shadows; real GPUs pay far less, but this hasn't been measured on hardware yet.
@@ -468,6 +497,7 @@ A camera can render into a texture asset that any material samples: a security m
 - **Fog is screen-space, not froxels**: volumetric lighting exists only in front of opaque surfaces. Transparents and particles get analytic fog (no shafts). The fog history reprojects through the opaque depth, so fog in front of a surface follows that surface; a light moving on its own trails for the few frames the neighbourhood clamp allows. With `VolumetricTemporal` off and no temporal AA the sample pattern stays fixed and only the depth-aware blur hides it. The march costs `VolumetricSteps` shadow taps plus cluster light loops per half-resolution pixel, so a 256-step march is a quality setting for static shots; `MaxVolumetricSteps` in a hardware profile caps it.
 - **Lit particles are per-pixel and isotropic**: no forward-scattering phase function, no self-shadowing within a plume, and each lit pixel walks its cluster's lights, which costs fill rate on big smoke.
 - **Skinned meshes aren't instanced**: each costs one draw per view (camera, cascade, spot light), and its palette is uploaded with every draw.
+- **Framebuffer exhaustion is silent**: bgfx has a fixed framebuffer pool (128). Each camera's targets take one each: scene, post, particles and output, plus the lazily created bloom mips, SSAO, histories and the upscale input. Four Lighting-showcase cameras with bloom and SSAO exceed the pool. The last camera's creations then fail, its passes write the backbuffer, and it shows black with a black box in the corner. `RenderScale.lvl` turns bloom and SSAO off for that reason.
 - **A render texture costs a camera**: each feed runs the whole chain (clusters, sun cascades, post) at its asset's size, and its targets, plus the texture's own framebuffer, count against bgfx's framebuffer limit. `UpdateInterval`, a smaller asset and the pass switches are the controls. A feed that samples another rendered after it in the frame lags a frame.
 - **Decals paint everything opaque in their box**: there is no receiver mask, so a character walking through a floor decal gets it projected onto its legs. Transparents and particles never receive decals (they draw later).
 - **Decals replace, they don't modulate**: a decal is lit and alpha-blended over the finished surface. It can't change only the roughness or normal of what's underneath (no DBuffer), and the surface's own normal map doesn't show through its coverage.

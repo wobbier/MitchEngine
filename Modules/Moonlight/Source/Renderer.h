@@ -168,6 +168,8 @@ public:
         int MaxVolumetricSteps = 0;          // raymarch samples per pixel (0 = no cap)
         bool TemporalAA = true;
         bool Instancing = true;              // off: every instanced mesh is its own draw call
+        float MaxRenderScale = 0.f;          // cameras' render scale ceiling (0 = no cap)
+        uint64_t MaxRenderPixels = 0;        // internal pixels per camera (0 = no cap): the profile's resolution
     };
     FeatureCapSettings FeatureCaps;
 

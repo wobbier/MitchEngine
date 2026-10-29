@@ -43,6 +43,8 @@ namespace
 Moonlight::FrameBuffer::FrameBuffer( uint32_t width, uint32_t height )
     : Width( width )
     , Height( height )
+    , OutputWidth( width )
+    , OutputHeight( height )
 {
 }
 
@@ -118,7 +120,7 @@ void Moonlight::FrameBuffer::Release()
         DestroyIfValid( fog.Color );
     }
     FogHistoryValid = false;
-    for( Mip* graph : { &GraphHdr[0], &GraphHdr[1], &GraphLdr[0], &GraphLdr[1], &GraphSceneMips } )
+    for( Mip* graph : { &GraphHdr[0], &GraphHdr[1], &GraphLdr[0], &GraphLdr[1], &GraphSceneMips, &UpscaleInput } )
     {
         DestroyIfValid( graph->Buffer );
         DestroyIfValid( graph->Color );
@@ -129,6 +131,7 @@ void Moonlight::FrameBuffer::Release()
     DestroyIfValid( ClusterIndices );
     DestroyIfValid( Texture );
     DestroyIfValid( DepthTexture );
+    DestroyIfValid( OutputDepth );
     DestroyIfValid( SceneColor );
     DestroyIfValid( PostColor );
 }
@@ -268,10 +271,19 @@ void Moonlight::FrameBuffer::EnsureGraphSceneMips()
 }
 
 
+void Moonlight::FrameBuffer::EnsureUpscaleTarget()
+{
+    if( !bgfx::isValid( UpscaleInput.Color ) )
+    {
+        UpscaleInput = CreateColorTarget( static_cast<uint16_t>( std::max<uint32_t>( Width, 1 ) ), static_cast<uint16_t>( std::max<uint32_t>( Height, 1 ) ), bgfx::TextureFormat::BGRA8, "Camera Upscale Input" );
+    }
+}
+
+
 void Moonlight::FrameBuffer::Resize( Vector2 newSize )
 {
-    Width = static_cast<uint32_t>( Mathf::Max( newSize.x, 1.f ) );
-    Height = static_cast<uint32_t>( Mathf::Max( newSize.y, 1.f ) );
+    Width = OutputWidth = static_cast<uint32_t>( Mathf::Max( newSize.x, 1.f ) );
+    Height = OutputHeight = static_cast<uint32_t>( Mathf::Max( newSize.y, 1.f ) );
     ReCreate( m_resetFlags );
 }
 
@@ -299,9 +311,17 @@ void Moonlight::FrameBuffer::ReCreate( uint32_t resetFlags )
 
     if( OwnsOutput )
     {
-        Texture = bgfx::createTexture2D( width, height, false, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT | kClampLinear );
+        const uint16_t outputWidth = static_cast<uint16_t>( std::max<uint32_t>( GetOutputWidth(), 1 ) );
+        const uint16_t outputHeight = static_cast<uint16_t>( std::max<uint32_t>( GetOutputHeight(), 1 ) );
+        Texture = bgfx::createTexture2D( outputWidth, outputHeight, false, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT | kClampLinear );
         bgfx::setName( Texture, "Camera Output" );
-        const bgfx::TextureHandle outputAttachments[] = { Texture, DepthTexture };
+        // Scaled: the scene's depth is the wrong size, so overlays get a depth of their own.
+        if( outputWidth != width || outputHeight != height )
+        {
+            OutputDepth = bgfx::createTexture2D( outputWidth, outputHeight, false, 1, GetDepthFormat(), BGFX_TEXTURE_RT_WRITE_ONLY );
+            bgfx::setName( OutputDepth, "Camera Output Depth" );
+        }
+        const bgfx::TextureHandle outputAttachments[] = { Texture, bgfx::isValid( OutputDepth ) ? OutputDepth : DepthTexture };
         Buffer = bgfx::createFrameBuffer( 2, outputAttachments, false );
     }
 

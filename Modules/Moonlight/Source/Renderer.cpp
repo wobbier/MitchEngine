@@ -889,14 +889,36 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     }
     m_drawingBuffer = camera.Buffer;
 
-    // Camera targets match the output size exactly: post passes process whole textures.
-    const uint16_t width = static_cast<uint16_t>( std::max( 1.f, camera.OutputSize.x ) );
-    const uint16_t height = static_cast<uint16_t>( std::max( 1.f, camera.OutputSize.y ) );
+    // The output size, and the internal size the scene and post passes render at (render scaling,
+    // LOOK-S1). Camera targets match the internal size exactly: post passes process whole textures.
+    const uint16_t outputWidth = static_cast<uint16_t>( std::max( 1.f, camera.OutputSize.x ) );
+    const uint16_t outputHeight = static_cast<uint16_t>( std::max( 1.f, camera.OutputSize.y ) );
+    float renderScale = camera.RenderScale;
+    if( camera.DynamicResolution )
+    {
+        // The scale itself (RenderScale is the ceiling), retuned every half second or so from the
+        // last frame's GPU time (0 when unmeasured).
+        Moonlight::FrameBuffer& state = *camera.Buffer;
+        const double gpuMs = FrameStats::Get().GetRenderStats().GpuMilliseconds;
+        if( ++state.DynamicFrames >= 30 && gpuMs > 0.0 )
+        {
+            state.DynamicFrames = 0;
+            state.DynamicScale = Moonlight::StepDynamicScale( std::min( state.DynamicScale, camera.RenderScale ), static_cast<float>( gpuMs ), camera.DynamicTargetMs, camera.DynamicMinScale, camera.RenderScale );
+        }
+        renderScale = std::min( state.DynamicScale, camera.RenderScale );
+    }
+    uint32_t internalWidth = outputWidth;
+    uint32_t internalHeight = outputHeight;
+    uint32_t pixelFactor = 1;
+    Moonlight::ComputeRenderSize( outputWidth, outputHeight, renderScale, camera.Upscale, FeatureCaps.MaxRenderScale, FeatureCaps.MaxRenderPixels, internalWidth, internalHeight, pixelFactor );
+    const uint16_t width = static_cast<uint16_t>( internalWidth );
+    const uint16_t height = static_cast<uint16_t>( internalHeight );
+    const bool scaled = width != outputWidth || height != outputHeight || pixelFactor > 1;
 
     // A render texture camera writes its final image into its target texture, which it must never
     // sample itself (materials showing it get black in this camera's views).
     Moonlight::Texture* renderTexture = !toBackbuffer && !displayBuffer && RendersToTexture( camera ) ? camera.Target.get() : nullptr;
-    if( renderTexture && ( renderTexture->mWidth != width || renderTexture->mHeight != height ) )
+    if( renderTexture && ( renderTexture->mWidth != outputWidth || renderTexture->mHeight != outputHeight ) )
     {
         // Resized since the camera update; it renders at the new size next frame.
         return;
@@ -917,10 +939,13 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     m_counting->Rendered = true;
     // A render texture camera's final image goes into the texture: no output target of its own.
     const bool ownsOutput = renderTexture == nullptr;
-    if( camera.Buffer->Width != width || camera.Buffer->Height != height || camera.Buffer->OwnsOutput != ownsOutput || !bgfx::isValid( camera.Buffer->SceneBuffer ) )
+    if( camera.Buffer->Width != width || camera.Buffer->Height != height || camera.Buffer->GetOutputWidth() != outputWidth || camera.Buffer->GetOutputHeight() != outputHeight
+        || camera.Buffer->OwnsOutput != ownsOutput || !bgfx::isValid( camera.Buffer->SceneBuffer ) )
     {
         camera.Buffer->Width = width;
         camera.Buffer->Height = height;
+        camera.Buffer->OutputWidth = outputWidth;
+        camera.Buffer->OutputHeight = outputHeight;
         camera.Buffer->OwnsOutput = ownsOutput;
         camera.Buffer->ReCreate( m_resetFlags );
     }
@@ -1034,14 +1059,24 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     // The scene renders in linear HDR; post-processing writes the final image here.
     Moonlight::FrameBuffer* display = displayBuffer ? displayBuffer : camera.Buffer;
     const bgfx::FrameBufferHandle target = renderTexture ? renderTexture->GetRenderTarget() : ( toBackbuffer ? bgfx::FrameBufferHandle( BGFX_INVALID_HANDLE ) : display->Buffer );
-    const uint16_t displayWidth = toBackbuffer ? static_cast<uint16_t>( CurrentSize.x ) : static_cast<uint16_t>( display->Width );
-    const uint16_t displayHeight = toBackbuffer ? static_cast<uint16_t>( CurrentSize.y ) : static_cast<uint16_t>( display->Height );
+    const uint16_t displayWidth = toBackbuffer ? static_cast<uint16_t>( CurrentSize.x ) : static_cast<uint16_t>( display->GetOutputWidth() );
+    const uint16_t displayHeight = toBackbuffer ? static_cast<uint16_t>( CurrentSize.y ) : static_cast<uint16_t>( display->GetOutputHeight() );
     // Split screen: the final image goes into the camera's rect of the display.
     const bool split = displayBuffer || camera.Viewport != glm::vec4( 0.f, 0.f, 1.f, 1.f );
     const uint16_t targetX = split ? static_cast<uint16_t>( std::min<float>( std::round( camera.Viewport.x * displayWidth ), displayWidth - 1 ) ) : 0;
     const uint16_t targetY = split ? static_cast<uint16_t>( std::min<float>( std::round( camera.Viewport.y * displayHeight ), displayHeight - 1 ) ) : 0;
-    const uint16_t targetWidth = split ? std::min<uint16_t>( width, displayWidth - targetX ) : ( toBackbuffer ? displayWidth : width );
-    const uint16_t targetHeight = split ? std::min<uint16_t>( height, displayHeight - targetY ) : ( toBackbuffer ? displayHeight : height );
+    const uint16_t targetWidth = split ? std::min<uint16_t>( outputWidth, displayWidth - targetX ) : ( toBackbuffer ? displayWidth : outputWidth );
+    const uint16_t targetHeight = split ? std::min<uint16_t>( outputHeight, displayHeight - targetY ) : ( toBackbuffer ? displayHeight : outputHeight );
+    // Scaled, the post chain ends at the internal size and the upscale pass writes the target.
+    if( scaled )
+    {
+        camera.Buffer->EnsureUpscaleTarget();
+    }
+    const bgfx::FrameBufferHandle chainTarget = scaled ? camera.Buffer->UpscaleInput.Buffer : target;
+    const uint16_t chainWidth = scaled ? width : targetWidth;
+    const uint16_t chainHeight = scaled ? height : targetHeight;
+    const uint16_t chainX = scaled ? 0 : targetX;
+    const uint16_t chainY = scaled ? 0 : targetY;
 
     auto setupSceneView = [&]( bgfx::ViewId view ) {
         bgfx::setViewTransform( view, &camera.View.GetInternalMatrix()[0][0], &camera.ProjectionMatrix.GetInternalMatrix()[0][0] );
@@ -1334,11 +1369,15 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         Moonlight::FrameBuffer& buffer = *camera.Buffer;
         buffer.EnsureGraphTargets( false, true );
         m_postProcess->Render( m_views, camera, buffer, buffer.GraphLdr[0].Buffer, buffer.GraphLdr[0].Width, buffer.GraphLdr[0].Height );
-        RenderGraphPostPasses( *m_postProcess, m_views, camera, buffer, "AfterTonemap", buffer.GraphLdr[0].Color, target, targetWidth, targetHeight, targetX, targetY );
+        RenderGraphPostPasses( *m_postProcess, m_views, camera, buffer, "AfterTonemap", buffer.GraphLdr[0].Color, chainTarget, chainWidth, chainHeight, chainX, chainY );
     }
     else
     {
-        m_postProcess->Render( m_views, camera, *camera.Buffer, target, targetWidth, targetHeight, targetX, targetY );
+        m_postProcess->Render( m_views, camera, *camera.Buffer, chainTarget, chainWidth, chainHeight, chainX, chainY );
+    }
+    if( scaled )
+    {
+        m_postProcess->RenderUpscale( m_views, camera, *camera.Buffer, pixelFactor, target, targetWidth, targetHeight, targetX, targetY );
     }
     // (Not when the view band ran out: then the final passes were skipped.)
     if( renderTexture && !m_views.IsExhausted() )
@@ -2567,8 +2606,8 @@ void BGFXRenderer::WindowResized( const Vector2& newSize )
 #if USING( ME_EDITOR )
     if( EditorCameraBuffer )
     {
-        EditorCameraBuffer->Width = newSize.x;
-        EditorCameraBuffer->Height = newSize.y;
+        EditorCameraBuffer->Width = EditorCameraBuffer->OutputWidth = newSize.x;
+        EditorCameraBuffer->Height = EditorCameraBuffer->OutputHeight = newSize.y;
         EditorCameraBuffer->ReCreate( m_resetFlags );
     }
 #endif
@@ -2576,8 +2615,8 @@ void BGFXRenderer::WindowResized( const Vector2& newSize )
     {
         if( cam.Buffer && ( cam.IsMain || cam.Buffer->MatchMainBufferSize ) )
         {
-            cam.Buffer->Width = newSize.x;
-            cam.Buffer->Height = newSize.y;
+            cam.Buffer->Width = cam.Buffer->OutputWidth = newSize.x;
+            cam.Buffer->Height = cam.Buffer->OutputHeight = newSize.y;
             cam.Buffer->ReCreate( m_resetFlags );
         }
     }

@@ -10,8 +10,12 @@ namespace Moonlight
     //   SceneBuffer: HDR colour (RGBA16F) + sampleable depth; the scene renders here.
     //   PostBuffer:  LDR intermediate between post passes (tonemap output before FXAA).
     //   Buffer:      the final LDR image (Texture), what views and editor panels sample. Shares
-    //                DepthTexture with the scene so late overlays depth-test. Render texture cameras
-    //                have none: their final image goes into the texture asset (OwnsOutput false).
+    //                DepthTexture with the scene so late overlays depth-test (at a render scale it
+    //                has its own, OutputDepth). Render texture cameras have none: their final image
+    //                goes into the texture asset (OwnsOutput false).
+    // Width x Height is the internal (render) size the scene and post passes run at;
+    // OutputWidth x OutputHeight is the final image's size. They differ under a render scale
+    // (LOOK-S1): the post chain then ends in UpscaleInput, which the upscale pass stretches.
     //   Bloom chain: half-resolution and smaller RGBA16F mips.
     // Targets only some cameras use (bloom, ambient occlusion, volumetric fog, temporal histories,
     // depth of field...) are created on first use: bgfx has a fixed number of framebuffers.
@@ -20,6 +24,7 @@ namespace Moonlight
         FrameBuffer( uint32_t width, uint32_t height );
         ~FrameBuffer();
 
+        // Both sizes (the renderer applies a render scale to the internal one as it draws).
         void Resize( Vector2 newSize );
         void ReCreate( uint32_t resetFlags );
 
@@ -107,6 +112,12 @@ namespace Moonlight
         // Optional filtered graph input, separate from the original scene colour.
         Mip GraphSceneMips;
         void EnsureGraphSceneMips();
+        // Render scaling: the post chain's internal-size LDR result, before the upscale pass.
+        Mip UpscaleInput;
+        void EnsureUpscaleTarget();
+        // Dynamic resolution's current scale (1 = the camera's own RenderScale) and its frame count.
+        float DynamicScale = 1.f;
+        uint32_t DynamicFrames = 0;
 
         // This frame's HDR image for bloom, exposure and tonemapping: SceneColor, optionally
         // replaced by the temporal resolve, HDR shader graphs and depth of field.
@@ -121,6 +132,12 @@ namespace Moonlight
 
         uint32_t Width = 0;
         uint32_t Height = 0;
+        // 0 = the same as Width / Height.
+        uint32_t OutputWidth = 0;
+        uint32_t OutputHeight = 0;
+        uint32_t GetOutputWidth() const { return OutputWidth ? OutputWidth : Width; }
+        uint32_t GetOutputHeight() const { return OutputHeight ? OutputHeight : Height; }
+        bgfx::TextureHandle OutputDepth = BGFX_INVALID_HANDLE;
         uint32_t m_resetFlags = 0;
         bool MatchMainBufferSize = false;
         // Whether ReCreate makes the final image (Texture, Buffer): off for render texture cameras.

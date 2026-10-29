@@ -49,6 +49,10 @@ namespace Moonlight
 
         void Render( ViewAllocator& InViews, const CameraData& InCamera, FrameBuffer& InTargets, bgfx::FrameBufferHandle InOutput, uint16_t InOutputWidth, uint16_t InOutputHeight, uint16_t InOutputX = 0, uint16_t InOutputY = 0 );
 
+        // Render scaling (LOOK-S1): InTargets.UpscaleInput (the internal-size result) stretched
+        // into InOutput's rect with the camera's UpscaleFilter.
+        void RenderUpscale( ViewAllocator& InViews, const CameraData& InCamera, FrameBuffer& InTargets, uint32_t InPixelFactor, bgfx::FrameBufferHandle InOutput, uint16_t InOutputWidth, uint16_t InOutputHeight, uint16_t InOutputX = 0, uint16_t InOutputY = 0 );
+
         // The sub-pixel jitter (in pixels, -0.5..0.5) of frame InFrame of the temporal sequence
         // (Halton 2, 3 over 8 frames).
         static void TemporalJitter( uint32_t InFrame, float OutJitter[2] );
@@ -88,6 +92,7 @@ namespace Moonlight
         ShaderCommand m_fogProgram;
         ShaderCommand m_taaProgram;
         ShaderCommand m_copyProgram;
+        ShaderCommand m_upscaleProgram;
         ShaderCommand m_dofCoCProgram;
         ShaderCommand m_dofPrefilterProgram;
         ShaderCommand m_dofDilateProgram;
@@ -107,6 +112,8 @@ namespace Moonlight
         bgfx::UniformHandle u_dofJitter = BGFX_INVALID_HANDLE;
 
         bgfx::UniformHandle s_input0 = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_upscaleParams = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_upscaleSize = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_input1 = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_hdrColor = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_bloom = BGFX_INVALID_HANDLE;

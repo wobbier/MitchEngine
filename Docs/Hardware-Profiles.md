@@ -68,7 +68,7 @@ A project picks a **hardware profile**: a target machine such as "Xbox 360", "20
 | GPU frame | `RenderStats::GpuMilliseconds`, smoothed the same way (0.1 EMA) |
 | Draw calls / Triangles | `RenderStats::SceneDrawCalls` / `SceneTriangles`: the mesh draws (every `CountTriangles` call) of the game's cameras and render texture cameras, their sun cascades and the frame's local shadow passes |
 | Lights | `RenderStats::Lights` (this frame's `LightCommand`s) |
-| Resolution | `RenderStats::SceneWidth` × `SceneHeight`: the main game camera's output, compared as pixel counts |
+| Resolution | `RenderStats::SceneWidth` × `SceneHeight`: the main game camera's render (internal) size, its output times its render scale, compared as pixel counts |
 | Memory | `PlatformUtils::GetProcessMemoryBytes`, plus GPU memory on unified targets |
 | GPU memory | Textures + render targets + meshes. The driver's `gpuMemoryUsed` isn't used: on shared-memory devices (integrated GPUs, lavapipe) it reports the whole heap's use, other processes included |
 | Textures / Render targets | bgfx's `textureMemoryUsed` / `rtMemoryUsed` estimates (every backend) |
@@ -88,6 +88,7 @@ A line is **Near** at 90% of its limit and **Over** above it. `Peak` holds the h
   - `MaxShadowResolution` clamps the cascade, spot and point tile sizes (`CapShadowResolution`); the atlases are recreated at the clamped size.
   - `EnvironmentLighting` off skips the IBL probe, so ambient falls back to the fallback cube.
   - `RenderCameraView` clears `AmbientOcclusion`, `Bloom`, `DepthOfField`, `VolumetricFog` and `TemporalAA` from the camera's post settings for that render, and clamps `VolumetricSteps` to `MaxVolumetricSteps` (0 = no cap; the Steam Deck profile sets 64). `CameraRestore` puts them back afterwards.
+  - `MaxRenderScale` (a float, 0 = no cap) caps every camera's `RenderScale`. Enforcing a profile also caps every camera's internal pixel count at the profile's `Resolution` (`MaxRenderPixels`), so a 4K window previews a 1280×800 target at 1280×800 internally, upscaled with the camera's filter. See Render scaling in `Docs/Rendering-Pipeline.md`.
   - `Instancing` off limits every instanced submit, opaque and shadow casters, to one instance per draw. The draw count rises the way it would on hardware without instancing, and every mesh keeps its shader. Particles stay batched.
 - **Textures** (`Texture::SetMaxUploadSize`): `FinishAsyncLoad` uploads a single-layer mipped 2D texture from its first mip that fits the cap. `mWidth` / `mHeight` report that size, so decals sample with the right texel size. Changing the cap reloads every cached file texture that has a compiled `.dds`.
 
@@ -133,7 +134,7 @@ Without enforcement the Hardware tab still reports what exceeds the target: came
 - **The texture cap needs mips.** A texture without mips, an array, a cube map or a 3D texture uploads at full size. Textures already loaded keep their size until the cap changes (which reloads them).
 - **Reloading textures hitches.** Changing the texture cap reloads every cached texture synchronously on the main thread.
 - **Game camera visibility in the editor.** Draw counts follow the game cameras that rendered this frame. When the Game view is hidden they follow the scene view, which can differ from the game camera.
-- **Not covered:** shader model and MRT limits (bgfx's shader profiles are per backend), render-resolution enforcement (camera targets match their output size), shadow cascade count (fixed at four), the number of lights (reported, not enforced), and backbuffer MSAA (it doesn't affect scene targets; `Docs/Rendering-Pipeline.md`).
+- **Not covered:** shader model and MRT limits (bgfx's shader profiles are per backend), shadow cascade count (fixed at four), the number of lights (reported, not enforced), and backbuffer MSAA (it doesn't affect scene targets; `Docs/Rendering-Pipeline.md`).
 
 ## Related Docs
 

@@ -40,7 +40,7 @@ namespace
         { "Draw calls", "Mesh draw calls for the game's cameras and their shadows this frame (the editor's views aren't counted).", HardwareBudget::Unit::Count },
         { "Triangles", "Mesh triangles drawn for the game's cameras and their shadows this frame.", HardwareBudget::Unit::Count },
         { "Lights", "Lights in the scene this frame.", HardwareBudget::Unit::Count },
-        { "Resolution", "Output size of the game's main camera (the scene view when no game camera rendered).", HardwareBudget::Unit::Pixels },
+        { "Resolution", "Render size of the game's main camera: its output size times its render scale (the scene view when no game camera rendered). Enforcing the profile caps every camera's render size at this resolution.", HardwareBudget::Unit::Pixels },
         { "Memory", "Process resident memory (in the editor that includes the editor).", HardwareBudget::Unit::Bytes },
         { "GPU memory", "Textures + render targets + meshes: what the engine uploaded (driver overhead not included).", HardwareBudget::Unit::Bytes },
         { "Textures", "Texture memory (bgfx's estimate; editor icons and thumbnails count in the editor).", HardwareBudget::Unit::Bytes },
@@ -159,6 +159,10 @@ void HardwareProfile::Deserialize( const json& InJson )
         readBool( *caps, "TemporalAA", Caps.TemporalAA );
         readBool( *caps, "EnvironmentLighting", Caps.EnvironmentLighting );
         readBool( *caps, "Instancing", Caps.Instancing );
+        if( auto scale = caps->find( "MaxRenderScale" ); scale != caps->end() && scale->is_number() )
+        {
+            Caps.MaxRenderScale = scale->get<float>();
+        }
     }
 }
 
@@ -180,6 +184,7 @@ HardwareProfile::FeatureCaps HardwareProfile::Combine( const FeatureCaps& InA, c
     caps.TemporalAA = InA.TemporalAA && InB.TemporalAA;
     caps.EnvironmentLighting = InA.EnvironmentLighting && InB.EnvironmentLighting;
     caps.Instancing = InA.Instancing && InB.Instancing;
+    caps.MaxRenderScale = InA.MaxRenderScale <= 0.f ? std::max( InB.MaxRenderScale, 0.f ) : InB.MaxRenderScale <= 0.f ? InA.MaxRenderScale : std::min( InA.MaxRenderScale, InB.MaxRenderScale );
     return caps;
 }
 
@@ -435,6 +440,10 @@ void HardwareBudget::ApplyCaps()
         out.MaxVolumetricSteps = std::max( caps.MaxVolumetricSteps, 0 );
         out.TemporalAA = caps.TemporalAA;
         out.Instancing = caps.Instancing;
+        out.MaxRenderScale = caps.MaxRenderScale;
+        // Render-resolution enforcement: cameras render no more pixels than the profile's resolution.
+        const HardwareProfile* profile = m_enforced ? GetActiveProfile() : nullptr;
+        out.MaxRenderPixels = profile && profile->Width > 0 && profile->Height > 0 ? uint64_t( profile->Width ) * uint64_t( profile->Height ) : 0;
     }
     const uint32_t textureCap = static_cast<uint32_t>( caps.MaxTextureSize );
     if( textureCap != Moonlight::Texture::GetMaxUploadSize() )
