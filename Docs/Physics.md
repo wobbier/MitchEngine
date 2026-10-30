@@ -151,6 +151,14 @@ All queries are on `PhysicsCore` and skip triggers:
 
 The capsule is always upright and the Transform's rotation is left alone. The Transform sits at the capsule centre plus `Center`, interpolated like dynamic bodies. A Transform moved by anything else is treated as a teleport. A kinematic capsule body follows the character, so rigidbodies collide with it and queries hit it.
 
+### Portal passages
+
+`Physics.SetPortalPassage(portal, host, center, right, up, halfSize, depth)` registers a rectangular opening in one stationary collider entity. The frame and dimensions are world-space snapshots; update them when placing or moving the portal. `Physics.ClearPortalPassage(portal)` closes it. Clear a passage when its portal or linked endpoint is unavailable. Registrations are scoped to the physics world.
+
+The character mover skips that host only while the capsule fits inside the opening and is within `depth` of its plane. Rigidbodies use the same test in pre-solve and CCD contact callbacks. All other collider contacts, the rest of the host, and raycasts remain solid. The callback reads only stored geometry and physics shape data, so worker threads never traverse ECS state. Gameplay still owns teleporting at the crossing plane and mapping positions, orientations and velocities between the two portal frames.
+
+`CharacterController.Teleport` clears the previous contact state, pending movement and jump request as well as velocity; set the mapped velocity afterwards. A portal demo can set `AirControl` to zero and add bounded air steering to preserve fling momentum instead of accelerating airborne velocity back toward walking speed.
+
 ### Joints
 
 `SyncJoints` creates joints from `PhysicsJoint` components:

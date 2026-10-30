@@ -111,6 +111,12 @@ void CharacterController::Teleport( const Vector3& InPosition, const Quaternion&
     m_appliedCenter = m_position;
     m_hasPosition = true;
     m_velocity = Vector3();
+    // A teleport starts at an unrelated contact configuration. In particular a floor entrance
+    // must not make the next airborne step retain ground snap or consume a stale jump request.
+    m_grounded = false;
+    m_groundNormal = Vector3::Up;
+    m_pendingMove = Vector3();
+    m_wantsJump = false;
     if( Parent )
     {
         if( Transform* transform = Parent->TryGetComponent<Transform>() )

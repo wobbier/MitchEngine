@@ -60,6 +60,14 @@ public:
     // Older gameplay code: Raycast from a point towards another point.
     bool Raycast( const Vector3& InStart, const Vector3& InEnd, RaycastHit& OutHit ) { return Linecast( InStart, InEnd, OutHit ); }
 
+    // A local opening in a stationary host collider. Only travellers fitting inside this frame
+    // bypass its contacts; ordinary queries and the rest of the host remain solid. Scripts map
+    // the traveller's pose when its eye/centre crosses the plane. Values are snapshots, so no ECS
+    // access is needed from worker-thread contact callbacks.
+    bool SetPortalPassage( EntityHandle InPortal, EntityHandle InHost, const Vector3& InCenter,
+        const Vector3& InRight, const Vector3& InUp, float InHalfWidth, float InHalfHeight, float InDepth );
+    void ClearPortalPassage( EntityHandle InPortal );
+
     void SetGravity( const Vector3& InGravity );
     Vector3 GetGravity() const;
     bool IsSimulating() const { return m_simulating; }
@@ -86,6 +94,23 @@ public:
 #endif
 
 private:
+    struct PortalPassage
+    {
+        uint64_t Portal = 0;
+        uint64_t Host = 0;
+        Vector3 Center;
+        Vector3 Right;
+        Vector3 Up;
+        Vector3 Normal;
+        float HalfWidth = 0.f;
+        float HalfHeight = 0.f;
+        float Depth = 0.f;
+    };
+    bool FitsPortalPassage( uint64_t InHost, const Vector3& InCenter, const Vector3& InExtents ) const;
+    bool HasPortalHost( uint64_t InHost ) const;
+    void RefreshPortalContactFlags();
+    std::vector<PortalPassage> m_portalPassages;
+
     struct BodyRecord
     {
         EntityHandle Owner;

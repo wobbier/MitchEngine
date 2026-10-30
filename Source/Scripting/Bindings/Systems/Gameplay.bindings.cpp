@@ -406,6 +406,21 @@ static void Eng_Audio_PlayOneShotAt( const uint8_t* inClip, const Vector3* inPos
 
 // Physics
 
+static bool Eng_Physics_SetPortalPassage( EntityID inPortal, EntityID inHost, const Vector3* inCenter,
+    const Vector3* inRight, const Vector3* inUp, float inHalfWidth, float inHalfHeight, float inDepth )
+{
+    PhysicsCore* physics = ScriptBindings::Physics();
+    return physics && physics->SetPortalPassage( MakeHandle( inPortal ), MakeHandle( inHost ), *inCenter,
+        *inRight, *inUp, inHalfWidth, inHalfHeight, inDepth );
+}
+
+
+static void Eng_Physics_ClearPortalPassage( EntityID inPortal )
+{
+    if( PhysicsCore* physics = ScriptBindings::Physics() ) physics->ClearPortalPassage( MakeHandle( inPortal ) );
+}
+
+
 static bool Eng_Physics_Raycast( const Vector3* inOrigin, const Vector3* inDirection, float inMaxDistance, ScriptRaycastHit* outHit )
 {
     *outHit = ScriptRaycastHit();
@@ -811,6 +826,8 @@ void Register_GameplayBindings( ScriptEngineAPI& inAPI )
     inAPI.Input_SetJoining = Eng_Input_SetJoining;
     inAPI.Audio_PlayOneShot = Eng_Audio_PlayOneShot;
     inAPI.Audio_PlayOneShotAt = Eng_Audio_PlayOneShotAt;
+    inAPI.Physics_SetPortalPassage = Eng_Physics_SetPortalPassage;
+    inAPI.Physics_ClearPortalPassage = Eng_Physics_ClearPortalPassage;
     inAPI.Physics_Raycast = Eng_Physics_Raycast;
     inAPI.Physics_OverlapSphere = Eng_Physics_OverlapSphere;
     inAPI.Rigidbody_AddForce = Eng_Rigidbody_AddForce;

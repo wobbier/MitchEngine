@@ -30,6 +30,15 @@ public enum ForceMode
 
 public static unsafe class Physics
 {
+    // Opens only this rectangular passage in the host collider for fitting characters/bodies.
+    // The rest of the wall, other colliders, and raycasts stay solid. Update after moving a portal;
+    // clear when its linked endpoint is unavailable or the portal is destroyed.
+    public static bool SetPortalPassage(Entity portal, Entity host, Vector3 center, Vector3 right,
+        Vector3 up, Vector2 halfSize, float depth = 2.5f)
+        => Engine._api.Physics_SetPortalPassage(portal, host, &center, &right, &up, halfSize.x, halfSize.y, depth) != 0;
+
+    public static void ClearPortalPassage(Entity portal) => Engine._api.Physics_ClearPortalPassage(portal);
+
     // A mask of the given layers (0..31).
     public static int LayerMask(params int[] layers)
     {

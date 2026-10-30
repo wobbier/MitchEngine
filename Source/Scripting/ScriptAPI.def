@@ -355,3 +355,7 @@ void Tilemap_WorldToCell( Entity id, const Vector3* world, int* outCell )
 void Text_SetText( Entity id, cstr text )
 int Text_GetText( Entity id, byte* outText, int size )
 void Text_SetColor( Entity id, Vector4* color )
+
+## Portal passages: narrow openings in a stationary host collider; raycasts still hit the host
+bool Physics_SetPortalPassage( Entity portal, Entity host, const Vector3* center, const Vector3* right, const Vector3* up, float halfWidth, float halfHeight, float depth )
+void Physics_ClearPortalPassage( Entity portal )

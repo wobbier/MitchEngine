@@ -217,6 +217,19 @@ void PhysicsCore::CreateWorld()
     def.createDebugShape = &PhysicsDebugDraw::CreateDebugShape;
     def.destroyDebugShape = &PhysicsDebugDraw::DestroyDebugShape;
     m_world = PackWorld( b3CreateWorld( &def ) );
+    b3World_SetPreSolveCallback( WorldId( m_world ), []( b3ShapeId shapeA, b3ShapeId shapeB, b3Pos, b3Vec3, void* ctx ) -> bool {
+        const PhysicsCore* self = static_cast<const PhysicsCore*>( ctx );
+        // The shape user data is the collider entity, including children of compound bodies.
+        auto passes = [self]( b3ShapeId host, b3ShapeId traveller ) {
+            const uint64_t id = static_cast<uint64_t>( reinterpret_cast<uintptr_t>( b3Shape_GetUserData( host ) ) );
+            if( !self->HasPortalHost( id ) ) return false;
+            const b3AABB bounds = b3Shape_GetAABB( traveller );
+            const Vector3 center = FromB3( b3MulSV( 0.5f, b3Add( bounds.lowerBound, bounds.upperBound ) ) );
+            const Vector3 extents = FromB3( b3MulSV( 0.5f, b3Sub( bounds.upperBound, bounds.lowerBound ) ) );
+            return self->FitsPortalPassage( id, center, extents );
+        };
+        return !passes( shapeA, shapeB ) && !passes( shapeB, shapeA );
+    }, this );
 }
 
 
@@ -232,6 +245,7 @@ void PhysicsCore::DestroyWorld()
     // generation is part of every id); entities aren't touched since their World may be gone.
     m_bodies.clear();
     m_characterBodies.clear();
+    m_portalPassages.clear();
     for( auto& [mesh, hull] : m_hulls )
     {
         b3DestroyHull( static_cast<b3HullData*>( hull ) );
@@ -513,7 +527,7 @@ bool PhysicsCore::BuildShapes( BodyRecord& InRecord, const std::vector<ColliderE
         const Vector3 scale = transform.GetWorldScale();
         const Vector3 absScale = AbsVector( scale );
 
-        auto makeDef = [&entity]( const ColliderSettings& InSettings ) {
+        auto makeDef = [this, &entity]( const ColliderSettings& InSettings ) {
             b3ShapeDef def = b3DefaultShapeDef();
             def.userData = UserDataFor( entity );
             def.density = InSettings.Density;
@@ -523,6 +537,7 @@ bool PhysicsCore::BuildShapes( BodyRecord& InRecord, const std::vector<ColliderE
             def.isSensor = InSettings.IsTrigger;
             def.enableSensorEvents = true;
             def.enableContactEvents = true;
+            def.enablePreSolveEvents = HasPortalHost( entity.GetId().Value() );
             def.updateBodyMass = false;
             return def;
         };
@@ -585,7 +600,7 @@ bool PhysicsCore::BuildShapes( BodyRecord& InRecord, const std::vector<ColliderE
                 def.userData = UserDataFor( entity ); def.filter = FilterFor( entity );
                 def.baseMaterial.friction = std::clamp( terrain->Friction, 0.f, 2.f );
                 def.baseMaterial.restitution = std::clamp( terrain->Restitution, 0.f, 1.f );
-                def.enableContactEvents = true; def.updateBodyMass = false;
+                def.enableContactEvents = true; def.enablePreSolveEvents = HasPortalHost( entity.GetId().Value() ); def.updateBodyMass = false;
                 for( void* mesh : *GetTerrainMeshes( data ) )
                     InRecord.Shapes.push_back( Pack( b3CreateMeshShape( body, &def, static_cast<b3MeshData*>( mesh ), b3Vec3{ 1.f, 1.f, 1.f } ) ) );
             }
@@ -1181,14 +1196,24 @@ void PhysicsCore::StepCharacter( Entity& entity, CharacterController& c, float I
         bool Grounded = false;
         Vector3 GroundNormal = Vector3( 0.f, 1.f, 0.f );
         std::vector<b3ShapeId> Pushed;
+        const PhysicsCore* Physics = nullptr;
+        Vector3 Center;
+        Vector3 Extents;
     } context{ ownBody, std::cos( c.SlopeLimit * kPi / 180.f ) };
+    context.Physics = this;
+    context.Center = c.m_position;
+    context.Extents = Vector3( c.Radius, c.Height * 0.5f, c.Radius );
     auto ignoreSelf = []( b3ShapeId shape, void* ctx ) -> bool {
         const MoverContext* self = static_cast<const MoverContext*>( ctx );
-        return !B3_ID_EQUALS( b3Shape_GetBody( shape ), self->Self );
+        const uint64_t host = static_cast<uint64_t>( reinterpret_cast<uintptr_t>( b3Shape_GetUserData( shape ) ) );
+        return !B3_ID_EQUALS( b3Shape_GetBody( shape ), self->Self )
+            && !self->Physics->FitsPortalPassage( host, self->Center, self->Extents );
     };
     auto collectPlanes = []( b3ShapeId shape, const b3PlaneResult* planes, int count, void* ctx ) -> bool {
         MoverContext* self = static_cast<MoverContext*>( ctx );
-        if( B3_ID_EQUALS( b3Shape_GetBody( shape ), self->Self ) || b3Shape_IsSensor( shape ) )
+        const uint64_t host = static_cast<uint64_t>( reinterpret_cast<uintptr_t>( b3Shape_GetUserData( shape ) ) );
+        if( B3_ID_EQUALS( b3Shape_GetBody( shape ), self->Self ) || b3Shape_IsSensor( shape )
+            || self->Physics->FitsPortalPassage( host, self->Center, self->Extents ) )
         {
             return true;
         }
@@ -1216,6 +1241,7 @@ void PhysicsCore::StepCharacter( Entity& entity, CharacterController& c, float I
     const b3Vec3 target = b3Add( position, ToB3( delta ) );
     const bool wasGrounded = c.m_grounded;
     auto collideAt = [&]( b3Vec3 InPosition ) {
+        context.Center = FromB3( InPosition );
         context.Planes.clear();
         context.Grounded = false;
         b3World_CollideMover( world, InPosition, &mover, filter, collectPlanes, &context );
@@ -1524,6 +1550,100 @@ void PhysicsCore::Update( const UpdateContext& inUpdateContext )
         b3DebugDraw draw = PhysicsDebugDraw::Make();
         b3World_Draw( WorldId( m_world ), &draw, ~0ull );
     }
+}
+
+
+bool PhysicsCore::HasPortalHost( uint64_t InHost ) const
+{
+    return std::any_of( m_portalPassages.begin(), m_portalPassages.end(),
+        [InHost]( const PortalPassage& p ) { return p.Host == InHost; } );
+}
+
+
+bool PhysicsCore::FitsPortalPassage( uint64_t InHost, const Vector3& InCenter, const Vector3& InExtents ) const
+{
+    for( const PortalPassage& p : m_portalPassages )
+    {
+        if( p.Host != InHost ) continue;
+        const Vector3 offset = InCenter - p.Center;
+        const float side = offset.Dot( p.Normal );
+        if( std::abs( side ) > p.Depth ) continue;
+        // The upright character capsule's bounding extents can slightly overlap the authored
+        // floor sill; the tolerance is local to the opening, never the whole collider.
+        const float supportRight = AbsVector( p.Right ).Dot( InExtents );
+        const float supportUp = AbsVector( p.Up ).Dot( InExtents );
+        if( std::abs( offset.Dot( p.Right ) ) + supportRight <= p.HalfWidth + 0.05f
+            && std::abs( offset.Dot( p.Up ) ) + supportUp <= p.HalfHeight + 0.15f ) return true;
+    }
+    return false;
+}
+
+
+void PhysicsCore::RefreshPortalContactFlags()
+{
+    for( auto& [id, record] : m_bodies )
+        for( uint64_t packed : record.Shapes )
+        {
+            const b3ShapeId shape = Unpack<b3ShapeId>( packed );
+            if( !b3Shape_IsValid( shape ) ) continue;
+            const uint64_t host = static_cast<uint64_t>( reinterpret_cast<uintptr_t>( b3Shape_GetUserData( shape ) ) );
+            const bool enabled = HasPortalHost( host );
+            if( b3Shape_ArePreSolveEventsEnabled( shape ) == enabled ) continue;
+            b3Shape_EnablePreSolveEvents( shape, enabled );
+            if( enabled )
+            {
+                // Existing contacts cached their pre-solve flag when created. Refilter just this
+                // host shape so a portal shot beneath a resting body takes effect next step.
+                const b3Filter filter = b3Shape_GetFilter( shape );
+                b3Filter empty = filter;
+                empty.maskBits = 0;
+                b3Shape_SetFilter( shape, empty, true );
+                b3Shape_SetFilter( shape, filter, true );
+            }
+        }
+}
+
+
+bool PhysicsCore::SetPortalPassage( EntityHandle InPortal, EntityHandle InHost, const Vector3& InCenter,
+    const Vector3& InRight, const Vector3& InUp, float InHalfWidth, float InHalfHeight, float InDepth )
+{
+    if( !InPortal || !InHost || InHalfWidth <= 0.f || InHalfHeight <= 0.f || InDepth <= 0.f ) return false;
+    const Vector3 right = InRight.Normalized();
+    Vector3 up = InUp - right * right.Dot( InUp );
+    if( right.LengthSquared() < 0.9f || up.LengthSquared() < 1e-6f ) return false;
+    up = up.Normalized();
+    PortalPassage passage;
+    passage.Portal = InPortal.GetID().Value();
+    passage.Host = InHost.GetID().Value();
+    passage.Center = InCenter;
+    passage.Right = right;
+    passage.Up = up;
+    passage.Normal = right.Cross( up ).Normalized();
+    passage.HalfWidth = InHalfWidth;
+    passage.HalfHeight = InHalfHeight;
+    passage.Depth = InDepth;
+    auto existing = std::find_if( m_portalPassages.begin(), m_portalPassages.end(),
+        [&passage]( const PortalPassage& p ) { return p.Portal == passage.Portal; } );
+    if( existing == m_portalPassages.end() ) m_portalPassages.push_back( passage );
+    else *existing = passage;
+    RefreshPortalContactFlags();
+    for( auto& [id, record] : m_bodies )
+    {
+        if( !IsBody( record.Body ) || b3Body_GetType( Body( record.Body ) ) != b3_dynamicBody ) continue;
+        const Vector3 center = FromB3( b3Body_GetPosition( Body( record.Body ) ) );
+        if( ( center - passage.Center ).LengthSquared() < passage.Depth * passage.Depth + InHalfWidth * InHalfWidth + InHalfHeight * InHalfHeight )
+            b3Body_SetAwake( Body( record.Body ), true );
+    }
+    return true;
+}
+
+
+void PhysicsCore::ClearPortalPassage( EntityHandle InPortal )
+{
+    const uint64_t id = InPortal.GetID().Value();
+    m_portalPassages.erase( std::remove_if( m_portalPassages.begin(), m_portalPassages.end(),
+        [id]( const PortalPassage& p ) { return p.Portal == id; } ), m_portalPassages.end() );
+    RefreshPortalContactFlags();
 }
 
 

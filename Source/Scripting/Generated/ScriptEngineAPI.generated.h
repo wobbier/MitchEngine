@@ -373,4 +373,8 @@ struct ScriptEngineAPI
     void ( *Text_SetText )( EntityID id, const uint8_t* text );
     int ( *Text_GetText )( EntityID id, uint8_t* outText, int size );
     void ( *Text_SetColor )( EntityID id, Vector4* color );
+
+    // Portal passages: narrow openings in a stationary host collider; raycasts still hit the host
+    bool ( *Physics_SetPortalPassage )( EntityID portal, EntityID host, const Vector3* center, const Vector3* right, const Vector3* up, float halfWidth, float halfHeight, float depth );
+    void ( *Physics_ClearPortalPassage )( EntityID portal );
 };

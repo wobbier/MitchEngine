@@ -361,4 +361,8 @@ public unsafe struct EngineAPIBindings
     public delegate* unmanaged<Entity, byte*, void> Text_SetText;
     public delegate* unmanaged<Entity, byte*, int, int> Text_GetText;
     public delegate* unmanaged<Entity, Vector4*, void> Text_SetColor;
+
+    // Portal passages: narrow openings in a stationary host collider; raycasts still hit the host
+    public delegate* unmanaged<Entity, Entity, Vector3*, Vector3*, Vector3*, float, float, float, byte> Physics_SetPortalPassage;
+    public delegate* unmanaged<Entity, void> Physics_ClearPortalPassage;
 }
