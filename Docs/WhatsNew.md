@@ -12,11 +12,12 @@
 - Splines: curves you draw in the World view, for paths, rails and patrols (C# Spline).
 - Sequencer: event markers that call your scripts, camera cuts, audio and animation cues, copy/paste/duplicate keys, mute and lock.
 - Ragdolls: build one from a skeleton in one click, knock a character down, and it blends back up.
-- Play-mode tests: [GameTest] methods that load a level, play it and check the result (game-tests in the console).
-- Accessibility: subtitles and sound captions, speaker names, subtitle size and backdrop, high contrast, and reduce motion turns off camera shake.
-- Multiplayer: a dedicated server, and C# replicated fields, predicted fields and RPCs.
+- Play-mode tests: [GameTest] methods that load a level, play it and check the result (game-tests in the console), with simulated input: hold or tap keys, or replay a recording.
+- Accessibility: subtitles and sound captions, speaker names, subtitle size and backdrop, high contrast, toggle instead of hold (sprint, crouch), and reduce motion turns off camera shake.
+- Multiplayer: a dedicated server; C# replicated fields, predicted fields and RPCs; lag-compensated hits from C# (the server judges a shot the way the shooter saw it), with the player's aim sent in every command.
 - Mods: content and script mods loaded from a folder, with a Mods page in the options menu.
-- Editor: the command palette finds entities, assets, settings and docs; a status indicator for builds, imports and bakes, with toasts that link to the fix; undo for asset renames, moves and deletes (with a Trash), Project Settings and Prefab Apply.
+- Play options: Simulate (play without scripts), keep a component's values after Stop, play from the scene camera, and Build & Run.
+- Editor: inspector search and lock, lock picking in the hierarchy; the command palette finds entities, assets, settings and docs; a status indicator for builds, imports and bakes, with toasts that link to the fix; undo for asset renames, moves and deletes (with a Trash), Project Settings and Prefab Apply.
 
 ## October 2026: shipping a game in C#
 
