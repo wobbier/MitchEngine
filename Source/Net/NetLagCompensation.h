@@ -4,6 +4,8 @@
 #include "Math/Vector3.h"
 #include <cstdint>
 #include <deque>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 class NetHitbox;
@@ -19,6 +21,7 @@ struct LagCompensatedHit
     float Distance = 0.f;
     bool Occluded = false;      // a collider was in the way (Entity is still the hitbox it hid)
     double RewoundTicks = 0.0;
+    int Tested = 0;             // hitboxes rewound and tested against the ray (after the broadphase)
 };
 
 
@@ -36,6 +39,9 @@ public:
     // Covers about 300 ms of round trip plus the view's interpolation delay and command slack.
     double MaxRewindSeconds = 0.4;
     bool DrawOverlays = false;      // each shot draws the rewound hitboxes, the present ones and the ray
+    // NET-15: cull by each hitbox's bounds swept over the rewind window before rewinding it (the
+    // results are the same either way; off only to compare).
+    bool UseBroadphase = true;
 
     // After a server tick: where every hitbox is.
     void Record( World& InWorld, uint32_t InTick );
@@ -68,6 +74,15 @@ private:
         uint32_t Tick = 0;
         std::vector<HitboxPose> Hitboxes;
     };
+    struct Bounds
+    {
+        Vector3 Min;
+        Vector3 Max;
+    };
+    // The poses at InTick, of only the InOnly entities when given.
+    std::vector<HitboxPose> PosesAt( double InTick, const std::unordered_set<uint64_t>* InOnly ) const;
     std::deque<Frame> m_frames;
+    // Every recorded hitbox's bounds over the whole window (any view tick a shot may name).
+    std::unordered_map<uint64_t, Bounds> m_swept;
     uint16_t m_tickRate = 60;
 };

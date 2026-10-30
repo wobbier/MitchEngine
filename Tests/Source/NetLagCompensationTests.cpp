@@ -157,3 +157,70 @@ TEST_CASE( "Net: at 200 ms a shot at a strafing target hits with rewind and miss
     CHECK( rejectedForged == shots );
     CHECK( rewound / shots > 12.0 );   // 200 ms round trip and then some
 }
+
+
+TEST_CASE( "Net: the rewind broadphase gives the same hits while testing under 10% of 200 hitboxes (NET-15)" )
+{
+    std::shared_ptr<World> world = std::make_shared<World>();
+    world->IsLoading = false;
+    std::vector<EntityHandle> targets;
+    for( int i = 0; i < 200; ++i )
+    {
+        EntityHandle target = world->CreateEntity( "Target" );
+        target->AddComponent<Transform>();
+        NetHitbox& hitbox = target->AddComponent<NetHitbox>();
+        hitbox.Radius = 0.4f;
+        hitbox.Height = 1.8f;
+        if( i % 4 == 0 )
+        {
+            hitbox.Shape = NetHitboxShape::Box;
+            hitbox.HalfExtents = Vector3( 0.5f, 0.9f, 0.3f );
+        }
+        targets.push_back( target );
+    }
+    // A 20 x 10 grid, 4 m apart, each strafing its own way.
+    auto place = [&]( uint32_t InTick ) {
+        for( int i = 0; i < 200; ++i )
+        {
+            const float sway = std::sin( ( InTick + i * 7 ) * 0.05f ) * 1.5f;
+            targets[i]->GetComponent<Transform>().SetPosition( Vector3( ( i % 20 ) * 4.f + sway, 1.f, ( i / 20 ) * 4.f + sway * 0.5f ) );
+        }
+    };
+    NetLagCompensation lag;
+    for( uint32_t tick = 1; tick <= 30; ++tick )
+    {
+        place( tick );
+        lag.Record( *world, tick );
+    }
+
+    int shots = 0;
+    int hits = 0;
+    int tested = 0;
+    for( int shot = 0; shot < 200; ++shot )
+    {
+        // From a step back, aimed at a target's rough spot, or off into the gaps.
+        const int aimAt = ( shot * 37 ) % 200;
+        const Vector3 origin( ( aimAt % 20 ) * 4.f - 3.f, 1.2f, -8.f );
+        const Vector3 at( ( aimAt % 20 ) * 4.f + ( shot % 3 ) * 0.7f, 1.f + ( shot % 5 ) * 0.2f, ( aimAt / 20 ) * 4.f );
+        const double viewTick = 30.0 - ( shot % 20 ) * 0.75;
+        lag.UseBroadphase = false;
+        const LagCompensatedHit everything = lag.Raycast( nullptr, origin, at - origin, 200.f, viewTick );
+        lag.UseBroadphase = true;
+        const LagCompensatedHit culled = lag.Raycast( nullptr, origin, at - origin, 200.f, viewTick );
+        CAPTURE( shot );
+        CHECK( everything.Tested == 200 );
+        CHECK( culled.Hit == everything.Hit );
+        CHECK( culled.Entity == everything.Entity );
+        CHECK( culled.Distance == everything.Distance );
+        CHECK( culled.Point.x == everything.Point.x );
+        CHECK( culled.Point.y == everything.Point.y );
+        CHECK( culled.Point.z == everything.Point.z );
+        ++shots;
+        hits += culled.Hit ? 1 : 0;
+        tested += culled.Tested;
+    }
+    const double perShot = static_cast<double>( tested ) / shots;
+    MESSAGE( "broadphase: " << hits << "/" << shots << " hits, " << perShot << " of 200 hitboxes tested per shot" );
+    CHECK( hits > 50 );
+    CHECK( perShot < 20.0 );
+}

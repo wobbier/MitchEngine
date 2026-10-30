@@ -103,6 +103,43 @@ namespace
         return near;
     }
 
+    // A sphere around the pose's shape (a box's corners, a capsule's caps).
+    float BoundingRadius( const NetLagCompensation::HitboxPose& InPose )
+    {
+        return InPose.Shape == static_cast<uint8_t>( NetHitboxShape::Box ) ? InPose.HalfExtents.Length() : InPose.HalfHeight + InPose.Radius;
+    }
+
+    // Ray (unit direction) vs AABB within InMaxDistance.
+    bool RayHitsBounds( const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, const Vector3& InMin, const Vector3& InMax )
+    {
+        float near = 0.f;
+        float far = InMaxDistance;
+        for( int axis = 0; axis < 3; ++axis )
+        {
+            if( std::abs( InDirection[axis] ) < 1e-9f )
+            {
+                if( InOrigin[axis] < InMin[axis] || InOrigin[axis] > InMax[axis] )
+                {
+                    return false;
+                }
+                continue;
+            }
+            float t0 = ( InMin[axis] - InOrigin[axis] ) / InDirection[axis];
+            float t1 = ( InMax[axis] - InOrigin[axis] ) / InDirection[axis];
+            if( t0 > t1 )
+            {
+                std::swap( t0, t1 );
+            }
+            near = std::max( near, t0 );
+            far = std::min( far, t1 );
+            if( near > far )
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
     NetLagCompensation::HitboxPose Lerp( const NetLagCompensation::HitboxPose& InA, const NetLagCompensation::HitboxPose& InB, float InT )
     {
         NetLagCompensation::HitboxPose pose = InA;
@@ -140,10 +177,37 @@ void NetLagCompensation::Record( World& InWorld, uint32_t InTick )
     {
         m_frames.pop_front();
     }
+
+    // NET-15: each hitbox's bounds over the window, so a shot only rewinds what it could touch.
+    m_swept.clear();
+    for( const Frame& recorded : m_frames )
+    {
+        for( const HitboxPose& pose : recorded.Hitboxes )
+        {
+            const float radius = BoundingRadius( pose );
+            const Vector3 low = pose.Position - Vector3( radius, radius, radius );
+            const Vector3 high = pose.Position + Vector3( radius, radius, radius );
+            auto [it, inserted] = m_swept.try_emplace( pose.Entity.GetID().Value(), Bounds{ low, high } );
+            if( !inserted )
+            {
+                for( int axis = 0; axis < 3; ++axis )
+                {
+                    it->second.Min[axis] = std::min( it->second.Min[axis], low[axis] );
+                    it->second.Max[axis] = std::max( it->second.Max[axis], high[axis] );
+                }
+            }
+        }
+    }
 }
 
 
 std::vector<NetLagCompensation::HitboxPose> NetLagCompensation::GetPosesAt( double InTick ) const
+{
+    return PosesAt( InTick, nullptr );
+}
+
+
+std::vector<NetLagCompensation::HitboxPose> NetLagCompensation::PosesAt( double InTick, const std::unordered_set<uint64_t>* InOnly ) const
 {
     if( m_frames.empty() )
     {
@@ -169,6 +233,10 @@ std::vector<NetLagCompensation::HitboxPose> NetLagCompensation::GetPosesAt( doub
     std::vector<HitboxPose> poses;
     for( const HitboxPose& pose : before->Hitboxes )
     {
+        if( InOnly && !InOnly->count( pose.Entity.GetID().Value() ) )
+        {
+            continue;
+        }
         auto match = std::find_if( after->Hitboxes.begin(), after->Hitboxes.end(), [&pose]( const HitboxPose& InOther ) { return InOther.Entity == pose.Entity; } );
         poses.push_back( match != after->Hitboxes.end() ? Lerp( pose, *match, t ) : pose );
     }
@@ -211,8 +279,19 @@ LagCompensatedHit NetLagCompensation::Raycast( PhysicsCore* InPhysics, const Vec
     }
     const Vector3 direction = InDirection * ( 1.f / length );
 
-    // What the shooter saw.
-    const std::vector<HitboxPose> poses = GetPosesAt( viewTick );
+    // What the shooter saw: the hitboxes whose swept bounds the ray crosses, rewound.
+    std::unordered_set<uint64_t> candidates;
+    if( UseBroadphase )
+    {
+        for( const auto& [id, bounds] : m_swept )
+        {
+            if( RayHitsBounds( InOrigin, direction, InMaxDistance, bounds.Min, bounds.Max ) )
+            {
+                candidates.insert( id );
+            }
+        }
+    }
+    const std::vector<HitboxPose> poses = PosesAt( viewTick, UseBroadphase ? &candidates : nullptr );
     float nearest = -1.f;
     for( const HitboxPose& pose : poses )
     {
@@ -220,6 +299,7 @@ LagCompensatedHit NetLagCompensation::Raycast( PhysicsCore* InPhysics, const Vec
         {
             continue;
         }
+        ++result.Tested;
         const float t = Intersect( pose, InOrigin, direction, InMaxDistance );
         if( t >= 0.f && ( nearest < 0.f || t < nearest ) )
         {
@@ -261,7 +341,7 @@ LagCompensatedHit NetLagCompensation::Raycast( PhysicsCore* InPhysics, const Vec
             const Vector3 up = InPose.Rotation * Vector3( 0.f, InPose.HalfHeight, 0.f );
             DebugDraw::Capsule( InPose.Position - up, InPose.Position + up, InPose.Radius, InColor, 2.f );
         };
-        for( const HitboxPose& pose : poses )
+        for( const HitboxPose& pose : GetPosesAt( viewTick ) )
         {
             draw( pose, DebugDraw::Yellow );
         }
