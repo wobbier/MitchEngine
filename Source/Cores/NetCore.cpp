@@ -440,7 +440,10 @@ void NetCore::Flush( double InNow )
 {
     if( m_client )
     {
-        m_replicationClient->BeforeFlush();
+        if( m_client->IsSendDue( InNow ) )
+        {
+            m_replicationClient->BeforeFlush();
+        }
         m_client->Flush( InNow );
         m_transport->Update( InNow );
     }

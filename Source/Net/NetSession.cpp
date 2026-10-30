@@ -506,6 +506,7 @@ void NetClient::SubmitCommand( InputCommand InCommand )
         m_commands.pop_back();
     }
     m_commands.push_back( InCommand );
+    m_newCommand = true;
     // Only the newest kMaxPerPacket go out; older unconfirmed ones are past helping.
     while( m_commands.size() > NetCommands::kMaxPerPacket * 4 )
     {
@@ -514,8 +515,28 @@ void NetClient::SubmitCommand( InputCommand InCommand )
 }
 
 
+bool NetClient::IsSendDue( double InNow ) const
+{
+    if( m_state != State::Connecting && m_state != State::Connected )
+    {
+        return false;
+    }
+    // Connected, each tick's command sends; a packet without one only covers stretches with no
+    // ticks (a pause, a hitch). Connecting, the handshake goes out about once a tick.
+    const double tick = 1.0 / static_cast<double>( std::max<uint16_t>( m_tickRate, 1 ) );
+    const double keepAlive = m_state == State::Connected ? 2.0 * tick : 0.9 * tick;
+    return m_newCommand || m_lastSentAt < 0.0 || InNow - m_lastSentAt >= keepAlive;
+}
+
+
 void NetClient::Flush( double InNow )
 {
+    if( !IsSendDue( InNow ) )
+    {
+        return;
+    }
+    m_newCommand = false;
+    m_lastSentAt = InNow;
     if( m_state == State::Connected && !m_commands.empty() )
     {
         const size_t count = std::min( m_commands.size(), NetCommands::kMaxPerPacket );

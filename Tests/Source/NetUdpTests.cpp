@@ -296,3 +296,37 @@ TEST_CASE( "Net: client ids stay unique and never 0 across hundreds of joins and
     CHECK( server.GetAcceptedCount() == 301 );
     CHECK( server.GetDisconnectCount() == 300 );
 }
+
+TEST_CASE( "Net: a client drawing far faster than the tick rate sends about one packet a tick" )
+{
+    // 1000 frames a second for 3 s against a 60 Hz server: its packets must not flood the link
+    // (nor age out of the server's ack window and read as loss).
+    Harness net( NetUdpTest::Clean( 11 ), NetUdpTest::Clean( 12 ) );
+    net.ClientFrameSeconds = 0.001;
+    net.Start();
+    net.Run( 1.0 );
+    NetClient& client = *net.ClientNet.GetClient();
+    REQUIRE( client.GetState() == NetClient::State::Connected );
+    const uint64_t sentBefore = client.GetConnection().GetStats().PacketsSent;
+    for( int ms = 0; ms < 3000; ++ms )
+    {
+        const double now = ( ++net.Milliseconds ) / 1000.0;
+        net.ServerLink.Update( now );
+        net.ClientLink.Update( now );
+        NetServer& server = *net.ServerNet.GetServer();
+        while( server.GetTick() * ( 1.0 / 60.0 ) <= now - net.ServerStart )
+        {
+            net.ServerNet.Receive( now );
+            net.ServerNet.BeginTick();
+            net.ServerNet.EndTick( now );
+        }
+        net.ClientStep( net.ClientNet, now );
+    }
+    const NetStats& stats = client.GetConnection().GetStats();
+    const double perSecond = static_cast<double>( stats.PacketsSent - sentBefore ) / 3.0;
+    MESSAGE( "client packets/s at 1000 fps: " << perSecond << ", loss estimate " << stats.PacketLoss );
+    CHECK( perSecond < 70.0 );
+    CHECK( perSecond > 50.0 );
+    CHECK( stats.PacketLoss < 0.05f );
+    CHECK( client.GetState() == NetClient::State::Connected );
+}

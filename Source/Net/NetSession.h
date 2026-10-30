@@ -143,8 +143,12 @@ public:
     void Receive( double InNow );
     // This tick's command (InCommand.Tick is set to the clock's tick, which advances).
     void SubmitCommand( InputCommand InCommand );
-    // Sends one packet: the handshake while connecting, then the unconfirmed commands.
+    // Sends one packet: the handshake while connecting, then the unconfirmed commands. About one
+    // per tick: when a new command is waiting, else a keep-alive after two ticks without one (one
+    // while connecting), so a client drawing far faster than the tick rate doesn't flood the server.
     void Flush( double InNow );
+    // Whether Flush( InNow ) would send (what rides along, like a snapshot ack, is only worth queueing then).
+    bool IsSendDue( double InNow ) const;
     // Says Disconnect (a few packets' worth) and stops; the server drops this client at once.
     void Disconnect( double InNow );
     // Seconds of silence from the server before giving up (State::TimedOut).
@@ -187,6 +191,8 @@ private:
     double m_lastHeard = -1.0;      // set when the Hello first goes out, then by every packet
     double m_connectedAt = -1.0;
     double m_endedAt = -1.0;
+    double m_lastSentAt = -1.0;
+    bool m_newCommand = false;
     bool m_started = false;
     uint8_t m_clientId = 0;
     uint16_t m_tickRate = 60;

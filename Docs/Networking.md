@@ -101,7 +101,7 @@ Messages are at most 1024 bytes (`kMaxMessageBytes`); there is no fragmentation 
 | `Net->Receive( now )` | After the frame's events | Packets in |
 | `Net->BeginTick()` | Start of each fixed step | The server takes commands; the client stamps its command |
 | `Net->EndTick( now )` | After the physics step | The server reports, one packet per client |
-| `Net->Flush( now )` | Before the frame limiter | The client's packet |
+| `Net->Flush( now )` | Before the frame limiter | The client's packet: at most about one a tick (each new command sends; otherwise a keep-alive after two ticks without one), however fast it draws |
 | `GetClockScale()` | The fixed-step accumulator | Scaled by it: dilation without changing `FixedDeltaTime` |
 | `KeepsBacklog()` | Backlog drop | A server catches up instead of dropping steps |
 
@@ -280,6 +280,7 @@ The session starts after the scene loads, because the handshake hashes the scene
   - Addresses resolve (`localhost` too) and print, and malformed ones are refused.
   - Two sockets on 127.0.0.1 trade datagrams up to 1200 bytes, with each `From` equal to the sender's resolved address, and a taken port fails to bind.
   - A `NetServer` and `NetClient` connect over real UDP. Commands arrive, and the client's Disconnect removes it at once (1 disconnect, 0 timeouts).
+  - A client drawing at 1000 fps against a 60 Hz server sends 60.3 packets/s, with a loss estimate of 0. Before the cap it sent one packet a frame; past the server's 33-packet ack window those read as 34% loss on a desktop run.
   - On loopback, a silent client times out on the server (`OnClientRemoved` fires once). A client gives up on a silent server and on one that never answers. A closing server tells its client (`"server closed"`), and a leaving client is counted as left, not timed out.
 - **The NET-5 done-when (`RunNetSmoke.py`):** the Server build and a client on NetTest.lvl over localhost UDP for 900 client frames (about 15 s).
   - **Clean link:** connected, 0 timeouts, 0 resyncs, 60.06 snapshots/s at 60 Hz (±5% required). The client left cleanly and the server exited by itself. The capture matches its reference exactly (0.00%).
