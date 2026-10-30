@@ -31,6 +31,8 @@ ALLOWED = {
     "Engine/Modules/Dementia/Source/Core/StackTrace.cpp": "crash diagnostics",
     "Engine/Source/Tools/Build/BuildGame.cpp": "Build Game reads build-machine files (the solution makefile, the build's own runtimeconfig), not game content",
     "Engine/Source/Tools/Projects/ProjectLibrary.cpp": "the Project Hub reads other projects, templates and the per-user recent list, outside the open project's mounts",
+    "Engine/Source/Mods/Mods.cpp": "MOD-1 reads each mod folder's mod.json to decide what to mount, before the mod's mount exists",
+    "Engine/Modules/Dementia/Source/Core/CrashHandler.cpp": "crash diagnostics: the crash directory's acknowledgement marker, outside any mount",
 }
 
 TOKEN = re.compile(r"std::ifstream|std::fstream|\bfopen\s*\(")
