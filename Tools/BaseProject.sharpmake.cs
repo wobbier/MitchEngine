@@ -259,6 +259,9 @@ public abstract class BaseProject : Project
             conf.AdditionalCompilerOptions.Add("-fno-omit-frame-pointer"); // GDB stack unwinding
             conf.AdditionalCompilerOptions.Add("-fno-inline-functions");   // don't inline, step cleanly
             conf.AdditionalCompilerOptions.Add("-O0");               // no optimisation
+            // The Nix gcc wrapper's hardening defines _FORTIFY_SOURCE, which needs optimisation:
+            // at -O0 glibc warns once per file. Debug drops it; Release keeps it (ME-240).
+            conf.AdditionalCompilerOptions.Add("-U_FORTIFY_SOURCE");
         }
 
         if (Directory.Exists(Globals.FMOD_Linux_Dir) && target.HasAudio)
