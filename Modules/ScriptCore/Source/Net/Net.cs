@@ -165,6 +165,59 @@ public static unsafe class Net
         fixed (byte* p = args) Engine._api.Net_SendRpc(entity, rpcId, kind, p, args.Length);
     }
 
+    // ME-291: a cosmetic event (FX, a sound, a log line) raised from simulation (OnFixedUpdate) that
+    // must show once, not again in every resimulation of its tick:
+    // - offline: script.OnNetEvent(eventId, value) now;
+    // - the server: now, and to every client (as a reserved RPC carrying its tick);
+    // - the predicting owner: now, once per (entity, tick, event): resims of the tick skip it, and so
+    //   does the server's copy when it arrives;
+    // - other clients: when the server's copy arrives.
+    // Needs a networked script (one with [Replicated] / [Predicted] state or RPCs) on a NetIdentity.
+    public static void PredictedEvent(Script script, int eventId, int value = 0)
+    {
+        int role = Role;
+        if (role == RoleNone)
+        {
+            script.OnNetEvent(eventId, value);
+            return;
+        }
+        int tick = Tick;
+        if (role == RoleServer)
+        {
+            script.OnNetEvent(eventId, value);
+            if (Engine._api.Net_SendRpc == null) return;
+            Span<byte> args = stackalloc byte[12];
+            var writer = new NetWriter(args);
+            writer.WriteInt(tick);
+            writer.WriteInt(eventId);
+            writer.WriteInt(value);
+            fixed (byte* p = args) Engine._api.Net_SendRpc(script.Entity, PredictedEventRpcId, 2, p, args.Length);
+            return;
+        }
+        if (IsPredicted(script.Entity) && Events.TryPresent(script.Entity, tick, eventId))
+        {
+            script.OnNetEvent(eventId, value);
+        }
+    }
+
+    // The RPC id PredictedEvent's server copies travel under (C++: kPredictedEventRpcId).
+    public const int PredictedEventRpcId = 0x3FFFFFFF;
+
+    internal static readonly NetEventLedger Events = new();
+
+    internal static void ReceivePredictedEvent(Script script, ReadOnlySpan<byte> data)
+    {
+        var reader = new NetReader(data);
+        int tick = reader.ReadInt();
+        int eventId = reader.ReadInt();
+        int value = reader.ReadInt();
+        if (reader.Overflowed || !IsClient) return;
+        if (Events.TryPresent(script.Entity, tick, eventId))
+        {
+            script.OnNetEvent(eventId, value);
+        }
+    }
+
     // Generated RPC stubs with string arguments: the arguments didn't fit the RPC buffer.
     public static void WarnRpcTooLarge(string rpc) => WarnOnce($"{rpc}: the arguments are too large for an RPC; dropped");
 
@@ -200,8 +253,42 @@ public static unsafe class Net
     // Hot reload: script code changed, so forget the lookups and warnings.
     internal static void ResetCaches()
     {
+        Events.Clear();
         _actionIndices.Clear();
         _actionIndicesRole = -1;
         _warned.Clear();
+    }
+}
+
+
+// ME-291: the predicted events a client has presented, by (entity, tick, event), so a resimulated
+// tick or the server's copy doesn't present one twice. Keeps about the last 256 ticks.
+public sealed class NetEventLedger
+{
+    private readonly HashSet<(uint Index, uint Generation, int Tick, int EventId)> _presented = new();
+    private int _newestTick = int.MinValue;
+
+    public int Count => _presented.Count;
+
+    // True the first time (present it now), false for a repeat.
+    public bool TryPresent(Entity entity, int tick, int eventId)
+    {
+        if (!_presented.Add((entity.Index, entity.Generation, tick, eventId)))
+        {
+            return false;
+        }
+        _newestTick = Math.Max(_newestTick, tick);
+        if (_presented.Count > 1024)
+        {
+            int oldest = _newestTick - 256;
+            _presented.RemoveWhere(key => key.Tick < oldest);
+        }
+        return true;
+    }
+
+    public void Clear()
+    {
+        _presented.Clear();
+        _newestTick = int.MinValue;
     }
 }

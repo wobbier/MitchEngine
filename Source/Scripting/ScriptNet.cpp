@@ -50,7 +50,10 @@ NetCore::ScriptGlue MakeScriptNetGlue()
         }
     };
     glue.DispatchRpc = []( Entity& InEntity, int InRpcId, const uint8_t* InData, size_t InSize ) {
-        ScriptEngine::NetDispatchRpc( NetHandle( InEntity, ScriptEngine::NetRpcs ), InRpcId, InData, InSize );
+        // A Net.PredictedEvent's server copy reaches any networked script, RPCs or not (ME-291).
+        constexpr int kPredictedEventRpcId = 0x3FFFFFFF;
+        const uint32_t needs = InRpcId == kPredictedEventRpcId ? 0u : ScriptEngine::NetRpcs;
+        ScriptEngine::NetDispatchRpc( NetHandle( InEntity, needs ), InRpcId, InData, InSize );
     };
     glue.SchemaHash = []() { return ScriptEngine::NetSchemaHash(); };
     return glue;

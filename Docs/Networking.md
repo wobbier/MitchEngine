@@ -289,6 +289,14 @@ public partial class Dasher : Script
 **Rules of thumb:**
 
 - Don't log, play sounds or send RPCs from `OnFixedUpdate` without checking `Net.IsResimulating`: a resim runs it again.
+- **`Net.PredictedEvent(this, eventId, value)`** (ME-291) is the way to raise FX and sounds from `OnFixedUpdate`; they arrive in `Script.OnNetEvent(eventId, value)`.
+  - **Offline:** it presents right away.
+  - **The server:** it presents right away and sends a copy to every client under the reserved RPC id `0x3FFFFFFF`, carrying its tick.
+  - **The predicting owner:** it presents once per (entity, tick, event) (`NetEventLedger`, about the last 256 ticks). Resims of that tick, and the server's copy when it arrives, are skipped.
+  - **Other clients:** they present it when the server's copy arrives.
+  - **Requirements:** the script must be networked (any net member) on a `NetIdentity`.
+  - **Not yet:** a predicted event the server never produced isn't cancelled, and there's no per-frame FX budget or queue (the GDC review's deferred-FX idea).
+  - **Tested by:** NetProbe's dash: "dash fx once" on the owner and "server dash fx #1" on the server, in RunNetSmoke and RunChecks.
 - Keep `[Predicted]` state deterministic: the same code on the same commands. It is compared byte for byte.
 - One `ScriptComponent` per networked entity carries its net state.
 

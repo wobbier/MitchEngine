@@ -23,6 +23,9 @@ public abstract class Script : IGameScript
     public virtual void OnDestroy() { }
     public virtual void OnEditorInspect() { }
     public virtual void OnReload() { }
+    // ME-291: a Net.PredictedEvent this script raised, presented once per (tick, event) on each
+    // peer: right away on the server and the predicting owner, from the server on other clients.
+    public virtual void OnNetEvent( int eventId, int value ) { }
     public virtual void OnCollisionEnter( Collision collision ) { }
     public virtual void OnCollisionExit( Collision collision ) { }
     public virtual void OnTriggerEnter( Entity other ) { }

@@ -341,7 +341,8 @@ if [[ -f Assets/Scenes/Tests/NetTest.lvl ]]; then
     elif ! python3 "$here/RunNetSmoke.py" --server-game "$server" --client-game .build/Game_linux_Debug/Game_EntryPoint_x64 \
             --wrapper "$here/Headless.sh" --scene Assets/Scenes/Tests/NetTest.lvl --reference Assets/Scenes/Tests/Reference \
             --expect-server "NetProbe: ServerRpc ok" --expect-client "NetProbe: ClientRpc ok" \
-            --expect-client "NetProbe: Replicated ok" --expect-client "NetProbe: dash: 0 corrections"; then
+            --expect-client "NetProbe: Replicated ok" --expect-client "NetProbe: dash: 0 corrections" \
+            --expect-server "NetProbe: server dash fx #1" --expect-client "NetProbe: dash fx once"; then
         failed+=("networking smoke")
     fi
 fi

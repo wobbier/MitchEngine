@@ -88,9 +88,15 @@ public static partial class ScriptBridge
     [UnmanagedCallersOnly]
     public static unsafe void NetDispatchRpc(int handle, int rpcId, byte* data, int size)
     {
-        if (!Instances.TryGetValue(handle, out var s) || s is not INetScript net) return;
+        if (!Instances.TryGetValue(handle, out var s)) return;
         try
         {
+            if (rpcId == Net.PredictedEventRpcId)
+            {
+                if (s is Script script) Net.ReceivePredictedEvent(script, new ReadOnlySpan<byte>(data, Math.Max(size, 0)));
+                return;
+            }
+            if (s is not INetScript net) return;
             net.NetDispatchRpc(rpcId, new ReadOnlySpan<byte>(data, Math.Max(size, 0)));
         }
         catch (Exception ex)
