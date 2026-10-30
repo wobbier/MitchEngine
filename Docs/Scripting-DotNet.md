@@ -33,7 +33,6 @@ The engine owns scripting the way it owns physics and audio: `Engine::Scripts` i
 The managed side has these parts:
 
 - **`IGameScript.cs`** declares `OnStart`, `OnUpdate(float)`, `OnDestroy` and `OnEditorInspect`, plus default `OnFixedUpdate(float)`, `OnLateUpdate(float)` and `OnReload()`.
-- **Unload check (ME-302):** after each hot reload, the old script context is garbage-collected a few times (after later reloads, and frames apart during Play). The log says "A previous Game.Script assembly unloaded". If something still holds it (a static, an event handler on an engine or ScriptCore object, a running Task or timer), a warning says so once, because each reload would then leak another copy.
 - **`Script.cs`** is the base class with `Entity`, `transform` and the `Get/Has/AddComponent<T>` helpers.
 - **`Engine.cs`** is the `ScriptBridge` entry points and the instance table, and contains the hot reload logic.
 - **`GameScriptALC.cs`** is the collectible ALC. It redirects `ScriptCore` references to the already-loaded assembly.
@@ -111,6 +110,8 @@ Scripts run only while the game runs: in the editor that means Play mode, while 
 4. A class that no longer exists is dropped. `ScriptComponent::EnsureCreated` notices the dead handle (`IsHandleAlive`) and re-creates the script if the class comes back later.
 
 Only public fields survive. Private state, statics and references are rebuilt in `OnReload`. The log line `Scripts: hot reloaded (N live script(s) kept their fields)` marks a finished swap, and `ScriptFlows.edscript` asserts on it.
+
+**Unload check (ME-302):** after each hot reload, the old script context is garbage-collected a few times (after later reloads, and frames apart during Play). The log says "A previous Game.Script assembly unloaded". If something still holds it (a static, an event handler on an engine or ScriptCore object, a running Task or timer), a warning says so once, because each reload would then leak another copy.
 
 **Errors.** A failed build logs each compiler diagnostic as its own entry, `Assets/File.cs:line:col: error CS1002: ; expected` (warnings at warning level; `ScriptEngine::ParseBuildDiagnostics`), then a summary line; the Log panel opens the line on double-click. While the last build failed (`ScriptEngine::HasBuildErrors`), Play is refused with a message, since the last good scripts would run instead. An exception thrown by a script callback is logged at error level with the whole exception, its stack included, down to the throwing `File.cs:line N` when symbols loaded (Debug builds). `ScriptFlows.edscript` covers both.
 
