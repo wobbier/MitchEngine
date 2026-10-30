@@ -99,6 +99,20 @@ void RegisterDefaultEditorActions( EditorApp& InApp )
         play.AllowWhileGameFocused = true;
         actions.Register( play );
 
+        // ED-9: the world runs without its scripts (watch physics settle, animation, particles).
+        EditorAction simulate{ "Play.Simulate", "Simulate (No Scripts)", "Play", 0, 0, [app]() {
+            if( app->IsGameRunning() )
+            {
+                app->Stop();
+            }
+            else
+            {
+                app->Simulate();
+            }
+        } };
+        simulate.AllowWhileGameFocused = true;
+        actions.Register( simulate );
+
         EditorAction pause{ "Play.Pause", "Pause / Resume", "Play", ImGuiMod_Shortcut | ImGuiMod_Alt | ImGuiKey_P, ImGuiKey_F10, [app]() { app->TogglePause(); }, [app]() { return app->IsGameRunning(); } };
         pause.AllowWhileGameFocused = true;
         actions.Register( pause );

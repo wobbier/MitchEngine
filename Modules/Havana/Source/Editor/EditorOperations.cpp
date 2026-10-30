@@ -15,6 +15,7 @@
 #include "CLog.h"
 #include <imgui.h>
 #include <algorithm>
+#include <set>
 #include <unordered_map>
 #include <cstring>
 
@@ -812,6 +813,84 @@ namespace EditorOps
         component->Deserialize( InState );
         component->OnPropertyChanged( "" );
         return true;
+    }
+
+
+    namespace
+    {
+        std::set<std::pair<uint64_t, std::string>> s_keepPlayValues;
+        bool s_playing = false;
+    }
+
+
+    void SetPlaying( bool InPlaying )
+    {
+        s_playing = InPlaying;
+        if( !InPlaying )
+        {
+            s_keepPlayValues.clear();
+        }
+    }
+
+
+    bool IsPlaying()
+    {
+        return s_playing;
+    }
+
+
+    void SetKeepPlayValues( uint64_t InEntityGUID, const std::string& InTypeName, bool InKeep )
+    {
+        if( InKeep )
+        {
+            s_keepPlayValues.insert( { InEntityGUID, InTypeName } );
+        }
+        else
+        {
+            s_keepPlayValues.erase( { InEntityGUID, InTypeName } );
+        }
+    }
+
+
+    bool IsKeepingPlayValues( uint64_t InEntityGUID, const std::string& InTypeName )
+    {
+        return s_keepPlayValues.count( { InEntityGUID, InTypeName } ) > 0;
+    }
+
+
+    std::vector<ComponentEdit> CapturePlayValues()
+    {
+        std::vector<ComponentEdit> values;
+        for( const auto& [guid, type] : s_keepPlayValues )
+        {
+            EntityHandle entity = GetWorld().FindEntityByGUID( guid );
+            if( entity && entity->GetComponentByName( type ) )
+            {
+                values.push_back( { guid, type, json(), CaptureComponent( *entity.Get(), type ) } );
+            }
+        }
+        s_keepPlayValues.clear();
+        return values;
+    }
+
+
+    void ApplyPlayValues( const std::vector<ComponentEdit>& InValues )
+    {
+        std::vector<ComponentEdit> edits;
+        for( const ComponentEdit& value : InValues )
+        {
+            EntityHandle entity = GetWorld().FindEntityByGUID( value.GUID );
+            if( !entity || !entity->GetComponentByName( value.Type ) )
+            {
+                continue;   // spawned in play mode: nothing to carry it to
+            }
+            json before = CaptureComponent( *entity.Get(), value.Type );
+            if( before != value.After && ApplyComponent( value.GUID, value.Type, value.After ) )
+            {
+                edits.push_back( { value.GUID, value.Type, std::move( before ), value.After } );
+            }
+        }
+        RecordComponentEdits( edits, "Keep Play Mode Values" );
     }
 
 

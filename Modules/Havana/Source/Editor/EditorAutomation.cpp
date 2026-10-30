@@ -803,6 +803,25 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             Fail( "asset-restore: couldn't restore " + pathText );
         }
     }
+    else if( command == "wait-file" )
+    {
+        // wait-file .tmp/X/Run.png | 1800   (holds until the file exists, up to that many frames)
+        auto [pathText, framesText] = SplitArgs( args );
+        const int frames = framesText.empty() ? 600 : std::atoi( framesText.c_str() );
+        if( std::filesystem::exists( Path( pathText ).FullPath ) )
+        {
+            m_waitFileFrames = 0;
+        }
+        else if( ++m_waitFileFrames > frames )
+        {
+            m_waitFileFrames = 0;
+            Fail( "wait-file: no " + pathText + " after " + std::to_string( frames ) + " frames" );
+        }
+        else
+        {
+            --m_nextLine;
+        }
+    }
     else if( command == "assert-file" )
     {
         // assert-file Assets/X.txt | 1   (the file exists, or with 0 doesn't)
@@ -1140,8 +1159,9 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
     }
     else if( command == "build-game" )
     {
-        // build-game <profile json> [| no-compile no-record]   (the Build Game window builds it as
-        // shown: loaded into the window, not saved)
+        // build-game <profile json> [| no-compile no-record run <game args>]   (the Build Game window
+        // builds it as shown: loaded into the window, not saved; with run, Build & Run: a build that
+        // succeeds starts through its launcher with the args after it, in its own folder)
         const size_t bar = args.find( '|' );
         const std::string profileJson = Trim( bar == std::string::npos ? args : args.substr( 0, bar ) );
         const std::string options = bar == std::string::npos ? std::string() : args.substr( bar + 1 );
@@ -1158,7 +1178,8 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         else
         {
             widget->UseProfile( profile, options.find( "no-compile" ) == std::string::npos, options.find( "no-record" ) == std::string::npos );
-            if( !widget->StartBuild() )
+            const size_t run = options.find( " run" ) != std::string::npos ? options.find( " run" ) + 4 : options.rfind( "run", 0 ) == 0 ? 3 : std::string::npos;
+            if( !widget->StartBuild( run != std::string::npos, run != std::string::npos ? Trim( options.substr( run ) ) : std::string() ) )
             {
                 Fail( "build-game: a build is already running" );
             }
@@ -1303,6 +1324,19 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         else
         {
             sceneView->RequestClick( Vector2( static_cast<float>( std::atof( xText.c_str() ) ), static_cast<float>( std::atof( yText.c_str() ) ) ) );
+        }
+    }
+    else if( command == "keep-values" )
+    {
+        // keep-values Transform   (in Play: the selected entity's component keeps its values when Play stops)
+        EntityHandle active = Selection::Get().GetActive();
+        if( !active || !active->GetComponentByName( args ) )
+        {
+            Fail( "keep-values: the selected entity has no " + args );
+        }
+        else
+        {
+            EditorOps::SetKeepPlayValues( active->GetGUID(), args, true );
         }
     }
     else if( command == "pick-lock" )
@@ -1591,6 +1625,11 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
                 Fail( name + " " + fieldPath + " overridden = " + ( overridden ? "true" : "false" ) );
             }
         }
+    }
+    else if( command == "simulate" )
+    {
+        // simulate   (Play without scripts; stop ends it)
+        InApp.Simulate();
     }
     else if( command == "play" )
     {

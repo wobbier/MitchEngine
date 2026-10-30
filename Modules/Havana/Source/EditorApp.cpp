@@ -10,6 +10,7 @@
 #include <string>
 #include "Engine/Input.h"
 #include "Components/Camera.h"
+#include "Cores/Scripting/ScriptCore.h"
 #include "Components/Physics/Rigidbody.h"
 #include "Components/Graphics/Model.h"
 #include "Components/Lighting/Light.h"
@@ -368,6 +369,25 @@ void EditorApp::Play()
 }
 
 
+void EditorApp::Simulate()
+{
+    if( m_isGameRunning )
+    {
+        return;
+    }
+    if( GetEngine().Scripts )
+    {
+        GetEngine().Scripts->SetSuspended( true );
+    }
+    Play();
+    m_isSimulating = m_isGameRunning;
+    if( !m_isSimulating && GetEngine().Scripts )
+    {
+        GetEngine().Scripts->SetSuspended( false );    // Play refused (script errors, terrain)
+    }
+}
+
+
 void EditorApp::Stop()
 {
     if( !m_isGameRunning )
@@ -377,6 +397,11 @@ void EditorApp::Stop()
     m_isGamePaused = false;
     GetEngine().SetPaused( false );
     StopGame();
+    if( m_isSimulating && GetEngine().Scripts )
+    {
+        GetEngine().Scripts->SetSuspended( false );
+    }
+    m_isSimulating = false;
     Editor->SetPlayMode( false );
 
     GetEngine().GetInput().Stop();
@@ -441,8 +466,34 @@ void EditorApp::StartGame()
     m_wasDirtyBeforePlay = UndoStack::Get().IsDirty();
     UndoStack::Get().SetSuspended( true );
 
+    // ED-9, Play From Scene Camera: the game's camera starts where the World View is looking
+    // (after the snapshot, so Stop puts it back). A camera under a rig or a character moves
+    // its top-level ancestor by the same offset instead, keeping the rig's own orientation.
+    Camera* gameCamera = Camera::CurrentCamera;
+    SharedPtr<Transform> sceneCamera = EditorSceneManager ? EditorSceneManager->GetEditorCameraTransform() : nullptr;
+    if( EditorConfig::GetInstance().GetPreference<bool>( "Play.FromSceneCamera", false ) && gameCamera && gameCamera != Camera::EditorCamera
+        && gameCamera->Parent && sceneCamera )
+    {
+        Transform& cameraTransform = gameCamera->Parent->GetComponent<Transform>();
+        Transform* root = &cameraTransform;
+        while( root->GetParentTransform() && root->GetParentTransform() != EditorSceneManager->RootTransform )
+        {
+            root = root->GetParentTransform();
+        }
+        if( root == &cameraTransform )
+        {
+            cameraTransform.SetWorldPosition( sceneCamera->GetWorldPosition() );
+            cameraTransform.SetWorldRotation( sceneCamera->GetWorldRotation() );
+        }
+        else
+        {
+            root->SetWorldPosition( root->GetWorldPosition() + ( sceneCamera->GetWorldPosition() - cameraTransform.GetWorldPosition() ) );
+        }
+    }
+
     GetEngine().GetWorld().lock()->Start();
     m_isGameRunning = true;
+    EditorOps::SetPlaying( true );
 }
 
 
@@ -452,6 +503,8 @@ void EditorApp::StopGame()
     {
         return;
     }
+    // ED-9: play-mode values the user chose to keep, read before the world goes.
+    const std::vector<EditorOps::ComponentEdit> kept = EditorOps::CapturePlayValues();
     if( GetEngine().GetWorld().lock() )
     {
         GetEngine().GetWorld().lock()->Destroy();
@@ -494,6 +547,12 @@ void EditorApp::StopGame()
     if( m_wasDirtyBeforePlay )
     {
         UndoStack::Get().MarkDirty();
+    }
+    // ...and carried into the restored scene as one undo step.
+    EditorOps::SetPlaying( false );
+    if( !kept.empty() )
+    {
+        EditorOps::ApplyPlayValues( kept );
     }
     Selection::Get().RestoreGUIDs( *GetEngine().GetWorld().lock(), m_playSelection );
 }

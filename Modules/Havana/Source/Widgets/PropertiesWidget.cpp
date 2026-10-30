@@ -733,6 +733,20 @@ void PropertiesWidget::DrawComponentContextMenu(const std::string& typeName, std
 		}
 		ImGui::Separator();
 	}
+	// ED-9: in Play, carry this component's values into the scene when Play stops.
+	if (EditorOps::IsPlaying())
+	{
+		const bool keeping = EditorOps::IsKeepingPlayValues(owner.GetGUID(), typeName);
+		if (ImGui::MenuItem("Keep Values After Stop", nullptr, keeping))
+		{
+			for (Instance& instance : instances)
+			{
+				EditorOps::SetKeepPlayValues(instance.Owner->GetGUID(), typeName, !keeping);
+			}
+		}
+		ImGui::SetItemTooltip("When Play stops, this component keeps the values it has then (one undo step)");
+		ImGui::Separator();
+	}
 	if (ImGui::MenuItem("Reset", nullptr, false, primary->GetTypeInfo() != nullptr))
 	{
 		const json defaults = EditorOps::GetComponentDefaults(typeName);

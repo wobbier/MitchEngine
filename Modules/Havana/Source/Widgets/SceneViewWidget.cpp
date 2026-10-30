@@ -195,6 +195,11 @@ void SceneViewWidget::Init()
 
 	EditorConfig& config = EditorConfig::GetInstance();
 	MaximizeOnPlayPreference = config.GetPreference<bool>("GameView.MaximizeOnPlay", false);
+	if (!EnableSceneTools)
+	{
+		// ED-9: the Game View comes back at the display preset last picked from its menu.
+		SetDisplayPreset(config.GetPreference<std::string>("GameView.Display", "Freeform"));
+	}
 	m_shadingMode = static_cast<Moonlight::ViewShadingMode>(std::clamp(
 		config.GetPreference<int>(EnableSceneTools ? "Scene.ShadingMode" : "GameView.ShadingMode", 0), 0, kShadingCount - 1));
 	for (int i = 0; i < kShadingCount; ++i)
@@ -787,7 +792,9 @@ void SceneViewWidget::DrawGameToolbar()
 			}
 			if (ImGui::MenuItem(params.Name.c_str(), label.c_str(), params.Name == CurrentDisplayParams.Name))
 			{
+				// Remembered only when picked here (automation's SetDisplayPreset doesn't stick).
 				CurrentDisplayParams = params;
+				EditorConfig::GetInstance().SetPreference("GameView.Display", params.Name);
 			}
 		}
 		ImGui::EndMenu();
@@ -797,6 +804,13 @@ void SceneViewWidget::DrawGameToolbar()
 	{
 		SavePreferences();
 	}
+	// ED-9: Play starts the game's camera where the World View is looking (EditorApp::StartGame).
+	bool fromSceneCamera = EditorConfig::GetInstance().GetPreference<bool>("Play.FromSceneCamera", false);
+	if (ImGui::MenuItem("Play From Scene Camera", nullptr, &fromSceneCamera))
+	{
+		EditorConfig::GetInstance().SetPreference("Play.FromSceneCamera", fromSceneCamera);
+	}
+	ImGui::SetItemTooltip("Play starts the game's camera (or the rig or character it's on) where the World View is looking");
 }
 
 

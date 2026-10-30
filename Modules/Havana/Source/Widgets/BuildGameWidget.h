@@ -26,11 +26,16 @@ public:
 
     void Init() override {}
     void Destroy() override {}
-    void Update() override {}
+    // Build & Run (ED-9): runs the build once it succeeds (called from Render).
+    void Update() override;
     void Render() override;
 
-    // Builds the selected profile (as shown, saved or not); false while a build runs.
-    bool StartBuild();
+    // Builds the selected profile (as shown, saved or not); false while a build runs. With
+    // InRunWhenDone (Build & Run), a build that succeeds is started through its launcher, with
+    // InRunArgs passed on (automation: a capture and --exit).
+    bool StartBuild( bool InRunWhenDone = false, const std::string& InRunArgs = "" );
+    // Starts the last build through its launcher; false without one.
+    bool RunLastBuild( const std::string& InArgs = "" );
     bool IsBuilding() const;
     // After a build: whether it succeeded, and where it went.
     bool LastBuildSucceeded() const;
@@ -62,6 +67,8 @@ private:
     bool m_compile = true;
     bool m_record = true;
     bool m_followOutput = true;
+    bool m_runWhenDone = false;
+    std::string m_runArgs;
     std::string m_outputDirectory;
     std::string m_cancelFile;
     std::shared_ptr<BuildState> m_state = std::make_shared<BuildState>();

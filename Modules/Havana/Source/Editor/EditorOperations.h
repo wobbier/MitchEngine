@@ -66,6 +66,18 @@ namespace EditorOps
     json CaptureComponent( Entity& InEntity, const std::string& InTypeName );
     bool ApplyComponent( uint64_t InEntityGUID, const std::string& InTypeName, const json& InState );
 
+    // ED-9: components whose play-mode values carry over when Play stops (the component menu's
+    // Keep Values After Stop). Stop captures them before the scene snapshot is restored and
+    // applies them after, as one undo step; the set empties.
+    void SetKeepPlayValues( uint64_t InEntityGUID, const std::string& InTypeName, bool InKeep );
+    // Whether the editor is in Play (EditorApp sets it), for UI that only makes sense there.
+    void SetPlaying( bool InPlaying );
+    bool IsPlaying();
+    bool IsKeepingPlayValues( uint64_t InEntityGUID, const std::string& InTypeName );
+    // EditorApp's Stop: what to keep (serialized now), then applied to the restored scene.
+    std::vector<ComponentEdit> CapturePlayValues();
+    void ApplyPlayValues( const std::vector<ComponentEdit>& InValues );
+
     // GAME-5: adds (or, with InClear, removes) the ragdoll parts on the bones under an entity with
     // a Ragdoll, as one undo step. Returns the number of bones with parts.
     int BuildRagdoll( Entity& InOwner, bool InClear = false );

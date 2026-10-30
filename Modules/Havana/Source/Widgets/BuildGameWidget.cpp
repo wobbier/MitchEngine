@@ -153,7 +153,46 @@ void BuildGameWidget::UseProfile( const ProjectSettings::BuildProfile& InProfile
 }
 
 
-bool BuildGameWidget::StartBuild()
+void BuildGameWidget::Update()
+{
+    if( !m_runWhenDone || m_state->Running.load() )
+    {
+        return;
+    }
+    bool finished = false;
+    int exitCode = 0;
+    {
+        std::lock_guard<std::mutex> lock( m_state->Mutex );
+        finished = m_state->Finished;
+        exitCode = m_state->ExitCode;
+    }
+    if( finished )
+    {
+        m_runWhenDone = false;
+        if( exitCode == 0 )
+        {
+            RunLastBuild( m_runArgs );
+        }
+    }
+}
+
+
+bool BuildGameWidget::RunLastBuild( const std::string& InArgs )
+{
+    std::ifstream infoFile( m_outputDirectory + "/BuildInfo.json" );
+    const json info = json::parse( infoFile, nullptr, false );
+    const std::string launcher = !info.is_discarded() && info.contains( "Launcher" ) ? info["Launcher"].get<std::string>() : std::string();
+    if( launcher.empty() )
+    {
+        return false;
+    }
+    CLog::Log( CLog::LogType::Info, "Build Game: running " + m_outputDirectory + "/" + launcher );
+    PlatformUtils::RunDetached( Quote( m_outputDirectory + "/" + launcher ) + ( InArgs.empty() ? std::string() : " " + InArgs ) );
+    return true;
+}
+
+
+bool BuildGameWidget::StartBuild( bool InRunWhenDone, const std::string& InRunArgs )
 {
     namespace fs = std::filesystem;
     if( m_state->Running.load() )
@@ -190,6 +229,9 @@ bool BuildGameWidget::StartBuild()
     CLog::Log( CLog::LogType::Info, "Build Game: building '" + profile.Name + "' (" + profile.Configuration + ") into " + m_outputDirectory );
 
     m_state = std::make_shared<BuildState>();
+    // Build & Run: only once the build is really under way (an earlier build's result must not run).
+    m_runWhenDone = InRunWhenDone;
+    m_runArgs = InRunArgs;
     m_state->Running = true;
     m_thread = std::thread( [state = m_state, command, name = profile.Name, output = m_outputDirectory]() {
         const int exitCode = PlatformUtils::RunCommand( command, [&state]( const std::string& InLine ) {
@@ -238,6 +280,8 @@ bool BuildGameWidget::StartBuild()
 
 void BuildGameWidget::Render()
 {
+    // Build & Run (Havana renders this widget every frame, open or not; it doesn't update it).
+    Update();
     if( !IsOpen )
     {
         return;
@@ -393,6 +437,12 @@ void BuildGameWidget::DrawBuild()
     {
         StartBuild();
     }
+    ImGui::SameLine();
+    if( ImGui::Button( "Build & Run" ) )
+    {
+        StartBuild( true );
+    }
+    ImGui::SetItemTooltip( "Builds, then starts the game from its build folder if the build succeeds." );
     ImGui::EndDisabled();
     if( building )
     {
@@ -433,13 +483,7 @@ void BuildGameWidget::DrawBuild()
             ImGui::SameLine();
             if( ImGui::Button( "Run" ) )
             {
-                std::ifstream infoFile( m_outputDirectory + "/BuildInfo.json" );
-                const json info = json::parse( infoFile, nullptr, false );
-                const std::string launcher = !info.is_discarded() && info.contains( "Launcher" ) ? info["Launcher"].get<std::string>() : std::string();
-                if( !launcher.empty() )
-                {
-                    PlatformUtils::RunDetached( Quote( m_outputDirectory + "/" + launcher ) );
-                }
+                RunLastBuild();
             }
         }
         else

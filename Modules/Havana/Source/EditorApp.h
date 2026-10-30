@@ -36,6 +36,9 @@ public:
 	// Play mode. Play snapshots the edited scene in memory; Stop restores it (selection and undo
 	// history survive because entity GUIDs are preserved).
 	void Play();
+	// ED-9: Play without scripts (physics, animation and the other cores run); Stop ends it.
+	void Simulate();
+	bool IsSimulating() const { return m_isSimulating; }
 	void Stop();
 	void TogglePause();
 	void StepFrame();
@@ -91,6 +94,7 @@ private:
 	bool m_hasAutosave = false;
 
 	json m_playSnapshot;
+	bool m_isSimulating = false;
 	std::vector<uint64_t> m_playSelection;
 	std::string m_playSceneFilePath;
 	bool m_wasDirtyBeforePlay = false;

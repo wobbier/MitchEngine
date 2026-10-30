@@ -85,6 +85,11 @@ ScriptCore::ScriptCore()
 
 void ScriptCore::OnStart()
 {
+    // Simulate: the world runs, its scripts don't.
+    if( m_suspended )
+    {
+        return;
+    }
     m_running = true;
 #if USING( ME_SCRIPTING )
     // A fresh scheduler, with the main-thread context in place before any OnStart awaits.

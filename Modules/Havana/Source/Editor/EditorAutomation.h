@@ -43,6 +43,7 @@ private:
     std::string m_waitFieldPath;
     std::string m_waitFieldValue;
     int m_waitFieldFrames = 0;
+    int m_waitFileFrames = 0;
     // Log message count when the previous command ran: wait-log also sees what that command logged.
     uint64_t m_previousCommandLogCount = 0;
     bool m_lastWasWaitLog = false;     // consecutive wait-logs share one window

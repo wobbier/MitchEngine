@@ -194,6 +194,14 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
     actions.Register( { "Edit.Preferences", "Preferences...", "Edit", ImGuiMod_Shortcut | ImGuiKey_Comma, 0, [this]() { ShowWidget( "Preferences" ); } } );
     actions.Register( { "Edit.ProjectSettings", "Project Settings...", "Edit", 0, 0, [this]() { ShowWidget( "Project Settings" ); } } );
     actions.Register( { "File.BuildGame", "Build Game...", "File", ImGuiMod_Shortcut | ImGuiMod_Shift | ImGuiKey_B, 0, [this]() { ShowWidget( "Build Game" ); } } );
+    // ED-9: builds the profile selected in Build Game, then runs it from its build folder.
+    actions.Register( { "File.BuildAndRun", "Build & Run", "File", 0, 0, [this]() {
+        ShowWidget( "Build Game" );
+        if( BuildGameWidget* widget = BuildGameWidget::Get() )
+        {
+            widget->StartBuild( true );
+        }
+    } } );
     actions.Register( { "File.OpenProject", "Open Project...", "File", 0, 0, [this]() { ShowWidget( "Open Project" ); } } );
     actions.Register( { "File.ProjectHub", "Project Hub...", "File", 0, 0, [app]() { app->RequestProjectHub(); } } );
     actions.Register( { "View.Profiler", "Profiler", "View", 0, 0, [this]() { ShowWidget( "Profiler" ); } } );

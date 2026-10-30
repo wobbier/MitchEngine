@@ -91,6 +91,15 @@ stateDiagram-v2
 
 `EditorApp::Play` serializes the world in memory (`SceneSerializer::SerializeWorld`), records the selection GUIDs and dirty state, suspends undo and starts the world. `Stop` destroys the world and reloads the snapshot through `Engine::LoadSceneFromData` under the scene's real path. Because GUIDs are preserved, the selection and the whole undo history are valid again afterwards. The Game View's "Maximize On Play" option fills the dock area while playing. The main menu has a time-scale slider while playing.
 
+Play options (ED-9):
+
+- **Simulate** (the toolbar button next to Play, `Play.Simulate`) plays without scripts. `ScriptCore::SetSuspended` keeps every script from starting or updating, while physics, animation, particles, sequences and the other cores run. Stop ends it like Play.
+- **Keep Values After Stop** (a component's context menu, in Play) carries that component's values at Stop into the edited scene. `EditorOps::CapturePlayValues` reads them before the world is torn down, and `ApplyPlayValues` writes them onto the restored snapshot as one undo step ("Keep Play Mode Values"). Components that weren't kept go back as usual.
+- **Play From Scene Camera** (the Game View menu, preference `Play.FromSceneCamera`) starts the game's current camera where the World View is looking. A camera under a rig or a character moves its top-level ancestor by the same offset instead, keeping the rig's orientation. The snapshot is taken first, so Stop puts it back.
+- **The Game View's display preset** (Freeform, 16:9, 1080p, Steam Deck...) is remembered when picked from its menu (preference `GameView.Display`). Automation's `designer-preview` doesn't change the remembered one.
+- **Build & Run** (File > Build & Run, or the button in Build Game) builds the selected profile and, if it succeeds, starts it through its launcher from its build folder.
+- **Automation:** `simulate`, `keep-values <Component>` (the selected entity's) and `build-game <profile> | ... run <game args>`. `wait-file <path> | <frames>` waits for something a launched game writes. PlayOptionsFlows, SimulateFlows and BuildGameFlows cover them.
+
 ### Scene management
 
 New/Open/Quit (including closing the window) go through `RunWithUnsavedCheck`. If the scene is dirty, a modal offers Save / Don't Save / Cancel. Closing the window is vetoed via `Game::OnQuitRequested` and `IWindow::CancelClose` until answered. Scene loads are queued events, processed at the start of the next frame. File > Open Recent lists the last 10 scenes.

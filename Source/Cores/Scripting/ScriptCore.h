@@ -24,6 +24,10 @@ public:
 
     void OnStart() final;
     void OnStop() final;
+    // ED-9, the editor's Simulate: Play without scripts (none start or update until it's cleared
+    // and the world starts again); physics, animation and the other cores run.
+    void SetSuspended( bool InSuspended ) { m_suspended = InSuspended; }
+    bool IsSuspended() const { return m_suspended; }
     void FixedUpdate( const UpdateContext& inUpdateContext ) final;
     void Update( const UpdateContext& inUpdateContext ) final;
     void LateUpdate( const UpdateContext& inUpdateContext ) final;
@@ -37,6 +41,7 @@ public:
 
 private:
     bool m_running = false;
+    bool m_suspended = false;
     uint64_t m_nextStartSequence = 0;
     // The scripts running a callback this tick, in update order (RunList).
     std::vector<ScriptComponent*> m_runList;

@@ -168,6 +168,7 @@ void MainMenuWidget::Render()
             actions.MenuItem( "File.SaveAll" );
             ImGui::Separator();
             actions.MenuItem( "File.BuildGame" );
+            actions.MenuItem( "File.BuildAndRun" );
             ImGui::Separator();
             actions.MenuItem( "File.Quit" );
             ImGui::EndMenu();
@@ -308,6 +309,10 @@ void MainMenuWidget::Render()
         {
             if( iconButton( "Play", nullptr ) ) actions.Execute( "Play.Toggle" );
             ImGui::SetItemTooltip( "Play (%s)", EditorActions::ShortcutToString( actions.Find( "Play.Toggle" )->Shortcut ).c_str() );
+            ImGui::SetCursorPosY( ( MainMenuSize.y - iconButtonSize ) * 0.5f );
+            if( ImGui::Button( "Simulate", ImVec2( 0.f, iconButtonSize ) ) ) actions.Execute( "Play.Simulate" );
+            ImGui::SetItemTooltip( "Play without scripts: physics, animation and particles run" );
+            ImGui::SetCursorPosY( menuY );
         }
         else
         {
