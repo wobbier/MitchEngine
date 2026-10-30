@@ -84,6 +84,33 @@ EntityHandle World::CreateEntity( const std::string& InName )
 }
 
 
+Entity* World::GetSingletonHolder( bool InCreate )
+{
+    if( m_hasSingletonEntity && EntityExists( m_singletonEntity ) )
+    {
+        return GetEntityRaw( m_singletonEntity );
+    }
+    m_hasSingletonEntity = false;
+    if( !InCreate )
+    {
+        return nullptr;
+    }
+    const uint16_t previousScene = m_loadingScene;
+    m_loadingScene = kSingletonScene;
+    EntityHandle holder = CreateEntity( "World Singletons" );
+    m_loadingScene = previousScene;
+    m_singletonEntity = holder.GetID();
+    m_hasSingletonEntity = true;
+    return GetEntityRaw( m_singletonEntity );
+}
+
+
+bool World::IsSingletonEntity( const EntityID& InId ) const
+{
+    return m_hasSingletonEntity && InId == m_singletonEntity;
+}
+
+
 EntityHandle World::CreateEntityWithGUID( uint64_t InGUID, const std::string& InName )
 {
     if( InGUID != 0 && m_guidToIndex.find( InGUID ) != m_guidToIndex.end() )

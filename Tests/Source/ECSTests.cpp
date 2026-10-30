@@ -629,3 +629,50 @@ TEST_CASE( "ECS: cores run in priority order unless RunsAfter / RunsBefore say o
     REQUIRE( cyclic->AddCoreByName( "CycleOneCore" ) );
     CHECK( LoadedOrder( *cyclic ) == std::vector<std::string>{ "CycleOneCore", "CycleTwoCore" } );
 }
+
+
+namespace
+{
+    class SingletonClock
+        : public Component<SingletonClock>
+    {
+    public:
+        SingletonClock() : Component( "SingletonClock" ) {}
+        void OnSerialize( json& ) override {}
+        void OnDeserialize( const json& ) override {}
+        int Ticks = 0;
+    };
+}
+
+TEST_CASE( "ECS: World singletons are per world, made on first use, and never saved with the scene (NET-16)" )
+{
+    std::shared_ptr<World> a = std::make_shared<World>();
+    std::shared_ptr<World> b = std::make_shared<World>();
+    a->IsLoading = false;
+    b->IsLoading = false;
+    CHECK( a->FindSingleton<SingletonClock>() == nullptr );
+    a->Singleton<SingletonClock>().Ticks = 5;
+    b->Singleton<SingletonClock>().Ticks = 9;
+    a->Singleton<SingletonClock>().Ticks += 1;
+    REQUIRE( a->FindSingleton<SingletonClock>() != nullptr );
+    CHECK( a->FindSingleton<SingletonClock>()->Ticks == 6 );
+    CHECK( b->FindSingleton<SingletonClock>()->Ticks == 9 );
+    CHECK( &a->Singleton<SingletonClock>() == a->FindSingleton<SingletonClock>() );
+
+    // On a hidden entity of its own scene: a saved scene doesn't carry it.
+    a->CreateEntity( "Visible" );
+    a->Simulate();
+    int holders = 0;
+    a->ForEachEntity( [&]( Entity& InEntity ) {
+        if( a->IsSingletonEntity( InEntity.GetId() ) )
+        {
+            ++holders;
+            CHECK( a->GetEntityScene( InEntity.GetId() ) == World::kSingletonScene );
+        }
+    } );
+    CHECK( holders == 1 );
+    const json saved = SceneSerializer::SerializeWorld( *a, nullptr );
+    const std::string text = saved.dump();
+    CHECK( text.find( "Visible" ) != std::string::npos );
+    CHECK( text.find( "World Singletons" ) == std::string::npos );
+}

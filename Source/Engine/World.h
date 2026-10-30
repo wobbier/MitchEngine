@@ -89,6 +89,20 @@ public:
     template<typename T, typename... Args>
     T& AddComponent( Entity& InEntity, Args&&... args );
 
+    // ------------------------------------------------------------------ Singletons (NET-16)
+    // One T per world, on a hidden entity (scene kSingletonScene: never saved with a scene, not
+    // listed in the hierarchy), created on first use. State a core shares with the rest of its
+    // world (the sampled input, the session, the main camera) lives here instead of in a core
+    // that others reach through GetEngine(), so a second world (killcam, replay, a test) has its
+    // own. See Docs/ECS.md (rules of engagement).
+    static constexpr uint16_t kSingletonScene = 0xFFFF;
+    template<typename T>
+    T& Singleton();
+    // Null until something made it (never creates).
+    template<typename T>
+    T* FindSingleton();
+    bool IsSingletonEntity( const EntityID& InId ) const;
+
     // ------------------------------------------------------------------ Simulation
     // Sync point: applies pending activation changes, core membership, component removals and
     // entity destruction.
@@ -185,6 +199,10 @@ private:
     std::size_t m_aliveCount = 0;
     std::unordered_map<uint64_t, uint32_t> m_guidToIndex;
     uint16_t m_loadingScene = 0;
+    // The singletons' hidden entity (Singleton<T>).
+    Entity* GetSingletonHolder( bool InCreate );
+    EntityID m_singletonEntity;
+    bool m_hasSingletonEntity = false;
 
     // Indexed by component TypeId; sized once (kMaxComponentTypes) so lookups never race a resize.
     std::vector<std::unique_ptr<IComponentPool>> m_pools;
@@ -259,6 +277,28 @@ T& World::AddComponent( Entity& InEntity, Args&&... args )
     }
     MarkEntityDirty( InEntity.GetId() );
     return component;
+}
+
+
+template<typename T>
+T& World::Singleton()
+{
+    Entity* holder = GetSingletonHolder( true );
+    ComponentPool<T>* pool = FindComponentPool<T>();
+    if( T* existing = pool ? pool->Find( holder->GetId().Index ) : nullptr )
+    {
+        return *existing;
+    }
+    return AddComponent<T>( *holder );
+}
+
+
+template<typename T>
+T* World::FindSingleton()
+{
+    Entity* holder = GetSingletonHolder( false );
+    ComponentPool<T>* pool = holder ? FindComponentPool<T>() : nullptr;
+    return pool ? pool->Find( holder->GetId().Index ) : nullptr;
 }
 
 

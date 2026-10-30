@@ -605,7 +605,7 @@ void SceneHierarchyWidget::DrawTransformlessEntities(World& world)
 	std::vector<EntityHandle> utility;
 	Entity* rootEntity = RootTransform ? RootTransform->Parent.Get() : nullptr;
 	world.ForEachEntity([&](Entity& entity) {
-		if ((!rootEntity || entity.GetId() != rootEntity->GetId()) && !entity.HasComponent<Transform>() && PassesFilter(entity))
+		if ((!rootEntity || entity.GetId() != rootEntity->GetId()) && !entity.HasComponent<Transform>() && !world.IsSingletonEntity(entity.GetId()) && PassesFilter(entity))
 		{
 			utility.push_back(entity.GetHandle());
 		}
