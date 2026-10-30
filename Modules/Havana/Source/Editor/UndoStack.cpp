@@ -217,6 +217,28 @@ void UndoStack::MarkDirty()
 }
 
 
+UndoStack::History UndoStack::TakeHistory()
+{
+    History history;
+    history.Commands = std::move( m_commands );
+    history.Cursor = m_cursor;
+    history.SavedCursor = m_savedCursor;
+    history.ForcedDirty = m_forcedDirty;
+    Clear();
+    return history;
+}
+
+
+void UndoStack::RestoreHistory( History&& InHistory )
+{
+    Clear();
+    m_commands = std::move( InHistory.Commands );
+    m_cursor = InHistory.Cursor;
+    m_savedCursor = InHistory.SavedCursor;
+    m_forcedDirty = InHistory.ForcedDirty;
+}
+
+
 void UndoStack::Clear()
 {
     m_commands.clear();

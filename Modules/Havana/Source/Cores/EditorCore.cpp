@@ -15,6 +15,7 @@
 #include "Editor/UndoStack.h"
 #include "Editor/EditorActions.h"
 #include "Editor/SceneTools.h"
+#include "Editor/PrefabTools.h"
 #include "Editor/EditorOperations.h"
 #include "Editor/ReflectionUI.h"
 #include "Widgets/SceneViewWidget.h"
@@ -298,6 +299,12 @@ void EditorCore::Update( const UpdateContext& inUpdateContext, Transform* rootTr
 
 void EditorCore::OnSaveScene( const SaveSceneEvent& event )
 {
+    // ED-6: in prefab mode, saving saves the prefab.
+    if( !PrefabTools::GetPrefabModeAsset().empty() )
+    {
+        PrefabTools::SavePrefabMode();
+        return;
+    }
     if( GetEngine().CurrentScene->IsNewScene() || event.SaveAs )
     {
         RequestAssetSelectionEvent evt( [this]( const Path& inPath ) {

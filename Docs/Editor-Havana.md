@@ -162,6 +162,12 @@ Instances carry a link: `EntityRecord::PrefabAsset` (project-local path) and `Pr
 - **Apply All** rewrites the prefab from the instance, keeping stable source GUIDs. It then pushes the changes into every other instance whose values still match the old prefab, and adds components the prefab gained.
 - **Revert All** restores values, re-adds removed components, and removes added components and added child entities. It is undoable.
 - **Unpack** clears the links (undoable). Nested prefab links inside a prefab are kept.
+- **Prefab mode** (ED-6): double-click a prefab in the asset browser to edit it alone (`EditorApp::OpenPrefab`).
+  - **Open:** the open scene, its selection and its undo history wait in memory, and a temporary scene holds one instance of the prefab. The hierarchy shows a bar naming it, with Save and Back to Scene.
+  - **Save** (or Ctrl+S) writes the prefab like Apply All, with entities added while editing joining it. Undo works within prefab mode.
+  - **Back to Scene** restores the scene and history, then pushes the saved changes into its instances like an Apply: values still equal to the old prefab take the new ones, and overrides stay. That's one undo step ("Edit Prefab"). Unsaved changes prompt for Save or Discard.
+  - **Restrictions:** Play and autosave are off while a prefab is open.
+  - **Automation:** `prefab-open`, `prefab-save`, `prefab-close [save]` and `assert-prefab-mode <path or 0>`. PrefabModeFlows covers them.
 
 ### Asset browser
 

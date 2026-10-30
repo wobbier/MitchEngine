@@ -1763,6 +1763,14 @@ void AssetBrowserWidget::OpenEntry( Entry& InEntry )
         if( TerrainWidget::Get() ) TerrainWidget::Get()->Open( LocalPath( InEntry.FullPath ) );
         return;
     }
+    if( InEntry.Type == AssetType::Prefab )
+    {
+        // ED-6: prefab mode.
+        OpenPrefabEvent evt;
+        evt.PrefabPath = LocalPath( InEntry.FullPath );
+        evt.Fire();
+        return;
+    }
     if( EndsWith( InEntry.FullPath, ".mtree" ) )
     {
         OpenTreeEvent evt;

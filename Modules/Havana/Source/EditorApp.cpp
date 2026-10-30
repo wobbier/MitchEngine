@@ -47,6 +47,7 @@
 #include "Utils/PlatformUtils.h"
 #include "Editor/Selection.h"
 #include "Editor/UndoStack.h"
+#include "Editor/PrefabTools.h"
 #include "Widgets/Terrain/TerrainWidget.h"
 #include "World/SceneSerializer.h"
 #include <imgui.h>
@@ -109,6 +110,7 @@ EditorApp::EditorApp( int argc, char** argv )
     : Game( argc, argv )
 {
     Listen<NewSceneEvent>( [this]( const NewSceneEvent& InEvent ) { OnNewScene( InEvent ); } );
+    Listen<OpenPrefabEvent>( [this]( const OpenPrefabEvent& InEvent ) { OpenPrefab( InEvent.PrefabPath ); return true; } );
     Listen<SceneLoadedEvent>( [this]( const SceneLoadedEvent& InEvent ) { OnSceneLoaded( InEvent ); } );
 
 #if USING( ME_SCRIPTING )
@@ -359,6 +361,11 @@ void EditorApp::Play()
         return;
     }
     if( TerrainWidget::Get() && !TerrainWidget::Get()->PrepareForPlay() ) return;
+    if( IsEditingPrefab() )
+    {
+        BRUH( "Play: close the prefab first (Back to Scene)" );
+        return;
+    }
     StartGame();
     m_isGamePaused = false;
     GetEngine().SetPaused( false );
@@ -796,7 +803,7 @@ void EditorApp::UpdateAutosave( float InDeltaSeconds )
     }
 
     const float interval = EditorConfig::GetInstance().GetPreference<float>( "Autosave.IntervalSeconds", 120.f );
-    if( interval <= 0.f || m_isGameRunning || !UndoStack::Get().IsDirty() || !EditorSceneManager || !EditorSceneManager->RootTransform )
+    if( interval <= 0.f || m_isGameRunning || IsEditingPrefab() || !UndoStack::Get().IsDirty() || !EditorSceneManager || !EditorSceneManager->RootTransform )
     {
         m_autosaveTimer = 0.f;
         return;
@@ -909,6 +916,105 @@ void EditorApp::CheckScriptFaults()
     CLog::GetInstance().Log( CLog::LogType::Warning, "Paused: " + ( entity ? entity->GetName() + "'s script" : std::string( "a script" ) )
         + " threw (Preferences > General > Pause on script exception)" );
 #endif
+}
+
+
+bool EditorApp::OpenPrefab( const std::string& InPrefabPath )
+{
+    const std::string asset = SceneSerializer::NormalizePrefabPath( InPrefabPath );
+    std::shared_ptr<const json> data = SceneSerializer::LoadPrefabData( asset );
+    if( m_isGameRunning || IsEditingPrefab() || !data || !EditorSceneManager )
+    {
+        BRUH( "Prefab mode: can't open " + InPrefabPath + ( m_isGameRunning ? " while playing" : IsEditingPrefab() ? " (another prefab is open)" : "" ) );
+        return false;
+    }
+    // The scene waits in memory, history and all.
+    Scene* scene = GetEngine().CurrentScene;
+    m_prefabScenePath = scene && !scene->IsNewScene() ? scene->FilePath.GetLocalPathString() : std::string();
+    m_prefabSceneSnapshot = SceneSerializer::SerializeWorld( *GetEngine().GetWorld().lock(), EditorSceneManager->RootTransform );
+    m_prefabSceneSelection = Selection::Get().SaveGUIDs();
+    m_prefabSceneWasDirty = UndoStack::Get().IsDirty();
+    m_prefabSceneHistory = UndoStack::Get().TakeHistory();
+    m_prefabBefore = *data;
+    m_prefabAfter = json();
+
+    m_isRestoringSnapshot = true;
+    Selection::Get().Clear();
+    NewSceneEvent evt;
+    evt.Fire();
+    m_isRestoringSnapshot = false;
+    EntityHandle root = SceneSerializer::InstantiatePrefab( *GetEngine().GetWorld().lock(), asset, EditorSceneManager->RootTransform );
+    GetEngine().GetWorld().lock()->Simulate();
+    m_prefabRootGUID = root ? root->GetGUID() : 0;
+    m_prefabAsset = asset;
+    PrefabTools::SetPrefabMode( asset, [this]() { return SavePrefab(); } );
+    if( root )
+    {
+        Selection::Get().Set( root );
+    }
+    UndoStack::Get().MarkSaved();
+    Editor->SetWindowTitle( "Havana - Prefab: " + asset );
+    CLog::Log( CLog::LogType::Info, "Prefab mode: editing " + asset );
+    return true;
+}
+
+
+bool EditorApp::SavePrefab()
+{
+    EntityHandle root = IsEditingPrefab() ? GetEngine().GetWorld().lock()->FindEntityByGUID( m_prefabRootGUID ) : EntityHandle();
+    json before;
+    json after;
+    if( !root || !PrefabTools::SavePrefabFromInstance( *root.Get(), before, after ) )
+    {
+        BRUH( "Prefab mode: nothing to save (the prefab's root is gone)" );
+        return false;
+    }
+    m_prefabAfter = after;
+    UndoStack::Get().MarkSaved();
+    CLog::Log( CLog::LogType::Info, "Prefab mode: saved " + m_prefabAsset );
+    return true;
+}
+
+
+void EditorApp::ClosePrefab( bool InSaveFirst )
+{
+    if( !IsEditingPrefab() )
+    {
+        return;
+    }
+    if( InSaveFirst )
+    {
+        SavePrefab();
+    }
+    const std::string asset = m_prefabAsset;
+    m_prefabAsset.clear();
+    PrefabTools::SetPrefabMode( "", nullptr );
+
+    // The scene comes back as it was, then takes the saved changes like an Apply.
+    m_isRestoringSnapshot = true;
+    Selection::Get().Clear();
+    NewSceneEvent evt;
+    evt.Fire();
+    if( !m_prefabSceneSnapshot.is_null() )
+    {
+        GetEngine().LoadSceneFromData( m_prefabSceneSnapshot, m_prefabScenePath );
+    }
+    m_isRestoringSnapshot = false;
+    UndoStack::Get().RestoreHistory( std::move( m_prefabSceneHistory ) );
+    m_prefabSceneHistory = UndoStack::History();
+    if( m_prefabSceneWasDirty )
+    {
+        UndoStack::Get().MarkDirty();
+    }
+    if( !m_prefabAfter.is_null() )
+    {
+        PrefabTools::RecordPrefabEdit( asset, m_prefabBefore, m_prefabAfter );
+    }
+    Selection::Get().RestoreGUIDs( *GetEngine().GetWorld().lock(), m_prefabSceneSelection );
+    m_prefabSceneSnapshot = json();
+    m_prefabBefore = m_prefabAfter = json();
+    Editor->SetWindowTitle( "Havana - " + ( m_prefabScenePath.empty() ? std::string( "Untitled" ) : m_prefabScenePath ) );
+    CLog::Log( CLog::LogType::Info, "Prefab mode: back to the scene" );
 }
 
 

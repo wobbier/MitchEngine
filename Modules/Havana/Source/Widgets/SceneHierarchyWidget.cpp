@@ -192,6 +192,45 @@ void SceneHierarchyWidget::Render()
 	m_lastVisibleRows.swap(m_visibleRows);
 	m_visibleRows.clear();
 
+	// ED-6: in prefab mode the hierarchy is the prefab's; a bar names it and leads back.
+	if (EditorApp* app = static_cast<EditorApp*>(GetEngine().GetGame()); app && app->IsEditingPrefab())
+	{
+		const float inset = ImGuiTheme::PanelInset();
+		ImGuiTheme::SectionGap();
+		ImGui::Indent(inset);
+		ImGui::TextColored(ImGuiTheme::AccentText(), "Prefab: %s%s", app->GetEditingPrefab().c_str(), UndoStack::Get().IsDirty() ? " *" : "");
+		if (ImGui::Button("Save"))
+		{
+			app->SavePrefab();
+		}
+		ImGui::SetItemTooltip("Writes the prefab (Ctrl+S)");
+		ImGui::SameLine();
+		if (ImGui::Button("Back to Scene"))
+		{
+			if (UndoStack::Get().IsDirty())
+			{
+				ImGui::OpenPopup("Unsaved Prefab");
+			}
+			else
+			{
+				app->ClosePrefab();
+			}
+		}
+		ImGui::SetItemTooltip("Returns to the scene; its instances take the saved changes (one undo step)");
+		if (ImGui::BeginPopup("Unsaved Prefab"))
+		{
+			ImGui::TextUnformatted("The prefab has unsaved changes.");
+			if (ImGui::Button("Save")) { app->ClosePrefab(true); ImGui::CloseCurrentPopup(); }
+			ImGui::SameLine();
+			if (ImGui::Button("Discard")) { app->ClosePrefab(false); ImGui::CloseCurrentPopup(); }
+			ImGui::SameLine();
+			if (ImGui::Button("Cancel")) { ImGui::CloseCurrentPopup(); }
+			ImGui::EndPopup();
+		}
+		ImGui::Unindent(inset);
+		ImGui::Separator();
+	}
+
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.f, 0.f });
 	if (ImGui::CollapsingHeader("Scene Root", ImGuiTreeNodeFlags_DefaultOpen))
 	{

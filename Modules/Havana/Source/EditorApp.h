@@ -6,6 +6,7 @@
 #include <vector>
 #include <functional>
 #include "Editor/EditorAutomation.h"
+#include "Editor/UndoStack.h"
 
 // I don't like this
 #include "../../Game/Source/ComponentRegistry.h"
@@ -45,6 +46,15 @@ public:
 
 	// Scene management. Anything that would discard the current scene asks about unsaved changes.
 	void RequestNewScene();
+
+	// ED-6, prefab mode: the prefab alone in a temporary scene (the open scene, its selection and
+	// its undo history wait in memory). Save writes the prefab; Close brings the scene back and
+	// pushes the saved changes into its instances as one undoable step.
+	bool OpenPrefab( const std::string& InPrefabPath );
+	bool SavePrefab();
+	void ClosePrefab( bool InSaveFirst = false );
+	bool IsEditingPrefab() const { return !m_prefabAsset.empty(); }
+	const std::string& GetEditingPrefab() const { return m_prefabAsset; }
 	void RequestOpenScene( const std::string& InScenePath );
 	void RequestOpenSceneDialog();
 	void SaveScene( bool InSaveAs );
@@ -99,6 +109,16 @@ private:
 	std::string m_playSceneFilePath;
 	bool m_wasDirtyBeforePlay = false;
 	bool m_isRestoringSnapshot = false;
+	// Prefab mode.
+	std::string m_prefabAsset;
+	json m_prefabSceneSnapshot;
+	std::string m_prefabScenePath;
+	std::vector<uint64_t> m_prefabSceneSelection;
+	bool m_prefabSceneWasDirty = false;
+	UndoStack::History m_prefabSceneHistory;
+	json m_prefabBefore;
+	json m_prefabAfter;
+	uint64_t m_prefabRootGUID = 0;
 };
 
 #endif

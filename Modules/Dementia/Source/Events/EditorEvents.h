@@ -88,6 +88,18 @@ public:
     std::string TreePath;
 };
 
+// ED-6: opens a prefab (project path) in prefab mode: the prefab alone, edited and saved in place.
+class OpenPrefabEvent
+    : public Event<OpenPrefabEvent>
+{
+public:
+    OpenPrefabEvent()
+        : Event()
+    {
+    }
+    std::string PrefabPath;
+};
+
 // Opens a source terrain asset in Havana's terrain authoring panel.
 class OpenTerrainEvent : public Event<OpenTerrainEvent>
 {

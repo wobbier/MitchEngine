@@ -639,6 +639,70 @@ namespace PrefabTools
     }
 
 
+    bool SavePrefabFromInstance( Entity& InRoot, json& OutBefore, json& OutAfter )
+    {
+        const std::string asset = GetPrefabAsset( InRoot );
+        if( asset.empty() )
+        {
+            return false;
+        }
+        std::shared_ptr<const json> current = SceneSerializer::LoadPrefabData( asset );
+        OutBefore = current ? *current : json();
+        std::unordered_map<uint64_t, uint64_t> instanceToSource;
+        OutAfter = SceneSerializer::SerializePrefab( EditorOps::GetWorld(), InRoot, asset, &instanceToSource );
+        // Entities added while editing become part of the prefab.
+        std::vector<Entity*> entities;
+        CollectSubtree( InRoot, entities );
+        for( Entity* entity : entities )
+        {
+            World::EntityRecord* record = Record( *entity );
+            if( record && record->PrefabAsset.empty() )
+            {
+                record->PrefabAsset = asset;
+                record->PrefabSource = instanceToSource[entity->GetGUID()];
+            }
+        }
+        return WritePrefab( asset, OutAfter );
+    }
+
+
+    void RecordPrefabEdit( const std::string& InAsset, const json& InBefore, const json& InAfter )
+    {
+        if( InBefore.is_null() || InBefore == InAfter )
+        {
+            return;
+        }
+        PropagateToInstances( InAsset, InBefore, InAfter, nullptr );
+        UndoStack::Get().Push( std::make_unique<PrefabApplyCommand>( InAsset, InBefore, InAfter, std::unordered_set<uint64_t>(), std::vector<PrefabLinkCommand::Link>(), "Edit Prefab " + InAsset ) );
+    }
+
+
+    namespace
+    {
+        std::string s_prefabModeAsset;
+        std::function<bool()> s_prefabModeSave;
+    }
+
+
+    void SetPrefabMode( const std::string& InAsset, std::function<bool()> InSave )
+    {
+        s_prefabModeAsset = InAsset;
+        s_prefabModeSave = std::move( InSave );
+    }
+
+
+    const std::string& GetPrefabModeAsset()
+    {
+        return s_prefabModeAsset;
+    }
+
+
+    bool SavePrefabMode()
+    {
+        return !s_prefabModeAsset.empty() && s_prefabModeSave && s_prefabModeSave();
+    }
+
+
     void RevertAll( Entity& InEntity )
     {
         Entity* root = FindInstanceRoot( InEntity );

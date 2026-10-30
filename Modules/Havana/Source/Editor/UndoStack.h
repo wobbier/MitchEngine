@@ -70,6 +70,21 @@ public:
 private:
     class Transaction;
 
+public:
+    // ED-6, prefab mode: the scene's history is set aside while a prefab is edited (the stack
+    // starts empty) and put back when the scene returns.
+    struct History
+    {
+        std::vector<std::unique_ptr<UndoCommand>> Commands;
+        int Cursor = 0;
+        int SavedCursor = 0;
+        bool ForcedDirty = false;
+    };
+    History TakeHistory();
+    void RestoreHistory( History&& InHistory );
+
+private:
+
     std::vector<std::unique_ptr<UndoCommand>> m_commands;
     int m_cursor = 0;            // commands [0, m_cursor) are applied
     int m_savedCursor = 0;       // -1 = the saved state was discarded from history

@@ -1,6 +1,7 @@
 #pragma once
 #include "Dementia.h"
 #include "JSON.h"
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -40,6 +41,17 @@ namespace PrefabTools
     void ApplyAll( Entity& InEntity );
     void RevertAll( Entity& InEntity );
     void Unpack( Entity& InEntity );
+
+    // ED-6, prefab mode. Rewrites the prefab from an instance (as Apply All does, without touching
+    // other instances or the undo history); OutBefore / OutAfter are the file's contents.
+    bool SavePrefabFromInstance( Entity& InRoot, json& OutBefore, json& OutAfter );
+    // Pushes a prefab edit (before -> after) into the world's instances as one undoable step.
+    void RecordPrefabEdit( const std::string& InAsset, const json& InBefore, const json& InAfter );
+    // The prefab being edited in prefab mode ("" when none) and how to save it (EditorApp sets
+    // both; Ctrl+S saves the prefab while it's open).
+    void SetPrefabMode( const std::string& InAsset, std::function<bool()> InSave );
+    const std::string& GetPrefabModeAsset();
+    bool SavePrefabMode();
 
     // Prefab assets (or a folder of them) moved: instances in the world follow the move.
     void OnAssetsMoved( const std::string& InFrom, const std::string& InTo );

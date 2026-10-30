@@ -1422,6 +1422,29 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             }
         }
     }
+    else if( command == "prefab-open" )
+    {
+        // prefab-open Assets/Crate.prefab   (ED-6: prefab mode on that prefab)
+        if( !InApp.OpenPrefab( args ) ) Fail( "prefab-open: couldn't open " + args );
+    }
+    else if( command == "prefab-save" )
+    {
+        // prefab-save   (writes the prefab open in prefab mode)
+        if( !InApp.SavePrefab() ) Fail( "prefab-save: no prefab open" );
+    }
+    else if( command == "prefab-close" )
+    {
+        // prefab-close [save]   (back to the scene; unsaved prefab changes are dropped unless "save")
+        if( !InApp.IsEditingPrefab() ) Fail( "prefab-close: no prefab open" );
+        else InApp.ClosePrefab( args == "save" );
+    }
+    else if( command == "assert-prefab-mode" )
+    {
+        // assert-prefab-mode Assets/Crate.prefab   (or 0: not in prefab mode)
+        const std::string open = InApp.GetEditingPrefab();
+        const bool ok = args == "0" ? open.empty() : open == SceneSerializer::NormalizePrefabPath( args );
+        if( !ok ) Fail( "assert-prefab-mode: editing '" + open + "', expected " + args );
+    }
     else if( command == "pick-lock" )
     {
         // pick-lock Crate | 1   (the World View can't pick it or its children; 0 unlocks)
