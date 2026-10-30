@@ -1,0 +1,22 @@
+<rml>
+<head>
+	<title>Dialogue</title>
+	<link type="text/rcss" href="Dialogue.rcss"/>
+</head>
+<!-- The stock dialogue box (GAME-8), bound to the "dialogue" model a DialogueView fills (the kit's
+     Conversation makes one): speaker, text, and up to four choices. A project can replace it with
+     its own Assets/UI/Dialogue/Dialogue.rml using the same model and events. -->
+<body data-model="dialogue">
+	<div id="dialogue" data-if="visible">
+		<div id="dialogue-speaker" data-if="speaker != ''">{{ speaker }}</div>
+		<div id="dialogue-text">{{ text }}</div>
+		<div id="dialogue-choices" data-if="choosing">
+			<button id="dialogue-choice-0" class="choice" data-if="has0" data-event-click="dialogue_choose_0">{{ choice0 }}</button>
+			<button id="dialogue-choice-1" class="choice" data-if="has1" data-event-click="dialogue_choose_1">{{ choice1 }}</button>
+			<button id="dialogue-choice-2" class="choice" data-if="has2" data-event-click="dialogue_choose_2">{{ choice2 }}</button>
+			<button id="dialogue-choice-3" class="choice" data-if="has3" data-event-click="dialogue_choose_3">{{ choice3 }}</button>
+		</div>
+		<button id="dialogue-continue" data-if="!choosing" data-event-click="dialogue_continue">Continue</button>
+	</div>
+</body>
+</rml>

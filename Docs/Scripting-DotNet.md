@@ -331,6 +331,8 @@ The *world* pieces are scripts. They find those objects on whatever touches them
 | `Spawner` | instantiates a prefab every `Interval`, up to `MaxAlive` (and `Total`) |
 | `Damageable` | Health for props with no script of their own; destroyed on death |
 
+| `Conversation : Interactable` | runs a `.dialogue` file through the stock dialogue box (GAME-8, below) |
+
 `Entity.GetScript<T>()` (any script type or interface) scans the live scripts, so call it on events rather than for every entity every frame.
 
 The kit's tests are `Generators.Tests/KitTests.cs` and `ScriptRegistryTests.cs`. `Tests/Templates/FirstPerson/FirstPersonFlows.edscript` plays the kit in the template:
@@ -338,6 +340,49 @@ The kit's tests are `Generators.Tests/KitTests.cs` and `ScriptRegistryTests.cs`.
 2. Open the locked gate with E.
 3. Die in the hazard.
 4. Respawn at the checkpoint.
+
+## Dialogue (GAME-8)
+
+`ScriptCore/Source/Dialogue/` handles conversations written as text (`.dialogue` files, in the spirit of Yarn):
+
+```
+title: Gate
+---
+Guard: Halt! Who goes there?
+-> A friend.
+    <<set $trusted = true>>
+    Guard: Then pass, friend.
+-> None of your business. <<if not $trusted>>
+    <<jump Refused>>
+<<if $trusted>>
+    Guard: Mind the stairs, {$name}.
+<<endif>>
+<<event open-gate north>>
+===
+```
+
+**The format:**
+- A node is `title:`, then `---`, its lines, and `===`.
+- A line is `Speaker: text`.
+- A run of `-> option` lines is a choice, each followed by its indented body. A trailing `<<if expr>>` hides an option unless the expression is true.
+- **Commands:** `<<jump>>`, `<<set>>`, `<<if>>` / `<<elseif>>` / `<<else>>` / `<<endif>>`, `<<event name args>>` and `<<stop>>`.
+- **Comments** start with `//`.
+- **Expressions** use `not`, `and`, `or`, comparisons, `+ - * /` and parentheses. An unset variable is `false`, which counts as 0.
+- **Localization:** lines and options are localization keys. `DialogueRunner` translates them through `Loc` before filling in `{$var}`.
+
+**The pieces:**
+
+| Class | What it does |
+|-------|--------------|
+| `DialogueScript.Parse` | parses a file; `FormatException` names the file and line |
+| `DialogueRunner` | `Start(node)`, `Continue()`, `Choose(i)`; `Current` is Line, Choice or End. `Variables` can be shared. `Event` and the EventBus carry `DialogueEvent` and `DialogueEndedEvent`. |
+| `DialogueView` | drives the `dialogue` UI model (`visible`, `speaker`, `text`, `choosing`, `choice0..3`, `has0..3`; events `dialogue_continue`, `dialogue_choose_0..3`), which the stock `Engine/Assets/UI/Dialogue/Dialogue.rml` binds |
+| `DialogueFiles.Load` | reads and caches a file through the VFS |
+| `Conversation` (kit) | ties them together |
+
+**Tests:**
+- `Generators.Tests/DialogueTests.cs` covers the language and the runner.
+- `Assets/Scenes/Tests/DialogueFlows.edscript` (game) clicks through `Assets/Dialogue/Tests/Gate.dialogue` in the real UI.
 
 ## Caveats & Fragility
 

@@ -1,0 +1,57 @@
+body {
+	font-family: Inter;
+	font-size: 18dp;
+	color: #EEF1F6;
+	width: 100%;
+	height: 100%;
+}
+
+#dialogue {
+	position: absolute;
+	left: 50%;
+	bottom: 6%;
+	width: 760dp;
+	margin-left: -380dp;
+	padding: 16dp 20dp;
+	background-color: #0B0E14E6;
+	border-radius: 6dp;
+	border: 1dp #2A3245;
+}
+
+#dialogue-speaker {
+	display: block;
+	font-size: 15dp;
+	color: #8FB8FF;
+	margin-bottom: 6dp;
+}
+
+#dialogue-text {
+	display: block;
+	font-size: 20dp;
+	margin-bottom: 12dp;
+}
+
+#dialogue-choices {
+	display: block;
+}
+
+button {
+	display: block;
+	padding: 6dp 10dp;
+	margin-top: 4dp;
+	border-radius: 4dp;
+	background-color: #1D2331;
+	color: #EEF1F6;
+	focus: auto;
+	tab-index: auto;
+}
+
+button:hover, button:focus-visible {
+	background-color: #2E3A55;
+}
+
+#dialogue-continue {
+	display: inline-block;
+	font-size: 15dp;
+	color: #AEB7C7;
+}
