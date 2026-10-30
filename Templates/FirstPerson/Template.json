@@ -1,5 +1,5 @@
 {
     "Name": "First-Person",
-    "Description": "Walk, look, sprint and jump around a blockout course in first person: a CharacterController with a mouse/stick look camera (FirstPersonController.cs).",
+    "Description": "Walk, look, sprint and jump around a blockout course in first person: a CharacterController with a mouse/stick look camera (FirstPersonController.cs), using the starter kit: a key pickup, a locked gate, a hazard, a checkpoint and a HUD.",
     "Order": 1
 }

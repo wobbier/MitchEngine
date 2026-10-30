@@ -1206,7 +1206,9 @@ void PhysicsCore::StepCharacter( Entity& entity, CharacterController& c, float I
     auto ignoreSelf = []( b3ShapeId shape, void* ctx ) -> bool {
         const MoverContext* self = static_cast<const MoverContext*>( ctx );
         const uint64_t host = static_cast<uint64_t>( reinterpret_cast<uintptr_t>( b3Shape_GetUserData( shape ) ) );
-        return !B3_ID_EQUALS( b3Shape_GetBody( shape ), self->Self )
+        // Triggers never block a character (the plane collector skips them too): sweeping into
+        // one used to stop the move at its surface, so characters crept through trigger volumes.
+        return !B3_ID_EQUALS( b3Shape_GetBody( shape ), self->Self ) && !b3Shape_IsSensor( shape )
             && !self->Physics->FitsPortalPassage( host, self->Center, self->Extents );
     };
     auto collectPlanes = []( b3ShapeId shape, const b3PlaneResult* planes, int count, void* ctx ) -> bool {

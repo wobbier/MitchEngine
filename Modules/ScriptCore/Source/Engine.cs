@@ -70,6 +70,32 @@ public static partial class ScriptBridge
     private static readonly List<Unloading> _unloading = new();
     private const int UnloadCheckAttempts = 3;
     private static readonly Dictionary<int, IGameScript> Instances = new();
+
+    // GAME-7: live scripts by type, for Entity.GetScript and the starter kit's lookups. A scan
+    // (nothing keeps its own list, so hot reloads leave no references behind).
+    internal static T? FindScript<T>(Entity entity) where T : class
+    {
+        foreach (var instance in Instances.Values)
+        {
+            if (instance is Script script && script.Entity == entity && instance is T match)
+            {
+                return match;
+            }
+        }
+        return null;
+    }
+
+    internal static IEnumerable<T> AllScripts<T>() where T : class
+    {
+        foreach (var instance in Instances.Values)
+        {
+            if (instance is T match)
+            {
+                yield return match;
+            }
+        }
+    }
+
     private static int _nextHandle = 1;
 
     private static readonly List<int> _handleOrder = new();

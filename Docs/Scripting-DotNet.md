@@ -306,6 +306,39 @@ A second generator, `NetGenerator`, picks up `partial` `Script` classes with `[R
 
 It reports MEGEN004–010 for what it can't generate. The C# side is `Modules/ScriptCore/Source/Net/` (`Net`, the attributes, `NetWriter` / `NetReader`, `NetBridge.cs`). The full model is in [Networking.md](Networking.md) ("C# networking (NET-6)"). The game's `Assets/Scripts/Tests/NetProbe.cs` is the end-to-end probe (Tools/RunNetSmoke.py).
 
+## Starter kit (GAME-7)
+
+`ScriptCore/Source/Kit/` (namespace `ScriptCore.Kit`) holds ready-made gameplay pieces. The FirstPerson template uses them.
+
+**Engine scripts are attachable.** `ScriptRegistry` lists ScriptCore's own concrete scripts after the game's and the mods'. A scene can name `Door` or `Pickup` directly, and a game class with the same name wins the short name. The full name (`ScriptCore.Kit.Door`) always finds the engine's.
+
+An entity carries one script. So what an *actor* has is a plain object that its script owns and exposes through an interface:
+
+| Piece | What it does |
+|-------|--------------|
+| `Health` (via `IHealth`) | `Damage`, `Heal`, `Kill`, `Reset`, `Invulnerable`; C# events plus `DamagedEvent` / `DiedEvent` / `HealedEvent` on the EventBus |
+| `Inventory` (via `IInventory`) | named item counts: `Add`, `Remove`, `Has`, `Count` |
+| `Interactor` | `Update(self)` each frame: picks the nearest `Interactable` in range and in front, shows its prompt through a UI model (`prompt`, `visible`), and uses it on the `Interact` action |
+
+The *world* pieces are scripts. They find those objects on whatever touches them with `other.GetScript<IHealth>()`:
+
+| Script | What it does |
+|--------|--------------|
+| `Pickup` | adds an item to the collector's Inventory and/or heals it, then disappears |
+| `Door : Interactable` | slides by `OpenOffset` when used, optionally locked until the user holds `RequiredItem`. Give it a kinematic Rigidbody. |
+| `DamageZone` | damages on entering and per second inside a trigger |
+| `Checkpoint` | entering it sets the actor's respawn point. `Checkpoint.Respawn(actor, fallback)` moves the actor there and refills its health. |
+| `Spawner` | instantiates a prefab every `Interval`, up to `MaxAlive` (and `Total`) |
+| `Damageable` | Health for props with no script of their own; destroyed on death |
+
+`Entity.GetScript<T>()` (any script type or interface) scans the live scripts, so call it on events rather than for every entity every frame.
+
+The kit's tests are `Generators.Tests/KitTests.cs` and `ScriptRegistryTests.cs`. `Tests/Templates/FirstPerson/FirstPersonFlows.edscript` plays the kit in the template:
+1. Walk over the key.
+2. Open the locked gate with E.
+3. Die in the hazard.
+4. Respawn at the checkpoint.
+
 ## Caveats & Fragility
 
 - **The ABI guard** (ME-298) has several layers:

@@ -1,4 +1,5 @@
 using ScriptCore;
+using ScriptCore.Kit;
 
 // First-person walking. Goes on the body (with a CharacterController); the camera is a child entity
 // at eye height, named in CameraName. Look turns the body left and right and tilts the camera up and
@@ -7,7 +8,12 @@ using ScriptCore;
 //
 // Turning is applied to the body's current facing rather than a stored angle, so anything else that
 // turns the body (a teleporter, a cutscene) just works.
-public class FirstPersonController : Script
+//
+// The body is also the starter kit's actor (ScriptCore.Kit): it has Health (damage zones hurt it;
+// at zero it comes back at the last Checkpoint it walked through), an Inventory (Pickups fill it,
+// locked Doors check it) and an Interactor (Interact / E uses the Door or other Interactable in
+// front of it). The HUD (Assets/UI/Hud.rml) shows health and the interaction prompt.
+public class FirstPersonController : Script, IHealth, IInventory
 {
     public string CameraName = "Main Camera";
     [Tooltip("Degrees per unit of Look: the mouse reports 0.1 per pixel")]
@@ -17,6 +23,14 @@ public class FirstPersonController : Script
     public bool InvertY = false;
     public float WalkSpeed = 5.0f;
     public float SprintSpeed = 9.0f;
+    public float MaxHealth = 100.0f;
+    [Tooltip("How far away a door or other interactable can be used from")]
+    public float InteractRange = 2.5f;
+
+    public Health Health { get; private set; } = new Health();
+    public Inventory Inventory { get; } = new Inventory();
+    private readonly Interactor interactor = new Interactor { Model = "hud" };
+    private Vector3 start;
 
     private CharacterController character;
     private Transform head;
@@ -29,6 +43,13 @@ public class FirstPersonController : Script
         head = camera ? camera.Transform : null;
         pitch = head != null ? head.Rotation.x : 0f;
         Input.MouseCaptured = true;
+        if (Health.Max != MaxHealth)
+        {
+            Health = new Health(MaxHealth);
+        }
+        start = transform.WorldPosition;
+        interactor.Range = InteractRange;
+        UI.Model("hud").Set("health", (double)Health.Current);
     }
 
     public override void OnReload()
@@ -89,5 +110,12 @@ public class FirstPersonController : Script
         {
             character.Jump();
         }
+
+        interactor.Update(Entity, forward);
+        if (Health.IsDead)
+        {
+            Checkpoint.Respawn(Entity, start);
+        }
+        UI.Model("hud").Set("health", (double)System.MathF.Ceiling(Health.Current));
     }
 }

@@ -37,8 +37,12 @@ public static class ScriptRegistry
     private static readonly Dictionary<string, int> _shortNames = new();
     private static readonly HashSet<string> _warnedAmbiguous = new();
 
-    // The game's script classes, then each mod's (MOD-2), each group by name.
+    // The game's script classes, then each mod's (MOD-2), then the engine's own (the GAME-7
+    // starter kit: Door, Pickup...), each group by name. A game class with the same name as an
+    // engine one wins.
     public static IReadOnlyList<Type> ScriptTypes => _types;
+    private static List<Type>? _engineTypes;
+    private static List<Type> EngineTypes => _engineTypes ??= ScriptsIn(typeof(ScriptRegistry).Assembly);
 
     private static List<Type> ScriptsIn(Assembly assembly) => assembly.GetTypes()
         .Where(t => typeof(IGameScript).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
@@ -49,6 +53,7 @@ public static class ScriptRegistry
     public static void Scan(Assembly assembly)
     {
         _types = ScriptsIn(assembly);
+        _types.AddRange(EngineTypes);
         _assemblies.Clear();
         _assemblies.Add(assembly);
         ++Version;
@@ -58,7 +63,7 @@ public static class ScriptRegistry
     // A mod's assembly (MOD-2): its classes join the game's.
     public static void ScanMod(Assembly assembly)
     {
-        _types.AddRange(ScriptsIn(assembly));
+        _types.InsertRange(_types.Count - EngineTypes.Count, ScriptsIn(assembly));
         _assemblies.Add(assembly);
         ++Version;
         Recount();

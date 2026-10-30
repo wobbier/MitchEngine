@@ -109,6 +109,7 @@ After each step, `ProcessEvents` reads Box3D's contact begin/end events and sens
 
 - `A` and `B` are the **collider** entities. For triggers, `A` is the trigger.
 - `IsTrigger` and `State` (Enter / Exit) are set on every event.
+- Triggers never block a `CharacterController`: its sweeps and contact planes both skip sensor shapes. Before GAME-7 the sweep stopped at a trigger's surface, so characters crept through trigger volumes.
 - `Point` and `Normal` are filled for contact Enter events.
 
 All events of a step are collected first and fired afterwards, so handlers may change the world. They fire before `World::Simulate` flushes deferred destroys, so every handle in an event still resolves while handlers run. C# scripts get them as `OnCollisionEnter` / `OnTriggerEnter` and friends on both entities (`Docs/Scripting-DotNet.md`).

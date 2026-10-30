@@ -120,6 +120,11 @@ public readonly struct Entity : IEquatable<Entity>
 
     public Transform Transform => GetComponent<Transform>();
 
+    // The entity's script when it is (or implements) T: GetScript<Door>(), GetScript<IHealth>().
+    // Null when it has none. A scan of the live scripts; fine for events, not for every entity
+    // every frame.
+    public T? GetScript<T>() where T : class => ScriptBridge.FindScript<T>(this);
+
     // Any field of any component by name, including ones without a C# wrapper:
     //   GetField<float>("Light", "Intensity"); SetField("Light", "Color", new Vector3(1, 0.5f, 0));
     // Paths can go deeper ("Settings.Radius", "Color.0"). Missing components or fields return the

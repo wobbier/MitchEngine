@@ -1617,6 +1617,315 @@
             ]
         },
         {
+            "GUID": "f2a74de452e6b438",
+            "Name": "Checkpoint",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0.0,
+                        0.03,
+                        -4.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.0,
+                        0.03,
+                        0.6
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.25,
+                            0.8,
+                            0.4
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.6
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        60,
+                        2
+                    ],
+                    "IsTrigger": true
+                },
+                {
+                    "Type": "ScriptComponent",
+                    "ScriptName": "Checkpoint",
+                    "ScriptFields": "{\"Offset\": {\"x\": 0.0, \"y\": 1.0, \"z\": 0.0}}"
+                }
+            ]
+        },
+        {
+            "GUID": "6513270e269e0d37",
+            "Name": "Key",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0.0,
+                        1.0,
+                        -1.5
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        0.15,
+                        0.15,
+                        0.15
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            1.0,
+                            0.82,
+                            0.15
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.6
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        6,
+                        6,
+                        6
+                    ],
+                    "IsTrigger": true
+                },
+                {
+                    "Type": "ScriptComponent",
+                    "ScriptName": "Pickup",
+                    "ScriptFields": "{\"Item\": \"Key\", \"Amount\": 1, \"Heal\": 0.0, \"SpinDegreesPerSecond\": 90.0}"
+                }
+            ]
+        },
+        {
+            "GUID": "0c5c7fd0a6a3a450",
+            "Name": "Gate",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0.0,
+                        1.25,
+                        2.5
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.5,
+                        1.25,
+                        0.15
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.35,
+                            0.45,
+                            0.62
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.6,
+                        "Textures": {
+                            "Diffuse": {
+                                "Path": "Assets/Textures/Prototype/Grid.png"
+                            }
+                        },
+                        "Tiling": [
+                            1,
+                            1
+                        ]
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        2,
+                        2
+                    ]
+                },
+                {
+                    "Type": "Rigidbody",
+                    "Mass": 1.0,
+                    "BodyType": "Kinematic"
+                },
+                {
+                    "Type": "ScriptComponent",
+                    "ScriptName": "Door",
+                    "ScriptFields": "{\"Prompt\": \"Open\", \"OpenOffset\": {\"x\": 0.0, \"y\": 2.6, \"z\": 0.0}, \"Duration\": 0.6, \"RequiredItem\": \"Key\", \"ConsumeItem\": false, \"StartsOpen\": false}"
+                }
+            ]
+        },
+        {
+            "GUID": "d23f0824128b2f33",
+            "Name": "Hazard",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0.0,
+                        0.03,
+                        6.25
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.5,
+                        0.03,
+                        1.25
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.9,
+                            0.18,
+                            0.12
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.6
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        2,
+                        60,
+                        2
+                    ],
+                    "IsTrigger": true
+                },
+                {
+                    "Type": "ScriptComponent",
+                    "ScriptName": "DamageZone",
+                    "ScriptFields": "{\"Damage\": 0.0, \"DamagePerSecond\": 60.0}"
+                }
+            ]
+        },
+        {
+            "GUID": "1818e811892f902b",
+            "Name": "Medkit",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        3.0,
+                        0.5,
+                        -2.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        0.25,
+                        0.25,
+                        0.25
+                    ]
+                },
+                {
+                    "Type": "Mesh",
+                    "MeshType": "Cube",
+                    "Material": {
+                        "Type": "StandardMaterial",
+                        "DiffuseColor": [
+                            0.92,
+                            0.95,
+                            0.92
+                        ],
+                        "Metallic": 0.0,
+                        "Roughness": 0.6
+                    }
+                },
+                {
+                    "Type": "BoxCollider",
+                    "Size": [
+                        6,
+                        6,
+                        6
+                    ],
+                    "IsTrigger": true
+                },
+                {
+                    "Type": "ScriptComponent",
+                    "ScriptName": "Pickup",
+                    "ScriptFields": "{\"Item\": \"\", \"Amount\": 0, \"Heal\": 50.0, \"SpinDegreesPerSecond\": 45.0}"
+                }
+            ]
+        },
+        {
+            "GUID": "9531985d5d9dc9f8",
+            "Name": "Hud",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.0,
+                        1.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Type": "UIDocument",
+                    "FilePath": "Assets/UI/Hud.rml",
+                    "Visible": true,
+                    "SortOrder": 10
+                }
+            ]
+        },
+        {
             "GUID": "e277fd2536e5990b",
             "Name": "Options",
             "DestroyOnLoad": true,

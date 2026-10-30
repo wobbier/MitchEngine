@@ -20,5 +20,24 @@ input-hold Keyboard/W
 wait-field Player | Transform.Position.2 | != -6.0 ~ 2.0 | 900
 input-release
 assert-field Player | Transform.Position.0 | 0.0 ~ 0.25
+
+# The starter kit (GAME-7): walking on picks up the key, the locked gate opens with Interact (E),
+# and standing in the hazard by the crates drains the player's health until the checkpoint it
+# walked over brings it back.
+assert-exists Key
+input-hold Keyboard/W
+wait-field Player | Transform.Position.2 | != -6.0 ~ 5.0 | 900
+wait 5
+assert-missing Key
+wait-field Player | Transform.Position.2 | 1.95 ~ 0.15 | 900
+wait 10
+assert-field Gate | Transform.Position.1 | 1.25 ~ 0.01
+input-hold Keyboard/E
+wait 3
+input-release Keyboard/E
+wait-field Gate | Transform.Position.1 | 3.85 ~ 0.05 | 300
+wait-field Player | Transform.Position.2 | 6.0 ~ 0.4 | 900
+input-release
+wait-field Player | Transform.Position.2 | -4.0 ~ 0.3 | 900
 stop
 assert-field Player | Transform.Position | [0.0, 1.0, -6.0] ~ 0.01

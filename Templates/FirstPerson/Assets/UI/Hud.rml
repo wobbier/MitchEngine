@@ -1,0 +1,39 @@
+<rml>
+<head>
+	<title>HUD</title>
+	<style>
+		body {
+			font-family: Inter;
+			font-size: 18dp;
+			color: #EEF1F6;
+			width: 100%;
+			height: 100%;
+		}
+		#health {
+			position: absolute;
+			left: 24dp;
+			bottom: 20dp;
+			padding: 6dp 12dp;
+			background-color: #07090DB0;
+			border-radius: 4dp;
+		}
+		#prompt {
+			position: absolute;
+			left: 50%;
+			top: 58%;
+			width: 360dp;
+			margin-left: -180dp;
+			text-align: center;
+			padding: 6dp 0dp;
+			background-color: #07090DB0;
+			border-radius: 4dp;
+		}
+	</style>
+</head>
+<!-- The first-person HUD: the player's health and what Interact (E) would do, from the "hud" data
+     model FirstPersonController fills (the starter kit's Interactor sets prompt and visible). -->
+<body data-model="hud">
+	<div id="health">Health {{ health }}</div>
+	<div id="prompt" data-if="visible">[E] {{ prompt }}</div>
+</body>
+</rml>
