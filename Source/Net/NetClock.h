@@ -4,7 +4,14 @@
 struct NetClockSettings
 {
     double TickSeconds = 1.0 / 60.0;
-    float TargetSlack = 3.f;        // ticks of commands buffered on the server
+    float TargetSlack = 3.f;        // ticks of commands buffered on the server (the starting target)
+    // NET-14 (the Overwatch loop): the target grows a tick per miss the server reports and, after
+    // ShrinkAfterSeconds without one, eases back by ShrinkPerSecond toward max(MinSlack, 2 x jitter).
+    bool AdaptiveSlack = true;
+    float MinSlack = 1.f;
+    float MaxSlack = 8.f;
+    float ShrinkAfterSeconds = 3.f;
+    float ShrinkPerSecond = 0.25f;
     float MaxDilation = 0.05f;      // +/- fraction the client's simulation speeds up or slows down
     float Gain = 0.02f;             // dilation per tick of slack error
     float ResyncTicks = 8.f;        // further off than this: jump instead of dilating
@@ -26,10 +33,16 @@ public:
     void Start( uint32_t InTick );
     // Real time passed: how many ticks are due now (run them, taking each with TakeTick).
     int Advance( double InRealSeconds );
-    uint32_t TakeTick() { return m_tick++; }
+    // The tick to stamp the next command with (and, adaptive, a tick of the clean-run count).
+    uint32_t TakeTick();
 
     // The server's smoothed slack for this client.
     void OnSlackReport( float InSlack );
+    // Commands the server had to repeat since its last report (adaptive: grows the target).
+    void OnMisses( uint32_t InMisses );
+    // The link's jitter (round-trip deviation, seconds): the target's floor is twice it in ticks.
+    void SetJitter( double InSeconds );
+    float GetTargetSlack() const { return m_target; }
 
     uint32_t GetTick() const { return m_tick; }
     float GetDilation() const { return m_dilation; }
@@ -46,4 +59,7 @@ private:
     int m_resyncs = 0;
     bool m_hasResynced = false;
     uint32_t m_resyncedAt = 0;
+    float m_target = 3.f;
+    float m_floor = 1.f;
+    uint32_t m_cleanTicks = 0;
 };

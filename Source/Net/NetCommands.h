@@ -58,11 +58,17 @@ public:
     uint64_t GetOnTimeCount() const { return m_onTime; }
     uint64_t GetMissedCount() const { return m_missed; }
     uint64_t GetLateArrivals() const { return m_lateArrivals; }
+    // Presses that came in a command after its tick had been repeated, merged into a later tick
+    // instead of being lost (NET-14).
+    uint64_t GetRecoveredPresses() const { return m_recoveredPresses; }
     size_t GetBuffered() const { return m_commands.size(); }
 
 private:
     std::map<uint32_t, InputCommand> m_commands;
     InputCommand m_last;
+    std::map<uint32_t, uint32_t> m_repeated;    // missed ticks -> the buttons the repeat used
+    uint32_t m_pendingPresses = 0;
+    uint64_t m_recoveredPresses = 0;
     bool m_hasReceived = false;
     bool m_hasSlack = false;
     uint32_t m_newest = 0;

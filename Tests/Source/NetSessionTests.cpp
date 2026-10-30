@@ -135,19 +135,32 @@ TEST_CASE( "Net: at 100+-20 ms and 5% loss, 99.9% of commands arrive on time, sl
     const uint64_t missedBefore = remote->Commands.GetMissedCount();
     const int resyncsBefore = client.GetClock().GetResyncCount();
     const size_t simulatedBefore = simulated.size();
-    const float target = client.GetClock().GetSettings().TargetSlack;
+    // The target adapts (NET-14): the slack is measured against wherever it is, once it has
+    // held for 3 s (the clock needs a moment to steer to a new target).
     float worstSlackError = 0.f;
+    float lastTarget = client.GetClock().GetTargetSlack();
+    uint32_t heldSince = net.ServerNet.GetServer()->GetTick();
     net.OnServerTick = [&]( NetServer& InServer ) {
         const NetServer::Client* c = InServer.FindClient( 1 );
         simulated.push_back( c->Current );
-        worstSlackError = std::max( worstSlackError, std::abs( c->Commands.GetSlack() - target ) );
+        const float targetNow = client.GetClock().GetTargetSlack();
+        if( targetNow != lastTarget )
+        {
+            lastTarget = targetNow;
+            heldSince = InServer.GetTick();
+        }
+        if( InServer.GetTick() - heldSince > 180 )
+        {
+            worstSlackError = std::max( worstSlackError, std::abs( c->Commands.GetSlack() - targetNow ) );
+        }
     };
     worstDilation = 0.f;
     net.Run( 60.0 );
 
     const uint64_t onTime = remote->Commands.GetOnTimeCount() - onTimeBefore;
     const uint64_t missed = remote->Commands.GetMissedCount() - missedBefore;
-    MESSAGE( "on time " << onTime << ", missed " << missed << ", worst slack error " << worstSlackError << ", worst dilation " << worstDilation );
+    MESSAGE( "on time " << onTime << ", missed " << missed << ", worst slack error " << worstSlackError << ", worst dilation " << worstDilation
+        << ", target slack " << client.GetClock().GetTargetSlack() );
     CHECK( onTime + missed >= 3500 );
     CHECK( static_cast<double>( onTime ) / static_cast<double>( onTime + missed ) >= 0.999 );
     CHECK( worstSlackError <= 1.f );
@@ -174,8 +187,98 @@ TEST_CASE( "Net: at 100+-20 ms and 5% loss, 99.9% of commands arrive on time, sl
     worstSlackError = 0.f;
     net.OnServerTick = nullptr;
     net.Run( 10.0 );
-    CHECK( std::abs( remote->Commands.GetSlack() - target ) <= 1.f );
+    CHECK( std::abs( remote->Commands.GetSlack() - client.GetClock().GetTargetSlack() ) <= 1.f );
     CHECK( std::abs( client.GetClock().GetDilation() ) < 0.05f );
+}
+
+TEST_CASE( "Net: the slack target grows with reported misses and eases back to a jitter floor when clean (NET-14)" )
+{
+    NetClockSettings settings;
+    NetClock clock( settings );
+    clock.Start( 0 );
+    CHECK( clock.GetTargetSlack() == doctest::Approx( 3.f ) );
+    clock.OnMisses( 2 );
+    CHECK( clock.GetTargetSlack() == doctest::Approx( 5.f ) );
+    clock.OnMisses( 40 );
+    CHECK( clock.GetTargetSlack() == doctest::Approx( settings.MaxSlack ) );
+    // 3 s clean, then a quarter tick a second, down to the floor (no jitter: MinSlack).
+    for( int i = 0; i < 60 * 3; ++i )
+    {
+        clock.TakeTick();
+    }
+    CHECK( clock.GetTargetSlack() == doctest::Approx( settings.MaxSlack ) );
+    for( int i = 0; i < 60 * 4; ++i )
+    {
+        clock.TakeTick();
+    }
+    CHECK( clock.GetTargetSlack() == doctest::Approx( settings.MaxSlack - 1.f ) );
+    for( int i = 0; i < 60 * 60; ++i )
+    {
+        clock.TakeTick();
+    }
+    CHECK( clock.GetTargetSlack() == doctest::Approx( settings.MinSlack ) );
+    // 20 ms of jitter is 1.2 ticks: the floor is 3 (twice it, rounded up).
+    clock.SetJitter( 0.020 );
+    CHECK( clock.GetTargetSlack() == doctest::Approx( 3.f ) );
+    // A miss resets the clean run.
+    clock.OnMisses( 1 );
+    for( int i = 0; i < 60 * 3; ++i )
+    {
+        clock.TakeTick();
+    }
+    CHECK( clock.GetTargetSlack() == doctest::Approx( 4.f ) );
+
+    NetClockSettings fixed;
+    fixed.AdaptiveSlack = false;
+    NetClock still( fixed );
+    still.OnMisses( 5 );
+    CHECK( still.GetTargetSlack() == doctest::Approx( 3.f ) );
+}
+
+TEST_CASE( "Net: a press in a command that arrives after its tick ran on a repeat still reaches the server, once (NET-14)" )
+{
+    NetCommandBuffer buffer;
+    auto command = []( uint32_t InTick, uint32_t InButtons ) {
+        InputCommand c;
+        c.Tick = InTick;
+        c.Buttons = InButtons;
+        return c;
+    };
+    buffer.Receive( command( 10, 0 ), 10 );
+    CHECK( buffer.Consume( 10 ).Buttons == 0 );
+    // Tick 11's command (a one-tick tap of bit 2) is late: the server repeats tick 10's.
+    CHECK( buffer.Consume( 11 ).Buttons == 0 );
+    CHECK( buffer.GetMissedCount() == 1 );
+    buffer.Receive( command( 11, 2u ), 12 );
+    buffer.Receive( command( 11, 2u ), 12 );   // a redundant copy doesn't count twice
+    buffer.Receive( command( 12, 0 ), 12 );
+    CHECK( buffer.GetRecoveredPresses() == 1 );
+    // Tick 12 gets the press merged in, for that tick only.
+    CHECK( buffer.Consume( 12 ).Buttons == 2u );
+    CHECK( buffer.Consume( 13 ).Buttons == 0 );     // missing again: the repeat doesn't carry it
+    // A held button the repeat already had isn't a new press.
+    NetCommandBuffer held;
+    held.Receive( command( 20, 4u ), 20 );
+    held.Consume( 20 );
+    held.Consume( 21 );
+    held.Receive( command( 21, 4u ), 22 );
+    CHECK( held.GetRecoveredPresses() == 0 );
+}
+
+TEST_CASE( "Net: on a clean link the adaptive buffer settles at one to one and a half ticks (NET-14)" )
+{
+    Harness net( Link( 10.f, 0.f, 0.f, 7 ), Link( 10.f, 0.f, 0.f, 8 ) );
+    net.MakeCommand = CommandFor;
+    net.Start();
+    net.Run( 40.0 );
+    NetClient& client = *net.ClientNet.GetClient();
+    REQUIRE( client.GetState() == NetClient::State::Connected );
+    const NetServer::Client* remote = net.ServerNet.GetServer()->FindClient( client.GetClientId() );
+    REQUIRE( remote != nullptr );
+    MESSAGE( "clean link: target " << client.GetClock().GetTargetSlack() << ", slack " << remote->Commands.GetSlack() << ", missed " << remote->Commands.GetMissedCount() );
+    CHECK( client.GetClock().GetTargetSlack() <= 1.5f );
+    CHECK( remote->Commands.GetSlack() >= 0.5f );
+    CHECK( remote->Commands.GetSlack() <= 2.f );
 }
 
 TEST_CASE( "Net: a client with another build or scene is rejected and told why" )

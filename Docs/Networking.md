@@ -48,7 +48,7 @@ The editor tooling (NET-7) comes next.
 | `Source/Net/NetConnection.h` | `NetConnection`, one end of a link, and `NetStats` |
 | `Source/Net/NetVersion.h` | What both sides must agree on: protocol, build (product name and version), C# script classes, mod set, placed entities (sorted GUIDs). FNV-1a hashes, the same on every platform |
 | `Source/Net/NetCommands.h` | `InputCommand` (tick, buttons, 4 axes at 16 bits), delta-coded lists of up to 16, and `NetCommandBuffer`, the server's per-client queue |
-| `Source/Net/NetClock.h` | The client's command-frame clock: target slack, dilation up to ±5%, a resync beyond 8 ticks |
+| `Source/Net/NetClock.h` | The client's command-frame clock: adaptive target slack (NET-14), dilation up to ±5%, a resync beyond 8 ticks |
 | `Source/Net/NetSession.h` | `NetServer` and `NetClient`: the handshake, commands up, and server reports down |
 | `Source/Components/Networking/NetIdentity.h` | Marks an entity networked: NetId, owner, the prefab clients spawn |
 | `Source/Net/NetSnapshot.h` | `NetEntityState`: pose at 1/1024 m, rotation smallest-three at 12 bits, replicated field bytes. `NetSchema` (fields flagged `.Replicated()` in `ME_REFLECT`). `NetSnapshotCodec`: deltas against a baseline |
@@ -103,7 +103,7 @@ Messages are at most 1024 bytes (`kMaxMessageBytes`); there is no fragmentation 
 3. **Commands up:** each client tick stamps the local command (`NetCore::SetLocalCommand`, later the HK-5 sampler) with the clock's tick. Each client packet carries the newest unconfirmed commands, up to 16, delta-coded, so a lost packet's commands ride the next ones.
 4. **Server ticks:** each tick, the server takes every client's command for that tick from its `NetCommandBuffer`. A missing command repeats the previous one (a miss), and the server never stalls.
 5. **Slack:** measured at each consume as `newest buffered tick − tick`, then smoothed (1/10, or taken at once after a jump of more than 4).
-6. **Reports down:** each server packet reports to each client the tick, the newest command it holds, and that client's slack.
+6. **Reports down:** each server packet reports to each client the tick, the newest command it holds, that client's slack, and how many of its commands the server has had to repeat so far (protocol 4).
 7. **Clock control:** the client drops confirmed commands and feeds the slack to `NetClock`, which sets dilation to `−(slack − target) × 0.02`, clamped to ±5%. More than 8 ticks off, it jumps instead, then ignores reports for 30 ticks (they describe the old clock).
 
 **Frame hooks** (`Engine::Run`; all no-ops without a session):
@@ -117,7 +117,15 @@ Messages are at most 1024 bytes (`kMaxMessageBytes`); there is no fragmentation 
 | `GetClockScale()` | The fixed-step accumulator | Scaled by it: dilation without changing `FixedDeltaTime` |
 | `KeepsBacklog()` | Backlog drop | A server catches up instead of dropping steps |
 
-**Defaults:** the target slack is 3 ticks. That covers ±10 ms of jitter plus two lost packets in a row at 60 Hz.
+**Adaptive slack (NET-14, the Overwatch loop):**
+- **Start:** the target starts at 3 ticks.
+- **Grows:** each command the server reports having repeated (a miss) raises the target by a tick, up to `MaxSlack` (8).
+- **Shrinks:** after `ShrinkAfterSeconds` (3 s) with no misses, it eases down by a quarter tick a second. The floor is `max(MinSlack, 2 × jitter in ticks)`, where jitter is the connection's RTT deviation.
+- **Where it settles:** on a clean link the buffer holds about 1 to 1.5 ticks, so input latency is as low as the link allows. On a 40 ms link with 2% loss it holds about 2.5 ticks.
+- **Turning it off:** `AdaptiveSlack = false` keeps the fixed 3-tick target.
+- **The debug report:** `NetCore`'s client report shows `TargetSlack`.
+
+**Late presses:** a command that arrives after its tick already ran on a repeat isn't simply dropped. Any button it pressed that the repeat didn't have is merged into the next simulated tick, for that tick only (`NetCommandBuffer::GetRecoveredPresses`). A tap arrives a tick or so late instead of never, and the client, which predicted it, sees at worst a small correction.
 
 **Ending (NET-5, protocol 2):**
 

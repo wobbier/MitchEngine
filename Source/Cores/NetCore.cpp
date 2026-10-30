@@ -524,6 +524,7 @@ bool NetCore::WriteReport( const std::string& InPath, double InNow ) const
         report["Tick"] = m_client->GetClock().GetTick();
         report["ServerTick"] = m_client->GetServerTick();
         report["ServerSlack"] = m_client->GetServerSlack();
+        report["TargetSlack"] = m_client->GetClock().GetTargetSlack();
         report["Dilation"] = m_client->GetClock().GetDilation();
         report["Resyncs"] = m_client->GetClock().GetResyncCount();
         report["Connection"] = StatsJson( m_client->GetConnection().GetStats(), connectedSeconds );

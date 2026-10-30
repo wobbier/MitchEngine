@@ -123,6 +123,19 @@ void NetCommandBuffer::Receive( const InputCommand& InCommand, uint32_t InNextTi
         {
             ++m_lateArrivals;
         }
+        // Its tick ran on a repeat: whatever it pressed that the repeat didn't still happens, a
+        // tick or more late, rather than never (the client predicted it).
+        auto repeated = m_repeated.find( InCommand.Tick );
+        if( repeated != m_repeated.end() )
+        {
+            const uint32_t pressed = InCommand.Buttons & ~repeated->second;
+            if( pressed != 0 )
+            {
+                m_pendingPresses |= pressed;
+                ++m_recoveredPresses;
+            }
+            m_repeated.erase( repeated );
+        }
         return;
     }
     if( m_hasReceived && InCommand.Tick > m_newest + kMaxAhead )
@@ -157,6 +170,11 @@ InputCommand NetCommandBuffer::Consume( uint32_t InTick )
         // Missing: keep doing what they were doing (never stall the server).
         m_last.Tick = InTick;
         ++m_missed;
+        m_repeated[InTick] = m_last.Buttons;
+        if( m_repeated.size() > 64 )
+        {
+            m_repeated.erase( m_repeated.begin() );
+        }
     }
     m_commands.erase( m_commands.begin(), m_commands.upper_bound( InTick ) );
 
@@ -170,6 +188,14 @@ InputCommand NetCommandBuffer::Consume( uint32_t InTick )
     else
     {
         m_slack += ( m_lastSample - m_slack ) * 0.1f;
+    }
+    if( m_pendingPresses != 0 )
+    {
+        // This tick only: the merged press isn't repeated if the next command goes missing too.
+        InputCommand merged = m_last;
+        merged.Buttons |= m_pendingPresses;
+        m_pendingPresses = 0;
+        return merged;
     }
     return m_last;
 }

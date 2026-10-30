@@ -201,6 +201,8 @@ private:
     uint16_t m_tickRate = 60;
     std::deque<InputCommand> m_commands;
     bool m_hasReport = false;
+    bool m_hasMissReport = false;
+    uint64_t m_lastMisses = 0;
     uint32_t m_serverTick = 0;
     float m_serverSlack = 0.f;
 };

@@ -298,6 +298,7 @@ void NetServer::EndTick( double InNow )
             state.WriteBool( client->Commands.HasReceived() );
             state.WriteBits( client->Commands.GetNewestTick(), 32 );
             NetQuantize::WriteFloat( state, client->Commands.GetSlack(), -kSlackRange, kSlackRange, kSlackBits );
+            state.WriteVarUInt( client->Commands.GetMissedCount() );
             SendOn( *client->Connection, state, false );
             if( OnPacket )
             {
@@ -441,7 +442,7 @@ void NetClient::HandleReliable( const std::vector<uint8_t>& InMessage, double In
         // The server is half a round trip past that tick by now; run ahead of it by another half
         // (so commands arrive in time) plus the slack.
         const double rttTicks = m_connection.GetStats().RoundTripMs / 1000.0 * m_tickRate;
-        m_clock.Start( serverTick + static_cast<uint32_t>( std::ceil( rttTicks + m_clock.GetSettings().TargetSlack ) ) );
+        m_clock.Start( serverTick + static_cast<uint32_t>( std::ceil( rttTicks + m_clock.GetTargetSlack() ) ) );
         m_state = State::Connected;
         m_connectedAt = InNow;
     }
@@ -475,11 +476,20 @@ void NetClient::HandleUnreliable( const std::vector<uint8_t>& InMessage )
     const bool hasCommands = reader.ReadBool();
     const uint32_t newest = reader.ReadBits( 32 );
     const float slack = NetQuantize::ReadFloat( reader, -kSlackRange, kSlackRange, kSlackBits );
+    const uint64_t misses = reader.ReadVarUInt();
     // Unreliable reports can arrive out of order: only newer ones count.
     if( reader.IsOverflowed() || ( m_hasReport && serverTick <= m_serverTick ) )
     {
         return;
     }
+    // Repeats since the last report (the first only sets the baseline): the clock buffers more.
+    if( m_hasMissReport && misses > m_lastMisses )
+    {
+        m_clock.OnMisses( static_cast<uint32_t>( std::min<uint64_t>( misses - m_lastMisses, 64 ) ) );
+    }
+    m_hasMissReport = true;
+    m_lastMisses = misses;
+    m_clock.SetJitter( m_connection.GetStats().RoundTripDeviationMs / 1000.0 );
     m_hasReport = true;
     m_serverTick = serverTick;
     if( hasCommands )

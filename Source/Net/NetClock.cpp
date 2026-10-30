@@ -6,7 +6,48 @@
 
 NetClock::NetClock( const NetClockSettings& InSettings )
     : m_settings( InSettings )
+    , m_target( InSettings.TargetSlack )
+    , m_floor( InSettings.MinSlack )
 {
+}
+
+
+uint32_t NetClock::TakeTick()
+{
+    if( m_settings.AdaptiveSlack )
+    {
+        // A clean run eases the target down: a quarter tick a second after ShrinkAfterSeconds.
+        const uint32_t perSecond = static_cast<uint32_t>( std::max( 1.0, std::round( 1.0 / m_settings.TickSeconds ) ) );
+        const uint32_t after = static_cast<uint32_t>( m_settings.ShrinkAfterSeconds * perSecond );
+        if( ++m_cleanTicks > after && ( m_cleanTicks - after ) % perSecond == 0 )
+        {
+            m_target = std::max( m_floor, m_target - m_settings.ShrinkPerSecond );
+        }
+    }
+    return m_tick++;
+}
+
+
+void NetClock::OnMisses( uint32_t InMisses )
+{
+    if( !m_settings.AdaptiveSlack || InMisses == 0 )
+    {
+        return;
+    }
+    m_target = std::min( m_settings.MaxSlack, m_target + static_cast<float>( InMisses ) );
+    m_cleanTicks = 0;
+}
+
+
+void NetClock::SetJitter( double InSeconds )
+{
+    if( !m_settings.AdaptiveSlack )
+    {
+        return;
+    }
+    const float jitterTicks = static_cast<float>( std::max( 0.0, InSeconds ) / m_settings.TickSeconds );
+    m_floor = std::min( m_settings.MaxSlack, std::max( m_settings.MinSlack, std::ceil( 2.f * jitterTicks ) ) );
+    m_target = std::max( m_target, m_floor );
 }
 
 
@@ -34,7 +75,7 @@ void NetClock::OnSlackReport( float InSlack )
     {
         return;
     }
-    const float error = InSlack - m_settings.TargetSlack;
+    const float error = InSlack - m_target;
     if( std::abs( error ) > m_settings.ResyncTicks )
     {
         // Too far ahead: step back (the commands for those ticks get sent again); too far behind:
