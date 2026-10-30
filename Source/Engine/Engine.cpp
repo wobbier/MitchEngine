@@ -251,6 +251,32 @@ void Engine::Init( Game* game )
     {
         ModManager::Get().Apply();
     }
+#if !USING( ME_RETAIL )
+    // Dev builds report to .tmp/Crashes, or under a --user-dir (hermetic tests, PLAY-9).
+    if( CommandLine::Has( "--user-dir" ) )
+    {
+        CrashHandler::SetDirectory( ( std::filesystem::path( VFS::Get().GetUserRoot() ) / "Crashes" ).string() );
+    }
+#endif
+    // PLAY-9: the last session crashed. Say so once (a message box for a player, the log for
+    // automation), keep the reports for the game (GetPreviousCrashReports: an upload hook), and
+    // mark them seen.
+    m_previousCrashReports = CrashHandler::FindNewReports();
+    if( !m_previousCrashReports.empty() )
+    {
+        const std::string& report = m_previousCrashReports.back();
+        CLog::GetInstance().Log( CLog::LogType::Warning, "Crash: the previous session crashed; its report is " + report );
+#if !USING( ME_HEADLESS )
+        if( !AutomationRunner::IsUnattendedRun() )
+        {
+            const std::string title = ProjectSettings::Get().ProductName + " closed unexpectedly";
+            const std::string message = "The last session ended in a crash. A report was saved to:\n\n" + report
+                + "\n\nIf it keeps happening, please send it to the developers.";
+            SDL_ShowSimpleMessageBox( SDL_MESSAGEBOX_WARNING, title.c_str(), message.c_str(), nullptr );
+        }
+#endif
+        CrashHandler::AcknowledgeReports();
+    }
 #if USING( ME_RETAIL )
     // The log and crash reports join the player's other state. Unattended runs (automation reads
     // stdout) keep no log file unless given a --user-dir.

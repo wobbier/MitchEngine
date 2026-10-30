@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <vector>
 
 namespace CrashHandler
 {
@@ -13,4 +14,13 @@ namespace CrashHandler
 
     // Path of the report a crash in this session would be written to.
     const std::string& GetReportPath();
+
+    // PLAY-9: reports in the current directory that an earlier session wrote and nobody has
+    // acknowledged yet (oldest first). The engine shows them at start-up, then acknowledges them
+    // (<dir>/Acknowledged.txt names the newest one seen).
+    std::vector<std::string> FindNewReports();
+    void AcknowledgeReports();
+
+    // A deliberate crash through the real fault path (--crash-test).
+    [[noreturn]] void CrashForTest();
 }

@@ -10,6 +10,7 @@
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <algorithm>
 
 #if USING( ME_PLATFORM_WIN64 )
 #include <windows.h>
@@ -178,7 +179,15 @@ namespace CrashHandler
         std::error_code ec;
         std::filesystem::create_directories( crashDirectory, ec );
 
+        // Time, then the process: two sessions in one second (a crash and the relaunch that reports
+        // it) still get their own names.
+#if USING( ME_PLATFORM_WIN64 )
+        const std::string stamp = MakeTimestamp() + "_" + std::to_string( GetCurrentProcessId() );
+#elif !USING( ME_PLATFORM_WINDOWS )
+        const std::string stamp = MakeTimestamp() + "_" + std::to_string( getpid() );
+#else
         const std::string stamp = MakeTimestamp();
+#endif
         s_reportPath = ( std::filesystem::path( crashDirectory ) / ( "crash_" + stamp + ".txt" ) ).string();
         s_dumpPath = ( std::filesystem::path( crashDirectory ) / ( "crash_" + stamp + ".dmp" ) ).string();
     }
@@ -217,5 +226,56 @@ namespace CrashHandler
     const std::string& GetReportPath()
     {
         return s_reportPath;
+    }
+
+
+    std::vector<std::string> FindNewReports()
+    {
+        namespace fs = std::filesystem;
+        const fs::path directory = fs::path( s_reportPath ).parent_path();
+        std::string acknowledged;
+        {
+            std::ifstream marker( directory / "Acknowledged.txt" );
+            std::getline( marker, acknowledged );
+        }
+        std::vector<std::string> reports;
+        std::error_code error;
+        for( const fs::directory_entry& entry : fs::directory_iterator( directory, error ) )
+        {
+            const std::string name = entry.path().filename().string();
+            // crash_<YYYYmmdd_HHMMSS>.txt sorts by time; this session's own isn't a previous one.
+            if( name.rfind( "crash_", 0 ) == 0 && entry.path().extension() == ".txt" && name > acknowledged
+                && entry.path().string() != s_reportPath )
+            {
+                reports.push_back( entry.path().string() );
+            }
+        }
+        std::sort( reports.begin(), reports.end() );
+        return reports;
+    }
+
+
+    void AcknowledgeReports()
+    {
+        const std::vector<std::string> reports = FindNewReports();
+        if( reports.empty() )
+        {
+            return;
+        }
+        std::ofstream marker( std::filesystem::path( s_reportPath ).parent_path() / "Acknowledged.txt" );
+        marker << std::filesystem::path( reports.back() ).filename().string() << "\n";
+    }
+
+
+    void CrashForTest()
+    {
+        CLog::Log( CLog::LogType::Warning, "Crash: --crash-test, crashing on purpose" );
+        CLog::GetInstance().Flush();
+#if USING( ME_PLATFORM_WIN64 )
+        RaiseException( EXCEPTION_ACCESS_VIOLATION, 0, 0, nullptr );
+#elif !USING( ME_PLATFORM_WINDOWS )
+        raise( SIGSEGV );
+#endif
+        std::abort();
     }
 }

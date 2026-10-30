@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "AutomationRunner.h"
 #include "Core/CommandLine.h"
+#include "Core/CrashHandler.h"
 #include "Engine/HardwareBudget.h"
 #include "Profiling/FrameStats.h"
 #include "Renderer.h"
@@ -50,6 +51,11 @@ bool AutomationRunner::OnFrameEnd( BGFXRenderer& renderer, double frameMilliseco
     }
 
     ++m_frameIndex;
+    // PLAY-9: --crash-test crashes once the first frames are up (window, renderer, .NET).
+    if( m_frameIndex == 2 && CommandLine::Has( "--crash-test" ) )
+    {
+        CrashHandler::CrashForTest();
+    }
     const double nowSeconds = std::chrono::duration<double>( std::chrono::steady_clock::now().time_since_epoch() ).count();
     if( m_lastFrameEndSeconds >= 0.0 && m_frameIndex > static_cast<uint64_t>( m_warmupFrames ) && !m_screenshotRequested )
     {

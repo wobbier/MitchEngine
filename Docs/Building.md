@@ -151,6 +151,13 @@ A Retail run leaves its own folder byte-for-byte unchanged. Install folders can 
 
 - **Log:** `user://Logs/Engine.txt` (the OS per-user folder: `SDL_GetPrefPath( Org, Product )`). Lines logged before user:// is known are held, then written first. Unattended runs (`--frames`, `--screenshot`...) keep no log file unless given `--user-dir`; their output is stdout.
 - **Crash reports:** `user://Crashes/`. Before user:// is known they go to `<temp>/MitchEngine/Crashes/`. The handlers are installed once, at startup; later the directory only moves (`CrashHandler::SetDirectory`), because .NET chains its own signal handlers over them.
+- **After a crash (PLAY-9):** the next launch tells the player once, with an "<Product> closed unexpectedly" message box naming the report.
+  - **Automation:** unattended runs log `Crash: the previous session crashed; its report is ...` instead.
+  - **Marking seen:** `Crashes/Acknowledged.txt` names the newest report shown.
+  - **Report names:** `crash_<date>_<time>_<pid>.txt`, so a crash and the relaunch that reports it never share a name.
+  - **Uploading:** `Engine::GetPreviousCrashReports()` lists the reports for a game's own upload hook.
+  - **Dev builds:** reports go to `.tmp/Crashes`, or `<user-dir>/Crashes` with `--user-dir`.
+  - **Testing:** `--crash-test` (with `--frames`) crashes on frame 2 through the real fault path. RunChecks' "Crash reports" step crashes, relaunches and checks for the one-time report.
 - **Asset metadata cache:** never written in Retail or cooked/pak runs (`AssetMetaCache::SetReadOnly`), and never created just by starting up.
 - **FMOD:** Retail links FMOD's release libraries (`fmod`, `fmod_vc.lib`), not the logging ones that write `fmod_log.txt`; Build Game bundles `libfmod.so.13`.
 

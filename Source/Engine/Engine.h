@@ -128,8 +128,12 @@ public:
     // 0 = uncapped.
     void SetMaxFrameRate( float InFramesPerSecond );
     float GetMaxFrameRate() const { return m_maxFrameRate; }
+    // PLAY-9: crash reports an earlier session left (found at start-up, then marked seen), oldest
+    // first: what a game's upload hook would send.
+    const std::vector<std::string>& GetPreviousCrashReports() const { return m_previousCrashReports; }
 private:
     Input m_input;
+    std::vector<std::string> m_previousCrashReports;
     std::shared_ptr<World> GameWorld;
     bool Running = false;
     IWindow* GameWindow = nullptr;

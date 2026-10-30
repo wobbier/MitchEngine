@@ -353,6 +353,22 @@ if [[ -f Assets/Scenes/Tests/NetTest.lvl ]]; then
     fi
 fi
 
+# Crash UX (PLAY-9): --crash-test crashes a game run (a report under its --user-dir), and the next
+# launch reports it once (then it's acknowledged: a third launch is quiet).
+step "Crash reports"
+rm -rf .tmp/CrashCheck
+crash_game=( "$here/Headless.sh" .build/Game_linux_Debug/Game_EntryPoint_x64 --scene Assets/Scenes/Tests/HierarchyTest.lvl --user-dir .tmp/CrashCheck --no-audio )
+"${crash_game[@]}" --crash-test --frames 30 > .tmp/RunChecks.crash1.log 2>&1
+"${crash_game[@]}" --frames 10 --exit > .tmp/RunChecks.crash2.log 2>&1
+"${crash_game[@]}" --frames 10 --exit > .tmp/RunChecks.crash3.log 2>&1
+if ls .tmp/CrashCheck/Crashes/crash_*.txt > /dev/null 2>&1 && grep -q "Crash: the previous session crashed" .tmp/RunChecks.crash2.log \
+        && ! grep -q "Crash: the previous session crashed" .tmp/RunChecks.crash3.log; then
+    echo "ok    Crash reports (written, reported on the next launch once)"
+else
+    echo "FAIL  Crash reports: see .tmp/RunChecks.crash{1,2,3}.log"
+    failed+=("crash reports")
+fi
+
 # Test scenes with a committed reference (UITest and friends) regress the same way.
 # (A plain glob test: the devshell's bash is built without compgen.)
 test_references=(Assets/Scenes/Tests/Reference/*.png)
