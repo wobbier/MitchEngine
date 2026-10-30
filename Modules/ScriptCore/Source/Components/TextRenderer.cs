@@ -14,7 +14,7 @@ public class TextRenderer : Component
             unsafe { fixed (byte* b = buffer) length = Engine._api.Text_GetText(Entity, b, buffer.Length); }
             return Encoding.UTF8.GetString(buffer, 0, System.Math.Clamp(length, 0, buffer.Length - 1));
         }
-        set { unsafe { fixed (byte* t = Engine.Utf8(value)) Engine._api.Text_SetText(Entity, t); } }
+        set { unsafe { fixed (byte* t = Engine.Utf8(value, stackalloc byte[Engine.Utf8StackSize])) Engine._api.Text_SetText(Entity, t); } }
     }
 
     // sRGB colour (rgb) and opacity (a).

@@ -62,7 +62,7 @@ public static unsafe class Settings
     // path ("Keyboard/J", "Gamepad/North"). False for an unknown action, binding or control.
     public static bool Rebind(string action, int binding, string control, string part = "")
     {
-        fixed (byte* a = Engine.Utf8(action)) fixed (byte* p = Engine.Utf8(part ?? "")) fixed (byte* c = Engine.Utf8(control))
+        fixed (byte* a = Engine.Utf8(action, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* p = Engine.Utf8(part ?? "", stackalloc byte[Engine.Utf8StackSize])) fixed (byte* c = Engine.Utf8(control, stackalloc byte[Engine.Utf8StackSize]))
             return Engine._api.Settings_Rebind(a, binding, p, c) != 0;
     }
 
@@ -117,7 +117,7 @@ public static unsafe class Settings
     // False (and an error in the log) when the key or the value is rejected.
     public static bool SetJson(string key, string json)
     {
-        fixed (byte* k = Engine.Utf8(key)) fixed (byte* v = Engine.Utf8(json)) return Engine._api.Settings_Set(k, v) != 0;
+        fixed (byte* k = Engine.Utf8(key, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* v = Engine.Utf8(json, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Settings_Set(k, v) != 0;
     }
 
     private static string GetStringKey(string key, string fallback = "")

@@ -75,7 +75,7 @@ public readonly struct Entity : IEquatable<Entity>
                 return Encoding.UTF8.GetString(buffer, 0, length);
             }
         }
-        set { unsafe { fixed (byte* p = Engine.Utf8(value)) Engine._api.Entity_SetName(this, p); } }
+        set { unsafe { fixed (byte* p = Engine.Utf8(value, stackalloc byte[Engine.Utf8StackSize])) Engine._api.Entity_SetName(this, p); } }
     }
 
     // what is life?
@@ -85,12 +85,12 @@ public readonly struct Entity : IEquatable<Entity>
     // C# or not; its fields are reachable through Component.GetField / SetField.
     public bool HasComponent(string component)
     {
-        unsafe { fixed (byte* p = Engine.Utf8(component)) return Engine._api.Entity_HasComponent(this, p) != 0; }
+        unsafe { fixed (byte* p = Engine.Utf8(component, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Entity_HasComponent(this, p) != 0; }
     }
 
     public void AddComponent(string component)
     {
-        unsafe { fixed (byte* p = Engine.Utf8(component)) Engine._api.Entity_AddComponent(this, p); }
+        unsafe { fixed (byte* p = Engine.Utf8(component, stackalloc byte[Engine.Utf8StackSize])) Engine._api.Entity_AddComponent(this, p); }
     }
 
     public bool HasComponent<T>() where T : Component, new()

@@ -514,29 +514,29 @@ public static unsafe class Input
     // Actions from the project's .inputactions map (Engine/Docs/Input.md).
     public static float GetAction(string action)
     {
-        fixed (byte* p = Engine.Utf8(action)) return Engine._api.Input_GetActionValue(p);
+        fixed (byte* p = Engine.Utf8(action, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Input_GetActionValue(p);
     }
 
     public static Vector2 GetActionVector2(string action)
     {
         Vector2 v;
-        fixed (byte* p = Engine.Utf8(action)) Engine._api.Input_GetActionVector2(p, &v);
+        fixed (byte* p = Engine.Utf8(action, stackalloc byte[Engine.Utf8StackSize])) Engine._api.Input_GetActionVector2(p, &v);
         return v;
     }
 
     public static bool IsActionPressed(string action)
     {
-        fixed (byte* p = Engine.Utf8(action)) return Engine._api.Input_IsActionPressed(p) != 0;
+        fixed (byte* p = Engine.Utf8(action, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Input_IsActionPressed(p) != 0;
     }
 
     public static bool WasActionPressed(string action)
     {
-        fixed (byte* p = Engine.Utf8(action)) return Engine._api.Input_WasActionPressed(p) != 0;
+        fixed (byte* p = Engine.Utf8(action, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Input_WasActionPressed(p) != 0;
     }
 
     public static bool WasActionReleased(string action)
     {
-        fixed (byte* p = Engine.Utf8(action)) return Engine._api.Input_WasActionReleased(p) != 0;
+        fixed (byte* p = Engine.Utf8(action, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Input_WasActionReleased(p) != 0;
     }
 
     // Local multiplayer: player 0 is the default player (the methods above). Other players have
@@ -558,28 +558,28 @@ public readonly unsafe struct PlayerInput
 
     public float GetAction(string action)
     {
-        fixed (byte* p = Engine.Utf8(action)) return Engine._api.Input_GetPlayerActionValue(Index, p);
+        fixed (byte* p = Engine.Utf8(action, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Input_GetPlayerActionValue(Index, p);
     }
 
     public Vector2 GetActionVector2(string action)
     {
         Vector2 v;
-        fixed (byte* p = Engine.Utf8(action)) Engine._api.Input_GetPlayerActionVector2(Index, p, &v);
+        fixed (byte* p = Engine.Utf8(action, stackalloc byte[Engine.Utf8StackSize])) Engine._api.Input_GetPlayerActionVector2(Index, p, &v);
         return v;
     }
 
     public bool IsActionPressed(string action)
     {
-        fixed (byte* p = Engine.Utf8(action)) return Engine._api.Input_IsPlayerActionPressed(Index, p) != 0;
+        fixed (byte* p = Engine.Utf8(action, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Input_IsPlayerActionPressed(Index, p) != 0;
     }
 
     public bool WasActionPressed(string action)
     {
-        fixed (byte* p = Engine.Utf8(action)) return Engine._api.Input_WasPlayerActionPressed(Index, p) != 0;
+        fixed (byte* p = Engine.Utf8(action, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Input_WasPlayerActionPressed(Index, p) != 0;
     }
 
     public bool WasActionReleased(string action)
     {
-        fixed (byte* p = Engine.Utf8(action)) return Engine._api.Input_WasPlayerActionReleased(Index, p) != 0;
+        fixed (byte* p = Engine.Utf8(action, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Input_WasPlayerActionReleased(Index, p) != 0;
     }
 }

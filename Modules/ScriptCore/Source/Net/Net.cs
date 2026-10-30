@@ -185,7 +185,7 @@ public static unsafe class Net
         }
         if (_actionIndices.TryGetValue(action, out int index)) return index;
         if (Engine._api.Net_GetActionIndex == null) return -1;
-        fixed (byte* p = Engine.Utf8(action)) index = Engine._api.Net_GetActionIndex(p);
+        fixed (byte* p = Engine.Utf8(action, stackalloc byte[Engine.Utf8StackSize])) index = Engine._api.Net_GetActionIndex(p);
         _actionIndices[action] = index;
         return index;
     }

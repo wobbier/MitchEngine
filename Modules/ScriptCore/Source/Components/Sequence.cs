@@ -8,22 +8,22 @@ public class Sequence : Component
     public bool Play(string clipName, bool restart = true)
     {
         if (string.IsNullOrEmpty(clipName)) return false;
-        unsafe { fixed (byte* p = Engine.Utf8(clipName)) return Engine._api.Sequence_PlayClip(Entity, p, restart ? (byte)1 : (byte)0) != 0; }
+        unsafe { fixed (byte* p = Engine.Utf8(clipName, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Sequence_PlayClip(Entity, p, restart ? (byte)1 : (byte)0) != 0; }
     }
     public bool PlayAsset(string assetPath, bool restart = true)
     {
         if (string.IsNullOrEmpty(assetPath)) return false;
-        unsafe { fixed (byte* p = Engine.Utf8(assetPath)) return Engine._api.Sequence_PlayAsset(Entity, p, restart ? (byte)1 : (byte)0) != 0; }
+        unsafe { fixed (byte* p = Engine.Utf8(assetPath, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Sequence_PlayAsset(Entity, p, restart ? (byte)1 : (byte)0) != 0; }
     }
     public bool HasClip(string clipName)
     {
         if (string.IsNullOrEmpty(clipName)) return false;
-        unsafe { fixed (byte* p = Engine.Utf8(clipName)) return Engine._api.Sequence_HasClip(Entity, p) != 0; }
+        unsafe { fixed (byte* p = Engine.Utf8(clipName, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Sequence_HasClip(Entity, p) != 0; }
     }
     public void Bind(string slot, Entity target)
     {
         if (string.IsNullOrEmpty(slot)) return;
-        unsafe { fixed (byte* p = Engine.Utf8(slot)) Engine._api.Sequence_Bind(Entity, p, target); }
+        unsafe { fixed (byte* p = Engine.Utf8(slot, stackalloc byte[Engine.Utf8StackSize])) Engine._api.Sequence_Bind(Entity, p, target); }
     }
     public void Pause() { unsafe { Engine._api.Sequence_Pause(Entity); } }
     public void Stop() { unsafe { Engine._api.Sequence_Stop(Entity); } }

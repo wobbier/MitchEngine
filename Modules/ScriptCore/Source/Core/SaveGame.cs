@@ -35,17 +35,17 @@ public static unsafe class SaveGame
     // Slot names are letters, digits, '-' and '_'. False when the name is invalid or there's no scene.
     public static bool Save(string slot, string name = "")
     {
-        fixed (byte* s = Engine.Utf8(slot)) fixed (byte* n = Engine.Utf8(name ?? "")) return Engine._api.SaveGame_Save(s, n) != 0;
+        fixed (byte* s = Engine.Utf8(slot, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* n = Engine.Utf8(name ?? "", stackalloc byte[Engine.Utf8StackSize])) return Engine._api.SaveGame_Save(s, n) != 0;
     }
 
     public static bool Load(string slot)
     {
-        fixed (byte* s = Engine.Utf8(slot)) return Engine._api.SaveGame_Load(s) != 0;
+        fixed (byte* s = Engine.Utf8(slot, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.SaveGame_Load(s) != 0;
     }
 
     public static bool Delete(string slot)
     {
-        fixed (byte* s = Engine.Utf8(slot)) return Engine._api.SaveGame_Delete(s) != 0;
+        fixed (byte* s = Engine.Utf8(slot, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.SaveGame_Delete(s) != 0;
     }
 
     public static bool Exists(string slot)

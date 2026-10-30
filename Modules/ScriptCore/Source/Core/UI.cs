@@ -16,7 +16,7 @@ public static class UI
 {
     public static UIModel Model(string name)
     {
-        unsafe { fixed (byte* m = Engine.Utf8(name)) Engine._api.UIModel_Ensure(m); }
+        unsafe { fixed (byte* m = Engine.Utf8(name, stackalloc byte[Engine.Utf8StackSize])) Engine._api.UIModel_Ensure(m); }
         return new UIModel(name);
     }
 
@@ -28,12 +28,12 @@ public static class UI
 
     public static bool IsVisible(string entityName)
     {
-        unsafe { fixed (byte* n = Engine.Utf8(entityName)) return Engine._api.UI_IsDocumentVisible(n) != 0; }
+        unsafe { fixed (byte* n = Engine.Utf8(entityName, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.UI_IsDocumentVisible(n) != 0; }
     }
 
     private static bool SetVisible(string entityName, int mode)
     {
-        unsafe { fixed (byte* n = Engine.Utf8(entityName)) return Engine._api.UI_SetDocumentVisible(n, mode) != 0; }
+        unsafe { fixed (byte* n = Engine.Utf8(entityName, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.UI_SetDocumentVisible(n, mode) != 0; }
     }
 }
 
@@ -45,25 +45,25 @@ public readonly struct UIModel
 
     public void Set(string key, double value)
     {
-        unsafe { fixed (byte* m = Engine.Utf8(Name)) fixed (byte* k = Engine.Utf8(key)) Engine._api.UIModel_SetNumber(m, k, value); }
+        unsafe { fixed (byte* m = Engine.Utf8(Name, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* k = Engine.Utf8(key, stackalloc byte[Engine.Utf8StackSize])) Engine._api.UIModel_SetNumber(m, k, value); }
     }
 
     public void Set(string key, bool value) => Set(key, value ? 1.0 : 0.0);
 
     public void Set(string key, string value)
     {
-        unsafe { fixed (byte* m = Engine.Utf8(Name)) fixed (byte* k = Engine.Utf8(key)) fixed (byte* v = Engine.Utf8(value ?? "")) Engine._api.UIModel_SetString(m, k, v); }
+        unsafe { fixed (byte* m = Engine.Utf8(Name, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* k = Engine.Utf8(key, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* v = Engine.Utf8(value ?? "", stackalloc byte[Engine.Utf8StackSize])) Engine._api.UIModel_SetString(m, k, v); }
     }
 
     // Registers a data-event name the document can raise (data-event-click="name").
     public void On(string eventName)
     {
-        unsafe { fixed (byte* m = Engine.Utf8(Name)) fixed (byte* k = Engine.Utf8(eventName)) Engine._api.UIModel_RegisterEvent(m, k); }
+        unsafe { fixed (byte* m = Engine.Utf8(Name, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* k = Engine.Utf8(eventName, stackalloc byte[Engine.Utf8StackSize])) Engine._api.UIModel_RegisterEvent(m, k); }
     }
 
     public double GetNumber(string key)
     {
-        unsafe { fixed (byte* m = Engine.Utf8(Name)) fixed (byte* k = Engine.Utf8(key)) return Engine._api.UIModel_GetNumber(m, k); }
+        unsafe { fixed (byte* m = Engine.Utf8(Name, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* k = Engine.Utf8(key, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.UIModel_GetNumber(m, k); }
     }
 
     public string GetString(string key)
@@ -72,7 +72,7 @@ public readonly struct UIModel
         {
             var buffer = new byte[512];
             int length;
-            fixed (byte* m = Engine.Utf8(Name)) fixed (byte* k = Engine.Utf8(key)) fixed (byte* b = buffer)
+            fixed (byte* m = Engine.Utf8(Name, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* k = Engine.Utf8(key, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* b = buffer)
                 length = Engine._api.UIModel_GetString(m, k, b, buffer.Length);
             return Encoding.UTF8.GetString(buffer, 0, System.Math.Clamp(length, 0, buffer.Length));
         }
@@ -85,7 +85,7 @@ public readonly struct UIModel
         {
             var buffer = new byte[256];
             int length;
-            fixed (byte* m = Engine.Utf8(Name)) fixed (byte* b = buffer)
+            fixed (byte* m = Engine.Utf8(Name, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* b = buffer)
                 length = Engine._api.UIModel_PollEvent(m, b, buffer.Length);
             return length > 0 ? Encoding.UTF8.GetString(buffer, 0, System.Math.Min(length, buffer.Length)) : "";
         }

@@ -132,6 +132,8 @@ Only public fields survive. Private state, statics and references are rebuilt in
 
 ### Calling the engine from C#
 
+**Strings into the engine (ME-300):** wrappers pass strings as `fixed (byte* p = Engine.Utf8(s, stackalloc byte[Engine.Utf8StackSize]))`. The string is encoded NUL-terminated into the caller's stack, so a per-frame `Animator.SetFloat("Speed", v)` makes no garbage. Only strings over 256 UTF-8 bytes fall back to an array. Use the same form in new wrappers; the one-argument `Engine.Utf8(s)` allocates.
+
 The API is 120 functions (`ScriptAPI.def`). Strings cross as UTF-8 `byte*`, entities as the raw 64-bit `EntityID`, and vectors by pointer.
 
 | Area | C# surface |

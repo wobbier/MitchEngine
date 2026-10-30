@@ -5,7 +5,7 @@ public static unsafe class World
     public static Entity CreateEntity( string name )
     {
         Entity e = default;
-        fixed (byte* p = Engine.Utf8(name)) Engine._api.World_CreateEntity(p, &e);
+        fixed (byte* p = Engine.Utf8(name, stackalloc byte[Engine.Utf8StackSize])) Engine._api.World_CreateEntity(p, &e);
         return e;
     }
 
@@ -13,7 +13,7 @@ public static unsafe class World
     public static Entity Find( string name )
     {
         Entity e = default;
-        fixed (byte* p = Engine.Utf8(name)) Engine._api.World_FindByName(p, &e);
+        fixed (byte* p = Engine.Utf8(name, stackalloc byte[Engine.Utf8StackSize])) Engine._api.World_FindByName(p, &e);
         return e;
     }
 
@@ -22,7 +22,7 @@ public static unsafe class World
     public static Entity Instantiate( string prefab, Entity parent = default )
     {
         Entity e = default;
-        fixed (byte* p = Engine.Utf8(prefab)) Engine._api.World_Instantiate(p, parent, &e);
+        fixed (byte* p = Engine.Utf8(prefab, stackalloc byte[Engine.Utf8StackSize])) Engine._api.World_Instantiate(p, parent, &e);
         return e;
     }
 
@@ -30,7 +30,7 @@ public static unsafe class World
     // Loads a scene at the end of this frame.
     public static void LoadScene( string scene )
     {
-        fixed (byte* p = Engine.Utf8(scene)) Engine._api.World_LoadScene(p);
+        fixed (byte* p = Engine.Utf8(scene, stackalloc byte[Engine.Utf8StackSize])) Engine._api.World_LoadScene(p);
     }
 
 
@@ -40,7 +40,7 @@ public static unsafe class World
     // = no screen. False when the scene doesn't exist or a load is already running.
     public static bool LoadSceneAsync( string scene, string loadingScreen = "" )
     {
-        fixed (byte* p = Engine.Utf8(scene)) fixed (byte* d = Engine.Utf8(loadingScreen ?? "")) return Engine._api.World_LoadSceneAsync(p, d) != 0;
+        fixed (byte* p = Engine.Utf8(scene, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* d = Engine.Utf8(loadingScreen ?? "", stackalloc byte[Engine.Utf8StackSize])) return Engine._api.World_LoadSceneAsync(p, d) != 0;
     }
 
     // 0..1 while LoadSceneAsync runs; 1 otherwise.
@@ -53,7 +53,7 @@ public static unsafe class World
     // frame: watch SceneState. Its entities unload together and go when the main scene changes.
     public static int LoadSceneAdditive( string scene, bool async = true )
     {
-        fixed (byte* p = Engine.Utf8(scene)) return Engine._api.World_LoadSceneAdditive(p, async ? (byte)1 : (byte)0);
+        fixed (byte* p = Engine.Utf8(scene, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.World_LoadSceneAdditive(p, async ? (byte)1 : (byte)0);
     }
 
 

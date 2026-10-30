@@ -37,6 +37,22 @@ public static unsafe class Engine
         Encoding.UTF8.GetBytes(s, b);
         return b;
     }
+
+    // ME-300: a string for the engine API without garbage. Encodes it NUL-terminated into the
+    // caller's stack buffer; only strings that don't fit it allocate:
+    //   fixed (byte* p = Engine.Utf8(name, stackalloc byte[Engine.Utf8StackSize])) _api.X(p);
+    public const int Utf8StackSize = 256;
+
+    public static ReadOnlySpan<byte> Utf8(string s, Span<byte> scratch)
+    {
+        if ((s.Length + 1) * 3 > scratch.Length && Encoding.UTF8.GetByteCount(s) + 1 > scratch.Length)
+        {
+            return Utf8(s);
+        }
+        int written = Encoding.UTF8.GetBytes(s, scratch);
+        scratch[written] = 0;
+        return scratch.Slice(0, written + 1);
+    }
 }
 
 public static partial class ScriptBridge

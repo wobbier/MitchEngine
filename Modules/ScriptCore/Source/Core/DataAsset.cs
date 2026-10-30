@@ -56,7 +56,7 @@ public static class DataAssets
         string json = "{\"Type\": " + JsonSerializer.Serialize(asset.GetType().Name) + ", \"Fields\": " + ScriptSerializer.Serialize(asset) + "}";
         using var doc = JsonDocument.Parse(json);
         string pretty = JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true });
-        unsafe { fixed (byte* p = Engine.Utf8(asset.AssetPath)) fixed (byte* t = Engine.Utf8(pretty)) return Engine._api.Asset_WriteText(p, t) != 0; }
+        unsafe { fixed (byte* p = Engine.Utf8(asset.AssetPath, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* t = Engine.Utf8(pretty, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Asset_WriteText(p, t) != 0; }
     }
 
     public static IReadOnlyList<Type> AssetTypes => Types;
@@ -93,12 +93,12 @@ public static class DataAssets
         type = ""; fields = "{}";
         var buffer = new byte[4096];
         int length;
-        fixed (byte* p = Engine.Utf8(path)) fixed (byte* b = buffer) length = Engine._api.Asset_ReadText(p, b, buffer.Length);
+        fixed (byte* p = Engine.Utf8(path, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* b = buffer) length = Engine._api.Asset_ReadText(p, b, buffer.Length);
         if (length < 0) return false;
         if (length >= buffer.Length)
         {
             buffer = new byte[length + 1];
-            fixed (byte* p = Engine.Utf8(path)) fixed (byte* b = buffer) length = Engine._api.Asset_ReadText(p, b, buffer.Length);
+            fixed (byte* p = Engine.Utf8(path, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* b = buffer) length = Engine._api.Asset_ReadText(p, b, buffer.Length);
         }
         try
         {

@@ -7,12 +7,12 @@ public static unsafe class Debug
 
     public static void Warning(string message)
     {
-        fixed (byte* p = Engine.Utf8(message)) Engine._api.LogWarning(p);
+        fixed (byte* p = Engine.Utf8(message, stackalloc byte[Engine.Utf8StackSize])) Engine._api.LogWarning(p);
     }
 
     public static void Error(string message)
     {
-        fixed (byte* p = Engine.Utf8(message)) Engine._api.LogError(p);
+        fixed (byte* p = Engine.Utf8(message, stackalloc byte[Engine.Utf8StackSize])) Engine._api.LogError(p);
     }
 
     public static void Error(object value) => Error(value?.ToString() ?? "null");

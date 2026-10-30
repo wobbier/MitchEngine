@@ -21,7 +21,7 @@ public struct EntityRef
         unsafe
         {
             Entity id;
-            fixed (byte* p = Engine.Utf8(Guid))
+            fixed (byte* p = Engine.Utf8(Guid, stackalloc byte[Engine.Utf8StackSize]))
             {
                 return Engine._api.World_FindByGuid(p, &id) != 0 ? id : Entity.Null;
             }

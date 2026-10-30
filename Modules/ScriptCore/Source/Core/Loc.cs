@@ -11,7 +11,7 @@ namespace ScriptCore;
 //   Loc.Language = "es";                     // a player setting: saved, and documents reload
 public static unsafe class Loc
 {
-    public static string Get(string key) => Read((b, n) => { fixed (byte* k = Engine.Utf8(key)) return Engine._api.Loc_Get(k, b, n); });
+    public static string Get(string key) => Read((b, n) => { fixed (byte* k = Engine.Utf8(key, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Loc_Get(k, b, n); });
 
     // "" = none. Setting it changes the player's Language setting.
     public static string Language

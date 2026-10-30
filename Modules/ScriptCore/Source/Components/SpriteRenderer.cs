@@ -22,13 +22,13 @@ public class SpriteRenderer : Component
     // A sprite from another sheet (a .spritesheet path); "" keeps the current sheet.
     public void SetSprite(string sheet, string sprite)
     {
-        unsafe { fixed (byte* s = Engine.Utf8(sheet)) fixed (byte* n = Engine.Utf8(sprite)) Engine._api.Sprite_SetSprite(Entity, s, n); }
+        unsafe { fixed (byte* s = Engine.Utf8(sheet, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* n = Engine.Utf8(sprite, stackalloc byte[Engine.Utf8StackSize])) Engine._api.Sprite_SetSprite(Entity, s, n); }
     }
 
     // A plain image instead of (or under) the sheet's.
     public string Texture
     {
-        set { unsafe { fixed (byte* t = Engine.Utf8(value)) Engine._api.Sprite_SetTexture(Entity, t); } }
+        set { unsafe { fixed (byte* t = Engine.Utf8(value, stackalloc byte[Engine.Utf8StackSize])) Engine._api.Sprite_SetTexture(Entity, t); } }
     }
 
     public bool FlipX
