@@ -1,7 +1,9 @@
 using System;
 using System.Runtime.InteropServices;
 
-// xyzw, identity = (0, 0, 0, 1) — matching the engine's Quaternion layout.
+/// <summary>
+/// xyzw, identity = (0, 0, 0, 1) — matching the engine's Quaternion layout.
+/// </summary>
 [StructLayout(LayoutKind.Sequential)]
 public struct Quaternion
 {
@@ -35,7 +37,9 @@ public struct Quaternion
         }
     }
 
-    // Euler angles in degrees, the engine's convention (Transform.Rotation; glm's quat(vec3)).
+    /// <summary>
+    /// Euler angles in degrees, the engine's convention (Transform.Rotation; glm's quat(vec3)).
+    /// </summary>
     public static Quaternion Euler(Vector3 degrees)
     {
         float hx = degrees.x * Mathf.Deg2Rad * 0.5f, hy = degrees.y * Mathf.Deg2Rad * 0.5f, hz = degrees.z * Mathf.Deg2Rad * 0.5f;
@@ -49,7 +53,9 @@ public struct Quaternion
 
     public static Quaternion Euler(float x, float y, float z) => Euler(new Vector3(x, y, z));
 
-    // Back to Euler degrees (glm::eulerAngles).
+    /// <summary>
+    /// Back to Euler degrees (glm::eulerAngles).
+    /// </summary>
     public Vector3 ToEuler()
     {
         float pitch = MathF.Atan2(2f * (y * z + w * x), w * w - x * x - y * y + z * z);
@@ -58,7 +64,9 @@ public struct Quaternion
         return new Vector3(pitch * Mathf.Rad2Deg, yaw * Mathf.Rad2Deg, roll * Mathf.Rad2Deg);
     }
 
-    // A rotation of `degrees` about `axis` (normalized here).
+    /// <summary>
+    /// A rotation of `degrees` about `axis` (normalized here).
+    /// </summary>
     public static Quaternion AngleAxis(float degrees, Vector3 axis)
     {
         Vector3 n = axis.Normalized();
@@ -67,7 +75,9 @@ public struct Quaternion
         return new Quaternion(n.x * s, n.y * s, n.z * s, MathF.Cos(half));
     }
 
-    // Faces `forward` (+Z is the engine's forward) with `up` as close to up as it can be.
+    /// <summary>
+    /// Faces `forward` (+Z is the engine's forward) with `up` as close to up as it can be.
+    /// </summary>
     public static Quaternion LookRotation(Vector3 forward, Vector3 up)
     {
         Vector3 f = forward.Normalized();
@@ -126,10 +136,14 @@ public struct Quaternion
 
     public static float Dot(Quaternion a, Quaternion b) => a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
 
-    // The angle between two rotations, in degrees.
+    /// <summary>
+    /// The angle between two rotations, in degrees.
+    /// </summary>
     public static float Angle(Quaternion a, Quaternion b) => 2f * MathF.Acos(Math.Min(MathF.Abs(Dot(a.Normalized(), b.Normalized())), 1f)) * Mathf.Rad2Deg;
 
-    // The shortest-path spherical blend.
+    /// <summary>
+    /// The shortest-path spherical blend.
+    /// </summary>
     public static Quaternion Slerp(Quaternion a, Quaternion b, float t)
     {
         t = Math.Clamp(t, 0f, 1f);
@@ -148,14 +162,18 @@ public struct Quaternion
         return new Quaternion(a.x * sa + b.x * sb, a.y * sa + b.y * sb, a.z * sa + b.z * sb, a.w * sa + b.w * sb);
     }
 
-    // a then b: (a * b) rotates by b first, then by a (the glm / Unity order).
+    /// <summary>
+    /// a then b: (a * b) rotates by b first, then by a (the glm / Unity order).
+    /// </summary>
     public static Quaternion operator *(Quaternion a, Quaternion b) => new Quaternion(
         a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
         a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
         a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
         a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z);
 
-    // Rotates a vector.
+    /// <summary>
+    /// Rotates a vector.
+    /// </summary>
     public static Vector3 operator *(Quaternion q, Vector3 v)
     {
         Vector3 u = new Vector3(q.x, q.y, q.z);

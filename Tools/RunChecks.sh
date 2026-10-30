@@ -79,6 +79,16 @@ else
     grep -E "Passed!|Failed!" .tmp/RunChecks.generators.log | tail -1
 fi
 
+step "Script API docs"
+# CS-10: ScriptCore's XML doc comments are well formed, no file gains undocumented public members
+# (Tools/ScriptDocsBaseline.json only goes down) and Docs/API/ScriptCore.md matches them.
+if ! python3 "$here/CheckScriptDocs.py" > .tmp/RunChecks.scriptdocs.log 2>&1; then
+    tail -20 .tmp/RunChecks.scriptdocs.log
+    failed+=("script API docs")
+else
+    tail -1 .tmp/RunChecks.scriptdocs.log
+fi
+
 step "Editor flows"
 # 1500s covers the longest flow (LaunchNight) on a cold 2-core CI runner.
 if ! python3 "$here/RunEditorFlows.py" --editor .build/Editor_Debug/Havana --wrapper "$here/Headless.sh" --only "$only" --timeout 1500; then

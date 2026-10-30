@@ -8,7 +8,9 @@ namespace ScriptCore;
 //   transform.WorldPosition = path.GetPointAtDistance(_travelled);
 public class Spline : Component
 {
-    // Local positions the curve passes through, in order.
+    /// <summary>
+    /// Local positions the curve passes through, in order.
+    /// </summary>
     public Vector3[] Points
     {
         get => Entity.GetField("Spline", "Points", Array.Empty<Vector3>());
@@ -21,8 +23,10 @@ public class Spline : Component
         set => Entity.SetField("Spline", "Closed", value);
     }
 
-    // The curve now, in world space. Points go through the entity's world position, rotation and
-    // scale (the product of the local scales up the hierarchy).
+    /// <summary>
+    /// The curve now, in world space. Points go through the entity's world position, rotation and
+    /// scale (the product of the local scales up the hierarchy).
+    /// </summary>
     public SplinePath GetPath()
     {
         var points = Points;

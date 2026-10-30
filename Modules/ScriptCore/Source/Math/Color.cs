@@ -1,6 +1,8 @@
 using System.Runtime.InteropServices;
 
-// Linear RGBA in [0, 1] — drawn with a color row in the inspector.
+/// <summary>
+/// Linear RGBA in [0, 1] — drawn with a color row in the inspector.
+/// </summary>
 [StructLayout(LayoutKind.Sequential)]
 public struct Color
 {
@@ -32,11 +34,15 @@ public struct Color
     public static Color operator *(Color x, Color y) => new Color(x.r * y.r, x.g * y.g, x.b * y.b, x.a * y.a);
     public static Color operator *(Color c, float s) => new Color(c.r * s, c.g * s, c.b * s, c.a * s);
 
-    // sRGB-encoded (what color pickers and hex codes are) to the engine's linear, and back.
+    /// <summary>
+    /// sRGB-encoded (what color pickers and hex codes are) to the engine's linear, and back.
+    /// </summary>
     public static float SrgbToLinear(float c) => c <= 0.04045f ? c / 12.92f : System.MathF.Pow((c + 0.055f) / 1.055f, 2.4f);
     public static float LinearToSrgb(float c) => c <= 0.0031308f ? c * 12.92f : 1.055f * System.MathF.Pow(c, 1f / 2.4f) - 0.055f;
 
-    // "#RRGGBB" or "#RRGGBBAA" (sRGB) as a linear color.
+    /// <summary>
+    /// "#RRGGBB" or "#RRGGBBAA" (sRGB) as a linear color.
+    /// </summary>
     public static Color FromHex(string hex)
     {
         string h = hex.TrimStart('#');
@@ -51,7 +57,9 @@ public struct Color
         return $"#{Byte(LinearToSrgb(r)):X2}{Byte(LinearToSrgb(g)):X2}{Byte(LinearToSrgb(b)):X2}{Byte(a):X2}";
     }
 
-    // Hue 0..360, saturation and value 0..1 (in the sRGB space hex codes use).
+    /// <summary>
+    /// Hue 0..360, saturation and value 0..1 (in the sRGB space hex codes use).
+    /// </summary>
     public static Color FromHsv(float hue, float saturation, float value, float alpha = 1f)
     {
         float h = ((hue % 360f) + 360f) % 360f / 60f;

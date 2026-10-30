@@ -101,7 +101,9 @@ public static partial class ScriptBridge
     private static readonly List<int> _handleOrder = new();
 
 
-    // The ABI this ScriptCore was generated against (ME-298): C++ compares it before binding.
+    /// <summary>
+    /// The ABI this ScriptCore was generated against (ME-298): C++ compares it before binding.
+    /// </summary>
     [UnmanagedCallersOnly]
     public static unsafe void GetEngineAPIHash(ulong* outHash)
     {
@@ -163,8 +165,10 @@ public static partial class ScriptBridge
         ReportException(where, ex);
     }
 
-    // The first script callback to throw since the last call (1), and its entity (Null when it
-    // isn't a Script); 0 when nothing threw.
+    /// <summary>
+    /// The first script callback to throw since the last call (1), and its entity (Null when it
+    /// isn't a Script); 0 when nothing threw.
+    /// </summary>
     [UnmanagedCallersOnly]
     public static unsafe int TakeScriptFault(Entity* outEntity)
     {
@@ -257,7 +261,9 @@ public static partial class ScriptBridge
         }
     }
 
-    // PLAY-10: the console's C# commands, "name\thelp" lines (the usual size-then-fill calls).
+    /// <summary>
+    /// PLAY-10: the console's C# commands, "name\thelp" lines (the usual size-then-fill calls).
+    /// </summary>
     [UnmanagedCallersOnly]
     public static unsafe int GetConsoleCommands(byte* outText, int size)
     {
@@ -274,7 +280,9 @@ public static partial class ScriptBridge
         }
     }
 
-    // Runs a console line if its first word is a C# command: what it printed, or -1 (not ours).
+    /// <summary>
+    /// Runs a console line if its first word is a C# command: what it printed, or -1 (not ours).
+    /// </summary>
     [UnmanagedCallersOnly]
     public static unsafe int RunConsoleCommand(byte* linePtr, byte* outText, int size)
     {
@@ -355,10 +363,12 @@ public static partial class ScriptBridge
         }
     }
 
-    // Hot reload: loads the rebuilt assembly next to the old one, then moves every live script
-    // over (same handle, same entity, public fields carried as JSON) and unloads the old context.
-    // If the new assembly fails to load, nothing changes. Returns the number of scripts carried
-    // over, or -1. Scripts whose type disappeared are dropped (their handles stop responding).
+    /// <summary>
+    /// Hot reload: loads the rebuilt assembly next to the old one, then moves every live script
+    /// over (same handle, same entity, public fields carried as JSON) and unloads the old context.
+    /// If the new assembly fails to load, nothing changes. Returns the number of scripts carried
+    /// over, or -1. Scripts whose type disappeared are dropped (their handles stop responding).
+    /// </summary>
     [UnmanagedCallersOnly]
     public static unsafe int ReloadGameAssembly(byte* pathPtr)
     {
@@ -440,14 +450,18 @@ public static partial class ScriptBridge
         return restored;
     }
 
-    // 1 while a handle has a live script (a reload drops scripts whose type was deleted).
+    /// <summary>
+    /// 1 while a handle has a live script (a reload drops scripts whose type was deleted).
+    /// </summary>
     [UnmanagedCallersOnly]
     public static int IsHandleAlive(int handle) => Instances.ContainsKey(handle) ? 1 : 0;
 
     [UnmanagedCallersOnly]
     public static int GetScriptCount() => ScriptRegistry.ScriptTypes.Count;
 
-    // The class of a live script (differs from the name it was created with after a rename).
+    /// <summary>
+    /// The class of a live script (differs from the name it was created with after a rename).
+    /// </summary>
     [UnmanagedCallersOnly]
     public static unsafe void GetHandleTypeName(int handle, byte* outBuf, int bufSize)
     {
@@ -605,9 +619,11 @@ public static partial class ScriptBridge
         }
     }
 
-    // How the engine schedules a script: its [ExecutionOrder] (into outOrder) and, returned, which
-    // update callbacks it implements (1 OnFixedUpdate, 2 OnUpdate, 4 OnLateUpdate), so the engine
-    // only calls those. -1 for a dead handle.
+    /// <summary>
+    /// How the engine schedules a script: its [ExecutionOrder] (into outOrder) and, returned, which
+    /// update callbacks it implements (1 OnFixedUpdate, 2 OnUpdate, 4 OnLateUpdate), so the engine
+    /// only calls those. -1 for a dead handle.
+    /// </summary>
     [UnmanagedCallersOnly]
     public static unsafe int ScriptGetSchedule(int handle, int* outOrder)
     {
@@ -665,7 +681,9 @@ public static partial class ScriptBridge
         return false;
     }
 
-    // CS-8: the engine's events for this frame, a JSON array (EventBus.DispatchEngine).
+    /// <summary>
+    /// CS-8: the engine's events for this frame, a JSON array (EventBus.DispatchEngine).
+    /// </summary>
     [UnmanagedCallersOnly]
     public static unsafe void DispatchEngineEvents(int unused, byte* json)
     {
@@ -673,8 +691,10 @@ public static partial class ScriptBridge
         catch (Exception ex) { ReportException("DispatchEngineEvents", ex); }
     }
 
-    // CS-6: once a frame before OnUpdate (game delta time): continuations, coroutines, timers and
-    // tweens. reset != 0 (Stop) drops them all.
+    /// <summary>
+    /// CS-6: once a frame before OnUpdate (game delta time): continuations, coroutines, timers and
+    /// tweens. reset != 0 (Stop) drops them all.
+    /// </summary>
     [UnmanagedCallersOnly]
     public static void SchedulerTick(float deltaTime, int reset)
     {
@@ -730,7 +750,9 @@ public static partial class ScriptBridge
         }
     }
 
-    // CS-7: the game's DataAsset classes, newline-separated (the editor's Create menu).
+    /// <summary>
+    /// CS-7: the game's DataAsset classes, newline-separated (the editor's Create menu).
+    /// </summary>
     [UnmanagedCallersOnly]
     public static unsafe int GetDataAssetTypes(byte* outBuf, int bufSize)
     {
@@ -740,7 +762,9 @@ public static partial class ScriptBridge
         return length;
     }
 
-    // CS-7: the asset details pane draws a data asset's fields (and saves edits).
+    /// <summary>
+    /// CS-7: the asset details pane draws a data asset's fields (and saves edits).
+    /// </summary>
     [UnmanagedCallersOnly]
     public static unsafe void InspectDataAsset(byte* path)
     {
@@ -786,8 +810,10 @@ public static partial class ScriptBridge
         }
     }
 
-    // Writes the fields as JSON and returns its byte length; when that doesn't fit in bufSize the
-    // caller retries with a bigger buffer.
+    /// <summary>
+    /// Writes the fields as JSON and returns its byte length; when that doesn't fit in bufSize the
+    /// caller retries with a bigger buffer.
+    /// </summary>
     [UnmanagedCallersOnly]
     public static unsafe int GetFieldsJson(int handle, byte* outBuf, int bufSize)
     {
@@ -803,7 +829,9 @@ public static partial class ScriptBridge
         catch (Exception ex) { ReportException($"GetFieldsJson(handle={handle})", ex); return 0; }
     }
 
-    // GetFieldsJson plus the non-public [Save] fields: a save game's snapshot.
+    /// <summary>
+    /// GetFieldsJson plus the non-public [Save] fields: a save game's snapshot.
+    /// </summary>
     [UnmanagedCallersOnly]
     public static unsafe int GetSaveFieldsJson(int handle, byte* outBuf, int bufSize)
     {

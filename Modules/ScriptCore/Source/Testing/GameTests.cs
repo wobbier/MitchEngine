@@ -25,7 +25,9 @@ public sealed class GameTestAttribute : Attribute
 {
     public GameTestAttribute(string scene = "") { Scene = scene; }
 
-    // Loaded before the test; empty runs it in whatever scene is playing.
+    /// <summary>
+    /// Loaded before the test; empty runs it in whatever scene is playing.
+    /// </summary>
     public string Scene { get; }
     public float TimeoutSeconds { get; set; } = 30f;
 }
@@ -57,7 +59,9 @@ public static class GameAssert
         if (!((expected - actual).Length() <= tolerance)) throw new GameTestFailure($"{what}: expected {expected} ± {tolerance}, got {actual}");
     }
 
-    // Waits (in game time) until the condition holds; fails after the timeout.
+    /// <summary>
+    /// Waits (in game time) until the condition holds; fails after the timeout.
+    /// </summary>
     public static async Task Eventually(Func<bool> condition, float seconds, string what = "condition")
     {
         float waited = 0f;
@@ -78,7 +82,9 @@ public static class GameTests
     public static IReadOnlyList<Result> LastResults => _results;
     private static readonly List<Result> _results = new();
 
-    // Every [GameTest] in the game's and mods' scripts, by class then method name.
+    /// <summary>
+    /// Every [GameTest] in the game's and mods' scripts, by class then method name.
+    /// </summary>
     public static List<MethodInfo> Discover(string filter = "")
     {
         var tests = new List<MethodInfo>();

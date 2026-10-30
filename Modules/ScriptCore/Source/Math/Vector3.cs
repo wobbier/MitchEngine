@@ -50,7 +50,9 @@ public struct Vector3
 
     public float LengthSquared() => x * x + y * y + z * z;
 
-    // Unit length, or zero for a zero vector.
+    /// <summary>
+    /// Unit length, or zero for a zero vector.
+    /// </summary>
     public Vector3 Normalized()
     {
         float length = Length();

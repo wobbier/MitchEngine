@@ -2,7 +2,9 @@ using System.Text;
 
 namespace ScriptCore;
 
-// The entity's TextRenderer (LOOK-S12): world-space text for signs, labels and damage numbers.
+/// <summary>
+/// The entity's TextRenderer (LOOK-S12): world-space text for signs, labels and damage numbers.
+/// </summary>
 public class TextRenderer : Component
 {
     public string Text
@@ -17,7 +19,9 @@ public class TextRenderer : Component
         set { unsafe { fixed (byte* t = Engine.Utf8(value, stackalloc byte[Engine.Utf8StackSize])) Engine._api.Text_SetText(Entity, t); } }
     }
 
-    // sRGB colour (rgb) and opacity (a).
+    /// <summary>
+    /// sRGB colour (rgb) and opacity (a).
+    /// </summary>
     public Color Color
     {
         set

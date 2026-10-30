@@ -2,8 +2,10 @@ using System;
 
 namespace ScriptCore.Kit;
 
-// A door that slides by OpenOffset (world units) over Duration when used, optionally locked until
-// the user's Inventory has RequiredItem. Give it a kinematic Rigidbody so its collider moves with it.
+/// <summary>
+/// A door that slides by OpenOffset (world units) over Duration when used, optionally locked until
+/// the user's Inventory has RequiredItem. Give it a kinematic Rigidbody so its collider moves with it.
+/// </summary>
 public class Door : Interactable
 {
     public Vector3 OpenOffset = new Vector3(0f, 2.5f, 0f);
@@ -13,7 +15,9 @@ public class Door : Interactable
     public bool StartsOpen = false;
 
     public bool IsOpen { get; private set; }
-    // 0 closed .. 1 open.
+    /// <summary>
+    /// 0 closed .. 1 open.
+    /// </summary>
     public float Progress { get; private set; }
     private Vector3 _closed;
 

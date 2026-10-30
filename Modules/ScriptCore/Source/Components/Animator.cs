@@ -2,8 +2,10 @@ using System.Text;
 
 namespace ScriptCore;
 
-// The entity's Animator (CS-5 a): parameters drive its state machine's transitions, Play jumps (or
-// fades) to a state. Markers placed in states arrive as EventBus AnimationMarker events.
+/// <summary>
+/// The entity's Animator (CS-5 a): parameters drive its state machine's transitions, Play jumps (or
+/// fades) to a state. Markers placed in states arrive as EventBus AnimationMarker events.
+/// </summary>
 public class Animator : Component
 {
     public void Play(string state, float fadeSeconds = 0f)
@@ -20,7 +22,9 @@ public class Animator : Component
     public bool GetBool(string name) { unsafe { fixed (byte* n = Engine.Utf8(name, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Animator_GetBool(Entity, n) != 0; } }
     public void SetTrigger(string name) { unsafe { fixed (byte* n = Engine.Utf8(name, stackalloc byte[Engine.Utf8StackSize])) Engine._api.Animator_SetTrigger(Entity, n); } }
 
-    // The state playing on a layer ("" = the base layer).
+    /// <summary>
+    /// The state playing on a layer ("" = the base layer).
+    /// </summary>
     public string GetState(string layer = "")
     {
         var buffer = new byte[128];
@@ -29,7 +33,9 @@ public class Animator : Component
         return Encoding.UTF8.GetString(buffer, 0, System.Math.Clamp(length, 0, buffer.Length - 1));
     }
 
-    // 0..1 through the current state's clip (it loops past 1).
+    /// <summary>
+    /// 0..1 through the current state's clip (it loops past 1).
+    /// </summary>
     public float GetNormalizedTime(string layer = "") { unsafe { fixed (byte* l = Engine.Utf8(layer, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Animator_GetNormalizedTime(Entity, l); } }
     public void SetLayerWeight(string layer, float weight) { unsafe { fixed (byte* l = Engine.Utf8(layer, stackalloc byte[Engine.Utf8StackSize])) Engine._api.Animator_SetLayerWeight(Entity, l, weight); } }
 }

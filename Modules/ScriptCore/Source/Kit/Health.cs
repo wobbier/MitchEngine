@@ -15,7 +15,9 @@ namespace ScriptCore.Kit;
 public interface IHealth { Health Health { get; } }
 public interface IInventory { Inventory Inventory { get; } }
 
-// Published on the EventBus.
+/// <summary>
+/// Published on the EventBus.
+/// </summary>
 public readonly record struct DamagedEvent(Entity Target, float Amount, float Remaining, Entity Source);
 public readonly record struct DiedEvent(Entity Target, Entity Source);
 public readonly record struct HealedEvent(Entity Target, float Amount, float Remaining);
@@ -36,11 +38,15 @@ public sealed class Health
     public float Current;
     public bool Invulnerable;
     public bool IsDead => Current <= 0f;
-    // Fired with the amount actually taken / healed.
+    /// <summary>
+    /// Fired with the amount actually taken / healed.
+    /// </summary>
     public event Action<float, Entity>? Damaged;
     public event Action<Entity>? Died;
 
-    // Damage(10, attacker) on the entity that owns this health (the events name it).
+    /// <summary>
+    /// Damage(10, attacker) on the entity that owns this health (the events name it).
+    /// </summary>
     public float Damage(Entity owner, float amount, Entity source = default)
     {
         if (IsDead || Invulnerable || amount <= 0f)
@@ -76,6 +82,8 @@ public sealed class Health
 
     public void Kill(Entity owner, Entity source = default) => Damage(owner, Current, source);
 
-    // Back to full (a respawn).
+    /// <summary>
+    /// Back to full (a respawn).
+    /// </summary>
     public void Reset() => Current = Max;
 }

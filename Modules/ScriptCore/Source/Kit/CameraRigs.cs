@@ -63,7 +63,9 @@ public class VirtualCamera : Script
 
     public override void OnReload() => OnStart();
 
-    // Runs before the brain (which is late), so the brain sees this frame's pose.
+    /// <summary>
+    /// Runs before the brain (which is late), so the brain sees this frame's pose.
+    /// </summary>
     public override void OnUpdate(float deltaTime)
     {
         Vector3 position = transform.WorldPosition;
@@ -126,8 +128,10 @@ public class VirtualCamera : Script
     }
 }
 
-// Goes on the entity with the Camera. Shows the live VirtualCamera with the highest Priority (ties:
-// the one that started last), blending over the new one's BlendSeconds when that changes.
+/// <summary>
+/// Goes on the entity with the Camera. Shows the live VirtualCamera with the highest Priority (ties:
+/// the one that started last), blending over the new one's BlendSeconds when that changes.
+/// </summary>
 [ExecutionOrder(1000)]
 public class CameraBrain : Script
 {
@@ -185,8 +189,10 @@ public class CameraBrain : Script
     }
 }
 
-// Camera shake: Shake(strength, seconds) adds a decaying wobble to whatever the brain shows (none
-// while the player's Reduce motion setting is on).
+/// <summary>
+/// Camera shake: Shake(strength, seconds) adds a decaying wobble to whatever the brain shows (none
+/// while the player's Reduce motion setting is on).
+/// </summary>
 public static class CameraImpulse
 {
     private static float _strength;
@@ -217,7 +223,9 @@ public static class CameraImpulse
 
 public static class CameraRigMath
 {
-    // The FollowCamera convention: yaw about +Y from +Z, pitch looking down.
+    /// <summary>
+    /// The FollowCamera convention: yaw about +Y from +Z, pitch looking down.
+    /// </summary>
     public static Vector3 OrbitForward(float yawDegrees, float pitchDegrees)
     {
         float yaw = yawDegrees * Mathf.Deg2Rad;
@@ -225,7 +233,9 @@ public static class CameraRigMath
         return new Vector3(Mathf.Sin(yaw) * Mathf.Cos(pitch), -Mathf.Sin(pitch), Mathf.Cos(yaw) * Mathf.Cos(pitch));
     }
 
-    // Moves current only as far as needed to keep target within +-zone of it.
+    /// <summary>
+    /// Moves current only as far as needed to keep target within +-zone of it.
+    /// </summary>
     public static float DeadZone(float current, float target, float zone)
     {
         if (target > current + zone) return target - zone;

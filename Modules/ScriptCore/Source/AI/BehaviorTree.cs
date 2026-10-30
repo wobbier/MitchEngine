@@ -24,7 +24,9 @@ public enum BTStatus
 
 public readonly record struct BTContext(Blackboard Blackboard, float DeltaTime);
 
-// Named values shared by a tree's nodes (and whoever else holds it).
+/// <summary>
+/// Named values shared by a tree's nodes (and whoever else holds it).
+/// </summary>
 public sealed class Blackboard
 {
     private readonly Dictionary<string, object?> _values = new();
@@ -39,7 +41,9 @@ public sealed class Blackboard
 public abstract class BTNode
 {
     public string Name = "";
-    // The node that ran last tick under a composite (for debugging / logs).
+    /// <summary>
+    /// The node that ran last tick under a composite (for debugging / logs).
+    /// </summary>
     public BTStatus LastStatus { get; private set; } = BTStatus.Failure;
 
     public BTStatus Tick(in BTContext context)
@@ -49,7 +53,9 @@ public abstract class BTNode
     }
 
     protected abstract BTStatus Run(in BTContext context);
-    // Called when a running node stops being ticked (a higher branch took over).
+    /// <summary>
+    /// Called when a running node stops being ticked (a higher branch took over).
+    /// </summary>
     public virtual void Reset() { }
 }
 
@@ -108,7 +114,9 @@ public sealed class Sequence : BTNode
     }
 }
 
-// A sequence that carries on from the child that was running (steps that must finish in order).
+/// <summary>
+/// A sequence that carries on from the child that was running (steps that must finish in order).
+/// </summary>
 public sealed class MemorySequence : BTNode
 {
     private readonly BTNode[] _children;
@@ -164,7 +172,9 @@ public sealed class Inverter : BTNode
     public override void Reset() => _child.Reset();
 }
 
-// Running for Seconds, then Success.
+/// <summary>
+/// Running for Seconds, then Success.
+/// </summary>
 public sealed class Wait : BTNode
 {
     private readonly float _seconds;
@@ -182,7 +192,9 @@ public sealed class Wait : BTNode
     public override void Reset() => _elapsed = 0f;
 }
 
-// Fails for Seconds after its child succeeds (don't bark every frame).
+/// <summary>
+/// Fails for Seconds after its child succeeds (don't bark every frame).
+/// </summary>
 public sealed class Cooldown : BTNode
 {
     private readonly BTNode _child;
@@ -211,6 +223,8 @@ public static class BT
     public static Inverter Not(BTNode child) => new(child);
     public static Wait Wait(float seconds) => new(seconds);
     public static Cooldown Cooldown(float seconds, BTNode child) => new(seconds, child);
-    // Runs an action once and succeeds.
+    /// <summary>
+    /// Runs an action once and succeeds.
+    /// </summary>
     public static ActionNode Do(Action action) => new(_ => { action(); return BTStatus.Success; });
 }

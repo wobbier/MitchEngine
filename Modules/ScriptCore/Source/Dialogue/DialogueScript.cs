@@ -4,31 +4,33 @@ using System.Globalization;
 
 namespace ScriptCore.Dialogue;
 
-// GAME-8: conversations as text (.dialogue files), in the spirit of Yarn:
-//
-//   title: Gate
-//   ---
-//   Guard: Halt! Who goes there?
-//   -> A friend.
-//       <<set $trusted = true>>
-//       Guard: Then pass, friend.
-//   -> None of your business. <<if not $trusted>>
-//       Guard: Then you stay out.
-//       <<jump Refused>>
-//   <<if $trusted>>
-//       Guard: Mind the stairs, {$name}.
-//   <<else>>
-//       Guard: Move along.
-//   <<endif>>
-//   <<event open-gate>>
-//   ===
-//
-// A node is "title: Name", "---", its lines, "===". A line is "Speaker: text" (or just text); a
-// run of "-> text" lines is a choice, each followed by its indented body; a trailing "<<if expr>>"
-// on an option shows it only when true. Commands: <<jump Node>>, <<set $var = expr>>,
-// <<if expr>> / <<elseif expr>> / <<else>> / <<endif>>, <<event name args...>> (raised for the game),
-// <<stop>>. "//" starts a comment. Text can show variables: {$name}. Lines and options are
-// localization keys (DialogueRunner translates them before interpolating).
+/// <summary>
+/// GAME-8: conversations as text (.dialogue files), in the spirit of Yarn:
+///
+///   title: Gate
+///   ---
+///   Guard: Halt! Who goes there?
+///   -&gt; A friend.
+///       &lt;&lt;set $trusted = true&gt;&gt;
+///       Guard: Then pass, friend.
+///   -&gt; None of your business. &lt;&lt;if not $trusted&gt;&gt;
+///       Guard: Then you stay out.
+///       &lt;&lt;jump Refused&gt;&gt;
+///   &lt;&lt;if $trusted&gt;&gt;
+///       Guard: Mind the stairs, {$name}.
+///   &lt;&lt;else&gt;&gt;
+///       Guard: Move along.
+///   &lt;&lt;endif&gt;&gt;
+///   &lt;&lt;event open-gate&gt;&gt;
+///   ===
+///
+/// A node is "title: Name", "---", its lines, "===". A line is "Speaker: text" (or just text); a
+/// run of "-&gt; text" lines is a choice, each followed by its indented body; a trailing "&lt;&lt;if expr&gt;&gt;"
+/// on an option shows it only when true. Commands: &lt;&lt;jump Node&gt;&gt;, &lt;&lt;set $var = expr&gt;&gt;,
+/// &lt;&lt;if expr&gt;&gt; / &lt;&lt;elseif expr&gt;&gt; / &lt;&lt;else&gt;&gt; / &lt;&lt;endif&gt;&gt;, &lt;&lt;event name args...&gt;&gt; (raised for the game),
+/// &lt;&lt;stop&gt;&gt;. "//" starts a comment. Text can show variables: {$name}. Lines and options are
+/// localization keys (DialogueRunner translates them before interpolating).
+/// </summary>
 public sealed class DialogueScript
 {
     public readonly Dictionary<string, List<Statement>> Nodes = new();
@@ -218,8 +220,10 @@ public sealed class IfStatement : Statement
     public List<Statement>? Else;
 }
 
-// Values are bool, double or string (an unset variable is false). Operators: not, and, or,
-// == != < <= > >=, + - * / (+ joins when either side is a string), ( ).
+/// <summary>
+/// Values are bool, double or string (an unset variable is false). Operators: not, and, or,
+/// == != &lt; &lt;= &gt; &gt;=, + - * / (+ joins when either side is a string), ( ).
+/// </summary>
 public abstract class Expression
 {
     public abstract object Evaluate(IReadOnlyDictionary<string, object> variables);
@@ -232,7 +236,9 @@ public abstract class Expression
         _ => false,
     };
 
-    // An unset variable is false, which counts as 0: <<set $visits = $visits + 1>> just works.
+    /// <summary>
+    /// An unset variable is false, which counts as 0: &lt;&lt;set $visits = $visits + 1&gt;&gt; just works.
+    /// </summary>
     public static double Number(object value) => value switch
     {
         double d => d,

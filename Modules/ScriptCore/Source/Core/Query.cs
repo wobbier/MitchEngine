@@ -2,17 +2,23 @@ using System;
 
 namespace ScriptCore;
 
-// Entity queries (CS-5 h) and application calls (CS-5 j).
+/// <summary>
+/// Entity queries (CS-5 h) and application calls (CS-5 j).
+/// </summary>
 public static unsafe class Query
 {
-    // Every live entity with that component (any registered component name: "Light", "Rigidbody"...).
+    /// <summary>
+    /// Every live entity with that component (any registered component name: "Light", "Rigidbody"...).
+    /// </summary>
     public static Entity[] WithComponent(string component)
     {
         var name = Engine.Utf8(component);
         return Fill((buffer, max) => { fixed (byte* n = name) fixed (Entity* b = buffer) return Engine._api.World_FindAllWithComponent(n, b, max); });
     }
 
-    // Every live entity with that name (World.Find returns one).
+    /// <summary>
+    /// Every live entity with that name (World.Find returns one).
+    /// </summary>
     public static Entity[] Named(string entityName)
     {
         var name = Engine.Utf8(entityName);
@@ -40,7 +46,9 @@ public enum WindowMode { Windowed, Borderless, Fullscreen }
 
 public static unsafe class App
 {
-    // Leaves the game (ignored in the editor).
+    /// <summary>
+    /// Leaves the game (ignored in the editor).
+    /// </summary>
     public static void Quit() => Engine._api.App_Quit();
 
     public static Vector2 WindowSize
@@ -48,13 +56,17 @@ public static unsafe class App
         get { Vector2 size; Engine._api.Window_GetSize(&size); return size; }
     }
 
-    // The window mode (changing it is ignored in the editor; PLAY-1's Alt+Enter does the same).
+    /// <summary>
+    /// The window mode (changing it is ignored in the editor; PLAY-1's Alt+Enter does the same).
+    /// </summary>
     public static WindowMode WindowMode
     {
         get => (WindowMode)Engine._api.Window_GetMode();
         set => Engine._api.Window_SetMode((int)value);
     }
 
-    // Rumbles a local player's pad (0..1 motors for `seconds`); false when the player has none.
+    /// <summary>
+    /// Rumbles a local player's pad (0..1 motors for `seconds`); false when the player has none.
+    /// </summary>
     public static bool Rumble(int player, float low, float high, float seconds) => Engine._api.Input_Rumble(player, low, high, seconds) != 0;
 }

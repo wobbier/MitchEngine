@@ -264,6 +264,15 @@ Script calls act on `ScriptBindings::GetWorld()`:
 - **Scoped:** inside a `ScriptBindings::WorldScope` on the current thread, they act on the scope's world. Scopes nest and are per-thread, so a server or rollback simulation can run its scripts against its own world.
 - **Core lookup:** bindings reach physics, 2D physics and navigation through `ScriptBindings::Physics()` / `Physics2D()` / `Navigation()`, which are that world's cores, not `GetEngine()`'s. `ScriptCore` syncs its own world's cores before `OnStart`.
 
+### API reference (CS-10)
+
+`Docs/API/ScriptCore.md` is generated from ScriptCore's XML doc comments: a `/// <summary>` on a public type or member is what puts it in the reference (and in IDE tooltips). `Engine/Tools/CheckScriptDocs.py` builds ScriptCore with documentation in a scratch folder and does three things:
+- **Bad comments:** it fails on badly formed doc XML (escape `<`, `>` and `&`).
+- **The baseline:** it fails when any file has more undocumented public members than `Tools/ScriptDocsBaseline.json` allows (1011 when it started, 2026-10-30). Document members, then run it with `--update` to lower the baseline; it never rises.
+- **The page:** it fails when the page no longer matches the comments; `--markdown` rewrites it.
+
+RunChecks runs it as its "Script API docs" step. The generated interop (`Generated/*.g.cs`) and the SDL key enums opt out with `#pragma warning disable CS1591`.
+
 ## How to Extend
 
 ### Add a script binding (engine function callable from C#)

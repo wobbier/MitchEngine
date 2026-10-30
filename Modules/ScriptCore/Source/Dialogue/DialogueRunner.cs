@@ -13,13 +13,17 @@ public enum DialogueStep
 
 public readonly record struct DialogueChoice(int Index, string Text);
 
-// Raised on the EventBus by <<event name args>>, and when a conversation ends.
+/// <summary>
+/// Raised on the EventBus by &lt;&lt;event name args&gt;&gt;, and when a conversation ends.
+/// </summary>
 public readonly record struct DialogueEvent(string Name, string[] Args);
 public readonly record struct DialogueEndedEvent(string Node);
 
-// Steps through a DialogueScript: Start(node), then Continue() past lines and Choose(i) at choices
-// until End. Variables live in a dictionary that can be shared between runners (what the player
-// said earlier). Text goes through Translate (localization keys = the source text) and then {$var}.
+/// <summary>
+/// Steps through a DialogueScript: Start(node), then Continue() past lines and Choose(i) at choices
+/// until End. Variables live in a dictionary that can be shared between runners (what the player
+/// said earlier). Text goes through Translate (localization keys = the source text) and then {$var}.
+/// </summary>
 public sealed class DialogueRunner
 {
     private readonly DialogueScript _script;
@@ -34,7 +38,9 @@ public sealed class DialogueRunner
     }
 
     public Dictionary<string, object> Variables { get; }
-    // Localizes a line or option (default: the engine's Loc, untranslated outside the engine).
+    /// <summary>
+    /// Localizes a line or option (default: the engine's Loc, untranslated outside the engine).
+    /// </summary>
     public Func<string, string>? Translate;
     public event Action<string, string[]>? Event;
 

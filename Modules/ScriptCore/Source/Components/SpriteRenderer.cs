@@ -2,11 +2,15 @@ using System.Text;
 
 namespace ScriptCore;
 
-// The entity's SpriteRenderer (LOOK-S2): which sprite of its sheet it shows, flips, the tint and the
-// draw order. Animators with flipbook clips set the sprite themselves while they play.
+/// <summary>
+/// The entity's SpriteRenderer (LOOK-S2): which sprite of its sheet it shows, flips, the tint and the
+/// draw order. Animators with flipbook clips set the sprite themselves while they play.
+/// </summary>
 public class SpriteRenderer : Component
 {
-    // The sprite's name in the sheet.
+    /// <summary>
+    /// The sprite's name in the sheet.
+    /// </summary>
     public string Sprite
     {
         get
@@ -19,13 +23,17 @@ public class SpriteRenderer : Component
         set { SetSprite("", value); }
     }
 
-    // A sprite from another sheet (a .spritesheet path); "" keeps the current sheet.
+    /// <summary>
+    /// A sprite from another sheet (a .spritesheet path); "" keeps the current sheet.
+    /// </summary>
     public void SetSprite(string sheet, string sprite)
     {
         unsafe { fixed (byte* s = Engine.Utf8(sheet, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* n = Engine.Utf8(sprite, stackalloc byte[Engine.Utf8StackSize])) Engine._api.Sprite_SetSprite(Entity, s, n); }
     }
 
-    // A plain image instead of (or under) the sheet's.
+    /// <summary>
+    /// A plain image instead of (or under) the sheet's.
+    /// </summary>
     public string Texture
     {
         set { unsafe { fixed (byte* t = Engine.Utf8(value, stackalloc byte[Engine.Utf8StackSize])) Engine._api.Sprite_SetTexture(Entity, t); } }
@@ -43,7 +51,9 @@ public class SpriteRenderer : Component
         set { unsafe { Engine._api.Sprite_SetFlip(Entity, FlipX ? (byte)1 : (byte)0, value ? (byte)1 : (byte)0); } }
     }
 
-    // sRGB tint (rgb) and opacity (a).
+    /// <summary>
+    /// sRGB tint (rgb) and opacity (a).
+    /// </summary>
     public Color Color
     {
         get

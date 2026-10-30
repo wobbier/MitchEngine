@@ -4,10 +4,12 @@ using System.Text;
 
 namespace ScriptCore.Dialogue;
 
-// Shows a DialogueRunner through a UI model ("dialogue": visible, speaker, text, choosing,
-// choice0..3 / has0..3) and answers its events (dialogue_continue, dialogue_choose_0..3). The stock
-// Engine/Assets/UI/Dialogue/Dialogue.rml binds it; a project can bring its own document with the
-// same model. Call Update() every frame while it's up.
+/// <summary>
+/// Shows a DialogueRunner through a UI model ("dialogue": visible, speaker, text, choosing,
+/// choice0..3 / has0..3) and answers its events (dialogue_continue, dialogue_choose_0..3). The stock
+/// Engine/Assets/UI/Dialogue/Dialogue.rml binds it; a project can bring its own document with the
+/// same model. Call Update() every frame while it's up.
+/// </summary>
 public sealed class DialogueView
 {
     public const int MaxChoices = 4;
@@ -30,7 +32,9 @@ public sealed class DialogueView
         Refresh();
     }
 
-    // Applies clicks from the document; true while the conversation runs.
+    /// <summary>
+    /// Applies clicks from the document; true while the conversation runs.
+    /// </summary>
     public bool Update()
     {
         var ui = UI.Model(Model);
@@ -64,7 +68,9 @@ public sealed class DialogueView
     }
 }
 
-// Reads a .dialogue (any text asset) through the VFS.
+/// <summary>
+/// Reads a .dialogue (any text asset) through the VFS.
+/// </summary>
 public static class DialogueFiles
 {
     private static readonly Dictionary<string, DialogueScript> Cache = new();
@@ -89,7 +95,9 @@ public static class DialogueFiles
         }
     }
 
-    // Forget parsed files (after editing one).
+    /// <summary>
+    /// Forget parsed files (after editing one).
+    /// </summary>
     public static void Clear() => Cache.Clear();
 
     private static unsafe string? ReadText(string path)

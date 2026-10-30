@@ -7,7 +7,9 @@ using System.Text.Json;
 
 namespace ScriptCore;
 
-// surpress your feelings, hide your fields
+/// <summary>
+/// surpress your feelings, hide your fields
+/// </summary>
 [AttributeUsage(AttributeTargets.Field)]
 public sealed class HideInInspectorAttribute : Attribute { }
 
@@ -24,8 +26,10 @@ internal static class FieldReflection
         }
     }
 
-    // Of(type) plus every [Save] field the inspector doesn't show (non-public or hidden): what a
-    // save game stores, and what loading one restores.
+    /// <summary>
+    /// Of(type) plus every [Save] field the inspector doesn't show (non-public or hidden): what a
+    /// save game stores, and what loading one restores.
+    /// </summary>
     public static IEnumerable<FieldInfo> WithSaved(Type type)
     {
         foreach (var f in Of(type))
@@ -54,8 +58,10 @@ internal static class FieldReflection
 }
 
 
-// The script inspector: every public field as a Havana property row, matching the C++
-// reflection inspector (ranges, tooltips, headers, colors, references, lists, nested types).
+/// <summary>
+/// The script inspector: every public field as a Havana property row, matching the C++
+/// reflection inspector (ranges, tooltips, headers, colors, references, lists, nested types).
+/// </summary>
 public static class Inspector
 {
     public static void DrawDefault(object target)
@@ -313,7 +319,9 @@ public static class Inspector
 }
 
 
-// simple JSON serialization for script state, using the same field reflection as the inspector. not super efficient but hey, it's only for editor persistence and maybe some debug dumping, so who cares.
+/// <summary>
+/// simple JSON serialization for script state, using the same field reflection as the inspector. not super efficient but hey, it's only for editor persistence and maybe some debug dumping, so who cares.
+/// </summary>
 public static class ScriptSerializer
 {
     // Replaced on hot reload: its metadata cache would otherwise pin the unloaded game assembly.

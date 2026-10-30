@@ -2,7 +2,9 @@ using System;
 
 namespace ScriptCore.Kit;
 
-// Published on the EventBus by a BeatClock with an owner: each beat it crosses, once.
+/// <summary>
+/// Published on the EventBus by a BeatClock with an owner: each beat it crosses, once.
+/// </summary>
 public readonly record struct BeatEvent(Entity Owner, int Beat, int Bar, int BeatInBar);
 
 // NEXT-8: a music clock for rhythm and beat-synced gameplay. It follows an AudioSource's playback
@@ -25,37 +27,55 @@ public sealed class BeatClock
 
     public float Bpm;
     public int BeatsPerBar;
-    // Seconds into the track of the first beat.
+    /// <summary>
+    /// Seconds into the track of the first beat.
+    /// </summary>
     public double Offset;
-    // Publishes BeatEvents when set.
+    /// <summary>
+    /// Publishes BeatEvents when set.
+    /// </summary>
     public Entity Owner;
-    // A playback position this far from the clock is a seek or a loop: the clock jumps to it.
-    // Closer ones are the mixer's block steps, which the clock smooths over.
+    /// <summary>
+    /// A playback position this far from the clock is a seek or a loop: the clock jumps to it.
+    /// Closer ones are the mixer's block steps, which the clock smooths over.
+    /// </summary>
     public double SnapSeconds = 0.1;
-    // Beats fired at most per tick after a hitch (the oldest missed ones are skipped).
+    /// <summary>
+    /// Beats fired at most per tick after a hitch (the oldest missed ones are skipped).
+    /// </summary>
     public int MaxCatchUp = 16;
 
-    // (beat, bar, beat in bar), from beat 0 at Offset.
+    /// <summary>
+    /// (beat, bar, beat in bar), from beat 0 at Offset.
+    /// </summary>
     public event Action<int, int, int>? OnBeat;
     public event Action<int>? OnBar;
 
-    // Seconds into the track, as the clock keeps it.
+    /// <summary>
+    /// Seconds into the track, as the clock keeps it.
+    /// </summary>
     public double SongTime { get; private set; }
     public double SecondsPerBeat => 60.0 / Math.Max(Bpm, 1e-3f);
-    // Beats since the first one (fractional, negative before Offset).
+    /// <summary>
+    /// Beats since the first one (fractional, negative before Offset).
+    /// </summary>
     public double BeatPosition => (SongTime - Offset) / SecondsPerBeat;
     public int Beat => (int)Math.Floor(BeatPosition);
     public int Bar => FloorDiv(Beat, BeatsPerBar);
     public int BeatInBar => Beat - Bar * BeatsPerBar;
-    // How far into the current beat, 0..1 (a pulse: 1 - BeatPhase).
+    /// <summary>
+    /// How far into the current beat, 0..1 (a pulse: 1 - BeatPhase).
+    /// </summary>
     public float BeatPhase => (float)(BeatPosition - Math.Floor(BeatPosition));
 
     private double _anchor = double.NaN;    // the last playback position the mixer reported
     private double _sinceAnchor;
     private int _lastFired = -1;
 
-    // Follows an AudioSource: the mixer's position while it plays, held while paused or stopped,
-    // and game time when there's no audio engine (offline, headless).
+    /// <summary>
+    /// Follows an AudioSource: the mixer's position while it plays, held while paused or stopped,
+    /// and game time when there's no audio engine (offline, headless).
+    /// </summary>
     public void Tick(AudioSource source)
     {
         double position = source.PlaybackSeconds;
@@ -66,11 +86,15 @@ public sealed class BeatClock
         Advance(Time.UnscaledDeltaTime, position);
     }
 
-    // Follows game time alone (no track): beats every SecondsPerBeat from when it started.
+    /// <summary>
+    /// Follows game time alone (no track): beats every SecondsPerBeat from when it started.
+    /// </summary>
     public void Tick() => Advance(Time.UnscaledDeltaTime, -2.0);
 
-    // One step: InDelta seconds passed; InPlayback is the track's position as the mixer reports it,
-    // or < 0 to advance by InDelta alone.
+    /// <summary>
+    /// One step: InDelta seconds passed; InPlayback is the track's position as the mixer reports it,
+    /// or &lt; 0 to advance by InDelta alone.
+    /// </summary>
     public void Advance(double deltaSeconds, double playbackSeconds)
     {
         deltaSeconds = Math.Max(deltaSeconds, 0.0);
@@ -110,8 +134,10 @@ public sealed class BeatClock
         Fire();
     }
 
-    // The beat nearest the clock's time (or InSongTime) and how far from it, in seconds (negative:
-    // early). Rhythm games judge presses with it.
+    /// <summary>
+    /// The beat nearest the clock's time (or InSongTime) and how far from it, in seconds (negative:
+    /// early). Rhythm games judge presses with it.
+    /// </summary>
     public int NearestBeat(out double errorSeconds) => NearestBeat(SongTime, out errorSeconds);
 
     public int NearestBeat(double songTime, out double errorSeconds)

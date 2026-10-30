@@ -2,9 +2,11 @@ using System;
 
 namespace ScriptCore;
 
-// A saveable reference to a scene entity: stores the entity's scene GUID (the 16-hex string
-// .lvl files use), so it survives save/load and script hot reloads. Resolve() finds the live
-// entity in the current world. The inspector draws it as an entity row (drag an entity in).
+/// <summary>
+/// A saveable reference to a scene entity: stores the entity's scene GUID (the 16-hex string
+/// .lvl files use), so it survives save/load and script hot reloads. Resolve() finds the live
+/// entity in the current world. The inspector draws it as an entity row (drag an entity in).
+/// </summary>
 [Serializable]
 public struct EntityRef
 {

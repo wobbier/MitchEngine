@@ -20,8 +20,10 @@ public static class UI
         return new UIModel(name);
     }
 
-    // The UIDocument on the entity with this name (a menu such as the stock options menu,
-    // Assets/UI/Options/Options.rml). False when no UIDocument entity has that name.
+    /// <summary>
+    /// The UIDocument on the entity with this name (a menu such as the stock options menu,
+    /// Assets/UI/Options/Options.rml). False when no UIDocument entity has that name.
+    /// </summary>
     public static bool Show(string entityName) => SetVisible(entityName, 1);
     public static bool Hide(string entityName) => SetVisible(entityName, 0);
     public static bool Toggle(string entityName) => SetVisible(entityName, 2);
@@ -55,7 +57,9 @@ public readonly struct UIModel
         unsafe { fixed (byte* m = Engine.Utf8(Name, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* k = Engine.Utf8(key, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* v = Engine.Utf8(value ?? "", stackalloc byte[Engine.Utf8StackSize])) Engine._api.UIModel_SetString(m, k, v); }
     }
 
-    // Registers a data-event name the document can raise (data-event-click="name").
+    /// <summary>
+    /// Registers a data-event name the document can raise (data-event-click="name").
+    /// </summary>
     public void On(string eventName)
     {
         unsafe { fixed (byte* m = Engine.Utf8(Name, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* k = Engine.Utf8(eventName, stackalloc byte[Engine.Utf8StackSize])) Engine._api.UIModel_RegisterEvent(m, k); }
@@ -78,7 +82,9 @@ public readonly struct UIModel
         }
     }
 
-    // The oldest queued event name, or "" when none are waiting.
+    /// <summary>
+    /// The oldest queued event name, or "" when none are waiting.
+    /// </summary>
     public string PollEvent()
     {
         unsafe

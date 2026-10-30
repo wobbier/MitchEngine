@@ -2,7 +2,9 @@ using System.Collections.Generic;
 
 namespace ScriptCore.Kit;
 
-// Counts of named items ("Key", "Coin"). Owned by an actor's script (IInventory).
+/// <summary>
+/// Counts of named items ("Key", "Coin"). Owned by an actor's script (IInventory).
+/// </summary>
 public sealed class Inventory
 {
     private readonly Dictionary<string, int> _items = new();

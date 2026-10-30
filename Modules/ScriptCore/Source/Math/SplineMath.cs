@@ -3,9 +3,11 @@ using System.Collections.Generic;
 
 namespace ScriptCore;
 
-// GAME-2: the Spline component's curve math (C++ SplineMath in Components/Gameplay/Spline.cpp,
-// kept in step): a uniform Catmull-Rom curve through every point. Open curves extrapolate their end
-// tangents, closed ones wrap; t runs 0..1 over the whole curve, each segment an equal share.
+/// <summary>
+/// GAME-2: the Spline component's curve math (C++ SplineMath in Components/Gameplay/Spline.cpp,
+/// kept in step): a uniform Catmull-Rom curve through every point. Open curves extrapolate their end
+/// tangents, closed ones wrap; t runs 0..1 over the whole curve, each segment an equal share.
+/// </summary>
 public static class SplineMath
 {
     public const int SamplesPerSegment = 16;
@@ -22,7 +24,9 @@ public static class SplineMath
         return (p1 * 2f + (p2 - p0) * f + (p0 * 2f - p1 * 5f + p2 * 4f - p3) * f2 + (p1 * 3f - p0 - p2 * 3f + p3) * f3) * 0.5f;
     }
 
-    // dP/dt (t over the whole curve).
+    /// <summary>
+    /// dP/dt (t over the whole curve).
+    /// </summary>
     public static Vector3 Derivative(IReadOnlyList<Vector3> points, bool closed, float t)
     {
         if (points.Count < 2) return Vector3.Zero;
@@ -55,8 +59,10 @@ public static class SplineMath
     }
 }
 
-// A spline's curve in world space at one moment: build it once (Spline.GetPath()) and ask it
-// several questions, rather than reading the component for each.
+/// <summary>
+/// A spline's curve in world space at one moment: build it once (Spline.GetPath()) and ask it
+/// several questions, rather than reading the component for each.
+/// </summary>
 public sealed class SplinePath
 {
     private readonly Vector3[] _points;
@@ -78,7 +84,9 @@ public sealed class SplinePath
 
     public float Length => Lengths()[^1];
 
-    // The t a distance along the curve reaches (closed curves wrap; open ones clamp).
+    /// <summary>
+    /// The t a distance along the curve reaches (closed curves wrap; open ones clamp).
+    /// </summary>
     public float GetTAtDistance(float distance)
     {
         float[] table = Lengths();
@@ -97,7 +105,9 @@ public sealed class SplinePath
 
     public Vector3 GetPointAtDistance(float distance) => GetPoint(GetTAtDistance(distance));
 
-    // The t of the curve's point nearest a world position.
+    /// <summary>
+    /// The t of the curve's point nearest a world position.
+    /// </summary>
     public float GetNearestT(Vector3 world)
     {
         int samples = Math.Max(SplineMath.GetSegmentCount(_points.Length, _closed), 1) * SplineMath.SamplesPerSegment;

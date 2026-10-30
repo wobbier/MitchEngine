@@ -1,11 +1,15 @@
 namespace ScriptCore;
 
-// this is clearly a problem
+/// <summary>
+/// this is clearly a problem
+/// </summary>
+// The SDL scancode names and their script-friendly aliases document themselves.
+#pragma warning disable CS1591
 public enum SDLKey : int
 {
     SDL_SCANCODE_UNKNOWN = 0,
 
-    /**
+    /*
      *  \name Usage page 0x07
      *
      *  These values are from usage page 0x07 (USB keyboard page).
@@ -60,7 +64,7 @@ public enum SDLKey : int
     SDL_SCANCODE_EQUALS = 46,
     SDL_SCANCODE_LEFTBRACKET = 47,
     SDL_SCANCODE_RIGHTBRACKET = 48,
-    SDL_SCANCODE_BACKSLASH = 49, /**< Located at the lower left of the return
+    SDL_SCANCODE_BACKSLASH = 49, /*< Located at the lower left of the return
                                   *   key on ISO keyboards and at the right end
                                   *   of the QWERTY row on ANSI keyboards.
                                   *   Produces REVERSE SOLIDUS (backslash) and
@@ -74,7 +78,7 @@ public enum SDLKey : int
                                   *   layout, and ASTERISK and MICRO SIGN in a
                                   *   French Windows layout.
                                   */
-    SDL_SCANCODE_NONUSHASH = 50, /**< ISO USB keyboards actually use this code
+    SDL_SCANCODE_NONUSHASH = 50, /*< ISO USB keyboards actually use this code
                                   *   instead of 49 for the same key, but all
                                   *   OSes I've seen treat the two codes
                                   *   identically. So, as an implementor, unless
@@ -88,7 +92,7 @@ public enum SDLKey : int
                                   */
     SDL_SCANCODE_SEMICOLON = 51,
     SDL_SCANCODE_APOSTROPHE = 52,
-    SDL_SCANCODE_GRAVE = 53, /**< Located in the top left corner (on both ANSI
+    SDL_SCANCODE_GRAVE = 53, /*< Located in the top left corner (on both ANSI
                               *   and ISO keyboards). Produces GRAVE ACCENT and
                               *   TILDE in a US Windows layout and in US and UK
                               *   Mac layouts on ANSI keyboards, GRAVE ACCENT
@@ -127,7 +131,7 @@ public enum SDLKey : int
     SDL_SCANCODE_PRINTSCREEN = 70,
     SDL_SCANCODE_SCROLLLOCK = 71,
     SDL_SCANCODE_PAUSE = 72,
-    SDL_SCANCODE_INSERT = 73, /**< insert on PC, help on some Mac keyboards (but
+    SDL_SCANCODE_INSERT = 73, /*< insert on PC, help on some Mac keyboards (but
                                    does send code 73, not 117) */
     SDL_SCANCODE_HOME = 74,
     SDL_SCANCODE_PAGEUP = 75,
@@ -139,7 +143,7 @@ public enum SDLKey : int
     SDL_SCANCODE_DOWN = 81,
     SDL_SCANCODE_UP = 82,
 
-    SDL_SCANCODE_NUMLOCKCLEAR = 83, /**< num lock on PC, clear on Mac keyboards
+    SDL_SCANCODE_NUMLOCKCLEAR = 83, /*< num lock on PC, clear on Mac keyboards
                                      */
     SDL_SCANCODE_KP_DIVIDE = 84,
     SDL_SCANCODE_KP_MULTIPLY = 85,
@@ -158,7 +162,7 @@ public enum SDLKey : int
     SDL_SCANCODE_KP_0 = 98,
     SDL_SCANCODE_KP_PERIOD = 99,
 
-    SDL_SCANCODE_NONUSBACKSLASH = 100, /**< This is the additional key that ISO
+    SDL_SCANCODE_NONUSBACKSLASH = 100, /*< This is the additional key that ISO
                                         *   keyboards have over ANSI ones,
                                         *   located between left shift and Y.
                                         *   Produces GRAVE ACCENT and TILDE in a
@@ -168,8 +172,8 @@ public enum SDLKey : int
                                         *   LESS-THAN SIGN and GREATER-THAN SIGN
                                         *   in a Swiss German, German, or French
                                         *   layout. */
-    SDL_SCANCODE_APPLICATION = 101, /**< windows contextual menu, compose */
-    SDL_SCANCODE_POWER = 102, /**< The USB document says this is a status flag,
+    SDL_SCANCODE_APPLICATION = 101, /*< windows contextual menu, compose */
+    SDL_SCANCODE_POWER = 102, /*< The USB document says this is a status flag,
                                *   not a physical key - but some Mac keyboards
                                *   do have a power key. */
     SDL_SCANCODE_KP_EQUALS = 103,
@@ -190,7 +194,7 @@ public enum SDLKey : int
     SDL_SCANCODE_MENU = 118,
     SDL_SCANCODE_SELECT = 119,
     SDL_SCANCODE_STOP = 120,
-    SDL_SCANCODE_AGAIN = 121,   /**< redo */
+    SDL_SCANCODE_AGAIN = 121,   /*< redo */
     SDL_SCANCODE_UNDO = 122,
     SDL_SCANCODE_CUT = 123,
     SDL_SCANCODE_COPY = 124,
@@ -206,27 +210,27 @@ public enum SDLKey : int
     SDL_SCANCODE_KP_COMMA = 133,
     SDL_SCANCODE_KP_EQUALSAS400 = 134,
 
-    SDL_SCANCODE_INTERNATIONAL1 = 135, /**< used on Asian keyboards, see
+    SDL_SCANCODE_INTERNATIONAL1 = 135, /*< used on Asian keyboards, see
                                             footnotes in USB doc */
     SDL_SCANCODE_INTERNATIONAL2 = 136,
-    SDL_SCANCODE_INTERNATIONAL3 = 137, /**< Yen */
+    SDL_SCANCODE_INTERNATIONAL3 = 137, /*< Yen */
     SDL_SCANCODE_INTERNATIONAL4 = 138,
     SDL_SCANCODE_INTERNATIONAL5 = 139,
     SDL_SCANCODE_INTERNATIONAL6 = 140,
     SDL_SCANCODE_INTERNATIONAL7 = 141,
     SDL_SCANCODE_INTERNATIONAL8 = 142,
     SDL_SCANCODE_INTERNATIONAL9 = 143,
-    SDL_SCANCODE_LANG1 = 144, /**< Hangul/English toggle */
-    SDL_SCANCODE_LANG2 = 145, /**< Hanja conversion */
-    SDL_SCANCODE_LANG3 = 146, /**< Katakana */
-    SDL_SCANCODE_LANG4 = 147, /**< Hiragana */
-    SDL_SCANCODE_LANG5 = 148, /**< Zenkaku/Hankaku */
-    SDL_SCANCODE_LANG6 = 149, /**< reserved */
-    SDL_SCANCODE_LANG7 = 150, /**< reserved */
-    SDL_SCANCODE_LANG8 = 151, /**< reserved */
-    SDL_SCANCODE_LANG9 = 152, /**< reserved */
+    SDL_SCANCODE_LANG1 = 144, /*< Hangul/English toggle */
+    SDL_SCANCODE_LANG2 = 145, /*< Hanja conversion */
+    SDL_SCANCODE_LANG3 = 146, /*< Katakana */
+    SDL_SCANCODE_LANG4 = 147, /*< Hiragana */
+    SDL_SCANCODE_LANG5 = 148, /*< Zenkaku/Hankaku */
+    SDL_SCANCODE_LANG6 = 149, /*< reserved */
+    SDL_SCANCODE_LANG7 = 150, /*< reserved */
+    SDL_SCANCODE_LANG8 = 151, /*< reserved */
+    SDL_SCANCODE_LANG9 = 152, /*< reserved */
 
-    SDL_SCANCODE_ALTERASE = 153, /**< Erase-Eaze */
+    SDL_SCANCODE_ALTERASE = 153, /*< Erase-Eaze */
     SDL_SCANCODE_SYSREQ = 154,
     SDL_SCANCODE_CANCEL = 155,
     SDL_SCANCODE_CLEAR = 156,
@@ -288,21 +292,21 @@ public enum SDLKey : int
 
     SDL_SCANCODE_LCTRL = 224,
     SDL_SCANCODE_LSHIFT = 225,
-    SDL_SCANCODE_LALT = 226, /**< alt, option */
-    SDL_SCANCODE_LGUI = 227, /**< windows, command (apple), meta */
+    SDL_SCANCODE_LALT = 226, /*< alt, option */
+    SDL_SCANCODE_LGUI = 227, /*< windows, command (apple), meta */
     SDL_SCANCODE_RCTRL = 228,
     SDL_SCANCODE_RSHIFT = 229,
-    SDL_SCANCODE_RALT = 230, /**< alt gr, option */
-    SDL_SCANCODE_RGUI = 231, /**< windows, command (apple), meta */
+    SDL_SCANCODE_RALT = 230, /*< alt gr, option */
+    SDL_SCANCODE_RGUI = 231, /*< windows, command (apple), meta */
 
-    SDL_SCANCODE_MODE = 257,    /**< I'm not sure if this is really not covered
+    SDL_SCANCODE_MODE = 257,    /*< I'm not sure if this is really not covered
                                  *   by any of the above, but since there's a
                                  *   special KMOD_MODE for it I'm adding it here
                                  */
 
     /* @} *//* Usage page 0x07 */
 
-    /**
+    /*
      *  \name Usage page 0x0C
      *
      *  These values are mapped from usage page 0x0C (USB consumer page).
@@ -329,7 +333,7 @@ public enum SDLKey : int
 
     /* @} *//* Usage page 0x0C */
 
-    /**
+    /*
      *  \name Walther keys
      *
      *  These are values that Christian Walther added (for mac keyboard?).
@@ -338,7 +342,7 @@ public enum SDLKey : int
 
     SDL_SCANCODE_BRIGHTNESSDOWN = 275,
     SDL_SCANCODE_BRIGHTNESSUP = 276,
-    SDL_SCANCODE_DISPLAYSWITCH = 277, /**< display mirroring/dual display
+    SDL_SCANCODE_DISPLAYSWITCH = 277, /*< display mirroring/dual display
                                            switch, video mode switch */
     SDL_SCANCODE_KBDILLUMTOGGLE = 278,
     SDL_SCANCODE_KBDILLUMDOWN = 279,
@@ -351,7 +355,7 @@ public enum SDLKey : int
 
     /* @} *//* Walther keys */
 
-    /**
+    /*
      *  \name Usage page 0x0C (additional media keys)
      *
      *  These values are mapped from usage page 0x0C (USB consumer page).
@@ -365,11 +369,13 @@ public enum SDLKey : int
 
     /* Add any other keys here. */
 
-    SDL_NUM_SCANCODES = 512 /**< not a key, just marks the number of scancodes
+    SDL_NUM_SCANCODES = 512 /*< not a key, just marks the number of scancodes
                                  for array bounds */
 };
 
-// script friendly names for my SDL garbage 
+/// <summary>
+/// script friendly names for my SDL garbage
+/// </summary>
 public enum KeyCode : int
 {
     None = SDLKey.SDL_SCANCODE_UNKNOWN,
@@ -494,31 +500,43 @@ public enum KeyCode : int
     RightCommand = SDLKey.SDL_SCANCODE_RGUI, // aka RightWindows / RightSuper
 };
 
+#pragma warning restore CS1591
+
 public static unsafe class Input
 {
     public static bool IsKeyDown(KeyCode key) => Engine._api.Input_IsKeyDown((int)key) != 0;
     public static bool WasKeyPressed(KeyCode key) => Engine._api.Input_WasKeyPressed((int)key) != 0;
 
-    // Mouse motion this frame in pixels (+Y up).
+    /// <summary>
+    /// Mouse motion this frame in pixels (+Y up).
+    /// </summary>
     public static Vector2 MouseDelta { get { Vector2 v; Engine._api.Input_GetMouseDelta(&v); return v; } }
-    // The mouse in the game's pixels, from the top left (in the editor: of the game view).
+    /// <summary>
+    /// The mouse in the game's pixels, from the top left (in the editor: of the game view).
+    /// </summary>
     public static Vector2 MousePosition { get { Vector2 v; Engine._api.Input_GetMousePosition(&v); return v; } }
 
-    // Locks and hides the cursor so the mouse only reports motion (FPS-style look).
+    /// <summary>
+    /// Locks and hides the cursor so the mouse only reports motion (FPS-style look).
+    /// </summary>
     public static bool MouseCaptured
     {
         get => Engine._api.Input_IsMouseCaptured() != 0;
         set => Engine._api.Input_SetMouseCapture((byte)(value ? 1 : 0));
     }
 
-    // Holds a key as if pressed, on top of the real devices, until it's released (play-mode
-    // tests and input replays; Testing/SimulatedInput.cs times them). Actions read it, focus or
-    // not; IsKeyDown / WasKeyPressed read the devices and don't. [GameTest]s release every
-    // simulated key when they end.
+    /// <summary>
+    /// Holds a key as if pressed, on top of the real devices, until it's released (play-mode
+    /// tests and input replays; Testing/SimulatedInput.cs times them). Actions read it, focus or
+    /// not; IsKeyDown / WasKeyPressed read the devices and don't. [GameTest]s release every
+    /// simulated key when they end.
+    /// </summary>
     public static void Simulate(KeyCode key, bool held = true) => Engine._api.Input_SetSimulatedKey((int)key, (byte)(held ? 1 : 0));
     public static void ReleaseSimulated() => Engine._api.Input_ClearSimulatedKeys();
 
-    // Actions from the project's .inputactions map (Engine/Docs/Input.md).
+    /// <summary>
+    /// Actions from the project's .inputactions map (Engine/Docs/Input.md).
+    /// </summary>
     public static float GetAction(string action)
     {
         fixed (byte* p = Engine.Utf8(action, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Input_GetActionValue(p);
@@ -546,21 +564,27 @@ public static unsafe class Input
         fixed (byte* p = Engine.Utf8(action, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Input_WasActionReleased(p) != 0;
     }
 
-    // Local multiplayer: player 0 is the default player (the methods above). Other players have
-    // their own pads; SetJoining lets unpaired pads join by pressing South (A / Cross).
+    /// <summary>
+    /// Local multiplayer: player 0 is the default player (the methods above). Other players have
+    /// their own pads; SetJoining lets unpaired pads join by pressing South (A / Cross).
+    /// </summary>
     public static int PlayerCount => Engine._api.Input_GetPlayerCount();
     public static PlayerInput Player(int index) => new PlayerInput(index);
     public static void SetJoining(int maxPlayers) => Engine._api.Input_SetJoining(maxPlayers);
 }
 
-// One local player's actions.
+/// <summary>
+/// One local player's actions.
+/// </summary>
 public readonly unsafe struct PlayerInput
 {
     public readonly int Index;
 
     public PlayerInput(int index) => Index = index;
 
-    // The player's pad slot (-1 = any unowned pad, -2 = none).
+    /// <summary>
+    /// The player's pad slot (-1 = any unowned pad, -2 = none).
+    /// </summary>
     public int Gamepad => Engine._api.Input_GetPlayerGamepad(Index);
 
     public float GetAction(string action)

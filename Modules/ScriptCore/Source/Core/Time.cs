@@ -2,13 +2,21 @@ namespace ScriptCore;
 
 public static unsafe class Time
 {
-    // Scaled game time this frame (0 while paused).
+    /// <summary>
+    /// Scaled game time this frame (0 while paused).
+    /// </summary>
     public static float DeltaTime => Engine._api.Time_GetDeltaTime();
-    // Real seconds this frame, ignoring pause and time scale.
+    /// <summary>
+    /// Real seconds this frame, ignoring pause and time scale.
+    /// </summary>
     public static float UnscaledDeltaTime => Engine._api.Time_GetUnscaledDeltaTime();
-    // The fixed simulation step (OnFixedUpdate).
+    /// <summary>
+    /// The fixed simulation step (OnFixedUpdate).
+    /// </summary>
     public static float FixedDeltaTime => Engine._api.Time_GetFixedDeltaTime();
-    // Seconds since scripting started (wall clock).
+    /// <summary>
+    /// Seconds since scripting started (wall clock).
+    /// </summary>
     public static float RealTime => Engine._api.GetTime();
 
     public static float TimeScale

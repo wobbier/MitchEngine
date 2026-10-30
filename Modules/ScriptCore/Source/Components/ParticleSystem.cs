@@ -1,7 +1,9 @@
 namespace ScriptCore;
 
-// The entity's ParticleSystem (CS-5 c). Play restarts emission, Stop ends it (live particles
-// finish their lives), Burst emits a number at once.
+/// <summary>
+/// The entity's ParticleSystem (CS-5 c). Play restarts emission, Stop ends it (live particles
+/// finish their lives), Burst emits a number at once.
+/// </summary>
 public class ParticleSystem : Component
 {
     public void Play() { unsafe { Engine._api.Particles_Play(Entity); } }

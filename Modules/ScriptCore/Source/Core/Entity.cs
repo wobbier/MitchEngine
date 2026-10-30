@@ -4,13 +4,17 @@ using System.Text;
 
 namespace ScriptCore;
 
-// struct because it's mapped to the engine EntityID struct. don't fuckin add anything to this <3 or at least update it to reflect it
+/// <summary>
+/// struct because it's mapped to the engine EntityID struct. don't fuckin add anything to this &lt;3 or at least update it to reflect it
+/// </summary>
 [StructLayout(LayoutKind.Sequential)]
 public readonly struct Entity : IEquatable<Entity>
 {
     public static readonly Entity Null = default;   // {0, 0}
 
-    // Mirrors the engine's 8-byte EntityID: slot index + generation (0 = null).
+    /// <summary>
+    /// Mirrors the engine's 8-byte EntityID: slot index + generation (0 = null).
+    /// </summary>
     public readonly uint Index;
     public readonly uint Generation;
 
@@ -22,7 +26,9 @@ public readonly struct Entity : IEquatable<Entity>
 
     public bool IsAlive { get { unsafe { return Engine._api.Entity_IsAlive(this) != 0; } } }
 
-    // Its direct children (CS-5 h).
+    /// <summary>
+    /// Its direct children (CS-5 h).
+    /// </summary>
     public Entity[] Children
     {
         get
@@ -32,7 +38,9 @@ public readonly struct Entity : IEquatable<Entity>
         }
     }
 
-    // The scene GUID (the 16-hex string scenes and EntityRef store), "" for a dead entity.
+    /// <summary>
+    /// The scene GUID (the 16-hex string scenes and EntityRef store), "" for a dead entity.
+    /// </summary>
     public string Guid
     {
         get
@@ -44,14 +52,18 @@ public readonly struct Entity : IEquatable<Entity>
         }
     }
 
-    // The physics / filtering layer, 0..31 (Project Settings names them).
+    /// <summary>
+    /// The physics / filtering layer, 0..31 (Project Settings names them).
+    /// </summary>
     public int Layer
     {
         get { unsafe { return Engine._api.Entity_GetLayer(this); } }
         set { unsafe { Engine._api.Entity_SetLayer(this, value); } }
     }
 
-    // Destroys the entity and its children at the end of the frame.
+    /// <summary>
+    /// Destroys the entity and its children at the end of the frame.
+    /// </summary>
     public void Destroy()
     {
         unsafe { Engine._api.Entity_Destroy(this); }
@@ -78,11 +90,15 @@ public readonly struct Entity : IEquatable<Entity>
         set { unsafe { fixed (byte* p = Engine.Utf8(value, stackalloc byte[Engine.Utf8StackSize])) Engine._api.Entity_SetName(this, p); } }
     }
 
-    // what is life?
+    /// <summary>
+    /// what is life?
+    /// </summary>
     public static implicit operator bool(Entity e) => e.IsAlive;
 
-    // Any registered component by name ("Light", "ParticleSystem", "AudioSource"...), wrapped in
-    // C# or not; its fields are reachable through Component.GetField / SetField.
+    /// <summary>
+    /// Any registered component by name ("Light", "ParticleSystem", "AudioSource"...), wrapped in
+    /// C# or not; its fields are reachable through Component.GetField / SetField.
+    /// </summary>
     public bool HasComponent(string component)
     {
         unsafe { fixed (byte* p = Engine.Utf8(component, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Entity_HasComponent(this, p) != 0; }
@@ -120,9 +136,11 @@ public readonly struct Entity : IEquatable<Entity>
 
     public Transform Transform => GetComponent<Transform>();
 
-    // The entity's script when it is (or implements) T: GetScript<Door>(), GetScript<IHealth>().
-    // Null when it has none. A scan of the live scripts; fine for events, not for every entity
-    // every frame.
+    /// <summary>
+    /// The entity's script when it is (or implements) T: GetScript&lt;Door&gt;(), GetScript&lt;IHealth&gt;().
+    /// Null when it has none. A scan of the live scripts; fine for events, not for every entity
+    /// every frame.
+    /// </summary>
     public T? GetScript<T>() where T : class => ScriptBridge.FindScript<T>(this);
 
     // Any field of any component by name, including ones without a C# wrapper:

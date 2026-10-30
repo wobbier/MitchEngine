@@ -6,11 +6,13 @@ using System.Reflection.PortableExecutable;
 
 namespace ScriptCore;
 
-// MOD-7: what a mod's assembly reaches beyond the script API, read from its metadata before it
-// loads (nothing runs). Mods are trusted (they load either way); this only labels them, so a
-// Workshop build or the mod manager can say "unverified" next to one that declares native
-// (P/Invoke) methods or uses the APIs below. A heuristic, not a sandbox: reflection over strings
-// can still reach anything, which is why the label is "verified", not "safe".
+/// <summary>
+/// MOD-7: what a mod's assembly reaches beyond the script API, read from its metadata before it
+/// loads (nothing runs). Mods are trusted (they load either way); this only labels them, so a
+/// Workshop build or the mod manager can say "unverified" next to one that declares native
+/// (P/Invoke) methods or uses the APIs below. A heuristic, not a sandbox: reflection over strings
+/// can still reach anything, which is why the label is "verified", not "safe".
+/// </summary>
 public sealed class ModScanResult
 {
     public bool Verified => Issues.Count == 0;

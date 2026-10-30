@@ -48,8 +48,10 @@ public class Mathf
     public static float Clamp(float value, float min, float max) => value < min ? min : (value > max ? max : value);
     public static float Clamp01(float value) => Clamp(value, 0f, 1f);
 
-    // Frame-rate independent smoothing: moves current towards target, covering most of the way in
-    // about "halfLife * 4" seconds.
+    /// <summary>
+    /// Frame-rate independent smoothing: moves current towards target, covering most of the way in
+    /// about "halfLife * 4" seconds.
+    /// </summary>
     public static float Damp(float current, float target, float halfLife, float deltaTime)
     {
         return halfLife <= 0f ? target : Lerp(target, current, (float)System.Math.Pow(0.5, deltaTime / halfLife));

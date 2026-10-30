@@ -17,7 +17,9 @@ public static unsafe class Debug
 
     public static void Error(object value) => Error(value?.ToString() ?? "null");
 
-    // Lines and spheres in the game and scene views; duration 0 draws for this frame only.
+    /// <summary>
+    /// Lines and spheres in the game and scene views; duration 0 draws for this frame only.
+    /// </summary>
     public static void DrawLine(Vector3 from, Vector3 to, Vector3 color, float duration = 0f)
         => Engine._api.Debug_DrawLine(&from, &to, &color, duration);
 

@@ -13,7 +13,9 @@ public static unsafe class Loc
 {
     public static string Get(string key) => Read((b, n) => { fixed (byte* k = Engine.Utf8(key, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Loc_Get(k, b, n); });
 
-    // "" = none. Setting it changes the player's Language setting.
+    /// <summary>
+    /// "" = none. Setting it changes the player's Language setting.
+    /// </summary>
     public static string Language
     {
         get => Read((b, n) => Engine._api.Loc_GetLanguage(b, n));

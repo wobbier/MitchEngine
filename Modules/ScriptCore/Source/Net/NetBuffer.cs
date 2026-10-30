@@ -4,10 +4,12 @@ using System.Text;
 
 namespace ScriptCore;
 
-// Raw little-endian encoding of net state and RPC arguments: bool 1 byte, int / float 4, double 8,
-// Vector2 8, Vector3 12, Quaternion 16 (x, y, z, w), string = int32 byte length (-1 null) + UTF-8,
-// Entity = its int32 net id. Floats are bit-exact (prediction compares them).
-// A value that doesn't fit sets Overflowed and nothing more is written.
+/// <summary>
+/// Raw little-endian encoding of net state and RPC arguments: bool 1 byte, int / float 4, double 8,
+/// Vector2 8, Vector3 12, Quaternion 16 (x, y, z, w), string = int32 byte length (-1 null) + UTF-8,
+/// Entity = its int32 net id. Floats are bit-exact (prediction compares them).
+/// A value that doesn't fit sets Overflowed and nothing more is written.
+/// </summary>
 public ref struct NetWriter
 {
     private readonly Span<byte> _buffer;
@@ -86,7 +88,9 @@ public ref struct NetWriter
         BinaryPrimitives.WriteSingleLittleEndian(span.Slice(12), value.w);
     }
 
-    // RPC arguments only: the length is counted first, so nothing is allocated.
+    /// <summary>
+    /// RPC arguments only: the length is counted first, so nothing is allocated.
+    /// </summary>
     public void WriteString(string? value)
     {
         if (value is null)
@@ -101,12 +105,16 @@ public ref struct NetWriter
         Encoding.UTF8.GetBytes(value, span.Slice(4));
     }
 
-    // As its net id (0 when it isn't networked); the receiver finds its own copy.
+    /// <summary>
+    /// As its net id (0 when it isn't networked); the receiver finds its own copy.
+    /// </summary>
     public void WriteEntity(Entity value) => WriteInt(value == Entity.Null ? 0 : Net.GetNetId(value));
 }
 
 
-// Reads what NetWriter wrote; past the end every read returns the default and sets Overflowed.
+/// <summary>
+/// Reads what NetWriter wrote; past the end every read returns the default and sets Overflowed.
+/// </summary>
 public ref struct NetReader
 {
     private readonly ReadOnlySpan<byte> _buffer;
@@ -188,7 +196,9 @@ public ref struct NetReader
             BinaryPrimitives.ReadSingleLittleEndian(span.Slice(12)));
     }
 
-    // Allocates (RPC arguments only). -1 is null.
+    /// <summary>
+    /// Allocates (RPC arguments only). -1 is null.
+    /// </summary>
     public string? ReadString()
     {
         int length = ReadInt();

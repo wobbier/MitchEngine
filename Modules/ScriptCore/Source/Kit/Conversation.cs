@@ -13,9 +13,13 @@ public class Conversation : Interactable
     public string Node = "";
     public bool StartOnPlay = false;
 
-    // Shared by every conversation (what the player said earlier).
+    /// <summary>
+    /// Shared by every conversation (what the player said earlier).
+    /// </summary>
     public static readonly Dictionary<string, object> Variables = new();
-    // The conversation on screen, if any (a controller can stop walking while it's set).
+    /// <summary>
+    /// The conversation on screen, if any (a controller can stop walking while it's set).
+    /// </summary>
     public static Conversation? Active { get; private set; }
 
     private DialogueView? _view;

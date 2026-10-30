@@ -13,8 +13,10 @@ public class Rigidbody : Component
         set { unsafe { Engine._api.Rigidbody_SetVelocity(Entity, &value); } }
     }
 
-    // Moves the body (and its Transform) instantly, facing forward with up as close to up as
-    // possible. Keeps its velocity.
+    /// <summary>
+    /// Moves the body (and its Transform) instantly, facing forward with up as close to up as
+    /// possible. Keeps its velocity.
+    /// </summary>
     public void Teleport(Vector3 position, Vector3 forward, Vector3 up)
     {
         unsafe { Engine._api.Rigidbody_Teleport(Entity, &position, &forward, &up); }

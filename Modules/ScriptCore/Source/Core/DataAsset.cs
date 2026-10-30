@@ -20,7 +20,9 @@ public abstract class DataAsset
 {
     public string AssetPath { get; internal set; } = "";
 
-    // After the values (re)load: on first load and after the file changes.
+    /// <summary>
+    /// After the values (re)load: on first load and after the file changes.
+    /// </summary>
     public virtual void OnLoaded() { }
 }
 
@@ -50,7 +52,9 @@ public static class DataAssets
         return asset;
     }
 
-    // Writes the asset's fields back to its file.
+    /// <summary>
+    /// Writes the asset's fields back to its file.
+    /// </summary>
     public static bool Save(DataAsset asset)
     {
         string json = "{\"Type\": " + JsonSerializer.Serialize(asset.GetType().Name) + ", \"Fields\": " + ScriptSerializer.Serialize(asset) + "}";

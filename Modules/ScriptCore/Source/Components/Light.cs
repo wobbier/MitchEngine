@@ -1,7 +1,9 @@
 namespace ScriptCore;
 
-// The entity's Light (CS-5 e): its reflected fields as properties. Linear color, intensity in the
-// engine's units, range in metres, cone angles in degrees (spot lights).
+/// <summary>
+/// The entity's Light (CS-5 e): its reflected fields as properties. Linear color, intensity in the
+/// engine's units, range in metres, cone angles in degrees (spot lights).
+/// </summary>
 public class Light : Component
 {
     public Vector3 Color

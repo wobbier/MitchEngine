@@ -20,7 +20,9 @@ namespace ScriptCore;
 // thread (the main-thread SynchronizationContext), but on the wall clock.
 public static class Async
 {
-    // Frames ticked since play started.
+    /// <summary>
+    /// Frames ticked since play started.
+    /// </summary>
     public static long Frame => Scheduler.Frame;
 
     public static Task Seconds(float seconds, Script? owner = null) => Scheduler.Wait(owner, seconds, 0, null);
@@ -29,12 +31,16 @@ public static class Async
     public static Task Until(Func<bool> condition, Script? owner = null) => Scheduler.Wait(owner, 0f, 0, condition);
 }
 
-// The yield instructions coroutines understand (plus null = the next frame, and a nested IEnumerator).
+/// <summary>
+/// The yield instructions coroutines understand (plus null = the next frame, and a nested IEnumerator).
+/// </summary>
 public sealed class WaitForSeconds { public readonly float Seconds; public WaitForSeconds(float seconds) { Seconds = seconds; } }
 public sealed class WaitFrames { public readonly int Count; public WaitFrames(int count) { Count = Math.Max(count, 1); } }
 public sealed class WaitUntil { public readonly Func<bool> Condition; public WaitUntil(Func<bool> condition) { Condition = condition; } }
 
-// A running coroutine, timer or tween: Cancel stops it; Task completes when it ends (cancelled too).
+/// <summary>
+/// A running coroutine, timer or tween: Cancel stops it; Task completes when it ends (cancelled too).
+/// </summary>
 public sealed class AsyncHandle
 {
     internal bool Cancelled;
@@ -44,7 +50,9 @@ public sealed class AsyncHandle
     public void Cancel() { Cancelled = true; }
 }
 
-// Curves for tweens. Linear, SmoothStep and Hold match SequenceInterpolation's.
+/// <summary>
+/// Curves for tweens. Linear, SmoothStep and Hold match SequenceInterpolation's.
+/// </summary>
 public enum Ease { Linear, SmoothStep, Hold, InQuad, OutQuad, InOutQuad, InCubic, OutCubic, InOutCubic, OutBack }
 
 public static class Easing
@@ -74,14 +82,18 @@ public static class Easing
 
 public static class Tween
 {
-    // Calls setter with from..to over seconds of game time (eased); the last call is exactly `to`.
+    /// <summary>
+    /// Calls setter with from..to over seconds of game time (eased); the last call is exactly `to`.
+    /// </summary>
     public static AsyncHandle Float(float from, float to, float seconds, Action<float> setter, Ease ease = Ease.SmoothStep, Script? owner = null)
         => Scheduler.AddTween(owner, seconds, ease, t => setter(from + (to - from) * t));
 
     public static AsyncHandle Vector(Vector3 from, Vector3 to, float seconds, Action<Vector3> setter, Ease ease = Ease.SmoothStep, Script? owner = null)
         => Scheduler.AddTween(owner, seconds, ease, t => setter(from + (to - from) * t));
 
-    // Moves a transform's position to `to`.
+    /// <summary>
+    /// Moves a transform's position to `to`.
+    /// </summary>
     public static AsyncHandle Move(Transform transform, Vector3 to, float seconds, Ease ease = Ease.SmoothStep, Script? owner = null)
     {
         Vector3 from = transform.Position;

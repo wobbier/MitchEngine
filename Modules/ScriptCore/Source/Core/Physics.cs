@@ -2,7 +2,9 @@ using System.Runtime.InteropServices;
 
 namespace ScriptCore;
 
-// Matches the engine's ScriptRaycastHit.
+/// <summary>
+/// Matches the engine's ScriptRaycastHit.
+/// </summary>
 [StructLayout(LayoutKind.Sequential)]
 public struct RaycastHit
 {
@@ -12,7 +14,9 @@ public struct RaycastHit
     public float Distance;
 }
 
-// A contact reported to OnCollisionEnter / OnCollisionExit.
+/// <summary>
+/// A contact reported to OnCollisionEnter / OnCollisionExit.
+/// </summary>
 public struct Collision
 {
     public Entity Other;        // the entity whose collider was touched
@@ -39,7 +43,9 @@ public static unsafe class Physics
 
     public static void ClearPortalPassage(Entity portal) => Engine._api.Physics_ClearPortalPassage(portal);
 
-    // A mask of the given layers (0..31).
+    /// <summary>
+    /// A mask of the given layers (0..31).
+    /// </summary>
     public static int LayerMask(params int[] layers)
     {
         int mask = 0;
@@ -47,8 +53,10 @@ public static unsafe class Physics
         return mask;
     }
 
-    // The first 3D collider along the ray (direction need not be normalized).
-    // Every entity with a collider touching the sphere (triggers excluded), up to maxResults.
+    /// <summary>
+    /// The first 3D collider along the ray (direction need not be normalized).
+    /// Every entity with a collider touching the sphere (triggers excluded), up to maxResults.
+    /// </summary>
     public static Entity[] OverlapSphere(Vector3 center, float radius, int maxResults = 1024)
     {
         var buffer = new Entity[maxResults];
@@ -64,7 +72,9 @@ public static unsafe class Physics
         return result;
     }
 
-    // CS-5 f: layerMask bit n = layer n (Layers.Mask(...)); -1 = every layer.
+    /// <summary>
+    /// CS-5 f: layerMask bit n = layer n (Layers.Mask(...)); -1 = every layer.
+    /// </summary>
     public static bool Raycast(Vector3 origin, Vector3 direction, float maxDistance, int layerMask, out RaycastHit hit)
     {
         RaycastHit h;
@@ -73,7 +83,9 @@ public static unsafe class Physics
         return found;
     }
 
-    // Every hit along the ray, nearest first.
+    /// <summary>
+    /// Every hit along the ray, nearest first.
+    /// </summary>
     public static RaycastHit[] RaycastAll(Vector3 origin, Vector3 direction, float maxDistance, int layerMask = -1, int maxResults = 256)
     {
         var buffer = new RaycastHit[maxResults];
@@ -83,7 +95,9 @@ public static unsafe class Physics
         return buffer;
     }
 
-    // A sphere swept along the ray: the first collider it touches.
+    /// <summary>
+    /// A sphere swept along the ray: the first collider it touches.
+    /// </summary>
     public static bool SphereCast(Vector3 origin, float radius, Vector3 direction, float maxDistance, out RaycastHit hit, int layerMask = -1)
     {
         RaycastHit h;
@@ -92,7 +106,9 @@ public static unsafe class Physics
         return found;
     }
 
-    // Every entity with a collider touching the box (rotated by Euler degrees).
+    /// <summary>
+    /// Every entity with a collider touching the box (rotated by Euler degrees).
+    /// </summary>
     public static Entity[] OverlapBox(Vector3 center, Vector3 halfExtents, Vector3 eulerDegrees, int layerMask = -1)
     {
         // Copies: a lambda can't take the parameters' addresses.

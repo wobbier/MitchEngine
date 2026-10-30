@@ -1,10 +1,14 @@
 namespace ScriptCore;
 
-// Navmesh queries (Engine/Docs/Navigation.md). They use the navmesh under the start point.
+/// <summary>
+/// Navmesh queries (Engine/Docs/Navigation.md). They use the navmesh under the start point.
+/// </summary>
 public static unsafe class Navigation
 {
-    // The corners of the shortest path, start and end included; empty when there is none. When the
-    // end can't be reached the path leads to the closest reachable point.
+    /// <summary>
+    /// The corners of the shortest path, start and end included; empty when there is none. When the
+    /// end can't be reached the path leads to the closest reachable point.
+    /// </summary>
     public static Vector3[] FindPath(Vector3 start, Vector3 end, int maxCorners = 256)
     {
         var corners = new Vector3[maxCorners];
@@ -17,7 +21,9 @@ public static unsafe class Navigation
         return corners;
     }
 
-    // The closest navmesh point within maxDistance.
+    /// <summary>
+    /// The closest navmesh point within maxDistance.
+    /// </summary>
     public static bool SamplePosition(Vector3 point, float maxDistance, out Vector3 position)
     {
         Vector3 result;
@@ -26,7 +32,9 @@ public static unsafe class Navigation
         return found;
     }
 
-    // Walks the surface from start towards end; true (with where it stopped) when a wall is in the way.
+    /// <summary>
+    /// Walks the surface from start towards end; true (with where it stopped) when a wall is in the way.
+    /// </summary>
     public static bool Raycast(Vector3 start, Vector3 end, out Vector3 hit)
     {
         Vector3 result;

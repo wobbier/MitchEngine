@@ -7,7 +7,9 @@ namespace ScriptCore;
 public sealed class GameScriptALC : AssemblyLoadContext
 {
     private readonly AssemblyDependencyResolver _resolver;
-    // For a mod's context: the game's Game.Script, which the mod resolves to instead of loading its own.
+    /// <summary>
+    /// For a mod's context: the game's Game.Script, which the mod resolves to instead of loading its own.
+    /// </summary>
     public System.Reflection.Assembly? GameAssembly { get; init; }
 
     public GameScriptALC(string assemblyPath)

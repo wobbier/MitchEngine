@@ -1,7 +1,9 @@
 namespace ScriptCore;
 
-// The entity's Tilemap (LOOK-S5): cells by palette index (-1 = empty). A TilemapCollider2D on the
-// entity follows the changes on the next physics step.
+/// <summary>
+/// The entity's Tilemap (LOOK-S5): cells by palette index (-1 = empty). A TilemapCollider2D on the
+/// entity follows the changes on the next physics step.
+/// </summary>
 public class Tilemap : Component
 {
     public int GetTile(int x, int y) { unsafe { return Engine._api.Tilemap_GetTile(Entity, x, y); } }
@@ -11,7 +13,9 @@ public class Tilemap : Component
     public void Clear() { unsafe { Engine._api.Tilemap_Clear(Entity); } }
     public int TileCount { get { unsafe { return Engine._api.Tilemap_GetTileCount(Entity); } } }
 
-    // The cell a world point lies in (on the tilemap's plane).
+    /// <summary>
+    /// The cell a world point lies in (on the tilemap's plane).
+    /// </summary>
     public (int x, int y) WorldToCell(Vector3 world)
     {
         unsafe

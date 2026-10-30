@@ -13,22 +13,30 @@ namespace ScriptCore;
 //       void OnFire(int shot) { ... }
 //   }
 
-// Server-authoritative state sent to clients in snapshots. bool, int, float, double, int enums,
-// Vector2, Vector3 and Quaternion.
+/// <summary>
+/// Server-authoritative state sent to clients in snapshots. bool, int, float, double, int enums,
+/// Vector2, Vector3 and Quaternion.
+/// </summary>
 [AttributeUsage(AttributeTargets.Field)]
 public sealed class ReplicatedAttribute : Attribute { }
 
-// Replicated state that the owning client also predicts: saved before and restored on a rollback,
-// then resimulated in OnFixedUpdate. Implies [Replicated].
+/// <summary>
+/// Replicated state that the owning client also predicts: saved before and restored on a rollback,
+/// then resimulated in OnFixedUpdate. Implies [Replicated].
+/// </summary>
 [AttributeUsage(AttributeTargets.Field)]
 public sealed class PredictedAttribute : Attribute { }
 
-// Runs on the server: declare `[ServerRpc] partial void Name(args);` and write `On{Name}(args)`.
+/// <summary>
+/// Runs on the server: declare `[ServerRpc] partial void Name(args);` and write `On{Name}(args)`.
+/// </summary>
 [AttributeUsage(AttributeTargets.Method)]
 public sealed class ServerRpcAttribute : Attribute { }
 
-// Runs on clients (every client, or only the entity's owner): `[ClientRpc] partial void Name(args);`
-// handled by `On{Name}(args)`. Only the server sends them.
+/// <summary>
+/// Runs on clients (every client, or only the entity's owner): `[ClientRpc] partial void Name(args);`
+/// handled by `On{Name}(args)`. Only the server sends them.
+/// </summary>
 [AttributeUsage(AttributeTargets.Method)]
 public sealed class ClientRpcAttribute : Attribute
 {
@@ -42,7 +50,9 @@ public enum NetTarget
     Owner,
 }
 
-// Implemented by the NetGenerator; the engine reaches it through the ScriptBridge.Net* entry points.
+/// <summary>
+/// Implemented by the NetGenerator; the engine reaches it through the ScriptBridge.Net* entry points.
+/// </summary>
 public interface INetScript
 {
     // 1 predicted fields, 2 replicated fields, 4 RPCs.

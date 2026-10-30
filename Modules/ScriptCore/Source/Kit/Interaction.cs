@@ -2,20 +2,26 @@ using System;
 
 namespace ScriptCore.Kit;
 
-// Something an Interactor can use: a door, a lever, a terminal. Subclass and implement Interact.
+/// <summary>
+/// Something an Interactor can use: a door, a lever, a terminal. Subclass and implement Interact.
+/// </summary>
 public abstract class Interactable : Script
 {
     public string Prompt = "Use";
     public bool Enabled = true;
 
-    // The prompt shown for this actor ("Open", "Locked (needs Key)").
+    /// <summary>
+    /// The prompt shown for this actor ("Open", "Locked (needs Key)").
+    /// </summary>
     public virtual string GetPrompt(Entity by) => Prompt;
     public abstract void Interact(Entity by);
 }
 
-// An actor's "press E to use": each Update finds the nearest Interactable within Range (in front
-// of it), shows its prompt through a UI model (Model, keys "prompt" and "visible") and uses it when
-// Action is pressed. Owned by the actor's script, which calls Update(Entity) every frame.
+/// <summary>
+/// An actor's "press E to use": each Update finds the nearest Interactable within Range (in front
+/// of it), shows its prompt through a UI model (Model, keys "prompt" and "visible") and uses it when
+/// Action is pressed. Owned by the actor's script, which calls Update(Entity) every frame.
+/// </summary>
 public sealed class Interactor
 {
     public float Range = 2.5f;
@@ -25,7 +31,9 @@ public sealed class Interactor
     public Interactable? Current { get; private set; }
     private string _shown = "\\0";
 
-    // Picks, shows and (on the action) uses. Returns what was used, if anything.
+    /// <summary>
+    /// Picks, shows and (on the action) uses. Returns what was used, if anything.
+    /// </summary>
     public Interactable? Update(Entity self, Vector3? forward = null)
     {
         var transform = self.Transform;
@@ -65,7 +73,9 @@ public sealed class Interactor
         return null;
     }
 
-    // Uses the current Interactable now (scripts and tests).
+    /// <summary>
+    /// Uses the current Interactable now (scripts and tests).
+    /// </summary>
     public bool Use(Entity self)
     {
         if (Current == null) return false;

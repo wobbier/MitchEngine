@@ -4,7 +4,9 @@ using System.Text.Json;
 
 namespace ScriptCore;
 
-// The engine's audio buses, in AudioBus order.
+/// <summary>
+/// The engine's audio buses, in AudioBus order.
+/// </summary>
 public enum AudioBus { Master, Music, SFX, UI, Voice }
 
 // The player's settings (PLAY-2), saved in user://Settings.json and applied as they change:
@@ -17,7 +19,9 @@ public enum AudioBus { Master, Music, SFX, UI, Voice }
 //   Settings.SetFloat("MouseSensitivity", 1.5f);    // the game's own: stored as Game.MouseSensitivity
 public static unsafe class Settings
 {
-    // "" = no player caps; else one of QualityPresets.
+    /// <summary>
+    /// "" = no player caps; else one of QualityPresets.
+    /// </summary>
     public static string Quality
     {
         get => GetStringKey("Graphics.Quality");
@@ -33,42 +37,54 @@ public static unsafe class Settings
         }
     }
 
-    // A string table code ("es" reads Assets/UI/Strings/es.json); "" = none.
+    /// <summary>
+    /// A string table code ("es" reads Assets/UI/Strings/es.json); "" = none.
+    /// </summary>
     public static string Language
     {
         get => GetStringKey("Language");
         set => SetJson("Language", Quote(value ?? ""));
     }
 
-    // The UI's text scale, 0.5..3.
+    /// <summary>
+    /// The UI's text scale, 0.5..3.
+    /// </summary>
     public static float TextScale
     {
         get => (float)GetNumberKey("Accessibility.TextScale", 1.0);
         set => SetJson("Accessibility.TextScale", Number(value));
     }
 
-    // No camera shake (the kit's CameraImpulse honours it); games read it for their own sway.
+    /// <summary>
+    /// No camera shake (the kit's CameraImpulse honours it); games read it for their own sway.
+    /// </summary>
     public static bool ReduceMotion
     {
         get => GetJson("Accessibility.ReduceMotion") == "true";
         set => SetJson("Accessibility.ReduceMotion", value ? "true" : "false");
     }
 
-    // PLAY-7: input actions marked Toggle (sprint, crouch) latch on a press instead of being held.
+    /// <summary>
+    /// PLAY-7: input actions marked Toggle (sprint, crouch) latch on a press instead of being held.
+    /// </summary>
     public static bool ToggleHolds
     {
         get => GetJson("Accessibility.ToggleHolds") == "true";
         set => SetJson("Accessibility.ToggleHolds", value ? "true" : "false");
     }
 
-    // PLAY-7: the high-contrast class on every UI document.
+    /// <summary>
+    /// PLAY-7: the high-contrast class on every UI document.
+    /// </summary>
     public static bool HighContrast
     {
         get => GetJson("Accessibility.HighContrast") == "true";
         set => SetJson("Accessibility.HighContrast", value ? "true" : "false");
     }
 
-    // Captions and subtitles (Captions.Say / Sound), on by default.
+    /// <summary>
+    /// Captions and subtitles (Captions.Say / Sound), on by default.
+    /// </summary>
     public static bool Subtitles
     {
         get => GetJson("Accessibility.Subtitles") != "false";
@@ -81,33 +97,43 @@ public static unsafe class Settings
         set => SetJson("Accessibility.SpeakerNames", value ? "true" : "false");
     }
 
-    // Caption text scale, 0.75..2.
+    /// <summary>
+    /// Caption text scale, 0.75..2.
+    /// </summary>
     public static float SubtitleSize
     {
         get => (float)GetNumberKey("Accessibility.SubtitleSize", 1.0);
         set => SetJson("Accessibility.SubtitleSize", Number(value));
     }
 
-    // The caption backdrop's opacity, 0..1.
+    /// <summary>
+    /// The caption backdrop's opacity, 0..1.
+    /// </summary>
     public static float SubtitleBackground
     {
         get => (float)GetNumberKey("Accessibility.SubtitleBackground", 0.7);
         set => SetJson("Accessibility.SubtitleBackground", Number(value));
     }
 
-    // The player's volume for a bus, 0..1 (it scales the project's mix).
+    /// <summary>
+    /// The player's volume for a bus, 0..1 (it scales the project's mix).
+    /// </summary>
     public static float GetVolume(AudioBus bus) => (float)GetNumberKey("Audio." + bus, 1.0);
     public static void SetVolume(AudioBus bus, float volume) => SetJson("Audio." + bus, Number(volume));
 
-    // Binds binding `binding` of an action (or a composite part: "Up", "Negative"...) to a control
-    // path ("Keyboard/J", "Gamepad/North"). False for an unknown action, binding or control.
+    /// <summary>
+    /// Binds binding `binding` of an action (or a composite part: "Up", "Negative"...) to a control
+    /// path ("Keyboard/J", "Gamepad/North"). False for an unknown action, binding or control.
+    /// </summary>
     public static bool Rebind(string action, int binding, string control, string part = "")
     {
         fixed (byte* a = Engine.Utf8(action, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* p = Engine.Utf8(part ?? "", stackalloc byte[Engine.Utf8StackSize])) fixed (byte* c = Engine.Utf8(control, stackalloc byte[Engine.Utf8StackSize]))
             return Engine._api.Settings_Rebind(a, binding, p, c) != 0;
     }
 
-    // What a prompt shows for a binding: "Space", "Gamepad South", "W/A/S/D".
+    /// <summary>
+    /// What a prompt shows for a binding: "Space", "Gamepad South", "W/A/S/D".
+    /// </summary>
     public static string GetBindingDisplay(string action, int binding = 0)
     {
         var name = Engine.Utf8(action);
@@ -119,19 +145,25 @@ public static unsafe class Settings
         Engine._api.Settings_ResetBindings();
     }
 
-    // Writes the settings now. False when the run keeps them in memory (automated runs).
+    /// <summary>
+    /// Writes the settings now. False when the run keeps them in memory (automated runs).
+    /// </summary>
     public static bool Save()
     {
         return Engine._api.Settings_Save() != 0;
     }
 
-    // Every setting back to its default, rebinds included.
+    /// <summary>
+    /// Every setting back to its default, rebinds included.
+    /// </summary>
     public static void Reset()
     {
         Engine._api.Settings_Reset();
     }
 
-    // The game's own values, stored as Game.<key>.
+    /// <summary>
+    /// The game's own values, stored as Game.&lt;key&gt;.
+    /// </summary>
     public static float GetFloat(string key, float fallback = 0f) => (float)GetNumberKey("Game." + key, fallback);
     public static void SetFloat(string key, float value) => SetJson("Game." + key, Number(value));
     public static int GetInt(string key, int fallback = 0) => (int)System.Math.Round(GetNumberKey("Game." + key, fallback));
@@ -148,14 +180,18 @@ public static unsafe class Settings
     }
     public static void SetString(string key, string value) => SetJson("Game." + key, Quote(value ?? ""));
 
-    // Any key as JSON text ("null" when it isn't set).
+    /// <summary>
+    /// Any key as JSON text ("null" when it isn't set).
+    /// </summary>
     public static string GetJson(string key)
     {
         var k = Engine.Utf8(key);
         return ReadString((b, size) => { fixed (byte* kp = k) return Engine._api.Settings_Get(kp, b, size); });
     }
 
-    // False (and an error in the log) when the key or the value is rejected.
+    /// <summary>
+    /// False (and an error in the log) when the key or the value is rejected.
+    /// </summary>
     public static bool SetJson(string key, string json)
     {
         fixed (byte* k = Engine.Utf8(key, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* v = Engine.Utf8(json, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Settings_Set(k, v) != 0;

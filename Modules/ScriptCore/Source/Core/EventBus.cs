@@ -133,17 +133,29 @@ public static class EventBus
     }
 }
 
-// The main scene finished loading (its scripts start this frame).
+/// <summary>
+/// The main scene finished loading (its scripts start this frame).
+/// </summary>
 public readonly record struct SceneLoaded(string Path);
-// An additive scene (World.LoadSceneAdditive) loaded, or unloaded (Loaded false).
+/// <summary>
+/// An additive scene (World.LoadSceneAdditive) loaded, or unloaded (Loaded false).
+/// </summary>
 public readonly record struct AdditiveSceneChanged(int SceneId, string Path, bool Loaded);
-// A pad connected to or left a slot.
+/// <summary>
+/// A pad connected to or left a slot.
+/// </summary>
 public readonly record struct GamepadChanged(int Slot, bool Connected, string Name);
 public enum PlayerChange { Joined, DeviceLost, DeviceRegained }
-// A local player joined, lost its pad or got it back.
+/// <summary>
+/// A local player joined, lost its pad or got it back.
+/// </summary>
 public readonly record struct PlayerChanged(int Player, int GamepadSlot, PlayerChange Change);
-// An Animator passed a named marker in a state.
+/// <summary>
+/// An Animator passed a named marker in a state.
+/// </summary>
 public readonly record struct AnimationMarker(Entity Entity, string State, string Name);
 public readonly record struct WindowResized(Vector2 Size);
-// Project files changed on disk while playing (tools builds): project-relative paths.
+/// <summary>
+/// Project files changed on disk while playing (tools builds): project-relative paths.
+/// </summary>
 public readonly record struct AssetsChanged(string[] Paths);

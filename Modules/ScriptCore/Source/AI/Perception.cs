@@ -3,8 +3,10 @@ using System.Collections.Generic;
 
 namespace ScriptCore.AI;
 
-// What an AI noticed: sight (range, field of view, line of sight through physics) and hearing
-// (Noise.Make), with a memory of where it last saw or heard its target.
+/// <summary>
+/// What an AI noticed: sight (range, field of view, line of sight through physics) and hearing
+/// (Noise.Make), with a memory of where it last saw or heard its target.
+/// </summary>
 public sealed class Perception
 {
     public float SightRange = 12f;
@@ -23,7 +25,9 @@ public sealed class Perception
     private float _lastKnownAge = float.MaxValue;
     private int _lastNoise;
 
-    // Looks for target from self and listens for noises; call once per update.
+    /// <summary>
+    /// Looks for target from self and listens for noises; call once per update.
+    /// </summary>
     public void Update(Entity self, Entity target, float deltaTime)
     {
         _lastKnownAge += deltaTime;
@@ -73,7 +77,9 @@ public sealed class Perception
         return true;
     }
 
-    // Within range and inside the view cone (ignoring height), from an eye looking along forward.
+    /// <summary>
+    /// Within range and inside the view cone (ignoring height), from an eye looking along forward.
+    /// </summary>
     public static bool InCone(Vector3 eye, Vector3 forward, Vector3 point, float range, float fieldOfView)
     {
         var toPoint = point - eye;
@@ -86,14 +92,18 @@ public sealed class Perception
     }
 }
 
-// Sounds AIs can hear: Noise.Make(where, radius) from gunshots, footsteps, a thrown bottle.
+/// <summary>
+/// Sounds AIs can hear: Noise.Make(where, radius) from gunshots, footsteps, a thrown bottle.
+/// </summary>
 public static class Noise
 {
     public readonly record struct Event(Vector3 Position, float Radius, Entity Source, int Index);
     private static readonly List<Event> Recent = new();
     private static int _count;
 
-    // How many noises have ever been made (perception remembers where it read up to).
+    /// <summary>
+    /// How many noises have ever been made (perception remembers where it read up to).
+    /// </summary>
     public static int Count => _count;
 
     public static void Make(Vector3 position, float radius, Entity source = default)

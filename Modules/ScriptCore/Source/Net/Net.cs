@@ -3,7 +3,9 @@ using System.Collections.Generic;
 
 namespace ScriptCore;
 
-// The owner's input for one simulation tick (Net.Command): networked buttons as bits plus four axes.
+/// <summary>
+/// The owner's input for one simulation tick (Net.Command): networked buttons as bits plus four axes.
+/// </summary>
 public struct NetCommand
 {
     public int Tick;
@@ -13,12 +15,16 @@ public struct NetCommand
     // The (fractional) server tick the owner's view showed when it sent this command (NET-8);
     // Net.LagCompensatedRaycast rewinds to it. -1 without one.
     public double ViewTick;
-    // The owner's absolute aim when it sent this command (NET-15; Net.SetAim), in degrees: Yaw about
-    // +Y (0 looking down +Z, 90 down +X), Pitch up from level. HasAim is false until it sets one.
+    /// <summary>
+    /// The owner's absolute aim when it sent this command (NET-15; Net.SetAim), in degrees: Yaw about
+    /// +Y (0 looking down +Z, 90 down +X), Pitch up from level. HasAim is false until it sets one.
+    /// </summary>
     public bool HasAim;
     public float Yaw, Pitch;
 
-    // The aim as a unit direction (+Z when there's none).
+    /// <summary>
+    /// The aim as a unit direction (+Z when there's none).
+    /// </summary>
     public Vector3 AimDirection
     {
         get
@@ -27,7 +33,9 @@ public struct NetCommand
             return new Vector3(MathF.Sin(yaw) * MathF.Cos(pitch), MathF.Sin(pitch), MathF.Cos(yaw) * MathF.Cos(pitch));
         }
     }
-    // False when there's no command for the entity this tick (not owned, or none arrived yet).
+    /// <summary>
+    /// False when there's no command for the entity this tick (not owned, or none arrived yet).
+    /// </summary>
     public bool Valid;
 
     public bool IsDown(string action) => Bit(Buttons, action);
@@ -44,13 +52,17 @@ public struct NetCommand
 }
 
 
-// Net.LagCompensatedRaycast's result. Entity: the hitbox's entity (also when Occluded hid it).
-// Rejected: the shooter's view was in the future. Rewound: judged at the shooter's view (server).
+/// <summary>
+/// Net.LagCompensatedRaycast's result. Entity: the hitbox's entity (also when Occluded hid it).
+/// Rejected: the shooter's view was in the future. Rewound: judged at the shooter's view (server).
+/// </summary>
 public readonly record struct NetHit(bool Hit, Entity Entity, Vector3 Point, bool Occluded, bool Rejected, bool Clamped, bool Rewound);
 
 
-// NET-6: the session from scripts. Without a session (offline play, the editor) Role is 0 and RPCs
-// run locally, so the same script works on both sides. See Engine/Docs/Networking.md.
+/// <summary>
+/// NET-6: the session from scripts. Without a session (offline play, the editor) Role is 0 and RPCs
+/// run locally, so the same script works on both sides. See Engine/Docs/Networking.md.
+/// </summary>
 public static unsafe class Net
 {
     public const int RoleNone = 0;
@@ -62,23 +74,33 @@ public static unsafe class Net
     public static bool IsServer => Role == RoleServer;
     public static bool IsClient => Role == RoleClient;
 
-    // This client's id (1-255); 0 on the server and offline.
+    /// <summary>
+    /// This client's id (1-255); 0 on the server and offline.
+    /// </summary>
     public static int LocalClientId => Engine._api.Net_GetLocalClientId != null ? Engine._api.Net_GetLocalClientId() : 0;
 
-    // The simulation tick being run (a past one while resimulating).
+    /// <summary>
+    /// The simulation tick being run (a past one while resimulating).
+    /// </summary>
     public static int Tick => Engine._api.Net_GetTick != null ? Engine._api.Net_GetTick() : 0;
 
-    // True while the client replays its commands after a correction: skip effects and sounds.
+    /// <summary>
+    /// True while the client replays its commands after a correction: skip effects and sounds.
+    /// </summary>
     public static bool IsResimulating => Engine._api.Net_IsResimulating != null && Engine._api.Net_IsResimulating() != 0;
 
-    // The connected client ids (server); returns how many, writing at most ids.Length.
+    /// <summary>
+    /// The connected client ids (server); returns how many, writing at most ids.Length.
+    /// </summary>
     public static int GetClients(Span<int> ids)
     {
         if (Engine._api.Net_GetClients == null) return 0;
         fixed (int* p = ids) return Engine._api.Net_GetClients(p, ids.Length);
     }
 
-    // Allocates; GetClients(Span) doesn't.
+    /// <summary>
+    /// Allocates; GetClients(Span) doesn't.
+    /// </summary>
     public static int[] Clients
     {
         get
@@ -89,7 +111,9 @@ public static unsafe class Net
         }
     }
 
-    // The client that owns (and predicts) an entity; 0 = the server / nobody.
+    /// <summary>
+    /// The client that owns (and predicts) an entity; 0 = the server / nobody.
+    /// </summary>
     public static int GetOwner(Entity entity) => Engine._api.Net_GetOwner != null ? Engine._api.Net_GetOwner(entity) : 0;
     public static void SetOwner(Entity entity, int clientId)
     {
@@ -102,10 +126,14 @@ public static unsafe class Net
         return id != 0 && GetOwner(entity) == id;
     }
 
-    // On a client: the entity it predicts (its pawn).
+    /// <summary>
+    /// On a client: the entity it predicts (its pawn).
+    /// </summary>
     public static bool IsPredicted(Entity entity) => Engine._api.Net_IsPredicted != null && Engine._api.Net_IsPredicted(entity) != 0;
 
-    // The owner's command for the tick being simulated (server: as received; client: its own).
+    /// <summary>
+    /// The owner's command for the tick being simulated (server: as received; client: its own).
+    /// </summary>
     public static NetCommand Command(Entity entity)
     {
         var command = new NetCommand();
@@ -132,7 +160,9 @@ public static unsafe class Net
         return command;
     }
 
-    // Holds (or releases) a networked action as if its input were down: bots and tests.
+    /// <summary>
+    /// Holds (or releases) a networked action as if its input were down: bots and tests.
+    /// </summary>
     public static void Press(string action, bool held = true)
     {
         int index = ActionIndex(action);
@@ -144,11 +174,13 @@ public static unsafe class Net
         if (Engine._api.Net_SetActionOverride != null) Engine._api.Net_SetActionOverride(index, held ? (byte)1 : (byte)0);
     }
 
-    // NET-15: a shot judged the way its shooter saw it. On the server the hitboxes (NetHitbox) are
-    // rewound to the view the shooter's command was sent from (Command.ViewTick, capped at the
-    // rewind window: Clamped), and present-day colliders and rewound occluders still block it. On
-    // a client (or offline) it tests the hitboxes as they are now: the predicted hit, for impact
-    // FX; only the server's result counts. Shooter: the entity firing (ignored by the ray).
+    /// <summary>
+    /// NET-15: a shot judged the way its shooter saw it. On the server the hitboxes (NetHitbox) are
+    /// rewound to the view the shooter's command was sent from (Command.ViewTick, capped at the
+    /// rewind window: Clamped), and present-day colliders and rewound occluders still block it. On
+    /// a client (or offline) it tests the hitboxes as they are now: the predicted hit, for impact
+    /// FX; only the server's result counts. Shooter: the entity firing (ignored by the ray).
+    /// </summary>
     public static NetHit LagCompensatedRaycast(Entity shooter, Vector3 origin, Vector3 direction, float range)
     {
         if (Engine._api.Net_LagCompensatedRaycast == null) return default;
@@ -159,24 +191,32 @@ public static unsafe class Net
         return new NetHit((flags & 1) != 0, hit, point, (flags & 2) != 0, (flags & 4) != 0, (flags & 8) != 0, (flags & 16) != 0);
     }
 
-    // The local player's absolute aim (NET-15), sent with every command until cleared: degrees,
-    // yaw about +Y (0 down +Z, 90 down +X), pitch up from level. Set it from where the view looks
-    // each frame; the pawn's script reads Net.Command(Entity).Yaw / Pitch / AimDirection in
-    // OnFixedUpdate on both sides, so a predicted shot and the server's aim the same way.
+    /// <summary>
+    /// The local player's absolute aim (NET-15), sent with every command until cleared: degrees,
+    /// yaw about +Y (0 down +Z, 90 down +X), pitch up from level. Set it from where the view looks
+    /// each frame; the pawn's script reads Net.Command(Entity).Yaw / Pitch / AimDirection in
+    /// OnFixedUpdate on both sides, so a predicted shot and the server's aim the same way.
+    /// </summary>
     public static void SetAim(float yawDegrees, float pitchDegrees) { if (Engine._api.Net_SetAim != null) Engine._api.Net_SetAim(1, yawDegrees, pitchDegrees); }
     public static void ClearAim() { if (Engine._api.Net_SetAim != null) Engine._api.Net_SetAim(0, 0f, 0f); }
 
-    // Smoothed round trip in ms: a client's to the server, or (server) to one client.
+    /// <summary>
+    /// Smoothed round trip in ms: a client's to the server, or (server) to one client.
+    /// </summary>
     public static float RoundTripMs => Engine._api.Net_GetRoundTripMs != null ? Engine._api.Net_GetRoundTripMs(0) : 0f;
     public static float RoundTripMsTo(int clientId) => Engine._api.Net_GetRoundTripMs != null ? Engine._api.Net_GetRoundTripMs(clientId) : 0f;
 
-    // Whether to draw impacts (sparks, decals, hit sounds) from a client's own predicted hit. Above
-    // PredictImpactsMaxRttMs the predicted view is too far from the server's judgement: wait for
-    // its confirmation (an RPC, a replicated field) instead. Hit markers and health always should.
+    /// <summary>
+    /// Whether to draw impacts (sparks, decals, hit sounds) from a client's own predicted hit. Above
+    /// PredictImpactsMaxRttMs the predicted view is too far from the server's judgement: wait for
+    /// its confirmation (an RPC, a replicated field) instead. Hit markers and health always should.
+    /// </summary>
     public static float PredictImpactsMaxRttMs = 220f;
     public static bool PredictImpacts => !IsClient || RoundTripMs <= PredictImpactsMaxRttMs;
 
-    // Prediction on this client: mispredictions corrected, ticks that matched, and initial syncs.
+    /// <summary>
+    /// Prediction on this client: mispredictions corrected, ticks that matched, and initial syncs.
+    /// </summary>
     public static int Corrections { get { GetPredictionStats(out int c, out _, out _); return c; } }
     public static int Matches { get { GetPredictionStats(out _, out int m, out _); return m; } }
     public static int InitialSyncs { get { GetPredictionStats(out _, out _, out int s); return s; } }
@@ -190,7 +230,9 @@ public static unsafe class Net
         initialSyncs = s;
     }
 
-    // The id an entity is known by on every peer (0: not networked), and back.
+    /// <summary>
+    /// The id an entity is known by on every peer (0: not networked), and back.
+    /// </summary>
     public static int GetNetId(Entity entity) => Engine._api.Net_GetNetId != null ? Engine._api.Net_GetNetId(entity) : 0;
     public static Entity FindEntity(int netId)
     {
@@ -200,11 +242,15 @@ public static unsafe class Net
         return id;
     }
 
-    // An RPC's arguments must fit one message (1024 bytes) with its header.
+    /// <summary>
+    /// An RPC's arguments must fit one message (1024 bytes) with its header.
+    /// </summary>
     public const int MaxRpcArgsBytes = 1008;
 
-    // Generated RPC stubs call this. kind: 0 to the server, 1 to the owner, 2 to every client.
-    // Offline both sides are local, and an RPC addressed to the side we're on runs here directly.
+    /// <summary>
+    /// Generated RPC stubs call this. kind: 0 to the server, 1 to the owner, 2 to every client.
+    /// Offline both sides are local, and an RPC addressed to the side we're on runs here directly.
+    /// </summary>
     public static void SendRpc(Entity entity, int rpcId, int kind, ReadOnlySpan<byte> args, INetScript self)
     {
         if (args.Length > MaxRpcArgsBytes)
@@ -262,7 +308,9 @@ public static unsafe class Net
         }
     }
 
-    // The RPC id PredictedEvent's server copies travel under (C++: kPredictedEventRpcId).
+    /// <summary>
+    /// The RPC id PredictedEvent's server copies travel under (C++: kPredictedEventRpcId).
+    /// </summary>
     public const int PredictedEventRpcId = 0x3FFFFFFF;
 
     internal static readonly NetEventLedger Events = new();
@@ -280,7 +328,9 @@ public static unsafe class Net
         }
     }
 
-    // Generated RPC stubs with string arguments: the arguments didn't fit the RPC buffer.
+    /// <summary>
+    /// Generated RPC stubs with string arguments: the arguments didn't fit the RPC buffer.
+    /// </summary>
     public static void WarnRpcTooLarge(string rpc) => WarnOnce($"{rpc}: the arguments are too large for an RPC; dropped");
 
     // Action name -> networked button bit, -1 when it isn't one. Cached (only a miss allocates);
@@ -323,8 +373,10 @@ public static unsafe class Net
 }
 
 
-// ME-291: the predicted events a client has presented, by (entity, tick, event), so a resimulated
-// tick or the server's copy doesn't present one twice. Keeps about the last 256 ticks.
+/// <summary>
+/// ME-291: the predicted events a client has presented, by (entity, tick, event), so a resimulated
+/// tick or the server's copy doesn't present one twice. Keeps about the last 256 ticks.
+/// </summary>
 public sealed class NetEventLedger
 {
     private readonly HashSet<(uint Index, uint Generation, int Tick, int EventId)> _presented = new();
@@ -332,7 +384,9 @@ public sealed class NetEventLedger
 
     public int Count => _presented.Count;
 
-    // True the first time (present it now), false for a repeat.
+    /// <summary>
+    /// True the first time (present it now), false for a repeat.
+    /// </summary>
     public bool TryPresent(Entity entity, int tick, int eventId)
     {
         if (!_presented.Add((entity.Index, entity.Generation, tick, eventId)))

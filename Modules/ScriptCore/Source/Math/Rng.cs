@@ -11,7 +11,9 @@ public sealed class Rng
     private ulong _state;
     private readonly ulong _increment;
 
-    // A shared generator seeded from the clock, for when reproducibility doesn't matter.
+    /// <summary>
+    /// A shared generator seeded from the clock, for when reproducibility doesn't matter.
+    /// </summary>
     public static readonly Rng Shared = new Rng((ulong)DateTime.UtcNow.Ticks);
 
     public Rng(ulong seed, ulong stream = 54)
@@ -32,13 +34,19 @@ public sealed class Rng
         return (xorShifted >> rot) | (xorShifted << ((-rot) & 31));
     }
 
-    // [0, 1)
+    /// <summary>
+    /// [0, 1)
+    /// </summary>
     public float NextFloat() => (NextUInt() >> 8) * (1f / 16777216f);
 
-    // [min, max)
+    /// <summary>
+    /// [min, max)
+    /// </summary>
     public float Range(float min, float max) => min + (max - min) * NextFloat();
 
-    // [min, max), unbiased (Lemire's bounded method with rejection).
+    /// <summary>
+    /// [min, max), unbiased (Lemire's bounded method with rejection).
+    /// </summary>
     public int Range(int min, int max)
     {
         if (max <= min) return min;
@@ -53,7 +61,9 @@ public sealed class Rng
 
     public bool Chance(float probability) => NextFloat() < probability;
 
-    // A uniformly distributed direction.
+    /// <summary>
+    /// A uniformly distributed direction.
+    /// </summary>
     public Vector3 OnUnitSphere()
     {
         float z = Range(-1f, 1f), a = Range(0f, MathF.PI * 2f), r = MathF.Sqrt(1f - z * z);

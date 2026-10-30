@@ -2,7 +2,9 @@ using System.Text;
 
 namespace ScriptCore;
 
-// Immediate-mode ImGui for game scripts (editor inspector widgets live on EngineAPI separately).
+/// <summary>
+/// Immediate-mode ImGui for game scripts (editor inspector widgets live on EngineAPI separately).
+/// </summary>
 public static unsafe class ImGui
 {
     // Rows return true on edit and lay out like every C++ inspector (label column, then value).
@@ -99,7 +101,9 @@ public static unsafe class ImGui
 
     public static void Space(float height = 0f) => Engine._api.ImGui_Space(height);
 
-    // Hover text for the previous row.
+    /// <summary>
+    /// Hover text for the previous row.
+    /// </summary>
     public static void Tooltip(string text)
     {
         fixed (byte* p = Engine.Utf8(text, stackalloc byte[Engine.Utf8StackSize])) Engine._api.ImGui_Tooltip(p);
@@ -122,7 +126,9 @@ public static unsafe class ImGui
 
     public static void SameLine() => Engine._api.ImGui_SameLine();
 
-    // An entity row on the 16-hex scene GUID an EntityRef stores.
+    /// <summary>
+    /// An entity row on the 16-hex scene GUID an EntityRef stores.
+    /// </summary>
     public static bool EntityRow(string label, ref string guid)
     {
         var buffer = TextBuffer(guid, 64);
@@ -132,7 +138,9 @@ public static unsafe class ImGui
         return changed;
     }
 
-    // An asset row on a project path; filter narrows the picker ("Texture", or an extension).
+    /// <summary>
+    /// An asset row on a project path; filter narrows the picker ("Texture", or an extension).
+    /// </summary>
     public static bool AssetRow(string label, ref string path, string filter = "")
     {
         var buffer = TextBuffer(path, 512);

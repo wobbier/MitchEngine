@@ -6,11 +6,13 @@ using System.Text;
 
 namespace ScriptCore;
 
-// PLAY-10: a developer console command. On a static method taking string[] (or nothing) and
-// returning a string (printed) or nothing:
-//   [ConsoleCommand("spawn", "Spawns a prefab: spawn <path>")]
-//   public static string Spawn(string[] args) { World.Instantiate(args[0]); return "spawned"; }
-// The engine's, the game's and the mods' assemblies are searched; ~ opens the console in game builds.
+/// <summary>
+/// PLAY-10: a developer console command. On a static method taking string[] (or nothing) and
+/// returning a string (printed) or nothing:
+///   [ConsoleCommand("spawn", "Spawns a prefab: spawn &lt;path&gt;")]
+///   public static string Spawn(string[] args) { World.Instantiate(args[0]); return "spawned"; }
+/// The engine's, the game's and the mods' assemblies are searched; ~ opens the console in game builds.
+/// </summary>
 [AttributeUsage(AttributeTargets.Method)]
 public sealed class ConsoleCommandAttribute : Attribute
 {
@@ -65,7 +67,9 @@ public static class ConsoleCommands
         return _commands.OrderBy(c => c.Key, StringComparer.Ordinal).Select(c => (c.Key, c.Value.Help));
     }
 
-    // Null when no C# command has that name.
+    /// <summary>
+    /// Null when no C# command has that name.
+    /// </summary>
     public static string? Run(string name, string[] args)
     {
         Refresh();

@@ -4,10 +4,12 @@ using ScriptCore.AI;
 
 namespace ScriptCore.Kit;
 
-// GAME-3's sample AI, on an entity with a NavMeshAgent: patrols Waypoints (entity names, comma
-// separated), chases Target when it sees it, stops when it catches it, and when it loses sight
-// searches where it last saw (or heard) it before going back to patrolling. State shows what it's
-// doing (Patrol, Chase, Caught, Search); changes are logged ("Guard: sees Intruder").
+/// <summary>
+/// GAME-3's sample AI, on an entity with a NavMeshAgent: patrols Waypoints (entity names, comma
+/// separated), chases Target when it sees it, stops when it catches it, and when it loses sight
+/// searches where it last saw (or heard) it before going back to patrolling. State shows what it's
+/// doing (Patrol, Chase, Caught, Search); changes are logged ("Guard: sees Intruder").
+/// </summary>
 public class GuardBrain : Script
 {
     public string Target = "Player";

@@ -2,11 +2,15 @@ using System;
 
 namespace ScriptCore;
 
-// Authored property tracks on any number of scene objects. Times are in seconds.
+/// <summary>
+/// Authored property tracks on any number of scene objects. Times are in seconds.
+/// </summary>
 public class Sequence : Component
 {
     public void Play(bool restart = true) { unsafe { Engine._api.Sequence_Play(Entity, restart ? (byte)1 : (byte)0); } }
-    // Names are configured in the Sequencer's Clips tab. False leaves the current playback intact.
+    /// <summary>
+    /// Names are configured in the Sequencer's Clips tab. False leaves the current playback intact.
+    /// </summary>
     public bool Play(string clipName, bool restart = true)
     {
         if (string.IsNullOrEmpty(clipName)) return false;
@@ -34,8 +38,10 @@ public class Sequence : Component
     public float Time { get { unsafe { return Engine._api.Sequence_GetTime(Entity); } } }
     public float Duration { get { unsafe { return Engine._api.Sequence_GetDuration(Entity); } } }
 
-    // This player's markers and notifications (GAME-4). Like Script.On, a script's handler goes
-    // when it's destroyed (and on a hot reload); Dispose the result to stop sooner.
+    /// <summary>
+    /// This player's markers and notifications (GAME-4). Like Script.On, a script's handler goes
+    /// when it's destroyed (and on a hot reload); Dispose the result to stop sooner.
+    /// </summary>
     public IDisposable OnEvent(Action<SequenceEvent> handler) => EventBus.Subscribe<SequenceEvent>(new PlayerFilter(Entity, handler).Invoke);
 
     private sealed class PlayerFilter : EventBus.IOwnedHandler
@@ -50,13 +56,17 @@ public class Sequence : Component
 
 public enum SequenceEventKind { Marker, Started, Finished, Interrupted, Looped }
 
-// A Sequencer marker crossed during playback (Kind Marker: Name, Payload and Number as authored), or
-// a playback notification (Name is the sequence's). Markers go to the marker's receiver object,
-// notifications to the player; both are also published on the EventBus. Receiver is Entity.Null
-// for a marker whose binding slot isn't bound.
+/// <summary>
+/// A Sequencer marker crossed during playback (Kind Marker: Name, Payload and Number as authored), or
+/// a playback notification (Name is the sequence's). Markers go to the marker's receiver object,
+/// notifications to the player; both are also published on the EventBus. Receiver is Entity.Null
+/// for a marker whose binding slot isn't bound.
+/// </summary>
 public readonly record struct SequenceEvent(Entity Player, Entity Receiver, SequenceEventKind Kind, string Name, string Payload, float Number, int Frame, string Clip);
 
-// A script on a receiver object gets its sequence events here, before EventBus subscribers.
+/// <summary>
+/// A script on a receiver object gets its sequence events here, before EventBus subscribers.
+/// </summary>
 public interface ISequenceReceiver
 {
     void OnSequenceEvent(SequenceEvent e);

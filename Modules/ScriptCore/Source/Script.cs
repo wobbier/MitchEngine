@@ -2,18 +2,24 @@ using System;
 
 namespace ScriptCore;
 
-// Base for scripts that live on an entity
+/// <summary>
+/// Base for scripts that live on an entity
+/// </summary>
 public abstract class Script : IGameScript
 {
     public Entity Entity { get; internal set; } = Entity.Null;
 
-    // Coroutines, timers and tweens owned by this script: they stop when it's destroyed (Async.cs).
+    /// <summary>
+    /// Coroutines, timers and tweens owned by this script: they stop when it's destroyed (Async.cs).
+    /// </summary>
     protected AsyncHandle StartCoroutine(System.Collections.IEnumerator routine) => Scheduler.AddCoroutine(this, routine);
     protected void StopAllCoroutines() => Scheduler.RemoveOwner(this);
     protected AsyncHandle After(float seconds, Action action) => Timer.After(seconds, action, this);
     protected AsyncHandle Every(float seconds, Action action) => Timer.Every(seconds, action, this);
 
-    // Subscribes to an event for as long as this script lives (EventBus).
+    /// <summary>
+    /// Subscribes to an event for as long as this script lives (EventBus).
+    /// </summary>
     protected IDisposable On<T>(Action<T> handler) => EventBus.Subscribe(handler);
 
     public virtual void OnStart() { }
@@ -23,8 +29,10 @@ public abstract class Script : IGameScript
     public virtual void OnDestroy() { }
     public virtual void OnEditorInspect() { }
     public virtual void OnReload() { }
-    // ME-291: a Net.PredictedEvent this script raised, presented once per (tick, event) on each
-    // peer: right away on the server and the predicting owner, from the server on other clients.
+    /// <summary>
+    /// ME-291: a Net.PredictedEvent this script raised, presented once per (tick, event) on each
+    /// peer: right away on the server and the predicting owner, from the server on other clients.
+    /// </summary>
     public virtual void OnNetEvent( int eventId, int value ) { }
     public virtual void OnCollisionEnter( Collision collision ) { }
     public virtual void OnCollisionExit( Collision collision ) { }

@@ -22,7 +22,9 @@ public class Transform : Component
         set { unsafe { Engine._api.Transform_SetRotation(Entity, &value); } }
     }
 
-    // Rotates by degrees about the local axes using quaternion composition.
+    /// <summary>
+    /// Rotates by degrees about the local axes using quaternion composition.
+    /// </summary>
     public void Rotate(Vector3 degrees)
     {
         unsafe { Engine._api.Transform_Rotate(Entity, &degrees); }
@@ -43,13 +45,17 @@ public class Transform : Component
         unsafe { Engine._api.Transform_LookAt(Entity, &worldTarget); }
     }
 
-    // Turns to face a world direction, with up as close to the given up as possible.
+    /// <summary>
+    /// Turns to face a world direction, with up as close to the given up as possible.
+    /// </summary>
     public void LookDirection(Vector3 forward, Vector3 up)
     {
         unsafe { Engine._api.Transform_LookDirection(Entity, &forward, &up); }
     }
 
-    // The parent entity (Entity.Null at the scene root); setting it keeps the world pose.
+    /// <summary>
+    /// The parent entity (Entity.Null at the scene root); setting it keeps the world pose.
+    /// </summary>
     public Entity Parent
     {
         get { unsafe { Entity e; Engine._api.Transform_GetParent(Entity, &e); return e; } }

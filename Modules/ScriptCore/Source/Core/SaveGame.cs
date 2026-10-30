@@ -5,7 +5,9 @@ using System.Text.Json;
 
 namespace ScriptCore;
 
-// Saves a non-public field with save games (public fields always are). Scenes never store it.
+/// <summary>
+/// Saves a non-public field with save games (public fields always are). Scenes never store it.
+/// </summary>
 [AttributeUsage(AttributeTargets.Field)]
 public sealed class SaveAttribute : Attribute { }
 
@@ -32,7 +34,9 @@ public readonly struct SaveSlot
 //   SaveGame.Load("slot1");
 public static unsafe class SaveGame
 {
-    // Slot names are letters, digits, '-' and '_'. False when the name is invalid or there's no scene.
+    /// <summary>
+    /// Slot names are letters, digits, '-' and '_'. False when the name is invalid or there's no scene.
+    /// </summary>
     public static bool Save(string slot, string name = "")
     {
         fixed (byte* s = Engine.Utf8(slot, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* n = Engine.Utf8(name ?? "", stackalloc byte[Engine.Utf8StackSize])) return Engine._api.SaveGame_Save(s, n) != 0;
@@ -81,10 +85,14 @@ public static unsafe class SaveGame
         return slots.ToArray();
     }
 
-    // True while a save is still being written.
+    /// <summary>
+    /// True while a save is still being written.
+    /// </summary>
     public static bool IsWriting => Engine._api.SaveGame_IsWriting() != 0;
 
-    // Seconds played, counting from the loaded save's playtime.
+    /// <summary>
+    /// Seconds played, counting from the loaded save's playtime.
+    /// </summary>
     public static float Playtime => Engine._api.SaveGame_GetPlaytime();
 
     private static string Text(JsonElement e, string key) =>

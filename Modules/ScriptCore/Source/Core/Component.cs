@@ -2,12 +2,16 @@ using System;
 
 namespace ScriptCore;
 
-// stateless proxy, just marshalling really
+/// <summary>
+/// stateless proxy, just marshalling really
+/// </summary>
 public abstract class Component
 {
     public Entity Entity { get; internal set; }
 
-    // if the entity is being observed by the world in any capacity, you cannot hide in silence
+    /// <summary>
+    /// if the entity is being observed by the world in any capacity, you cannot hide in silence
+    /// </summary>
     public bool Exists => Entity.IsAlive && Entity.HasComponentNamed(GetType().Name);
 
     public Transform transform => Entity.GetComponent<Transform>();

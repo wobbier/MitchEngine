@@ -3,14 +3,16 @@ using System.Collections.Generic;
 
 namespace ScriptCore;
 
-// PLAY-7: subtitles and closed captions in the stock caption strip (Engine/Assets/UI/Captions/
-// Captions.rml, a UIDocument the scene adds; it binds the "captions" model). The player's
-// Accessibility settings decide whether they show, whether speakers are named, their size and
-// their backdrop:
-//   Captions.Say("Guard", "Who goes there?");      // a line of speech, for as long as it takes to read
-//   Captions.Sound("door creaks");                 // a sound, shown as [door creaks]
-// Up to three lines show at once, newest last; each goes after its time (real time, so a paused
-// game doesn't hold them forever).
+/// <summary>
+/// PLAY-7: subtitles and closed captions in the stock caption strip (Engine/Assets/UI/Captions/
+/// Captions.rml, a UIDocument the scene adds; it binds the "captions" model). The player's
+/// Accessibility settings decide whether they show, whether speakers are named, their size and
+/// their backdrop:
+///   Captions.Say("Guard", "Who goes there?");      // a line of speech, for as long as it takes to read
+///   Captions.Sound("door creaks");                 // a sound, shown as [door creaks]
+/// Up to three lines show at once, newest last; each goes after its time (real time, so a paused
+/// game doesn't hold them forever).
+/// </summary>
 public static class Captions
 {
     public const string Model = "captions";
@@ -36,7 +38,9 @@ public static class Captions
         Refresh();
     }
 
-    // Drops the lines whose time is up and writes the model (Say and Sound schedule it).
+    /// <summary>
+    /// Drops the lines whose time is up and writes the model (Say and Sound schedule it).
+    /// </summary>
     public static void Refresh()
     {
         _lines.Expire(Time.RealTime);
@@ -85,7 +89,9 @@ public static class Captions
     }
 }
 
-// The caption queue itself: no engine calls, so tests can drive it with their own clock.
+/// <summary>
+/// The caption queue itself: no engine calls, so tests can drive it with their own clock.
+/// </summary>
 public sealed class CaptionLines
 {
     public const int MaxLines = 3;
@@ -94,10 +100,14 @@ public sealed class CaptionLines
 
     public IReadOnlyList<Line> Current => _lines;
 
-    // About as long as it takes to read: 1.5 s plus 60 ms a character, 2 to 8 s.
+    /// <summary>
+    /// About as long as it takes to read: 1.5 s plus 60 ms a character, 2 to 8 s.
+    /// </summary>
     public static float ReadingSeconds(string text) => Math.Clamp(1.5f + text.Length * 0.06f, 2f, 8f);
 
-    // Returns how long the line shows.
+    /// <summary>
+    /// Returns how long the line shows.
+    /// </summary>
     public float Add(string speaker, string text, float seconds, float now)
     {
         float length = seconds > 0f ? seconds : ReadingSeconds(text);

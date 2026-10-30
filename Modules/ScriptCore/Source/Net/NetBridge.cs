@@ -7,11 +7,15 @@ using System.Text;
 
 namespace ScriptCore;
 
-// NET-6: what the engine's NetCore calls on networked scripts (INetScript, generated). Buffers are
-// the engine's; the Save / Write calls return the bytes needed and only write when they fit.
+/// <summary>
+/// NET-6: what the engine's NetCore calls on networked scripts (INetScript, generated). Buffers are
+/// the engine's; the Save / Write calls return the bytes needed and only write when they fit.
+/// </summary>
 public static partial class ScriptBridge
 {
-    // 0: no script or not networked; else 1 | bit 1 predicted fields, bit 2 replicated, bit 3 RPCs.
+    /// <summary>
+    /// 0: no script or not networked; else 1 | bit 1 predicted fields, bit 2 replicated, bit 3 RPCs.
+    /// </summary>
     [UnmanagedCallersOnly]
     public static int NetGetFlags(int handle)
     {

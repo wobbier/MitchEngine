@@ -3,7 +3,9 @@ using System.Collections.Generic;
 
 namespace ScriptCore.Kit;
 
-// Health for props and enemies that have no script of their own (a crate that breaks, a target).
+/// <summary>
+/// Health for props and enemies that have no script of their own (a crate that breaks, a target).
+/// </summary>
 public class Damageable : Script, IHealth
 {
     public float MaxHealth = 50f;
@@ -17,8 +19,10 @@ public class Damageable : Script, IHealth
     }
 }
 
-// Hurts anything with health inside its trigger collider: Damage once on entering, then
-// DamagePerSecond while inside.
+/// <summary>
+/// Hurts anything with health inside its trigger collider: Damage once on entering, then
+/// DamagePerSecond while inside.
+/// </summary>
 public class DamageZone : Script
 {
     public float Damage = 0f;
@@ -45,8 +49,10 @@ public class DamageZone : Script
     }
 }
 
-// Where an actor comes back: entering its trigger makes it that actor's respawn point.
-// Checkpoint.Respawn(actor) puts the actor there (and refills its health).
+/// <summary>
+/// Where an actor comes back: entering its trigger makes it that actor's respawn point.
+/// Checkpoint.Respawn(actor) puts the actor there (and refills its health).
+/// </summary>
 public class Checkpoint : Script
 {
     public Vector3 Offset = new Vector3(0f, 1f, 0f);
@@ -63,7 +69,9 @@ public class Checkpoint : Script
 
     public static bool TryGetRespawn(Entity actor, out Vector3 point) => Respawns.TryGetValue(actor, out point);
 
-    // Moves the actor to its last checkpoint (or Fallback when it reached none) and refills it.
+    /// <summary>
+    /// Moves the actor to its last checkpoint (or Fallback when it reached none) and refills it.
+    /// </summary>
     public static bool Respawn(Entity actor, Vector3? fallback = null)
     {
         if (!TryGetRespawn(actor, out var point))
@@ -77,8 +85,10 @@ public class Checkpoint : Script
     }
 }
 
-// Collected by touching its trigger: Item x Amount into the collector's Inventory and/or Heal into
-// its Health, then it's gone. Spins while it waits.
+/// <summary>
+/// Collected by touching its trigger: Item x Amount into the collector's Inventory and/or Heal into
+/// its Health, then it's gone. Spins while it waits.
+/// </summary>
 public class Pickup : Script
 {
     public string Item = "Coin";
@@ -108,8 +118,10 @@ public class Pickup : Script
     }
 }
 
-// Makes copies of a prefab at its position: one every Interval seconds while fewer than MaxAlive
-// of its copies exist, Total in all (0 = no limit).
+/// <summary>
+/// Makes copies of a prefab at its position: one every Interval seconds while fewer than MaxAlive
+/// of its copies exist, Total in all (0 = no limit).
+/// </summary>
 public class Spawner : Script
 {
     public string Prefab = "";

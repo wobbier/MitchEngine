@@ -1,12 +1,16 @@
 using System;
 using System.Runtime.InteropServices;
 
-// A 4x4 transform, column-major like the engine's (glm): m[column, row], translation in column 3.
-// Points are columns: Matrix * point.
+/// <summary>
+/// A 4x4 transform, column-major like the engine's (glm): m[column, row], translation in column 3.
+/// Points are columns: Matrix * point.
+/// </summary>
 [StructLayout(LayoutKind.Sequential)]
 public struct Matrix4x4
 {
-    // Column 0, then 1, 2, 3.
+    /// <summary>
+    /// Column 0, then 1, 2, 3.
+    /// </summary>
     public float m00, m10, m20, m30;
     public float m01, m11, m21, m31;
     public float m02, m12, m22, m32;
@@ -14,7 +18,9 @@ public struct Matrix4x4
 
     public static readonly Matrix4x4 Identity = new Matrix4x4 { m00 = 1f, m11 = 1f, m22 = 1f, m33 = 1f };
 
-    // Element at row r, column c.
+    /// <summary>
+    /// Element at row r, column c.
+    /// </summary>
     public float this[int r, int c]
     {
         get
@@ -66,7 +72,9 @@ public struct Matrix4x4
         return m;
     }
 
-    // Translation * Rotation * Scale: what a Transform's local matrix is.
+    /// <summary>
+    /// Translation * Rotation * Scale: what a Transform's local matrix is.
+    /// </summary>
     public static Matrix4x4 TRS(Vector3 translation, Quaternion rotation, Vector3 scale) => Translate(translation) * Rotate(rotation) * Scale(scale);
 
     public static Matrix4x4 operator *(Matrix4x4 a, Matrix4x4 b)
@@ -82,7 +90,9 @@ public struct Matrix4x4
         return m;
     }
 
-    // A point (w = 1): translation applies.
+    /// <summary>
+    /// A point (w = 1): translation applies.
+    /// </summary>
     public Vector3 MultiplyPoint(Vector3 p)
     {
         float w = m30 * p.x + m31 * p.y + m32 * p.z + m33;
@@ -90,7 +100,9 @@ public struct Matrix4x4
         return MathF.Abs(w - 1f) > 1e-6f && MathF.Abs(w) > 1e-12f ? v * (1f / w) : v;
     }
 
-    // A direction (w = 0): no translation.
+    /// <summary>
+    /// A direction (w = 0): no translation.
+    /// </summary>
     public Vector3 MultiplyVector(Vector3 d) => new Vector3(m00 * d.x + m01 * d.y + m02 * d.z, m10 * d.x + m11 * d.y + m12 * d.z, m20 * d.x + m21 * d.y + m22 * d.z);
 
     public Vector3 GetTranslation() => new Vector3(m03, m13, m23);
@@ -102,7 +114,9 @@ public struct Matrix4x4
         return t;
     }
 
-    // The general inverse (Gauss-Jordan); Identity when the matrix is singular.
+    /// <summary>
+    /// The general inverse (Gauss-Jordan); Identity when the matrix is singular.
+    /// </summary>
     public Matrix4x4 Inverse()
     {
         var a = new float[4, 8];

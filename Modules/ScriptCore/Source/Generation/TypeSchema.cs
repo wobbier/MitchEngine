@@ -3,8 +3,10 @@ using System.Collections.Generic;
 
 namespace ScriptCore.Generation;
 
-// What a generated field is, for save/net/inspector/UI layers that need to walk fields
-// without reflection.
+/// <summary>
+/// What a generated field is, for save/net/inspector/UI layers that need to walk fields
+/// without reflection.
+/// </summary>
 public enum FieldKind
 {
     Bool,
@@ -17,13 +19,17 @@ public enum FieldKind
     Vector3,
 }
 
-// One persisted field: its name, kind and boxed accessors (generated static lambdas, not
-// reflection, so collectible script assemblies stay unloadable and AOT stays possible).
+/// <summary>
+/// One persisted field: its name, kind and boxed accessors (generated static lambdas, not
+/// reflection, so collectible script assemblies stay unloadable and AOT stays possible).
+/// </summary>
 public sealed class FieldDescriptor
 {
     public string Name { get; }
     public FieldKind Kind { get; }
-    // Display name of the field's type ("float", "Vector3", "My.Enum").
+    /// <summary>
+    /// Display name of the field's type ("float", "Vector3", "My.Enum").
+    /// </summary>
     public string TypeName { get; }
     public Func<object, object?> GetValue { get; }
     public Action<object, object?> SetValue { get; }
@@ -39,8 +45,10 @@ public sealed class FieldDescriptor
     }
 }
 
-// A type's generated schema. Hash is a stable FNV-1a over the names and kinds, so two builds
-// agree on it exactly when their fields agree (net handshakes, save versioning).
+/// <summary>
+/// A type's generated schema. Hash is a stable FNV-1a over the names and kinds, so two builds
+/// agree on it exactly when their fields agree (net handshakes, save versioning).
+/// </summary>
 public sealed class TypeSchema
 {
     public string TypeName { get; }

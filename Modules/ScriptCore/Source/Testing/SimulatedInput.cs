@@ -53,7 +53,9 @@ public static class SimulatedInput
         }
     }
 
-    // Holds the key for the given game time (at least one frame), then releases it.
+    /// <summary>
+    /// Holds the key for the given game time (at least one frame), then releases it.
+    /// </summary>
     public static async Task Hold(KeyCode key, float seconds)
     {
         Input.Simulate(key);
@@ -70,8 +72,10 @@ public static class SimulatedInput
 
     public static Task Tap(KeyCode key) => Hold(key, 0f);
 
-    // Applies each event once the recording's game time reaches it. Keys still held at the end
-    // stay held (end a recording with its releases, or call Input.ReleaseSimulated).
+    /// <summary>
+    /// Applies each event once the recording's game time reaches it. Keys still held at the end
+    /// stay held (end a recording with its releases, or call Input.ReleaseSimulated).
+    /// </summary>
     public static async Task Play(IReadOnlyList<Event> recording)
     {
         float time = 0f;
@@ -89,7 +93,9 @@ public static class SimulatedInput
         }
     }
 
-    // Records the real keyboard's key changes until disposed, then logs the recording.
+    /// <summary>
+    /// Records the real keyboard's key changes until disposed, then logs the recording.
+    /// </summary>
     public static Recorder Record() => new Recorder();
 
     public sealed class Recorder : IDisposable
