@@ -11,6 +11,7 @@
 #include "Engine/PlayerSettings.h"
 #include "Input/InputActions.h"
 #include "JSON.h"
+#include "Mods/Mods.h"
 #include "VFS/VFS.h"
 #include "Window/IWindow.h"
 #include <RmlUi/Core.h>
@@ -192,6 +193,98 @@ namespace
     {
         return "<button class=\"choice\" id=\"" + InId + "\" onclick=\"setting:" + Escape( InKey + "|" + InValue ) + "\" data-setting-selected=\""
             + Escape( InKey + "|" + InValue ) + "\">" + Escape( InLabel ) + "</button>";
+    }
+
+
+    // MOD-6: the mods tab. Rows follow the player's order (then the rest by id); names and states
+    // are data (set by Refresh), the buttons translated text.
+    std::string ModElementId( const std::string& InId )
+    {
+        std::string out;
+        for( char c : InId )
+        {
+            out += std::isalnum( static_cast<unsigned char>( c ) ) ? c : '-';
+        }
+        return out;
+    }
+
+
+    std::vector<std::string> ModDisplayOrder( const ModSettings& InSettings )
+    {
+        std::vector<std::string> order;
+        const std::vector<ModManifest>& discovered = ModManager::Get().GetDiscovered();
+        auto known = [&discovered]( const std::string& InId ) {
+            return std::any_of( discovered.begin(), discovered.end(), [&InId]( const ModManifest& InMod ) { return InMod.Id == InId; } );
+        };
+        for( const std::string& id : InSettings.Order )
+        {
+            if( known( id ) && std::find( order.begin(), order.end(), id ) == order.end() )
+            {
+                order.push_back( id );
+            }
+        }
+        std::vector<std::string> rest;
+        for( const ModManifest& mod : discovered )
+        {
+            if( std::find( order.begin(), order.end(), mod.Id ) == order.end() && std::find( rest.begin(), rest.end(), mod.Id ) == rest.end() )
+            {
+                rest.push_back( mod.Id );
+            }
+        }
+        std::sort( rest.begin(), rest.end() );
+        order.insert( order.end(), rest.begin(), rest.end() );
+        return order;
+    }
+
+
+    std::string ModRows()
+    {
+        const std::vector<std::string> order = ModDisplayOrder( ModManager::Get().LoadSettings() );
+        if( order.empty() )
+        {
+            return "<div class=\"row\"><span class=\"label\" id=\"mods-none\">No mods installed</span></div>";
+        }
+        std::string rml;
+        for( const std::string& id : order )
+        {
+            const std::string element = ModElementId( id );
+            const std::string escaped = Escape( id );
+            rml += "<div class=\"row\" id=\"mod-row-" + element + "\">"
+                "<span class=\"label\" data-mod-name=\"" + escaped + "\"></span>"
+                "<button class=\"choice\" id=\"mod-toggle-" + element + "\" onclick=\"mod-toggle:" + escaped + "\" data-mod-enabled=\"" + escaped + "\"></button>"
+                "<button class=\"step\" id=\"mod-up-" + element + "\" onclick=\"mod-move:" + escaped + "|-1\">Up</button>"
+                "<button class=\"step\" id=\"mod-down-" + element + "\" onclick=\"mod-move:" + escaped + "|1\">Down</button>"
+                "<span class=\"mod-status\" id=\"mod-status-" + element + "\" data-mod-status=\"" + escaped + "\"></span></div>";
+        }
+        return rml;
+    }
+
+
+    void FillModLists( Rml::ElementDocument& InDocument );
+
+
+    // What the row says: loaded, why not, or that a restart applies the change.
+    std::string ModStatus( const std::string& InId, const ModSettings& InSettings )
+    {
+        const std::vector<std::string>& loaded = ModManager::Get().GetLoadedIds();
+        const bool isLoaded = std::find( loaded.begin(), loaded.end(), InId ) != loaded.end();
+        const bool enabled = !InSettings.Disabled.count( InId );
+        if( isLoaded != enabled )
+        {
+            return enabled ? "Loads after a restart" : "Unloads after a restart";
+        }
+        if( isLoaded )
+        {
+            return "Loaded";
+        }
+        for( const std::string& problem : ModManager::Get().GetProblems() )
+        {
+            if( problem.rfind( InId + ": ", 0 ) == 0 )
+            {
+                return problem.substr( InId.size() + 2 );
+            }
+        }
+        return enabled ? "Not loaded" : "Off";
     }
 
 
@@ -392,6 +485,39 @@ bool RmlSettings::HandleAction( const std::string& InAction, const std::string& 
     {
         ShowTab( InArgs, InEvent );
     }
+    else if( InAction == "mod-toggle" || InAction == "mod-move" )
+    {
+        // MOD-6: the player's mod choices (user://Config/Mods.json); they apply at the next start.
+        ModSettings settings = ModManager::Get().LoadSettings();
+        settings.Order = ModDisplayOrder( settings );
+        if( InAction == "mod-toggle" )
+        {
+            if( !settings.Disabled.erase( key ) )
+            {
+                settings.Disabled.insert( key );
+            }
+        }
+        else
+        {
+            auto at = std::find( settings.Order.begin(), settings.Order.end(), key );
+            const int step = std::atoi( value.c_str() );
+            if( at != settings.Order.end() )
+            {
+                const ptrdiff_t index = at - settings.Order.begin();
+                const ptrdiff_t target = std::clamp<ptrdiff_t>( index + step, 0, static_cast<ptrdiff_t>( settings.Order.size() ) - 1 );
+                std::swap( settings.Order[index], settings.Order[target] );
+            }
+        }
+        ModManager::Get().SaveSettings( settings );
+        if( Rml::Element* target = InEvent.GetTargetElement() )
+        {
+            if( Rml::ElementDocument* document = target->GetOwnerDocument() )
+            {
+                FillModLists( *document );
+            }
+        }
+        s_changed = true;
+    }
     else
     {
         return false;
@@ -417,7 +543,22 @@ void RmlSettings::OnDocumentLoaded( Rml::ElementDocument& InDocument )
             InElement.SetInnerRML( ControlRows() );
         }
     } );
+    FillModLists( InDocument );
     Refresh( InDocument );
+}
+
+
+namespace
+{
+    void FillModLists( Rml::ElementDocument& InDocument )
+    {
+        ForEachElement( InDocument, []( Rml::Element& InElement ) {
+            if( Attribute( InElement, "data-options" ) == "mods" )
+            {
+                InElement.SetInnerRML( ModRows() );
+            }
+        } );
+    }
 }
 
 
@@ -442,6 +583,31 @@ void RmlSettings::Refresh( Rml::ElementDocument& InDocument )
         {
             WindowMode mode = WindowMode::Windowed;
             InElement.SetClass( "selected", ParseWindowMode( Attribute( InElement, "data-window-mode" ), mode ) && mode == windowMode );
+        }
+        if( InElement.HasAttribute( "data-mod-name" ) || InElement.HasAttribute( "data-mod-enabled" ) || InElement.HasAttribute( "data-mod-status" ) )
+        {
+            const ModSettings mods = ModManager::Get().LoadSettings();
+            if( InElement.HasAttribute( "data-mod-name" ) )
+            {
+                const std::string id = Attribute( InElement, "data-mod-name" );
+                for( const ModManifest& mod : ModManager::Get().GetDiscovered() )
+                {
+                    if( mod.Id == id )
+                    {
+                        SetText( InElement, mod.Name + " " + mod.Version.ToString() );
+                    }
+                }
+            }
+            if( InElement.HasAttribute( "data-mod-enabled" ) )
+            {
+                const bool enabled = !mods.Disabled.count( Attribute( InElement, "data-mod-enabled" ) );
+                SetText( InElement, Format( json( enabled ), "onoff", "" ) );
+                InElement.SetClass( "selected", enabled );
+            }
+            if( InElement.HasAttribute( "data-mod-status" ) )
+            {
+                SetText( InElement, ModStatus( Attribute( InElement, "data-mod-status" ), mods ) );
+            }
         }
         if( InElement.HasAttribute( "data-binding" ) )
         {

@@ -58,6 +58,13 @@ h1 {
 	text-align: center;
 }
 
+/* MOD-6: a mod row's state (loaded, why not, or pending a restart) beside its buttons. */
+.mod-status {
+	display: inline-block;
+	margin-left: 10dp;
+	color: #AAB3C5;
+}
+
 .choices {
 	display: inline-block;
 }

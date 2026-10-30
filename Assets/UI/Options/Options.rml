@@ -15,6 +15,7 @@
 			<button class="tab" id="tab-audio" onclick="tab:page-audio">Audio</button>
 			<button class="tab" id="tab-controls" onclick="tab:page-controls">Controls</button>
 			<button class="tab" id="tab-accessibility" onclick="tab:page-accessibility">Accessibility</button>
+			<button class="tab" id="tab-mods" onclick="tab:page-mods">Mods</button>
 		</div>
 
 		<div class="tab-page" id="page-graphics">
@@ -103,6 +104,12 @@
 				<span class="label">Language</span>
 				<div class="choices" data-options="languages"></div>
 			</div>
+		</div>
+
+		<div class="tab-page" id="page-mods" style="display: none;">
+			<!-- MOD-6: a row per installed mod (on/off, order, why it didn't load); RmlSettings.h -->
+			<div data-options="mods"></div>
+			<div class="row"><span class="label" id="mods-restart-note">Changes apply the next time the game starts</span></div>
 		</div>
 
 		<div id="footer">

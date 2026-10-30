@@ -24,6 +24,8 @@ namespace Rml
 //   window-mode:windowed|borderless|fullscreen
 //   tab:page-audio                        show #page-audio, hide the other .tab-page elements,
 //                                         and mark the clicked .tab selected
+//   mod-toggle:com.example.mod            MOD-6: turn a mod on or off (user://Config/Mods.json;
+//   mod-move:com.example.mod|-1           applies at the next start) / move it in the load order
 // Attributes, kept current whenever the settings change:
 //   data-setting-text="Audio.Music"       the value as text; data-format="percent", "scale" or
 //                                         "onoff", data-empty="Default" for an empty string
@@ -35,6 +37,10 @@ namespace Rml
 //   data-options="languages"              Default plus one per Assets/UI/Strings/<code>.json
 //   data-controls                         a row per action of the game input's enabled-by-default
 //                                         contexts, a button per binding (or composite part)
+//   data-options="mods"                   a row per discovered mod: name and version, on/off
+//                                         (#mod-toggle-<id>), Up / Down, and its state (loaded, why
+//                                         not, or that a restart applies the change); ids with
+//                                         anything but letters and digits use '-' in element ids
 namespace RmlSettings
 {
     // True when InAction was one of the actions above.

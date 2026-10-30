@@ -1,6 +1,6 @@
 # Modding
 
-> Status: MOD-1 (manifest, discovery, resolver, VFS layers), MOD-2 (per-mod script assemblies) and MOD-3 (net-required mods in the handshake), 2026-10-30. The in-game manager is MOD-6.
+> Status: MOD-1 (manifest, discovery, resolver, VFS layers), MOD-2 (per-mod script assemblies) and MOD-3 (net-required mods in the handshake), MOD-6 (the options menu's Mods tab) and MOD-7 (the load-time scan), 2026-10-30.
 
 ## Overview
 
@@ -56,6 +56,13 @@ A mod is a folder with a `mod.json`. Its files mount over the game's as a VFS la
   - **Reporting:** every drop is a `Mods:` warning naming the mod and the reason.
 - **Mounting:** each loaded mod's folder mounts read-only at the VFS root with priority 200 + its place in the order. That's above the game (100) and a pak (150), so later mods win over earlier ones. Writes still go to the game and `user://`.
 - **When:** game builds apply mods in `Engine::Init` once `user://` is known; `--no-mods` skips them. The editor applies them only with `--mods`, so it edits the game's own files.
+
+## The Mods tab (MOD-6)
+
+The stock options menu (`Assets/UI/Options/Options.rml`) has a **Mods** tab, built from `data-options="mods"` (`Source/UI/Rml/RmlSettings`).
+- **Rows:** one per discovered mod, in the player's order: name and version, an On/Off toggle (`mod-toggle:<id>`), Up / Down (`mod-move:<id>|±1`), and its state. The state is Loaded, why it didn't load (the resolver's reason), or "Loads / Unloads after a restart" when the player's choice differs from what's running.
+- **Applying changes:** changes write `user://Config/Mods.json` and apply at the next start (mods mount in `Engine::Init`).
+- **Tests:** `Mods01Toggle` / `Mods02Restart` turn the BlueCrates test mod off and check it didn't load on the next launch. Their headers carry `--mods --mod-dir Engine/Tests/Mods`, which RunEditorFlows passes on. `assert-mod-loaded <id> | 0/1` checks what loaded.
 
 ## Caveats & Fragility
 

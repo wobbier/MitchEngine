@@ -38,6 +38,16 @@ def user_dir_of(script):
     return match.group(1) if match else None
 
 
+def mod_args_of(script):
+    """MOD-6: --mods (the editor applies mods) and --mod-dir <folder> from the header."""
+    header = header_of(script)
+    args = ["--mods"] if re.search(r"--mods\b", header) else []
+    match = re.search(r"--mod-dir\s+(\S+)", header)
+    if match:
+        args += ["--mod-dir", match.group(1)]
+    return args
+
+
 def frame_time_of(script):
     match = re.search(r"--frame-time\s+(\S+)", header_of(script))
     return match.group(1) if match else None
@@ -89,6 +99,7 @@ def main():
         frame_time = frame_time_of(script)
         if frame_time:
             command += ["--frame-time", frame_time]
+        command += mod_args_of(script)
         start = time.time()
         try:
             with open(log_path, "w") as log:

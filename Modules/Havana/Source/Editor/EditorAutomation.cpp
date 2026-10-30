@@ -16,6 +16,7 @@
 #include "Havana.h"
 #include "Widgets/AssetBrowser.h"
 #include "Utils/ScriptTemplates.h"
+#include "Mods/Mods.h"
 #include "Widgets/SequenceWidget.h"
 #include "Widgets/SceneViewWidget.h"
 #include "Widgets/SettingsWidgets.h"
@@ -732,6 +733,17 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         else if( std::filesystem::remove_all( target, error ) == 0 || error )
         {
             Fail( "delete-file: couldn't delete " + args );
+        }
+    }
+    else if( command == "assert-mod-loaded" )
+    {
+        // assert-mod-loaded com.example.mod | 1   (MOD-6: loaded at start, per the player's choices)
+        auto [id, expectedText] = SplitArgs( args );
+        const std::vector<std::string>& loaded = ModManager::Get().GetLoadedIds();
+        const bool isLoaded = std::find( loaded.begin(), loaded.end(), id ) != loaded.end();
+        if( isLoaded != ( expectedText == "1" || expectedText == "true" ) )
+        {
+            Fail( "mod " + id + ( isLoaded ? " is loaded" : " isn't loaded" ) + ", expected " + expectedText );
         }
     }
     else if( command == "assert-script-type" )
