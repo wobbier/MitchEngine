@@ -1,4 +1,6 @@
 #include "MainMenuWidget.h"
+#include <SDL.h>
+#include "Renderer.h"
 #include "Dementia.h"
 #include <optick.h>
 #include <Graphics/Texture.h>
@@ -254,6 +256,37 @@ void MainMenuWidget::Render()
             if( ImGui::MenuItem( "Getting Started" ) ) EditorActions::Get().Execute( "Help.GettingStarted" );
             if( ImGui::MenuItem( "Take the Tour" ) ) EditorActions::Get().Execute( "Help.Tour" );
             if( ImGui::MenuItem( "What's New" ) ) EditorActions::Get().Execute( "Help.WhatsNew" );
+            ImGui::Separator();
+            // ME-61: whether RenderDoc is hooked up, and how to get it when it isn't.
+            if( ImGui::BeginMenu( "RenderDoc" ) )
+            {
+                BGFXRenderer& renderer = GetEngine().GetRenderer();
+                if( renderer.IsRenderDocLoaded() )
+                {
+                    ImGui::TextColored( ImVec4( 0.4f, 0.9f, 0.4f, 1.f ), "Loaded: captures go to RenderDoc's capture folder" );
+                    if( ImGui::MenuItem( "Capture Next Frame" ) )
+                    {
+                        renderer.CaptureRenderDocFrame();
+                    }
+                }
+                else
+                {
+                    ImGui::TextDisabled( "Not loaded" );
+#if USING( ME_PLATFORM_WINDOWS )
+                    ImGui::TextUnformatted( "Install RenderDoc to C:/Program Files/RenderDoc," );
+                    ImGui::TextUnformatted( "then regenerate the solution (it enables DEFINE_ME_RENDERDOC)." );
+#else
+                    ImGui::TextUnformatted( "The in-app API is Windows-only. Here, launch Havana from" );
+                    ImGui::TextUnformatted( "RenderDoc (qrenderdoc: Launch Application, Vulkan) to capture." );
+#endif
+                }
+                ImGui::Separator();
+                if( ImGui::MenuItem( "RenderDoc Website" ) )
+                {
+                    SDL_OpenURL( "https://renderdoc.org" );
+                }
+                ImGui::EndMenu();
+            }
             ImGui::Separator();
             if( ImGui::MenuItem( "Show ImGui Demo" ) )
             {

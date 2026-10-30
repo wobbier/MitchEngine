@@ -2871,6 +2871,27 @@ void BGFXRenderer::RequestScreenshot( const std::string& filePath )
 }
 
 
+bool BGFXRenderer::IsRenderDocLoaded() const
+{
+#if USING( ME_ENABLE_RENDERDOC )
+    return RenderDoc && RenderDoc->IsLoaded();
+#else
+    return false;
+#endif
+}
+
+
+void BGFXRenderer::CaptureRenderDocFrame()
+{
+#if USING( ME_ENABLE_RENDERDOC )
+    if( RenderDoc )
+    {
+        RenderDoc->Capture();
+    }
+#endif
+}
+
+
 uint32_t BGFXRenderer::GetScreenshotCount() const
 {
     return m_bgfxCallback.GetScreenshotCount();

@@ -34,9 +34,17 @@ public:
     {
     }
 
+    bool IsLoaded() const
+    {
+        return RenderDocApi != nullptr;
+    }
+
     void Capture()
     {
-        RenderDocApi->TriggerCapture();
+        if( RenderDocApi )
+        {
+            RenderDocApi->TriggerCapture();
+        }
     }
 private:
     RENDERDOC_API_1_2_0* RenderDocApi = nullptr;

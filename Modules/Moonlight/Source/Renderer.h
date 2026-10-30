@@ -185,6 +185,10 @@ public:
     // Captures the backbuffer at the end of the current frame and writes it as a PNG.
     void RequestScreenshot( const std::string& filePath );
     uint32_t GetScreenshotCount() const;
+    // RenderDoc (ME-61): whether its in-app API loaded (Windows builds with RenderDoc installed),
+    // and a capture of the next frame through it.
+    bool IsRenderDocLoaded() const;
+    void CaptureRenderDocFrame();
 
 #if USING( ME_IMGUI )
     ImGuiRenderer* GetImGuiRenderer() const;
