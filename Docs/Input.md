@@ -15,7 +15,7 @@ Gamepads come from SDL's GameController API, with hotplug into four stable slots
 |---------|------|-------|
 | Action map | `InputActionMap` (`.inputactions` JSON, reflected) | Contexts, plus stick and trigger deadzones |
 | Context | `InputContext` | `Priority`, `EnabledByDefault`, `ConsumeInput`, a list of actions |
-| Action | `InputAction` | `Button`, `Value` or `Vector2`, a `PressThreshold`, a list of bindings, and `Networked` (sent in every network command: `Net.Command(entity)` reads it; see Networking.md, NET-6) |
+| Action | `InputAction` | `Button`, `Value` or `Vector2`, a `PressThreshold`, a list of bindings, `Networked` (sent in every network command: `Net.Command(entity)` reads it; see Networking.md, NET-6), and `Toggle` (buttons the player may toggle instead of hold, PLAY-7) |
 | Binding | `InputBinding` | One control, an `Axis` composite (Negative / Positive) or a `Vector2` composite (Up / Down / Left / Right). Optional `Modifier`, `Scale`, `InvertY` |
 | Live state | `InputActionState` | `GetValue`, `GetVector2`, `IsPressed`, `WasPressed`, `WasReleased`, `HeldSeconds` |
 | Evaluator | `InputActionSystem` | Contexts on and off, overrides, interactive rebinding, prompt strings |
@@ -74,6 +74,8 @@ Gamepad shaping:
 - **Which pad:** "Gamepad/..." reads the strongest connected pad, or only the slot set with `SetGamepadFilter`.
 
 **Fixed steps.** The engine runs zero or more fixed steps per frame (`Docs/Architecture.md`), so per-frame edges would be missed by frames without a step and repeated by frames with several. Around each step the engine calls `Input::BeginFixedStep` / `EndFixedStep`: in between, `WasKeyPressed`/`WasKeyReleased`, `WasMouseButtonPressed`, `WasGamepadButtonPressed`/`Released` and every player's `WasPressed`/`WasReleased` report the edges since the previous step, so `OnFixedUpdate` sees each press and release exactly once at any frame rate. Outside a step (`OnUpdate`, `OnLateUpdate`) they report this frame's edges as before. While the simulation is paused, edges are discarded rather than carried into the resumed game.
+
+**Toggle instead of hold (PLAY-7).** With `SetToggleHolds( true )` (the `Accessibility.ToggleHolds` player setting), a `Toggle` button's bindings no longer drive it directly: each press of them flips it, so it reads pressed (value 1, edges and `HeldSeconds` as usual) from one press to the next. A disabled context, or turning the mode off, lets go of it. Mark the actions players hold for a long time (sprint, crouch, aim-down-sights as a button), not taps like jump or fire.
 
 **Simulated keys.** `SetSimulatedKey( key, held )` / `ClearSimulatedKeys` hold keys on top of the snapshot, so actions read them as pressed whether or not the instance is capturing; the raw `IsKeyDown` / `WasKeyPressed` queries read SDL and don't see them. The `input-hold` / `input-release` edscript commands and C#'s `Input.Simulate` / `Input.ReleaseSimulated` (timed by `SimulatedInput.Hold`, `Tap` and `Play` for play-mode tests and replays, `Docs/Scripting-DotNet.md`) use them.
 

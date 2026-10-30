@@ -26,6 +26,8 @@ int InputPlayers::AddPlayer( int InGamepadSlot, bool InKeyboardMouse )
     {
         player.Actions->SetMap( m_players[0].Actions->GetMap() );
     }
+    // The player settings drive player 0: a joining player takes its toggle-instead-of-hold.
+    player.Actions->SetToggleHolds( m_players[0].Actions->GetToggleHolds() );
     player.KeyboardMouse = InKeyboardMouse;
     player.Gamepad = InGamepadSlot;
     m_players.push_back( std::move( player ) );

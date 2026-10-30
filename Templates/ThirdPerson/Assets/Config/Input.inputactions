@@ -70,6 +70,7 @@
                     "Name": "Sprint",
                     "Type": "Button",
                     "PressThreshold": 0.5,
+                    "Toggle": true,
                     "Bindings": [
                         {
                             "Kind": "Control",

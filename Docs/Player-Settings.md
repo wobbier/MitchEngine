@@ -41,6 +41,7 @@ The player's own choices (graphics quality, volumes, rebinds, language, accessib
 | `Accessibility.TextScale` | number 0.5..3 | `RmlUiCore::SetTextScale` |
 | `Accessibility.ReduceMotion` | bool, `false` | The kit's `CameraImpulse` shows no shake; games read `Settings.ReduceMotion` for their own sway and bob |
 | `Accessibility.HighContrast` | bool, `false` | `RmlUiCore::SetHighContrast`: the `high-contrast` class on every document's body (loaded later too); the stock options, dialogue and caption documents style it |
+| `Accessibility.ToggleHolds` | bool, `false` | `InputActionSystem::SetToggleHolds` on player 0 (joining players copy it): actions marked `Toggle` in the input map (the templates' Sprint, the game's Sprint and Crouch) latch on a press and let go on the next; turning it off lets go of them. C# `Settings.ToggleHolds`; Options > Accessibility, "Toggle instead of hold" |
 | `Accessibility.Subtitles` | bool, `true` | C# `Captions`: off, `Say` / `Sound` show nothing |
 | `Accessibility.SpeakerNames` | bool, `true` | C# `Captions`: names who's speaking |
 | `Accessibility.SubtitleSize` | number 0.75..2, `1` | C# `Captions`: caption text scale (22 dp at 1) |

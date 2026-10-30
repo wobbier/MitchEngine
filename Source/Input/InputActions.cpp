@@ -30,6 +30,7 @@ ME_REFLECT_BEGIN( InputAction )
     ME_FIELD( Type );
     ME_FIELD( PressThreshold ).Range( 0.01f, 1.f ).Tooltip( "Value at which the action counts as pressed" );
     ME_FIELD( Networked ).Tooltip( "Sent to the server in every network command (Net.Command reads it)" );
+    ME_FIELD( Toggle ).Tooltip( "Buttons: with the player's Toggle instead of hold setting, a press latches it on and the next off (sprint, crouch, aim)" );
     ME_FIELD( Bindings );
 ME_REFLECT_END()
 
@@ -440,6 +441,7 @@ void InputActionSystem::Resolve()
         {
             ResolvedAction resolvedAction;
             resolvedAction.PressThreshold = action.PressThreshold;
+            resolvedAction.Toggle = action.Toggle && action.Type == InputActionType::Button;
             resolvedAction.State = m_states.size();
             for( size_t index = 0; index < action.Bindings.size(); ++index )
             {
@@ -480,6 +482,18 @@ void InputActionSystem::Resolve()
             resolved.Actions.push_back( std::move( resolvedAction ) );
         }
         m_contexts.push_back( std::move( resolved ) );
+    }
+    m_rawPressed.assign( m_states.size(), 0 );
+    m_toggled.assign( m_states.size(), 0 );
+}
+
+
+void InputActionSystem::SetToggleHolds( bool InToggle )
+{
+    m_toggleHolds = InToggle;
+    if( !InToggle )
+    {
+        std::fill( m_toggled.begin(), m_toggled.end(), 0 );
     }
 }
 
@@ -536,9 +550,21 @@ void InputActionSystem::Update( const InputDeviceState& InDevices, float InDelta
                     }
                 }
             }
+            // The bindings' own press; a toggled button flips on each one instead (a disabled
+            // context lets go of it).
+            const bool raw = isEnabled && Magnitude( value, state.Type ) >= action.PressThreshold;
+            bool pressed = raw;
+            if( action.Toggle && m_toggleHolds )
+            {
+                uint8_t& latched = m_toggled[action.State];
+                latched = isEnabled && ( raw && !m_rawPressed[action.State] ? !latched : latched ) ? 1 : 0;
+                pressed = latched != 0;
+                value = Vector2( pressed ? 1.f : 0.f, 0.f );
+            }
+            m_rawPressed[action.State] = raw ? 1 : 0;
             const bool wasPressed = state.Pressed;
             state.Value = state.Type == InputActionType::Vector2 ? value : Vector2( value.x, 0.f );
-            state.Pressed = isEnabled && Magnitude( value, state.Type ) >= action.PressThreshold;
+            state.Pressed = pressed;
             state.PressedThisFrame = state.Pressed && !wasPressed;
             state.ReleasedThisFrame = !state.Pressed && wasPressed;
             state.HeldSeconds = state.Pressed ? state.HeldSeconds + InDeltaSeconds : 0.f;

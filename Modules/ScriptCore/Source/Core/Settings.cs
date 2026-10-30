@@ -54,6 +54,13 @@ public static unsafe class Settings
         set => SetJson("Accessibility.ReduceMotion", value ? "true" : "false");
     }
 
+    // PLAY-7: input actions marked Toggle (sprint, crouch) latch on a press instead of being held.
+    public static bool ToggleHolds
+    {
+        get => GetJson("Accessibility.ToggleHolds") == "true";
+        set => SetJson("Accessibility.ToggleHolds", value ? "true" : "false");
+    }
+
     // PLAY-7: the high-contrast class on every UI document.
     public static bool HighContrast
     {

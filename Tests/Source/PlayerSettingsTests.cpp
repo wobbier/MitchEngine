@@ -215,3 +215,62 @@ TEST_CASE( "Quality presets: data-defined caps, the stricter of them and an enfo
     CHECK( budget.GetQualityPresetName() == "Probe Lower" );
     CHECK( budget.GetEffectiveCaps().MaxVolumetricSteps == 8 );
 }
+
+
+TEST_CASE( "Player settings: Toggle instead of hold latches Toggle buttons on a press and off on the next (PLAY-7)" )
+{
+    constexpr size_t kSpace = 44;       // SDL_SCANCODE_SPACE
+    constexpr size_t kLeftShift = 225;  // SDL_SCANCODE_LSHIFT
+    InputActionMap map = JumpMap();
+    InputBinding shift;
+    shift.Control = "Keyboard/Left Shift";
+    InputAction sprint;
+    sprint.Name = "Sprint";
+    sprint.Toggle = true;
+    sprint.Bindings = { shift };
+    map.Contexts[0].Actions.push_back( sprint );
+    InputActionSystem actions;
+    actions.SetMap( map );
+    PlayerSettings settings;
+    PlayerSettings::Targets targets;
+    targets.Actions = &actions;
+    settings.SetTargets( targets );
+
+    InputDeviceState devices;
+    auto frame = [&]( size_t InKey, bool InDown ) {
+        devices.Keys[InKey] = InDown ? 1 : 0;
+        actions.Update( devices, 1.f / 60.f );
+    };
+    // Off (the default): Sprint is held like any button.
+    CHECK_FALSE( actions.GetToggleHolds() );
+    frame( kLeftShift, true );
+    CHECK( actions.GetAction( "Sprint" ).IsPressed() );
+    frame( kLeftShift, false );
+    CHECK_FALSE( actions.GetAction( "Sprint" ).IsPressed() );
+
+    // On: a press latches it, the next press lets go; Jump (not Toggle) is still held.
+    REQUIRE( settings.SetValue( "Accessibility.ToggleHolds", true ) );
+    CHECK( actions.GetToggleHolds() );
+    frame( kLeftShift, true );
+    CHECK( actions.GetAction( "Sprint" ).WasPressed() );
+    frame( kLeftShift, false );
+    frame( kLeftShift, false );
+    CHECK( actions.GetAction( "Sprint" ).IsPressed() );
+    CHECK( actions.GetAction( "Sprint" ).GetValue() == doctest::Approx( 1.f ) );
+    CHECK( actions.GetAction( "Sprint" ).HeldSeconds > 0.f );
+    frame( kSpace, true );
+    frame( kSpace, false );
+    CHECK_FALSE( actions.GetAction( "Jump" ).IsPressed() );
+    frame( kLeftShift, true );
+    CHECK( actions.GetAction( "Sprint" ).WasReleased() );
+    frame( kLeftShift, false );
+    CHECK_FALSE( actions.GetAction( "Sprint" ).IsPressed() );
+
+    // Latched, then the setting goes off: it lets go at once.
+    frame( kLeftShift, true );
+    frame( kLeftShift, false );
+    REQUIRE( actions.GetAction( "Sprint" ).IsPressed() );
+    REQUIRE( settings.SetValue( "Accessibility.ToggleHolds", false ) );
+    frame( kLeftShift, false );
+    CHECK_FALSE( actions.GetAction( "Sprint" ).IsPressed() );
+}

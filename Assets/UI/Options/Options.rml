@@ -101,6 +101,10 @@
 				<button class="choice" id="reduce-motion" onclick="setting-toggle:Accessibility.ReduceMotion" data-setting-text="Accessibility.ReduceMotion" data-format="onoff"></button>
 			</div>
 			<div class="row">
+				<span class="label">Toggle instead of hold</span>
+				<button class="choice" id="toggle-holds" onclick="setting-toggle:Accessibility.ToggleHolds" data-setting-text="Accessibility.ToggleHolds" data-format="onoff"></button>
+			</div>
+			<div class="row">
 				<span class="label">High contrast</span>
 				<button class="choice" id="high-contrast" onclick="setting-toggle:Accessibility.HighContrast" data-setting-text="Accessibility.HighContrast" data-format="onoff"></button>
 			</div>

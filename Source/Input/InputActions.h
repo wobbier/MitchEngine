@@ -62,6 +62,10 @@ public:
     // Sampled into each tick's network command (NET-6): Net.Command(entity) on the server and in
     // prediction reads it (buttons: a bit each; Value / Vector2: the command's axes).
     bool Networked = false;
+    // A button the player can choose to toggle instead of hold (PLAY-7): with SetToggleHolds on
+    // (the Accessibility.ToggleHolds setting), each press latches it on or off. For sprint,
+    // crouch, aim; not for jump or fire.
+    bool Toggle = false;
     std::vector<InputBinding> Bindings;
 };
 
@@ -138,6 +142,11 @@ public:
 
     // Reads every action from this frame's device state.
     void Update( const InputDeviceState& InDevices, float InDeltaSeconds );
+
+    // Toggle instead of hold (accessibility, PLAY-7): Toggle actions latch on a press and let go
+    // on the next. Turning it off releases them.
+    void SetToggleHolds( bool InToggle );
+    bool GetToggleHolds() const { return m_toggleHolds; }
 
     // Fixed steps run zero or more times per frame. Between BeginFixedStep and EndFixedStep,
     // WasPressed/WasReleased report the edges since the previous step instead of this frame's,
@@ -233,6 +242,7 @@ private:
     {
         std::vector<ResolvedBinding> Bindings;
         float PressThreshold = 0.5f;
+        bool Toggle = false;
         size_t State = 0;
     };
     struct ResolvedContext
@@ -263,6 +273,10 @@ private:
     InputActionMap m_map;
     std::vector<ResolvedContext> m_contexts;     // sorted by priority, highest first
     std::vector<InputActionState> m_states;
+    // Per state: the bindings' own press last frame, and a toggled action's latch.
+    std::vector<uint8_t> m_rawPressed;
+    std::vector<uint8_t> m_toggled;
+    bool m_toggleHolds = false;
     struct LatchedEdges
     {
         bool Pressed = false;   // since the last fixed step

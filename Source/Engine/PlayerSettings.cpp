@@ -263,7 +263,7 @@ json PlayerSettings::Defaults()
         { "Audio", audio },
         { "Language", "" },
         { "Accessibility", { { "TextScale", 1.0 }, { "ReduceMotion", false }, { "HighContrast", false }, { "Subtitles", true }, { "SpeakerNames", true },
-            { "SubtitleSize", 1.0 }, { "SubtitleBackground", 0.7 } } },
+            { "SubtitleSize", 1.0 }, { "SubtitleBackground", 0.7 }, { "ToggleHolds", false } } },
         { "Input", { { "Bindings", json::object() } } },
         { "Game", json::object() },
     };
@@ -516,6 +516,7 @@ void PlayerSettings::Apply()
     ApplyKey( "Language" );
     ApplyKey( "Accessibility.TextScale" );
     ApplyKey( "Accessibility.HighContrast" );
+    ApplyKey( "Accessibility.ToggleHolds" );
     ApplyKey( kBindingsKey );
 }
 
@@ -581,6 +582,10 @@ void PlayerSettings::ApplyKey( const std::string& InKey )
         m_targets.UI->SetHighContrast( value->get<bool>() );
     }
 #endif
+    else if( InKey == "Accessibility.ToggleHolds" && m_targets.Actions && value->is_boolean() )
+    {
+        m_targets.Actions->SetToggleHolds( value->get<bool>() );
+    }
     else if( InKey == kBindingsKey && m_targets.Actions )
     {
         m_targets.Actions->LoadOverrides( *value );
