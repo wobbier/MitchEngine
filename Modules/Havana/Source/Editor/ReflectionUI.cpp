@@ -564,6 +564,27 @@ namespace ReflectionUI
     }
 
 
+    bool FieldMatches( const Reflection::FieldInfo& InField, const std::string& InFilter )
+    {
+        auto lower = []( std::string InText ) {
+            std::transform( InText.begin(), InText.end(), InText.begin(), []( unsigned char c ) { return static_cast<char>( std::tolower( c ) ); } );
+            return InText;
+        };
+        return lower( InField.Name ).find( InFilter ) != std::string::npos
+            || ( !InField.DisplayName.empty() && lower( InField.DisplayName ).find( InFilter ) != std::string::npos );
+    }
+
+
+    bool AnyFieldMatches( const Reflection::TypeInfo& InType, void* InInstance, const std::string& InFilter )
+    {
+        bool any = false;
+        InType.ForEachField( InInstance, [&]( const Reflection::FieldInfo& field, void* ) {
+            any = any || ( !field.Has( Reflection::FieldFlags::Hidden ) && !field.Has( Reflection::FieldFlags::CustomInspector ) && FieldMatches( field, InFilter ) );
+        } );
+        return any;
+    }
+
+
     bool DrawType( const Reflection::TypeInfo& InType, void* InInstance, Context& InContext )
     {
         bool anyChanged = false;
@@ -572,9 +593,14 @@ namespace ReflectionUI
 
         InType.ForEachField( InInstance, [&]( const Reflection::FieldInfo& field, void* owner ) {
             if( field.Has( Reflection::FieldFlags::Hidden )
-                || ( field.Has( Reflection::FieldFlags::CustomInspector ) && InContext.Others.empty() ) )
+                || ( field.Has( Reflection::FieldFlags::CustomInspector ) && InContext.Others.empty() )
+                || ( !InContext.Filter.empty() && !FieldMatches( field, InContext.Filter ) ) )
             {
                 return;
+            }
+            if( InContext.Drawn )
+            {
+                InContext.Drawn->push_back( field.Name );
             }
             if( field.Category != currentCategory )
             {

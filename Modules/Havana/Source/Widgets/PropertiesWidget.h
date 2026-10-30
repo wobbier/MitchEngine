@@ -31,6 +31,11 @@ public:
 	void Update() override;
 	void Render() override;
 
+	static PropertiesWidget* Get();
+	// Editor automation (ED-7): inspector-lock 1|0, inspector-search <text>,
+	// inspector-assert-shows <Type>[.<Field>] | 1|0, inspector-assert-entity <name>.
+	bool ExecuteAutomation(const std::string& InCommand, const std::string& InArgs, std::string& OutError);
+
 private:
 	struct Instance
 	{
@@ -39,9 +44,13 @@ private:
 		std::string Key;
 	};
 
+	void DrawToolbar(bool InHasEntity);
+	// Lock (ED-7): keep inspecting the current selection while others are selected.
+	void SetLocked(bool InLocked);
 	void DrawEntityHeader(Entity& entity);
 	void DrawRenderCameraSettings(World& world);
-	void DrawComponentGroup(const std::string& typeName, std::vector<Instance>& instances);
+	// InFilter: the field search, when it matched fields rather than the component's name.
+	void DrawComponentGroup(const std::string& typeName, std::vector<Instance>& instances, const std::string& InFilter);
 	void DrawComponentContextMenu(const std::string& typeName, std::vector<Instance>& instances);
 	void CommitEdits(const std::string& typeName, std::vector<Instance>& instances, const std::string& undoName);
 	void AddComponentPopup(Entity& entity);
@@ -56,6 +65,11 @@ private:
 	uint64_t m_nameEntityGUID = 0;
 	bool m_nameEditing = false;
 	char m_addComponentFilter[128] = {};
+	char m_fieldFilter[128] = {};
+	bool m_locked = false;
+	std::vector<EntityHandle> m_lockedEntities;	// the inspected one first
+	// What the last frame drew: "Type" and "Type.Field".
+	std::vector<std::string> m_drawn;
 	double m_prefabCheckTime = 0.0;
 	uint64_t m_prefabCheckRoot = 0;
 	bool m_prefabHasOverrides = false;

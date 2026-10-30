@@ -22,6 +22,7 @@
 #include "Editor/SplineGizmo.h"
 #include "Components/Gameplay/Spline.h"
 #include "Widgets/SequenceWidget.h"
+#include "Widgets/PropertiesWidget.h"
 #include "Widgets/SceneViewWidget.h"
 #include "Widgets/SettingsWidgets.h"
 #include "Widgets/BuildGameWidget.h"
@@ -409,6 +410,11 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         bool retry = false;
         if( !TreeAutomation::Execute( command, args, error, retry ) ) Fail( command + ": " + error );
         else if( retry ) --m_nextLine;
+    }
+    else if( command.rfind( "inspector-", 0 ) == 0 )
+    {
+        std::string error;
+        if( !PropertiesWidget::Get() || !PropertiesWidget::Get()->ExecuteAutomation( command, args, error ) ) Fail( command + ": " + ( PropertiesWidget::Get() ? error : "no Properties panel" ) );
     }
     else if( command.rfind( "seq-", 0 ) == 0 )
     {

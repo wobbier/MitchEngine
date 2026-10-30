@@ -24,10 +24,18 @@ namespace ReflectionUI
         // right-clicking their label offers Apply/Revert (InApply = true for Apply).
         std::function<bool( const std::string& InField )> IsOverridden;
         std::function<void( const std::string& InField, bool InApply )> OnPrefabAction;
+
+        // Field search (ED-7): lower-case text; top-level fields whose name or label doesn't
+        // contain it are skipped. Empty: every field.
+        std::string Filter;
+        // Optional: the top-level fields drawn (editor automation asserts on them).
+        std::vector<std::string>* Drawn = nullptr;
     };
 
     // Draws all fields; returns true when anything changed.
     bool DrawType( const Reflection::TypeInfo& InType, void* InInstance, Context& InContext );
+    // Whether any field DrawType would show matches a lower-case search.
+    bool AnyFieldMatches( const Reflection::TypeInfo& InType, void* InInstance, const std::string& InFilter );
 
     // Editor widgets for custom value types (Reflection::CustomTypeTraits<T>::Name), e.g. EntityHandle.
     // The drawer gets the label and the value pointer and returns true on change.

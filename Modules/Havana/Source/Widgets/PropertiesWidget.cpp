@@ -23,6 +23,7 @@
 #include <ImGuiTheme.h>
 #include <imgui.h>
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -37,12 +38,21 @@ namespace
 	{
 		return std::to_string(entity.GetGUID()) + ":" + comp.GetName();
 	}
+
+	std::string ToLower(std::string text)
+	{
+		std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+		return text;
+	}
+
+	PropertiesWidget* s_instance = nullptr;
 }
 
 
 PropertiesWidget::PropertiesWidget()
 	: HavanaWidget("Properties")
 {
+	s_instance = this;
 	// The Ragdoll inspector's Build / Remove buttons (GAME-5): one undo step through EditorOps.
 	Listen<RagdollBuildRequestEvent>([](const RagdollBuildRequestEvent& InEvent) {
 		if (InEvent.Owner)
@@ -63,6 +73,17 @@ void PropertiesWidget::Destroy()
 {
 	m_snapshots.clear();
 	m_pendingEdits.clear();
+	m_lockedEntities.clear();
+	if (s_instance == this)
+	{
+		s_instance = nullptr;
+	}
+}
+
+
+PropertiesWidget* PropertiesWidget::Get()
+{
+	return s_instance;
 }
 
 
@@ -109,14 +130,28 @@ void PropertiesWidget::Render()
 		m_pendingEdits.clear();
 	}
 
+	// Locked (ED-7): the entities locked on, while they live, whatever is selected now.
 	EntityHandle entity = selection.GetActive();
+	std::vector<EntityHandle> selected = selection.GetEntities();
+	if (m_locked)
+	{
+		m_lockedEntities.erase(std::remove_if(m_lockedEntities.begin(), m_lockedEntities.end(), [](const EntityHandle& InEntity) { return !InEntity; }), m_lockedEntities.end());
+		m_locked = !m_lockedEntities.empty();
+		if (m_locked)
+		{
+			entity = m_lockedEntities.front();
+			selected = m_lockedEntities;
+		}
+	}
+	m_drawn.clear();
+	DrawToolbar(static_cast<bool>(entity));
+	const std::string filter = ToLower(m_fieldFilter);
 	if (entity)
 	{
 		OPTICK_CATEGORY("Inspect Entity", Optick::Category::Debug);
 		DrawEntityHeader(*entity.Get());
 
 		// The active entity's components, in inspector order, that every selected entity has.
-		std::vector<EntityHandle> selected = selection.GetEntities();
 		std::vector<BaseComponent*> components = entity->GetAllComponents();
 		SortComponents(components);
 		for (BaseComponent* comp : components)
@@ -144,12 +179,19 @@ void PropertiesWidget::Render()
 				}
 				instances.push_back({ other.Get(), otherComp, EditKey(*other.Get(), *otherComp) });
 			}
+			// Field search: a component whose name matches shows whole; otherwise only its
+			// matching fields, and it hides when none do.
+			const bool nameMatches = filter.empty() || ToLower(typeName).find(filter) != std::string::npos;
+			if (shared && !nameMatches && !(comp->GetTypeInfo() && ReflectionUI::AnyFieldMatches(*comp->GetTypeInfo(), comp, filter)))
+			{
+				shared = false;
+			}
 			if (shared)
 			{
-				DrawComponentGroup(typeName, instances);
+				DrawComponentGroup(typeName, instances, nameMatches ? std::string() : filter);
 			}
 		}
-		if (selected.size() == 1)
+		if (selected.size() == 1 && filter.empty())
 		{
 			AddComponentPopup(*entity.Get());
 		}
@@ -249,7 +291,7 @@ void PropertiesWidget::DrawRenderCameraSettings(World& world)
 			// The component group draws its own edge-to-edge header.
 			ImGui::Unindent(inset);
 			std::vector<Instance> instances = { { cameraEntity.Get(), post, EditKey(*cameraEntity.Get(), *post) } };
-			DrawComponentGroup("PostProcess", instances);
+			DrawComponentGroup("PostProcess", instances, std::string());
 			ImGui::Indent(inset);
 		}
 	}
@@ -259,6 +301,114 @@ void PropertiesWidget::DrawRenderCameraSettings(World& world)
 	}
 	ImGui::Unindent(inset);
 	ImGui::PopID();
+}
+
+
+void PropertiesWidget::DrawToolbar(bool InHasEntity)
+{
+	// Field search, then the lock, above the entity (inset like the header).
+	const float inset = ImGuiTheme::PanelInset();
+	ImGuiTheme::SectionGap();
+	ImGui::Indent(inset);
+	const float lockWidth = ImGuiTheme::Em(4.5f);
+	const float searchWidth = HavanaUtils::RowRight() - ImGui::GetCursorScreenPos().x - lockWidth - ImGui::GetStyle().ItemSpacing.x;
+	ImGui::SetNextItemWidth(std::max(searchWidth, ImGuiTheme::Em(3.f)));
+	ImGui::InputTextWithHint("##FieldSearch", "Search components and fields", m_fieldFilter, sizeof(m_fieldFilter));
+	ImGui::SameLine();
+	ImGui::BeginDisabled(!m_locked && !InHasEntity);
+	if (m_locked)
+	{
+		ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+	}
+	if (ImGui::Button(m_locked ? "Locked" : "Lock", ImVec2(lockWidth, 0.f)))
+	{
+		SetLocked(!m_locked);
+	}
+	if (m_locked)
+	{
+		ImGui::PopStyleColor();
+	}
+	ImGui::EndDisabled();
+	ImGui::SetItemTooltip(m_locked ? "Unlock: follow the selection again" : "Keep inspecting this selection while you select others");
+	ImGui::Unindent(inset);
+}
+
+
+void PropertiesWidget::SetLocked(bool InLocked)
+{
+	m_locked = false;
+	m_lockedEntities.clear();
+	Selection& selection = Selection::Get();
+	EntityHandle active = selection.GetActive();
+	if (!InLocked || !active)
+	{
+		return;
+	}
+	m_lockedEntities.push_back(active);
+	for (EntityHandle& other : selection.GetEntities())
+	{
+		if (other && other != active)
+		{
+			m_lockedEntities.push_back(other);
+		}
+	}
+	m_locked = true;
+}
+
+
+bool PropertiesWidget::ExecuteAutomation(const std::string& InCommand, const std::string& InArgs, std::string& OutError)
+{
+	auto split = [](const std::string& InText, std::string& OutLeft, std::string& OutRight) {
+		const size_t bar = InText.find('|');
+		auto trim = [](std::string InPart) {
+			InPart.erase(0, InPart.find_first_not_of(" \t"));
+			InPart.erase(InPart.find_last_not_of(" \t") + 1);
+			return InPart;
+		};
+		OutLeft = trim(InText.substr(0, bar));
+		OutRight = bar == std::string::npos ? std::string() : trim(InText.substr(bar + 1));
+	};
+	if (InCommand == "inspector-lock")
+	{
+		SetLocked(InArgs == "1" || InArgs == "true");
+		if ((InArgs == "1" || InArgs == "true") && !m_locked)
+		{
+			OutError = "nothing selected to lock on";
+			return false;
+		}
+		return true;
+	}
+	if (InCommand == "inspector-search")
+	{
+		std::snprintf(m_fieldFilter, sizeof(m_fieldFilter), "%s", InArgs.c_str());
+		return true;
+	}
+	if (InCommand == "inspector-assert-shows")
+	{
+		std::string item;
+		std::string expected;
+		split(InArgs, item, expected);
+		const bool shown = std::find(m_drawn.begin(), m_drawn.end(), item) != m_drawn.end();
+		if (shown != (expected != "0" && expected != "false"))
+		{
+			OutError = item + (shown ? " is shown" : " isn't shown") + " (shown: " + std::to_string(m_drawn.size()) + " items)";
+			return false;
+		}
+		return true;
+	}
+	if (InCommand == "inspector-assert-entity")
+	{
+		EntityHandle inspected = m_locked && !m_lockedEntities.empty() ? m_lockedEntities.front() : Selection::Get().GetActive();
+		const std::string name = inspected ? inspected->GetName() : std::string();
+		if (name != InArgs)
+		{
+			OutError = "inspecting '" + name + "', not '" + InArgs + "'";
+			return false;
+		}
+		return true;
+	}
+	OutError = "unknown command";
+	return false;
 }
 
 
@@ -390,8 +540,9 @@ void PropertiesWidget::CommitEdits(const std::string& typeName, std::vector<Inst
 }
 
 
-void PropertiesWidget::DrawComponentGroup(const std::string& typeName, std::vector<Instance>& instances)
+void PropertiesWidget::DrawComponentGroup(const std::string& typeName, std::vector<Instance>& instances, const std::string& InFilter)
 {
+	m_drawn.push_back(typeName);
 	BaseComponent* primary = instances.front().Component;
 	const std::string& groupKey = instances.front().Key;
 	const bool pending = m_pendingEdits[groupKey];
@@ -466,6 +617,9 @@ void PropertiesWidget::DrawComponentGroup(const std::string& typeName, std::vect
 		if (const Reflection::TypeInfo* typeInfo = primary->GetTypeInfo())
 		{
 			ReflectionUI::Context context;
+			context.Filter = InFilter;
+			std::vector<std::string> drawnFields;
+			context.Drawn = &drawnFields;
 			for (size_t i = 1; i < instances.size(); ++i)
 			{
 				context.Others.push_back(instances[i].Component);
@@ -499,8 +653,12 @@ void PropertiesWidget::DrawComponentGroup(const std::string& typeName, std::vect
 					}
 				}
 			}
+			for (const std::string& field : drawnFields)
+			{
+				m_drawn.push_back(typeName + "." + field);
+			}
 		}
-		if (instances.size() == 1)
+		if (instances.size() == 1 && InFilter.empty())
 		{
 			// Custom inspector UI (extra buttons, previews, non-reflected state).
 			primary->OnEditorInspect();

@@ -131,6 +131,12 @@ Hand-written `OnEditorInspect` still runs after the generated UI for extras. The
 
 With several entities selected, the inspector shows the components every selected entity has. Fields whose values differ are flagged, and an edit applies to all of them as one undo step. Searchable Add Component lists only components the entity doesn't have.
 
+Above the entity, a toolbar (ED-7) holds the field search and the lock:
+
+- **Search components and fields:** a component whose name contains the text shows whole. Otherwise only its reflected fields whose name or label contains it are drawn, and a component with none is hidden. Custom `OnEditorInspect` UI and Add Component are hidden while searching.
+- **Lock:** keeps inspecting the current selection (all of it, for multi-editing) while other entities are selected, for example to drag one into an `EntityHandle` field. Click **Locked** to follow the selection again. The lock lets go by itself when its entities are destroyed.
+- **Automation:** `inspector-search <text>` (empty clears it), `inspector-lock 1|0`, `inspector-assert-shows <Type>[.<Field>] | 1|0` (whether the last frame drew it) and `inspector-assert-entity <name>`. `InspectorFlows.edscript` covers them.
+
 ### Prefabs
 
 Instances carry a link: `EntityRecord::PrefabAsset` (project-local path) and `PrefabSource` (the entity's GUID inside the prefab file).
