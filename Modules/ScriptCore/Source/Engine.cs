@@ -42,9 +42,17 @@ public static unsafe class Engine
 public static partial class ScriptBridge
 {
     private static GameScriptALC? _alc;
-    // scaffolding for hot-reload: a weak ref to the collectible ALC so we can later confirm the old
-    // one actually unloaded after a reload. not wired up yet (reload path is still commented out).
-    private static WeakReference? _alcRef;
+    // ME-302: the context the last hot reload unloaded. A few GCs later it should be gone; if
+    // something still holds it (a static, an event handler, a Task or timer), the editor's memory
+    // grows with every reload, so that's reported once.
+    private sealed class Unloading
+    {
+        public WeakReference Context = null!;
+        public int FramesLeft = 60;
+        public int Checks;
+    }
+    private static readonly List<Unloading> _unloading = new();
+    private const int UnloadCheckAttempts = 3;
     private static readonly Dictionary<int, IGameScript> Instances = new();
     private static int _nextHandle = 1;
 
@@ -147,7 +155,6 @@ public static partial class ScriptBridge
         {
             var (alc, asm) = LoadIntoNewContext(path);
             _alc = alc;
-            _alcRef = new WeakReference(_alc);
             ScriptRegistry.Scan(asm);
             DataAssets.Scan(asm);
             Console.WriteLine($"[ScriptBridge] Loaded {ScriptRegistry.ScriptTypes.Count} type(s) from {System.IO.Path.GetFileName(path)}");
@@ -198,9 +205,13 @@ public static partial class ScriptBridge
         Scheduler.Clear();
         _schedules.Clear();
         Net.ResetCaches();
+        var oldAlc = _alc;
         _alc?.Unload();
         _alc = newAlc;
-        _alcRef = new WeakReference(newAlc);
+        if (oldAlc != null)
+        {
+            _unloading.Add(new Unloading { Context = new WeakReference(oldAlc) });
+        }
         ScriptRegistry.Scan(newAsm);
         DataAssets.Clear();
         DataAssets.Scan(newAsm);
@@ -231,6 +242,8 @@ public static partial class ScriptBridge
         }
         GC.Collect();
         GC.WaitForPendingFinalizers();
+        // Earlier reloads' contexts should be gone by now too (edit mode has no scheduler ticks).
+        CheckUnload(collect: false);
         Console.WriteLine($"[ScriptBridge] Reloaded {System.IO.Path.GetFileName(path)}: {ScriptRegistry.ScriptTypes.Count} type(s), {restored}/{snapshots.Count} script(s) carried over");
         return restored;
     }
@@ -479,8 +492,45 @@ public static partial class ScriptBridge
             Scheduler.InstallContext();
             if (reset != 0) Scheduler.Clear();
             else Scheduler.Tick(deltaTime);
+            CheckUnload(collect: true);
         }
         catch (Exception ex) { ReportException("SchedulerTick", ex); }
+    }
+
+    // After hot reloads: are the old script contexts gone? Each is checked a few times, frames
+    // apart (a check forces a full GC), and reported once if it never goes. collect: false when the
+    // caller has just collected (a reload).
+    private static void CheckUnload(bool collect)
+    {
+        if (_unloading.Count == 0) return;
+        bool due = !collect;
+        foreach (var entry in _unloading) due |= --entry.FramesLeft <= 0;
+        if (!due) return;
+        if (collect)
+        {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+        }
+        for (int i = _unloading.Count - 1; i >= 0; --i)
+        {
+            var entry = _unloading[i];
+            if (!entry.Context.IsAlive)
+            {
+                Console.WriteLine("[ScriptBridge] A previous Game.Script assembly unloaded");
+                _unloading.RemoveAt(i);
+            }
+            else if (entry.FramesLeft <= 0 && ++entry.Checks >= UnloadCheckAttempts)
+            {
+                Debug.Warning("Scripts: a previous Game.Script assembly is still loaded after a hot reload: something still references it "
+                    + "(a static field, an event handler on an engine/ScriptCore object, a running Task or timer). Each reload will leak another copy until that's released.");
+                _unloading.RemoveAt(i);
+            }
+            else if (entry.FramesLeft <= 0)
+            {
+                entry.FramesLeft = 120;
+            }
+        }
     }
 
     // CS-7: the game's DataAsset classes, newline-separated (the editor's Create menu).

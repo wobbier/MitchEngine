@@ -33,6 +33,7 @@ The engine owns scripting the way it owns physics and audio: `Engine::Scripts` i
 The managed side has these parts:
 
 - **`IGameScript.cs`** declares `OnStart`, `OnUpdate(float)`, `OnDestroy` and `OnEditorInspect`, plus default `OnFixedUpdate(float)`, `OnLateUpdate(float)` and `OnReload()`.
+- **Unload check (ME-302):** after each hot reload, the old script context is garbage-collected a few times (after later reloads, and frames apart during Play). The log says "A previous Game.Script assembly unloaded". If something still holds it (a static, an event handler on an engine or ScriptCore object, a running Task or timer), a warning says so once, because each reload would then leak another copy.
 - **`Script.cs`** is the base class with `Entity`, `transform` and the `Get/Has/AddComponent<T>` helpers.
 - **`Engine.cs`** is the `ScriptBridge` entry points and the instance table, and contains the hot reload logic.
 - **`GameScriptALC.cs`** is the collectible ALC. It redirects `ScriptCore` references to the already-loaded assembly.
