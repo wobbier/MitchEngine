@@ -1,5 +1,6 @@
 #include <doctest/doctest.h>
 #include "../../Modules/Havana/Source/Utils/ScriptNaming.h"
+#include "../../Modules/Havana/Source/Utils/ScriptTemplates.h"
 #include <set>
 
 TEST_CASE( "Scripts: new and renamed scripts keep valid, project-wide class names" )
@@ -42,4 +43,27 @@ TEST_CASE( "Scripts: new and renamed scripts keep valid, project-wide class name
     CHECK( ScriptNaming::AddFormerName( windows, "Door", "Gate" ) );
     CHECK( windows == "[ScriptCore.FormerName(\"Gate\")]\r\npublic class Door : Script\r\n{\r\n}\r\n" );
     CHECK_FALSE( ScriptNaming::AddFormerName( windows, "Missing", "Gate" ) );
+}
+
+TEST_CASE( "Scripts: Create > C# Script templates name the class and use the project's namespace (ME-237)" )
+{
+    CHECK( ScriptTemplates::ProjectNamespace( "MitchGame" ) == "MitchGame" );
+    CHECK( ScriptTemplates::ProjectNamespace( "my cool game" ) == "MyCoolGame" );
+    CHECK( ScriptTemplates::ProjectNamespace( "2D Shooter" ) == "_2DShooter" );
+    CHECK( ScriptTemplates::ProjectNamespace( "" ) == "Game" );
+    CHECK( ScriptTemplates::ProjectNamespace( "ScriptCore" ) == "Game" );
+    std::set<std::string> labels;
+    for( const ScriptTemplates::Template& entry : ScriptTemplates::All() )
+    {
+        labels.insert( entry.Label );
+        CHECK( ScriptNaming::IsIdentifier( entry.BaseName ) );
+        const std::string source = ScriptTemplates::Make( entry, "Thing", "MyGame" );
+        CHECK( source.find( "namespace MyGame;" ) != std::string::npos );
+        CHECK( source.find( "class Thing" ) != std::string::npos );
+        CHECK( source.find( "$NAME" ) == std::string::npos );
+    }
+    CHECK( labels.size() == ScriptTemplates::All().size() );
+    REQUIRE( ScriptTemplates::Find( "Networked Script" ) != nullptr );
+    CHECK( ScriptTemplates::Make( *ScriptTemplates::Find( "Networked Script" ), "Thing", "" ).find( "partial class Thing" ) != std::string::npos );
+    CHECK( ScriptTemplates::Find( "Nope" ) == nullptr );
 }

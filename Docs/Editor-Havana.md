@@ -201,6 +201,7 @@ The script runs one command per frame after a short warm-up and logs `[editor-ex
 | `pick fx fy` | Clicks the scene view at that fraction of its size; GPU picking selects what is drawn there |
 | `show-asset path` | Opens the Assets window on a file with its details shown (data assets show their editable contents) |
 | `assert-browser-layout Project` (or `Folder`), `assert-browser-asset path`, `wait-asset-preview` | Check the browser layout and project-wide listing, or wait for the selected graph's GPU preview (fails on graph/shader errors or timeout) |
+| `create-script folder | Script, Networked Script, ...` (Create > C# Script's templates, written at once), `delete-file path` (under the project only), `assert-script-type Name` (a loaded script or data asset class) | Make, remove and check scripts |
 | `replace-in-file path | old | new`, `wait-log text | frames` | Edit a file in place (hot reload tests) / wait until a log line containing the text appears (lines logged since the previous command started count, so `action X` then `wait-log` can't miss what X logged; consecutive `wait-log`s share that window, so several lines X logged at once can each be awaited), failing after the frame budget |
 | `create Name [| Parent]`, `rename Name`, `reparent Child | Parent|root` | Structural edits |
 | `add-component T`, `remove-component T`, `set Type.Field <json>`, `set-ref Type.Field | Entity/Path` | Component edits on the active entity (`set-ref` fills an entity reference with that entity's GUID) |

@@ -15,6 +15,7 @@
 #include "EditorApp.h"
 #include "Havana.h"
 #include "Widgets/AssetBrowser.h"
+#include "Utils/ScriptTemplates.h"
 #include "Widgets/SequenceWidget.h"
 #include "Widgets/SceneViewWidget.h"
 #include "Widgets/SettingsWidgets.h"
@@ -616,6 +617,62 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             contents.replace( at, from.size(), to );
             source.Write( contents );
         }
+    }
+    else if( command == "create-script" )
+    {
+        // create-script Assets/Scripts/Tests/New | Script, Networked Script   (Create > C# Script's
+        // templates, all written at once: one rebuild; each class named like the menu names it)
+        auto [folder, list] = SplitArgs( args );
+        std::error_code error;
+        std::filesystem::create_directories( Path( folder ).FullPath, error );
+        std::stringstream labels( list );
+        std::string label;
+        while( std::getline( labels, label, ',' ) )
+        {
+            const ScriptTemplates::Template* entry = ScriptTemplates::Find( Trim( label ) );
+            if( !entry )
+            {
+                Fail( "create-script: no template '" + Trim( label ) + "'" );
+                continue;
+            }
+            const std::string name = ScriptNaming::UniqueName( entry->BaseName, []( const std::string& InName ) { return AssetBrowserWidget::IsScriptNameTaken( InName ); } );
+            File( Path( folder + "/" + name + ".cs" ) ).Write( ScriptTemplates::Make( *entry, name, ScriptTemplates::ProjectNamespace( Project::GetName() ) ) );
+            CLog::Log( CLog::LogType::Info, "[editor-exec] created " + folder + "/" + name + ".cs" );
+        }
+    }
+    else if( command == "delete-file" )
+    {
+        // delete-file Assets/Scripts/Tests/New   (a file or folder under the project, e.g. what a flow created)
+        const std::filesystem::path target = std::filesystem::weakly_canonical( Path( args ).FullPath );
+        const std::string root = std::filesystem::weakly_canonical( Project::GetRoot() ).generic_string() + "/";
+        std::error_code error;
+        if( args.empty() || target.generic_string().rfind( root, 0 ) != 0 || target.generic_string().size() <= root.size() )
+        {
+            Fail( "delete-file: " + args + " isn't under the project" );
+        }
+        else if( std::filesystem::remove_all( target, error ) == 0 || error )
+        {
+            Fail( "delete-file: couldn't delete " + args );
+        }
+    }
+    else if( command == "assert-script-type" )
+    {
+        // assert-script-type NewDataAsset   (a script or data asset class in the loaded scripts)
+#if USING( ME_SCRIPTING )
+        bool found = false;
+        for( int i = 0; i < ScriptEngine::GetScriptCount() && !found; ++i )
+        {
+            found = ScriptEngine::GetScriptName( i ) == args;
+        }
+        for( const std::string& type : ScriptEngine::GetDataAssetTypes() )
+        {
+            found |= type == args;
+        }
+        if( !found )
+        {
+            Fail( "no script or data asset class named " + args );
+        }
+#endif
     }
     else if( command == "show-asset" )
     {

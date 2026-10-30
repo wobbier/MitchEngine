@@ -52,6 +52,8 @@ public:
     void BuildAssets();
 
     static AssetType GetAssetType( const std::string& InPath );
+    // A .cs under Assets already has this name (script class names are project-wide).
+    static bool IsScriptNameTaken( const std::string& InName );
 
     // Opens the browser on a project folder ("Assets/Models").
     void ShowFolder( const std::string& InFolder );

@@ -266,7 +266,12 @@ public class Spinner : Script
 }
 ```
 
-Save it anywhere under `Assets/`. The editor builds it on the next start, or hot reloads it if already running. Then add a `ScriptComponent` naming `Spinner` to an entity. `Assets/Scripts/Tests/ScriptProbe.cs` and `Assets/Scenes/Tests/ScriptTest.lvl` are a working example that `ScriptFlows.edscript` drives headlessly.
+Save it anywhere under `Assets/`. The editor builds it on the next start, or hot reloads it if already running. Then add a `ScriptComponent` naming `Spinner` to an entity.
+
+**Create > C# Script (ME-237)** in the asset browser writes one from a template (`Modules/Havana/Source/Utils/ScriptTemplates.h`):
+- **The templates:** Script, Networked Script (partial, with a `[Replicated]` field and a `[ServerRpc]`), UI Controller (drives a `data-model`), Data Asset and a plain Class.
+- **Naming:** the class name is unique across the project, because scripts are found by class name.
+- **Namespace:** the class goes in a file-scoped namespace named after the project (`namespace MitchGame;`), so scripts in the global namespace need a `using` to refer to it. `Assets/Scripts/Tests/ScriptProbe.cs` and `Assets/Scenes/Tests/ScriptTest.lvl` are a working example that `ScriptFlows.edscript` drives headlessly.
 
 `Transform.Rotate` composes a rotation in degrees about the entity's local axes directly with its quaternion. Use it for continuous rotation. `Transform.Rotation` sets an absolute local rotation in Euler degrees; its getter can return an equivalent Euler representation (for example, `(0, 100, 0)` becomes `(180, 80, 180)`). Reading that representation and replacing just one axis can make rotation alternate between different poses.
 

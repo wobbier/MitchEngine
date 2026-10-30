@@ -42,6 +42,7 @@
 #include "Utils/PlatformUtils.h"
 #include "Tools/Cook/Cooker.h"
 #include "Utils/ScriptNaming.h"
+#include "Utils/ScriptTemplates.h"
 #include "Scripting/ScriptEngine.h"
 #include <ImGuiTheme.h>
 #include <Utils/HavanaUtils.h>
@@ -1827,22 +1828,19 @@ void AssetBrowserWidget::DrawCreateMenuItems()
         ImGui::EndMenu();
     }
 #endif
-    if( ImGui::MenuItem( "C# Script" ) )
+    // ME-237: one entry per template; the new class goes in the project's namespace.
+    if( ImGui::BeginMenu( "C# Script" ) )
     {
-        const std::string name = ScriptNaming::UniqueName( "NewScript", []( const std::string& InName ) { return ScriptNameTaken( InName ); } );
-        const std::string script =
-            "using System;\n"
-            "using ScriptCore;\n\n"
-            "public class " + name + " : Script\n"
-            "{\n"
-            "    public override void OnStart()\n"
-            "    {\n"
-            "    }\n\n"
-            "    public override void OnUpdate(float dt)\n"
-            "    {\n"
-            "    }\n"
-            "}\n";
-        CreateAsset( name, ".cs", script );
+        for( const ScriptTemplates::Template& entry : ScriptTemplates::All() )
+        {
+            if( ImGui::MenuItem( entry.Label.c_str() ) )
+            {
+                const std::string name = ScriptNaming::UniqueName( entry.BaseName, []( const std::string& InName ) { return ScriptNameTaken( InName ); } );
+                CreateAsset( name, ".cs", ScriptTemplates::Make( entry, name, ScriptTemplates::ProjectNamespace( Project::GetName() ) ) );
+            }
+            ImGui::SetItemTooltip( "%s", entry.Tooltip.c_str() );
+        }
+        ImGui::EndMenu();
     }
 }
 
@@ -2183,6 +2181,12 @@ std::string AssetBrowserWidget::UniquePath( const std::string& InFolder, const s
         candidate = InFolder + "/" + InName + " " + std::to_string( i ) + InExtension;
     }
     return candidate;
+}
+
+
+bool AssetBrowserWidget::IsScriptNameTaken( const std::string& InName )
+{
+    return ScriptNameTaken( InName );
 }
 
 
