@@ -1305,6 +1305,13 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             sceneView->RequestClick( Vector2( static_cast<float>( std::atof( xText.c_str() ) ), static_cast<float>( std::atof( yText.c_str() ) ) ) );
         }
     }
+    else if( command == "pick-lock" )
+    {
+        // pick-lock Crate | 1   (the World View can't pick it or its children; 0 unlocks)
+        auto [name, value] = SplitArgs( args );
+        EntityHandle entity = FindEntity( name );
+        entity ? Selection::Get().SetPickLocked( *entity.Get(), value != "0" && value != "false" ) : Fail( "pick-lock: no entity named " + name );
+    }
     else if( command == "select-none" )
     {
         Selection::Get().Clear();

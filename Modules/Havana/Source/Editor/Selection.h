@@ -2,6 +2,7 @@
 #include "ECS/EntityHandle.h"
 #include "Events/EventReceiver.h"
 #include <cstdint>
+#include <unordered_set>
 #include <vector>
 
 #if USING( ME_EDITOR )
@@ -61,6 +62,14 @@ public:
     // first, then one level deeper per click while InCurrent is already on that branch.
     static EntityHandle ResolvePickTarget( const EntityHandle& InPicked, const EntityHandle& InCurrent );
 
+    // Pick lock (ED-7): the World View can't select a locked entity or its descendants (a click
+    // on one selects nothing; marquee and icons skip them). Editor-only, for this session, by
+    // GUID, so it survives Play and reloads.
+    void SetPickLocked( const Entity& InEntity, bool InLocked );
+    bool IsPickLockedSelf( const Entity& InEntity ) const;
+    // It or an ancestor.
+    bool IsPickLocked( const Entity& InEntity ) const;
+
 private:
     Selection();
     void OnInspect( const class InspectEvent& inspect );
@@ -72,6 +81,7 @@ private:
     BaseCore* m_core = nullptr;
     uint64_t m_version = 0;
     bool m_isNotifying = false;
+    std::unordered_set<uint64_t> m_pickLocked;
 };
 
 #endif

@@ -1122,7 +1122,7 @@ void SceneViewWidget::HandleMouse()
 		// Icons take priority over mesh picking.
 		for (const IconHit& icon : m_icons)
 		{
-			if ((icon.Position - mouse).Length() <= 13.f)
+			if ((icon.Position - mouse).Length() <= 13.f && !(icon.Entity && Selection::Get().IsPickLocked(*icon.Entity.Get())))
 			{
 				if (io.KeyCtrl)
 				{
@@ -1147,7 +1147,7 @@ void SceneViewWidget::HandleMouse()
 	std::vector<EntityHandle> picked = additive ? Selection::Get().GetEntities() : std::vector<EntityHandle>();
 	EditorOps::GetWorld().ForEachEntity([&](Entity& entity) {
 		Transform* transform = entity.TryGetComponent<Transform>();
-		if (!transform || !entity.IsActiveInHierarchy() || transform == EditorOps::GetSceneRoot())
+		if (!transform || !entity.IsActiveInHierarchy() || transform == EditorOps::GetSceneRoot() || Selection::Get().IsPickLocked(entity))
 		{
 			return;
 		}

@@ -312,10 +312,56 @@ void Selection::OnInspect( const InspectEvent& inspect )
 
 
 // Scene view click: empty space clears, Ctrl toggles, otherwise replaces.
+void Selection::SetPickLocked( const Entity& InEntity, bool InLocked )
+{
+    if( InLocked )
+    {
+        m_pickLocked.insert( InEntity.GetGUID() );
+    }
+    else
+    {
+        m_pickLocked.erase( InEntity.GetGUID() );
+    }
+}
+
+
+bool Selection::IsPickLockedSelf( const Entity& InEntity ) const
+{
+    return m_pickLocked.count( InEntity.GetGUID() ) > 0;
+}
+
+
+bool Selection::IsPickLocked( const Entity& InEntity ) const
+{
+    if( m_pickLocked.empty() )
+    {
+        return false;
+    }
+    if( IsPickLockedSelf( InEntity ) )
+    {
+        return true;
+    }
+    const Transform* transform = InEntity.TryGetComponent<Transform>();
+    for( const Transform* node = transform ? transform->GetParentTransform() : nullptr; node; node = node->GetParentTransform() )
+    {
+        if( node->Parent && IsPickLockedSelf( *node->Parent.Get() ) )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+
 void Selection::OnPicking( const PickingEvent& picking )
 {
     const ImGuiIO& io = ImGui::GetIO();
     EntityHandle picked = picking.RawEntityID ? GetEngine().GetWorld().lock()->FindEntityByIDValue( picking.RawEntityID ) : EntityHandle();
+    // A pick-locked entity is clicked through to nothing.
+    if( picked && IsPickLocked( *picked.Get() ) )
+    {
+        picked = EntityHandle();
+    }
     if( !picked )
     {
         if( !io.KeyCtrl && !io.KeyShift )

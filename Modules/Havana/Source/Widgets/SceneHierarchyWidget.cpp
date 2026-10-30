@@ -361,6 +361,16 @@ void SceneHierarchyWidget::DrawRowContents(Entity& entity, Transform* transform,
 		}
 	}
 
+	// Pick-locked (ED-7): marked before the active toggle.
+	if (Selection::Get().IsPickLockedSelf(entity))
+	{
+		ImGui::SameLine();
+		const float width = ImGui::CalcTextSize("(locked)").x;
+		ImGui::SetCursorScreenPos(ImVec2(HavanaUtils::RowRight() - ImGui::GetFrameHeight() - ImGui::GetStyle().ItemSpacing.x - width, rowRect.Min.y));
+		ImGui::TextDisabled("(locked)");
+		ImGui::SetItemTooltip("The World View can't pick it or its children (right-click > Unlock Picking)");
+	}
+
 	// Active toggle at the end of the row (the panel inset from the right edge).
 	ImGui::SameLine();
 	ImGui::SetCursorScreenPos(ImVec2(HavanaUtils::RowRight() - ImGui::GetFrameHeight(), ImGui::GetCursorScreenPos().y));
@@ -595,6 +605,16 @@ void SceneHierarchyWidget::DrawEntityContextMenu(Entity& entity, Transform* tran
 		EditorOps::Paste(transform);
 	}
 	ImGui::Separator();
+	// Pick lock (ED-7): for the whole selection, following the clicked entity.
+	const bool locked = Selection::Get().IsPickLockedSelf(entity);
+	if (ImGui::MenuItem(locked ? "Unlock Picking" : "Lock Picking"))
+	{
+		for (EntityHandle& selected : Selection::Get().GetEntities())
+		{
+			Selection::Get().SetPickLocked(*selected.Get(), !locked);
+		}
+	}
+	ImGui::SetItemTooltip("Locked entities and their children can't be picked in the World View");
 	EditorActions::Get().MenuItem("Edit.Delete");
 	ImGui::EndPopup();
 }
