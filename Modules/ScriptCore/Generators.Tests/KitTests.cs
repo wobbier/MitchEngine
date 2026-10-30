@@ -48,3 +48,32 @@ public class KitTests
         Assert.Equal(1, inventory.Items.Count);
     }
 }
+
+// GAME-1: the camera rigs' math.
+public class CameraRigTests
+{
+    [Fact]
+    public void Blends_ease_and_keep_aims_unit_length()
+    {
+        var a = new CameraPose(new Vector3(0f, 5f, -10f), new Vector3(0f, 0f, 1f), Vector3.Up, 55f);
+        var b = new CameraPose(new Vector3(4f, 2f, -4f), new Vector3(1f, 0f, 0f), Vector3.Up, 40f);
+        Assert.Equal(a.Position, CameraRigMath.Blend(a, b, 0f).Position);
+        Assert.Equal(b.Position, CameraRigMath.Blend(a, b, 1f).Position);
+        var mid = CameraRigMath.Blend(a, b, 0.5f);
+        Assert.InRange(mid.Forward.Length(), 0.999f, 1.001f);
+        Assert.Equal(47.5f, mid.FieldOfView, 3);
+        Assert.Equal(0.5f, CameraRigMath.SmoothStep(0.5f), 4);
+        Assert.True(CameraRigMath.SmoothStep(0.1f) < 0.1f);
+    }
+
+    [Fact]
+    public void Dead_zones_and_orbits()
+    {
+        Assert.Equal(0f, CameraRigMath.DeadZone(0f, 0.5f, 1f));
+        Assert.Equal(1f, CameraRigMath.DeadZone(0f, 2f, 1f));
+        Assert.Equal(-1f, CameraRigMath.DeadZone(0f, -2f, 1f));
+        var forward = CameraRigMath.OrbitForward(0f, 0f);
+        Assert.InRange(forward.z, 0.999f, 1.001f);
+        Assert.True(CameraRigMath.OrbitForward(0f, 30f).y < 0f);   // pitch looks down
+    }
+}

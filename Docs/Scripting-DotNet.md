@@ -332,6 +332,8 @@ The *world* pieces are scripts. They find those objects on whatever touches them
 | `Damageable` | Health for props with no script of their own; destroyed on death |
 
 | `Conversation : Interactable` | runs a `.dialogue` file through the stock dialogue box (GAME-8, below) |
+| `VirtualCamera` | GAME-1 camera rig. Modes: Fixed, Follow, Orbit (Look turns it; pulls in at walls) and Platformer2D (dead zone). It has a Priority, an optional confiner box and field of view, and the BlendSeconds used to take over. |
+| `CameraBrain` | goes on the entity with the Camera. It shows the highest-priority live rig and blends (smoothstep) when that changes. `CameraImpulse.Shake(strength, seconds)` adds shake. |
 
 `Entity.GetScript<T>()` (any script type or interface) scans the live scripts, so call it on events rather than for every entity every frame.
 
