@@ -6,8 +6,10 @@ namespace ScriptCore.Dialogue;
 
 public enum DialogueStep
 {
-    Line,     // Speaker / Text show a line; Continue() moves on
-    Choice,   // Choices lists the options; Choose(i) picks one
+    /// <summary>Speaker / Text show a line; Continue() moves on</summary>
+    Line,
+    /// <summary>Choices lists the options; Choose(i) picks one</summary>
+    Choice,
     End,
 }
 

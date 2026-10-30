@@ -1,7 +1,9 @@
 namespace ScriptCore;
 
+/// <summary>The scene: create, find and spawn entities, and load scenes.</summary>
 public static unsafe class World
 {
+    /// <summary>A new entity with a Transform, at the scene root.</summary>
     public static Entity CreateEntity( string name )
     {
         Entity e = default;
@@ -10,6 +12,7 @@ public static unsafe class World
     }
 
 
+    /// <summary>The first entity with that name, or Entity.Null.</summary>
     public static Entity Find( string name )
     {
         Entity e = default;
@@ -53,6 +56,7 @@ public static unsafe class World
     /// 0..1 while LoadSceneAsync runs; 1 otherwise.
     /// </summary>
     public static float LoadProgress => Engine._api.World_GetLoadProgress();
+    /// <summary>Whether a LoadSceneAsync is running.</summary>
     public static bool IsLoadingScene => Engine._api.World_IsLoadingScene() != 0;
 
 
@@ -67,12 +71,15 @@ public static unsafe class World
     }
 
 
+    /// <summary>Unloads an additive scene and its entities; false for an unknown id.</summary>
     public static bool UnloadScene( int scene ) => Engine._api.World_UnloadScene(scene) != 0;
 
 
+    /// <summary>An additive scene's state.</summary>
     public static SceneState GetSceneState( int scene ) => (SceneState)Engine._api.World_GetSceneState(scene);
 
 
+    /// <summary>The Transform of the first entity with that name, or null.</summary>
     public static Transform GetTransformByName( string name )
     {
         var e = Find(name);
@@ -85,8 +92,12 @@ public static unsafe class World
 /// </summary>
 public enum SceneState
 {
-    None = 0,   // unknown id, or unloaded
+    /// <summary>Unknown id, or unloaded</summary>
+    None = 0,
+    /// <summary>Being read in the background.</summary>
     Loading,
+    /// <summary>In the world.</summary>
     Loaded,
+    /// <summary>Couldn't be loaded.</summary>
     Failed,
 }

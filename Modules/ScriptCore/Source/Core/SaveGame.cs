@@ -16,8 +16,10 @@ public readonly struct SaveSlot
     public readonly string Slot;
     public readonly string Name;
     public readonly string Scene;
-    public readonly string Date;       // UTC, ISO 8601
-    public readonly double Playtime;   // seconds
+    /// <summary>UTC, ISO 8601</summary>
+    public readonly string Date;
+    /// <summary>Seconds</summary>
+    public readonly double Playtime;
 
     internal SaveSlot(string slot, string name, string scene, string date, double playtime)
     {

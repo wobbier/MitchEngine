@@ -161,6 +161,9 @@ Sounds AIs can hear: Noise.Make(where, radius) from gunshots, footsteps, a throw
 
 What an AI noticed: sight (range, field of view, line of sight through physics) and hearing (Noise.Make), with a memory of where it last saw or heard its target.
 
+- `EyeHeight` (field): Above the entity's position
+- `FieldOfView` (field): Degrees, full cone
+- `HearingScale` (field): Multiplies each noise's radius
 - `InCone(Vector3,Vector3,Vector3,System.Single,System.Single)` (method): Within range and inside the view cone (ignoring height), from an eye looking along forward.
 - `Update(ScriptCore.Entity,ScriptCore.Entity,System.Single)` (method): Looks for target from self and listens for noises; call once per update.
 
@@ -192,6 +195,8 @@ The entity's Animator (CS-5 a): parameters drive its state machine's transitions
 
 Limits an AssetRef row to an asset type, e.g. [AssetFilter("Texture")] or a file extension.
 
+- `(constructor)(System.String)` (method): Limits the field's asset picker to a type ("Texture") or an extension.
+- `Filter` (field): The asset type or file extension.
 
 ## AssetRef
 
@@ -279,6 +284,9 @@ Runs on clients (every client, or only the entity's owner): `[ClientRpc] partial
 
 A contact reported to OnCollisionEnter / OnCollisionExit.
 
+- `Normal` (field): From this entity towards the other
+- `Other` (field): The entity whose collider was touched
+- `Point` (field): Contact point (enter events of 3D contacts)
 
 ## Component
 
@@ -330,6 +338,11 @@ Steps through a DialogueScript: Start(node), then Continue() past lines and Choo
 GAME-8: conversations as text (.dialogue files), in the spirit of Yarn: title: Gate --- Guard: Halt! Who goes there? -> A friend. <<set $trusted = true>> Guard: Then pass, friend. -> None of your business. <<if not $trusted>> Guard: Then you stay out. <<jump Refused>> <<if $trusted>> Guard: Mind the stairs, {$name}. <<else>> Guard: Move along. <<endif>> <<event open-gate>> === A node is "title: Name", "---", its lines, "===". A line is "Speaker: text" (or just text); a run of "-> text" lines is a choice, each followed by its indented body; a trailing "<<if expr>>" on an option shows it only when true. Commands: <<jump Node>>, <<set $var = expr>>, <<if expr>> / <<elseif expr>> / <<else>> / <<endif>>, <<event name args...>> (raised for the game), <<stop>>. "//" starts a comment. Text can show variables: {$name}. Lines and options are localization keys (DialogueRunner translates them before interpolating).
 
 
+## Dialogue.DialogueStep
+
+- `Choice` (field): Choices lists the options; Choose(i) picks one
+- `Line` (field): Speaker / Text show a line; Continue() moves on
+
 ## Dialogue.DialogueView
 
 Shows a DialogueRunner through a UI model ("dialogue": visible, speaker, text, choosing, choice0..3 / has0..3) and answers its events (dialogue_continue, dialogue_choose_0..3). The stock Engine/Assets/UI/Dialogue/Dialogue.rml binds it; a project can bring its own document with the same model. Call Update() every frame while it's up.
@@ -347,18 +360,49 @@ Values are bool, double or string (an unset variable is false). Operators: not, 
 Curves for tweens. Linear, SmoothStep and Hold match SequenceInterpolation's.
 
 
+## Engine
+
+Low-level engine access: logging and time. Most scripts use Debug, Time and the typed APIs instead.
+
+- `GetTime` (method): Seconds since the engine started.
+- `Log(System.String,System.String,System.String,System.Int32)` (method): Logs a message with the caller's file, line and member (Debug.Log calls it).
+- `Utf8(System.String,System.Span{System.Byte})` (method): Encodes a string NUL-terminated into the caller's stack buffer for an engine call; only strings that don't fit allocate.
+- `Utf8StackSize` (field): The stack buffer for Utf8, in bytes: fixed (byte* p = Engine.Utf8(name, stackalloc byte[Engine.Utf8StackSize])) _api.X(p); allocates nothing for strings that fit (ME-300).
+
 ## Entity
 
 struct because it's mapped to the engine EntityID struct. don't fuckin add anything to this <3 or at least update it to reflect it
 
+- `(constructor)(System.UInt32,System.UInt32)` (method): A handle from its index and generation (scripts get these from the engine, not by hand).
+- `Active` (property): Whether the entity is active (an inactive entity and its children don't update or draw).
+- `AddComponent(System.String)` (method): Adds an engine component by registry name ("Light", "Rigidbody").
+- `AddComponent1` (method): Adds a component of type T and returns it.
 - `Children` (property): Its direct children (CS-5 h).
 - `Destroy` (method): Destroys the entity and its children at the end of the frame.
+- `Equals(ScriptCore.Entity)` (method): Same entity: index and generation match.
+- `Equals(System.Object)` (method): Same entity.
+- `Generation` (field): The slot's generation: a handle to a destroyed entity stops matching when the slot is reused.
+- `GetComponent1` (method): The entity's component of type T, or null.
+- `GetField1(System.String,System.String,0)` (method): Any field of any component by name, including ones without a C# wrapper: GetField<float>("Light", "Intensity"). Paths can go deeper ("Settings.Radius", "Color.0"); a missing component or field returns the fallback.
+- `GetFieldJson(System.String,System.String)` (method): A component field as JSON text, or null when it's missing.
+- `GetHashCode` (method): A hash of index and generation.
 - `GetScript1` (method): The entity's script when it is (or implements) T: GetScript<Door>(), GetScript<IHealth>(). Null when it has none. A scan of the live scripts; fine for events, not for every entity every frame.
 - `Guid` (property): The scene GUID (the 16-hex string scenes and EntityRef store), "" for a dead entity.
 - `HasComponent(System.String)` (method): Any registered component by name ("Light", "ParticleSystem", "AudioSource"...), wrapped in C# or not; its fields are reachable through Component.GetField / SetField.
+- `HasComponent1` (method): Whether the entity has a component of type T.
 - `Index` (field): Mirrors the engine's 8-byte EntityID: slot index + generation (0 = null).
+- `IsAlive` (property): Whether the entity still exists.
 - `Layer` (property): The physics / filtering layer, 0..31 (Project Settings names them).
+- `Name` (property): The entity's name.
+- `Null` (field): {0, 0}
+- `op_Equality(ScriptCore.Entity,ScriptCore.Entity)` (method): Same entity.
 - `op_Implicit(ScriptCore.Entity)~System.Boolean` (method): what is life?
+- `op_Inequality(ScriptCore.Entity,ScriptCore.Entity)` (method): Different entities.
+- `SetField1(System.String,System.String,0)` (method): Sets a field of any component by name (see GetField); false when the component or field is missing.
+- `SetFieldJson(System.String,System.String,System.String)` (method): Sets a component field from JSON text; false when the component or field is missing.
+- `ToString` (method): "Entity(index:generation)".
+- `Transform` (property): The entity's Transform.
+- `TryGetComponent1(0@)` (method): The component of type T and true, or null and false.
 
 ## EntityRef
 
@@ -373,6 +417,15 @@ Update order among scripts: lower runs first (default 0) in OnStart, OnFixedUpda
 ## FieldReflection
 
 - `WithSaved(System.Type)` (method): Of(type) plus every [Save] field the inspector doesn't show (non-public or hidden): what a save game stores, and what loading one restores.
+
+## ForceMode
+
+How Rigidbody.AddForce applies a vector.
+
+- `Acceleration` (field): Continuous, ignores mass
+- `Force` (field): Continuous, mass dependent
+- `Impulse` (field): Instant, mass dependent
+- `VelocityChange` (field): Instant, ignores mass
 
 ## FormerNameAttribute
 
@@ -431,11 +484,29 @@ A type's generated schema. Hash is a stable FNV-1a over the names and kinds, so 
 
 A section heading drawn above the field.
 
+- `(constructor)(System.String)` (method): A heading above the field.
+- `Text` (field): The heading.
 
 ## HideInInspectorAttribute
 
 surpress your feelings, hide your fields
 
+
+## IGameScript
+
+What the engine calls on a script. Derive from Script, which implements it, rather than implementing this directly.
+
+- `OnCollisionEnter(ScriptCore.Collision)` (method): Physics (3D and 2D), while the game runs: a contact with another collider starts.
+- `OnCollisionExit(ScriptCore.Collision)` (method): A contact with another collider ends.
+- `OnDestroy` (method): When the script's entity is destroyed, or the game stops.
+- `OnEditorInspect` (method): In the editor's inspector, after the script's fields (ImGui calls draw extra UI).
+- `OnFixedUpdate(System.Single)` (method): Every fixed simulation step (before physics), while the game runs.
+- `OnLateUpdate(System.Single)` (method): Every frame after navigation and animation have moved things, before audio and rendering: cameras that follow, IK targets, props attached to animated bones.
+- `OnReload` (method): After a hot reload: the new instance has its public fields back, but nothing else (references, statics, native state). Rebuild what OnStart set up here.
+- `OnStart` (method): Once, before the first update, when the game starts (or the script's entity is spawned during play).
+- `OnTriggerEnter(ScriptCore.Entity)` (method): Another collider enters a trigger on this entity (or on a collider child of this entity's body).
+- `OnTriggerExit(ScriptCore.Entity)` (method): Another collider leaves a trigger on this entity.
+- `OnUpdate(System.Single)` (method): Every frame while the game runs, after the scene's cores.
 
 ## ImGui
 
@@ -473,6 +544,8 @@ A script on a receiver object gets its sequence events here, before EventBus sub
 
 script friendly names for my SDL garbage
 
+- `LeftCommand` (field): Aka LeftWindows / LeftSuper
+- `RightCommand` (field): Aka RightWindows / RightSuper
 
 ## Kit.BeatClock
 
@@ -509,6 +582,13 @@ Camera shake: Shake(strength, seconds) adds a decaying wobble to whatever the br
 
 - `DeadZone(System.Single,System.Single,System.Single)` (method): Moves current only as far as needed to keep target within +-zone of it.
 - `OrbitForward(System.Single,System.Single)` (method): The FollowCamera convention: yaw about +Y from +Z, pitch looking down.
+
+## Kit.CameraRigMode
+
+- `Fixed` (field): Stays where its entity is (LookAt optional)
+- `Follow` (field): Target's position + Offset, looking at the target
+- `Orbit` (field): Third person: Look turns it around Target; pulls in when walls are between
+- `Platformer2D` (field): Tracks Target's X/Y with a dead zone, Distance back along -Z, no turning
 
 ## Kit.Checkpoint
 
@@ -610,6 +690,8 @@ MOD-7: what a mod's assembly reaches beyond the script API, read from its metada
 
 Draws a string field as a multi-line text box.
 
+- `(constructor)(System.Int32)` (method): A text box this many lines high.
+- `Lines` (field): The text box's height in lines.
 
 ## Navigation
 
@@ -692,11 +774,16 @@ The entity's ParticleSystem (CS-5 c). Play restarts emission, Stop ends it (live
 
 ## Physics
 
+Queries against the physics world: raycasts, overlaps, portal passages.
+
+- `ClearPortalPassage(ScriptCore.Entity)` (method): Closes a portal's passage (its linked end is gone, or the portal is destroyed).
 - `LayerMask(System.Int32[])` (method): A mask of the given layers (0..31).
 - `OverlapBox(Vector3,Vector3,Vector3,System.Int32)` (method): Every entity with a collider touching the box (rotated by Euler degrees).
 - `OverlapSphere(Vector3,System.Single,System.Int32)` (method): The first 3D collider along the ray (direction need not be normalized). Every entity with a collider touching the sphere (triggers excluded), up to maxResults.
+- `Raycast(Vector3,Vector3,System.Single,ScriptCore.RaycastHit@)` (method): The first collider along the ray within maxDistance metres; false on a miss.
 - `Raycast(Vector3,Vector3,System.Single,System.Int32,ScriptCore.RaycastHit@)` (method): CS-5 f: layerMask bit n = layer n (Layers.Mask(...)); -1 = every layer.
 - `RaycastAll(Vector3,Vector3,System.Single,System.Int32,System.Int32)` (method): Every hit along the ray, nearest first.
+- `SetPortalPassage(ScriptCore.Entity,ScriptCore.Entity,Vector3,Vector3,Vector3,Vector2,System.Single)` (method): Opens only this rectangular passage in the host collider for fitting characters and bodies; the rest of the wall, other colliders and raycasts stay solid. Update it after moving a portal.
 - `SphereCast(Vector3,System.Single,Vector3,System.Single,ScriptCore.RaycastHit@,System.Int32)` (method): A sphere swept along the ray: the first collider it touches.
 
 ## Physics2D
@@ -737,11 +824,18 @@ The entity's Ragdoll (GAME-5): physics takes the bones while Simulating, and cle
 
 Draws the field as a slider clamped to [Min, Max] (float and int fields).
 
+- `(constructor)(System.Single,System.Single)` (method): A slider from min to max.
+- `Max` (field): The slider's maximum.
+- `Min` (field): The slider's minimum.
 
 ## RaycastHit
 
 Matches the engine's ScriptRaycastHit.
 
+- `Distance` (field): How far along the ray, in metres.
+- `Entity` (field): The entity whose collider was hit.
+- `Normal` (field): The surface normal there.
+- `Point` (field): Where the ray hit, world space.
 
 ## ReadOnlyAttribute
 
@@ -773,6 +867,11 @@ Saves a non-public field with save games (public fields always are). Scenes neve
 - `Playtime` (property): Seconds played, counting from the loaded save's playtime.
 - `Save(System.String,System.String)` (method): Slot names are letters, digits, '-' and '_'. False when the name is invalid or there's no scene.
 
+## SaveSlot
+
+- `Date` (field): UTC, ISO 8601
+- `Playtime` (field): Seconds
+
 ## SceneLoaded
 
 The main scene finished loading (its scripts start this frame).
@@ -783,18 +882,45 @@ The main scene finished loading (its scripts start this frame).
 
 An additive scene's progress (World.GetSceneState).
 
+- `Failed` (field): Couldn't be loaded.
+- `Loaded` (field): In the world.
+- `Loading` (field): Being read in the background.
+- `None` (field): Unknown id, or unloaded
+
+## Scheduler.Job
+
+- `Step` (field): Dt -> finished
 
 ## Script
 
 Base for scripts that live on an entity
 
+- `AddComponent1` (method): Adds a component of type T to this entity and returns it.
+- `After(System.Single,System.Action)` (method): Runs action once after that many seconds of game time (cancelled if the script goes first).
+- `Entity` (property): The entity this script is on.
+- `Every(System.Single,System.Action)` (method): Runs action every that many seconds of game time while the script lives.
+- `GetComponent1` (method): This entity's component of type T, or null.
+- `HasComponent1` (method): Whether this entity has a component of type T.
 - `On1(System.Action{0})` (method): Subscribes to an event for as long as this script lives (EventBus).
+- `OnCollisionEnter(ScriptCore.Collision)` (method): A contact with another collider starts.
+- `OnCollisionExit(ScriptCore.Collision)` (method): A contact with another collider ends.
+- `OnDestroy` (method): When the entity is destroyed or the game stops.
+- `OnEditorInspect` (method): In the editor's inspector, below the script's fields: extra ImGui UI.
+- `OnFixedUpdate(System.Single)` (method): Every fixed simulation step, before physics.
+- `OnLateUpdate(System.Single)` (method): Every frame after animation and navigation, before audio and rendering (follow cameras, IK targets).
 - `OnNetEvent(System.Int32,System.Int32)` (method): ME-291: a Net.PredictedEvent this script raised, presented once per (tick, event) on each peer: right away on the server and the predicting owner, from the server on other clients.
+- `OnReload` (method): After a hot reload: public fields are back, nothing else is; rebuild what OnStart set up.
+- `OnStart` (method): Once, before the first update, when the game starts or the entity is spawned during play.
+- `OnTriggerEnter(ScriptCore.Entity)` (method): Another collider enters a trigger on this entity.
+- `OnTriggerExit(ScriptCore.Entity)` (method): Another collider leaves a trigger on this entity.
+- `OnUpdate(System.Single)` (method): Every frame while the game runs, after the scene's cores.
 - `StartCoroutine(System.Collections.IEnumerator)` (method): Coroutines, timers and tweens owned by this script: they stop when it's destroyed (Async.cs).
+- `StopAllCoroutines` (method): Stops every coroutine, timer and tween this script started.
+- `transform` (property): This entity's Transform.
 
 ## ScriptBridge
 
-NET-6: what the engine's NetCore calls on networked scripts (INetScript, generated). Buffers are the engine's; the Save / Write calls return the bytes needed and only write when they fit.
+The engine's entry points into managed code ([UnmanagedCallersOnly]: script lifetime, fields, networking). Host plumbing, not scripting API: its members are undocumented on purpose (CS-10).
 
 - `DispatchEngineEvents(System.Int32,System.Byte*)` (method): CS-8: the engine's events for this frame, a JSON array (EventBus.DispatchEngine).
 - `GetConsoleCommands(System.Byte*,System.Int32)` (method): PLAY-10: the console's C# commands, "name\thelp" lines (the usual size-then-fill calls).
@@ -879,6 +1005,8 @@ Runs on the server: declare `[ServerRpc] partial void Name(args);` and write `On
 
 Vertical spacing above the field (defaults to half a line).
 
+- `(constructor)(System.Single)` (method): Space above the field (0: half a line).
+- `Height` (field): The gap in pixels (0: half a line).
 
 ## Spline
 
@@ -930,6 +1058,8 @@ The entity's Tilemap (LOOK-S5): cells by palette index (-1 = empty). A TilemapCo
 
 Hover text on the field's row.
 
+- `(constructor)(System.String)` (method): Hover text for the field.
+- `Text` (field): The hover text.
 
 ## Transform
 
@@ -955,6 +1085,8 @@ Hover text on the field's row.
 
 How a camera's scaled-down image is stretched to its output.
 
+- `Pixel` (field): Whole-number blocks, for pixel art
+- `Sharp` (field): Catmull-Rom plus contrast-adaptive sharpening
 
 ## WaitForSeconds
 
@@ -963,11 +1095,19 @@ The yield instructions coroutines understand (plus null = the next frame, and a 
 
 ## World
 
+The scene: create, find and spawn entities, and load scenes.
+
+- `CreateEntity(System.String)` (method): A new entity with a Transform, at the scene root.
+- `Find(System.String)` (method): The first entity with that name, or Entity.Null.
+- `GetSceneState(System.Int32)` (method): An additive scene's state.
+- `GetTransformByName(System.String)` (method): The Transform of the first entity with that name, or null.
 - `Instantiate(System.String,ScriptCore.Entity)` (method): Spawns a prefab (optionally under a parent) and returns its root entity.
+- `IsLoadingScene` (property): Whether a LoadSceneAsync is running.
 - `LoadProgress` (property): 0..1 while LoadSceneAsync runs; 1 otherwise.
 - `LoadScene(System.String)` (method): Loads a scene at the end of this frame.
 - `LoadSceneAdditive(System.String,System.Boolean)` (method): Loads a scene on top of this one (a streamed level chunk, a shared lighting scene) and returns its id. Async (the default) reads it in the background and adds it at the start of a later frame: watch SceneState. Its entities unload together and go when the main scene changes.
 - `LoadSceneAsync(System.String,System.String)` (method): Loads a scene in the background under a loading screen (PLAY-5): the current scene keeps running while the file is read, and the screen stays up until the new scene's assets have loaded. loadingScreen: "" = the project's (Assets/UI/Loading/Loading.rml by default), "none" = no screen. False when the scene doesn't exist or a load is already running.
+- `UnloadScene(System.Int32)` (method): Unloads an additive scene and its entities; false for an unknown id.
 
 ## Vector2
 

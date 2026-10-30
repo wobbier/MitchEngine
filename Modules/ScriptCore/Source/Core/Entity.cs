@@ -10,20 +10,24 @@ namespace ScriptCore;
 [StructLayout(LayoutKind.Sequential)]
 public readonly struct Entity : IEquatable<Entity>
 {
-    public static readonly Entity Null = default;   // {0, 0}
+    /// <summary>{0, 0}</summary>
+    public static readonly Entity Null = default;
 
     /// <summary>
     /// Mirrors the engine's 8-byte EntityID: slot index + generation (0 = null).
     /// </summary>
     public readonly uint Index;
+    /// <summary>The slot's generation: a handle to a destroyed entity stops matching when the slot is reused.</summary>
     public readonly uint Generation;
 
+    /// <summary>A handle from its index and generation (scripts get these from the engine, not by hand).</summary>
     public Entity(uint inIndex, uint inGeneration)
     {
         Index = inIndex;
         Generation = inGeneration;
     }
 
+    /// <summary>Whether the entity still exists.</summary>
     public bool IsAlive { get { unsafe { return Engine._api.Entity_IsAlive(this) != 0; } } }
 
     /// <summary>
@@ -69,12 +73,14 @@ public readonly struct Entity : IEquatable<Entity>
         unsafe { Engine._api.Entity_Destroy(this); }
     }
 
+    /// <summary>Whether the entity is active (an inactive entity and its children don't update or draw).</summary>
     public bool Active
     {
         get { unsafe { return Engine._api.Entity_IsActive(this) != 0; } }
         set { unsafe { Engine._api.Entity_SetActive(this, value ? (byte)1 : (byte)0); } }
     }
 
+    /// <summary>The entity's name.</summary>
     public string Name
     {
         get
@@ -104,19 +110,23 @@ public readonly struct Entity : IEquatable<Entity>
         unsafe { fixed (byte* p = Engine.Utf8(component, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Entity_HasComponent(this, p) != 0; }
     }
 
+    /// <summary>Adds an engine component by registry name ("Light", "Rigidbody").</summary>
     public void AddComponent(string component)
     {
         unsafe { fixed (byte* p = Engine.Utf8(component, stackalloc byte[Engine.Utf8StackSize])) Engine._api.Entity_AddComponent(this, p); }
     }
 
+    /// <summary>Whether the entity has a component of type T.</summary>
     public bool HasComponent<T>() where T : Component, new()
     {
         unsafe { fixed (byte* p = ComponentName<T>.Utf8) return Engine._api.Entity_HasComponent(this, p) != 0; }
     }
 
+    /// <summary>The entity's component of type T, or null.</summary>
     public T GetComponent<T>() where T : Component, new()
         => HasComponent<T>() ? new T { Entity = this } : null;
 
+    /// <summary>The component of type T and true, or null and false.</summary>
     public bool TryGetComponent<T>(out T component) where T : Component, new()
     {
         if (HasComponent<T>())
@@ -128,12 +138,14 @@ public readonly struct Entity : IEquatable<Entity>
         return false;
     }
 
+    /// <summary>Adds a component of type T and returns it.</summary>
     public T AddComponent<T>() where T : Component, new()
     {
         unsafe { fixed (byte* p = ComponentName<T>.Utf8) Engine._api.Entity_AddComponent(this, p); }
         return GetComponent<T>();
     }
 
+    /// <summary>The entity's Transform.</summary>
     public Transform Transform => GetComponent<Transform>();
 
     /// <summary>
@@ -143,10 +155,7 @@ public readonly struct Entity : IEquatable<Entity>
     /// </summary>
     public T? GetScript<T>() where T : class => ScriptBridge.FindScript<T>(this);
 
-    // Any field of any component by name, including ones without a C# wrapper:
-    //   GetField<float>("Light", "Intensity"); SetField("Light", "Color", new Vector3(1, 0.5f, 0));
-    // Paths can go deeper ("Settings.Radius", "Color.0"). Missing components or fields return the
-    // fallback / false.
+    /// <summary>Any field of any component by name, including ones without a C# wrapper: GetField&lt;float&gt;("Light", "Intensity"). Paths can go deeper ("Settings.Radius", "Color.0"); a missing component or field returns the fallback.</summary>
     public T GetField<T>(string component, string path, T fallback = default!)
     {
         string? json = GetFieldJson(component, path);
@@ -158,8 +167,10 @@ public readonly struct Entity : IEquatable<Entity>
         catch (System.Text.Json.JsonException) { return fallback; }
     }
 
+    /// <summary>Sets a field of any component by name (see GetField); false when the component or field is missing.</summary>
     public bool SetField<T>(string component, string path, T value) => SetFieldJson(component, path, FieldJson.Write(value));
 
+    /// <summary>A component field as JSON text, or null when it's missing.</summary>
     public string? GetFieldJson(string component, string path)
     {
         var componentBytes = Encoding.UTF8.GetBytes(component + "\0");
@@ -190,6 +201,7 @@ public readonly struct Entity : IEquatable<Entity>
         }
     }
 
+    /// <summary>Sets a component field from JSON text; false when the component or field is missing.</summary>
     public bool SetFieldJson(string component, string path, string json)
     {
         var componentBytes = Encoding.UTF8.GetBytes(component + "\0");
@@ -213,12 +225,18 @@ public readonly struct Entity : IEquatable<Entity>
         unsafe { fixed (byte* p = bytes) return Engine._api.Entity_HasComponent(this, p) != 0; }
     }
 
+    /// <summary>Same entity: index and generation match.</summary>
     public bool Equals(Entity o) => Index == o.Index && Generation == o.Generation;
+    /// <summary>Same entity.</summary>
     public override bool Equals(object? obj) => obj is Entity e && Equals(e);
+    /// <summary>A hash of index and generation.</summary>
     public override int GetHashCode() => HashCode.Combine(Index, Generation);
+    /// <summary>Same entity.</summary>
     public static bool operator ==(Entity a, Entity b) => a.Equals(b);
+    /// <summary>Different entities.</summary>
     public static bool operator !=(Entity a, Entity b) => !a.Equals(b);
 
+    /// <summary>"Entity(index:generation)".</summary>
     public override string ToString() => $"Entity({Index}:{Generation})";
 }
 

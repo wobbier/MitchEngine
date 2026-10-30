@@ -11,6 +11,7 @@ namespace ScriptCore;
 /// NET-6: what the engine's NetCore calls on networked scripts (INetScript, generated). Buffers are
 /// the engine's; the Save / Write calls return the bytes needed and only write when they fit.
 /// </summary>
+#pragma warning disable CS1591
 public static partial class ScriptBridge
 {
     /// <summary>

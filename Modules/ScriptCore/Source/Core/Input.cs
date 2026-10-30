@@ -496,8 +496,10 @@ public enum KeyCode : int
     RightControl = SDLKey.SDL_SCANCODE_RCTRL,
     LeftAlt = SDLKey.SDL_SCANCODE_LALT,
     RightAlt = SDLKey.SDL_SCANCODE_RALT,
-    LeftCommand = SDLKey.SDL_SCANCODE_LGUI,  // aka LeftWindows / LeftSuper
-    RightCommand = SDLKey.SDL_SCANCODE_RGUI, // aka RightWindows / RightSuper
+    /// <summary>Aka LeftWindows / LeftSuper</summary>
+    LeftCommand = SDLKey.SDL_SCANCODE_LGUI,
+    /// <summary>Aka RightWindows / RightSuper</summary>
+    RightCommand = SDLKey.SDL_SCANCODE_RGUI,
 };
 
 #pragma warning restore CS1591

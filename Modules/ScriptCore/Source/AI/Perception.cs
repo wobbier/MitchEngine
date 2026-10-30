@@ -10,9 +10,12 @@ namespace ScriptCore.AI;
 public sealed class Perception
 {
     public float SightRange = 12f;
-    public float FieldOfView = 120f;   // degrees, full cone
-    public float EyeHeight = 0.6f;     // above the entity's position
-    public float HearingScale = 1f;    // multiplies each noise's radius
+    /// <summary>Degrees, full cone</summary>
+    public float FieldOfView = 120f;
+    /// <summary>Above the entity's position</summary>
+    public float EyeHeight = 0.6f;
+    /// <summary>Multiplies each noise's radius</summary>
+    public float HearingScale = 1f;
     public float MemorySeconds = 6f;
 
     public bool CanSee { get; private set; }

@@ -10,12 +10,14 @@ namespace ScriptCore;
 
 // EngineAPIBindings (the engine's function table) is generated: Generated/EngineAPIBindings.g.cs.
 
+/// <summary>Low-level engine access: logging and time. Most scripts use Debug, Time and the typed APIs instead.</summary>
 public static unsafe class Engine
 {
     internal static EngineAPIBindings _api;
 
     internal static void Bind(EngineAPIBindings api) => _api = api;
 
+    /// <summary>Logs a message with the caller's file, line and member (Debug.Log calls it).</summary>
     public static void Log(string msg,
         [CallerMemberName] string member = "",
         [CallerFilePath]   string file   = "",
@@ -29,6 +31,7 @@ public static unsafe class Engine
         fixed (byte* p = buf) _api.Log(p);
     }
 
+    /// <summary>Seconds since the engine started.</summary>
     public static float GetTime() => _api.GetTime();
 
     internal static byte[] Utf8(string s)
@@ -38,11 +41,10 @@ public static unsafe class Engine
         return b;
     }
 
-    // ME-300: a string for the engine API without garbage. Encodes it NUL-terminated into the
-    // caller's stack buffer; only strings that don't fit it allocate:
-    //   fixed (byte* p = Engine.Utf8(name, stackalloc byte[Engine.Utf8StackSize])) _api.X(p);
+    /// <summary>The stack buffer for Utf8, in bytes: fixed (byte* p = Engine.Utf8(name, stackalloc byte[Engine.Utf8StackSize])) _api.X(p); allocates nothing for strings that fit (ME-300).</summary>
     public const int Utf8StackSize = 256;
 
+    /// <summary>Encodes a string NUL-terminated into the caller's stack buffer for an engine call; only strings that don't fit allocate.</summary>
     public static ReadOnlySpan<byte> Utf8(string s, Span<byte> scratch)
     {
         if ((s.Length + 1) * 3 > scratch.Length && Encoding.UTF8.GetByteCount(s) + 1 > scratch.Length)
@@ -55,6 +57,11 @@ public static unsafe class Engine
     }
 }
 
+/// <summary>
+/// The engine's entry points into managed code ([UnmanagedCallersOnly]: script lifetime, fields, networking).
+/// Host plumbing, not scripting API: its members are undocumented on purpose (CS-10).
+/// </summary>
+#pragma warning disable CS1591
 public static partial class ScriptBridge
 {
     private static GameScriptALC? _alc;

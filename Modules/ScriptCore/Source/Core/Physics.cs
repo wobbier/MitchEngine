@@ -8,9 +8,13 @@ namespace ScriptCore;
 [StructLayout(LayoutKind.Sequential)]
 public struct RaycastHit
 {
+    /// <summary>The entity whose collider was hit.</summary>
     public Entity Entity;
+    /// <summary>Where the ray hit, world space.</summary>
     public Vector3 Point;
+    /// <summary>The surface normal there.</summary>
     public Vector3 Normal;
+    /// <summary>How far along the ray, in metres.</summary>
     public float Distance;
 }
 
@@ -19,28 +23,39 @@ public struct RaycastHit
 /// </summary>
 public struct Collision
 {
-    public Entity Other;        // the entity whose collider was touched
-    public Vector3 Point;       // contact point (enter events of 3D contacts)
-    public Vector3 Normal;      // from this entity towards the other
+    /// <summary>The entity whose collider was touched</summary>
+    public Entity Other;
+    /// <summary>Contact point (enter events of 3D contacts)</summary>
+    public Vector3 Point;
+    /// <summary>From this entity towards the other</summary>
+    public Vector3 Normal;
 }
 
+/// <summary>How Rigidbody.AddForce applies a vector.</summary>
 public enum ForceMode
 {
-    Force = 0,          // continuous, mass dependent
-    Impulse,            // instant, mass dependent
-    Acceleration,       // continuous, ignores mass
-    VelocityChange,     // instant, ignores mass
+    /// <summary>Continuous, mass dependent</summary>
+    Force = 0,
+    /// <summary>Instant, mass dependent</summary>
+    Impulse,
+    /// <summary>Continuous, ignores mass</summary>
+    Acceleration,
+    /// <summary>Instant, ignores mass</summary>
+    VelocityChange,
 }
 
+/// <summary>Queries against the physics world: raycasts, overlaps, portal passages.</summary>
 public static unsafe class Physics
 {
     // Opens only this rectangular passage in the host collider for fitting characters/bodies.
     // The rest of the wall, other colliders, and raycasts stay solid. Update after moving a portal;
     // clear when its linked endpoint is unavailable or the portal is destroyed.
+    /// <summary>Opens only this rectangular passage in the host collider for fitting characters and bodies; the rest of the wall, other colliders and raycasts stay solid. Update it after moving a portal.</summary>
     public static bool SetPortalPassage(Entity portal, Entity host, Vector3 center, Vector3 right,
         Vector3 up, Vector2 halfSize, float depth = 2.5f)
         => Engine._api.Physics_SetPortalPassage(portal, host, &center, &right, &up, halfSize.x, halfSize.y, depth) != 0;
 
+    /// <summary>Closes a portal's passage (its linked end is gone, or the portal is destroyed).</summary>
     public static void ClearPortalPassage(Entity portal) => Engine._api.Physics_ClearPortalPassage(portal);
 
     /// <summary>
@@ -120,6 +135,7 @@ public static unsafe class Physics
         });
     }
 
+    /// <summary>The first collider along the ray within maxDistance metres; false on a miss.</summary>
     public static bool Raycast(Vector3 origin, Vector3 direction, float maxDistance, out RaycastHit hit)
     {
         RaycastHit result;

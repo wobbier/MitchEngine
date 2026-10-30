@@ -10,10 +10,14 @@ namespace ScriptCore.Kit;
 
 public enum CameraRigMode
 {
-    Fixed,          // stays where its entity is (LookAt optional)
-    Follow,         // Target's position + Offset, looking at the target
-    Orbit,          // third person: Look turns it around Target; pulls in when walls are between
-    Platformer2D,   // tracks Target's X/Y with a dead zone, Distance back along -Z, no turning
+    /// <summary>Stays where its entity is (LookAt optional)</summary>
+    Fixed,
+    /// <summary>Target's position + Offset, looking at the target</summary>
+    Follow,
+    /// <summary>Third person: Look turns it around Target; pulls in when walls are between</summary>
+    Orbit,
+    /// <summary>Tracks Target's X/Y with a dead zone, Distance back along -Z, no turning</summary>
+    Platformer2D,
 }
 
 public readonly record struct CameraPose(Vector3 Position, Vector3 Forward, Vector3 Up, float FieldOfView);

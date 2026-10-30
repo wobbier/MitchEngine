@@ -150,7 +150,8 @@ internal static class Scheduler
     {
         public Script? Owner;
         public AsyncHandle Handle = new();
-        public Func<float, bool> Step = _ => true;   // dt -> finished
+        /// <summary>Dt -&gt; finished</summary>
+        public Func<float, bool> Step = _ => true;
     }
 
     internal static readonly MainThreadContext Context = new();

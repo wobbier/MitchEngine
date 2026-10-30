@@ -135,6 +135,8 @@ public enum UpscaleFilter
 {
     Bilinear,
     Nearest,
-    Pixel,      // whole-number blocks, for pixel art
-    Sharp,      // Catmull-Rom plus contrast-adaptive sharpening
+    /// <summary>Whole-number blocks, for pixel art</summary>
+    Pixel,
+    /// <summary>Catmull-Rom plus contrast-adaptive sharpening</summary>
+    Sharp,
 }
