@@ -1,7 +1,7 @@
 #include "FileWatcher.h"
 #include "optick.h"
 #include <algorithm>
-#include <unordered_set>
+#include <string_view>
 
 
 FileWatcher::~FileWatcher()
@@ -50,13 +50,19 @@ void FileWatcher::Stop()
 
 bool FileWatcher::IsIgnored( const std::filesystem::path& InPath )
 {
-    static const std::unordered_set<std::string> kIgnoredExtensions = {
+    // A constant table, not a static container: the watcher thread can still be scanning while
+    // exit() runs static destructors (an X display that dies takes the process down that way), and
+    // a destroyed set crashed it (ME-290).
+    static constexpr std::string_view kIgnoredExtensions[] = {
         ".bin", ".d", ".dds", ".ktx", ".assbin", ".tmp", ".swp", ".swx", ".kate-swp"
     };
     const std::string extension = InPath.extension().string();
-    if( kIgnoredExtensions.count( extension ) )
+    for( const std::string_view ignored : kIgnoredExtensions )
     {
-        return true;
+        if( extension == ignored )
+        {
+            return true;
+        }
     }
     const std::string name = InPath.filename().string();
     // Editor temp files: emacs/vim/JetBrains backups.
