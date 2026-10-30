@@ -124,6 +124,9 @@ public:
     bool ReadText( const Path& InPath, std::string& OutText ) const;
     bool ReadBytes( const Path& InPath, std::vector<uint8_t>& OutBytes ) const;
     bool WriteText( const Path& InPath, const std::string& InText ) const;
+    // The Path names a loose file other than the one its local path resolves to (a Path built from
+    // an absolute engine path whose "Assets/..." tail a game-side file shadows): read the named file.
+    bool NamesOtherLooseFile( const Path& InPath ) const;
 
     // Resolve-then-IO conveniences for logical paths.
     bool ReadText( const std::string& InLogicalPath, std::string& OutText ) const;

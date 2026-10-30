@@ -113,7 +113,8 @@ bool VfsFileStream::Open( const Path& InPath )
     // outside every mount (absolute .tmp artifacts) fall back to the physical file whole.
     VfsStreamWindow window;
     const VfsResolved resolved = VFS::Get().Resolve( InPath.GetLocalPathString() );
-    const bool throughMount = resolved.Exists && resolved.Source && resolved.Source->GetStreamWindow( resolved.RelativePath, window );
+    const bool throughMount = !VFS::Get().NamesOtherLooseFile( InPath ) && resolved.Exists && resolved.Source
+        && resolved.Source->GetStreamWindow( resolved.RelativePath, window );
     if( !throughMount )
     {
         window.PhysicalFile = InPath.FullPath;
@@ -459,11 +460,33 @@ VfsResolved VFS::Resolve( const std::string& InLogicalPath, bool InPrimaryOnly )
 }
 
 
+bool VFS::NamesOtherLooseFile( const Path& InPath ) const
+{
+    // A Path built from an absolute file names that file, but its local path is only the tail
+    // from "Assets" on (an engine file's loses its "Engine/"). Resolving that through the overlay
+    // can land on a different loose file with the same tail, like a stale game-side .meta beside
+    // no source shadowing the engine's (ME-303). Pak hits have no physical path and stay
+    // authoritative.
+    if( InPath.FullPath.empty() || !InPath.Exists || !InPath.IsFile )
+    {
+        return false;
+    }
+    const VfsResolved resolved = Resolve( InPath.GetLocalPathString() );
+    if( !resolved.Exists || resolved.PhysicalPath.empty() || resolved.PhysicalPath == InPath.FullPath )
+    {
+        return false;
+    }
+    std::error_code error;
+    return !std::filesystem::equivalent( resolved.PhysicalPath, InPath.FullPath, error ) && !error;
+}
+
+
 bool VFS::ReadText( const Path& InPath, std::string& OutText ) const
 {
     // The mounts are authoritative (a pak can shadow loose files); Paths outside every mount
-    // (absolute .tmp artifacts) miss resolution and fall back to their physical file.
-    if( ReadText( InPath.GetLocalPathString(), OutText ) )
+    // (absolute .tmp artifacts) miss resolution and fall back to their physical file, and so do
+    // Paths whose local path resolves to some other loose file.
+    if( !NamesOtherLooseFile( InPath ) && ReadText( InPath.GetLocalPathString(), OutText ) )
     {
         return true;
     }
@@ -473,7 +496,7 @@ bool VFS::ReadText( const Path& InPath, std::string& OutText ) const
 
 bool VFS::ReadBytes( const Path& InPath, std::vector<uint8_t>& OutBytes ) const
 {
-    if( ReadBytes( InPath.GetLocalPathString(), OutBytes ) )
+    if( !NamesOtherLooseFile( InPath ) && ReadBytes( InPath.GetLocalPathString(), OutBytes ) )
     {
         return true;
     }

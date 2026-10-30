@@ -465,3 +465,42 @@ TEST_CASE( "vfs: read recording notes served overlay paths in their overlay spel
     VFS::Get().ClearRecordedReads();
     VFS::Get().ResetToDefaults();
 }
+
+
+TEST_CASE( "VFS: a Path built from an engine file reads that file, not a game file with the same Assets/ tail (ME-303)" )
+{
+    // A stale game-side sidecar (a .meta with no source beside it) used to shadow the engine's own
+    // when the engine asset was re-exported, swapping the engine asset's GUID for the game copy's.
+    const std::string engineRoot = Path( "Engine/Assets", true ).FullPath;
+    const std::string gameRoot = Path( "Assets", true ).FullPath;
+    REQUIRE( !engineRoot.empty() );
+    REQUIRE( engineRoot != gameRoot );
+    const std::string relative = "/VfsShadowTest/Thing.fbx.meta";
+    VfsTest::WriteTextFile( engineRoot + relative, "engine" );
+    VfsTest::WriteTextFile( gameRoot + relative, "game" );
+
+    Path engineFile( engineRoot + relative, true );
+    CHECK( engineFile.Exists );
+    CHECK( engineFile.GetLocalPathString() == "Assets/VfsShadowTest/Thing.fbx.meta" );
+    CHECK( VFS::Get().NamesOtherLooseFile( engineFile ) );
+    std::string text;
+    CHECK( VFS::Get().ReadText( engineFile, text ) );
+    CHECK( text == "engine" );
+    std::vector<uint8_t> bytes;
+    CHECK( VFS::Get().ReadBytes( engineFile, bytes ) );
+    CHECK( std::string( bytes.begin(), bytes.end() ) == "engine" );
+
+    // The logical spelling still means the overlay's answer, and so does the game file's own Path.
+    Path logical( "Assets/VfsShadowTest/Thing.fbx.meta" );
+    CHECK( !VFS::Get().NamesOtherLooseFile( logical ) );
+    CHECK( VFS::Get().ReadText( logical, text ) );
+    CHECK( text == "game" );
+    Path gameFile( gameRoot + relative, true );
+    CHECK( !VFS::Get().NamesOtherLooseFile( gameFile ) );
+    CHECK( VFS::Get().ReadText( gameFile, text ) );
+    CHECK( text == "game" );
+
+    std::error_code error;
+    std::filesystem::remove_all( engineRoot + "/VfsShadowTest", error );
+    std::filesystem::remove_all( gameRoot + "/VfsShadowTest", error );
+}

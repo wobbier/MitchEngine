@@ -67,7 +67,7 @@ Writes through `File::Write` / `VFS::WriteText` create missing parent directorie
 
 `Path( logical )` normalizes slashes, then:
 
-1. **Absolute paths** (leading `/`, or a drive `:` on Windows) bypass the mounts entirely.
+1. **Absolute paths** (leading `/`, or a drive `:` on Windows) bypass the mounts entirely. Their local path is only the tail from `Assets` on, so an engine file's loses its `Engine/`. Reads through such a `Path` (`ReadText` / `ReadBytes` / `VfsFileStream`) therefore take the named file whenever the tail resolves to a *different* loose file (`VFS::NamesOtherLooseFile`). Otherwise a stale game-side `Assets/X.meta` would shadow `Engine/Assets/X.meta` when the engine asset re-exports (ME-303). Pak hits stay authoritative.
 2. **Scheme paths** (`user://...`) resolve through that scheme's mounts. An unknown scheme
    falls back to the `""` roots, like any relative path always has.
 3. **Relative paths** walk the `""` mounts by priority: the game root, then the engine root.
