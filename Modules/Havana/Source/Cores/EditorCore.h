@@ -41,6 +41,9 @@ public:
 	void FrameSelection();
 	// Moves the selected entities to the scene camera's position and rotation (Unity's Align With View).
 	void AlignSelectionWithView();
+	// ED-8: camera bookmarks for the open scene (slots 0..8); false when the slot is empty.
+	void SetBookmark( int InSlot );
+	bool GoToBookmark( int InSlot );
 
 private:
 	void OnSaveScene( const class SaveSceneEvent& event );

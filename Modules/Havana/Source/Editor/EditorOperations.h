@@ -78,6 +78,11 @@ namespace EditorOps
     std::vector<ComponentEdit> CapturePlayValues();
     void ApplyPlayValues( const std::vector<ComponentEdit>& InValues );
 
+    // ED-8: drops each entity straight down until the bottom of its bounds rests on what's below
+    // (mesh bounds, the entities themselves and their children ignored), else on the y = 0 plane
+    // when it's above it; one undo step. Returns how many moved.
+    int DropToSurface( const std::vector<Entity*>& InRoots );
+
     // GAME-5: adds (or, with InClear, removes) the ragdoll parts on the bones under an entity with
     // a Ragdoll, as one undo step. Returns the number of bones with parts.
     int BuildRagdoll( Entity& InOwner, bool InClear = false );

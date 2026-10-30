@@ -59,6 +59,9 @@ public:
 	void ToggleSnapping();
 	void SetShadingMode(Moonlight::ViewShadingMode mode);
 	void ResetViewOptions();
+	// Automation: a view option by id (DebugDraw, Fog, ...) for this session, not saved; false
+	// for an unknown id.
+	bool SetViewOption(const std::string& InId, bool InValue);
 
 	// A left click (press + release without dragging) landed on the viewport this frame.
 	bool ConsumeClick();

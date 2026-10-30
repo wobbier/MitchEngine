@@ -2,6 +2,7 @@
 
 #if USING( ME_EDITOR )
 
+#include "SceneTools.h"
 #include "Selection.h"
 #include "UndoStack.h"
 #include "Components/Transform.h"
@@ -813,6 +814,54 @@ namespace EditorOps
         component->Deserialize( InState );
         component->OnPropertyChanged( "" );
         return true;
+    }
+
+
+    int DropToSurface( const std::vector<Entity*>& InRoots )
+    {
+        auto isUnder = []( Entity& InEntity, Entity& InRoot ) {
+            for( Transform* node = InEntity.TryGetComponent<Transform>(); node; node = node->GetParentTransform() )
+            {
+                if( node->Parent && node->Parent->GetId() == InRoot.GetId() )
+                {
+                    return true;
+                }
+            }
+            return false;
+        };
+        std::vector<ComponentEdit> edits;
+        for( Entity* root : InRoots )
+        {
+            Transform* transform = root ? root->TryGetComponent<Transform>() : nullptr;
+            if( !transform )
+            {
+                continue;
+            }
+            // The bottom centre of what it draws (or its pivot, for an entity that draws nothing).
+            const AABB bounds = SceneTools::ComputeWorldBounds( *root, true );
+            const Vector3 pivot = transform->GetWorldPosition();
+            const Vector3 base = bounds.IsValid() ? Vector3( ( bounds.Min.x + bounds.Max.x ) * 0.5f, bounds.Min.y, ( bounds.Min.z + bounds.Max.z ) * 0.5f ) : pivot;
+            SceneTools::RayHit hit;
+            float floor = 0.f;
+            if( SceneTools::Raycast( Ray( base + Vector3( 0.f, 1e-3f, 0.f ), Vector3( 0.f, -1.f, 0.f ) ), hit, [&]( Entity& InEntity ) { return isUnder( InEntity, *root ); } ) )
+            {
+                floor = hit.Point.y;
+            }
+            else if( base.y <= 0.f )
+            {
+                continue;   // nothing below, and already at or under the ground plane
+            }
+            const float drop = floor - base.y;
+            if( std::abs( drop ) < 1e-5f )
+            {
+                continue;
+            }
+            json before = CaptureComponent( *root, "Transform" );
+            transform->SetWorldPosition( pivot + Vector3( 0.f, drop, 0.f ) );
+            edits.push_back( { root->GetGUID(), "Transform", std::move( before ), CaptureComponent( *root, "Transform" ) } );
+        }
+        RecordComponentEdits( edits, "Drop to Surface" );
+        return static_cast<int>( edits.size() );
     }
 
 

@@ -88,30 +88,45 @@ namespace SceneTools
         }
 
 
-        void DrawGrid( const Vector3& InCameraPosition )
+        // The grid on a plane (ED-8): 0 XZ (the ground), 1 XY, 2 YZ, InOffset along its normal.
+        // InSpacing > 0 fixes the cell size; 0 follows the camera's distance to the plane in powers
+        // of ten. Lines fade out with distance; the axes are drawn in their colours.
+        void DrawGrid( const Vector3& InCameraPosition, int InPlane, float InSpacing, float InOffset )
         {
-            // Spacing follows the camera height in powers of ten; lines fade out with distance.
-            const float height = std::max( std::fabs( InCameraPosition.y ), 0.5f );
-            const float spacing = std::pow( 10.f, std::floor( std::log10( height ) ) );
+            const Vector3 axes[3] = { Vector3( 1.f, 0.f, 0.f ), Vector3( 0.f, 1.f, 0.f ), Vector3( 0.f, 0.f, 1.f ) };
+            const Vector4 axisColors[3] = { Vector4( 0.9f, 0.25f, 0.25f, 0.8f ), Vector4( 0.35f, 0.85f, 0.35f, 0.8f ), Vector4( 0.25f, 0.45f, 0.95f, 0.8f ) };
+            // (u, v, normal) axis indices per plane.
+            const int planes[3][3] = { { 0, 2, 1 }, { 0, 1, 2 }, { 2, 1, 0 } };
+            const int* plane = planes[std::clamp( InPlane, 0, 2 )];
+            const Vector3 u = axes[plane[0]];
+            const Vector3 v = axes[plane[1]];
+            const Vector3 normal = axes[plane[2]];
+            auto along = []( const Vector3& InPoint, const Vector3& InAxis ) { return InPoint.Dot( InAxis ); };
+
+            const float height = std::max( std::fabs( along( InCameraPosition, normal ) - InOffset ), 0.5f );
+            const float spacing = InSpacing > 0.f ? InSpacing : std::pow( 10.f, std::floor( std::log10( height ) ) );
             const int halfCount = 50;
             const float extent = halfCount * spacing;
             const float snap = spacing * 10.f;
-            const float centerX = std::round( InCameraPosition.x / snap ) * snap;
-            const float centerZ = std::round( InCameraPosition.z / snap ) * snap;
+            const float centerU = std::round( along( InCameraPosition, u ) / snap ) * snap;
+            const float centerV = std::round( along( InCameraPosition, v ) / snap ) * snap;
             const int segments = 12;
             const float segmentLength = ( extent * 2.f ) / segments;
+            const Vector3 base = normal * InOffset;
+            const Vector3 cameraOnPlane = InCameraPosition - normal * along( InCameraPosition, normal );
 
-            auto drawLine = [&]( bool alongX, float offset, Vector4 color ) {
+            // A line along U at V = InOffsetV, or along V at U = InOffsetU.
+            auto drawLine = [&]( bool alongU, float InAt, Vector4 color ) {
                 for( int s = 0; s < segments; ++s )
                 {
                     const float a = -extent + s * segmentLength;
                     const float b = a + segmentLength;
-                    const Vector3 from = alongX ? Vector3( centerX + a, 0.f, offset ) : Vector3( offset, 0.f, centerZ + a );
-                    const Vector3 to = alongX ? Vector3( centerX + b, 0.f, offset ) : Vector3( offset, 0.f, centerZ + b );
+                    const Vector3 from = base + ( alongU ? u * ( centerU + a ) + v * InAt : u * InAt + v * ( centerV + a ) );
+                    const Vector3 to = base + ( alongU ? u * ( centerU + b ) + v * InAt : u * InAt + v * ( centerV + b ) );
                     const Vector3 middle = ( from + to ) * 0.5f;
-                    const float distance = Vector3( middle.x - InCameraPosition.x, 0.f, middle.z - InCameraPosition.z ).Length();
+                    const Vector3 offPlane = middle - normal * along( middle, normal ) - cameraOnPlane;
                     Vector4 faded = color;
-                    faded.w *= std::clamp( 1.f - distance / extent, 0.f, 1.f );
+                    faded.w *= std::clamp( 1.f - offPlane.Length() / extent, 0.f, 1.f );
                     if( faded.w > 0.01f )
                     {
                         DebugDraw::Line( from, to, faded, 0.f, DebugDraw::EditorOnly );
@@ -121,14 +136,14 @@ namespace SceneTools
 
             for( int i = -halfCount; i <= halfCount; ++i )
             {
-                const float offsetZ = centerZ + i * spacing;
-                const float offsetX = centerX + i * spacing;
-                const bool majorZ = std::fabs( std::fmod( offsetZ, snap ) ) < spacing * 0.01f;
-                const bool majorX = std::fabs( std::fmod( offsetX, snap ) ) < spacing * 0.01f;
-                const bool axisZ = std::fabs( offsetZ ) < spacing * 0.01f;
-                const bool axisX = std::fabs( offsetX ) < spacing * 0.01f;
-                drawLine( true, offsetZ, axisZ ? Vector4( 0.9f, 0.25f, 0.25f, 0.8f ) : Vector4( 0.6f, 0.6f, 0.6f, majorZ ? 0.45f : 0.18f ) );
-                drawLine( false, offsetX, axisX ? Vector4( 0.25f, 0.45f, 0.95f, 0.8f ) : Vector4( 0.6f, 0.6f, 0.6f, majorX ? 0.45f : 0.18f ) );
+                const float atV = centerV + i * spacing;
+                const float atU = centerU + i * spacing;
+                const bool majorV = std::fabs( std::fmod( atV, snap ) ) < spacing * 0.01f;
+                const bool majorU = std::fabs( std::fmod( atU, snap ) ) < spacing * 0.01f;
+                const bool axisV = std::fabs( atV ) < spacing * 0.01f && std::fabs( InOffset ) < 1e-6f;
+                const bool axisU = std::fabs( atU ) < spacing * 0.01f && std::fabs( InOffset ) < 1e-6f;
+                drawLine( true, atV, axisV ? axisColors[plane[0]] : Vector4( 0.6f, 0.6f, 0.6f, majorV ? 0.45f : 0.18f ) );
+                drawLine( false, atU, axisU ? axisColors[plane[1]] : Vector4( 0.6f, 0.6f, 0.6f, majorU ? 0.45f : 0.18f ) );
             }
         }
 
@@ -542,12 +557,12 @@ namespace SceneTools
     }
 
 
-    bool Raycast( const Ray& InRay, RayHit& OutHit )
+    bool Raycast( const Ray& InRay, RayHit& OutHit, const std::function<bool( Entity& )>& InIgnore )
     {
         bool hit = false;
         OutHit.Distance = FLT_MAX;
         EditorOps::GetWorld().Each<Transform, Mesh>( [&]( Entity& entity, Transform& transform, Mesh& mesh ) {
-            if( !mesh.MeshReferece || !mesh.MeshReferece->Bounds.IsValid() )
+            if( !mesh.MeshReferece || !mesh.MeshReferece->Bounds.IsValid() || ( InIgnore && InIgnore( entity ) ) )
             {
                 return;
             }
@@ -576,8 +591,8 @@ namespace SceneTools
                 hit = true;
             }
         } );
-        EditorOps::GetWorld().Each<Model>( [&]( Entity&, Model& model ) {
-            if( !model.IsCompact() ) return;
+        EditorOps::GetWorld().Each<Model>( [&]( Entity& modelEntity, Model& model ) {
+            if( !model.IsCompact() || ( InIgnore && InIgnore( modelEntity ) ) ) return;
             for( const auto& part : model.GetRenderParts() )
             {
                 if( model.IsPartExternal( part ) ) continue;
@@ -637,7 +652,7 @@ namespace SceneTools
     {
         if( InSettings.ShowGrid )
         {
-            DrawGrid( InCameraPosition );
+            DrawGrid( InCameraPosition, InSettings.GridPlane, InSettings.GridSpacing, InSettings.GridOffset );
         }
         if( InSettings.ShowGizmos )
         {

@@ -4,6 +4,7 @@
 #include "Math/Bounds.h"
 #include "Math/Matrix4.h"
 #include "Math/Vector2.h"
+#include <functional>
 #include <vector>
 
 #if USING( ME_EDITOR )
@@ -25,8 +26,9 @@ namespace SceneTools
         float Distance = 0.f;
         Vector3 Point;
     };
-    // Closest mesh hit (oriented bounds test, then nothing finer). False on a miss.
-    bool Raycast( const Ray& InRay, RayHit& OutHit );
+    // Closest mesh hit (oriented bounds test, then nothing finer). False on a miss. InIgnore skips
+    // entities (a model part's node entity for compact models).
+    bool Raycast( const Ray& InRay, RayHit& OutHit, const std::function<bool( Entity& )>& InIgnore = {} );
 
     // Builds a world ray through a viewport pixel (InPixel in [0, size)).
     Ray ScreenRay( const Vector2& InPixel, const Vector2& InViewportSize, const Matrix4& InView, const Matrix4& InProjection );
@@ -36,6 +38,10 @@ namespace SceneTools
     struct OverlaySettings
     {
         bool ShowGrid = true;
+        // ED-8: 0 XZ (ground), 1 XY, 2 YZ; cell size (0: by camera distance); offset along the normal.
+        int GridPlane = 0;
+        float GridSpacing = 0.f;
+        float GridOffset = 0.f;
         bool ShowSelection = true;
         bool ShowGizmos = true;
     };

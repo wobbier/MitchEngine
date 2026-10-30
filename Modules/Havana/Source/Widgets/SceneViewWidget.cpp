@@ -261,6 +261,11 @@ void SceneViewWidget::Init()
 	pivot.Context = ActionContext::Scene;
 	actions.Register(pivot);
 	actions.Register({ "Gizmo.ToggleSnap", "Toggle Snapping", "Scene View", 0, 0, [this]() { ToggleSnapping(); } });
+	// ED-8: settle the selection onto whatever is below it.
+	EditorAction drop{ "Edit.DropToSurface", "Drop to Surface", "Scene View", ImGuiKey_End, 0, []() { EditorOps::DropToSurface(Selection::Get().GetRootEntities()); },
+		[]() { return !Selection::Get().IsEmpty(); } };
+	drop.Context = ActionContext::Scene;
+	actions.Register(drop);
 }
 
 
@@ -418,6 +423,20 @@ void SceneViewWidget::WrapNavigationCursor()
 	// Reset ImGui's delta baseline so the warp does not rotate the camera next frame.
 	ImGui::TeleportMousePos(mouse);
 	io.WantSetMousePos = false; // SDL already moved it; avoid a second warp next frame.
+}
+
+
+bool SceneViewWidget::SetViewOption(const std::string& InId, bool InValue)
+{
+	for (const ViewOption& option : kViewOptions)
+	{
+		if (InId == option.Id)
+		{
+			m_viewOptions.*option.Member = InValue;
+			return true;
+		}
+	}
+	return false;
 }
 
 
@@ -702,6 +721,25 @@ void SceneViewWidget::DrawViewMenu()
 		bool showGizmos = config.GetPreference<bool>("Scene.ShowGizmos", true);
 		bool showSelection = config.GetPreference<bool>("Scene.ShowSelection", true);
 		if (ImGui::MenuItem("Grid", nullptr, &showGrid)) config.SetPreference("Scene.ShowGrid", showGrid);
+		// ED-8: the grid's plane, cell size (0 follows the camera) and offset along its normal.
+		if (ImGui::BeginMenu("Grid Settings"))
+		{
+			int plane = config.GetPreference<int>("Scene.GridPlane", 0);
+			const char* planes[] = { "XZ (ground)", "XY", "YZ" };
+			for (int i = 0; i < 3; ++i)
+			{
+				if (ImGui::MenuItem(planes[i], nullptr, plane == i)) config.SetPreference("Scene.GridPlane", i);
+			}
+			float spacing = config.GetPreference<float>("Scene.GridSpacing", 0.f);
+			ImGui::SetNextItemWidth(ImGuiTheme::Em(7.f));
+			if (ImGui::DragFloat("Cell size", &spacing, 0.01f, 0.f, 1000.f, spacing <= 0.f ? "Auto" : "%.3f m")) config.SetPreference("Scene.GridSpacing", std::max(spacing, 0.f));
+			ImGui::SetItemTooltip("0: powers of ten by the camera's distance");
+			float offset = config.GetPreference<float>("Scene.GridOffset", 0.f);
+			ImGui::SetNextItemWidth(ImGuiTheme::Em(7.f));
+			if (ImGui::DragFloat("Offset", &offset, 0.05f, -10000.f, 10000.f, "%.2f m")) config.SetPreference("Scene.GridOffset", offset);
+			ImGui::SetItemTooltip("Along the plane's normal (a grid at floor height, say)");
+			ImGui::EndMenu();
+		}
 		if (ImGui::MenuItem("Component Gizmos", nullptr, &showGizmos)) config.SetPreference("Scene.ShowGizmos", showGizmos);
 		if (ImGui::MenuItem("Selection Bounds", nullptr, &showSelection)) config.SetPreference("Scene.ShowSelection", showSelection);
 		ImGui::Separator();
@@ -713,6 +751,24 @@ void SceneViewWidget::DrawViewMenu()
 		actions.MenuItem("View.Top");
 		actions.MenuItem("View.Front");
 		actions.MenuItem("View.Right");
+		// ED-8: per-scene camera bookmarks (Ctrl+Shift+1..9 sets, Shift+1..9 goes).
+		if (ImGui::BeginMenu("Camera Bookmarks"))
+		{
+			for (int slot = 1; slot <= 9; ++slot)
+			{
+				actions.MenuItem(("View.GoToBookmark" + std::to_string(slot)).c_str());
+			}
+			if (ImGui::BeginMenu("Set"))
+			{
+				for (int slot = 1; slot <= 9; ++slot)
+				{
+					actions.MenuItem(("View.SetBookmark" + std::to_string(slot)).c_str());
+				}
+				ImGui::EndMenu();
+			}
+			ImGui::EndMenu();
+		}
+		actions.MenuItem("Edit.DropToSurface");
 		ImGui::Separator();
 		BGFXRenderer& renderer = GetEngine().GetRenderer();
 		ImGui::MenuItem("Shadows", nullptr, &renderer.Shadows.Enabled);

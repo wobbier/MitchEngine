@@ -73,6 +73,15 @@ void EditorCore::RegisterViewActions()
     view( "View.ShadowCascades", "Show Shadow Cascades", 0, []() { BGFXRenderer& renderer = GetEngine().GetRenderer(); renderer.Shadows.DebugCascades = !renderer.Shadows.DebugCascades; } );
     view( "View.Physics", "Show Physics Shapes", 0, []() { PhysicsCore::DebugDrawEnabled = !PhysicsCore::DebugDrawEnabled; } );
     view( "View.Navigation", "Show Navigation", 0, []() { NavigationCore::DebugDrawEnabled = !NavigationCore::DebugDrawEnabled; } );
+    // ED-8: camera bookmarks per scene, Ctrl+Shift+1..9 to set and Shift+1..9 to go back
+    // (preference Camera.Bookmarks: { scene path: [ { Position, Pitch, Yaw } or null ] }).
+    const ImGuiKey digits[] = { ImGuiKey_1, ImGuiKey_2, ImGuiKey_3, ImGuiKey_4, ImGuiKey_5, ImGuiKey_6, ImGuiKey_7, ImGuiKey_8, ImGuiKey_9 };
+    for( int slot = 0; slot < 9; ++slot )
+    {
+        const std::string number = std::to_string( slot + 1 );
+        view( ( "View.SetBookmark" + number ).c_str(), ( "Set Camera Bookmark " + number ).c_str(), ImGuiMod_Shortcut | ImGuiMod_Shift | digits[slot], [this, slot]() { SetBookmark( slot ); } );
+        view( ( "View.GoToBookmark" + number ).c_str(), ( "Go to Camera Bookmark " + number ).c_str(), ImGuiMod_Shift | digits[slot], [this, slot]() { GoToBookmark( slot ); } );
+    }
     EditorAction bake{ "Navigation.BakeAll", "Bake All NavMeshes", "Navigation", 0, 0, []() { if( NavigationCore* navigation = GetEngine().Navigation ) { navigation->BakeAll( true ); } } };
     actions.Register( bake );
     EditorAction cameraSettings{ "View.CameraSettings", "Scene Camera Settings", "Scene View", 0, 0, [this]() {
@@ -127,6 +136,59 @@ void EditorCore::AlignSelectionWithView()
         transform->SetWorldRotation( rotation );
         EditorOps::RecordComponentEdit( *entity, "Transform", before, EditorOps::CaptureComponent( *entity, "Transform" ), "Align With View" );
     }
+}
+
+
+namespace
+{
+    std::string BookmarkScene()
+    {
+        Scene* scene = GetEngine().CurrentScene;
+        return scene && !scene->IsNewScene() ? scene->FilePath.GetLocalPathString() : std::string( "(untitled)" );
+    }
+}
+
+
+void EditorCore::SetBookmark( int InSlot )
+{
+    EditorConfig& config = EditorConfig::GetInstance();
+    json bookmarks = config.GetPreference<json>( "Camera.Bookmarks", json::object() );
+    if( !bookmarks.is_object() )
+    {
+        bookmarks = json::object();
+    }
+    json& slots = bookmarks[BookmarkScene()];
+    if( !slots.is_array() )
+    {
+        slots = json::array();
+    }
+    while( static_cast<int>( slots.size() ) <= InSlot )
+    {
+        slots.push_back( nullptr );
+    }
+    const Vector3 position = EditorCameraTransform->GetPosition();
+    slots[InSlot] = { { "Position", { position.x, position.y, position.z } }, { "Pitch", m_camera.GetPitch() }, { "Yaw", m_camera.GetYaw() } };
+    config.SetPreference( "Camera.Bookmarks", bookmarks );
+    CLog::Log( CLog::LogType::Info, "Camera bookmark " + std::to_string( InSlot + 1 ) + " set" );
+}
+
+
+bool EditorCore::GoToBookmark( int InSlot )
+{
+    const json bookmarks = EditorConfig::GetInstance().GetPreference<json>( "Camera.Bookmarks", json::object() );
+    const std::string scene = BookmarkScene();
+    if( !bookmarks.is_object() || !bookmarks.contains( scene ) || !bookmarks[scene].is_array() || static_cast<int>( bookmarks[scene].size() ) <= InSlot )
+    {
+        return false;
+    }
+    const json& slot = bookmarks[scene][InSlot];
+    if( !slot.is_object() || !slot.contains( "Position" ) || !slot["Position"].is_array() || slot["Position"].size() != 3 )
+    {
+        return false;
+    }
+    m_camera.SetPose( Vector3( slot["Position"][0].get<float>(), slot["Position"][1].get<float>(), slot["Position"][2].get<float>() ),
+        slot.value( "Pitch", 0.f ), slot.value( "Yaw", 0.f ) );
+    return true;
 }
 
 
@@ -215,6 +277,9 @@ void EditorCore::Update( const UpdateContext& inUpdateContext )
     EditorConfig& config = EditorConfig::GetInstance();
     SceneTools::OverlaySettings overlays;
     overlays.ShowGrid = config.GetPreference<bool>( "Scene.ShowGrid", true );
+    overlays.GridPlane = std::clamp( config.GetPreference<int>( "Scene.GridPlane", 0 ), 0, 2 );
+    overlays.GridSpacing = std::max( config.GetPreference<float>( "Scene.GridSpacing", 0.f ), 0.f );
+    overlays.GridOffset = config.GetPreference<float>( "Scene.GridOffset", 0.f );
     overlays.ShowGizmos = config.GetPreference<bool>( "Scene.ShowGizmos", true );
     overlays.ShowSelection = config.GetPreference<bool>( "Scene.ShowSelection", true );
     SceneTools::DrawOverlays( EditorCameraTransform->GetPosition(), overlays );

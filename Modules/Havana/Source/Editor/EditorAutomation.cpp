@@ -23,6 +23,7 @@
 #include "Components/Gameplay/Spline.h"
 #include "Widgets/SequenceWidget.h"
 #include "Widgets/PropertiesWidget.h"
+#include "Cores/EditorCore.h"
 #include "Widgets/SceneViewWidget.h"
 #include "Widgets/SettingsWidgets.h"
 #include "Widgets/BuildGameWidget.h"
@@ -1337,6 +1338,44 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         else
         {
             EditorOps::SetKeepPlayValues( active->GetGUID(), args, true );
+        }
+    }
+    else if( command == "view-option" )
+    {
+        // view-option DebugDraw | true   (the World View's view option, for this session)
+        auto [id, value] = SplitArgs( args );
+        SceneViewWidget* view = InApp.Editor ? InApp.Editor->GetSceneView() : nullptr;
+        if( !view || !view->SetViewOption( id, value == "true" || value == "1" ) )
+        {
+            Fail( "view-option: no World View option " + id );
+        }
+    }
+    else if( command == "assert-scene-camera" )
+    {
+        // assert-scene-camera [0, 5, -10] ~ 0.01   (the World View camera's position; != [..]: anywhere else)
+        std::string valueText = args;
+        const bool negate = valueText.rfind( "!=", 0 ) == 0;
+        if( negate ) valueText = Trim( valueText.substr( 2 ) );
+        double tolerance = 1e-3;
+        if( const size_t tilde = valueText.find( " ~ " ); tilde != std::string::npos )
+        {
+            tolerance = std::atof( valueText.c_str() + tilde + 3 );
+            valueText = Trim( valueText.substr( 0, tilde ) );
+        }
+        const json expected = json::parse( valueText, nullptr, false );
+        SharedPtr<Transform> camera = InApp.EditorSceneManager ? InApp.EditorSceneManager->GetEditorCameraTransform() : nullptr;
+        if( !camera || !expected.is_array() || expected.size() != 3 )
+        {
+            Fail( "assert-scene-camera: expected [x, y, z] (and a World View)" );
+        }
+        else
+        {
+            const Vector3 position = camera->GetPosition();
+            const Vector3 want( expected[0].get<float>(), expected[1].get<float>(), expected[2].get<float>() );
+            if( ( ( position - want ).Length() > tolerance ) != negate )
+            {
+                Fail( std::string( "assert-scene-camera: " ) + ( negate ? "still " : "" ) + "at [" + std::to_string( position.x ) + ", " + std::to_string( position.y ) + ", " + std::to_string( position.z ) + "], expected " + valueText );
+            }
         }
     }
     else if( command == "pick-lock" )
