@@ -300,6 +300,7 @@ It reports MEGEN004–010 for what it can't generate. The C# side is `Modules/Sc
 ## Related Docs
 
 - [Networking.md](Networking.md): `[Replicated]` / `[Predicted]` fields, RPCs and `Net` (NET-6).
+- [Scripting-Interop-Notes.md](Scripting-Interop-Notes.md): s&box's InteropGen compared with our ABI generator, and what to adopt.
 - `Docs/Build-System.md`: `DOTNET_*_Dir` detection, nethost linking, flake.nix
 - `Docs/Architecture.md`: where scripts sit in the frame
 - `Docs/Editor-Havana.md`: the inspector, `--editor-exec` (`wait-log`, `replace-in-file`)
