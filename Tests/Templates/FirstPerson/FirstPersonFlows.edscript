@@ -41,3 +41,11 @@ input-release
 wait-field Player | Transform.Position.2 | -4.0 ~ 0.3 | 900
 stop
 assert-field Player | Transform.Position | [0.0, 1.0, -6.0] ~ 0.01
+
+# Play-mode tests (CS-12): the template's [GameTest]s (Assets/Scripts/Tests), each on a fresh Main.lvl.
+play
+assert-playing 1
+wait 30
+console game-tests
+wait-log GameTests: 3 passed, 0 failed | 2400
+stop

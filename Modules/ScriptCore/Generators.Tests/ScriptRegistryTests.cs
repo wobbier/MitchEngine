@@ -10,6 +10,7 @@ namespace RegistryTestMod
     public class RegistryTwin : Script { }
 }
 
+[Collection("ScriptRegistry")]
 public class ScriptRegistryTests
 {
     [Fact]

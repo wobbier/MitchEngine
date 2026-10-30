@@ -170,9 +170,32 @@ The API is 120 functions (`ScriptAPI.def`). Strings cross as UTF-8 `byte*`, enti
 ### Console commands (PLAY-10)
 
 Write `[ConsoleCommand("name", "help")]` on a static method that takes `string[]` (or nothing) and returns a string (printed) or nothing.
-- **Where they come from:** the developer console (`Source/Engine/DevConsole.h`) finds these in the game's and the mods' assemblies. They're reached through `ScriptBridge.GetConsoleCommands` / `RunConsoleCommand`.
+- **Where they come from:** the developer console (`Source/Engine/DevConsole.h`) finds these in the engine's (ScriptCore's own, such as `game-tests`), the game's and the mods' assemblies. They're reached through `ScriptBridge.GetConsoleCommands` / `RunConsoleCommand`.
 - **Opening it:** `~` in game builds (Tab completes names), the edscript `console <line>`, or `--console "<line>"` at start-up.
 - **Example:** `Assets/Scripts/Tests/ConsoleProbe.cs`, exercised by `ConsoleFlows`.
+
+### Play-mode tests (CS-12)
+
+`[GameTest]` marks a static method with no parameters, returning `Task` (or `void`), in the game's
+or a mod's scripts. `game-tests [filter]` in the console runs them in Play, one after another, by
+class then method name: each loads its scene first (`[GameTest("Assets/Scenes/Main.lvl")]`, waiting
+for `SceneLoaded` and one frame for its scripts' `OnStart`; no scene runs in place), then runs
+with a timeout in game time (`TimeoutSeconds`, 30 by default).
+
+```csharp
+[GameTest("Assets/Scenes/Main.lvl")]
+public static async Task The_hazard_hurts_and_the_medkit_heals()
+{
+    var health = World.Find("Player").GetScript<IHealth>()!.Health;
+    World.Find("Player").GetComponent<CharacterController>().Teleport(hazard, forward);
+    await GameAssert.Eventually(() => health.Current < health.Max, 3f, "the hazard hurt");
+}
+```
+
+- **Asserts:** `GameAssert.True`, `Equal`, `Near` (floats, vectors) and `await GameAssert.Eventually(condition, seconds, what)`; a failed one throws `GameTestFailure`, and any other exception fails the test with its type and message.
+- **Output:** `[GameTest] PASS Class.Name (0.1 s)` or `[GameTest] FAIL Class.Name: reason` per test, then `GameTests: N passed, M failed`. `GameTests.LastResults` has them too.
+- **In CI:** a flow plays, runs `console game-tests` and waits for the summary line (`wait-log GameTests: 3 passed, 0 failed | 2400`). The FirstPerson template's `Assets/Scripts/Tests/FirstPersonTests.cs` runs this way in RunChecks' Templates step.
+- **Input:** there is no C# input replay yet (it needs a script-API slot); a flow can hold keys around the tests with `input-hold`, or a test can move actors directly (`Teleport`).
 
 ### Data assets (CS-7)
 

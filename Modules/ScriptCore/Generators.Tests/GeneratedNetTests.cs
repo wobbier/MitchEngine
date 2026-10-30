@@ -4,6 +4,7 @@ using ScriptCore;
 using Xunit;
 
 // NET-6: the INetScript members the real NetGenerator wrote for NetScriptProbe.
+[Collection("ScriptRegistry")]
 public class GeneratedNetTests
 {
     // 4 + 12 predicted; + 4 + 1 + 8 + 8 + 16 + 4 replicated.

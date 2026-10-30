@@ -10,7 +10,7 @@ namespace ScriptCore;
 // returning a string (printed) or nothing:
 //   [ConsoleCommand("spawn", "Spawns a prefab: spawn <path>")]
 //   public static string Spawn(string[] args) { World.Instantiate(args[0]); return "spawned"; }
-// The game's and the mods' assemblies are searched; ~ opens the console in game builds.
+// The engine's, the game's and the mods' assemblies are searched; ~ opens the console in game builds.
 [AttributeUsage(AttributeTargets.Method)]
 public sealed class ConsoleCommandAttribute : Attribute
 {
@@ -34,7 +34,8 @@ public static class ConsoleCommands
         if (_scannedVersion == ScriptRegistry.Version) return;
         _scannedVersion = ScriptRegistry.Version;
         _commands.Clear();
-        foreach (var assembly in ScriptRegistry.Assemblies)
+        // The engine's own (CS-12's game-tests) first, so a game command of the same name wins.
+        foreach (var assembly in ScriptRegistry.Assemblies.Prepend(typeof(ConsoleCommands).Assembly).Distinct())
         {
             Type[] types;
             try { types = assembly.GetTypes(); }
