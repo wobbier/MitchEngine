@@ -23,8 +23,11 @@ uniform vec4 u_uvTransform; // xy tiling, zw offset
 uniform vec4 u_pbrTextureParams; // xy separate metallic/roughness maps, z invert roughness
 uniform vec4 u_drawParams;  // x screen-door fade (Dither.sh), per draw
 
+uniform vec4 u_portalClipPlane;
+
 void main()
 {
+	if (dot(vec4(v_worldPos, 1.0), u_portalClipPlane) < 0.0) discard;
 	if (ditherDrops(u_drawParams.x, gl_FragCoord.xy))
 	{
 		discard;

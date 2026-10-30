@@ -907,8 +907,8 @@ Input& Havana::GetInput()
     return m_engine->GetEditorInput();
 }
 
-// While the game owns input its cursor stays inside the Game View image (hidden and held at the
-// centre when the game captures the mouse) and ImGui ignores the mouse, so neither a stray nor an
+// While the game owns input its cursor stays inside the Game View image (hidden and captured
+// with relative motion) and ImGui ignores the mouse, so neither a stray nor an
 // invisible cursor can click editor panels. Escape hands input back to the editor and frees it.
 void Havana::UpdateGameCursor()
 {

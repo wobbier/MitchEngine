@@ -96,6 +96,7 @@ namespace Moonlight
         // threshold is below d (fading out by d); -d keeps only those, the complement, so a d and a
         // -d draw of the same surface cover it exactly once. Shadows dither the same way.
         float DitherFade = 0.f;
+        glm::vec4 PortalClipPlane = glm::vec4( 0.f );
         // A LOD crossfade: the level fading out (0xFF = none). Drawn as a second command with the
         // complementary mask (DitherFade negated), so the switch doesn't pop.
         uint8_t CrossfadeLod = 0xFF;

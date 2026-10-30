@@ -1,5 +1,7 @@
 #include <doctest/doctest.h>
 #include "Components/Camera.h"
+#include "Device/FrameBuffer.h"
+#include "Utils/BGFXUtils.h"
 #include "Graphics/RenderTextureSettings.h"
 #include "Graphics/Texture.h"
 #include "Materials/StandardMaterial.h"
@@ -271,4 +273,50 @@ TEST_CASE( "cook: render textures ship as they are, found through cameras and ma
     CHECK( assets.count( "Assets/RenderTextureCook/Feed.rendertexture" ) == 1 );
     CHECK( assets.count( "Assets/RenderTextureCook/Wall.rendertexture" ) == 1 );
     CHECK( assets.count( "Assets/RenderTextureCook/Graph.rendertexture" ) == 1 );
+}
+
+
+TEST_CASE( "Framebuffers: exhausted bloom allocation keeps the camera renderable" )
+{
+    bgfx::renderFrame();
+    bgfx::Init init;
+    init.type = bgfx::RendererType::Noop;
+    REQUIRE( bgfx::init( init ) );
+    Moonlight::SetGpuAlive( true );
+    struct Shutdown
+    {
+        ~Shutdown() { Moonlight::SetGpuAlive( false ); bgfx::shutdown(); }
+    } shutdown;
+    {
+        Moonlight::FrameBuffer camera( 512, 512 );
+        camera.ReCreate( 0 );
+        REQUIRE_FALSE( camera.IsIncomplete() );
+        const auto texture = bgfx::createTexture2D( 1, 1, false, 1, bgfx::TextureFormat::RGBA8, BGFX_TEXTURE_RT );
+        std::vector<bgfx::FrameBufferHandle> occupied;
+        const auto limit = bgfx::getCaps()->limits.maxFrameBuffers;
+        for( uint32_t i = 0; i < limit; ++i )
+        {
+            const auto handle = bgfx::createFrameBuffer( 1, &texture, false );
+            if( !bgfx::isValid( handle ) ) break;
+            occupied.push_back( handle );
+        }
+        REQUIRE( occupied.size() >= 2 );
+        for( int i = 0; i < 2; ++i )
+        {
+            bgfx::destroy( occupied.back() );
+            occupied.pop_back();
+        }
+        // bgfx retires destroyed handles after the in-flight frames finish.
+        for( int i = 0; i < 3; ++i ) bgfx::frame();
+        camera.EnsureBloomTargets();
+        CHECK( camera.BloomMips.size() == 2 );
+        for( const auto& mip : camera.BloomMips )
+        {
+            CHECK( bgfx::isValid( mip.Buffer ) );
+            CHECK( bgfx::isValid( mip.Color ) );
+        }
+        CHECK_FALSE( camera.IsIncomplete() );
+        for( auto handle : occupied ) bgfx::destroy( handle );
+        bgfx::destroy( texture );
+    }
 }

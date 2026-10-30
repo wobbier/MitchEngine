@@ -1,4 +1,4 @@
-$input v_texcoord0
+$input v_texcoord0, v_worldPos
 
 // Shadow caster: only depth matters; alpha-tested materials cut their holes here as well.
 #include "Common.sh"
@@ -10,8 +10,11 @@ SAMPLER2D(s_texAlpha, 2);
 uniform vec4 u_shadowAlpha; // x alpha cutoff (0 = opaque), yz uv tiling, w screen-door fade (Dither.sh)
 uniform vec4 u_shadowUvOffset; // xy uv offset, added after the tiling (the material's Offset)
 
+uniform vec4 u_portalClipPlane;
+
 void main()
 {
+	if (dot(vec4(v_worldPos, 1.0), u_portalClipPlane) < 0.0) discard;
 	if (ditherDrops(u_shadowAlpha.w, gl_FragCoord.xy))
 	{
 		discard;

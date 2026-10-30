@@ -7,7 +7,7 @@ namespace ScriptCore;
 public unsafe struct EngineAPIBindings
 {
     // The ABI both sides were generated from (C++: kScriptEngineAPIHash).
-    public const ulong AbiHash = 0x26EBB9907595A761UL;
+    public const ulong AbiHash = 0xE9A4BE54B48E7486UL;
 
     // Core
     public delegate* unmanaged<byte*, void> Log;
@@ -165,6 +165,7 @@ public unsafe struct EngineAPIBindings
     public delegate* unmanaged<Entity, Vector3*, Vector3*, void> Camera_SetClipPlane;
     public delegate* unmanaged<Entity, void> Camera_ClearClipPlane;
     public delegate* unmanaged<Entity, Entity, byte> Mesh_ShowCameraView;
+    public delegate* unmanaged<Entity, Entity, Entity, Entity, void> Mesh_SetPortalSlice;
     public delegate* unmanaged<Entity, Vector3*, Vector3*, void> Transform_LookDirection;
     public delegate* unmanaged<Entity, Vector3*, void> Character_SetVelocity;
     public delegate* unmanaged<Entity, Vector3*, Vector3*, void> Character_Teleport;

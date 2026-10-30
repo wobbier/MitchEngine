@@ -39,7 +39,7 @@ namespace
             s_logged = true;
             const bgfx::Stats* stats = bgfx::getStats();
             YIKES( std::string( "Out of framebuffers: couldn't create \"" ) + InName + "\" (" + std::to_string( stats ? stats->numFrameBuffers : 0 ) + " of "
-                + std::to_string( bgfx::getCaps()->limits.maxFrameBuffers ) + " in use). Cameras missing targets are skipped; turn off post effects or cameras to fit." );
+                + std::to_string( bgfx::getCaps()->limits.maxFrameBuffers ) + " in use). Optional effects may be reduced; cameras without core targets are skipped." );
         }
         return buffer;
     }
@@ -203,7 +203,15 @@ void Moonlight::FrameBuffer::EnsureBloomTargets()
     uint16_t mipHeight = static_cast<uint16_t>( std::max<uint32_t>( Height, 1 ) / 2 );
     for( int i = 0; i < kMaxBloomMips && mipWidth >= 8 && mipHeight >= 8; ++i )
     {
-        BloomMips.push_back( CreateColorTarget( mipWidth, mipHeight, bgfx::TextureFormat::RGBA16F, "Bloom Mip" ) );
+        Mip mip = CreateColorTarget( mipWidth, mipHeight, bgfx::TextureFormat::RGBA16F, "Bloom Mip" );
+        if( !bgfx::isValid( mip.Buffer ) )
+        {
+            // Bloom is optional. A failed mip must not poison IsIncomplete() and stop
+            // rendering the entire camera on subsequent frames. Use the valid shorter chain.
+            DestroyIfValid( mip.Color );
+            break;
+        }
+        BloomMips.push_back( mip );
         mipWidth /= 2;
         mipHeight /= 2;
     }

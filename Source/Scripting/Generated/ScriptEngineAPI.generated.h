@@ -19,7 +19,7 @@ struct ScriptRaycastHit
 };
 
 // The ABI both sides were generated from (C# checks it: ScriptBridge.GetEngineAPIHash).
-constexpr uint64_t kScriptEngineAPIHash = 0x26EBB9907595A761ULL;
+constexpr uint64_t kScriptEngineAPIHash = 0xE9A4BE54B48E7486ULL;
 
 // Structs that cross: their layout is part of the ABI (C# checks the same sizes).
 static_assert( sizeof( EntityID ) == 8, "EntityID crosses into C#: its size is part of the script ABI" );
@@ -188,6 +188,7 @@ struct ScriptEngineAPI
     void ( *Camera_SetClipPlane )( EntityID id, const Vector3* point, const Vector3* normal ) noexcept;
     void ( *Camera_ClearClipPlane )( EntityID id ) noexcept;
     bool ( *Mesh_ShowCameraView )( EntityID id, EntityID camera ) noexcept;
+    void ( *Mesh_SetPortalSlice )( EntityID source, EntityID image, EntityID entrance, EntityID exit ) noexcept;
     void ( *Transform_LookDirection )( EntityID id, const Vector3* forward, const Vector3* up ) noexcept;
     void ( *Character_SetVelocity )( EntityID id, const Vector3* velocity ) noexcept;
     void ( *Character_Teleport )( EntityID id, const Vector3* position, const Vector3* forward ) noexcept;

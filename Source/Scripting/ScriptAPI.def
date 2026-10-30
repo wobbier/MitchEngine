@@ -166,6 +166,7 @@ int Physics_OverlapSphere( const Vector3* center, float radius, Entity* outEntit
 void Camera_SetClipPlane( Entity id, const Vector3* point, const Vector3* normal )
 void Camera_ClearClipPlane( Entity id )
 bool Mesh_ShowCameraView( Entity id, Entity camera )
+void Mesh_SetPortalSlice( Entity source, Entity image, Entity entrance, Entity exit )
 void Transform_LookDirection( Entity id, const Vector3* forward, const Vector3* up )
 void Character_SetVelocity( Entity id, const Vector3* velocity )
 void Character_Teleport( Entity id, const Vector3* position, const Vector3* forward )

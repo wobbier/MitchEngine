@@ -254,6 +254,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         u_spotShadowParams = bgfx::createUniform( "u_spotShadowParams", bgfx::UniformType::Vec4 );
         u_pointShadowParams = bgfx::createUniform( "u_pointShadowParams", bgfx::UniformType::Vec4 );
         u_shadowAlpha = bgfx::createUniform( "u_shadowAlpha", bgfx::UniformType::Vec4 );
+        u_portalClipPlane = bgfx::createUniform( "u_portalClipPlane", bgfx::UniformType::Vec4 );
         u_drawParams = bgfx::createUniform( "u_drawParams", bgfx::UniformType::Vec4 );
         u_shadowUvOffset = bgfx::createUniform( "u_shadowUvOffset", bgfx::UniformType::Vec4 );
         s_shadowMap = bgfx::createUniform( "s_shadowMap", bgfx::UniformType::Sampler );
@@ -568,7 +569,7 @@ void BGFXRenderer::Destroy()
     const bgfx::UniformHandle uniforms[] = { s_texDiffuse, s_texNormal, s_texAlpha, s_texUI, s_time, u_wind, u_windParams, u_screenView,
         u_lightParams, u_viewShading, u_eraParams, u_dirLightDirection, u_dirLightColor, u_eclipseSun, u_eclipseMoon, u_eclipseParams, u_clusterParams, u_clusterGrid, u_ambientSky, u_ambientGround,
         s_lightData, s_clusterGrid, s_clusterIndices, s_texMetallicRoughness, s_texEmissive, s_texOcclusion, s_texMetallic, s_texRoughness,
-        u_shadowMatrix, u_cascadeSplits, u_cascadeTexel, u_shadowParams, u_localShadowMatrix, u_spotShadowParams, u_pointShadowParams, u_shadowAlpha, u_drawParams, u_shadowUvOffset, s_shadowMap, s_spotShadowMap,
+        u_shadowMatrix, u_cascadeSplits, u_cascadeTexel, u_shadowParams, u_localShadowMatrix, u_spotShadowParams, u_pointShadowParams, u_shadowAlpha, u_portalClipPlane, u_drawParams, u_shadowUvOffset, s_shadowMap, s_spotShadowMap,
         s_envSpecular, s_envIrradiance, s_brdfLut, u_envParams, u_fogParams, u_fogColor, u_fogVolume, u_fogForward,
         u_particleParams, u_particleParams2, u_particleDepth, s_texParticle, s_sceneDepth, s_texSprite, s_texSpriteNormal, u_spriteParams, u_bones, u_outlineHull,
         s_decalAlbedo, s_decalNormal, u_decalColor, u_decalEmissive, u_decalSurface, u_decalDepth, u_decalTexSize, u_decalWorldToLocal, u_decalAxes };
@@ -1948,7 +1949,7 @@ void BGFXRenderer::GatherShadowCasters()
                 caster.Group = std::min<uint8_t>( mesh.RenderGroup, Moonlight::kMaxRenderGroups - 1 );
                 // Opaque casters only differ by geometry; alpha-tested ones and materials with their
                 // own caster program also by their material.
-                caster.MaterialKey = ( mesh.AlphaCutoff > 0.f || mesh.CustomShadow ) ? mesh.BatchKey : 0u;
+                caster.MaterialKey = ( mesh.AlphaCutoff > 0.f || mesh.CustomShadow || glm::dot( mesh.PortalClipPlane, mesh.PortalClipPlane ) > 0.f ) ? mesh.BatchKey : 0u;
                 // A fading mesh's caster dithers by its own amount (ME-279): its own batch.
                 if( mesh.DitherFade != 0.f && mesh.CrossfadeLod == 0xFF )
                 {
@@ -2041,6 +2042,7 @@ void BGFXRenderer::CullShadowCasters( const Frustum* InFrustums, uint32_t InCoun
 
 void BGFXRenderer::BindStockShadowCaster( const Moonlight::MeshCommand& InMesh, const float InAlpha[4] )
 {
+    bgfx::setUniform( u_portalClipPlane, &InMesh.PortalClipPlane );
     bgfx::setUniform( u_shadowAlpha, InAlpha );
     // Holes are cut where the surface shows them: uv * Tiling + Offset.
     const float uvOffset[4] = { InMesh.MeshMaterial->Offset.x, InMesh.MeshMaterial->Offset.y, 0.f, 0.f };
@@ -2123,6 +2125,7 @@ void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, uint32_t InViewIndex,
                 // Graph casters dither from the per-draw parameter (ME-283).
                 const float drawParams[4] = { alpha[3], 0.f, 0.f, 0.f };
                 bgfx::setUniform( u_drawParams, drawParams );
+                bgfx::setUniform( u_portalClipPlane, &mesh.PortalClipPlane );
                 mesh.MeshMaterial->UseShadowCaster();
             }
             else
@@ -2161,6 +2164,7 @@ void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, uint32_t InViewIndex,
         {
             const float drawParams[4] = { alpha[3], 0.f, 0.f, 0.f };
             bgfx::setUniform( u_drawParams, drawParams );
+            bgfx::setUniform( u_portalClipPlane, &mesh.PortalClipPlane );
             mesh.MeshMaterial->UseShadowCaster();
         }
         else
@@ -2549,6 +2553,7 @@ bgfx::ProgramHandle BGFXRenderer::BindMeshDrawState( const Moonlight::MeshComman
     BindLighting();
     const float drawParams[4] = { mesh.DitherFade, 0.f, 0.f, 0.f };
     bgfx::setUniform( u_drawParams, drawParams );
+    bgfx::setUniform( u_portalClipPlane, &mesh.PortalClipPlane );
 
     mesh.MeshMaterial->Use();
 

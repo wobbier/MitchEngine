@@ -570,7 +570,6 @@ private:
     bool m_relativeMode = false;
     bool m_cursorConfined = false;
     bool m_cursorHidden = false;
-    bool m_cursorWarped = false;
     SDL_Window* m_cursorWindow = nullptr;
     SDL_Rect m_cursorRect{ 0, 0, 0, 0 };
 

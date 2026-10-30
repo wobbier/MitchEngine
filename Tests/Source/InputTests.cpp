@@ -1,5 +1,10 @@
 #include <doctest/doctest.h>
 #include "Input/InputPlayers.h"
+#include "Engine/Input.h"
+#include <SDL.h>
+#if defined(__linux__)
+#include <cstdlib>
+#endif
 #include "Events/EventReceiver.h"
 #include "Input/InputActions.h"
 #include <SDL_keyboard.h>
@@ -434,3 +439,116 @@ TEST_CASE( "Input: local players pair pads, join on button press and keep their 
     CHECK( players.GetPlayerCount() == 2 );
     CHECK( players.GetGamepad( 1 ) == 3 );
 }
+
+TEST_CASE( "Input: a captured Game View uses relative motion and releases it for the editor" )
+{
+    // This case needs a display; run via Tools/Headless.sh in CI. Other input tests stay headless.
+    if( SDL_InitSubSystem( SDL_INIT_VIDEO ) != 0 )
+    {
+        WARN( "No SDL video driver available for relative mouse capture test" );
+        return;
+    }
+    SDL_Window* window = SDL_CreateWindow( "Input capture regression", 40, 40, 640, 480, SDL_WINDOW_SHOWN );
+    REQUIRE( window != nullptr );
+    {
+        Input input;
+        input.SetCursorRegion( window, Vector2( 80, 60 ), Vector2( 320, 240 ) );
+        input.SetMouseCapture( true );
+        CHECK( SDL_GetRelativeMouseMode() == SDL_TRUE );
+        // Updating the embedded rectangle each frame must not toggle capture or switch to warps.
+        input.SetCursorRegion( window, Vector2( 90, 70 ), Vector2( 300, 220 ) );
+        CHECK( SDL_GetRelativeMouseMode() == SDL_TRUE );
+        input.SetMouseCapture( false );
+        CHECK( SDL_GetRelativeMouseMode() == SDL_FALSE );
+        input.SetMouseCapture( true );
+        CHECK( SDL_GetRelativeMouseMode() == SDL_TRUE );
+        input.Pause();
+        CHECK( SDL_GetRelativeMouseMode() == SDL_FALSE );
+        input.Resume();
+        CHECK( SDL_GetRelativeMouseMode() == SDL_TRUE );
+        input.Stop();
+        input.ClearCursorRegion();
+        CHECK( SDL_GetRelativeMouseMode() == SDL_FALSE );
+    }
+    SDL_DestroyWindow( window );
+    SDL_QuitSubSystem( SDL_INIT_VIDEO );
+}
+
+#if defined(__linux__)
+TEST_CASE( "Input: slow OS mouse motion reaches a captured Game View in all directions" )
+{
+    const char* libraryPath = std::getenv( "MITCH_TEST_XTEST_LIBRARY" );
+    if( !libraryPath ) return; // Opt-in OS injection on a private Xvfb display.
+    REQUIRE( SDL_InitSubSystem( SDL_INIT_VIDEO ) == 0 );
+    SDL_Window* window = SDL_CreateWindow( "Slow mouse regression", 40, 40, 320, 240, SDL_WINDOW_SHOWN );
+    REQUIRE( window != nullptr );
+    void* library = SDL_LoadObject( libraryPath );
+    REQUIRE( library != nullptr );
+    using MoveMouse = int ( * )( void*, int, int, unsigned long );
+    auto moveMouse = reinterpret_cast<MoveMouse>( SDL_LoadFunction( library, "XTestFakeRelativeMotionEvent" ) );
+    REQUIRE( moveMouse != nullptr );
+    using Flush = int ( * )( void* );
+    void* x11 = SDL_LoadObject( std::getenv( "MITCH_TEST_X11_LIBRARY" ) );
+    REQUIRE( x11 != nullptr );
+    auto flush = reinterpret_cast<Flush>( SDL_LoadFunction( x11, "XFlush" ) );
+    REQUIRE( flush != nullptr );
+    using OpenDisplay = void* ( * )( const char* );
+    using CloseDisplay = int ( * )( void* );
+    auto openDisplay = reinterpret_cast<OpenDisplay>( SDL_LoadFunction( x11, "XOpenDisplay" ) );
+    auto closeDisplay = reinterpret_cast<CloseDisplay>( SDL_LoadFunction( x11, "XCloseDisplay" ) );
+    REQUIRE( openDisplay != nullptr ); REQUIRE( closeDisplay != nullptr );
+    void* display = openDisplay( nullptr );
+    REQUIRE( display != nullptr );
+    SDL_Window* editorWindow = SDL_CreateWindow( "Editor owning keyboard focus", 500, 40, 320, 240, SDL_WINDOW_SHOWN );
+    REQUIRE( editorWindow != nullptr );
+    SDL_RaiseWindow( editorWindow );
+    SDL_SetWindowInputFocus( editorWindow );
+    SDL_WarpMouseInWindow( editorWindow, 160, 120 );
+    const auto pump = [] {
+        SDL_Delay( 5 );
+        SDL_Event event;
+        while( SDL_PollEvent( &event ) ) {}
+    };
+    // A real compositor maps/focuses windows asynchronously; Xvfb does it immediately.
+    for( int attempt = 0; attempt < 200 && SDL_GetKeyboardFocus() != editorWindow; ++attempt )
+    {
+        SDL_RaiseWindow( editorWindow );
+        SDL_SetWindowInputFocus( editorWindow );
+        pump();
+    }
+    REQUIRE( SDL_GetKeyboardFocus() == editorWindow );
+    SDL_WarpMouseInWindow( editorWindow, 160, 120 );
+    pump();
+    {
+        Input input;
+        input.SetCursorRegion( window, Vector2( 200, 150 ), Vector2( 100, 80 ) );
+        input.SetMouseCapture( true );
+        pump();
+        input.Update(); input.PostUpdate();
+        for( const Vector2 step : { Vector2( -1, 0 ), Vector2( 1, 0 ), Vector2( 0, -1 ), Vector2( 0, 1 ) } )
+        {
+            Vector2 total;
+            for( int i = 0; i < 24; ++i )
+            {
+                REQUIRE( moveMouse( display, static_cast<int>( step.x ), static_cast<int>( step.y ), 0 ) != 0 );
+                flush( display );
+                pump();
+                input.Update();
+                total = total + input.GetDeviceState().MouseDelta;
+                input.PostUpdate();
+            }
+            INFO( "focus=" << SDL_GetWindowID( SDL_GetKeyboardFocus() ) << " target=" << SDL_GetWindowID( window ) << " relative=" << SDL_GetRelativeMouseMode() << " warp=" << ( SDL_GetHint( SDL_HINT_MOUSE_RELATIVE_MODE_WARP ) ? SDL_GetHint( SDL_HINT_MOUSE_RELATIVE_MODE_WARP ) : "default" ) );
+            INFO( "OS step: " << step.x << ", " << step.y << "; received: " << total.x << ", " << total.y );
+            CHECK( total.x == doctest::Approx( step.x * 24 ) );
+            CHECK( total.y == doctest::Approx( -step.y * 24 ) );
+        }
+        input.Stop();
+        input.ClearCursorRegion();
+    }
+    closeDisplay( display );
+    SDL_DestroyWindow( editorWindow );
+    SDL_UnloadObject( x11 ); SDL_UnloadObject( library );
+    SDL_DestroyWindow( window );
+    SDL_QuitSubSystem( SDL_INIT_VIDEO );
+}
+#endif

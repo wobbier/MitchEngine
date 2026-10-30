@@ -6,6 +6,7 @@
 #include <Components/Camera.h>
 #include "CLog.h"
 #include "Components/Graphics/Mesh.h"
+#include "Components/Transform.h"
 #include "Materials/PortalMaterial.h"
 #include "ECS/Entity.h"
 #include "Scripting/Bindings/BindingContext.h"
@@ -76,6 +77,35 @@ static bool Eng_Mesh_ShowCameraView( EntityID inId, EntityID inCamera ) noexcept
 }
 
 
+// Called each frame for visible pieces of a travelling rigidbody. The proxy shares geometry
+// and material, but owns its transform/clip plane and has no collider or gameplay components.
+static void Eng_Mesh_SetPortalSlice( EntityID inSource, EntityID inImage, EntityID inEntrance, EntityID inExit ) noexcept
+{
+    EntityHandle source = MakeHandle( inSource ), image = MakeHandle( inImage );
+    EntityHandle entrance = MakeHandle( inEntrance ), exit = MakeHandle( inExit );
+    Mesh* mesh = source ? source->TryGetComponent<Mesh>() : nullptr;
+    if( !mesh ) return;
+    mesh->PortalClipPlane = glm::vec4( 0.f );
+    if( !entrance || !exit || !image ) return;
+    Mesh* proxy = image->TryGetComponent<Mesh>();
+    if( !proxy ) return;
+    auto& a = entrance->GetComponent<Transform>();
+    auto& b = exit->GetComponent<Transform>();
+    const glm::vec3 normal = a.Front().InternalVector;
+    const glm::vec3 exitNormal = b.Front().InternalVector;
+    mesh->PortalClipPlane = glm::vec4( normal, -glm::dot( normal, a.GetWorldPosition().InternalVector ) );
+    proxy->PortalClipPlane = glm::vec4( exitNormal, -glm::dot( exitNormal, b.GetWorldPosition().InternalVector ) );
+    glm::mat4 turn( 1.f ); turn[0][0] = -1.f; turn[2][2] = -1.f;
+    proxy->PortalImageWorld = Matrix4( b.GetLocalToWorldMatrix().GetInternalMatrix() * turn
+        * glm::inverse( a.GetLocalToWorldMatrix().GetInternalMatrix() )
+        * source->GetComponent<Transform>().GetLocalToWorldMatrix().GetInternalMatrix() );
+    proxy->PortalImage = true;
+    if( proxy->MeshReferece != mesh->MeshReferece ) proxy->BindModelMesh( mesh->MeshReferece );
+    proxy->MeshMaterial = mesh->MeshMaterial;
+    proxy->CastShadows = mesh->CastShadows;
+}
+
+
 void Register_CameraBindings( ScriptEngineAPI& inAPI )
 {
     ScriptBindings::RegisterComponent<Camera>( "Camera" );
@@ -86,6 +116,7 @@ void Register_CameraBindings( ScriptEngineAPI& inAPI )
     inAPI.Camera_SetClipPlane = Eng_Camera_SetClipPlane;
     inAPI.Camera_ClearClipPlane = Eng_Camera_ClearClipPlane;
     inAPI.Mesh_ShowCameraView = Eng_Mesh_ShowCameraView;
+    inAPI.Mesh_SetPortalSlice = Eng_Mesh_SetPortalSlice;
 }
 
 #endif

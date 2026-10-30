@@ -75,33 +75,24 @@ void Input::Update()
         SDL_GetRelativeMouseState( &relativeMouse[0], &relativeMouse[1] );
         RelativeMousePosition = Vector2( relativeMouse[0], relativeMouse[1] );
 
-        // Inside a cursor region: locked, measure from its centre and warp back there; otherwise
-        // warp a cursor that left the region back to its edge.
+        // Captured look always uses SDL's relative motion, including an embedded Game View.
+        // Absolute position + a per-frame warp loses motion at window edges and can include
+        // asynchronous warp events in the next frame's delta.
         const bool inRegionWindow = m_cursorWindow && SDL_GetMouseFocus() == m_cursorWindow && SDL_GetKeyboardFocus() == m_cursorWindow;
-        if( inRegionWindow && WantsToCaptureMouse )
+        // Relative mode can hide the pointer or report a different hover window. Keyboard
+        // focus anywhere in this application's windows is sufficient while gameplay owns input.
+        if( m_cursorWindow && WantsToCaptureMouse && !SDL_GetKeyboardFocus() )
         {
-            const int centerX = m_cursorRect.x + m_cursorRect.w / 2;
-            const int centerY = m_cursorRect.y + m_cursorRect.h / 2;
-            RelativeMousePosition = m_cursorWarped ? Vector2( mouseX - centerX, mouseY - centerY ) : Vector2();
-            SDL_WarpMouseInWindow( m_cursorWindow, centerX, centerY );
-            m_cursorWarped = true;
+            RelativeMousePosition = Vector2();
         }
-        else
+        else if( inRegionWindow && !WantsToCaptureMouse )
         {
-            if( m_cursorWindow && WantsToCaptureMouse )
+            const int x = std::clamp( mouseX, m_cursorRect.x, m_cursorRect.x + m_cursorRect.w - 1 );
+            const int y = std::clamp( mouseY, m_cursorRect.y, m_cursorRect.y + m_cursorRect.h - 1 );
+            if( x != mouseX || y != mouseY )
             {
-                RelativeMousePosition = Vector2();
-            }
-            m_cursorWarped = false;
-            if( inRegionWindow )
-            {
-                const int x = std::clamp( mouseX, m_cursorRect.x, m_cursorRect.x + m_cursorRect.w - 1 );
-                const int y = std::clamp( mouseY, m_cursorRect.y, m_cursorRect.y + m_cursorRect.h - 1 );
-                if( x != mouseX || y != mouseY )
-                {
-                    SDL_WarpMouseInWindow( m_cursorWindow, x, y );
-                    MousePosition = Vector2( x, y );
-                }
+                SDL_WarpMouseInWindow( m_cursorWindow, x, y );
+                MousePosition = Vector2( x, y );
             }
         }
     }
@@ -507,14 +498,31 @@ void Input::UpdateCursor()
     // Only the input that is capturing holds the cursor: the editor and the game each own an
     // Input, and stopping the idle one must not undo the other's state.
     const bool lock = CaptureInput && WantsToCaptureMouse;
-    const bool relative = lock && !m_cursorWindow;
+    const bool relative = lock;
     if( relative != m_relativeMode )
     {
+        // SDL binds relative capture to the keyboard-focused window. Play may begin from
+        // an inspector or toolbar in a different platform window than the Game View.
+        if( relative && m_cursorWindow && SDL_GetKeyboardFocus() != m_cursorWindow )
+        {
+            SDL_SetWindowInputFocus( m_cursorWindow );
+        }
+#if USING( ME_PLATFORM_LINUX )
+        // Hyprland/XWayland's XInput raw stream can include reverse motion that cancels
+        // captured look. SDL's warp-relative implementation filters its own recenter events.
+        // Keep this in SDL rather than deriving deltas from absolute positions each frame.
+        const char* driver = SDL_GetCurrentVideoDriver();
+        const char* hyprland = SDL_getenv( "HYPRLAND_INSTANCE_SIGNATURE" );
+        if( relative && driver && SDL_strcmp( driver, "x11" ) == 0 && hyprland && *hyprland )
+        {
+            SDL_SetHint( SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1" );
+        }
+#endif
         SDL_SetRelativeMouseMode( relative ? SDL_TRUE : SDL_FALSE );
-        m_relativeMode = relative;
+        m_relativeMode = SDL_GetRelativeMouseMode() == SDL_TRUE;
     }
 
-    // The grab keeps the cursor in the window between frames; Update holds it inside the region.
+    // Relative mode owns captured motion; an uncaptured cursor stays inside the view region.
     // (SDL_SetWindowMouseRect would be tighter, but its X11 pointer barriers can fail fatally.)
     const bool confine = CaptureInput && m_cursorWindow;
     if( confine != m_cursorConfined && m_cursorWindow )
@@ -523,7 +531,7 @@ void Input::UpdateCursor()
     }
     m_cursorConfined = confine;
 
-    // Relative mode hides the cursor itself; a region lock hides it here.
+    // Relative mode hides the captured cursor, including inside a Game View.
     const bool hide = lock && m_cursorWindow;
     if( hide != m_cursorHidden )
     {

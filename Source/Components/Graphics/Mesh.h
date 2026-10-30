@@ -45,6 +45,11 @@ public:
     // Screen-door fade (ME-279), at runtime only (not saved): 0 = solid, up to 1 = gone, dithered
     // so it needs no sorting. OccluderFade drives it for whatever blocks a camera's view.
     float DitherFade = 0.f;
+    // Runtime portal slicing. Zero plane disables clipping; proxies override only their draw matrix.
+    glm::vec4 PortalClipPlane = glm::vec4( 0.f );
+    bool PortalImage = false;
+    Matrix4 PortalImageWorld;
+
 
     // Skinned meshes: the bone node entities (found by name below the owning Model) and this
     // frame's palette of mesh-space bone matrices.

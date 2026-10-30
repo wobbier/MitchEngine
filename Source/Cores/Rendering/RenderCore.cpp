@@ -501,7 +501,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         {
             if( mesh->Id == std::numeric_limits<unsigned int>::max() ) mesh->Id = renderer.GetMeshCache().Push( Moonlight::MeshCommand() );
             m_meshCommands[entity.GetId().Value()] = mesh->Id;
-            items.push_back( { mesh, entity.GetComponent<Transform>().GetLocalToWorldMatrix(), entity.GetHandle() } );
+            items.push_back( { mesh, mesh->PortalImage ? mesh->PortalImageWorld : entity.GetComponent<Transform>().GetLocalToWorldMatrix(), entity.GetHandle() } );
             applyOutline( items.back(), entity );
         }
         else
@@ -787,6 +787,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                             command.SingleMesh = model.MeshReferece;
                             command.MeshMaterial = model.MeshMaterial;
                             command.Transform = meshMatrix;
+                            command.PortalClipPlane = model.PortalClipPlane;
                             command.Type = model.GetType();
                             command.VisibilityIndex = entIndex;
                             command.ID = item.Owner->GetId().Value();
@@ -828,6 +829,8 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                             }
                             // Instanced batches share one fade: a fading mesh only batches with its
                             // equals (instancing-capable shaders draw nothing outside a batch).
+                            if( glm::dot( command.PortalClipPlane, command.PortalClipPlane ) > 0.f )
+                                command.BatchKey ^= command.ID * 0x9E3779B97F4A7C15ull;
                             if( command.DitherFade != 0.f )
                             {
                                 uint32_t fadeBits = 0;
