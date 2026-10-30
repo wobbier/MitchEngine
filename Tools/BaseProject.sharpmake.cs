@@ -69,6 +69,11 @@ public abstract class BaseProject : Project
             conf.Defines.Add("DEFINE_ME_EDITOR");
             conf.Defines.Add("DEFINE_ME_TOOLS");
         }
+        // Dedicated servers: no window, no GPU, no ImGui (Debug/Release keep ME_TOOLS: scripts build).
+        if (target.SelectedMode == CommonTarget.Mode.Server)
+        {
+            conf.Defines.Add("DEFINE_ME_HEADLESS");
+        }
 
         conf.Defines.Add("NOMINMAX");
 

@@ -19,6 +19,9 @@
 // - GetClockScale: the client's time dilation; the engine scales its fixed-step accumulator by it,
 //   so ticks run up to 5% faster or slower without changing their length.
 //
+// NetCore drives the transport's Update (Receive, EndTick, Flush), so conditioned links release
+// what's due. Close says goodbye before Shutdown; WriteReport sums the session up (--net-report).
+//
 // It never calls GetEngine(): tests run a server world and a client world side by side
 // (Tests/Source/NetHarness.h).
 class NetCore final
@@ -31,7 +34,15 @@ public:
     // A session over InTransport, which must outlive it. False when one is already running.
     bool Host( INetTransport& InTransport, uint16_t InTickRate = 60 );
     bool Connect( INetTransport& InTransport, NetAddress InServer, const NetClockSettings& InClock = NetClockSettings() );
+    // Says Disconnect to the other side (the server tells every client), so nobody waits out a
+    // timeout. The session stays readable (stats, WriteReport) until Shutdown.
+    void Close( double InNow );
     void Shutdown();
+    // Seconds of silence before a peer counts as gone; applies to sessions started afterwards.
+    void SetTimeout( double InSeconds ) { m_timeout = InSeconds; }
+
+    // The session so far as JSON (role, connection, timeouts, snapshot rates): true when written.
+    bool WriteReport( const std::string& InPath, double InNow ) const;
 
     bool IsActive() const { return m_server || m_client; }
     bool IsServer() const { return m_server != nullptr; }
@@ -81,6 +92,21 @@ public:
 #endif
 
 private:
+    // A client the server no longer has: what the report says about it.
+    struct Departure
+    {
+        uint8_t Id = 0;
+        NetAddress Address = 0;
+        std::string Reason;
+        double ConnectedSeconds = 0.0;
+        NetStats Stats;
+        uint64_t Snapshots = 0;
+        uint64_t SnapshotBytes = 0;
+        uint64_t MissedCommands = 0;
+        uint64_t LateCommands = 0;
+    };
+    void RecordDeparture( const NetServer::Client& InClient, double InNow );
+
     std::unique_ptr<NetServer> m_server;
     std::unique_ptr<NetClient> m_client;
     std::unique_ptr<NetReplicationServer> m_replicationServer;
@@ -91,6 +117,17 @@ private:
     std::unique_ptr<NetPredictor> m_predictor;
     NetLagCompensation m_lagCompensation;
     uint32_t m_tick = 0;
+    INetTransport* m_transport = nullptr;
+    double m_timeout = NetServer::kDefaultTimeout;
+    double m_startedAt = -1.0;
+    double m_lastNow = 0.0;
+    bool m_closing = false;
+    std::vector<Departure> m_departures;
+    // When snapshots first and most recently arrived (client), for the snapshot rate.
+    double m_firstSnapshotAt = -1.0;
+    double m_lastSnapshotAt = -1.0;
+    uint64_t m_firstSnapshotCount = 0;
+    uint64_t m_lastSnapshotCount = 0;
 };
 
 ME_REGISTER_CORE( NetCore )

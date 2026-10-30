@@ -266,7 +266,15 @@ std::string Moonlight::GetPlatformString()
 {
     switch( bgfx::getRendererType() )
     {
+    // Headless: the shaders this platform builds anyway (Noop takes any binary and draws nothing).
     case bgfx::RendererType::Noop:
+#if USING( ME_PLATFORM_LINUX )
+        return "spirv";
+#elif USING( ME_PLATFORM_MACOS )
+        return "metal";
+#else
+        return "dx11";
+#endif
     case bgfx::RendererType::Direct3D11:
     case bgfx::RendererType::Direct3D12: return "dx11";
     case bgfx::RendererType::Gnm:        return "pssl";

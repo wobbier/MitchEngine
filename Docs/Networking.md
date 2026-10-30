@@ -21,8 +21,14 @@ Multiplayer follows the Overwatch model: an authoritative server, client predict
 - **NET-4:** client prediction of the owner's character, with rollback, resim and error smoothing.
 - **NET-8:** lag compensation: `NetHitbox`, a rewound `LagCompensatedRaycast`, and its overlays.
 - **NET-13:** relevancy, a priority accumulator, a per-client bandwidth budget, and snapshot encoding on jobs.
+- **NET-5:** real networking:
+  - `UdpTransport`, plain UDP over IPv4 (no ENet: `NetConnection` already does the reliability);
+  - session timeouts and a graceful Disconnect (protocol 2);
+  - a headless **Server** build (`config=server_linux_debug`: no window, bgfx Noop, no ImGui);
+  - `--server` / `--connect` / `--net-*` on the command line, with a JSON report;
+  - `Tools/RunNetSmoke.py` in RunChecks.
 
-Real transports (ENet, NET-5), the C# API (NET-6) and the editor tooling (NET-7) come next.
+The C# API (NET-6) and the editor tooling (NET-7) come next.
 
 ## Key Files
 
@@ -42,7 +48,11 @@ Real transports (ENet, NET-5), the C# API (NET-6) and the editor tooling (NET-7)
 | `Source/Net/NetPrediction.h` | `NetPredictor`: a 128-tick history of {command, mover state}, `Reconcile` (millimetre compare, then restore and resim with `PhysicsCore::StepCharacter`), and visual error smoothing |
 | `Source/Components/Networking/NetHitbox.h` | A capsule or box that lag-compensated shots test against |
 | `Source/Net/NetLagCompensation.h` | Each tick's hitbox poses for `MaxRewindSeconds`; `Raycast` at a view tick (analytic ray vs capsule / OBB, present colliders occlude); overlays |
-| `Source/Cores/NetCore.h` | Engine-owned (`Engine::Net`): `Host` / `Connect`, the frame hooks, the version of its world |
+| `Source/Cores/NetCore.h` | Engine-owned (`Engine::Net`): `Host` / `Connect` / `Close`, the frame hooks (they drive the transport's `Update`), the version of its world, `WriteReport` |
+| `Source/Net/UdpTransport.h` | `UdpTransport`: non-blocking IPv4 UDP (BSD sockets / Winsock). Addresses pack `(ip << 16) \| port`; `Resolve( "host:port" )`, `ToString` |
+| `Source/Engine/NetLaunch.h` | The command line (`--server`, `--connect`, `--net-*`): starts the session after the scene loads, logs it, writes the report, says goodbye on exit |
+| `Source/Window/NullWindow.h` | The headless build's window: a size and SDL's event loop (Ctrl+C / SIGTERM close it) |
+| `Tools/RunNetSmoke.py` | The two-process smoke test (below) |
 | `Tests/Source/NetTests.cpp`, `NetSessionTests.cpp`, `NetHarness.h` | The proofs (below). The harness runs a server world and a client world in one process at 1 ms resolution |
 
 ## How It Works
@@ -96,6 +106,16 @@ Messages are at most 1024 bytes (`kMaxMessageBytes`); there is no fragmentation 
 | `KeepsBacklog()` | Backlog drop | A server catches up instead of dropping steps |
 
 **Defaults:** the target slack is 3 ticks. That covers ±10 ms of jitter plus two lost packets in a row at 60 Hz.
+
+**Ending (NET-5, protocol 2):**
+
+- **Disconnect:** a leaving client (`NetClient::Disconnect`, `NetCore::Close`) or a closing server (`NetServer::Close`) sends **Disconnect** with a reason. It is unreliable, since the sender is going, so it goes in three packets of its own. The server drops that client on its next `Receive` and counts it (`GetDisconnectCount`); the client becomes `Disconnected`, and `GetDisconnectReason()` says why (`"left"`, `"server closed"`).
+- **Timeouts:** a peer that sends nothing for the timeout (10 s, `SetTimeout`, `--net-timeout`) is gone.
+  - The server drops a silent accepted client and counts it (`GetTimeoutCount`). It still says Disconnect (`"timed out"`) on that client's own connection, in case the client is alive after all.
+  - The server only sends to addresses that said hello. Packets from a session it has dropped get no answer, so such a client times out instead of hanging on half-open.
+  - A client stops at `State::TimedOut`, counted from its Hello first going out, including while still connecting to a server that never answers.
+- **One session per `NetClient`:** `Connect` works once; reconnecting needs a new client. Client ids (1–255) are reused only once no accepted client holds them.
+- **`OnClientRemoved`:** fires for either, before the client goes. Replication forgets that client's state there, and `NetCore` keeps a summary for its report.
 
 ### Replication (NET-3)
 
@@ -166,6 +186,60 @@ The client predicts only what it owns. Remote entities are interpolated (above),
 - **The cap:** a view older than `MaxRewindSeconds` (0.4 s, about 300 ms RTT plus the view's delay and slack) is `Rejected`.
 - **Overlays:** with `DrawOverlays`, each shot draws the ray (green on a hit, red otherwise), the rewound hitboxes in yellow and the present ones in gray, for 2 s.
 
+### UDP and dedicated servers (NET-5)
+
+**`UdpTransport`:**
+
+- **Socket:** one non-blocking IPv4 UDP socket, bound to a port (0 picks a free one) on every interface or one address.
+- **Receive:** returns false once nothing more has arrived. Datagrams over 1500 bytes are skipped (`NetConnection` packets are at most 1200).
+- **Addresses:** a `NetAddress` is `(ip << 16) | port`, so the address a client resolves from `--connect` is bit for bit the `From` its replies carry. `Resolve` asks for IPv4 only, so `localhost` can't come back as `::1`.
+- **Platforms:**
+  - Winsock on Windows: `PCH.h` includes `winsock2.h` before `Windows.h`, `Ws2_32.lib` links by pragma, and `SIO_UDP_CONNRESET` is off.
+  - BSD sockets on Linux and macOS.
+- **Binding:** no `SO_REUSEADDR`, so a second process can't silently share a port.
+- **Conditions:** `--net-lag` and the other `--net-*` options wrap the socket in a `ConditionedTransport`. `NetCore` drives `Update` from `Receive`, `EndTick` and `Flush`, so held packets go out at frame resolution.
+
+**The Server build** (`CommonTarget.Mode.Server` → `server_<platform>_<optimization>`, e.g. `make -f MitchGame.make Game_EntryPoint config=server_linux_debug` → `.build/Server_linux_Debug/`):
+
+- **Defines:** `DEFINE_ME_HEADLESS`. Debug and Release keep `ME_TOOLS`, so scripts still build beside the exe, while `ME_IMGUI` and `ME_GAME_TOOLS` are off when headless.
+- **Window:** `Engine::Init` creates a `NullWindow` instead of an SDL window.
+- **Renderer:** runs bgfx's **Noop** backend (`RendererCreationSettings::Type`). Noop loads the platform's own shader binaries (`GetPlatformString`: spirv / metal / dx11) and draws nothing. Cameras, meshes and particles still go through their cores and are culled and sorted on the CPU.
+- **Pace:** with no display to wait on, a headless run caps itself at one frame per tick (`1 / FixedTimeStep`) unless `--max-fps` or the config's `MaxFrameRate` says otherwise.
+- **UI:** RmlUi gets no renderer, so it never builds a context: no documents load. Values set through `UI.Model` are kept, unread.
+- **Audio:** FMOD compiles out (`ME_FMOD` needs `!ME_HEADLESS`).
+- **Where it builds:** Win64, macOS and Linux, never UWP.
+
+**The command line** (`NetLaunch`, any game build):
+
+| Option | Effect |
+|--------|--------|
+| `--server [port]` | Host on that UDP port (7777 by default; 0 picks a free one and logs it), every interface, at the engine's tick rate (`1 / FixedTimeStep`) |
+| `--connect host:port` | Join a server: a dotted IPv4 address or a name that resolves to one |
+| `--net-lag ms`, `--net-jitter ms`, `--net-loss f` | Condition what this side sends. Loss is a fraction (`0.05`) or a percentage (`5%`). Both sides add up: `--net-lag 40` on each is 80 ms RTT plus a frame |
+| `--net-seed n` | The conditions' seed |
+| `--net-timeout s` | Seconds of silence before a peer is gone (10) |
+| `--net-report file.json` | On exit, `NetCore::WriteReport`. **Server:** clients accepted / left / timed out / rejected, snapshots sent, and per client: status, connection stats, kbps, snapshots and their rate. **Client:** state, whether it connected, timeouts, RTT and loss, snapshots received and their rate, resyncs, dilation |
+| `--net-exit-when-empty` | Server: quit once its last client has gone |
+
+The session starts after the scene loads, because the handshake hashes the scene's networked entities, so both sides need `--scene` (or the same startup scene).
+
+- **Log lines:** `Net: hosting on UDP port …`, `Net: connected as client #1 at 60 Hz`, `Net: client left`, `Net: … timed out`. They are flushed at once, so tools can wait on them.
+- **A failed start** (a taken port, an unresolvable host) logs why and quits with exit code 1, and the report carries an `Error`.
+- **Headless runs don't write the player's state:** no `Engine.cfg` window or scene, and Retail logs go to `Logs/Server.txt`.
+- **On exit:** the report is written first, then Disconnect goes to the other side.
+
+**The smoke test** (`Tools/RunNetSmoke.py`, the RunChecks "Networking smoke" step):
+
+1. Starts the Server build on a free port (`--server 0`, read back from its log) on `Assets/Scenes/Tests/NetTest.lvl` with `--net-exit-when-empty`. NetTest has six networked boxes that fall and settle in view, and a `NetSpin` cube behind the camera that turns every fixed step, so every tick has a snapshot to send.
+2. Waits for the server to host.
+3. Runs a client through `Headless.sh` for 900 frames at `--max-fps 60`, then captures and leaves.
+4. **Passes when:**
+   - the client connected and stayed connected for at least 80% of its run, with no timeouts on either side and no bgfx asserts in either log;
+   - snapshots arrived within 5% of the tick rate;
+   - the server counted a clean Disconnect and exited on its own;
+   - the capture matches `Assets/Scenes/Tests/Reference/NetTest.png`. The same reference serves the standalone test-scene capture: the settled boxes land in the same places offline.
+5. `--net-args` passes options to both sides (e.g. `--net-args "--net-lag 40 --net-loss 2%"`), and `--update` takes a new reference.
+
 ## Proofs
 
 `NetTests.cpp`:
@@ -202,11 +276,19 @@ The client predicts only what it owns. Remote entities are interpolated (above),
     - 2 hit without rewind, near the target's turnaround;
     - all 60 forged views 30 ticks further back were rejected.
 - **Handshake:** another build is rejected (`"version mismatch: build"`) and the server lets it go; so is another scene (`"version mismatch: scene"`); a match connects.
+- **UDP and session endings (`NetUdpTests.cpp`):**
+  - Addresses resolve (`localhost` too) and print, and malformed ones are refused.
+  - Two sockets on 127.0.0.1 trade datagrams up to 1200 bytes, with each `From` equal to the sender's resolved address, and a taken port fails to bind.
+  - A `NetServer` and `NetClient` connect over real UDP. Commands arrive, and the client's Disconnect removes it at once (1 disconnect, 0 timeouts).
+  - On loopback, a silent client times out on the server (`OnClientRemoved` fires once). A client gives up on a silent server and on one that never answers. A closing server tells its client (`"server closed"`), and a leaving client is counted as left, not timed out.
+- **The NET-5 done-when (`RunNetSmoke.py`):** the Server build and a client on NetTest.lvl over localhost UDP for 900 client frames (about 15 s).
+  - **Clean link:** connected, 0 timeouts, 0 resyncs, 60.06 snapshots/s at 60 Hz (±5% required). The client left cleanly and the server exited by itself. The capture matches its reference exactly (0.00%).
+  - **Lossy link:** with `--net-lag 40 --net-jitter 5 --net-loss 2%` on both sides: RTT 111 ms, 59.08 snapshots/s, 0 timeouts, the same capture.
 - **Round trip:** at 50 ms each way, 5% loss, with 0 or ±10 ms jitter, both ends estimate within 10% of 100 ms. Garbage and lying packets are rejected, and oversized messages are refused.
 
 ## How to Extend
 
-- **A real transport (Steam, UDP):** implement `INetTransport`. `Update` can stay empty, and `NetConnection` doesn't change.
+- **A real transport (Steam, NET-9):** implement `INetTransport` as `UdpTransport` does. `Update` can stay empty (`NetCore` calls it anyway), and `NetConnection` doesn't change. Map the transport's peer identities to stable `NetAddress`es: replies must come from the address the client connected to.
 - **Bigger messages:** need fragmentation (a reliable slice stream). Until then, keep replicated state under 1 KB a message. Snapshots defer entities past their 900-byte budget; NET-4 adds priorities.
 - **A replicated component field:** add `.Replicated()` to its `ME_FIELD`. Clients apply it from the snapshot at the render tick.
 
@@ -217,6 +299,12 @@ The client predicts only what it owns. Remote entities are interpolated (above),
 - **No encryption or authentication:** the protocol id only filters strays.
 - **NetSchema is positional:** both sides must have the same components with the same replicated fields, in the same order. NET-3 doesn't hash that into the handshake yet; the build hash covers it for the same game.
 - **Spawned prefabs:** clients create spawned entities from `NetIdentity::Prefab`, which must exist on the client.
+- **UDP is IPv4 only** (a `NetAddress` is 64 bits).
+  - On a multi-homed server bound to every interface, a reply can leave from another address than the one the client dialled, and the client then ignores it. Bind one address, or connect to the address it answers from.
+  - There is no NAT traversal; Steam SDR (NET-9) brings that.
+- **Headless servers still prepare frames:** with Noop, cameras, culling and sorting run every frame on the CPU and draw nothing. A dedicated server could skip that work.
+- **Headless builds still link FMOD** on Linux and Windows, although it compiles out.
+- **Ticks follow the engine's fixed steps.** Don't give a server `--frame-time`: its ticks then follow frames rather than the clock, so any stall or speed-up shows up as client resyncs. Real-time servers step by the clock and catch up (`KeepsBacklog`).
 
 ## Related Docs
 

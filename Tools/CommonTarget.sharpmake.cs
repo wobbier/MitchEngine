@@ -39,7 +39,10 @@ public class CommonTarget : Sharpmake.ITarget
     public enum Mode
     {
         Game = 1 << 0,
-        Editor = 1 << 1
+        Editor = 1 << 1,
+        // A dedicated server (NET-5): the game headless (DEFINE_ME_HEADLESS: no window, bgfx Noop,
+        // no ImGui), e.g. config=server_linux_debug -> .build/Server_linux_Debug/.
+        Server = 1 << 2
     }
     public Mode SelectedMode = Mode.Game;
 
@@ -95,11 +98,20 @@ public class CommonTarget : Sharpmake.ITarget
                     editorTarget.SubPlatform = SubPlatformType.Win64;
                     editorTarget.SelectedMode = Mode.Editor;
 
+                    var serverTarget = new CommonTarget(
+                        Platform.win64,
+                        DevEnv.vs2022,
+                        Optimization.Debug | Optimization.Release | Optimization.Retail,
+                        DotNetFramework.net8_0,
+                        dotNetOS: 0);
+                    serverTarget.SubPlatform = SubPlatformType.Win64;
+                    serverTarget.SelectedMode = Mode.Server;
+
                     if(Globals.IsUWPEnabled)
                     {
-                        return new[] { baseTarget, uwpTarget, editorTarget };
+                        return new[] { baseTarget, uwpTarget, editorTarget, serverTarget };
                     }
-                    return new[] { baseTarget, editorTarget };
+                    return new[] { baseTarget, editorTarget, serverTarget };
                 }
             case Platform.mac:
                 {
@@ -118,8 +130,16 @@ public class CommonTarget : Sharpmake.ITarget
                         dotNetOS: 0);
                     macEditor.SelectedMode = Mode.Editor;
                     macEditor.SubPlatform = SubPlatformType.macOS;
+                    var macServer = new CommonTarget(
+                        Platform.mac,
+                        DevEnv.xcode,
+                        Optimization.Debug | Optimization.Release | Optimization.Retail,
+                        DotNetFramework.v4_8,
+                        dotNetOS: 0);
+                    macServer.SelectedMode = Mode.Server;
+                    macServer.SubPlatform = SubPlatformType.macOS;
 
-                    return new[] { macOSTarget, macEditor };
+                    return new[] { macOSTarget, macEditor, macServer };
                 }
             case Platform.linux:
                 {
@@ -138,8 +158,16 @@ public class CommonTarget : Sharpmake.ITarget
                         dotNetOS: 0);
                     linuxEditor.SelectedMode = Mode.Editor;
                     linuxEditor.SubPlatform = SubPlatformType.linux;
+                    var linuxServer = new CommonTarget(
+                        Platform.linux,
+                        DevEnv.make,
+                        Optimization.Debug | Optimization.Release | Optimization.Retail,
+                        DotNetFramework.v4_8,
+                        dotNetOS: 0);
+                    linuxServer.SelectedMode = Mode.Server;
+                    linuxServer.SubPlatform = SubPlatformType.linux;
 
-                    return new[] { linuxTarget, linuxEditor };
+                    return new[] { linuxTarget, linuxEditor, linuxServer };
                 }
             default:
                 {

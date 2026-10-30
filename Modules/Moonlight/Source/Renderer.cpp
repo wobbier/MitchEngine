@@ -121,6 +121,10 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
 #elif USING( ME_PLATFORM_LINUX )
     init.type = bgfx::RendererType::Vulkan;
 #endif
+    if( settings.Type != bgfx::RendererType::Count )
+    {
+        init.type = settings.Type;
+    }
     m_resetFlags = init.reset;
     CurrentSize = settings.InitialSize;
 #if USING( ME_ENABLE_RENDERDOC )
@@ -366,6 +370,11 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
 
 void BGFXRenderer::ResetMainSwapChain()
 {
+    // Headless (Noop): there's no back buffer to set up (bgfx asserts BGRA8 can't be one there).
+    if( bgfx::getRendererType() == bgfx::RendererType::Noop )
+    {
+        return;
+    }
     constexpr uint32_t swapChainFlags = BGFX_SWAP_CHAIN_MSAA_MASK | BGFX_SWAP_CHAIN_SRGB_BACKBUFFER | BGFX_SWAP_CHAIN_HDR10
         | BGFX_SWAP_CHAIN_HIDPI | BGFX_SWAP_CHAIN_TRANSPARENT_BACKBUFFER;
     bgfx::SwapChain swapChain;

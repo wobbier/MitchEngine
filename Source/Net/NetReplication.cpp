@@ -111,6 +111,11 @@ NetReplicationServer::NetReplicationServer( World& InWorld, NetServer& InServer 
 {
     m_server.OnPacket = [this]( NetServer::Client& InClient ) { OnPacket( InClient ); };
     m_server.OnClientAccepted = [this]( NetServer::Client& InClient ) { OnClientAccepted( InClient ); };
+    // A client that left or timed out: nothing more goes to it.
+    m_server.OnClientRemoved = [this]( NetServer::Client& InClient ) {
+        m_clients.erase( InClient.Id );
+        m_viewers.erase( InClient.Id );
+    };
     m_server.OnMessage = [this]( NetServer::Client& InClient, uint8_t InType, BitReader& InReader, bool ) {
         if( InType == NetMessage::SnapshotAck )
         {
@@ -402,6 +407,13 @@ uint64_t NetReplicationServer::GetClientSnapshotBytes( uint8_t InClient ) const
 }
 
 
+uint64_t NetReplicationServer::GetClientSnapshotsSent( uint8_t InClient ) const
+{
+    auto client = m_clients.find( InClient );
+    return client != m_clients.end() ? client->second.Snapshots : 0;
+}
+
+
 void NetReplicationServer::OnClientAccepted( NetServer::Client& InClient )
 {
     m_clients[InClient.Id] = ClientState();
@@ -464,6 +476,7 @@ void NetReplicationServer::OnPacket( NetServer::Client& InClient )
         m_server.Send( InClient, message, false );
         m_snapshotBytes += state.Prepared.size();
         ++m_snapshotsSent;
+        ++state.Snapshots;
         state.HasPrepared = false;
     }
 }

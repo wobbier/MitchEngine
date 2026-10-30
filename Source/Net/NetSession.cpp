@@ -12,6 +12,8 @@ namespace
     constexpr double kHandshakeTimeout = 10.0;
     constexpr float kSlackRange = 64.f;
     constexpr int kSlackBits = 14;
+    // Disconnect is unreliable (the sender is going): it goes in this many packets.
+    constexpr int kDisconnectPackets = 3;
 
     void SendOn( NetConnection& InConnection, const BitWriter& InWriter, bool InReliable )
     {
@@ -22,6 +24,19 @@ namespace
         else
         {
             InConnection.SendUnreliable( InWriter.GetBytes() );
+        }
+    }
+
+    // Disconnect, in a few packets of its own, straight away.
+    void SayDisconnect( NetConnection& InConnection, const std::string& InReason, double InNow )
+    {
+        BitWriter message;
+        message.WriteBits( NetMessage::Disconnect, 8 );
+        message.WriteString( InReason );
+        for( int i = 0; i < kDisconnectPackets; ++i )
+        {
+            InConnection.SendUnreliable( message.GetBytes() );
+            InConnection.SendPacket( InNow );
         }
     }
 }
@@ -79,8 +94,32 @@ void NetServer::Receive( double InNow )
             HandleUnreliable( *client, message );
         }
     }
+    // Players who left or went quiet: told to whatever tracks them, then dropped.
+    for( std::unique_ptr<Client>& client : m_clients )
+    {
+        if( client->Accepted && ( client->Left || InNow - client->LastHeard > m_timeout ) )
+        {
+            // On its own connection (its sequence numbers carry on), in case it's alive after all:
+            // otherwise it would keep talking to a server that no longer knows it.
+            if( !client->Left )
+            {
+                SayDisconnect( *client->Connection, "timed out", InNow );
+            }
+            ++( client->Left ? m_disconnectCount : m_timeoutCount );
+            if( OnClientRemoved )
+            {
+                OnClientRemoved( *client );
+            }
+            client->Accepted = false;
+            client->Left = true;
+        }
+    }
     // Rejected clients go once their Reject has been delivered (or they stop listening).
     m_clients.erase( std::remove_if( m_clients.begin(), m_clients.end(), [InNow]( const std::unique_ptr<Client>& InClient ) {
+        if( InClient->Left )
+        {
+            return true;
+        }
         if( InClient->Rejected )
         {
             return InClient->RejectedAt > 0.0 && ( InClient->Connection->GetPendingReliableCount() == 0 || InNow - InClient->RejectedAt > kRejectLinger );
@@ -125,6 +164,11 @@ void NetServer::HandleReliable( Client& InClient, const std::vector<uint8_t>& In
     {
         reason = "server full";
     }
+    const uint8_t id = reason.empty() ? AllocateId() : 0;
+    if( reason.empty() && id == 0 )
+    {
+        reason = "server full";
+    }
 
     BitWriter reply;
     if( !reason.empty() )
@@ -133,11 +177,14 @@ void NetServer::HandleReliable( Client& InClient, const std::vector<uint8_t>& In
         reply.WriteString( reason );
         InClient.Rejected = true;
         m_lastRejection = reason;
+        ++m_rejectedCount;
     }
     else
     {
         InClient.Accepted = true;
-        InClient.Id = m_nextId++;
+        InClient.Id = id;
+        InClient.AcceptedAt = InClient.LastHeard;
+        ++m_acceptedCount;
         reply.WriteBits( NetMessage::Welcome, 8 );
         reply.WriteBits( InClient.Id, 8 );
         reply.WriteBits( m_tickRate, 16 );
@@ -151,9 +198,41 @@ void NetServer::HandleReliable( Client& InClient, const std::vector<uint8_t>& In
 }
 
 
+uint8_t NetServer::AllocateId()
+{
+    for( int attempt = 0; attempt < 255; ++attempt )
+    {
+        const uint8_t id = m_nextId;
+        m_nextId = static_cast<uint8_t>( m_nextId == 255 ? 1 : m_nextId + 1 );
+        if( FindClient( id ) == nullptr )
+        {
+            return id;
+        }
+    }
+    return 0;
+}
+
+
 void NetServer::Send( Client& InClient, const BitWriter& InMessage, bool InReliable )
 {
     SendOn( *InClient.Connection, InMessage, InReliable );
+}
+
+
+void NetServer::Close( double InNow, const std::string& InReason )
+{
+    for( std::unique_ptr<Client>& client : m_clients )
+    {
+        if( client->Accepted )
+        {
+            SayDisconnect( *client->Connection, InReason, InNow );
+            if( OnClientRemoved )
+            {
+                OnClientRemoved( *client );
+            }
+        }
+    }
+    m_clients.clear();
 }
 
 
@@ -161,6 +240,11 @@ void NetServer::HandleUnreliable( Client& InClient, const std::vector<uint8_t>& 
 {
     BitReader reader( InMessage );
     const uint8_t type = static_cast<uint8_t>( reader.ReadBits( 8 ) );
+    if( type == NetMessage::Disconnect )
+    {
+        InClient.Left = true;
+        return;
+    }
     if( !InClient.Accepted )
     {
         return;
@@ -219,7 +303,12 @@ void NetServer::EndTick( double InNow )
                 OnPacket( *client );
             }
         }
-        client->Connection->SendPacket( InNow );
+        // Not to addresses that never said hello (a client from a session the server has dropped):
+        // they'd take the packets for their old session's and never notice it's gone.
+        if( client->Accepted || client->Rejected )
+        {
+            client->Connection->SendPacket( InNow );
+        }
     }
     ++m_tick;
 }
@@ -255,10 +344,11 @@ NetClient::NetClient( INetTransport& InTransport, NetAddress InServer, const Net
 
 void NetClient::Connect()
 {
-    if( m_state != State::Disconnected )
+    if( m_started )
     {
         return;
     }
+    m_started = true;
     BitWriter hello;
     hello.WriteBits( NetMessage::Hello, 8 );
     m_version.Write( hello );
@@ -276,6 +366,7 @@ void NetClient::Receive( double InNow )
         {
             continue;
         }
+        m_lastHeard = InNow;
         std::vector<uint8_t> message;
         while( m_connection.ReceiveReliable( message ) )
         {
@@ -286,6 +377,24 @@ void NetClient::Receive( double InNow )
             HandleUnreliable( message );
         }
     }
+    if( ( m_state == State::Connecting || m_state == State::Connected ) && m_lastHeard >= 0.0 && InNow - m_lastHeard > m_timeout )
+    {
+        m_state = State::TimedOut;
+        m_endedAt = InNow;
+    }
+}
+
+
+void NetClient::Disconnect( double InNow )
+{
+    if( m_state != State::Connecting && m_state != State::Connected )
+    {
+        return;
+    }
+    SayDisconnect( m_connection, "left", InNow );
+    m_state = State::Disconnected;
+    m_disconnectReason = "left";
+    m_endedAt = InNow;
 }
 
 
@@ -333,6 +442,7 @@ void NetClient::HandleReliable( const std::vector<uint8_t>& InMessage, double In
         const double rttTicks = m_connection.GetStats().RoundTripMs / 1000.0 * m_tickRate;
         m_clock.Start( serverTick + static_cast<uint32_t>( std::ceil( rttTicks + m_clock.GetSettings().TargetSlack ) ) );
         m_state = State::Connected;
+        m_connectedAt = InNow;
     }
 }
 
@@ -343,6 +453,13 @@ void NetClient::HandleUnreliable( const std::vector<uint8_t>& InMessage )
     const uint8_t type = static_cast<uint8_t>( reader.ReadBits( 8 ) );
     if( m_state != State::Connected )
     {
+        return;
+    }
+    if( type == NetMessage::Disconnect )
+    {
+        m_disconnectReason = reader.ReadString( 256 );
+        m_state = State::Disconnected;
+        m_endedAt = m_lastHeard;
         return;
     }
     if( type != NetMessage::ServerState )
@@ -411,5 +528,10 @@ void NetClient::Flush( double InNow )
     if( m_state == State::Connecting || m_state == State::Connected )
     {
         m_connection.SendPacket( InNow );
+        // The silence clock starts when the Hello first goes out.
+        if( m_lastHeard < 0.0 )
+        {
+            m_lastHeard = InNow;
+        }
     }
 }

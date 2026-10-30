@@ -171,6 +171,7 @@ Class& operator=(Class&&) = delete;
 #define ME_SCRIPTING        USE_IF( USING( ME_DOTNET ) )
 #define ME_PROFILING        USE_IF( USING( ME_DEBUG ) || USING( ME_RELEASE ) )
 // I'm currently using some ImGui stuff in debug for profiling, TOOLS needs it even that it's currently bundled with the editor.
-#define ME_IMGUI            USE_IF( USING( ME_EDITOR ) || USING( ME_TOOLS ) || USING( ME_PROFILING ) )
+// Headless builds (dedicated servers) have no window to draw ImGui into, so none of it.
+#define ME_IMGUI            USE_IF( ( USING( ME_EDITOR ) || USING( ME_TOOLS ) || USING( ME_PROFILING ) ) && !USING( ME_HEADLESS ) )
 #define ME_BASIC_PROFILER   USE_IF( USING( ME_IMGUI ) && USING( ME_PROFILING ) )
-#define ME_GAME_TOOLS       USE_IF( USING( ME_TOOLS ) && !USING( ME_EDITOR ) )
+#define ME_GAME_TOOLS       USE_IF( USING( ME_TOOLS ) && !USING( ME_EDITOR ) && !USING( ME_HEADLESS ) )

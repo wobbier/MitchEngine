@@ -18,6 +18,7 @@
 #endif
 #include "Core/FrameRenderData.h"
 #include "AutomationRunner.h"
+#include "NetLaunch.h"
 #include "Resource/FileWatcher.h"
 
 class Game;
@@ -64,6 +65,8 @@ public:
     std::string GetEntityScenePath( const Entity& InEntity ) const;
 
     void Run();
+    // What the process should exit with once Run returns (non-zero: a --server / --connect that couldn't start).
+    int GetExitCode() const;
     // Orderly teardown after the main loop: world, jobs, logging.
     void Shutdown();
 
@@ -172,6 +175,7 @@ public:
 
 private:
     AutomationRunner m_automation;
+    NetLaunch m_netLaunch;
     SceneStreaming m_sceneStreaming;
 #if USING( ME_TOOLS )
     void PollAssetChanges();

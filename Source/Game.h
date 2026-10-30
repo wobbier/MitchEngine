@@ -38,7 +38,7 @@ public:
         className app(argc, argv);                                          \
 		GetEngine().Init(&app);                                             \
 		GetEngine().Run();                                                  \
-		return 0;                                                           \
+		return GetEngine().GetExitCode();                                   \
     }                                                                       \
     __pragma(warning(push))                                                 \
     __pragma(warning(disable: 4447))                                        \
@@ -57,6 +57,6 @@ public:
         className app(argc, argv);                                          \
 		GetEngine().Init(&app);                                             \
 		GetEngine().Run();                                                  \
-		return 0;                                                           \
+		return GetEngine().GetExitCode();                                   \
 	}
 #endif

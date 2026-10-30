@@ -5,6 +5,9 @@
 
 #if USING( ME_PLATFORM_WINDOWS )
 #include <SDKDDKVer.h>
+// Winsock 2 before Windows.h, which would otherwise pull in the old winsock.h (UdpTransport).
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #include <Windows.h>
 #endif
 

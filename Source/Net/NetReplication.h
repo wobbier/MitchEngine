@@ -71,6 +71,7 @@ public:
     // The tick an entity's state last went to a client (0: never).
     uint32_t GetLastSentTick( uint8_t InClient, uint32_t InNetId ) const;
     uint64_t GetClientSnapshotBytes( uint8_t InClient ) const;
+    uint64_t GetClientSnapshotsSent( uint8_t InClient ) const;
     // Snapshot message bytes sent to every client so far.
     uint64_t GetSnapshotBytes() const { return m_snapshotBytes; }
     uint64_t GetSnapshotsSent() const { return m_snapshotsSent; }
@@ -87,6 +88,7 @@ private:
         std::map<uint32_t, float> Accumulators;
         std::map<uint32_t, uint32_t> LastSentEntity;
         uint64_t Bytes = 0;
+        uint64_t Snapshots = 0;
         // This tick's snapshot, encoded ahead of the packet (on a job).
         std::vector<uint8_t> Prepared;
         NetSnapshot PreparedSent;

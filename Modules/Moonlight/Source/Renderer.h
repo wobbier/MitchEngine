@@ -38,6 +38,8 @@ struct RendererCreationSettings
     bgfx::NativeWindowHandleType::Enum WindowType = bgfx::NativeWindowHandleType::Default;
     Vector2 InitialSize = Vector2( 1280.f, 720.f );
     bool InitAssets = true;
+    // The backend; Count keeps the platform's own. Noop: headless (dedicated servers, no window).
+    bgfx::RendererType::Enum Type = bgfx::RendererType::Count;
 };
 
 enum class ViewportMode : uint8_t

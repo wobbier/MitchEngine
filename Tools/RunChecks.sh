@@ -16,6 +16,8 @@
 #   9. creates a project from every template (Havana --new-project) outside the repo, plays it in
 #      the editor (Tests/Templates/<Id>/<Id>Flows.edscript), ships it with Build Game and compares
 #      a frame of the shipped build with Tests/Templates/<Id>/Reference.
+#  10. runs the headless server build and a client against it over UDP on localhost
+#      (Tools/RunNetSmoke.py on Assets/Scenes/Tests/NetTest.lvl).
 # GUI runs go through Tools/Headless.sh (a private virtual display with software Vulkan), so nothing
 # opens on your desktop and nothing plays through your speakers.
 #
@@ -42,7 +44,7 @@ step() { echo; echo "== $1"; }
 
 if [[ $build -eq 1 ]]; then
     step "Build"
-    for target in "Havana config=editor_debug" "Game_EntryPoint config=game_linux_debug" "Player config=game_linux_debug" "MitchEngine_Tests config=game_linux_debug"; do
+    for target in "Havana config=editor_debug" "Game_EntryPoint config=game_linux_debug" "Game_EntryPoint config=server_linux_debug" "Player config=game_linux_debug" "MitchEngine_Tests config=game_linux_debug"; do
         # shellcheck disable=SC2086
         if ! make -f MitchGame.make $target -j"$(nproc)" > ".tmp/RunChecks.build.log" 2>&1; then
             grep -E "error" ".tmp/RunChecks.build.log" | head -20
@@ -323,6 +325,21 @@ if [[ -d $template_checks ]]; then
         fi
     done
     rm -rf "$templates_dir"
+fi
+
+# Networking (NET-5): the dedicated server build (no window, bgfx Noop) hosts NetTest.lvl on a free
+# UDP port, a client joins it for 900 frames and leaves, and both report: connected, nobody timed
+# out, snapshots at the tick rate, a clean goodbye, then the client's capture against its reference.
+if [[ -f Assets/Scenes/Tests/NetTest.lvl ]]; then
+    step "Networking smoke"
+    server=.build/Server_linux_Debug/Game_EntryPoint_x64
+    if [[ ! -x $server ]]; then
+        echo "No server build at $server (make -f MitchGame.make Game_EntryPoint config=server_linux_debug)"
+        failed+=("networking smoke (no server build)")
+    elif ! python3 "$here/RunNetSmoke.py" --server-game "$server" --client-game .build/Game_linux_Debug/Game_EntryPoint_x64 \
+            --wrapper "$here/Headless.sh" --scene Assets/Scenes/Tests/NetTest.lvl --reference Assets/Scenes/Tests/Reference; then
+        failed+=("networking smoke")
+    fi
 fi
 
 # Test scenes with a committed reference (UITest and friends) regress the same way.

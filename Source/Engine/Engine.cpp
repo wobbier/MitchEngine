@@ -42,6 +42,9 @@
 #include "Profiling/BasicFrameProfile.h"
 #include "Renderer.h"
 #include "Window/SDLWindow.h"
+#if USING( ME_HEADLESS )
+#include "Window/NullWindow.h"
+#endif
 #include "Path.h"
 #include "VFS/VFS.h"
 #include "SDL.h"
@@ -244,7 +247,12 @@ void Engine::Init( Game* game )
         const std::filesystem::path userRoot( VFS::Get().GetUserRoot() );
         std::error_code error;
         std::filesystem::create_directories( userRoot / "Logs", error );
+#if USING( ME_HEADLESS )
+        // A dedicated server shares the player's user root: its own log, not the game's.
+        CLog::GetInstance().SetLogFile( ( userRoot / "Logs" / "Server.txt" ).string() );
+#else
         CLog::GetInstance().SetLogFile( ( userRoot / "Logs" / "Engine.txt" ).string() );
+#endif
         CrashHandler::SetDirectory( ( userRoot / "Crashes" ).string() );
     }
     else
@@ -323,8 +331,20 @@ void Engine::Init( Game* game )
         {
             engineConfig.WindowSize = Vector2( static_cast<float>( CommandLine::GetInt( "--width" ) ), static_cast<float>( CommandLine::GetInt( "--height" ) ) );
         }
+#if USING( ME_HEADLESS )
+        // Nothing waits on a display: without a cap a dedicated server would spin. One frame per
+        // tick, unless --max-fps or the config's MaxFrameRate says otherwise (0 = uncapped).
+        const bool frameRateGiven = CommandLine::Has( "--max-fps" ) || ( configRoot.contains( "MaxFrameRate" ) && configRoot["MaxFrameRate"].is_number() );
+        if( !frameRateGiven )
+        {
+            SetMaxFrameRate( 1.f / m_fixedTimeStep );
+        }
+#endif
     }
-#if USING( ME_PLATFORM_WIN64 ) || USING( ME_PLATFORM_MACOS ) || USING( ME_PLATFORM_LINUX )
+#if USING( ME_HEADLESS )
+    // A dedicated server: no window, no GPU (the renderer runs bgfx's Noop backend).
+    GameWindow = new NullWindow( engineConfig.WindowSize );
+#elif USING( ME_PLATFORM_WIN64 ) || USING( ME_PLATFORM_MACOS ) || USING( ME_PLATFORM_LINUX )
     {
         OPTICK_EVENT( "Engine::Init::CreateWindow" );
         GameWindow = new SDLWindow( engineConfig.GetValue( "Title" ), ResizeFunc, engineConfig.WindowPosition.x, engineConfig.WindowPosition.y, engineConfig.WindowSize );
@@ -347,7 +367,9 @@ void Engine::Init( Game* game )
         NewRenderer = new BGFXRenderer();
         RendererCreationSettings settings;
         settings.WindowPtr = GameWindow->GetWindowPtr();
-#if USING( ME_PLATFORM_LINUX )
+#if USING( ME_HEADLESS )
+        settings.Type = bgfx::RendererType::Noop;
+#elif USING( ME_PLATFORM_LINUX )
         settings.DisplayPtr = static_cast<SDLWindow*>( GameWindow )->GetDisplayPtr();
         settings.WindowType = static_cast<SDLWindow*>( GameWindow )->GetWindowType();
 #endif
@@ -409,7 +431,13 @@ void Engine::Init( Game* game )
 #endif
         {
             OPTICK_EVENT( "Engine::Init::CreateUI" );
+#if USING( ME_HEADLESS )
+            // Nothing to draw UI into: without a renderer RmlUiCore never builds a context, so no
+            // documents load (values set through UI.Model are kept, unread).
+            RmlUi = new RmlUiCore( nullptr );
+#else
             RmlUi = new RmlUiCore( NewRenderer );
+#endif
         }
     }
 
@@ -515,6 +543,12 @@ void Engine::StopGame()
     m_game->OnEnd();
 }
 
+int Engine::GetExitCode() const
+{
+    return m_netLaunch.HasFailed() ? 1 : 0;
+}
+
+
 void Engine::Run()
 {
 #if USING( ME_TOOLS )
@@ -543,6 +577,10 @@ void Engine::Run()
         LoadingScreen::Get().PlaySplash( ProjectSettings::Get().Splash );
     }
 #endif
+
+    // --server / --connect (NET-5): after the scene loads, since the handshake hashes its
+    // networked entities. One tick per fixed step.
+    m_netLaunch.Start( *Net, static_cast<uint16_t>( std::lround( 1.0 / m_fixedTimeStep ) ) );
 
     GameClock.Reset();
     m_fixedAccumulator = 0.0;
@@ -912,6 +950,12 @@ void Engine::Run()
                     break;
                 }
             }
+            // A session that couldn't start, or a server whose last client went (--net-exit-when-empty).
+            if( m_netLaunch.Update( *Net ) )
+            {
+                StopGame();
+                break;
+            }
 
 #if USING( ME_BASIC_PROFILER )
             // This makes the profiler overview data to be delayed for a frame, but takes the renderer into account.
@@ -948,11 +992,13 @@ void Engine::Run()
         LimitFrameRate( frameStartTime );
     }
 
+    // The net report and goodbyes, while the world the session mirrors is still up.
+    m_netLaunch.Shutdown( *Net, NetSeconds() );
     if( m_automation.IsActive() )
     {
         m_automation.Shutdown();
     }
-#if !USING( ME_EDITOR )
+#if !USING( ME_EDITOR ) && !USING( ME_HEADLESS )
     if( !m_windowModeFromCommandLine )
     {
         engineConfig.Mode = GameWindow->GetWindowMode();
@@ -960,8 +1006,11 @@ void Engine::Run()
     }
 #endif
     Cook::WriteRecordingIfRequested();
-    // Window placement and the open scene are per-user state (never written by unattended runs).
+#if !USING( ME_HEADLESS )
+    // Window placement and the open scene are per-user state (never written by unattended runs,
+    // nor by a dedicated server: it has no window, and shares the player's user root).
     engineConfig.SaveUserState();
+#endif
     if( PlayerSettings::Get().IsDirty() )
     {
         PlayerSettings::Get().Save();
