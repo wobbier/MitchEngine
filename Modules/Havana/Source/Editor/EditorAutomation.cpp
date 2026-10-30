@@ -1742,6 +1742,19 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             Fail( "play state mismatch" );
         }
     }
+    else if( command == "assert-paused" )
+    {
+        const bool expected = args == "1" || args == "true";
+        if( InApp.IsGamePaused() != expected )
+        {
+            Fail( std::string( "pause state is " ) + ( InApp.IsGamePaused() ? "paused" : "running" ) );
+        }
+    }
+    else if( command == "pause" )
+    {
+        // pause (toggles, like the toolbar button)
+        InApp.TogglePause();
+    }
     else if( command == "assert-parent" )
     {
         auto [childName, parentName] = SplitArgs( args );

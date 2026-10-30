@@ -786,6 +786,14 @@ void PreferencesWidget::DrawGeneral()
 	}
 	ImGui::SetItemTooltip("Also show dimmed buttons for tools that aren't built yet (Terrain, MitchTree), with what they will do.");
 
+	bool pauseOnException = config.GetPreference<bool>("Editor.PauseOnScriptException", false);
+	HavanaUtils::Label("Pause on script exception");
+	if (ImGui::Checkbox("##PauseOnScriptException", &pauseOnException))
+	{
+		config.SetPreference("Editor.PauseOnScriptException", pauseOnException);
+	}
+	ImGui::SetItemTooltip("When a C# script throws during Play, pause and select its entity (the exception is in the Log).");
+
 	HavanaUtils::SkipLabel();
 	if (ImGui::Button("Save Preferences"))
 	{

@@ -111,6 +111,8 @@ struct ScriptAPI
     void ( *NetSchemaHash )( uint64_t* ) = nullptr;
     // The ABI hash C# was built against (ME-298; optional so an older ScriptCore still loads).
     void ( *GetEngineAPIHash )( uint64_t* ) = nullptr;
+    // ME-234 (optional): the first script callback that threw since the last call.
+    int ( *TakeScriptFault )( EntityID* ) = nullptr;
 
     bool IsValid() const
     {
@@ -159,6 +161,7 @@ static bool LoadAPI( ScriptHost& inHost, const std::string& inCoreDll, ScriptAPI
     inHost.LoadFunction( inCoreDll, bridgeType, "NetDispatchRpc", (void**)&outApi.NetDispatchRpc );
     inHost.LoadFunction( inCoreDll, bridgeType, "NetSchemaHash", (void**)&outApi.NetSchemaHash );
     inHost.LoadFunction( inCoreDll, bridgeType, "GetEngineAPIHash", (void**)&outApi.GetEngineAPIHash );
+    inHost.LoadFunction( inCoreDll, bridgeType, "TakeScriptFault", (void**)&outApi.TakeScriptFault );
     return ok;
 }
 
@@ -985,6 +988,13 @@ std::string ScriptEngine::GetHandleTypeName( int inHandle )
         gDotnetAPI.GetHandleTypeName( inHandle, buf, sizeof( buf ) );
     }
     return reinterpret_cast<const char*>( buf );
+}
+
+
+bool ScriptEngine::TakeScriptFault( EntityID& outEntity )
+{
+    outEntity = EntityID();
+    return gDotnetAPI.TakeScriptFault && gDotnetAPI.TakeScriptFault( &outEntity ) != 0;
 }
 
 #endif

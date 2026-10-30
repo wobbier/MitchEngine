@@ -216,6 +216,7 @@ void EditorApp::OnUpdate( const UpdateContext& inUpdateContext )
     {
         UpdateAutosave( inUpdateContext.GetUnscaledDeltaTime() );
     }
+    CheckScriptFaults();
     DrawEditorModals();
     m_automation.Tick( *this );
 }
@@ -823,6 +824,32 @@ const bool EditorApp::IsGameRunning() const
 const bool EditorApp::IsGamePaused() const
 {
     return m_isGamePaused;
+}
+
+
+void EditorApp::CheckScriptFaults()
+{
+#if USING( ME_SCRIPTING )
+    // Always drained, so a fault from before the preference was turned on doesn't pause later.
+    EntityID faulted;
+    if( !ScriptEngine::TakeScriptFault( faulted ) || !m_isGameRunning || m_isGamePaused )
+    {
+        return;
+    }
+    if( !EditorConfig::GetInstance().GetPreference<bool>( "Editor.PauseOnScriptException", false ) )
+    {
+        return;
+    }
+    TogglePause();
+    EntityHandle entity( faulted, GetEngine().GetWorld() );
+    if( entity )
+    {
+        Selection::Get().Clear();
+        Selection::Get().Add( entity );
+    }
+    CLog::GetInstance().Log( CLog::LogType::Warning, "Paused: " + ( entity ? entity->GetName() + "'s script" : std::string( "a script" ) )
+        + " threw (Preferences > General > Pause on script exception)" );
+#endif
 }
 
 

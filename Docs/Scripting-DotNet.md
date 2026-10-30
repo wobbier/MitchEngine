@@ -113,6 +113,10 @@ Only public fields survive. Private state, statics and references are rebuilt in
 
 **Unload check (ME-302):** after each hot reload, the old script context is garbage-collected a few times (after later reloads, and frames apart during Play). The log says "A previous Game.Script assembly unloaded". If something still holds it (a static, an event handler on an engine or ScriptCore object, a running Task or timer), a warning says so once, because each reload would then leak another copy.
 
+**Exceptions during Play (ME-234):**
+- **Repeats are collapsed:** the same exception from the same callback is logged the 1st, 10th, 100th... time, with a count, rather than every frame. Counts reset on Stop and on hot reload.
+- **Pause on script exception:** with Preferences > General > Pause on script exception on, the first callback to throw (OnStart/OnUpdate/OnFixedUpdate/OnLateUpdate or a collision callback) pauses Play and selects that script's entity (`ScriptBridge.TakeScriptFault`, polled by the editor each frame).
+
 **Errors.** A failed build logs each compiler diagnostic as its own entry, `Assets/File.cs:line:col: error CS1002: ; expected` (warnings at warning level; `ScriptEngine::ParseBuildDiagnostics`), then a summary line; the Log panel opens the line on double-click. While the last build failed (`ScriptEngine::HasBuildErrors`), Play is refused with a message, since the last good scripts would run instead. An exception thrown by a script callback is logged at error level with the whole exception, its stack included, down to the throwing `File.cs:line N` when symbols loaded (Debug builds). `ScriptFlows.edscript` covers both.
 
 ### IDE integration

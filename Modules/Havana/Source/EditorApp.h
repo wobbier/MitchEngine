@@ -75,6 +75,8 @@ private:
 	void RunWithUnsavedCheck( std::function<void()> InAction );
 	void DrawEditorModals();
 	void UpdateAutosave( float InDeltaSeconds );
+	// ME-234: pauses Play and selects the entity when a script throws (Preferences > General).
+	void CheckScriptFaults();
 	void CheckForRecovery();
 	void ClearAutosave();
 

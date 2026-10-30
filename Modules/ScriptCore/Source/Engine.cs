@@ -100,6 +100,39 @@ public static partial class ScriptBridge
         }
     }
 
+    private static readonly Dictionary<string, int> _exceptionCounts = new();
+    // ME-234: a script callback threw (the editor can pause Play and select its entity).
+    private static bool _hasFault;
+    private static Entity _faultEntity = Entity.Null;
+
+    private static bool IsPowerOfTen(int n)
+    {
+        while (n >= 10 && n % 10 == 0) n /= 10;
+        return n == 1;
+    }
+
+    private static void ReportScriptException(string where, int handle, Exception ex)
+    {
+        if (!_hasFault)
+        {
+            _hasFault = true;
+            _faultEntity = Instances.TryGetValue(handle, out var instance) && instance is Script script ? script.Entity : Entity.Null;
+        }
+        ReportException(where, ex);
+    }
+
+    // The first script callback to throw since the last call (1), and its entity (Null when it
+    // isn't a Script); 0 when nothing threw.
+    [UnmanagedCallersOnly]
+    public static unsafe int TakeScriptFault(Entity* outEntity)
+    {
+        if (!_hasFault) return 0;
+        _hasFault = false;
+        if (outEntity != null) *outEntity = _faultEntity;
+        _faultEntity = Entity.Null;
+        return 1;
+    }
+
     internal static unsafe string ReadUtf8(byte* ptr)
         => ptr is null ? string.Empty : Marshal.PtrToStringUTF8((IntPtr)ptr) ?? string.Empty;
 
@@ -124,7 +157,16 @@ public static partial class ScriptBridge
     // engine API is bound there's only stdout.
     private static unsafe void ReportException(string where, Exception ex)
     {
-        var text = $"[ScriptBridge] {where} threw {ex}";
+        // ME-234: the same exception from the same place every frame is logged the 1st, 10th,
+        // 100th... time, not every time (counts reset on Stop and on hot reload).
+        var key = $"{where}|{ex.GetType().FullName}|{ex.Message}";
+        _exceptionCounts.TryGetValue(key, out int seen);
+        _exceptionCounts[key] = ++seen;
+        if (seen > 1 && !IsPowerOfTen(seen))
+        {
+            return;
+        }
+        var text = seen > 1 ? $"[ScriptBridge] {where} threw {ex}\n(the same exception {seen} times so far)" : $"[ScriptBridge] {where} threw {ex}";
         if (Engine._api.LogError != null)
         {
             Debug.Error(text);
@@ -205,6 +247,7 @@ public static partial class ScriptBridge
         Scheduler.Clear();
         _schedules.Clear();
         Net.ResetCaches();
+        _exceptionCounts.Clear();
         var oldAlc = _alc;
         _alc?.Unload();
         _alc = newAlc;
@@ -330,7 +373,7 @@ public static partial class ScriptBridge
         }
         catch (Exception ex)
         {
-            ReportException($"OnStart(handle={handle})", ex);
+            ReportScriptException($"OnStart(handle={handle})", handle, ex);
         }
     }
 
@@ -348,7 +391,7 @@ public static partial class ScriptBridge
         }
         catch (Exception ex)
         {
-            ReportException($"OnUpdate(handle={handle})", ex);
+            ReportScriptException($"OnUpdate(handle={handle})", handle, ex);
         }
     }
 
@@ -373,7 +416,7 @@ public static partial class ScriptBridge
         }
         catch (Exception ex)
         {
-            ReportException($"Collision callback {kind}(handle={handle})", ex);
+            ReportScriptException($"Collision callback {kind}(handle={handle})", handle, ex);
         }
     }
 
@@ -391,7 +434,7 @@ public static partial class ScriptBridge
         }
         catch (Exception ex)
         {
-            ReportException($"OnFixedUpdate(handle={handle})", ex);
+            ReportScriptException($"OnFixedUpdate(handle={handle})", handle, ex);
         }
     }
 
@@ -409,7 +452,7 @@ public static partial class ScriptBridge
         }
         catch (Exception ex)
         {
-            ReportException($"OnLateUpdate(handle={handle})", ex);
+            ReportScriptException($"OnLateUpdate(handle={handle})", handle, ex);
         }
     }
 
@@ -490,7 +533,12 @@ public static partial class ScriptBridge
         {
             // Every await from here on resumes on the main thread (scripts run on it).
             Scheduler.InstallContext();
-            if (reset != 0) Scheduler.Clear();
+            if (reset != 0)
+            {
+                Scheduler.Clear();
+                _exceptionCounts.Clear();
+                _hasFault = false;
+            }
             else Scheduler.Tick(deltaTime);
             CheckUnload(collect: true);
         }
