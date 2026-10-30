@@ -307,7 +307,9 @@ public partial class Dasher : Script
 
 - **Defines:** `DEFINE_ME_HEADLESS`. Debug and Release keep `ME_TOOLS`, so scripts still build beside the exe, while `ME_IMGUI` and `ME_GAME_TOOLS` are off when headless.
 - **Window:** `Engine::Init` creates a `NullWindow` instead of an SDL window.
-- **Renderer:** runs bgfx's **Noop** backend (`RendererCreationSettings::Type`). Noop loads the platform's own shader binaries (`GetPlatformString`: spirv / metal / dx11) and draws nothing. Cameras, meshes and particles still go through their cores and are culled and sorted on the CPU.
+- **Renderer:** runs bgfx's **Noop** backend (`RendererCreationSettings::Type`). Noop loads the platform's own shader binaries (`GetPlatformString`: spirv / metal / dx11) and draws nothing.
+  - Frames only advance bgfx: no mesh/sprite command prep, particles, culling or passes (ME-286). LostTemple averages 6.0 ms a frame instead of 9.9, Playground 0.26 instead of 0.76.
+  - Cameras and terrain still update, since terrain streams its colliders.
 - **Pace:** with no display to wait on, a headless run caps itself at one frame per tick (`1 / FixedTimeStep`) unless `--max-fps` or the config's `MaxFrameRate` says otherwise.
 - **UI:** RmlUi gets no renderer, so it never builds a context: no documents load. Values set through `UI.Model` are kept, unread.
 - **Audio:** none. FMOD compiles out (`ME_FMOD` needs `!ME_HEADLESS`) and isn't linked or shipped (`CommonTarget.HasAudio`, ME-287): a dedicated server needs no `libfmod`.
@@ -440,7 +442,6 @@ The session starts after the scene loads, because the handshake hashes the scene
 - **UDP is IPv4 only** (a `NetAddress` is 64 bits).
   - On a multi-homed server bound to every interface, a reply can leave from another address than the one the client dialled, and the client then ignores it. Bind one address, or connect to the address it answers from.
   - There is no NAT traversal; Steam SDR (NET-9) brings that.
-- **Headless servers still prepare frames:** with Noop, cameras, culling and sorting run every frame on the CPU and draw nothing. A dedicated server could skip that work.
 - **Ticks follow the engine's fixed steps.** Don't give a server `--frame-time`: its ticks then follow frames rather than the clock, so any stall or speed-up shows up as client resyncs. Real-time servers step by the clock and catch up (`KeepsBacklog`).
 
 ## Related Docs

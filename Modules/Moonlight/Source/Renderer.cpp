@@ -149,6 +149,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
     );
 
     m_hasAssets = settings.InitAssets;
+    m_drawsNothing = settings.Type == bgfx::RendererType::Noop;
     if( settings.InitAssets )
     {
         EditorCameraBuffer = new Moonlight::FrameBuffer( init.swapChain.width, init.swapChain.height );
@@ -686,6 +687,14 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
     bgfx::setDebug( ( s_showStats ? BGFX_DEBUG_STATS : BGFX_DEBUG_TEXT ) | ( FrameStats::Get().DetailedGpuTimings ? BGFX_DEBUG_PROFILER : 0 ) );
     // Advance to next frame. Process submitted rendering primitives.
 
+    if( m_drawsNothing )
+    {
+        // Headless: no culling, clustering or passes for a backend that draws nothing. bgfx still
+        // advances, so deferred destroys and copied memory are released.
+        m_currentFrame = bgfx::frame();
+        inFrameData.m_currentFrame = m_currentFrame;
+        return;
+    }
     if( !m_hasAssets )
     {
         // A tool window (Tool, the Project Hub): nothing but ImGui to draw.

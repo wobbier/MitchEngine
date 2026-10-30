@@ -911,7 +911,9 @@ void Engine::Run()
                 SceneNodes->LateUpdate( updateContext );
                 Cameras->LateUpdate( updateContext );
                 AudioThread->LateUpdate( updateContext );
+#if !USING( ME_HEADLESS )
                 ModelRenderer->LateUpdate( updateContext );
+#endif
             }
 
             // Prepare commands after uploads and camera late updates: visibility and terrain
@@ -919,8 +921,12 @@ void Engine::Run()
             {
                 ME_FRAMEPROFILE_SCOPED( "ModelRenderer", ProfileCategory::Rendering );
                 ME_STAT_SCOPE( "Render Prep" );
+                // Terrain also streams its colliders: a server keeps that. Mesh, sprite and text
+                // commands are for drawing, which a dedicated server doesn't (ME-286).
                 Terrains->Update( updateContext );
+#if !USING( ME_HEADLESS )
                 ModelRenderer->Update( updateContext );
+#endif
             }
 
             // Render

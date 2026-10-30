@@ -502,6 +502,8 @@ private:
     bool NeedsReset = false;
     // Created with InitAssets (false for tool windows, which only draw ImGui).
     bool m_hasAssets = true;
+    // The Noop backend (headless servers): frames only advance bgfx, nothing is prepared (ME-286).
+    bool m_drawsNothing = false;
     uint32_t m_currentFrame = 0;
 
 #if USING( ME_ENABLE_RENDERDOC )

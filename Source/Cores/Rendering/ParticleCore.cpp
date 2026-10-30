@@ -22,6 +22,10 @@ ParticleCore::ParticleCore()
 
 void ParticleCore::Update( const UpdateContext& inUpdateContext )
 {
+#if USING( ME_HEADLESS )
+    // Particles are only ever drawn: a dedicated server doesn't simulate them (ME-286).
+    return;
+#endif
     OPTICK_CATEGORY( "ParticleCore::Update", Optick::Category::Rendering );
     Engine& engine = *inUpdateContext.GetSystem<Engine>();
     std::vector<Moonlight::ParticleBatch>& batches = engine.GetRenderer().GetParticleBatches();
