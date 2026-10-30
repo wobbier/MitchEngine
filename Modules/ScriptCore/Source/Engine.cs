@@ -51,12 +51,31 @@ public static partial class ScriptBridge
     private static readonly List<int> _handleOrder = new();
 
 
+    // The ABI this ScriptCore was generated against (ME-298): C++ compares it before binding.
+    [UnmanagedCallersOnly]
+    public static unsafe void GetEngineAPIHash(ulong* outHash)
+    {
+        if (outHash != null) *outHash = EngineAPIBindings.AbiHash;
+    }
+
     [UnmanagedCallersOnly]
     public static unsafe int SetEngineAPI(EngineAPIBindings* api, int size)
     {
         if (size != sizeof(EngineAPIBindings))
         {
             Console.WriteLine($"[ScriptBridge] SetEngineAPI: size mismatch (got {size}, expected {sizeof(EngineAPIBindings)})");
+            return -1;
+        }
+        // The structs that cross must have the layout C++ static_asserts (generated ScriptAbiLayout).
+        string? layout = sizeof(Entity) != ScriptAbiLayout.EntitySize ? "Entity"
+            : sizeof(Vector2) != ScriptAbiLayout.Vector2Size ? "Vector2"
+            : sizeof(Vector3) != ScriptAbiLayout.Vector3Size ? "Vector3"
+            : sizeof(Vector4) != ScriptAbiLayout.Vector4Size ? "Vector4"
+            : sizeof(RaycastHit) != ScriptAbiLayout.RaycastHitSize ? "RaycastHit"
+            : null;
+        if (layout != null)
+        {
+            Console.WriteLine($"[ScriptBridge] SetEngineAPI: {layout} doesn't have the layout the engine expects (ScriptAbiLayout)");
             return -1;
         }
         try

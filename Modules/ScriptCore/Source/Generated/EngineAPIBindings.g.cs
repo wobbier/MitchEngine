@@ -6,6 +6,9 @@ namespace ScriptCore;
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct EngineAPIBindings
 {
+    // The ABI both sides were generated from (C++: kScriptEngineAPIHash).
+    public const ulong AbiHash = 0x26EBB9907595A761UL;
+
     // Core
     public delegate* unmanaged<byte*, void> Log;
     public delegate* unmanaged<float> GetTime;
@@ -384,4 +387,14 @@ public unsafe struct EngineAPIBindings
     public delegate* unmanaged<Entity, int> Net_GetNetId;
     public delegate* unmanaged<int, Entity*, void> Net_FindEntity;
     public delegate* unmanaged<int*, int*, int*, void> Net_GetPredictionStats;
+}
+
+// The sizes C++ static_asserts for the structs that cross (checked when the API is bound).
+public static class ScriptAbiLayout
+{
+    public const int EntitySize = 8;
+    public const int Vector2Size = 8;
+    public const int Vector3Size = 12;
+    public const int Vector4Size = 16;
+    public const int RaycastHitSize = 36;
 }

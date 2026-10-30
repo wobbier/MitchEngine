@@ -288,7 +288,11 @@ It reports MEGEN004–010 for what it can't generate. The C# side is `Modules/Sc
 
 ## Caveats & Fragility
 
-- **The ABI guard is `sizeof` plus the generator.** The struct is append-only. Never hand-edit the generated files; `--check` catches drift between the manifest and the outputs.
+- **The ABI guard** (ME-298) has several layers:
+  - **Hash:** the generator hashes every slot's signature in order. `kScriptEngineAPIHash` in C++ and `EngineAPIBindings.AbiHash` in C# are compared when scripting starts (`ScriptBridge.GetEngineAPIHash`), so a stale ScriptCore.dll is refused with both hashes named.
+  - **Layout:** the sizes of the structs that cross (Entity, Vector2/3/4, RaycastHit and its field offsets) are `static_assert`ed in C++ and checked in C# (`ScriptAbiLayout`) when the API is bound.
+  - **Append-only:** add slots at the end. Never hand-edit the generated files; `--check` catches drift between the manifest and the outputs.
+- **Structs never come back by value:** manifest return types are `void` / `bool` / `int` / `float` / `double` only, and the generator refuses anything else. MSVC x64 returns a type with a constructor (EntityID) through a hidden pointer, so results go through out pointers. Structs passed by value as arguments must be trivially copyable.
 - **Script lookup is `Type.Name`**: two scripts with the same class name in different namespaces clash.
 - **Renames need `[FormerName]`.** A scene names its scripts by class name and their fields by field name. Renaming a script file in the asset browser renames its class and adds the `[FormerName]` itself when a scene or prefab still names the old class; renames made elsewhere need it by hand. Put `[FormerName("OldClass")]` on a renamed script class: scenes that name the old class create the new one, and `ScriptComponent` adopts the new name (logged) so the next save writes it. `[FormerName("oldField")]` on a field reads a value saved under the old key. `ScriptTest.lvl` / `RenameProbe.cs` exercise both in `ScriptFlows`.
 - **Handles are bare ints.** They stay stable across reloads, and `IsHandleAlive` validates them, but there is no generation counter.

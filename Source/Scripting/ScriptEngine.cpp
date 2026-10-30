@@ -61,13 +61,6 @@ using FnLoadGameAssembly = int  ( * )( const uint8_t* );
 using FnReloadGameAssembly = int  ( * )( const uint8_t* );
 using FnGetScriptCount = int  ( * )( );
 using FnGetScriptName = void ( * )( int, uint8_t*, int );
-using FnGetFieldCount = int  ( * )( const uint8_t* );
-using FnGetFieldInfo = void ( * )( const uint8_t*, int, uint8_t*, int, uint8_t*, int );
-using FnGetFieldValue = void ( * )( int, int, uint8_t*, int );
-using FnSetFieldValue = int  ( * )( int, int, const uint8_t* );
-using FnGetInstanceCount = int  ( * )( );
-using FnGetInstanceHandle = int  ( * )( int );
-using FnGetInstanceTypeName = void ( * )( int, uint8_t*, int );
 using FnCreateScript = int  ( * )( const uint8_t*, EntityID );
 using FnScriptOnStart = void ( * )( int );
 using FnScriptOnUpdate = void ( * )( int, float );
@@ -75,10 +68,7 @@ using FnScriptOnFixedUpdate = void ( * )( int, float );
 using FnScriptOnLateUpdate = void ( * )( int, float );
 using FnScriptGetSchedule = int ( * )( int, int* );
 using FnScriptOnDestroy = void ( * )( int );
-using FnGetMethodCount = int  ( * )( const uint8_t* );
-using FnGetMethodName = void ( * )( const uint8_t*, int, uint8_t*, int );
 using FnSetEngineAPI = int  ( * )( const ScriptEngineAPI*, int );
-using FnRestoreScript = int  ( * )( const uint8_t*, int );
 using FnOnEditorInspect = void  ( * )( int );
 using FnGetFieldsJson = int ( * )( int, uint8_t*, int );
 using FnIsHandleAlive = int ( * )( int );
@@ -92,13 +82,6 @@ struct ScriptAPI
     FnReloadGameAssembly  ReloadGameAssembly = nullptr;
     FnGetScriptCount      GetScriptCount = nullptr;
     FnGetScriptName       GetScriptName = nullptr;
-    FnGetFieldCount       GetFieldCount = nullptr;
-    FnGetFieldInfo        GetFieldInfo = nullptr;
-    FnGetFieldValue       GetFieldValue = nullptr;
-    FnSetFieldValue       SetFieldValue = nullptr;
-    FnGetInstanceCount    GetInstanceCount = nullptr;
-    FnGetInstanceHandle   GetInstanceHandle = nullptr;
-    FnGetInstanceTypeName GetInstanceTypeName = nullptr;
     FnCreateScript        CreateScript = nullptr;
     FnScriptOnStart       ScriptOnStart = nullptr;
     FnScriptOnUpdate      ScriptOnUpdate = nullptr;
@@ -106,10 +89,7 @@ struct ScriptAPI
     FnScriptOnLateUpdate  ScriptOnLateUpdate = nullptr;
     FnScriptGetSchedule   ScriptGetSchedule = nullptr;
     FnScriptOnDestroy     ScriptOnDestroy = nullptr;
-    FnGetMethodCount      GetMethodCount = nullptr;
-    FnGetMethodName       GetMethodName = nullptr;
     FnSetEngineAPI        SetEngineAPI = nullptr;
-    FnRestoreScript       RestoreScript = nullptr;
     FnOnEditorInspect     ScriptOnEditorInspect = nullptr;
     FnGetFieldsJson       GetFieldsJson = nullptr;
     FnGetFieldsJson       GetSaveFieldsJson = nullptr;
@@ -129,6 +109,8 @@ struct ScriptAPI
     void ( *NetReadReplicated )( int, const uint8_t*, int, int ) = nullptr;
     void ( *NetDispatchRpc )( int, int, const uint8_t*, int ) = nullptr;
     void ( *NetSchemaHash )( uint64_t* ) = nullptr;
+    // The ABI hash C# was built against (ME-298; optional so an older ScriptCore still loads).
+    void ( *GetEngineAPIHash )( uint64_t* ) = nullptr;
 
     bool IsValid() const
     {
@@ -176,16 +158,7 @@ static bool LoadAPI( ScriptHost& inHost, const std::string& inCoreDll, ScriptAPI
     inHost.LoadFunction( inCoreDll, bridgeType, "NetReadReplicated", (void**)&outApi.NetReadReplicated );
     inHost.LoadFunction( inCoreDll, bridgeType, "NetDispatchRpc", (void**)&outApi.NetDispatchRpc );
     inHost.LoadFunction( inCoreDll, bridgeType, "NetSchemaHash", (void**)&outApi.NetSchemaHash );
-    //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetFieldCount",       (void**)&outApi.GetFieldCount );
-    //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetFieldInfo",        (void**)&outApi.GetFieldInfo );
-    //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetFieldValue",       (void**)&outApi.GetFieldValue );
-    //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "SetFieldValue",       (void**)&outApi.SetFieldValue );
-    //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetInstanceCount",    (void**)&outApi.GetInstanceCount );
-    //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetInstanceHandle",   (void**)&outApi.GetInstanceHandle );
-    //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetInstanceTypeName", (void**)&outApi.GetInstanceTypeName );
-    //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetMethodCount",      (void**)&outApi.GetMethodCount );
-    //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetMethodName",       (void**)&outApi.GetMethodName );
-    //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "RestoreScript",       (void**)&outApi.RestoreScript );
+    inHost.LoadFunction( inCoreDll, bridgeType, "GetEngineAPIHash", (void**)&outApi.GetEngineAPIHash );
     return ok;
 }
 
@@ -507,9 +480,25 @@ static int StartRuntime()
             return 1;
         }
     }
+    // Same manifest on both sides? A stale ScriptCore.dll beside a newer executable would otherwise
+    // call slots with the wrong signatures (ME-298).
+    if( gDotnetAPI.GetEngineAPIHash )
+    {
+        uint64_t managedHash = 0;
+        gDotnetAPI.GetEngineAPIHash( &managedHash );
+        if( managedHash != kScriptEngineAPIHash )
+        {
+            YIKES_NEW( "Script API mismatch: the engine was built against {:016X}, ScriptCore.dll against {:016X}; rebuild ScriptCore (Engine/Tools/GenerateScriptAPI.py)", kScriptEngineAPIHash, managedHash );
+            return 1;
+        }
+    }
+    else
+    {
+        BRUH( "ScriptCore.dll has no GetEngineAPIHash (older than the engine): the script ABI isn't checked" );
+    }
     if( gDotnetAPI.SetEngineAPI( &engineApi, sizeof( engineApi ) ) != 0 )
     {
-        YIKES( "C# rejected our engine API, size mismatch? check EngineAPI vs EngineAPIBindings" );
+        YIKES( "C# rejected our engine API (size or struct layout mismatch: see the [ScriptBridge] line above)" );
         return 1;
     }
 
