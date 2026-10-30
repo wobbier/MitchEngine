@@ -51,9 +51,13 @@ public:
     // An action's button bit, or -1 (not networked, or not a button).
     int GetActionIndex( const std::string& InAction ) const;
     void SetActionOverride( int InIndex, bool InHeld );
+    // The local player's absolute aim (NET-15, C#'s Net.SetAim), sent with every command until
+    // cleared: degrees, InputCommand's convention.
+    void SetAim( float InYaw, float InPitch );
+    void ClearAim() { m_hasAim = false; }
     // Whether any action is networked: then the engine samples the local command every tick
     // (otherwise a C++ game's own NetCore::SetLocalCommand stands).
-    bool HasCommandLayout() const { return !m_commandSlots.empty() || m_overrides != 0; }
+    bool HasCommandLayout() const { return !m_commandSlots.empty() || m_overrides != 0 || m_hasAim; }
     // The layout as a hash, for the handshake.
     uint64_t GetCommandSchema() const { return m_commandSchema; }
 
@@ -77,6 +81,9 @@ private:
     };
     std::vector<CommandSlot> m_commandSlots;
     uint32_t m_overrides = 0;
+    bool m_hasAim = false;
+    float m_yaw = 0.f;
+    float m_pitch = 0.f;
     uint64_t m_commandSchema = 0;
     // What was last logged, so changes log once.
     int m_lastState = -1;

@@ -4,6 +4,7 @@
 #include "Core/CommandLine.h"
 #include "Cores/NetCore.h"
 #include "JSON.h"
+#include "Net/NetCommands.h"
 #include "Net/NetTransport.h"
 #include "Net/NetVersion.h"
 #include "Net/UdpTransport.h"
@@ -13,6 +14,7 @@
 #include "Scripting/ScriptNet.h"
 #endif
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -275,6 +277,10 @@ void NetLaunch::SampleCommand( const Input& InInput, InputCommand& OutCommand ) 
 {
     OutCommand.Buttons = m_overrides;
     OutCommand.Axes = {};
+    // Quantized here, so the client predicts with exactly the aim the server will read.
+    OutCommand.HasAim = m_hasAim;
+    OutCommand.Yaw = m_hasAim ? NetCommands::QuantizeYaw( m_yaw ) : 0.f;
+    OutCommand.Pitch = m_hasAim ? NetCommands::QuantizePitch( m_pitch ) : 0.f;
     for( const CommandSlot& slot : m_commandSlots )
     {
         const InputActionState& state = InInput.GetAction( slot.Action );
@@ -318,6 +324,18 @@ void NetLaunch::SetActionOverride( int InIndex, bool InHeld )
     }
     const uint32_t bit = 1u << InIndex;
     m_overrides = InHeld ? ( m_overrides | bit ) : ( m_overrides & ~bit );
+}
+
+
+void NetLaunch::SetAim( float InYaw, float InPitch )
+{
+    if( !std::isfinite( InYaw ) || !std::isfinite( InPitch ) )
+    {
+        return;
+    }
+    m_hasAim = true;
+    m_yaw = InYaw;
+    m_pitch = std::clamp( InPitch, -90.f, 90.f );
 }
 
 

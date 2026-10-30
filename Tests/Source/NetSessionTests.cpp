@@ -76,6 +76,74 @@ TEST_CASE( "Net: commands delta-code and round-trip, gaps and all" )
     CHECK( buffer.GetBuffered() == 0 );
 }
 
+TEST_CASE( "Net: aim rides commands to 0.0055 degrees, wraps, clamps, and costs two bits while it holds (NET-15)" )
+{
+    // Quantization: yaw wraps into [0, 360), pitch clamps to [-90, 90], both within 0.01 degrees.
+    for( float yaw : { 0.f, 12.345f, 179.99f, 359.997f, -30.f, 725.f } )
+    {
+        const float wrapped = yaw - 360.f * std::floor( yaw / 360.f );
+        const float back = NetCommands::QuantizeYaw( yaw );
+        CHECK( back >= 0.f );
+        CHECK( back < 360.f );
+        const float error = std::abs( back - wrapped );
+        CHECK( std::min( error, 360.f - error ) < 0.01f );
+    }
+    CHECK( NetCommands::QuantizePitch( 37.5f ) == doctest::Approx( 37.5f ).epsilon( 0.0003 ) );
+    CHECK( NetCommands::QuantizePitch( 120.f ) == doctest::Approx( 90.f ) );
+    CHECK( NetCommands::QuantizePitch( -120.f ) == doctest::Approx( -90.f ) );
+
+    // A turn, a hold, aim dropped and picked up again: all round-trip exactly (quantized).
+    std::vector<InputCommand> commands;
+    for( uint32_t tick = 200; tick < 216; ++tick )
+    {
+        InputCommand command;
+        command.Tick = tick;
+        for( float& axis : command.Axes )
+        {
+            axis = NetCommands::QuantizeAxis( axis );   // as the server will see it
+        }
+        command.HasAim = tick < 210 || tick > 212;
+        if( command.HasAim )
+        {
+            const float turn = tick < 205 ? ( tick - 200 ) * 7.5f : 30.f;    // turns, then holds
+            command.Yaw = NetCommands::QuantizeYaw( 350.f + turn );
+            command.Pitch = NetCommands::QuantizePitch( -10.f + turn * 0.1f );
+        }
+        commands.push_back( command );
+    }
+    BitWriter writer;
+    NetCommands::Write( writer, commands.data(), commands.size() );
+    BitReader reader( writer.GetBytes() );
+    std::vector<InputCommand> back;
+    REQUIRE( NetCommands::Read( reader, back ) );
+    REQUIRE( back.size() == commands.size() );
+    for( size_t i = 0; i < commands.size(); ++i )
+    {
+        CAPTURE( i );
+        CHECK( back[i].HasAim == commands[i].HasAim );
+        CHECK( back[i].Yaw == commands[i].Yaw );
+        CHECK( back[i].Pitch == commands[i].Pitch );
+        CHECK( back[i] == commands[i] );
+    }
+    CHECK( back[5].Yaw == doctest::Approx( 20.f ).epsilon( 0.001 ) );     // 350 + 30 wrapped
+
+    // A held aim costs two flag bits per command (no aim: one), plus its 32 bits once.
+    std::vector<InputCommand> held( 16 );
+    std::vector<InputCommand> none( 16 );
+    for( uint32_t i = 0; i < 16; ++i )
+    {
+        held[i].Tick = none[i].Tick = 300 + i;
+        held[i].HasAim = true;
+        held[i].Yaw = NetCommands::QuantizeYaw( 90.f );
+    }
+    BitWriter heldWriter;
+    BitWriter noneWriter;
+    NetCommands::Write( heldWriter, held.data(), held.size() );
+    NetCommands::Write( noneWriter, none.data(), none.size() );
+    CHECK( heldWriter.GetBitCount() - noneWriter.GetBitCount() == 32 + 16 );
+}
+
+
 TEST_CASE( "Net: the client clock dilates towards the target slack and resyncs when far off" )
 {
     NetClock clock;

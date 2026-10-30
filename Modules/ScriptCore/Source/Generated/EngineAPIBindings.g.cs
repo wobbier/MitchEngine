@@ -7,7 +7,7 @@ namespace ScriptCore;
 public unsafe struct EngineAPIBindings
 {
     // The ABI both sides were generated from (C++: kScriptEngineAPIHash).
-    public const ulong AbiHash = 0x17023FBE0AD8B88CUL;
+    public const ulong AbiHash = 0x724EA93B295D7D04UL;
 
     // Core
     public delegate* unmanaged<byte*, void> Log;
@@ -397,6 +397,10 @@ public unsafe struct EngineAPIBindings
     public delegate* unmanaged<Entity, Vector3*, Vector3*, float, Entity*, Vector3*, int*, byte> Net_LagCompensatedRaycast;
     public delegate* unmanaged<Entity, double> Net_GetCommandViewTick;
     public delegate* unmanaged<int, float> Net_GetRoundTripMs;
+
+    // Aim in commands (NET-15): degrees; yaw about +Y (0 down +Z, 90 down +X), pitch up from level
+    public delegate* unmanaged<byte, float, float, void> Net_SetAim;
+    public delegate* unmanaged<Entity, float*, float*, byte> Net_GetCommandAim;
 }
 
 // The sizes C++ static_asserts for the structs that cross (checked when the API is bound).

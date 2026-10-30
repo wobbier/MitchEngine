@@ -47,7 +47,7 @@ The editor tooling (NET-7) comes next.
 | `Source/Net/NetTransport.h` | `INetTransport` (datagrams between `NetAddress`es). `LoopbackNetwork` + `LoopbackTransport` join worlds in one process. `ConditionedTransport` wraps any transport with `NetConditions` |
 | `Source/Net/NetConnection.h` | `NetConnection`, one end of a link, and `NetStats` |
 | `Source/Net/NetVersion.h` | What both sides must agree on: protocol, build (product name and version), C# script classes, mod set (the net-required mods, sent as `id@version` so a rejection lists the differences; MOD-3, protocol 5), placed entities (sorted GUIDs). FNV-1a hashes, the same on every platform |
-| `Source/Net/NetCommands.h` | `InputCommand` (tick, buttons, 4 axes at 16 bits), delta-coded lists of up to 16, and `NetCommandBuffer`, the server's per-client queue |
+| `Source/Net/NetCommands.h` | `InputCommand` (tick, buttons, 4 axes at 16 bits, view tick, optional absolute aim: yaw and pitch at 16 bits each), delta-coded lists of up to 16, and `NetCommandBuffer`, the server's per-client queue |
 | `Source/Net/NetClock.h` | The client's command-frame clock: adaptive target slack (NET-14), dilation up to ±5%, a resync beyond 8 ticks |
 | `Source/Net/NetSession.h` | `NetServer` and `NetClient`: the handshake, commands up, and server reports down |
 | `Source/Components/Networking/NetIdentity.h` | Marks an entity networked: NetId, owner, the prefab clients spawn |
@@ -303,6 +303,10 @@ public partial class Dasher : Script
 ### Lag compensation (NET-8)
 
 - **View tick:** each client command carries `ViewTick`, the render tick of its interpolated view when the command was made. It goes on the wire as how far behind the command's tick it was, in 1/64 ticks.
+- **Aim (NET-15, protocol 6):** a command can carry the player's absolute aim, `HasAim` + `Yaw` (degrees about +Y; 0 looks down +Z, 90 down +X; wrapped to [0, 360)) + `Pitch` (up from level, clamped to ±90). Each is 16 bits (yaw to 0.0055°), sent only when it changes: a held aim costs two bits a command.
+  - **Why absolute:** the server aims a shot exactly where the client's view did, and a lost command can't drift it, unlike mouse deltas clamped into the ±1 axes.
+  - **Sampling:** C#'s `Net.SetAim( yaw, pitch )` (NetLaunch, until `Net.ClearAim`) puts it in every command, quantized as the server will read it, so the client predicts with the same value.
+  - **Reading it:** `Net.Command( e ).Yaw` / `Pitch` / `AimDirection` on both sides. Aim is input, not state: a pawn script that turns or shoots from it in `OnFixedUpdate` predicts it with nothing to correct. Remote players see the turn through the replicated pose.
 - **Recording:** after each server tick, `NetLagCompensation::Record` stores every `NetHitbox`'s world pose: a capsule along local Y (Height, Radius) or a box (HalfExtents), around a local Center.
 - **The shot:** a server command handler calls `NetCore::LagCompensatedRaycast( origin, direction, range, command, shooter )`.
   1. The hitboxes are interpolated to the command's view tick.
@@ -320,7 +324,6 @@ public partial class Dasher : Script
   - **On the server:** it is `LagCompensatedRaycast` with the shooter's current command, so `Rewound` is set. A shooter without a command is judged at the newest recorded tick.
   - **On a client, or offline:** it is `NetCore::PresentRaycast`, the hitboxes where that peer shows them now. That is the predicted hit, for impact FX; only the server's counts.
   - **Also exposed:** `Net.Command(e).ViewTick`, `Net.RoundTripMs` (a client's) and `Net.RoundTripMsTo(clientId)` (the server's, per client).
-  - **Not yet:** aim in the command. The direction is whatever the script computes; the command carries no yaw or pitch.
 - **Overlays:** with `DrawOverlays`, each shot draws the ray (green on a hit, red otherwise), the rewound hitboxes in yellow and the present ones in gray, for 2 s.
 
 ### UDP and dedicated servers (NET-5)
@@ -402,7 +405,7 @@ The session starts after the scene loads, because the handshake hashes the scene
 - **Bit stream:** round-trips widths of 1–32 bits, VarUInt up to 2⁶⁴−1, float bits, bytes and strings. It flags truncation and refuses a hostile string length.
 - **Quantization:** floats at 4, 10, 16 and 24 bits come back within half a step, vectors at 20 bits, and 500 random rotations at 12 bits (|dot| > 0.99999).
 - **Reliable under a bad link:** 600 messages one way and 150 the other, over 40 ms ± 15 ms with 20% loss, 10% duplicates and 10% reordering, arrive complete, in order and once. Unreliable messages arrive at most once (most of them). The loss estimate reads 10–32%.
-- **Commands (`NetSessionTests.cpp`):** delta-coded lists round-trip, including a resync's tick gap. The server buffer serves, repeats, and ignores late copies.
+- **Commands (`NetSessionTests.cpp`):** delta-coded lists round-trip, including a resync's tick gap. The server buffer serves, repeats, and ignores late copies. Aim (NET-15) quantizes within 0.01° (yaw wraps, pitch clamps), round-trips through a turn, a hold and a dropped-then-resumed aim, and a held aim costs two bits a command plus its 32 bits once.
 - **Clock:** dilates towards the target, caps at 5%, resyncs when 13 ticks off, and ignores the next stale report.
 - **Two worlds, the NET-2 done-when:** 60 s at 50 ± 10 ms each way (100 ± 20 ms RTT) with 5% loss. All 3600 commands arrived on time, ≥ 99.9% required. Worst slack error 0.82 tick (≤ 1), worst dilation 1.6% (≤ 5%), no resyncs. The server simulated exactly the client's commands. After the link slows by 60 ms each way, the slack is back within 1 tick in 10 s.
 - **Replication (`NetReplicationTests.cpp`):**
@@ -430,6 +433,7 @@ The session starts after the scene loads, because the handshake hashes the scene
     - the other 10 were correctly blocked by a wall;
     - 2 hit without rewind, near the target's turnaround;
     - all 60 forged views 30 ticks further back were rejected (NET-15: now judged at the cap instead).
+  - **Aim in the command (NET-15), at 150 ms RTT:** the client turns its view onto the strafing target where it shows it, sending absolute yaw and pitch. The server shoots along each command's aim: 60 of 60 shots hit, with the server's aim equal to the client's to the bit.
   - **Present view (NET-15):** a client's `PresentRaycast` hits its hitbox where it shows it, with no rewind, and misses 2 m to the side. At 50 ms each way, both ends' `GetRoundTripMs` read about 117 ms.
 - **Handshake:** another build is rejected (`"version mismatch: build"`) and the server lets it go; so is another scene (`"version mismatch: scene"`); a match connects.
 - **UDP and session endings (`NetUdpTests.cpp`):**
@@ -451,7 +455,7 @@ The session starts after the scene loads, because the handshake hashes the scene
     - The client presses Dash through `Net.Press`, predicts the dash, and pings.
     - The server logs **"ServerRpc ok"**. The client logs **"ClientRpc ok"**, **"Replicated ok"** and **"dash: 0 corrections"**, only once the server-confirmed `Dashes` is 1.
     - It passes on a clean link and at 40 ms + 2% loss each way (RTT 115 ms).
-    - **NET-15:** the dash also fires a shot ahead at "NetProbe Target", a `NetHitbox`. The server logs **"lag-compensated hit"** (judged about 10 ticks back at the owner's view). The owner logs **"predicted hit"** from its present-view ray, with its RTT and **"predict impacts True"**.
+    - **NET-15:** the dash also fires a shot at "NetProbe Target", a `NetHitbox` 3 m off to the side, along the aim the owner sends with `Net.SetAim`. The server logs **"lag-compensated hit (aim yaw 26.565"** (judged about 10 ticks back at the owner's view). The owner logs **"predicted hit (aim yaw 26.565"** from its present-view ray, with its RTT and **"predict impacts True"**.
 - **The NET-5 done-when (`RunNetSmoke.py`):** the Server build and a client on NetTest.lvl over localhost UDP for 900 client frames (about 15 s).
   - **Clean link:** connected, 0 timeouts, 0 resyncs, 60.06 snapshots/s at 60 Hz (±5% required). The client left cleanly and the server exited by itself. The capture matches its reference exactly (0.00%).
   - **Lossy link:** with `--net-lag 40 --net-jitter 5 --net-loss 2%` on both sides: RTT 111 ms, 59.08 snapshots/s, 0 timeouts, the same capture.

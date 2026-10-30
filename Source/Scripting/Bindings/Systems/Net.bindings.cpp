@@ -258,6 +258,38 @@ static float Eng_Net_GetRoundTripMs( int clientId ) noexcept
 }
 
 
+static void Eng_Net_SetAim( bool has, float yaw, float pitch ) noexcept
+{
+    if( has )
+    {
+        GetEngine().GetNetLaunch().SetAim( yaw, pitch );
+    }
+    else
+    {
+        GetEngine().GetNetLaunch().ClearAim();
+    }
+}
+
+
+static bool Eng_Net_GetCommandAim( EntityID id, float* outYaw, float* outPitch ) noexcept
+{
+    NetCore* net = Net();
+    EntityHandle entity = MakeHandle( id );
+    InputCommand command;
+    InputCommand previous;
+    const bool found = net && entity && net->GetCommand( *entity.Get(), command, previous ) && command.HasAim;
+    if( outYaw )
+    {
+        *outYaw = found ? command.Yaw : 0.f;
+    }
+    if( outPitch )
+    {
+        *outPitch = found ? command.Pitch : 0.f;
+    }
+    return found;
+}
+
+
 void Register_NetBindings( ScriptEngineAPI& inAPI )
 {
     inAPI.Net_GetRole = &Eng_Net_GetRole;
@@ -278,6 +310,8 @@ void Register_NetBindings( ScriptEngineAPI& inAPI )
     inAPI.Net_LagCompensatedRaycast = &Eng_Net_LagCompensatedRaycast;
     inAPI.Net_GetCommandViewTick = &Eng_Net_GetCommandViewTick;
     inAPI.Net_GetRoundTripMs = &Eng_Net_GetRoundTripMs;
+    inAPI.Net_SetAim = &Eng_Net_SetAim;
+    inAPI.Net_GetCommandAim = &Eng_Net_GetCommandAim;
 }
 
 #endif

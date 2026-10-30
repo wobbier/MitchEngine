@@ -5,9 +5,11 @@
 #include "Components/Physics/Colliders.h"
 #include "Core/UpdateContext.h"
 #include "Cores/PhysicsCore.h"
+#include "Net/NetCommands.h"
 #include "Net/NetLagCompensation.h"
 #include "NetHarness.h"
 #include <cmath>
+#include <map>
 
 namespace NetLagTest
 {
@@ -419,4 +421,83 @@ TEST_CASE( "Net: a client's present-view raycast tests its hitboxes where it sho
     CHECK( net.ClientNet.GetRoundTripMs() == doctest::Approx( 100.f ).epsilon( 0.25 ) );
     CHECK( net.ServerNet.GetRoundTripMs( 1 ) == doctest::Approx( 100.f ).epsilon( 0.25 ) );
     CHECK( net.ServerNet.GetRoundTripMs( 9 ) == 0.f );
+}
+
+
+TEST_CASE( "Net: at 150 ms a client aiming with its command's yaw and pitch hits a strafing target; the server's aim is the client's to the bit (NET-15)" )
+{
+    PhysicsCore physics;
+    Harness net( Link( 75.f, 5.f, 71 ), Link( 75.f, 5.f, 72 ) );
+    net.ServerWorld->AddCore( physics );
+    net.Place( 0x7A26E9 );     // the target, mirrored to the client
+    net.Place( 0x5401 );       // the shooter, owned by the client
+    EntityHandle target;
+    EntityHandle shooter;
+    EntityHandle clientTarget;
+    net.ServerWorld->ForEachEntity( [&]( Entity& InEntity ) {
+        if( InEntity.GetGUID() == 0x7A26E9 ) target = net.ServerWorld->GetEntity( InEntity.GetId() );
+        if( InEntity.GetGUID() == 0x5401 ) shooter = net.ServerWorld->GetEntity( InEntity.GetId() );
+    } );
+    net.ClientWorld->ForEachEntity( [&]( Entity& InEntity ) {
+        if( InEntity.GetGUID() == 0x7A26E9 ) clientTarget = net.ClientWorld->GetEntity( InEntity.GetId() );
+    } );
+    NetHitbox& hitbox = target->AddComponent<NetHitbox>();
+    hitbox.Radius = 0.4f;
+    hitbox.Height = 1.8f;
+    shooter->GetComponent<Transform>().SetPosition( Vector3( 0.f, 1.f, -10.f ) );
+    shooter->GetComponent<NetIdentity>().SetOwner( 1 );
+    net.ServerWorld->Simulate();
+    net.ServerWorld->Start();
+
+    // The client turns its view onto the target where it shows it (as a mouse would) and fires
+    // every 20 ticks; the aim travels as absolute yaw / pitch, nothing in the axes.
+    const Vector3 muzzle( 0.f, 1.f, -10.f );
+    std::map<uint32_t, std::pair<float, float>> sent;
+    net.MakeCommand = [&]( uint32_t InTick ) {
+        InputCommand command;
+        const Vector3 to = clientTarget->GetComponent<Transform>().GetWorldPosition() + Vector3( 0.f, 0.3f, 0.f ) - muzzle;
+        command.HasAim = true;
+        command.Yaw = std::atan2( to.x, to.z ) * 180.f / 3.14159265f;
+        command.Pitch = std::atan2( to.y, std::sqrt( to.x * to.x + to.z * to.z ) ) * 180.f / 3.14159265f;
+        command.Buttons = InTick % 20 == 0 ? 2u : 0u;
+        sent[InTick] = { NetCommands::QuantizeYaw( command.Yaw ), NetCommands::QuantizePitch( command.Pitch ) };
+        return command;
+    };
+    int shots = 0;
+    int hits = 0;
+    int sameAim = 0;
+    net.ServerNet.SetCommandHandler( [&]( Entity& InShooter, const InputCommand& InCommand ) {
+        if( !( InCommand.Buttons & 2u ) || InCommand.ViewTick < 0.0 || !InCommand.HasAim )
+        {
+            return;
+        }
+        const float yaw = InCommand.Yaw * 3.14159265f / 180.f;
+        const float pitch = InCommand.Pitch * 3.14159265f / 180.f;
+        const Vector3 direction( std::sin( yaw ) * std::cos( pitch ), std::sin( pitch ), std::cos( yaw ) * std::cos( pitch ) );
+        const LagCompensatedHit hit = net.ServerNet.LagCompensatedRaycast( muzzle, direction, 100.f, InCommand, net.ServerWorld->GetEntity( InShooter.GetId() ) );
+        ++shots;
+        hits += hit.Hit && hit.Entity == target ? 1 : 0;
+        auto client = sent.find( InCommand.Tick );
+        sameAim += client != sent.end() && client->second.first == InCommand.Yaw && client->second.second == InCommand.Pitch ? 1 : 0;
+    } );
+    net.OnServerTick = [&]( NetServer& InServer ) {
+        target->GetComponent<Transform>().SetPosition( TargetAt( InServer.GetTick() ) + Vector3( 0.f, 0.f, 10.f ) );
+        TestContext context;
+        context.FixedDeltaTime = 1.f / 60.f;
+        context.InterpolationAlpha = 1.f;
+        net.ServerWorld->Simulate();
+        context.IsFixedStepActive = true;
+        physics.FixedUpdate( context );
+        context.IsFixedStepActive = false;
+        physics.Update( context );
+    };
+    net.Start();
+    net.Run( 2.0 );
+    shots = hits = sameAim = 0;
+    net.Run( 20.0 );
+
+    MESSAGE( shots << " shots aimed by the command: " << hits << " hit, " << sameAim << " with the client's aim to the bit" );
+    REQUIRE( shots >= 50 );
+    CHECK( hits * 100 >= shots * 95 );
+    CHECK( sameAim == shots );
 }

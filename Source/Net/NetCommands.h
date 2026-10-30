@@ -19,6 +19,13 @@ struct InputCommand
     // The (fractional) server tick the player was looking at when making it: its interpolated
     // view's render tick (lag compensation, NET-8). < 0: none. 1/64 tick on the wire.
     double ViewTick = -1.0;
+    // The player's absolute aim (NET-15), in degrees: Yaw about +Y, 0 looking down +Z and 90 down
+    // +X, in [0, 360); Pitch up from level, in [-90, 90]. 16 bits each on the wire (yaw to
+    // 0.0055 degrees), sent only when it changes. Absolute, not deltas: the server aims a shot
+    // exactly where the client's view did, and a lost command can't drift it.
+    bool HasAim = false;
+    float Yaw = 0.f;
+    float Pitch = 0.f;
 
     bool operator==( const InputCommand& InOther ) const;
 };
@@ -31,6 +38,9 @@ namespace NetCommands
 
     // An axis as the server will see it (clients predict with the same value).
     float QuantizeAxis( float InValue );
+    // An aim as the server will see it (clients predict with the same value).
+    float QuantizeYaw( float InDegrees );
+    float QuantizePitch( float InDegrees );
     // A view tick as the server will see it.
     double QuantizeViewTick( uint32_t InTick, double InViewTick );
 

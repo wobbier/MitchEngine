@@ -8,6 +8,23 @@
 namespace
 {
     constexpr int kAxisBits = 16;
+    constexpr int kAimBits = 16;
+
+    uint32_t QuantizeYawBits( float InDegrees )
+    {
+        const double wrapped = InDegrees - 360.0 * std::floor( InDegrees / 360.0 );
+        return static_cast<uint32_t>( std::llround( wrapped / 360.0 * ( 1 << kAimBits ) ) ) & ( ( 1u << kAimBits ) - 1u );
+    }
+
+    float YawFromBits( uint32_t InBits )
+    {
+        return static_cast<float>( InBits * 360.0 / ( 1 << kAimBits ) );
+    }
+
+    uint32_t QuantizePitchBits( float InDegrees )
+    {
+        return NetQuantize::Quantize( std::clamp( InDegrees, -90.f, 90.f ), -90.f, 90.f, kAimBits );
+    }
     // A buffered command this far past the newest one is from a client that lost its mind.
     constexpr uint32_t kMaxAhead = 256;
 }
@@ -15,7 +32,20 @@ namespace
 
 bool InputCommand::operator==( const InputCommand& InOther ) const
 {
-    return Tick == InOther.Tick && Buttons == InOther.Buttons && Axes == InOther.Axes && ViewTick == InOther.ViewTick;
+    return Tick == InOther.Tick && Buttons == InOther.Buttons && Axes == InOther.Axes && ViewTick == InOther.ViewTick
+        && HasAim == InOther.HasAim && ( !HasAim || ( Yaw == InOther.Yaw && Pitch == InOther.Pitch ) );
+}
+
+
+float NetCommands::QuantizeYaw( float InDegrees )
+{
+    return YawFromBits( QuantizeYawBits( InDegrees ) );
+}
+
+
+float NetCommands::QuantizePitch( float InDegrees )
+{
+    return NetQuantize::Dequantize( QuantizePitchBits( InDegrees ), -90.f, 90.f, kAimBits );
 }
 
 
@@ -73,6 +103,20 @@ void NetCommands::Write( BitWriter& InWriter, const InputCommand* InCommands, si
             const double behind = std::clamp( static_cast<double>( command.Tick ) - command.ViewTick, 0.0, 1023.0 );
             InWriter.WriteBits( static_cast<uint32_t>( std::lround( behind * 64.0 ) ), 16 );
         }
+        // Aim (NET-15): present, then changed since the previous command, then yaw and pitch.
+        InWriter.WriteBool( command.HasAim );
+        if( command.HasAim )
+        {
+            const uint32_t yaw = QuantizeYawBits( command.Yaw );
+            const uint32_t pitch = QuantizePitchBits( command.Pitch );
+            const bool changed = i == 0 || !previous.HasAim || yaw != QuantizeYawBits( previous.Yaw ) || pitch != QuantizePitchBits( previous.Pitch );
+            InWriter.WriteBool( changed );
+            if( changed )
+            {
+                InWriter.WriteBits( yaw, kAimBits );
+                InWriter.WriteBits( pitch, kAimBits );
+            }
+        }
         previous = command;
     }
 }
@@ -106,6 +150,16 @@ bool NetCommands::Read( BitReader& InReader, std::vector<InputCommand>& OutComma
             }
         }
         command.ViewTick = InReader.ReadBool() ? static_cast<double>( command.Tick ) - InReader.ReadBits( 16 ) / 64.0 : -1.0;
+        command.HasAim = InReader.ReadBool();
+        if( !command.HasAim )
+        {
+            command.Yaw = command.Pitch = 0.f;
+        }
+        else if( InReader.ReadBool() )
+        {
+            command.Yaw = YawFromBits( InReader.ReadBits( kAimBits ) );
+            command.Pitch = NetQuantize::Dequantize( InReader.ReadBits( kAimBits ), -90.f, 90.f, kAimBits );
+        }
         OutCommands.push_back( command );
         previous = command;
     }

@@ -670,6 +670,8 @@ void NetCore::BeginTick()
                 axis = NetCommands::QuantizeAxis( axis );
             }
             quantized.ViewTick = NetCommands::QuantizeViewTick( m_tick, quantized.ViewTick );
+            quantized.Yaw = quantized.HasAim ? NetCommands::QuantizeYaw( quantized.Yaw ) : 0.f;
+            quantized.Pitch = quantized.HasAim ? NetCommands::QuantizePitch( quantized.Pitch ) : 0.f;
             m_predictor->Apply( quantized );
         }
     }

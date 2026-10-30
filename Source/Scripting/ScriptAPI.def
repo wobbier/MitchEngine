@@ -387,3 +387,6 @@ void Input_ClearSimulatedKeys()
 bool Net_LagCompensatedRaycast( Entity shooter, const Vector3* origin, const Vector3* direction, float range, Entity* outEntity, Vector3* outPoint, int* outFlags )
 double Net_GetCommandViewTick( Entity id )
 float Net_GetRoundTripMs( int clientId )
+## Aim in commands (NET-15): degrees; yaw about +Y (0 down +Z, 90 down +X), pitch up from level
+void Net_SetAim( bool has, float yaw, float pitch )
+bool Net_GetCommandAim( Entity id, float* outYaw, float* outPitch )

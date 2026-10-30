@@ -13,6 +13,20 @@ public struct NetCommand
     // The (fractional) server tick the owner's view showed when it sent this command (NET-8);
     // Net.LagCompensatedRaycast rewinds to it. -1 without one.
     public double ViewTick;
+    // The owner's absolute aim when it sent this command (NET-15; Net.SetAim), in degrees: Yaw about
+    // +Y (0 looking down +Z, 90 down +X), Pitch up from level. HasAim is false until it sets one.
+    public bool HasAim;
+    public float Yaw, Pitch;
+
+    // The aim as a unit direction (+Z when there's none).
+    public Vector3 AimDirection
+    {
+        get
+        {
+            float yaw = Yaw * (MathF.PI / 180f), pitch = Pitch * (MathF.PI / 180f);
+            return new Vector3(MathF.Sin(yaw) * MathF.Cos(pitch), MathF.Sin(pitch), MathF.Cos(yaw) * MathF.Cos(pitch));
+        }
+    }
     // False when there's no command for the entity this tick (not owned, or none arrived yet).
     public bool Valid;
 
@@ -108,6 +122,13 @@ public static unsafe class Net
         command.Axis2 = axes[2];
         command.Axis3 = axes[3];
         command.ViewTick = Engine._api.Net_GetCommandViewTick != null ? Engine._api.Net_GetCommandViewTick(entity) : -1.0;
+        if (Engine._api.Net_GetCommandAim != null)
+        {
+            float yaw, pitch;
+            command.HasAim = Engine._api.Net_GetCommandAim(entity, &yaw, &pitch) != 0;
+            command.Yaw = yaw;
+            command.Pitch = pitch;
+        }
         return command;
     }
 
@@ -137,6 +158,13 @@ public static unsafe class Net
         Engine._api.Net_LagCompensatedRaycast(shooter, &origin, &direction, range, &hit, &point, &flags);
         return new NetHit((flags & 1) != 0, hit, point, (flags & 2) != 0, (flags & 4) != 0, (flags & 8) != 0, (flags & 16) != 0);
     }
+
+    // The local player's absolute aim (NET-15), sent with every command until cleared: degrees,
+    // yaw about +Y (0 down +Z, 90 down +X), pitch up from level. Set it from where the view looks
+    // each frame; the pawn's script reads Net.Command(Entity).Yaw / Pitch / AimDirection in
+    // OnFixedUpdate on both sides, so a predicted shot and the server's aim the same way.
+    public static void SetAim(float yawDegrees, float pitchDegrees) { if (Engine._api.Net_SetAim != null) Engine._api.Net_SetAim(1, yawDegrees, pitchDegrees); }
+    public static void ClearAim() { if (Engine._api.Net_SetAim != null) Engine._api.Net_SetAim(0, 0f, 0f); }
 
     // Smoothed round trip in ms: a client's to the server, or (server) to one client.
     public static float RoundTripMs => Engine._api.Net_GetRoundTripMs != null ? Engine._api.Net_GetRoundTripMs(0) : 0f;
