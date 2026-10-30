@@ -333,6 +333,7 @@ The *world* pieces are scripts. They find those objects on whatever touches them
 
 | `Conversation : Interactable` | runs a `.dialogue` file through the stock dialogue box (GAME-8, below) |
 | `VirtualCamera` | GAME-1 camera rig. Modes: Fixed, Follow, Orbit (Look turns it; pulls in at walls) and Platformer2D (dead zone). It has a Priority, an optional confiner box and field of view, and the BlendSeconds used to take over. |
+| `GuardBrain` | GAME-3 sample AI on a NavMeshAgent. It patrols `Waypoints`, chases `Target` on sight, catches it, then searches the last known spot. `State` shows what it's doing, and every change is logged. |
 | `CameraBrain` | goes on the entity with the Camera. It shows the highest-priority live rig and blends (smoothstep) when that changes. `CameraImpulse.Shake(strength, seconds)` adds shake. |
 
 `Entity.GetScript<T>()` (any script type or interface) scans the live scripts, so call it on events rather than for every entity every frame.
@@ -342,6 +343,16 @@ The kit's tests are `Generators.Tests/KitTests.cs` and `ScriptRegistryTests.cs`.
 2. Open the locked gate with E.
 3. Die in the hazard.
 4. Respawn at the checkpoint.
+
+## AI (GAME-3)
+
+`ScriptCore/Source/AI/`:
+- **Behavior trees:** built in C# with `BT.*` (`Selector`, `Sequence`, `MemorySequence`, `Action`, `Condition`, `Not`, `Wait`, `Cooldown`, `Do`) and ticked with a `BTContext(Blackboard, deltaTime)`.
+  - `Selector` and `Sequence` re-check from the top each tick, so a higher branch interrupts a running lower one and gets `Reset()`.
+  - `MemorySequence` resumes where it was.
+- **`Perception`:** sight (range, field-of-view cone, line of sight by raycast from `EyeHeight`) and hearing (`Noise.Make(position, radius)`), with a last-known position that expires after `MemorySeconds`.
+- **`GuardBrain`** (kit) puts these together.
+- **Tests:** `Generators.Tests/AITests.cs`, plus `Assets/Scenes/Tests/GuardFlows.edscript` (game) on NavTest. The guard there patrols, sees the Intruder the flow moves into view, catches it, loses it behind a wall, searches, and returns to its patrol.
 
 ## Dialogue (GAME-8)
 
