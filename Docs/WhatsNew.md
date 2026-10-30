@@ -2,6 +2,22 @@
 
 > Shown by Help > What's New, and once by itself whenever this page changes (ED-3). Newest first.
 
+## Late October 2026: the gameplay kit
+
+- Make your first game: two tutorials, Coin Hunt (3D) and Coin Hop (2D), built from the templates; every snippet is tested.
+- A C# starter kit: health and damage, an inventory, pickups, doors that open with a key, damage zones, checkpoints, spawners and an interaction prompt. The First-Person template uses it.
+- Camera rigs: virtual cameras (fixed, follow, orbit, 2D platformer) that a camera brain blends between, plus camera shake.
+- AI: behaviour trees, sight and hearing, and a guard that patrols, chases and searches.
+- Dialogue: Yarn-style .dialogue files with choices and variables, a stock dialogue box, localized.
+- Splines: curves you draw in the World view, for paths, rails and patrols (C# Spline).
+- Sequencer: event markers that call your scripts, camera cuts, audio and animation cues, copy/paste/duplicate keys, mute and lock.
+- Ragdolls: build one from a skeleton in one click, knock a character down, and it blends back up.
+- Play-mode tests: [GameTest] methods that load a level, play it and check the result (game-tests in the console).
+- Accessibility: subtitles and sound captions, speaker names, subtitle size and backdrop, high contrast, and reduce motion turns off camera shake.
+- Multiplayer: a dedicated server, and C# replicated fields, predicted fields and RPCs.
+- Mods: content and script mods loaded from a folder, with a Mods page in the options menu.
+- Editor: the command palette finds entities, assets, settings and docs; a status indicator for builds, imports and bakes, with toasts that link to the fix; undo for asset renames, moves and deletes (with a Trash), Project Settings and Prefab Apply.
+
 ## October 2026: shipping a game in C#
 
 - Player settings: graphics quality presets, volumes, rebinding, language and accessibility, saved per player (C# Settings).
