@@ -167,6 +167,13 @@ The API is 120 functions (`ScriptAPI.def`). Strings cross as UTF-8 `byte*`, enti
 | Camera / UI | Clear colour; `Camera.SetClipPlane(point, normal)` / `ClearClipPlane()` (hide everything behind a world plane, for portals and mirrors); `Camera.TargetTexture` (a `.rendertexture` path the camera renders into instead of the screen; empty renders normally) and `UpdateInterval` (every Nth frame), properties over `GetField` / `SetField` (`Rendering-Pipeline.md`, Render textures); `Mesh.ShowCameraView(camera)` (the mesh becomes a screen-space window onto that camera's view, see `Rendering-Pipeline.md`); `UI.Model` view models for RmlUi documents |
 | ImGui | A subset for `OnEditorInspect`, plus `Begin`/`End`/`Text`/`Checkbox`/`Button` for a script's own debug window. Those do nothing in builds without ImGui (Retail), so a debug window never crashes a shipped game |
 
+### Console commands (PLAY-10)
+
+Write `[ConsoleCommand("name", "help")]` on a static method that takes `string[]` (or nothing) and returns a string (printed) or nothing.
+- **Where they come from:** the developer console (`Source/Engine/DevConsole.h`) finds these in the game's and the mods' assemblies. They're reached through `ScriptBridge.GetConsoleCommands` / `RunConsoleCommand`.
+- **Opening it:** `~` in game builds (Tab completes names), the edscript `console <line>`, or `--console "<line>"` at start-up.
+- **Example:** `Assets/Scripts/Tests/ConsoleProbe.cs`, exercised by `ConsoleFlows`.
+
 ### Data assets (CS-7)
 
 A `DataAsset` subclass (`Modules/ScriptCore/Source/Core/DataAsset.cs`) is tuning data in a file: `{ "Type": "WeaponStats", "Fields": { ... } }`, read and written through the VFS (`Asset_ReadText` / `Asset_WriteText`).

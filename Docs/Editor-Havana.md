@@ -201,6 +201,7 @@ The script runs one command per frame after a short warm-up and logs `[editor-ex
 | `pick fx fy` | Clicks the scene view at that fraction of its size; GPU picking selects what is drawn there |
 | `show-asset path` | Opens the Assets window on a file with its details shown (data assets show their editable contents) |
 | `assert-browser-layout Project` (or `Folder`), `assert-browser-asset path`, `wait-asset-preview` | Check the browser layout and project-wide listing, or wait for the selected graph's GPU preview (fails on graph/shader errors or timeout) |
+| `console <line>` (PLAY-10: runs a developer console line, a C++ or C# command), `assert-console-output text` (the last line's output contains it) | Console |
 | `assert-mod-loaded id | 0/1` (MOD-6: what loaded at start; a flow header's `--mods` / `--mod-dir <folder>` reach the editor through RunEditorFlows) | Mods |
 | `copy-file from | to`, `write-file path | text` (under the project), `material-texture Name | Slot | texture` (as the material inspector assigns it), `assert-texture-format texture | BC5` (its cooked .dds: BC1/BC3/BC5/BC7/Uncompressed; `!BC5` for anything else) | Texture and material checks |
 | `create-script folder | Script, Networked Script, ...` (Create > C# Script's templates, written at once), `delete-file path` (under the project only), `assert-script-type Name` (a loaded script or data asset class) | Make, remove and check scripts |

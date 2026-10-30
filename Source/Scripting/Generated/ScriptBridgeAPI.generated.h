@@ -5,7 +5,7 @@
 #include "ScriptEngineAPI.generated.h"
 
 // The managed entry points, filled in one call by ScriptCore's ScriptBridge.GetBridge (ME-299).
-constexpr uint64_t kScriptBridgeAPIHash = 0x14B2DF3AA86F8261ULL;
+constexpr uint64_t kScriptBridgeAPIHash = 0xD28F6DD7CDEA67C3ULL;
 
 struct ScriptBridgeAPI
 {
@@ -51,4 +51,8 @@ struct ScriptBridgeAPI
     void ( *NetReadReplicated )( int handle, const uint8_t* data, int size, int skipPredicted ) = nullptr;
     void ( *NetDispatchRpc )( int handle, int rpcId, const uint8_t* data, int size ) = nullptr;
     void ( *NetSchemaHash )( uint64_t* outHash ) = nullptr;
+
+    // Developer console (PLAY-10)
+    int ( *GetConsoleCommands )( uint8_t* outText, int size ) = nullptr;
+    int ( *RunConsoleCommand )( const uint8_t* line, uint8_t* outText, int size ) = nullptr;
 };

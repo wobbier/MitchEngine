@@ -50,3 +50,7 @@ int NetWriteReplicated( int handle, byte* buffer, int size )
 void NetReadReplicated( int handle, cstr data, int size, int skipPredicted )
 void NetDispatchRpc( int handle, int rpcId, cstr data, int size )
 void NetSchemaHash( ulong* outHash )
+
+## Developer console (PLAY-10)
+int GetConsoleCommands( byte* outText, int size )
+int RunConsoleCommand( cstr line, byte* outText, int size )

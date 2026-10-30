@@ -71,6 +71,7 @@
 #include "Events/EditorEvents.h"
 #include "Core/CommandLine.h"
 #include "Mods/Mods.h"
+#include "Engine/DevConsole.h"
 #include "Core/CrashHandler.h"
 #include "Resource/AssetMetaCache.h"
 #include "Resource/FileWatcher.h"
@@ -974,6 +975,8 @@ void Engine::Run()
 #if !USING( ME_EDITOR )
                 EditorCamera.OutputSize = GetWindow()->GetSize();
 #if USING( ME_IMGUI )
+                // PLAY-10: ~ opens the developer console.
+                DevConsole::Get().UpdateAndDraw( GetInput().WasKeyPressed( KeyCode::Tilde ) );
                 if( CommandLine::Has( "--budget-hud" ) )
                 {
                     // Top right. ImGui positions are in screen space (multi-viewport), so offset from the window.

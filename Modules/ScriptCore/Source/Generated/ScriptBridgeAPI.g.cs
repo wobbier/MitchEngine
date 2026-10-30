@@ -49,12 +49,16 @@ public unsafe struct ScriptBridgeAPI
     public delegate* unmanaged<int, byte*, int, int, void> NetReadReplicated;
     public delegate* unmanaged<int, int, byte*, int, void> NetDispatchRpc;
     public delegate* unmanaged<ulong*, void> NetSchemaHash;
+
+    // Developer console (PLAY-10)
+    public delegate* unmanaged<byte*, int, int> GetConsoleCommands;
+    public delegate* unmanaged<byte*, byte*, int, int> RunConsoleCommand;
 }
 
 public static partial class ScriptBridge
 {
     // The bridge manifest this ScriptCore was generated from (C++: kScriptBridgeAPIHash).
-    public const ulong BridgeHash = 0x14B2DF3AA86F8261UL;
+    public const ulong BridgeHash = 0xD28F6DD7CDEA67C3UL;
 
     // Fills every entry point. Assigning each method to its typed field is the check: one whose
     // signature drifts from ScriptBridge.def doesn't compile. -1: built from another manifest;
@@ -97,6 +101,8 @@ public static partial class ScriptBridge
         outBridge->NetReadReplicated = &NetReadReplicated;
         outBridge->NetDispatchRpc = &NetDispatchRpc;
         outBridge->NetSchemaHash = &NetSchemaHash;
+        outBridge->GetConsoleCommands = &GetConsoleCommands;
+        outBridge->RunConsoleCommand = &RunConsoleCommand;
         return 0;
     }
 }

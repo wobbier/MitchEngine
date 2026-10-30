@@ -972,4 +972,46 @@ bool ScriptEngine::TakeScriptFault( EntityID& outEntity )
     return gDotnetAPI.TakeScriptFault && gDotnetAPI.TakeScriptFault( &outEntity ) != 0;
 }
 
+std::vector<std::pair<std::string, std::string>> ScriptEngine::GetConsoleCommands()
+{
+    std::vector<std::pair<std::string, std::string>> commands;
+    if( !gAvailable || !gDotnetAPI.GetConsoleCommands )
+    {
+        return commands;
+    }
+    std::string text( 2048, '\0' );
+    int length = gDotnetAPI.GetConsoleCommands( reinterpret_cast<uint8_t*>( text.data() ), static_cast<int>( text.size() ) );
+    if( length >= static_cast<int>( text.size() ) )
+    {
+        text.assign( static_cast<size_t>( length ) + 1, '\0' );
+        length = gDotnetAPI.GetConsoleCommands( reinterpret_cast<uint8_t*>( text.data() ), static_cast<int>( text.size() ) );
+    }
+    text.resize( static_cast<size_t>( std::max( length, 0 ) ) );
+    std::istringstream lines( text );
+    for( std::string line; std::getline( lines, line ); )
+    {
+        const size_t tab = line.find( '\t' );
+        commands.emplace_back( line.substr( 0, tab ), tab == std::string::npos ? std::string() : line.substr( tab + 1 ) );
+    }
+    return commands;
+}
+
+
+bool ScriptEngine::RunConsoleCommand( const std::string& inLine, std::string& outText )
+{
+    if( !gAvailable || !gDotnetAPI.RunConsoleCommand )
+    {
+        return false;
+    }
+    std::string text( 4096, '\0' );
+    const int length = gDotnetAPI.RunConsoleCommand( reinterpret_cast<const uint8_t*>( inLine.c_str() ), reinterpret_cast<uint8_t*>( text.data() ), static_cast<int>( text.size() ) );
+    if( length < 0 )
+    {
+        return false;
+    }
+    text.resize( static_cast<size_t>( std::min<int>( length, static_cast<int>( text.size() ) - 1 ) ) );
+    outText = text.c_str();
+    return true;
+}
+
 #endif

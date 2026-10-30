@@ -29,6 +29,11 @@ public sealed class ExecutionOrderAttribute : Attribute
 public static class ScriptRegistry
 {
     private static List<Type> _types = new();
+    private static readonly List<Assembly> _assemblies = new();
+    // The game's assembly and each mod's, and a counter bumped whenever they change (PLAY-10's
+    // console commands rescan when it moves).
+    public static IReadOnlyList<Assembly> Assemblies => _assemblies;
+    public static int Version { get; private set; }
     private static readonly Dictionary<string, int> _shortNames = new();
     private static readonly HashSet<string> _warnedAmbiguous = new();
 
@@ -44,6 +49,9 @@ public static class ScriptRegistry
     public static void Scan(Assembly assembly)
     {
         _types = ScriptsIn(assembly);
+        _assemblies.Clear();
+        _assemblies.Add(assembly);
+        ++Version;
         Recount();
     }
 
@@ -51,6 +59,8 @@ public static class ScriptRegistry
     public static void ScanMod(Assembly assembly)
     {
         _types.AddRange(ScriptsIn(assembly));
+        _assemblies.Add(assembly);
+        ++Version;
         Recount();
     }
 
@@ -97,6 +107,8 @@ public static class ScriptRegistry
     public static void Clear()
     {
         _types.Clear();
+        _assemblies.Clear();
+        ++Version;
         _shortNames.Clear();
         _warnedAmbiguous.Clear();
     }

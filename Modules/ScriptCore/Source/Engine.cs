@@ -226,6 +226,43 @@ public static partial class ScriptBridge
         }
     }
 
+    // PLAY-10: the console's C# commands, "name\thelp" lines (the usual size-then-fill calls).
+    [UnmanagedCallersOnly]
+    public static unsafe int GetConsoleCommands(byte* outText, int size)
+    {
+        try
+        {
+            var text = string.Join("\n", ConsoleCommands.List().Select(c => c.Name + "\t" + c.Help));
+            WriteUtf8(text, outText, size);
+            return Encoding.UTF8.GetByteCount(text);
+        }
+        catch (Exception ex)
+        {
+            ReportException("GetConsoleCommands", ex);
+            return 0;
+        }
+    }
+
+    // Runs a console line if its first word is a C# command: what it printed, or -1 (not ours).
+    [UnmanagedCallersOnly]
+    public static unsafe int RunConsoleCommand(byte* linePtr, byte* outText, int size)
+    {
+        try
+        {
+            var words = ReadUtf8(linePtr).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (words.Length == 0) return -1;
+            var output = ConsoleCommands.Run(words[0], words.Skip(1).ToArray());
+            if (output == null) return -1;
+            WriteUtf8(output, outText, size);
+            return Encoding.UTF8.GetByteCount(output);
+        }
+        catch (Exception ex)
+        {
+            ReportException("RunConsoleCommand", ex);
+            return -1;
+        }
+    }
+
     // MOD-2: each mod's assembly in its own collectible context, sharing ScriptCore and the game's
     // scripts. Its script classes join the registry (by full name when a name clashes).
     private static System.Reflection.Assembly? _gameAssembly;

@@ -17,6 +17,7 @@
 #include "Widgets/AssetBrowser.h"
 #include "Utils/ScriptTemplates.h"
 #include "Mods/Mods.h"
+#include "Engine/DevConsole.h"
 #include "Widgets/SequenceWidget.h"
 #include "Widgets/SceneViewWidget.h"
 #include "Widgets/SettingsWidgets.h"
@@ -733,6 +734,19 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         else if( std::filesystem::remove_all( target, error ) == 0 || error )
         {
             Fail( "delete-file: couldn't delete " + args );
+        }
+    }
+    else if( command == "console" )
+    {
+        // console greet world   (PLAY-10: runs a developer console line, C++ or C# command)
+        DevConsole::Get().Execute( args );
+    }
+    else if( command == "assert-console-output" )
+    {
+        // assert-console-output hello world   (the last console line's output contains it)
+        if( DevConsole::Get().GetLastOutput().find( args ) == std::string::npos )
+        {
+            Fail( "console printed '" + DevConsole::Get().GetLastOutput() + "', expected it to contain '" + args + "'" );
         }
     }
     else if( command == "assert-mod-loaded" )
