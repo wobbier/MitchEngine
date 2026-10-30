@@ -23,6 +23,7 @@
 #include <cmath>
 #include <cstring>
 #include <set>
+#include <unordered_set>
 
 #if USING( ME_EDITOR )
 #include <imgui.h>
@@ -230,6 +231,7 @@ void PhysicsCore::DestroyWorld()
     // Bodies died with the world. Components keep their stale ids, which Box3D rejects (the world
     // generation is part of every id); entities aren't touched since their World may be gone.
     m_bodies.clear();
+    m_characterBodies.clear();
     for( auto& [mesh, hull] : m_hulls )
     {
         b3DestroyHull( static_cast<b3HullData*>( hull ) );
@@ -1086,12 +1088,14 @@ void PhysicsCore::SyncCharacterBody( CharacterController& InController, Entity& 
     b3CreateCapsuleShape( body, &shapeDef, &capsule );
     InController.m_body = Pack( body );
     InController.m_bodySignature = signature;
+    m_characterBodies[InEntity.GetId().Value()] = InController.m_body;
 }
 
 
 void PhysicsCore::StepCharacters( float InDeltaSeconds )
 {
     OPTICK_EVENT( "PhysicsCore::StepCharacters" );
+    std::unordered_set<uint64_t> live;
     for( Entity& entity : GetEntities() )
     {
         CharacterController* controller = Enabled<CharacterController>( entity );
@@ -1105,6 +1109,24 @@ void PhysicsCore::StepCharacters( float InDeltaSeconds )
             continue;
         }
         StepCharacter( entity, *controller, InDeltaSeconds );
+        live.insert( entity.GetId().Value() );
+    }
+    // Capsules whose entity was destroyed (or lost its controller) would otherwise stay in the
+    // world as invisible colliders.
+    for( auto it = m_characterBodies.begin(); it != m_characterBodies.end(); )
+    {
+        if( live.count( it->first ) == 0 )
+        {
+            if( IsBody( it->second ) )
+            {
+                b3DestroyBody( Body( it->second ) );
+            }
+            it = m_characterBodies.erase( it );
+        }
+        else
+        {
+            ++it;
+        }
     }
 }
 

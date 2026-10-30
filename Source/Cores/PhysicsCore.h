@@ -150,6 +150,7 @@ private:
     float m_lastStepMs = 0.f;
     uint64_t m_simTick = 0;
     std::unordered_map<uint64_t, BodyRecord> m_bodies;  // by owner entity id
+    std::unordered_map<uint64_t, uint64_t> m_characterBodies;  // character capsule body by entity id
     std::unordered_map<Moonlight::MeshData*, void*> m_hulls;
     std::unordered_map<Moonlight::MeshData*, void*> m_meshes;
     struct TerrainMeshCache
