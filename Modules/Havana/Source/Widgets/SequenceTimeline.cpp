@@ -74,6 +74,56 @@ bool SequenceTimeline::DeleteMarker( Sequence& InSequence )
 }
 
 
+bool SequenceTimeline::Copy( const Sequence& InSequence )
+{
+    if( Selected.empty() ) return false;
+    m_clipboard = SequenceEditing::Copy( InSequence.Tracks, Selected );
+    Message = "Copied " + std::to_string( m_clipboard.size() ) + " keys";
+    return true;
+}
+
+
+bool SequenceTimeline::Paste( Sequence& InSequence, int InFrame )
+{
+    SequenceEditing::Selection pasted;
+    auto tracks = InSequence.Tracks;
+    if( !SequenceEditing::Paste( tracks, m_clipboard, InFrame, InSequence.DurationFrames, pasted ) )
+    {
+        Message = m_clipboard.empty() ? "Nothing to paste: copy keys first." : "Paste blocked: past the end, or onto a missing or locked track.";
+        return false;
+    }
+    InSequence.StopPreview();
+    InSequence.Tracks = std::move( tracks );
+    Selected = std::move( pasted );
+    Message.clear();
+    return true;
+}
+
+
+bool SequenceTimeline::Duplicate( Sequence& InSequence )
+{
+    SequenceEditing::Selection copies;
+    auto tracks = InSequence.Tracks;
+    if( !SequenceEditing::Duplicate( tracks, Selected, InSequence.DurationFrames, copies ) )
+    {
+        Message = Selected.empty() ? "Select keys to duplicate." : "Duplicate blocked: no room after the selection.";
+        return false;
+    }
+    InSequence.StopPreview();
+    InSequence.Tracks = std::move( tracks );
+    Selected = std::move( copies );
+    Message.clear();
+    return true;
+}
+
+
+ImVec2 SequenceTimeline::TogglePosition( int InRow, bool InLock ) const
+{
+    const float size = m_rowHeight * 0.5f;
+    return ImVec2( m_legendRight - size * ( InLock ? 0.6f : 1.8f ), m_gridOrigin.y + ( InRow + 0.5f ) * m_rowHeight );
+}
+
+
 ImVec2 SequenceTimeline::CutPosition( float InFrame ) const
 {
     return ImVec2( m_gridOrigin.x + ( InFrame - m_firstFrame ) * m_pixelsPerFrame, m_cutLaneY );
@@ -186,7 +236,7 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
     ImGui::TextDisabled( "Snap" );
     ImGui::SameLine();
     ImGui::TextDisabled( "(?)" );
-    ImGui::SetItemTooltip( "Box select: drag empty space\nAdd selection: Shift\nToggle key: Ctrl/Cmd-click\nMove selection: drag a selected key\nAdd event marker: double-click the Events lane\nAdd camera cut: double-click the Cameras lane\nZoom: Ctrl/Cmd + wheel\nPan: middle drag\nCancel drag: Escape" );
+    ImGui::SetItemTooltip( "Box select: drag empty space\nAdd selection: Shift\nToggle key: Ctrl/Cmd-click\nMove selection: drag a selected key (snaps to the playhead, markers and cuts)\nCopy / paste at playhead / duplicate: Ctrl+C / Ctrl+V / Ctrl+D\nAdd event marker: double-click the Events lane\nAdd camera cut: double-click the Cameras lane\nZoom: Ctrl/Cmd + wheel\nPan: middle drag\nCancel drag: Escape" );
     if( !Message.empty() ) ImGui::TextColored( ImGuiTheme::WarningText(), "%s", Message.c_str() );
 
     ImGui::PushStyleColor( ImGuiCol_ChildBg, ImGuiTheme::ActivePalette().Recessed );
@@ -203,6 +253,7 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
     const float grid = origin.x + legend;
     const float gridWidth = std::max( width - legend - 10.f, 20.f );
     m_gridOrigin = ImVec2( grid, tracksTop );
+    m_legendRight = grid - ImGuiTheme::Em( 0.4f );
     m_markerLaneY = origin.y + header + markerLane * 0.5f;
     m_cutLaneY = cutsTop + markerLane * 0.5f;
     m_rowHeight = rowHeight;
@@ -238,7 +289,7 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
     bool hasHit = false;
     const int mouseRow = toRow( io.MousePos.y );
     const float hitRadius = ImGuiTheme::Em( 0.5f );
-    if( mouseRow >= 0 && mouseRow < static_cast<int>( sequence.Tracks.size() ) && io.MousePos.x >= grid )
+    if( mouseRow >= 0 && mouseRow < static_cast<int>( sequence.Tracks.size() ) && io.MousePos.x >= grid && !sequence.Tracks[mouseRow].Locked )
         for( const auto& key : sequence.Tracks[mouseRow].Keys )
             if( std::abs( io.MousePos.x - keyX( key.Frame ) ) <= hitRadius && std::abs( io.MousePos.y - keyY( mouseRow ) ) <= hitRadius ) { hit = { static_cast<size_t>( mouseRow ), key.Frame }; hasHit = true; break; }
 
@@ -259,7 +310,20 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
         m_start = io.MousePos;
         if( io.MousePos.x < grid )
         {
-            if( mouseRow >= 0 && mouseRow < static_cast<int>( sequence.Tracks.size() ) ) track = mouseRow;
+            if( mouseRow >= 0 && mouseRow < static_cast<int>( sequence.Tracks.size() ) )
+            {
+                track = mouseRow;
+                const float half = m_rowHeight * 0.3f;
+                auto inside = [&]( ImVec2 c ) { return std::abs( io.MousePos.x - c.x ) <= half && std::abs( io.MousePos.y - c.y ) <= half; };
+                SequenceTrack& lane = sequence.Tracks[mouseRow];
+                if( inside( TogglePosition( mouseRow, false ) ) ) { sequence.StopPreview(); lane.Enabled = !lane.Enabled; changed = true; }
+                else if( inside( TogglePosition( mouseRow, true ) ) )
+                {
+                    lane.Locked = !lane.Locked;
+                    if( lane.Locked ) Selected.erase( std::remove_if( Selected.begin(), Selected.end(), [&]( const SequenceEditing::Key& k ) { return k.Track == static_cast<size_t>( mouseRow ); } ), Selected.end() );
+                    changed = true;
+                }
+            }
         }
         else if( io.MousePos.y < origin.y + header ) m_scrub = true;
         else if( inCutLane )
@@ -304,6 +368,7 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
                 if( !selected && !control && !io.KeyShift ) Selected.clear();
                 if( !selected ) Selected.push_back( hit );
                 m_drag = true;
+                m_dragFrame = hit.Frame;
                 m_original = sequence.Tracks;
                 m_originalSelection = Selected;
             }
@@ -343,6 +408,13 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
     if( m_drag && ImGui::IsMouseDragging( ImGuiMouseButton_Left ) )
     {
         int delta = static_cast<int>( std::lround( ( io.MousePos.x - m_start.x ) / m_pixelsPerFrame / m_snap ) ) * m_snap;
+        // The grabbed key snaps onto the playhead, markers and cuts when it's within reach.
+        const float landing = m_dragFrame + ( io.MousePos.x - m_start.x ) / m_pixelsPerFrame;
+        float bestDistance = ImGuiTheme::Em( 0.5f ) / m_pixelsPerFrame;
+        auto snapTo = [&]( int target ) { if( std::abs( landing - target ) < bestDistance ) { bestDistance = std::abs( landing - target ); delta = target - m_dragFrame; } };
+        snapTo( frame );
+        for( const SequenceMarker& marker : sequence.Markers ) snapTo( marker.Frame );
+        for( const SequenceCut& cut : sequence.Cuts ) snapTo( cut.Frame );
         std::vector<SequenceTrack> moved;
         SequenceEditing::Selection selected;
         if( SequenceEditing::Move( m_original, m_originalSelection, delta, sequence.DurationFrames, moved, selected ) )
@@ -393,10 +465,21 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
         draw->AddRectFilled( ImVec2( origin.x, y + 1.f ), ImVec2( origin.x + 3.f, y + rowHeight - 1.f ), ImGui::GetColorU32( lane.Enabled ? laneColour( lane ) : palette.Muted ) );
         const std::string binding = lane.Binding.empty() ? ( lane.Target ? lane.Target->GetName() : "Unbound" ) : lane.Binding;
         const std::string property = lane.Component + "." + lane.Property;
-        draw->PushClipRect( ImVec2( origin.x, y ), ImVec2( grid - inset, y + rowHeight ), true );
+        draw->PushClipRect( ImVec2( origin.x, y ), ImVec2( TogglePosition( static_cast<int>( row ), false ).x - rowHeight * 0.32f, y + rowHeight ), true );
         draw->AddText( ImVec2( origin.x + inset, y + ImGuiTheme::Em( 0.35f ) ), ImGui::GetColorU32( lane.Enabled ? palette.Text : palette.Muted ), binding.c_str() );
         draw->AddText( ImVec2( origin.x + inset, y + ImGuiTheme::Em( 1.55f ) ), ImGui::GetColorU32( palette.Muted ), property.c_str() );
         draw->PopClipRect();
+        // Mute (the track's Enabled) and Lock toggles at the legend's right edge.
+        for( const bool lock : { false, true } )
+        {
+            const ImVec2 c = TogglePosition( static_cast<int>( row ), lock );
+            const bool on = lock ? lane.Locked : !lane.Enabled;
+            const float half = rowHeight * 0.26f;
+            draw->AddRectFilled( ImVec2( c.x - half, c.y - half ), ImVec2( c.x + half, c.y + half ), ImGui::GetColorU32( on ? ImGuiTheme::WithAlpha( palette.Warning, 0.85f ) : ImGuiTheme::WithAlpha( palette.Muted, 0.18f ) ), 3.f );
+            const char* glyph = lock ? "L" : "M";
+            const ImVec2 size = ImGui::CalcTextSize( glyph );
+            draw->AddText( ImVec2( c.x - size.x * 0.5f, c.y - size.y * 0.5f ), ImGui::GetColorU32( on ? palette.Recessed : palette.Muted ), glyph );
+        }
     }
     draw->AddLine( ImVec2( grid - 1.f, origin.y ), ImVec2( grid - 1.f, origin.y + height ), ImGui::GetColorU32( palette.Separator ) );
     draw->PushClipRect( ImVec2( grid, origin.y ), ImVec2( origin.x + width, origin.y + height ), true );
@@ -482,6 +565,16 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
         ImGui::SetTooltip( "%s\nFrame %d  |  %.2f s\nReceiver: %s%s%s", marker.Name.c_str(), marker.Frame, float( marker.Frame ) / sequence.FrameRate, receiver.c_str(),
             marker.Payload.empty() ? "" : "\nPayload: ", marker.Payload.c_str() );
         ImGui::SetMouseCursor( ImGuiMouseCursor_ResizeEW );
+    }
+    else if( hovered && io.MousePos.x < grid && mouseRow >= 0 && mouseRow < static_cast<int>( sequence.Tracks.size() ) )
+    {
+        const float half = m_rowHeight * 0.3f;
+        for( const bool lock : { false, true } )
+        {
+            const ImVec2 c = TogglePosition( mouseRow, lock );
+            if( std::abs( io.MousePos.x - c.x ) <= half && std::abs( io.MousePos.y - c.y ) <= half )
+                ImGui::SetTooltip( "%s", lock ? "Lock: keys can't be selected or edited" : "Mute: the track doesn't animate" );
+        }
     }
     else if( hovered && hasHit && !m_drag && !m_box )
     {

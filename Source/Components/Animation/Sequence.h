@@ -25,6 +25,8 @@ public:
     std::string Component = "Transform";
     std::string Property = "Position";
     bool Enabled = true;
+    // An editing guard: a locked track's keys can't be selected, moved, deleted or pasted over.
+    bool Locked = false;
     std::vector<SequenceKey> Keys;
 
     BaseComponent* ResolveComponent() const;

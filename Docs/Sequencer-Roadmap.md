@@ -14,7 +14,9 @@ from C# and native code, independent asset undo/save,
 scrubbing and restorable preview, dolly zoom interpolation, marquee selection, group movement,
 collision protection, snapping, deletion, nudging, zoom and pan. The next milestones should be:
 
-1. **Complete key editing.** Copy/paste at the playhead, duplicate/Alt-drag, selection-preserving
+1. **Complete key editing.** *Partly done (GAME-4): copy/cut/paste at the playhead, duplicate,
+   mute/lock, snapping to the playhead/markers/cuts. Still open: Alt-drag duplicate, solo, track
+   groups, multi-key value/interpolation edits, selection framing, ripple/time scaling.* Copy/paste at the playhead, duplicate/Alt-drag, selection-preserving
    undo, key/track identities that survive reordering, multi-key value/interpolation edits,
    track groups, mute/solo/lock, selection framing and snapping to playhead/markers/other keys.
    Add ripple/time scaling as explicit tools with a visible preview of affected keys.

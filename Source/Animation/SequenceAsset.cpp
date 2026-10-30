@@ -13,6 +13,7 @@ ME_REFLECT_BEGIN( SequenceClipTrack )
     ME_FIELD( Component );
     ME_FIELD( Property );
     ME_FIELD( Enabled );
+    ME_FIELD( Locked );
     ME_FIELD( Keys );
 ME_REFLECT_END()
 
@@ -164,7 +165,7 @@ SequenceClipData SequenceClipData::Capture( const Sequence& InSequence )
     data.Name = InSequence.Name;
     data.FrameRate = InSequence.FrameRate;
     data.DurationFrames = InSequence.DurationFrames;
-    for( const auto& track : InSequence.Tracks ) data.Tracks.push_back( { track.Binding, track.Component, track.Property, track.Enabled, track.Keys } );
+    for( const auto& track : InSequence.Tracks ) data.Tracks.push_back( { track.Binding, track.Component, track.Property, track.Enabled, track.Locked, track.Keys } );
     for( const auto& marker : InSequence.Markers ) data.Markers.push_back( { marker.Frame, marker.Name, marker.Binding, marker.Payload, marker.Number, marker.Action } );
     for( const auto& cut : InSequence.Cuts ) data.Cuts.push_back( { cut.Frame, cut.Binding } );
     return data;
@@ -185,6 +186,7 @@ void SequenceClipData::Apply( Sequence& InSequence ) const
         track.Component = source.Component;
         track.Property = source.Property;
         track.Enabled = source.Enabled;
+        track.Locked = source.Locked;
         track.Keys = source.Keys;
         InSequence.Tracks.push_back( std::move( track ) );
     }

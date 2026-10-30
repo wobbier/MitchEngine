@@ -47,6 +47,13 @@ The timeline uses a custom ImGui keyframe canvas:
   unselected keys are rejected as a group, so they cannot silently overwrite animation.
 - Use left/right arrows or the nudge buttons for single-frame shifts, and Delete to remove keys.
   Ctrl/Cmd+A selects all keys while the Sequencer owns focus.
+- Ctrl+C copies the selected keys; Ctrl+V pastes them with the earliest at the playhead, keeping
+  their spacing and tracks (replacing keys on those frames; past the end or onto a locked track,
+  nothing is pasted); Ctrl+D duplicates the selection just after its last key; Ctrl+X cuts. Each
+  is one undo step. The clipboard survives switching clips, so keys copy between matching tracks.
+- A dragged key snaps onto the playhead, event markers and camera cuts when released near one.
+- Each track's legend has **M** (mute: the track's Enabled) and **L** (lock: its keys can't be
+  selected, moved, deleted or pasted over). Locks are saved with the clip.
 - Ctrl/Cmd+wheel zooms around the mouse, middle-drag pans, and **Fit** shows the clip.
   Drag the ruler to scrub, or double-click a key to seek to it. The key list edits exact values.
 

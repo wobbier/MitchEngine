@@ -414,3 +414,45 @@ TEST_CASE( "Sequence asset: camera cuts export by slot, bind per player, and val
         CHECK_FALSE( loaded.FromJson( changed, error ) );
     }
 }
+
+
+TEST_CASE( "Sequence editing: copy pastes at a frame keeping spacing, duplicate follows the selection, locks guard tracks" )
+{
+    auto tracks = EditTracks();
+    SequenceEditing::Selection selection = { { 0, 10 }, { 0, 20 }, { 1, 10 } };
+    const auto clipboard = SequenceEditing::Copy( tracks, selection );
+    REQUIRE( clipboard.size() == 3 );
+    SequenceEditing::Selection pasted;
+    REQUIRE( SequenceEditing::Paste( tracks, clipboard, 30, 60, pasted ) );
+    CHECK( pasted.size() == 3 );
+    CHECK( tracks[0].Keys.size() == 5 );
+    CHECK( tracks[0].Keys[3].Frame == 30 );
+    CHECK( tracks[0].Keys[3].Value.x == doctest::Approx( 2.f ) );
+    CHECK( tracks[0].Keys[4].Frame == 40 );
+    CHECK( tracks[0].Keys[4].Interpolation == SequenceInterpolation::Hold );
+    CHECK( tracks[1].Keys.back().Frame == 30 );
+    CHECK( tracks[2].Keys.size() == 3 );
+    // Pasting onto existing keys replaces them; past the end rejects the whole paste.
+    REQUIRE( SequenceEditing::Paste( tracks, clipboard, 0, 60, pasted ) );
+    CHECK( tracks[0].Keys[0].Value.x == doctest::Approx( 2.f ) );
+    const auto before = tracks;
+    CHECK_FALSE( SequenceEditing::Paste( tracks, clipboard, 55, 60, pasted ) );
+    CHECK( tracks[0].Keys.size() == before[0].Keys.size() );
+    // Duplicate lands just after the selection's last key.
+    tracks = EditTracks();
+    SequenceEditing::Selection copies;
+    REQUIRE( SequenceEditing::Duplicate( tracks, { { 2, 10 }, { 2, 20 } }, 60, copies ) );
+    CHECK( copies == SequenceEditing::Selection{ { 2, 21 }, { 2, 31 } } );
+    CHECK_FALSE( SequenceEditing::Duplicate( tracks, { { 2, 10 }, { 2, 20 } }, 25, copies ) );
+    // Locked: no selection, moves, deletes or pastes.
+    tracks = EditTracks();
+    tracks[1].Locked = true;
+    SequenceEditing::Selection boxed;
+    SequenceEditing::BoxSelect( tracks, 0.f, 60.f, 0, 2, boxed );
+    CHECK( boxed.size() == 6 );
+    std::vector<SequenceTrack> moved;
+    SequenceEditing::Selection movedSelection;
+    CHECK_FALSE( SequenceEditing::Move( tracks, { { 1, 10 } }, 1, 60, moved, movedSelection ) );
+    CHECK_FALSE( SequenceEditing::Delete( tracks, { { 1, 10 } } ) );
+    CHECK_FALSE( SequenceEditing::Paste( tracks, clipboard, 40, 60, pasted ) );
+}

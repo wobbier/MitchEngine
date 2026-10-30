@@ -599,8 +599,9 @@ TEST_CASE( "Sequence camera cuts: the active cut's camera is current while sampl
 
 TEST_CASE( "Sequence markers: a PlayAnimation cue plays the receiver's Animator state with no script" )
 {
-    Rig rig;
+    // Outlives the rig's world, which still holds it while it shuts down.
     AnimationCore animation;
+    Rig rig;
     rig.GameWorld->AddCore( animation );
     EntityHandle actor = rig.GameWorld->CreateEntity( "Actor" );
     actor->AddComponent<Transform>();

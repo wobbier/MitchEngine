@@ -135,6 +135,7 @@ bool SequenceWidget::ClaimsAction( const std::string& id ) const
     if( !IsOpen || !m_focused || !Working() ) return false;
     if( GetEngine().Sequences && GetEngine().Sequences->IsRunning() ) return false;
     if( id == "Edit.Delete" || id == "Edit.SelectAll" || id == "Edit.Deselect" ) return true;
+    if( id == "Edit.Copy" || id == "Edit.Cut" || id == "Edit.Paste" || id == "Edit.Duplicate" ) return true;
     return IsAsset() && ( id == "Edit.Undo" || id == "Edit.Redo" || id == "File.Save" || id == "File.SaveAs" );
 }
 
@@ -155,6 +156,16 @@ void SequenceWidget::ExecuteAction( const std::string& id )
     }
     else if( id == "Edit.SelectAll" ) m_timeline.SelectBox( *sequence, 0.f, static_cast<float>( sequence->DurationFrames ), 0, static_cast<int>( sequence->Tracks.size() ) );
     else if( id == "Edit.Deselect" ) { m_timeline.Selected.clear(); m_timeline.SelectedMarker = m_timeline.SelectedCut = -1; }
+    else if( id == "Edit.Copy" ) m_timeline.Copy( *sequence );
+    else if( id == "Edit.Cut" || id == "Edit.Paste" || id == "Edit.Duplicate" )
+    {
+        // Paste lands at the playhead; Cut copies then deletes, as one undo step.
+        const json before = EditState();
+        if( id == "Edit.Paste" ) m_timeline.Paste( *sequence, m_frame );
+        else if( id == "Edit.Duplicate" ) m_timeline.Duplicate( *sequence );
+        else if( m_timeline.Copy( *sequence ) ) m_timeline.Delete( *sequence );
+        CommitEdit( before );
+    }
     else if( id == "Edit.Delete" )
     {
         const json before = EditState();
@@ -565,6 +576,9 @@ void SequenceWidget::DrawTrackInspector( Sequence& sequence, EntityHandle select
     ImGui::SeparatorText( "Property" );
     ImGui::Checkbox( "Track enabled", &lane.Enabled );
     if( ImGui::IsItemEdited() ) sequence.StopPreview();
+    ImGui::SameLine();
+    if( ImGui::Checkbox( "Locked", &lane.Locked ) && lane.Locked ) m_timeline.Selected.clear();
+    ImGui::SetItemTooltip( "A locked track's keys can't be selected, moved, deleted or pasted over" );
     if( !lane.Binding.empty() ) ImGui::TextDisabled( "Slot: %s", lane.Binding.c_str() );
     if( m_owner )
     {
@@ -1085,6 +1099,26 @@ bool SequenceWidget::ExecuteAutomation( const std::string& command, const std::s
             if( static_cast<int>( sequence->Markers.size() ) != number( 0, -1 ) ) { error = "There are " + std::to_string( sequence->Markers.size() ) + " event markers"; return false; }
             return true;
         }
+    }
+    if( command == "seq-copy-keys" ) { if( !m_timeline.Copy( *sequence ) ) { error = "No keys selected"; return false; } return true; }
+    if( command == "seq-paste-keys" || command == "seq-duplicate-keys" )
+    {
+        int frame = m_frame;
+        if( command == "seq-paste-keys" && !( input >> frame ) ) { error = "seq-paste-keys frame"; return false; }
+        const json before = EditState();
+        if( !( command == "seq-paste-keys" ? m_timeline.Paste( *sequence, frame ) : m_timeline.Duplicate( *sequence ) ) ) { error = m_timeline.Message; return false; }
+        CommitEdit( before );
+        return true;
+    }
+    // seq-lock-track row | 0/1, seq-mute-track row | 0/1
+    if( command == "seq-lock-track" || command == "seq-mute-track" )
+    {
+        size_t row; int on;
+        if( !( input >> row >> on ) || row >= sequence->Tracks.size() ) { error = command + " row | 0/1"; return false; }
+        const json before = EditState();
+        if( command == "seq-lock-track" ) sequence->Tracks[row].Locked = on != 0; else { sequence->StopPreview(); sequence->Tracks[row].Enabled = on == 0; }
+        CommitEdit( before );
+        return true;
     }
     if( command == "seq-assert-key" || command == "seq-assert-no-key" )
     {

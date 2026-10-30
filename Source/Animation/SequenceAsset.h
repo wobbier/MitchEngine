@@ -13,6 +13,7 @@ public:
     std::string Component = "Transform";
     std::string Property = "Position";
     bool Enabled = true;
+    bool Locked = false;
     std::vector<SequenceKey> Keys;
 };
 

@@ -27,6 +27,7 @@ ME_REFLECT_BEGIN( SequenceTrack )
     ME_FIELD( Component );
     ME_FIELD( Property );
     ME_FIELD( Enabled );
+    ME_FIELD( Locked );
     ME_FIELD( Keys );
 ME_REFLECT_END()
 

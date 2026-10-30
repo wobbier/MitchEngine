@@ -106,5 +106,32 @@ TEST_CASE( "Sequence canvas: mouse marquee selects keys across tracks and draggi
     CHECK( sequence.Markers[1].Frame == 45 );
     CHECK( sequence.Markers[0].Frame == 30 );
     CHECK( sequence.Tracks[0].Keys[0].Frame == 15 );
+
+    // Lock toggle in the legend: row 0's keys drop out of a marquee.
+    sequence.Markers.clear();
+    timeline.Selected.clear();
+    timeline.SelectedMarker = -1;
+    const ImVec2 lock = timeline.TogglePosition( 0, true );
+    tick( lock, false );
+    tick( lock, true );
+    tick( lock, false );
+    REQUIRE( sequence.Tracks[0].Locked );
+    tick( timeline.KeyPosition( 0.f, -0.35f ), false );
+    tick( timeline.KeyPosition( 0.f, -0.35f ), true );
+    tick( timeline.KeyPosition( 59.f, 1.35f ), true );
+    tick( timeline.KeyPosition( 59.f, 1.35f ), false );
+    CHECK( timeline.Selected.size() == 3 );
+    for( const auto& key : timeline.Selected ) CHECK( key.Track == 1 );
+
+    // A dragged key snaps onto the playhead when released close to it.
+    timeline.Selected.clear();
+    frame = 33;
+    const ImVec2 grab = timeline.KeyPosition( 25.f, 1.f );
+    const ImVec2 near = timeline.KeyPosition( 32.7f, 1.f );
+    tick( grab, false );
+    tick( grab, true );
+    tick( near, true );
+    tick( near, false );
+    CHECK( sequence.Tracks[1].Keys[1].Frame == 33 );
 }
 #endif
