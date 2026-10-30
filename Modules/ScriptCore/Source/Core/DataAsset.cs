@@ -61,9 +61,10 @@ public static class DataAssets
 
     public static IReadOnlyList<Type> AssetTypes => Types;
 
-    internal static void Scan(Assembly assembly)
+    // append: a mod's assembly (MOD-2) adds to the game's types.
+    internal static void Scan(Assembly assembly, bool append = false)
     {
-        Types.Clear();
+        if (!append) Types.Clear();
         foreach (var t in assembly.GetTypes())
         {
             if (!t.IsAbstract && typeof(DataAsset).IsAssignableFrom(t)) Types.Add(t);

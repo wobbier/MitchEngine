@@ -159,3 +159,21 @@ std::vector<std::string> ModManager::GetNetRequired() const
     }
     return mods;
 }
+
+
+std::vector<const ModManifest*> ModManager::GetLoaded() const
+{
+    std::vector<const ModManifest*> loaded;
+    for( const std::string& id : m_loaded )
+    {
+        for( const ModManifest& manifest : m_discovered )
+        {
+            if( manifest.Id == id )
+            {
+                loaded.push_back( &manifest );
+                break;
+            }
+        }
+    }
+    return loaded;
+}

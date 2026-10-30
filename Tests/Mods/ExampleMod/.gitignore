@@ -1,0 +1,6 @@
+# Built by RunChecks (dotnet build ExampleMod.csproj); not committed.
+*.dll
+*.pdb
+*.deps.json
+bin/
+obj/

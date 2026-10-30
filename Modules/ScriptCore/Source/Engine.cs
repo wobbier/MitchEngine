@@ -195,9 +195,9 @@ public static partial class ScriptBridge
 
     // Loads from memory, not the file: the file stays unlocked so a rebuild can replace it while
     // the game runs (hot reload).
-    private static (GameScriptALC alc, System.Reflection.Assembly asm) LoadIntoNewContext(string path)
+    private static (GameScriptALC alc, System.Reflection.Assembly asm) LoadIntoNewContext(string path, System.Reflection.Assembly? gameAssembly = null)
     {
-        var alc = new GameScriptALC(path);
+        var alc = new GameScriptALC(path) { GameAssembly = gameAssembly };
         using var image = new System.IO.MemoryStream(System.IO.File.ReadAllBytes(path));
         var pdbPath = System.IO.Path.ChangeExtension(path, ".pdb");
         using var symbols = System.IO.File.Exists(pdbPath) ? new System.IO.MemoryStream(System.IO.File.ReadAllBytes(pdbPath)) : null;
@@ -213,6 +213,7 @@ public static partial class ScriptBridge
         {
             var (alc, asm) = LoadIntoNewContext(path);
             _alc = alc;
+            _gameAssembly = asm;
             ScriptRegistry.Scan(asm);
             DataAssets.Scan(asm);
             Console.WriteLine($"[ScriptBridge] Loaded {ScriptRegistry.ScriptTypes.Count} type(s) from {System.IO.Path.GetFileName(path)}");
@@ -222,6 +223,56 @@ public static partial class ScriptBridge
         {
             ReportException("LoadGameAssembly", ex);
             return -1;
+        }
+    }
+
+    // MOD-2: each mod's assembly in its own collectible context, sharing ScriptCore and the game's
+    // scripts. Its script classes join the registry (by full name when a name clashes).
+    private static System.Reflection.Assembly? _gameAssembly;
+    private static readonly List<(string Path, GameScriptALC Context)> _mods = new();
+
+    [UnmanagedCallersOnly]
+    public static unsafe int LoadModAssembly(byte* pathPtr)
+    {
+        var path = System.IO.Path.GetFullPath(ReadUtf8(pathPtr));
+        try
+        {
+            int before = ScriptRegistry.ScriptTypes.Count;
+            var (alc, asm) = LoadIntoNewContext(path, _gameAssembly);
+            _mods.Add((path, alc));
+            ScriptRegistry.ScanMod(asm);
+            DataAssets.Scan(asm, append: true);
+            return ScriptRegistry.ScriptTypes.Count - before;
+        }
+        catch (Exception ex)
+        {
+            ReportException($"LoadModAssembly({System.IO.Path.GetFileName(path)})", ex);
+            return -1;
+        }
+    }
+
+    private static void ReloadMods()
+    {
+        var paths = _mods.Select(m => m.Path).ToList();
+        foreach (var (_, context) in _mods)
+        {
+            context.Unload();
+            _unloading.Add(new Unloading { Context = new WeakReference(context) });
+        }
+        _mods.Clear();
+        foreach (var path in paths)
+        {
+            try
+            {
+                var (alc, asm) = LoadIntoNewContext(path, _gameAssembly);
+                _mods.Add((path, alc));
+                ScriptRegistry.ScanMod(asm);
+                DataAssets.Scan(asm, append: true);
+            }
+            catch (Exception ex)
+            {
+                ReportException($"Reload mod {System.IO.Path.GetFileName(path)}", ex);
+            }
         }
     }
 
@@ -252,7 +303,7 @@ public static partial class ScriptBridge
             string fields = "";
             try { fields = ScriptSerializer.Serialize(old); }
             catch (Exception ex) { ReportException($"Reload snapshot(handle={handle})", ex); }
-            snapshots.Add((handle, old.GetType().Name, old is Script s ? s.Entity : Entity.Null, fields));
+            snapshots.Add((handle, old.GetType().FullName ?? old.GetType().Name, old is Script s ? s.Entity : Entity.Null, fields));
         }
 
         Instances.Clear();
@@ -271,9 +322,12 @@ public static partial class ScriptBridge
         {
             _unloading.Add(new Unloading { Context = new WeakReference(oldAlc) });
         }
+        _gameAssembly = newAsm;
         ScriptRegistry.Scan(newAsm);
         DataAssets.Clear();
         DataAssets.Scan(newAsm);
+        // Mods compiled against the game's scripts reload with them (MOD-2).
+        ReloadMods();
 
         int restored = 0;
         foreach (var (handle, typeName, entity, fields) in snapshots)
@@ -321,7 +375,7 @@ public static partial class ScriptBridge
         if (outBuf is not null && bufSize > 0) outBuf[0] = 0;
         if (Instances.TryGetValue(handle, out var s))
         {
-            WriteUtf8(s.GetType().Name, outBuf, bufSize);
+            WriteUtf8(ScriptRegistry.NameOf(s.GetType()), outBuf, bufSize);
         }
     }
 
@@ -331,7 +385,7 @@ public static partial class ScriptBridge
         var types = ScriptRegistry.ScriptTypes;
         if ((uint)index < (uint)types.Count)
         {
-            WriteUtf8(types[index].Name, outBuf, bufSize);
+            WriteUtf8(ScriptRegistry.NameOf(types[index]), outBuf, bufSize);
         }
     }
 

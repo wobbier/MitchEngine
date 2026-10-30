@@ -1,6 +1,6 @@
 # Modding
 
-> Status: MOD-1 (manifest, discovery, resolver, VFS layers) and MOD-3 (net-required mods in the handshake), 2026-10-30. Per-mod C# assemblies are MOD-2, the in-game manager MOD-6.
+> Status: MOD-1 (manifest, discovery, resolver, VFS layers), MOD-2 (per-mod script assemblies) and MOD-3 (net-required mods in the handshake), 2026-10-30. The in-game manager is MOD-6.
 
 ## Overview
 
@@ -18,6 +18,7 @@ A mod is a folder with a `mod.json`. Its files mount over the game's as a VFS la
 | `Source/Engine/EngineVersion.h` | `kEngineVersion`, which a mod's `"engine"` range is checked against |
 | `Tests/Source/ModResolverTests.cpp` | Ranges, manifests, ordering, cycles, dependencies, VFS layering |
 | `Tests/Mods/BlueCrates/` | A texture-override test mod. RunChecks' "Mods" step captures Physics2D with it (`Tests/Mods/Reference/`) |
+| `Tests/Mods/ExampleMod/` | A script mod: `ExampleMod.Spinner` in `ExampleMod.dll` (MOD-2) |
 
 ## mod.json
 
@@ -56,7 +57,12 @@ A mod is a folder with a `mod.json`. Its files mount over the game's as a VFS la
 ## Caveats & Fragility
 
 - **Only folder mods so far.** Zip and `.mpak` mods (the design's other forms) aren't discovered yet.
-- **`assemblies` is only read** (MOD-2 loads them).
+- **Script assemblies (MOD-2):** each DLL in `assemblies` (relative to the mod's folder) loads after the game's `Game.Script`, in load order.
+  - **Isolation:** each mod gets its own collectible `GameScriptALC`, which resolves `ScriptCore` and the game's `Game.Script` from the game, so mod scripts can use the game's classes.
+  - **Names:** `ScriptRegistry` finds scripts by full name first. A short name only works while it's unique; when it isn't, the game's class wins and a warning names the rest. Scenes and the editor call a clashing script by its full name (`ScriptRegistry.NameOf`): `ExampleMod.Spinner` next to the game's `Spinner`.
+  - **Hot reload:** a hot reload of the game's scripts reloads the mods' assemblies too, since they're built against them, and live scripts carry over by full name.
+  - **Building one:** build a mod's assembly against `ScriptCore.csproj` and the game's scripts without copying either; `Tests/Mods/ExampleMod/ExampleMod.csproj` shows how.
+  - **Test:** RunChecks' "Mod scripts" step runs `Assets/Scenes/Tests/ModScriptTest.lvl` with it.
 - **`netRequired` (MOD-3):** the loaded mods marked `netRequired` go into the session handshake as `id@version` (`NetVersion::Mods`; `ModSet` hashes them). A client whose set differs is turned away with the differences, e.g. `version mismatch: mods (the server needs com.example.weapons@2.0.0; you also have com.example.hats@1.0.0)`. Cosmetic mods leave the flag off and can differ between players.
 - **Cooked side files:** an override texture's `.dds` and `.meta` are written next to it in the mod folder, the first time it's cooked.
 - **`kEngineVersion` is set by hand** (0.1.0) until ME-267 stamps builds.

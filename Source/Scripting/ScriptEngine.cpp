@@ -20,6 +20,7 @@
 #include "VFS/VFS.h"
 #include "Generated/ScriptEngineAPI.generated.h"
 #include "Generated/ScriptBridgeAPI.generated.h"
+#include "Mods/Mods.h"
 
 // per-domain binding registrars
 #include "Bindings/BindingContext.h"
@@ -431,7 +432,6 @@ static int StartRuntime()
         YIKES_NEW( "failed to load game scripts from {}", gGameDll );
         return 1;
     }
-
     gAvailable = true;
     int scriptCount = gDotnetAPI.GetScriptCount();
     DBG( "dotnet ready: {} script(s) available", scriptCount );
@@ -455,6 +455,41 @@ void ScriptEngine::StartInitAsync()
 }
 
 
+namespace
+{
+    // MOD-2: each loaded mod's assemblies, in load order, each in its own context. On the main
+    // thread once the runtime is up: the runtime starts before Engine::Init has applied the mods.
+    bool gModsLoaded = false;
+
+    void LoadModAssemblies()
+    {
+        if( gModsLoaded || !gAvailable )
+        {
+            return;
+        }
+        gModsLoaded = true;
+        for( const ModManifest* mod : ModManager::Get().GetLoaded() )
+        {
+            for( const std::string& assembly : mod->Assemblies )
+            {
+                const std::string path = mod->Root + "/" + assembly;
+                std::error_code error;
+                if( !fs::exists( path, error ) )
+                {
+                    BRUH( "Scripts: mod " + mod->Id + " lists " + assembly + ", which isn't in its folder (build it into " + mod->Root + ")" );
+                    continue;
+                }
+                const int scripts = gDotnetAPI.LoadModAssembly( reinterpret_cast<const uint8_t*>( path.c_str() ) );
+                if( scripts >= 0 )
+                {
+                    CLog::Log( CLog::LogType::Info, "Scripts: mod " + mod->Id + ": " + std::to_string( scripts ) + " script(s) from " + assembly );
+                }
+            }
+        }
+    }
+}
+
+
 int ScriptEngine::Init()
 {
     if( gInitThread.joinable() )
@@ -465,6 +500,10 @@ int ScriptEngine::Init()
     if( gInitResult < 0 )
     {
         gInitResult = StartRuntime();
+    }
+    if( gInitResult == 0 )
+    {
+        LoadModAssemblies();
     }
     return gInitResult;
 }

@@ -10,6 +10,7 @@ public unsafe struct ScriptBridgeAPI
     // Assemblies and the engine API
     public delegate* unmanaged<byte*, int> LoadGameAssembly;
     public delegate* unmanaged<byte*, int> ReloadGameAssembly;
+    public delegate* unmanaged<byte*, int> LoadModAssembly;
     public delegate* unmanaged<EngineAPIBindings*, int, int> SetEngineAPI;
     public delegate* unmanaged<ulong*, void> GetEngineAPIHash;
 
@@ -53,7 +54,7 @@ public unsafe struct ScriptBridgeAPI
 public static partial class ScriptBridge
 {
     // The bridge manifest this ScriptCore was generated from (C++: kScriptBridgeAPIHash).
-    public const ulong BridgeHash = 0x24EB7586FE19AFA1UL;
+    public const ulong BridgeHash = 0x14B2DF3AA86F8261UL;
 
     // Fills every entry point. Assigning each method to its typed field is the check: one whose
     // signature drifts from ScriptBridge.def doesn't compile. -1: built from another manifest;
@@ -65,6 +66,7 @@ public static partial class ScriptBridge
         if (outBridge == null || size != sizeof(ScriptBridgeAPI)) return -2;
         outBridge->LoadGameAssembly = &LoadGameAssembly;
         outBridge->ReloadGameAssembly = &ReloadGameAssembly;
+        outBridge->LoadModAssembly = &LoadModAssembly;
         outBridge->SetEngineAPI = &SetEngineAPI;
         outBridge->GetEngineAPIHash = &GetEngineAPIHash;
         outBridge->GetScriptCount = &GetScriptCount;

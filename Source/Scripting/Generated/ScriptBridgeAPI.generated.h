@@ -5,13 +5,14 @@
 #include "ScriptEngineAPI.generated.h"
 
 // The managed entry points, filled in one call by ScriptCore's ScriptBridge.GetBridge (ME-299).
-constexpr uint64_t kScriptBridgeAPIHash = 0x24EB7586FE19AFA1ULL;
+constexpr uint64_t kScriptBridgeAPIHash = 0x14B2DF3AA86F8261ULL;
 
 struct ScriptBridgeAPI
 {
     // Assemblies and the engine API
     int ( *LoadGameAssembly )( const uint8_t* path ) = nullptr;
     int ( *ReloadGameAssembly )( const uint8_t* path ) = nullptr;
+    int ( *LoadModAssembly )( const uint8_t* path ) = nullptr;
     int ( *SetEngineAPI )( const ScriptEngineAPI* api, int size ) = nullptr;
     void ( *GetEngineAPIHash )( uint64_t* outHash ) = nullptr;
 

@@ -378,6 +378,21 @@ if [[ -f "$here/../Tests/Mods/Reference/Physics2D.png" && -f Assets/Scenes/Showc
     fi
 fi
 
+# Mod scripts (MOD-2): Tests/Mods/ExampleMod ships ExampleMod.dll with a Spinner of its own; in
+# ModScriptTest.lvl it runs next to the game's Spinner (named "ExampleMod.Spinner" vs "Spinner").
+if [[ -f "$here/../Tests/Mods/ExampleMod/ExampleMod.csproj" && -f Assets/Scenes/Tests/ModScriptTest.lvl ]]; then
+    step "Mod scripts"
+    if ! dotnet build "$here/../Tests/Mods/ExampleMod/ExampleMod.csproj" -v quiet --nologo > .tmp/RunChecks.modscripts.log 2>&1 \
+            || ! "$here/Headless.sh" .build/Game_linux_Debug/Game_EntryPoint_x64 --scene Assets/Scenes/Tests/ModScriptTest.lvl \
+                --mod-dir "$here/../Tests/Mods" --frames 150 --exit --no-audio >> .tmp/RunChecks.modscripts.log 2>&1 \
+            || ! grep -q "ExampleMod.Spinner: the game's Spinner turns its entity too" .tmp/RunChecks.modscripts.log; then
+        grep -E "Mods:|Scripts: mod|ExampleMod|error" .tmp/RunChecks.modscripts.log | tail -10
+        failed+=("mod scripts")
+    else
+        echo "ok    ModScriptTest (a mod's Spinner next to the game's)"
+    fi
+fi
+
 echo
 if [[ ${#failed[@]} -gt 0 ]]; then
     echo "FAILED: ${failed[*]}"

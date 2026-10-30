@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    MOD-2's test mod: a script assembly a mod ships (mod.json "assemblies"), built against ScriptCore
+    and the game's Game.Script. Neither is copied: the engine provides both.
+      dotnet build Engine/Tests/Mods/ExampleMod/ExampleMod.csproj   (ExampleMod.dll lands next to mod.json)
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>ExampleMod</AssemblyName>
+    <Nullable>annotations</Nullable>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <DebugType>portable</DebugType>
+    <!-- Only this assembly next to mod.json; ScriptCore keeps its own output. -->
+    <OutDir>$(MSBuildThisFileDirectory)</OutDir>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Source/**/*.cs" />
+    <ProjectReference Include="../../../Modules/ScriptCore/ScriptCore.csproj" Private="false" ExcludeAssets="runtime" />
+  </ItemGroup>
+</Project>

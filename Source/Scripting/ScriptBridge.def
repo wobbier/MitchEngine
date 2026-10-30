@@ -11,6 +11,7 @@
 ## Assemblies and the engine API
 int LoadGameAssembly( cstr path )
 int ReloadGameAssembly( cstr path )
+int LoadModAssembly( cstr path )
 int SetEngineAPI( EngineAPI* api, int size )
 void GetEngineAPIHash( ulong* outHash )
 

@@ -29,27 +29,75 @@ public sealed class ExecutionOrderAttribute : Attribute
 public static class ScriptRegistry
 {
     private static List<Type> _types = new();
+    private static readonly Dictionary<string, int> _shortNames = new();
+    private static readonly HashSet<string> _warnedAmbiguous = new();
 
-    // TODO: scripts are looked up by Type.Name so fix name clashing whenever
+    // The game's script classes, then each mod's (MOD-2), each group by name.
     public static IReadOnlyList<Type> ScriptTypes => _types;
 
+    private static List<Type> ScriptsIn(Assembly assembly) => assembly.GetTypes()
+        .Where(t => typeof(IGameScript).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
+        .OrderBy(t => t.Name)
+        .ToList();
+
+    // The game's assembly: replaces whatever was scanned.
     public static void Scan(Assembly assembly)
     {
-        _types = assembly.GetTypes()
-            .Where(t => typeof(IGameScript).IsAssignableFrom(t)
-                     && !t.IsInterface
-                     && !t.IsAbstract)
-            .OrderBy(t => t.Name)
-            .ToList();
+        _types = ScriptsIn(assembly);
+        Recount();
     }
 
-    // By class name, then by a [FormerName] of a renamed class.
+    // A mod's assembly (MOD-2): its classes join the game's.
+    public static void ScanMod(Assembly assembly)
+    {
+        _types.AddRange(ScriptsIn(assembly));
+        Recount();
+    }
+
+    private static void Recount()
+    {
+        _shortNames.Clear();
+        foreach (var type in _types)
+        {
+            _shortNames[type.Name] = _shortNames.GetValueOrDefault(type.Name) + 1;
+        }
+    }
+
+    // What scenes and the editor call a script: its class name, or its full name ("ExampleMod.Spinner")
+    // when another script class has the same name.
+    public static string NameOf(Type type) => _shortNames.GetValueOrDefault(type.Name) > 1 ? type.FullName ?? type.Name : type.Name;
+
+    // By full name; then by class name (when two classes share it, the game's wins and that's
+    // logged once); then by a [FormerName] of a renamed class.
     public static Type? Find(string name)
     {
-        return _types.FirstOrDefault(t => t.Name == name)
-            ?? _types.FirstOrDefault(t => t.GetCustomAttributes<FormerNameAttribute>(false).Any(a => a.Name == name));
+        var exact = _types.FirstOrDefault(t => t.FullName == name);
+        if (exact != null)
+        {
+            return exact;
+        }
+        var byName = _types.FirstOrDefault(t => t.Name == name);
+        if (byName != null)
+        {
+            if (_shortNames.GetValueOrDefault(name) > 1 && _warnedAmbiguous.Add(name))
+            {
+                var all = string.Join(", ", _types.Where(t => t.Name == name).Select(t => t.FullName));
+                var message = $"Scripts: '{name}' names more than one script class ({all}); using {byName.FullName}. Name the others by their full name.";
+                unsafe
+                {
+                    if (Engine._api.LogWarning != null) Debug.Warning(message);
+                    else Console.WriteLine(message);
+                }
+            }
+            return byName;
+        }
+        return _types.FirstOrDefault(t => t.GetCustomAttributes<FormerNameAttribute>(false).Any(a => a.Name == name));
     }
 
-    // only used when I get to hot reloading
-    public static void Clear() => _types.Clear();
+    public static void Clear()
+    {
+        _types.Clear();
+        _shortNames.Clear();
+        _warnedAmbiguous.Clear();
+    }
 }

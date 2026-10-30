@@ -1,0 +1,7 @@
+{
+    "id": "com.mitchengine.tests.example-mod",
+    "name": "Example Mod (test)",
+    "version": "1.0.0",
+    "engine": ">=0.1",
+    "assemblies": [ "ExampleMod.dll" ]
+}
