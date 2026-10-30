@@ -7,16 +7,32 @@ namespace ScriptCore;
 /// <summary>
 /// The engine's audio buses, in AudioBus order.
 /// </summary>
-public enum AudioBus { Master, Music, SFX, UI, Voice }
+public enum AudioBus
+{
+    /// <summary>Everything (the other buses feed it).</summary>
+    Master,
+    /// <summary>Music.</summary>
+    Music,
+    /// <summary>Sound effects.</summary>
+    SFX,
+    /// <summary>Interface sounds.</summary>
+    UI,
+    /// <summary>Dialogue and voice.</summary>
+    Voice,
+}
 
-// The player's settings (PLAY-2), saved in user://Settings.json and applied as they change:
-// graphics quality, bus volumes, language, accessibility, rebinds, plus the game's own values.
-// Changes save on their own once they settle; Save() writes now.
-//
-//   Settings.Quality = "Low";                       // a quality preset (HardwareProfiles.json)
-//   Settings.SetVolume(AudioBus.Music, 0.5f);
-//   Settings.Rebind("Jump", 0, "Keyboard/J");       // binding 0 of the Jump action
-//   Settings.SetFloat("MouseSensitivity", 1.5f);    // the game's own: stored as Game.MouseSensitivity
+/// <summary>
+/// The player's settings (PLAY-2), saved in user://Settings.json and applied as they change:
+/// graphics quality, bus volumes, language, accessibility, rebinds, plus the game's own values.
+/// Changes save on their own once they settle; Save() writes now.
+///
+/// <code>
+///    Settings.Quality = "Low";                       // a quality preset (HardwareProfiles.json)
+///    Settings.SetVolume(AudioBus.Music, 0.5f);
+///    Settings.Rebind("Jump", 0, "Keyboard/J");       // binding 0 of the Jump action
+///    Settings.SetFloat("MouseSensitivity", 1.5f);    // the game's own: stored as Game.MouseSensitivity
+/// </code>
+/// </summary>
 public static unsafe class Settings
 {
     /// <summary>
@@ -28,6 +44,7 @@ public static unsafe class Settings
         set => SetJson("Graphics.Quality", Quote(value ?? ""));
     }
 
+    /// <summary>The quality presets the project defines (HardwareProfiles.json).</summary>
     public static string[] QualityPresets
     {
         get
@@ -91,6 +108,7 @@ public static unsafe class Settings
         set => SetJson("Accessibility.Subtitles", value ? "true" : "false");
     }
 
+    /// <summary>Whether subtitles name their speaker (on by default).</summary>
     public static bool SpeakerNames
     {
         get => GetJson("Accessibility.SpeakerNames") != "false";
@@ -119,6 +137,7 @@ public static unsafe class Settings
     /// The player's volume for a bus, 0..1 (it scales the project's mix).
     /// </summary>
     public static float GetVolume(AudioBus bus) => (float)GetNumberKey("Audio." + bus, 1.0);
+    /// <summary>Sets the player's volume for a bus, 0..1.</summary>
     public static void SetVolume(AudioBus bus, float volume) => SetJson("Audio." + bus, Number(volume));
 
     /// <summary>
@@ -140,6 +159,7 @@ public static unsafe class Settings
         return ReadString((b, size) => { fixed (byte* a = name) return Engine._api.Settings_GetBindingDisplay(a, binding, b, size); });
     }
 
+    /// <summary>Puts every rebind back to the project's bindings.</summary>
     public static void ResetBindings()
     {
         Engine._api.Settings_ResetBindings();
@@ -165,19 +185,26 @@ public static unsafe class Settings
     /// The game's own values, stored as Game.&lt;key&gt;.
     /// </summary>
     public static float GetFloat(string key, float fallback = 0f) => (float)GetNumberKey("Game." + key, fallback);
+    /// <summary>Sets a game value (stored as Game.key).</summary>
     public static void SetFloat(string key, float value) => SetJson("Game." + key, Number(value));
+    /// <summary>A game value, or the fallback.</summary>
     public static int GetInt(string key, int fallback = 0) => (int)System.Math.Round(GetNumberKey("Game." + key, fallback));
+    /// <summary>Sets a game value.</summary>
     public static void SetInt(string key, int value) => SetJson("Game." + key, value.ToString(CultureInfo.InvariantCulture));
+    /// <summary>A game value, or the fallback.</summary>
     public static bool GetBool(string key, bool fallback = false)
     {
         string json = GetJson("Game." + key);
         return json == "true" || (json != "false" && fallback);
     }
+    /// <summary>Sets a game value.</summary>
     public static void SetBool(string key, bool value) => SetJson("Game." + key, value ? "true" : "false");
+    /// <summary>A game value, or the fallback.</summary>
     public static string GetString(string key, string fallback = "")
     {
         return GetStringKey("Game." + key, fallback);
     }
+    /// <summary>Sets a game value.</summary>
     public static void SetString(string key, string value) => SetJson("Game." + key, Quote(value ?? ""));
 
     /// <summary>

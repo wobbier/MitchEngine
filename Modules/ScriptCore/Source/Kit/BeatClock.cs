@@ -7,14 +7,18 @@ namespace ScriptCore.Kit;
 /// </summary>
 public readonly record struct BeatEvent(Entity Owner, int Beat, int Bar, int BeatInBar);
 
-// NEXT-8: a music clock for rhythm and beat-synced gameplay. It follows an AudioSource's playback
-// position as the audio mixer sees it (sample-accurate, not frame time), smoothed between mixer
-// updates, and fires each beat and bar it crosses exactly once, in order, even across hitches.
-// A script owns one and ticks it:
-//   private readonly BeatClock clock = new(bpm: 120f, beatsPerBar: 4, offsetSeconds: 0.05);
-//   public override void OnStart() { clock.OnBeat += (beat, bar, inBar) => Pulse(inBar == 0); }
-//   public override void OnUpdate(float dt) { clock.Tick(GetComponent<AudioSource>()); }
-// Judging a press: clock.NearestBeat(out double error) gives the beat and how far off (seconds).
+/// <summary>
+/// NEXT-8: a music clock for rhythm and beat-synced gameplay. It follows an AudioSource's playback
+/// position as the audio mixer sees it (sample-accurate, not frame time), smoothed between mixer
+/// updates, and fires each beat and bar it crosses exactly once, in order, even across hitches.
+/// A script owns one and ticks it:
+/// <code>
+///    private readonly BeatClock clock = new(bpm: 120f, beatsPerBar: 4, offsetSeconds: 0.05);
+///    public override void OnStart() { clock.OnBeat += (beat, bar, inBar) =&gt; Pulse(inBar == 0); }
+///    public override void OnUpdate(float dt) { clock.Tick(GetComponent&lt;AudioSource&gt;()); }
+/// </code>
+/// Judging a press: clock.NearestBeat(out double error) gives the beat and how far off (seconds).
+/// </summary>
 public sealed class BeatClock
 {
     public BeatClock(float bpm, int beatsPerBar = 4, double offsetSeconds = 0.0, Entity owner = default)

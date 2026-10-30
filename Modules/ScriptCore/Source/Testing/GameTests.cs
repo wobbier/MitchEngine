@@ -7,19 +7,23 @@ using System.Threading.Tasks;
 
 namespace ScriptCore;
 
-// CS-12: play-mode tests. A static method returning Task (or void), in the game's or a mod's scripts:
-//
-//   [GameTest("Assets/Scenes/Main.lvl")]
-//   public static async Task Medkit_heals()
-//   {
-//       var player = World.Find("Player");
-//       await GameAssert.Eventually(() => player.GetScript<IHealth>()!.Current > 50f, 5f, "healed");
-//   }
-//
-// They run in Play, one after another: each loads its scene (when it names one) and waits for it,
-// then runs with a timeout. "game-tests [filter]" in the console (or an edscript's console line)
-// starts them; each logs [GameTest] PASS/FAIL, and the run ends with
-// "GameTests: N passed, M failed" (flows wait for it; RunChecks plays the templates' tests).
+/// <summary>
+/// CS-12: play-mode tests. A static method returning Task (or void), in the game's or a mod's scripts:
+///
+/// <code>
+///    [GameTest("Assets/Scenes/Main.lvl")]
+///    public static async Task Medkit_heals()
+///    {
+///        var player = World.Find("Player");
+///        await GameAssert.Eventually(() =&gt; player.GetScript&lt;IHealth&gt;()!.Current &gt; 50f, 5f, "healed");
+///    }
+/// </code>
+///
+/// They run in Play, one after another: each loads its scene (when it names one) and waits for it,
+/// then runs with a timeout. "game-tests [filter]" in the console (or an edscript's console line)
+/// starts them; each logs [GameTest] PASS/FAIL, and the run ends with
+/// "GameTests: N passed, M failed" (flows wait for it; RunChecks plays the templates' tests).
+/// </summary>
 [AttributeUsage(AttributeTargets.Method)]
 public sealed class GameTestAttribute : Attribute
 {

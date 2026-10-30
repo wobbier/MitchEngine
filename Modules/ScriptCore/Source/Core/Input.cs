@@ -504,9 +504,12 @@ public enum KeyCode : int
 
 #pragma warning restore CS1591
 
+/// <summary>Keys, the mouse and the project's input actions (Engine/Docs/Input.md).</summary>
 public static unsafe class Input
 {
+    /// <summary>Whether a key is held (the real keyboard; simulated keys reach actions only).</summary>
     public static bool IsKeyDown(KeyCode key) => Engine._api.Input_IsKeyDown((int)key) != 0;
+    /// <summary>Whether a key went down this frame (this step, inside OnFixedUpdate).</summary>
     public static bool WasKeyPressed(KeyCode key) => Engine._api.Input_WasKeyPressed((int)key) != 0;
 
     /// <summary>
@@ -534,6 +537,7 @@ public static unsafe class Input
     /// simulated key when they end.
     /// </summary>
     public static void Simulate(KeyCode key, bool held = true) => Engine._api.Input_SetSimulatedKey((int)key, (byte)(held ? 1 : 0));
+    /// <summary>Releases every key Simulate held.</summary>
     public static void ReleaseSimulated() => Engine._api.Input_ClearSimulatedKeys();
 
     /// <summary>
@@ -544,6 +548,7 @@ public static unsafe class Input
         fixed (byte* p = Engine.Utf8(action, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Input_GetActionValue(p);
     }
 
+    /// <summary>A Vector2 action's value (sticks, WASD composites).</summary>
     public static Vector2 GetActionVector2(string action)
     {
         Vector2 v;
@@ -551,16 +556,19 @@ public static unsafe class Input
         return v;
     }
 
+    /// <summary>Whether an action is held.</summary>
     public static bool IsActionPressed(string action)
     {
         fixed (byte* p = Engine.Utf8(action, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Input_IsActionPressed(p) != 0;
     }
 
+    /// <summary>Whether an action went down this frame (this step, inside OnFixedUpdate).</summary>
     public static bool WasActionPressed(string action)
     {
         fixed (byte* p = Engine.Utf8(action, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Input_WasActionPressed(p) != 0;
     }
 
+    /// <summary>Whether an action went up this frame (this step, inside OnFixedUpdate).</summary>
     public static bool WasActionReleased(string action)
     {
         fixed (byte* p = Engine.Utf8(action, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Input_WasActionReleased(p) != 0;
@@ -571,7 +579,9 @@ public static unsafe class Input
     /// their own pads; SetJoining lets unpaired pads join by pressing South (A / Cross).
     /// </summary>
     public static int PlayerCount => Engine._api.Input_GetPlayerCount();
+    /// <summary>A local player's input by index (0 = the default player).</summary>
     public static PlayerInput Player(int index) => new PlayerInput(index);
+    /// <summary>Lets unpaired pads join as new players, up to maxPlayers (0 stops joining).</summary>
     public static void SetJoining(int maxPlayers) => Engine._api.Input_SetJoining(maxPlayers);
 }
 
@@ -580,8 +590,10 @@ public static unsafe class Input
 /// </summary>
 public readonly unsafe struct PlayerInput
 {
+    /// <summary>The player's index.</summary>
     public readonly int Index;
 
+    /// <summary>The player at index (Input.Player is the usual way).</summary>
     public PlayerInput(int index) => Index = index;
 
     /// <summary>
@@ -589,11 +601,13 @@ public readonly unsafe struct PlayerInput
     /// </summary>
     public int Gamepad => Engine._api.Input_GetPlayerGamepad(Index);
 
+    /// <summary>An action's value for this player.</summary>
     public float GetAction(string action)
     {
         fixed (byte* p = Engine.Utf8(action, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Input_GetPlayerActionValue(Index, p);
     }
 
+    /// <summary>A Vector2 action's value for this player.</summary>
     public Vector2 GetActionVector2(string action)
     {
         Vector2 v;
@@ -601,16 +615,19 @@ public readonly unsafe struct PlayerInput
         return v;
     }
 
+    /// <summary>Whether the action is held by this player.</summary>
     public bool IsActionPressed(string action)
     {
         fixed (byte* p = Engine.Utf8(action, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Input_IsPlayerActionPressed(Index, p) != 0;
     }
 
+    /// <summary>Whether the action went down this frame for this player.</summary>
     public bool WasActionPressed(string action)
     {
         fixed (byte* p = Engine.Utf8(action, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Input_WasPlayerActionPressed(Index, p) != 0;
     }
 
+    /// <summary>Whether the action went up this frame for this player.</summary>
     public bool WasActionReleased(string action)
     {
         fixed (byte* p = Engine.Utf8(action, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Input_WasPlayerActionReleased(Index, p) != 0;

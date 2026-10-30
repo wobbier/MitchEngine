@@ -7,16 +7,20 @@ using System.Threading.Tasks;
 
 namespace ScriptCore;
 
-// Timed simulated input for play-mode tests and replays, on top of Input.Simulate (keys held as if
-// pressed until released; actions read them):
-//
-//   await SimulatedInput.Hold(KeyCode.W, 1.5f);      // walk forward for 1.5 s of game time
-//   await SimulatedInput.Tap(KeyCode.E);             // held for one frame
-//   await SimulatedInput.Play(SimulatedInput.Recording.Parse("0 +W; 0.5 +Space; 0.6 -Space; 2 -W"));
-//
-// A recording is a timeline of key changes in seconds of game time from its start: "+Key" holds,
-// "-Key" releases (KeyCode names). SimulatedInput.Record() captures one from the real keyboard and
-// prints it to the log when disposed, ready to paste into a test.
+/// <summary>
+/// Timed simulated input for play-mode tests and replays, on top of Input.Simulate (keys held as if
+/// pressed until released; actions read them):
+///
+/// <code>
+///    await SimulatedInput.Hold(KeyCode.W, 1.5f);      // walk forward for 1.5 s of game time
+///    await SimulatedInput.Tap(KeyCode.E);             // held for one frame
+///    await SimulatedInput.Play(SimulatedInput.Recording.Parse("0 +W; 0.5 +Space; 0.6 -Space; 2 -W"));
+/// </code>
+///
+/// A recording is a timeline of key changes in seconds of game time from its start: "+Key" holds,
+/// "-Key" releases (KeyCode names). SimulatedInput.Record() captures one from the real keyboard and
+/// prints it to the log when disposed, ready to paste into a test.
+/// </summary>
 public static class SimulatedInput
 {
     public readonly record struct Event(float Time, KeyCode Key, bool Held);

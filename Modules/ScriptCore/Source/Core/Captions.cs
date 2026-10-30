@@ -15,23 +15,28 @@ namespace ScriptCore;
 /// </summary>
 public static class Captions
 {
+    /// <summary>The UI model the stock caption strip binds to.</summary>
     public const string Model = "captions";
     private static readonly CaptionLines _lines = new();
 
+    /// <summary>The lines showing now, oldest first.</summary>
     public static IReadOnlyList<CaptionLines.Line> Lines => _lines.Current;
 
+    /// <summary>Shows a subtitle line, with the speaker's name when Settings.SpeakerNames is on (seconds 0: as long as it takes to read). Nothing when Settings.Subtitles is off.</summary>
     public static void Say(string speaker, string text, float seconds = 0f)
     {
         if (!Settings.Subtitles || string.IsNullOrEmpty(text)) return;
         Show(_lines.Add(speaker ?? "", text, seconds, Time.RealTime));
     }
 
+    /// <summary>Shows a sound caption: "[door creaks]". Nothing when Settings.Subtitles is off.</summary>
     public static void Sound(string description, float seconds = 2.5f)
     {
         if (!Settings.Subtitles || string.IsNullOrEmpty(description)) return;
         Show(_lines.Add("", "[" + description + "]", seconds, Time.RealTime));
     }
 
+    /// <summary>Removes every line.</summary>
     public static void Clear()
     {
         _lines.Clear();
@@ -62,6 +67,7 @@ public static class Captions
         }
     }
 
+    /// <summary>The console's captions command (say, sound, clear, refresh).</summary>
     [ConsoleCommand("captions", "Shows captions: captions say <speaker> | <text>, captions sound <text>, captions clear, captions refresh")]
     public static string Command(string[] args)
     {
@@ -94,10 +100,13 @@ public static class Captions
 /// </summary>
 public sealed class CaptionLines
 {
+    /// <summary>Lines kept at once; older ones drop off.</summary>
     public const int MaxLines = 3;
+    /// <summary>A caption line: who, what, and when it expires (seconds on Time.RealTime).</summary>
     public readonly record struct Line(string Speaker, string Text, float Until);
     private readonly List<Line> _lines = new();
 
+    /// <summary>The lines, oldest first.</summary>
     public IReadOnlyList<Line> Current => _lines;
 
     /// <summary>
@@ -116,7 +125,9 @@ public sealed class CaptionLines
         return length;
     }
 
+    /// <summary>Drops lines whose time is up.</summary>
     public void Expire(float now) => _lines.RemoveAll(l => l.Until <= now);
 
+    /// <summary>Drops every line.</summary>
     public void Clear() => _lines.Clear();
 }

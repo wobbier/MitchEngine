@@ -1,11 +1,15 @@
 using System;
 
-// A small, fast, seedable random generator (PCG32, O'Neill's pcg32_random_r): the same seed gives the
-// same sequence on every platform and run, so procedural content and replays are reproducible.
-// Named Rng so scripts with `using System;` don't collide with System.Random.
-//
-//   var rng = new Rng(1234);
-//   float f = rng.Range(0f, 10f);  int i = rng.Range(0, 6);  bool coin = rng.Chance(0.5f);
+/// <summary>
+/// A small, fast, seedable random generator (PCG32, O'Neill's pcg32_random_r): the same seed gives the
+/// same sequence on every platform and run, so procedural content and replays are reproducible.
+/// Named Rng so scripts with `using System;` don't collide with System.Random.
+///
+/// <code>
+///    var rng = new Rng(1234);
+///    float f = rng.Range(0f, 10f);  int i = rng.Range(0, 6);  bool coin = rng.Chance(0.5f);
+/// </code>
+/// </summary>
 public sealed class Rng
 {
     private ulong _state;

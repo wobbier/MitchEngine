@@ -43,6 +43,7 @@ public static unsafe class Navigation
         return blocked;
     }
 
+    /// <summary>A random point on the navmesh; false when there's none.</summary>
     public static bool GetRandomPoint(out Vector3 point)
     {
         Vector3 result;

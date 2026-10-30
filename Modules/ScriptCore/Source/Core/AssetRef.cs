@@ -10,10 +10,13 @@ namespace ScriptCore;
 [Serializable]
 public struct AssetRef
 {
+    /// <summary>The project path ("Assets/..."), or empty.</summary>
     public string Path;
 
+    /// <summary>Whether a path is set.</summary>
     public bool IsSet => !string.IsNullOrEmpty(Path);
 
+    /// <summary>The path, or "(none)".</summary>
     public override string ToString() => IsSet ? Path : "(none)";
 
     /// <summary>

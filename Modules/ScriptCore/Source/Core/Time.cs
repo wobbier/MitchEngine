@@ -1,5 +1,6 @@
 namespace ScriptCore;
 
+/// <summary>The game's clock.</summary>
 public static unsafe class Time
 {
     /// <summary>
@@ -19,6 +20,7 @@ public static unsafe class Time
     /// </summary>
     public static float RealTime => Engine._api.GetTime();
 
+    /// <summary>How fast game time runs (1 = normal, 0 = stopped).</summary>
     public static float TimeScale
     {
         get => Engine._api.Time_GetTimeScale();

@@ -4,21 +4,26 @@ using System.Text.Json;
 
 namespace ScriptCore;
 
-// Typed events between scripts, plus the engine's own (CS-8). Any type can be an event:
-//
-//   public readonly record struct CoinCollected(int Value);
-//   EventBus.Publish(new CoinCollected(5));
-//   EventBus.Subscribe<CoinCollected>(c => score += c.Value);    // returns a token: Dispose to stop
-//   On<SceneLoaded>(e => Debug.Log(e.Path));                    // in a Script: dropped when it's destroyed
-//
-// Publish delivers at once, in subscription order; a throwing handler is reported and the rest
-// still run. A script's subscriptions go when it's destroyed, and every subscription goes on a
-// hot reload (scripts subscribe again in OnStart / OnReload). Engine events arrive once a frame,
-// before the scripts' OnUpdate.
+/// <summary>
+/// Typed events between scripts, plus the engine's own (CS-8). Any type can be an event:
+///
+/// <code>
+///    public readonly record struct CoinCollected(int Value);
+///    EventBus.Publish(new CoinCollected(5));
+///    EventBus.Subscribe&lt;CoinCollected&gt;(c =&gt; score += c.Value);    // returns a token: Dispose to stop
+///    On&lt;SceneLoaded&gt;(e =&gt; Debug.Log(e.Path));                    // in a Script: dropped when it's destroyed
+/// </code>
+///
+/// Publish delivers at once, in subscription order; a throwing handler is reported and the rest
+/// still run. A script's subscriptions go when it's destroyed, and every subscription goes on a
+/// hot reload (scripts subscribe again in OnStart / OnReload). Engine events arrive once a frame,
+/// before the scripts' OnUpdate.
+/// </summary>
 public static class EventBus
 {
     private static readonly Dictionary<Type, List<Delegate>> Handlers = new();
 
+    /// <summary>Calls handler for every T published until the returned handle is disposed (a script's go when it's destroyed).</summary>
     public static IDisposable Subscribe<T>(Action<T> handler)
     {
         if (!Handlers.TryGetValue(typeof(T), out var list))
@@ -29,6 +34,7 @@ public static class EventBus
         return new Subscription(() => Unsubscribe(handler));
     }
 
+    /// <summary>Removes a handler added with Subscribe.</summary>
     public static void Unsubscribe<T>(Action<T> handler)
     {
         if (Handlers.TryGetValue(typeof(T), out var list))
@@ -37,6 +43,7 @@ public static class EventBus
         }
     }
 
+    /// <summary>Delivers evt to every subscriber of T now, in subscription order.</summary>
     public static void Publish<T>(T evt)
     {
         if (!Handlers.TryGetValue(typeof(T), out var list) || list.Count == 0) return;
@@ -48,6 +55,7 @@ public static class EventBus
         }
     }
 
+    /// <summary>How many handlers T has.</summary>
     public static int SubscriberCount<T>() => Handlers.TryGetValue(typeof(T), out var list) ? list.Count : 0;
 
     // A wrapper handler (a filter) that belongs to the script its inner delegate targets.
@@ -145,7 +153,16 @@ public readonly record struct AdditiveSceneChanged(int SceneId, string Path, boo
 /// A pad connected to or left a slot.
 /// </summary>
 public readonly record struct GamepadChanged(int Slot, bool Connected, string Name);
-public enum PlayerChange { Joined, DeviceLost, DeviceRegained }
+/// <summary>What happened to a local player (PlayerChanged).</summary>
+public enum PlayerChange
+{
+    /// <summary>A new player joined.</summary>
+    Joined,
+    /// <summary>The player's pad disconnected.</summary>
+    DeviceLost,
+    /// <summary>The player's pad came back.</summary>
+    DeviceRegained,
+}
 /// <summary>
 /// A local player joined, lost its pad or got it back.
 /// </summary>
@@ -154,6 +171,8 @@ public readonly record struct PlayerChanged(int Player, int GamepadSlot, PlayerC
 /// An Animator passed a named marker in a state.
 /// </summary>
 public readonly record struct AnimationMarker(Entity Entity, string State, string Name);
+/// <summary>The game's window (or the editor's Game View) changed size, in pixels.</summary>
+/// <param name="Size">The new size.</param>
 public readonly record struct WindowResized(Vector2 Size);
 /// <summary>
 /// Project files changed on disk while playing (tools builds): project-relative paths.

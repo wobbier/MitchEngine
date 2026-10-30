@@ -10,10 +10,13 @@ namespace ScriptCore;
 [Serializable]
 public struct EntityRef
 {
+    /// <summary>The entity's scene GUID (16 hex digits), or empty.</summary>
     public string Guid;
 
+    /// <summary>Whether a GUID is set.</summary>
     public bool IsSet => !string.IsNullOrEmpty(Guid);
 
+    /// <summary>The live entity with that GUID, or Entity.Null.</summary>
     public Entity Resolve()
     {
         if (!IsSet)
@@ -30,5 +33,6 @@ public struct EntityRef
         }
     }
 
+    /// <summary>The GUID, or "(none)".</summary>
     public override string ToString() => IsSet ? Guid : "(none)";
 }

@@ -42,8 +42,18 @@ public static unsafe class Query
     }
 }
 
-public enum WindowMode { Windowed, Borderless, Fullscreen }
+/// <summary>How the game's window covers the screen.</summary>
+public enum WindowMode
+{
+    /// <summary>A normal window.</summary>
+    Windowed,
+    /// <summary>A screen-sized window without borders.</summary>
+    Borderless,
+    /// <summary>Exclusive fullscreen.</summary>
+    Fullscreen,
+}
 
+/// <summary>The running game: quit, and the window.</summary>
 public static unsafe class App
 {
     /// <summary>
@@ -51,6 +61,7 @@ public static unsafe class App
     /// </summary>
     public static void Quit() => Engine._api.App_Quit();
 
+    /// <summary>The window's size in pixels (the Game View's in the editor).</summary>
     public static Vector2 WindowSize
     {
         get { Vector2 size; Engine._api.Window_GetSize(&size); return size; }

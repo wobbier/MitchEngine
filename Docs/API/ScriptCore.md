@@ -115,6 +115,8 @@ xyzw, identity = (0, 0, 0, 1) — matching the engine's Quaternion layout.
 
 ## Rng
 
+A small, fast, seedable random generator (PCG32, O'Neill's pcg32_random_r): the same seed gives the same sequence on every platform and run, so procedural content and replays are reproducible. Named Rng so scripts with `using System;` don't collide with System.Random.
+
 - `NextFloat` (method): [0, 1)
 - `OnUnitSphere` (method): A uniformly distributed direction.
 - `Range(System.Int32,System.Int32)` (method): [min, max), unbiased (Lemire's bounded method with rejection).
@@ -196,9 +198,12 @@ The entity's Animator (CS-5 a): parameters drive its state machine's transitions
 
 ## App
 
+The running game: quit, and the window.
+
 - `Quit` (method): Leaves the game (ignored in the editor).
 - `Rumble(System.Int32,System.Single,System.Single,System.Single)` (method): Rumbles a local player's pad (0..1 motors for `seconds`); false when the player has none.
 - `WindowMode` (property): The window mode (changing it is ignored in the editor; PLAY-1's Alt+Enter does the same).
+- `WindowSize` (property): The window's size in pixels (the Game View's in the editor).
 
 ## AssetFilterAttribute
 
@@ -211,7 +216,10 @@ Limits an AssetRef row to an asset type, e.g. [AssetFilter("Texture")] or a file
 
 A saveable reference to an asset by project path (how the engine references assets, e.g. "Assets/Textures/Star.png"). The inspector draws it as an asset row: drag a file from the asset browser, pick with "...", clear with "x".
 
+- `IsSet` (property): Whether a path is set.
 - `Load1` (method): The data asset this references (DataAssets.Load: cached, shared, hot reloaded).
+- `Path` (field): The project path ("Assets/..."), or empty.
+- `ToString` (method): The path, or "(none)".
 
 ## AssetsChanged
 
@@ -221,14 +229,25 @@ Project files changed on disk while playing (tools builds): project-relative pat
 
 ## Async
 
+Async work on the game's clock (CS-6): await, coroutines, timers and tweens, all advanced once a frame on the main thread before the scripts' OnUpdate, by game time (paused = stopped).
+
 - `Frame` (property): Frames ticked since play started.
+- `Frames(System.Int32,ScriptCore.Script)` (method): Completes after that many frames (at least one).
+- `NextFrame(ScriptCore.Script)` (method): Completes on the next frame.
+- `Seconds(System.Single,ScriptCore.Script)` (method): Completes after that many seconds of game time (with an owner, it's dropped when the script goes).
+- `Until(System.Func{System.Boolean},ScriptCore.Script)` (method): Completes on the first frame the condition holds (checked once a frame).
 
 ## AsyncHandle
 
 A running coroutine, timer or tween: Cancel stops it; Task completes when it ends (cancelled too).
 
+- `Cancel` (method): Stops it at the next frame.
+- `IsRunning` (property): Whether it's still going.
+- `Task` (property): Completes when it ends, cancelled or not (await it).
 
 ## Audio
+
+One-shot sounds from scripts: fire and forget, at a position or not.
 
 - `PlayOneShot(System.String,System.Single)` (method): Fire-and-forget on the SFX bus; overlapping plays each get their own voice.
 - `PlayOneShotAt(System.String,Vector3,System.Single)` (method): Positioned in 3D (attenuated by distance from the listener).
@@ -237,6 +256,11 @@ A running coroutine, timer or tween: Cancel stops it; Task completes when it end
 
 The engine's audio buses, in AudioBus order.
 
+- `Master` (field): Everything (the other buses feed it).
+- `Music` (field): Music.
+- `SFX` (field): Sound effects.
+- `UI` (field): Interface sounds.
+- `Voice` (field): Dialogue and voice.
 
 ## AudioSource
 
@@ -273,13 +297,29 @@ The entity's Camera: projection, clipping, render scaling and screen rays.
 The caption queue itself: no engine calls, so tests can drive it with their own clock.
 
 - `Add(System.String,System.String,System.Single,System.Single)` (method): Returns how long the line shows.
+- `Clear` (method): Drops every line.
+- `Current` (property): The lines, oldest first.
+- `Expire(System.Single)` (method): Drops lines whose time is up.
+- `MaxLines` (field): Lines kept at once; older ones drop off.
 - `ReadingSeconds(System.String)` (method): About as long as it takes to read: 1.5 s plus 60 ms a character, 2 to 8 s.
+
+## CaptionLines.Line
+
+A caption line: who, what, and when it expires (seconds on Time.RealTime).
+
+- `(constructor)(System.String,System.String,System.Single)` (method): A caption line: who, what, and when it expires (seconds on Time.RealTime).
 
 ## Captions
 
 PLAY-7: subtitles and closed captions in the stock caption strip (Engine/Assets/UI/Captions/ Captions.rml, a UIDocument the scene adds; it binds the "captions" model). The player's Accessibility settings decide whether they show, whether speakers are named, their size and their backdrop: Captions.Say("Guard", "Who goes there?"); // a line of speech, for as long as it takes to read Captions.Sound("door creaks"); // a sound, shown as [door creaks] Up to three lines show at once, newest last; each goes after its time (real time, so a paused game doesn't hold them forever).
 
+- `Clear` (method): Removes every line.
+- `Command(System.String[])` (method): The console's captions command (say, sound, clear, refresh).
+- `Lines` (property): The lines showing now, oldest first.
+- `Model` (field): The UI model the stock caption strip binds to.
 - `Refresh` (method): Drops the lines whose time is up and writes the model (Say and Sound schedule it).
+- `Say(System.String,System.String,System.Single)` (method): Shows a subtitle line, with the speaker's name when Settings.SpeakerNames is on (seconds 0: as long as it takes to read). Nothing when Settings.Subtitles is off.
+- `Sound(System.String,System.Single)` (method): Shows a sound caption: "[door creaks]". Nothing when Settings.Subtitles is off.
 
 ## CharacterController
 
@@ -321,28 +361,60 @@ A contact reported to OnCollisionEnter / OnCollisionExit.
 
 stateless proxy, just marshalling really
 
+- `AddComponent1` (method): Adds a component of type T to the entity and returns it.
+- `Entity` (property): The entity this component is on.
+- `Equals(ScriptCore.Component)` (method): Same component on the same entity; two missing components are equal (Unity-style fake null).
+- `Equals(System.Object)` (method): Same component on the same entity.
 - `Exists` (property): if the entity is being observed by the world in any capacity, you cannot hide in silence
+- `GetComponent1` (method): The entity's component of type T, or null.
+- `GetHashCode` (method): A hash of the type and entity.
+- `HasComponent1` (method): Whether the entity has a component of type T.
+- `op_Equality(ScriptCore.Component,ScriptCore.Component)` (method): Same component, or both missing: a removed component compares equal to null.
+- `op_Inequality(ScriptCore.Component,ScriptCore.Component)` (method): Not the same component.
+- `transform` (property): The entity's Transform.
 
 ## ConsoleCommandAttribute
 
 PLAY-10: a developer console command. On a static method taking string[] (or nothing) and returning a string (printed) or nothing: [ConsoleCommand("spawn", "Spawns a prefab: spawn <path>")] public static string Spawn(string[] args) { World.Instantiate(args[0]); return "spawned"; } The engine's, the game's and the mods' assemblies are searched; ~ opens the console in game builds.
 
+- `(constructor)(System.String,System.String)` (method): A console command: its name and the help line "help" lists.
+- `Help` (property): The help line.
+- `Name` (property): What's typed to run it.
 
 ## ConsoleCommands
 
+The developer console's C# commands ([ConsoleCommand] methods).
+
+- `List` (method): Every command's name and help line.
 - `Run(System.String,System.String[])` (method): Null when no C# command has that name.
 
 ## DataAsset
 
+Data assets (CS-7): a C# class whose public fields live in an .asset file, for tuning data shared by many scripts (weapon stats, level settings, dialogue). Make one with Create > Data Asset in the asset browser, edit it there, and point scripts at it with an AssetRef:
+
+- `AssetPath` (property): The .asset file it was loaded from.
 - `OnLoaded` (method): After the values (re)load: on first load and after the file changes.
 
 ## DataAssets
 
+Loads data assets by path (cached: every caller shares one instance).
+
+- `AssetTypes` (property): The DataAsset types the scripts define (the asset browser's Create menu).
+- `Load(System.String)` (method): The data asset at path, or null when it's missing or its type is unknown.
+- `Load1(System.String)` (method): The data asset at path as T, or null when it's missing or another type.
 - `Save(ScriptCore.DataAsset)` (method): Writes the asset's fields back to its file.
 
 ## Debug
 
+Logging and debug drawing.
+
 - `DrawLine(Vector3,Vector3,Vector3,System.Single)` (method): Lines and spheres in the game and scene views; duration 0 draws for this frame only.
+- `DrawSphere(Vector3,System.Single,Vector3,System.Single)` (method): Draws a wire sphere (see DrawLine).
+- `Error(System.Object)` (method): Logs a value's ToString() as an error.
+- `Error(System.String)` (method): Logs an error.
+- `Log(System.Object)` (method): Logs a value's ToString().
+- `Log(System.String)` (method): Logs a message (with the calling file and line).
+- `Warning(System.String)` (method): Logs a warning.
 
 ## Dialogue.DialogueEvent
 
@@ -388,6 +460,22 @@ Values are bool, double or string (an unset variable is false). Operators: not, 
 
 Curves for tweens. Linear, SmoothStep and Hold match SequenceInterpolation's.
 
+- `Hold` (field): Holds the start value, then jumps to the end at t = 1.
+- `InCubic` (field): Starts slow (t³).
+- `InOutCubic` (field): Slow at both ends (cubic).
+- `InOutQuad` (field): Slow at both ends (quadratic).
+- `InQuad` (field): Starts slow (t²).
+- `Linear` (field): Constant speed.
+- `OutBack` (field): Overshoots the end a little, then settles back.
+- `OutCubic` (field): Ends slow (cubic).
+- `OutQuad` (field): Ends slow.
+- `SmoothStep` (field): Eases in and out (3t² − 2t³).
+
+## Easing
+
+The Ease curves as functions.
+
+- `Evaluate(ScriptCore.Ease,System.Single)` (method): The curve at t (clamped to 0..1): 0 at the start, 1 at the end.
 
 ## Engine
 
@@ -437,6 +525,19 @@ struct because it's mapped to the engine EntityID struct. don't fuckin add anyth
 
 A saveable reference to a scene entity: stores the entity's scene GUID (the 16-hex string .lvl files use), so it survives save/load and script hot reloads. Resolve() finds the live entity in the current world. The inspector draws it as an entity row (drag an entity in).
 
+- `Guid` (field): The entity's scene GUID (16 hex digits), or empty.
+- `IsSet` (property): Whether a GUID is set.
+- `Resolve` (method): The live entity with that GUID, or Entity.Null.
+- `ToString` (method): The GUID, or "(none)".
+
+## EventBus
+
+Typed events between scripts, plus the engine's own (CS-8). Any type can be an event:
+
+- `Publish1(0)` (method): Delivers evt to every subscriber of T now, in subscription order.
+- `Subscribe1(System.Action{0})` (method): Calls handler for every T published until the returned handle is disposed (a script's go when it's destroyed).
+- `SubscriberCount1` (method): How many handlers T has.
+- `Unsubscribe1(System.Action{0})` (method): Removes a handler added with Subscribe.
 
 ## ExecutionOrderAttribute
 
@@ -476,6 +577,8 @@ A pad connected to or left a slot.
 - `GameAssembly` (property): For a mod's context: the game's Game.Script, which the mod resolves to instead of loading its own.
 
 ## GameTestAttribute
+
+CS-12: play-mode tests. A static method returning Task (or void), in the game's or a mod's scripts:
 
 - `Scene` (property): Loaded before the test; empty runs it in whatever scene is playing.
 
@@ -552,12 +655,23 @@ Implemented by the NetGenerator; the engine reaches it through the ScriptBridge.
 
 ## Input
 
+Keys, the mouse and the project's input actions (Engine/Docs/Input.md).
+
 - `GetAction(System.String)` (method): Actions from the project's .inputactions map (Engine/Docs/Input.md).
+- `GetActionVector2(System.String)` (method): A Vector2 action's value (sticks, WASD composites).
+- `IsActionPressed(System.String)` (method): Whether an action is held.
+- `IsKeyDown(ScriptCore.KeyCode)` (method): Whether a key is held (the real keyboard; simulated keys reach actions only).
 - `MouseCaptured` (property): Locks and hides the cursor so the mouse only reports motion (FPS-style look).
 - `MouseDelta` (property): Mouse motion this frame in pixels (+Y up).
 - `MousePosition` (property): The mouse in the game's pixels, from the top left (in the editor: of the game view).
+- `Player(System.Int32)` (method): A local player's input by index (0 = the default player).
 - `PlayerCount` (property): Local multiplayer: player 0 is the default player (the methods above). Other players have their own pads; SetJoining lets unpaired pads join by pressing South (A / Cross).
+- `ReleaseSimulated` (method): Releases every key Simulate held.
+- `SetJoining(System.Int32)` (method): Lets unpaired pads join as new players, up to maxPlayers (0 stops joining).
 - `Simulate(ScriptCore.KeyCode,System.Boolean)` (method): Holds a key as if pressed, on top of the real devices, until it's released (play-mode tests and input replays; Testing/SimulatedInput.cs times them). Actions read it, focus or not; IsKeyDown / WasKeyPressed read the devices and don't. [GameTest]s release every simulated key when they end.
+- `WasActionPressed(System.String)` (method): Whether an action went down this frame (this step, inside OnFixedUpdate).
+- `WasActionReleased(System.String)` (method): Whether an action went up this frame (this step, inside OnFixedUpdate).
+- `WasKeyPressed(ScriptCore.KeyCode)` (method): Whether a key went down this frame (this step, inside OnFixedUpdate).
 
 ## Inspector
 
@@ -578,6 +692,8 @@ script friendly names for my SDL garbage
 - `RightCommand` (field): Aka RightWindows / RightSuper
 
 ## Kit.BeatClock
+
+NEXT-8: a music clock for rhythm and beat-synced gameplay. It follows an AudioSource's playback position as the audio mixer sees it (sample-accurate, not frame time), smoothed between mixer updates, and fires each beat and bar it crosses exactly once, in order, even across hitches. A script owns one and ticks it:
 
 - `Advance(System.Double,System.Double)` (method): One step: InDelta seconds passed; InPlayback is the track's position as the mixer reports it, or < 0 to advance by InDelta alone.
 - `BeatPhase` (property): How far into the current beat, 0..1 (a pulse: 1 - BeatPhase).
@@ -627,6 +743,8 @@ Where an actor comes back: entering its trigger makes it that actor's respawn po
 - `Respawn(ScriptCore.Entity,System.Nullable{Vector3})` (method): Moves the actor to its last checkpoint (or Fallback when it reached none) and refills it.
 
 ## Kit.Conversation
+
+Talk to it (GAME-8): runs a .dialogue file through the stock dialogue UI (put a UIDocument with Assets/UI/Dialogue/Dialogue.rml in the scene). Interact starts it and then continues past lines; the document's buttons pick choices. Variables are shared by every Conversation, so what was said in one is remembered in the next. <<event>>s are logged and published (DialogueEvent).
 
 - `Active` (property): The conversation on screen, if any (a controller can stop walking while it's set).
 - `Variables` (field): Shared by every conversation (what the player said earlier).
@@ -708,7 +826,11 @@ The entity's Light (CS-5 e): its reflected fields as properties. Linear color, i
 
 ## Loc
 
+Localization (PLAY-6): text by key from the string tables (Assets/Localization/<code>.json over the engine's). A key with no translation comes back as itself, so English keys read fine before anything is translated. "qps" is the pseudo-locale: every known string accented and padded.
+
+- `Get(System.String)` (method): The text for a key in the current language (the key itself when there's no translation).
 - `Language` (property): "" = none. Setting it changes the player's Language setting.
+- `Languages` (property): The language codes with string tables.
 
 ## Mesh
 
@@ -736,6 +858,7 @@ Draws a string field as a multi-line text box.
 Navmesh queries (Engine/Docs/Navigation.md). They use the navmesh under the start point.
 
 - `FindPath(Vector3,Vector3,System.Int32)` (method): The corners of the shortest path, start and end included; empty when there is none. When the end can't be reached the path leads to the closest reachable point.
+- `GetRandomPoint(Vector3@)` (method): A random point on the navmesh; false when there's none.
 - `Raycast(Vector3,Vector3,Vector3@)` (method): Walks the surface from start towards end; true (with where it stopped) when a wall is in the way.
 - `SamplePosition(Vector3,System.Single,Vector3@)` (method): The closest navmesh point within maxDistance.
 
@@ -838,6 +961,17 @@ Queries against the physics world: raycasts, overlaps, portal passages.
 
 2D physics queries in the XY plane (CS-5 g). Layer masks as in Physics (-1 = every layer).
 
+- `OverlapCircle(Vector2,System.Single,System.Int32)` (method): The entities whose 2D colliders overlap a circle.
+- `OverlapPoint(Vector2,System.Int32)` (method): The entities whose 2D colliders contain a point.
+- `Raycast(Vector2,Vector2,System.Single,ScriptCore.RaycastHit@,System.Int32)` (method): The first 2D collider along the ray within maxDistance; false on a miss.
+
+## PlayerChange
+
+What happened to a local player (PlayerChanged).
+
+- `DeviceLost` (field): The player's pad disconnected.
+- `DeviceRegained` (field): The player's pad came back.
+- `Joined` (field): A new player joined.
 
 ## PlayerChanged
 
@@ -849,7 +983,14 @@ A local player joined, lost its pad or got it back.
 
 One local player's actions.
 
+- `(constructor)(System.Int32)` (method): The player at index (Input.Player is the usual way).
 - `Gamepad` (property): The player's pad slot (-1 = any unowned pad, -2 = none).
+- `GetAction(System.String)` (method): An action's value for this player.
+- `GetActionVector2(System.String)` (method): A Vector2 action's value for this player.
+- `Index` (field): The player's index.
+- `IsActionPressed(System.String)` (method): Whether the action is held by this player.
+- `WasActionPressed(System.String)` (method): Whether the action went down this frame for this player.
+- `WasActionReleased(System.String)` (method): Whether the action went up this frame for this player.
 
 ## PredictedAttribute
 
@@ -909,6 +1050,8 @@ The entity's Rigidbody: forces and velocity.
 
 The entity's Rigidbody2D.
 
+- `AddForce(Vector2,ScriptCore.ForceMode)` (method): Applies a 2D force (see ForceMode).
+- `Velocity` (property): The body's velocity in units per second.
 
 ## SaveAttribute
 
@@ -917,14 +1060,25 @@ Saves a non-public field with save games (public fields always are). Scenes neve
 
 ## SaveGame
 
+Save games (PLAY-4): the whole scene (transforms, components, script fields, [Save] fields) in a named slot under user://Saves, with the date, playtime and a thumbnail. Saving writes on a worker; loading replaces the scene at the end of the frame, so call it from anywhere.
+
+- `Delete(System.String)` (method): Deletes a slot; false when it doesn't exist.
+- `Exists(System.String)` (method): Whether a slot exists.
 - `IsWriting` (property): True while a save is still being written.
+- `List` (method): Every save game, newest first.
+- `Load(System.String)` (method): Loads a slot (the scene is replaced at the end of the frame); false when it doesn't exist.
 - `Playtime` (property): Seconds played, counting from the loaded save's playtime.
 - `Save(System.String,System.String)` (method): Slot names are letters, digits, '-' and '_'. False when the name is invalid or there's no scene.
 
 ## SaveSlot
 
+A save game's details (SaveGame.List).
+
 - `Date` (field): UTC, ISO 8601
+- `Name` (field): The display name given to Save.
 - `Playtime` (field): Seconds
+- `Scene` (field): The scene that was saved.
+- `Slot` (field): The slot's name (its folder under user://Saves).
 
 ## SceneLoaded
 
@@ -1051,18 +1205,31 @@ Runs on the server: declare `[ServerRpc] partial void Name(args);` and write `On
 
 ## Settings
 
+The player's settings (PLAY-2), saved in user://Settings.json and applied as they change: graphics quality, bus volumes, language, accessibility, rebinds, plus the game's own values. Changes save on their own once they settle; Save() writes now.
+
 - `GetBindingDisplay(System.String,System.Int32)` (method): What a prompt shows for a binding: "Space", "Gamepad South", "W/A/S/D".
+- `GetBool(System.String,System.Boolean)` (method): A game value, or the fallback.
 - `GetFloat(System.String,System.Single)` (method): The game's own values, stored as Game.<key>.
+- `GetInt(System.String,System.Int32)` (method): A game value, or the fallback.
 - `GetJson(System.String)` (method): Any key as JSON text ("null" when it isn't set).
+- `GetString(System.String,System.String)` (method): A game value, or the fallback.
 - `GetVolume(ScriptCore.AudioBus)` (method): The player's volume for a bus, 0..1 (it scales the project's mix).
 - `HighContrast` (property): PLAY-7: the high-contrast class on every UI document.
 - `Language` (property): A string table code ("es" reads Assets/UI/Strings/es.json); "" = none.
 - `Quality` (property): "" = no player caps; else one of QualityPresets.
+- `QualityPresets` (property): The quality presets the project defines (HardwareProfiles.json).
 - `Rebind(System.String,System.Int32,System.String,System.String)` (method): Binds binding `binding` of an action (or a composite part: "Up", "Negative"...) to a control path ("Keyboard/J", "Gamepad/North"). False for an unknown action, binding or control.
 - `ReduceMotion` (property): No camera shake (the kit's CameraImpulse honours it); games read it for their own sway.
 - `Reset` (method): Every setting back to its default, rebinds included.
+- `ResetBindings` (method): Puts every rebind back to the project's bindings.
 - `Save` (method): Writes the settings now. False when the run keeps them in memory (automated runs).
+- `SetBool(System.String,System.Boolean)` (method): Sets a game value.
+- `SetFloat(System.String,System.Single)` (method): Sets a game value (stored as Game.key).
+- `SetInt(System.String,System.Int32)` (method): Sets a game value.
 - `SetJson(System.String,System.String)` (method): False (and an error in the log) when the key or the value is rejected.
+- `SetString(System.String,System.String)` (method): Sets a game value.
+- `SetVolume(ScriptCore.AudioBus,System.Single)` (method): Sets the player's volume for a bus, 0..1.
+- `SpeakerNames` (property): Whether subtitles name their speaker (on by default).
 - `SubtitleBackground` (property): The caption backdrop's opacity, 0..1.
 - `Subtitles` (property): Captions and subtitles (Captions.Say / Sound), on by default.
 - `SubtitleSize` (property): Caption text scale, 0.75..2.
@@ -1070,6 +1237,8 @@ Runs on the server: declare `[ServerRpc] partial void Name(args);` and write `On
 - `ToggleHolds` (property): PLAY-7: input actions marked Toggle (sprint, crouch) latch on a press instead of being held.
 
 ## SimulatedInput
+
+Timed simulated input for play-mode tests and replays, on top of Input.Simulate (keys held as if pressed until released; actions read them):
 
 - `Hold(ScriptCore.KeyCode,System.Single)` (method): Holds the key for the given game time (at least one frame), then releases it.
 - `Play(System.Collections.Generic.IReadOnlyList{ScriptCore.SimulatedInput.Event})` (method): Applies each event once the recording's game time reaches it. Keys still held at the end stay held (end a recording with its releases, or call Input.ReleaseSimulated).
@@ -1142,10 +1311,20 @@ The entity's Tilemap (LOOK-S5): cells by palette index (-1 = empty). A TilemapCo
 
 ## Time
 
+The game's clock.
+
 - `DeltaTime` (property): Scaled game time this frame (0 while paused).
 - `FixedDeltaTime` (property): The fixed simulation step (OnFixedUpdate).
 - `RealTime` (property): Seconds since scripting started (wall clock).
+- `TimeScale` (property): How fast game time runs (1 = normal, 0 = stopped).
 - `UnscaledDeltaTime` (property): Real seconds this frame, ignoring pause and time scale.
+
+## Timer
+
+Calls on game time (a script's After / Every own theirs).
+
+- `After(System.Single,System.Action,ScriptCore.Script)` (method): Calls action once, after that many seconds of game time.
+- `Every(System.Single,System.Action,ScriptCore.Script)` (method): Calls action every that many seconds of game time, until cancelled.
 
 ## TooltipAttribute
 
@@ -1172,17 +1351,34 @@ The entity's Transform: position, rotation and scale, local and world.
 
 ## Tween
 
+Values that change over game time on a curve (Ease).
+
 - `Float(System.Single,System.Single,System.Single,System.Action{System.Single},ScriptCore.Ease,ScriptCore.Script)` (method): Calls setter with from..to over seconds of game time (eased); the last call is exactly `to`.
 - `Move(ScriptCore.Transform,Vector3,System.Single,ScriptCore.Ease,ScriptCore.Script)` (method): Moves a transform's position to `to`.
+- `Vector(Vector3,Vector3,System.Single,System.Action{Vector3},ScriptCore.Ease,ScriptCore.Script)` (method): Calls setter with from..to over seconds of game time (eased); the last call is exactly `to`.
 
 ## UI
 
+Script-owned view models for RmlUi documents (UI-3). Values live engine-side, so they survive C# hot reloads; a document with data-model="name" binds to them and reloads once when the model first appears. Typical shape:
+
+- `Hide(System.String)` (method): Hides a UIDocument entity's document; false when there's no such entity.
+- `IsVisible(System.String)` (method): Whether a UIDocument entity's document is showing.
+- `Model(System.String)` (method): The view model of that name, created on first use (documents bind it with data-model).
 - `Show(System.String)` (method): The UIDocument on the entity with this name (a menu such as the stock options menu, Assets/UI/Options/Options.rml). False when no UIDocument entity has that name.
+- `Toggle(System.String)` (method): Shows the document if hidden, hides it if shown.
 
 ## UIModel
 
+A view model: values RML binds ({{ key }}) and events it raises.
+
+- `GetNumber(System.String)` (method): A number's value (0 when unset).
+- `GetString(System.String)` (method): A string's value ("" when unset).
+- `Name` (field): The model's name (data-model="name").
 - `On(System.String)` (method): Registers a data-event name the document can raise (data-event-click="name").
 - `PollEvent` (method): The oldest queued event name, or "" when none are waiting.
+- `Set(System.String,System.Boolean)` (method): Sets a bool (stored as 1 or 0).
+- `Set(System.String,System.Double)` (method): Sets a number.
+- `Set(System.String,System.String)` (method): Sets a string.
 
 ## UpscaleFilter
 
@@ -1195,8 +1391,39 @@ How a camera's scaled-down image is stretched to its output.
 
 ## WaitForSeconds
 
-The yield instructions coroutines understand (plus null = the next frame, and a nested IEnumerator).
+A coroutine's yield: resume after seconds of game time. (Coroutines also understand null = the next frame, WaitFrames, WaitUntil and a nested IEnumerator.)
 
+- `(constructor)(System.Single)` (method): Waits that many seconds of game time.
+- `Seconds` (field): The wait, in seconds of game time.
+
+## WaitFrames
+
+A coroutine's yield: resume after a number of frames.
+
+- `(constructor)(System.Int32)` (method): Waits that many frames.
+- `Count` (field): The frames to wait (at least one).
+
+## WaitUntil
+
+A coroutine's yield: resume on the first frame the condition holds.
+
+- `(constructor)(System.Func{System.Boolean})` (method): Waits until condition returns true.
+- `Condition` (field): Checked once a frame.
+
+## WindowMode
+
+How the game's window covers the screen.
+
+- `Borderless` (field): A screen-sized window without borders.
+- `Fullscreen` (field): Exclusive fullscreen.
+- `Windowed` (field): A normal window.
+
+## WindowResized
+
+The game's window (or the editor's Game View) changed size, in pixels.
+
+- `(constructor)(Vector2)` (method): The game's window (or the editor's Game View) changed size, in pixels.
+- `Size` (property): The new size.
 
 ## World
 

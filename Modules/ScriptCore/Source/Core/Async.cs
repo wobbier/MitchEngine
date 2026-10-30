@@ -6,18 +6,20 @@ using System.Threading.Tasks;
 
 namespace ScriptCore;
 
-// Async work on the game's clock (CS-6): await, coroutines, timers and tweens, all advanced once a
-// frame on the main thread before the scripts' OnUpdate, by game time (paused = stopped).
-//
-//   await Async.Seconds(0.5f);                 // resumes on the main thread, 0.5 s of game time on
-//   await Async.Frames(3);  await Async.NextFrame();  await Async.Until(() => door.Open);
-//   StartCoroutine(Blink());                    // IEnumerator: yield return new WaitForSeconds(1f);
-//   After(2f, Explode);  Every(1f, Tick);       // timers (Script helpers; cancel with the handle)
-//   Tween.Float(0f, 1f, 0.3f, v => alpha = v, Ease.OutCubic);
-//
-// What a script starts (coroutines, timers, tweens it owns) stops when the script is destroyed;
-// everything stops on Stop and on a hot reload. Plain `await Task.Delay` also resumes on the main
-// thread (the main-thread SynchronizationContext), but on the wall clock.
+/// <summary>
+/// Async work on the game's clock (CS-6): await, coroutines, timers and tweens, all advanced once a
+/// frame on the main thread before the scripts' OnUpdate, by game time (paused = stopped).
+/// <code>
+///   await Async.Seconds(0.5f);                 // resumes on the main thread, 0.5 s of game time on
+///   await Async.Frames(3);  await Async.NextFrame();  await Async.Until(() => door.Open);
+///   StartCoroutine(Blink());                    // IEnumerator: yield return new WaitForSeconds(1f);
+///   After(2f, Explode);  Every(1f, Tick);       // timers (Script helpers; cancel with the handle)
+///   Tween.Float(0f, 1f, 0.3f, v => alpha = v, Ease.OutCubic);
+/// </code>
+/// What a script starts (coroutines, timers, tweens it owns) stops when the script is destroyed;
+/// everything stops on Stop and on a hot reload. Plain `await Task.Delay` also resumes on the main
+/// thread (the main-thread SynchronizationContext), but on the wall clock.
+/// </summary>
 public static class Async
 {
     /// <summary>
@@ -25,18 +27,45 @@ public static class Async
     /// </summary>
     public static long Frame => Scheduler.Frame;
 
+    /// <summary>Completes after that many seconds of game time (with an owner, it's dropped when the script goes).</summary>
     public static Task Seconds(float seconds, Script? owner = null) => Scheduler.Wait(owner, seconds, 0, null);
+    /// <summary>Completes after that many frames (at least one).</summary>
     public static Task Frames(int frames, Script? owner = null) => Scheduler.Wait(owner, 0f, Math.Max(frames, 1), null);
+    /// <summary>Completes on the next frame.</summary>
     public static Task NextFrame(Script? owner = null) => Scheduler.Wait(owner, 0f, 1, null);
+    /// <summary>Completes on the first frame the condition holds (checked once a frame).</summary>
     public static Task Until(Func<bool> condition, Script? owner = null) => Scheduler.Wait(owner, 0f, 0, condition);
 }
 
 /// <summary>
-/// The yield instructions coroutines understand (plus null = the next frame, and a nested IEnumerator).
+/// A coroutine's yield: resume after seconds of game time. (Coroutines also understand null = the
+/// next frame, WaitFrames, WaitUntil and a nested IEnumerator.)
 /// </summary>
-public sealed class WaitForSeconds { public readonly float Seconds; public WaitForSeconds(float seconds) { Seconds = seconds; } }
-public sealed class WaitFrames { public readonly int Count; public WaitFrames(int count) { Count = Math.Max(count, 1); } }
-public sealed class WaitUntil { public readonly Func<bool> Condition; public WaitUntil(Func<bool> condition) { Condition = condition; } }
+public sealed class WaitForSeconds
+{
+    /// <summary>The wait, in seconds of game time.</summary>
+    public readonly float Seconds;
+    /// <summary>Waits that many seconds of game time.</summary>
+    public WaitForSeconds(float seconds) { Seconds = seconds; }
+}
+
+/// <summary>A coroutine's yield: resume after a number of frames.</summary>
+public sealed class WaitFrames
+{
+    /// <summary>The frames to wait (at least one).</summary>
+    public readonly int Count;
+    /// <summary>Waits that many frames.</summary>
+    public WaitFrames(int count) { Count = Math.Max(count, 1); }
+}
+
+/// <summary>A coroutine's yield: resume on the first frame the condition holds.</summary>
+public sealed class WaitUntil
+{
+    /// <summary>Checked once a frame.</summary>
+    public readonly Func<bool> Condition;
+    /// <summary>Waits until condition returns true.</summary>
+    public WaitUntil(Func<bool> condition) { Condition = condition; }
+}
 
 /// <summary>
 /// A running coroutine, timer or tween: Cancel stops it; Task completes when it ends (cancelled too).
@@ -45,18 +74,45 @@ public sealed class AsyncHandle
 {
     internal bool Cancelled;
     internal readonly TaskCompletionSource<bool> Done = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    /// <summary>Whether it's still going.</summary>
     public bool IsRunning => !Done.Task.IsCompleted;
+    /// <summary>Completes when it ends, cancelled or not (await it).</summary>
     public Task Task => Done.Task;
+    /// <summary>Stops it at the next frame.</summary>
     public void Cancel() { Cancelled = true; }
 }
 
 /// <summary>
 /// Curves for tweens. Linear, SmoothStep and Hold match SequenceInterpolation's.
 /// </summary>
-public enum Ease { Linear, SmoothStep, Hold, InQuad, OutQuad, InOutQuad, InCubic, OutCubic, InOutCubic, OutBack }
+public enum Ease
+{
+    /// <summary>Constant speed.</summary>
+    Linear,
+    /// <summary>Eases in and out (3t² − 2t³).</summary>
+    SmoothStep,
+    /// <summary>Holds the start value, then jumps to the end at t = 1.</summary>
+    Hold,
+    /// <summary>Starts slow (t²).</summary>
+    InQuad,
+    /// <summary>Ends slow.</summary>
+    OutQuad,
+    /// <summary>Slow at both ends (quadratic).</summary>
+    InOutQuad,
+    /// <summary>Starts slow (t³).</summary>
+    InCubic,
+    /// <summary>Ends slow (cubic).</summary>
+    OutCubic,
+    /// <summary>Slow at both ends (cubic).</summary>
+    InOutCubic,
+    /// <summary>Overshoots the end a little, then settles back.</summary>
+    OutBack,
+}
 
+/// <summary>The Ease curves as functions.</summary>
 public static class Easing
 {
+    /// <summary>The curve at t (clamped to 0..1): 0 at the start, 1 at the end.</summary>
     public static float Evaluate(Ease ease, float t)
     {
         t = Math.Clamp(t, 0f, 1f);
@@ -80,6 +136,7 @@ public static class Easing
     }
 }
 
+/// <summary>Values that change over game time on a curve (Ease).</summary>
 public static class Tween
 {
     /// <summary>
@@ -88,6 +145,7 @@ public static class Tween
     public static AsyncHandle Float(float from, float to, float seconds, Action<float> setter, Ease ease = Ease.SmoothStep, Script? owner = null)
         => Scheduler.AddTween(owner, seconds, ease, t => setter(from + (to - from) * t));
 
+    /// <summary>Calls setter with from..to over seconds of game time (eased); the last call is exactly `to`.</summary>
     public static AsyncHandle Vector(Vector3 from, Vector3 to, float seconds, Action<Vector3> setter, Ease ease = Ease.SmoothStep, Script? owner = null)
         => Scheduler.AddTween(owner, seconds, ease, t => setter(from + (to - from) * t));
 
@@ -101,9 +159,12 @@ public static class Tween
     }
 }
 
+/// <summary>Calls on game time (a script's After / Every own theirs).</summary>
 public static class Timer
 {
+    /// <summary>Calls action once, after that many seconds of game time.</summary>
     public static AsyncHandle After(float seconds, Action action, Script? owner = null) => Scheduler.AddTimer(owner, seconds, false, action);
+    /// <summary>Calls action every that many seconds of game time, until cancelled.</summary>
     public static AsyncHandle Every(float seconds, Action action, Script? owner = null) => Scheduler.AddTimer(owner, seconds, true, action);
 }
 

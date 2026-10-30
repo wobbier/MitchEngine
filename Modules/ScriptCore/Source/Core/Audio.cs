@@ -1,5 +1,6 @@
 namespace ScriptCore;
 
+/// <summary>One-shot sounds from scripts: fire and forget, at a position or not.</summary>
 public static unsafe class Audio
 {
     /// <summary>

@@ -5,6 +5,7 @@ namespace ScriptCore;
 /// </summary>
 public static unsafe class Physics2D
 {
+    /// <summary>The first 2D collider along the ray within maxDistance; false on a miss.</summary>
     public static bool Raycast(Vector2 origin, Vector2 direction, float maxDistance, out RaycastHit hit, int layerMask = -1)
     {
         RaycastHit h;
@@ -13,12 +14,14 @@ public static unsafe class Physics2D
         return found;
     }
 
+    /// <summary>The entities whose 2D colliders overlap a circle.</summary>
     public static Entity[] OverlapCircle(Vector2 center, float radius, int layerMask = -1)
     {
         Vector2 c = center;
         return Query.Fill((buffer, max) => { Vector2 cc = c; fixed (Entity* b = buffer) return Engine._api.Physics2D_OverlapCircle(&cc, radius, layerMask, b, max); });
     }
 
+    /// <summary>The entities whose 2D colliders contain a point.</summary>
     public static Entity[] OverlapPoint(Vector2 point, int layerMask = -1)
     {
         Vector2 p = point;
@@ -31,8 +34,10 @@ public static unsafe class Physics2D
 /// </summary>
 public class Rigidbody2D : Component
 {
+    /// <summary>Applies a 2D force (see ForceMode).</summary>
     public void AddForce(Vector2 force, ForceMode mode = ForceMode.Force) { unsafe { Engine._api.Rigidbody2D_AddForce(Entity, &force, (int)mode); } }
 
+    /// <summary>The body's velocity in units per second.</summary>
     public Vector2 Velocity
     {
         get { unsafe { Vector2 v; Engine._api.Rigidbody2D_GetVelocity(Entity, &v); return v; } }

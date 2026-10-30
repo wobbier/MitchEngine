@@ -3,14 +3,19 @@ using System.Text;
 
 namespace ScriptCore;
 
-// Localization (PLAY-6): text by key from the string tables (Assets/Localization/<code>.json over
-// the engine's). A key with no translation comes back as itself, so English keys read fine before
-// anything is translated. "qps" is the pseudo-locale: every known string accented and padded.
-//
-//   label.Text = Loc.Get("Press a key...");
-//   Loc.Language = "es";                     // a player setting: saved, and documents reload
+/// <summary>
+/// Localization (PLAY-6): text by key from the string tables (Assets/Localization/&lt;code&gt;.json over
+/// the engine's). A key with no translation comes back as itself, so English keys read fine before
+/// anything is translated. "qps" is the pseudo-locale: every known string accented and padded.
+///
+/// <code>
+///    label.Text = Loc.Get("Press a key...");
+///    Loc.Language = "es";                     // a player setting: saved, and documents reload
+/// </code>
+/// </summary>
 public static unsafe class Loc
 {
+    /// <summary>The text for a key in the current language (the key itself when there's no translation).</summary>
     public static string Get(string key) => Read((b, n) => { fixed (byte* k = Engine.Utf8(key, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Loc_Get(k, b, n); });
 
     /// <summary>
@@ -22,6 +27,7 @@ public static unsafe class Loc
         set => Settings.Language = value ?? "";
     }
 
+    /// <summary>The language codes with string tables.</summary>
     public static string[] Languages
     {
         get

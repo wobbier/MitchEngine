@@ -6,18 +6,23 @@ using System.Text.Json;
 
 namespace ScriptCore;
 
-// Data assets (CS-7): a C# class whose public fields live in an .asset file, for tuning data shared
-// by many scripts (weapon stats, level settings, dialogue). Make one with Create > Data Asset in
-// the asset browser, edit it there, and point scripts at it with an AssetRef:
-//
-//   public class WeaponStats : DataAsset { public float Damage = 10f; public int Ammo = 30; }
-//   [AssetFilter("asset")] public AssetRef Stats;   ...   var stats = Stats.Load<WeaponStats>();
-//
-// The file is { "Type": "WeaponStats", "Fields": { ... } }. Loads are cached per path, so every
-// script shares one instance; when the file changes while playing, that instance re-reads in place
-// (OnLoaded runs again), so holders see the new values. A hot reload of the scripts drops the cache.
+/// <summary>
+/// Data assets (CS-7): a C# class whose public fields live in an .asset file, for tuning data shared
+/// by many scripts (weapon stats, level settings, dialogue). Make one with Create &gt; Data Asset in
+/// the asset browser, edit it there, and point scripts at it with an AssetRef:
+///
+/// <code>
+///    public class WeaponStats : DataAsset { public float Damage = 10f; public int Ammo = 30; }
+///    [AssetFilter("asset")] public AssetRef Stats;   ...   var stats = Stats.Load&lt;WeaponStats&gt;();
+/// </code>
+///
+/// The file is { "Type": "WeaponStats", "Fields": { ... } }. Loads are cached per path, so every
+/// script shares one instance; when the file changes while playing, that instance re-reads in place
+/// (OnLoaded runs again), so holders see the new values. A hot reload of the scripts drops the cache.
+/// </summary>
 public abstract class DataAsset
 {
+    /// <summary>The .asset file it was loaded from.</summary>
     public string AssetPath { get; internal set; } = "";
 
     /// <summary>
@@ -26,13 +31,16 @@ public abstract class DataAsset
     public virtual void OnLoaded() { }
 }
 
+/// <summary>Loads data assets by path (cached: every caller shares one instance).</summary>
 public static class DataAssets
 {
     private static readonly Dictionary<string, DataAsset> Cache = new();
     private static readonly List<Type> Types = new();
 
+    /// <summary>The data asset at path as T, or null when it's missing or another type.</summary>
     public static T? Load<T>(string path) where T : DataAsset => Load(path) as T;
 
+    /// <summary>The data asset at path, or null when it's missing or its type is unknown.</summary>
     public static DataAsset? Load(string path)
     {
         if (string.IsNullOrEmpty(path)) return null;
@@ -63,6 +71,7 @@ public static class DataAssets
         unsafe { fixed (byte* p = Engine.Utf8(asset.AssetPath, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* t = Engine.Utf8(pretty, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Asset_WriteText(p, t) != 0; }
     }
 
+    /// <summary>The DataAsset types the scripts define (the asset browser's Create menu).</summary>
     public static IReadOnlyList<Type> AssetTypes => Types;
 
     // append: a mod's assembly (MOD-2) adds to the game's types.

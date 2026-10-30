@@ -16,16 +16,20 @@ namespace ScriptCore;
 [AttributeUsage(AttributeTargets.Method)]
 public sealed class ConsoleCommandAttribute : Attribute
 {
+    /// <summary>A console command: its name and the help line "help" lists.</summary>
     public ConsoleCommandAttribute(string name, string help = "")
     {
         Name = name;
         Help = help;
     }
 
+    /// <summary>What's typed to run it.</summary>
     public string Name { get; }
+    /// <summary>The help line.</summary>
     public string Help { get; }
 }
 
+/// <summary>The developer console's C# commands ([ConsoleCommand] methods).</summary>
 public static class ConsoleCommands
 {
     private static readonly Dictionary<string, (MethodInfo Method, string Help)> _commands = new(StringComparer.Ordinal);
@@ -61,6 +65,7 @@ public static class ConsoleCommands
         }
     }
 
+    /// <summary>Every command's name and help line.</summary>
     public static IEnumerable<(string Name, string Help)> List()
     {
         Refresh();

@@ -3,10 +3,12 @@ using ScriptCore.Dialogue;
 
 namespace ScriptCore.Kit;
 
-// Talk to it (GAME-8): runs a .dialogue file through the stock dialogue UI (put a UIDocument with
-// Assets/UI/Dialogue/Dialogue.rml in the scene). Interact starts it and then continues past lines;
-// the document's buttons pick choices. Variables are shared by every Conversation, so what was
-// said in one is remembered in the next. <<event>>s are logged and published (DialogueEvent).
+/// <summary>
+/// Talk to it (GAME-8): runs a .dialogue file through the stock dialogue UI (put a UIDocument with
+/// Assets/UI/Dialogue/Dialogue.rml in the scene). Interact starts it and then continues past lines;
+/// the document's buttons pick choices. Variables are shared by every Conversation, so what was
+/// said in one is remembered in the next. &lt;&lt;event&gt;&gt;s are logged and published (DialogueEvent).
+/// </summary>
 public class Conversation : Interactable
 {
     public string File = "";
