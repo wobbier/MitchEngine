@@ -185,7 +185,8 @@ public class CameraBrain : Script
     }
 }
 
-// Camera shake: Shake(strength, seconds) adds a decaying wobble to whatever the brain shows.
+// Camera shake: Shake(strength, seconds) adds a decaying wobble to whatever the brain shows (none
+// while the player's Reduce motion setting is on).
 public static class CameraImpulse
 {
     private static float _strength;
@@ -207,6 +208,8 @@ public static class CameraImpulse
         if (_left <= 0f) return Vector3.Zero;
         _time += deltaTime;
         _left = Mathf.Max(_left - deltaTime, 0f);
+        // Accessibility (PLAY-7): the shake still runs its course, unseen.
+        if (Settings.ReduceMotion) return Vector3.Zero;
         float amount = _strength * (_left / _length);
         return new Vector3(MathF.Sin(_time * Frequency * 1.3f), MathF.Sin(_time * Frequency * 1.7f + 1.1f), MathF.Sin(_time * Frequency + 2.3f) * 0.5f) * amount;
     }

@@ -124,6 +124,52 @@ namespace UIAutomation
             return true;
         }
 
+        // PLAY-7: ui-assert-visible <selector> | 0/1 (data-if hides with display: none), and
+        // ui-assert-class <selector> | <class> | 0/1.
+        if( InCommand == "ui-assert-visible" || InCommand == "ui-assert-class" )
+        {
+            std::vector<std::string> parts;
+            for( size_t start = 0;; )
+            {
+                const size_t bar = InArgs.find( '|', start );
+                parts.push_back( Trimmed( InArgs.substr( start, bar == std::string::npos ? std::string::npos : bar - start ) ) );
+                if( bar == std::string::npos ) break;
+                start = bar + 1;
+            }
+            const bool isClass = InCommand == "ui-assert-class";
+            if( parts.size() != ( isClass ? 3u : 2u ) )
+            {
+                OutError = isClass ? "Usage: ui-assert-class <selector> | <class> | 0/1" : "Usage: ui-assert-visible <selector> | 0/1";
+                return false;
+            }
+            Rml::Element* element = context->GetRootElement()->QuerySelector( parts[0] );
+            if( element == nullptr )
+            {
+                OutError = "No element matches '" + parts[0] + "'";
+                return false;
+            }
+            const bool expected = parts.back() == "1";
+            bool actual = false;
+            if( isClass )
+            {
+                actual = element->IsClassSet( parts[1] );
+            }
+            else
+            {
+                actual = true;
+                for( Rml::Element* e = element; e != nullptr; e = e->GetParentNode() )
+                {
+                    if( !e->IsVisible() ) actual = false;
+                }
+            }
+            if( actual != expected )
+            {
+                OutError = "'" + parts[0] + "' " + ( isClass ? "has" : "is" ) + ( actual ? "" : " not" ) + ( isClass ? " class " + parts[1] : " visible" );
+                return false;
+            }
+            return true;
+        }
+
         if( InCommand == "ui-assert-focused" )
         {
             const std::string selector = Trimmed( InArgs );

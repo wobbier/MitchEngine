@@ -101,6 +101,30 @@
 				<button class="choice" id="reduce-motion" onclick="setting-toggle:Accessibility.ReduceMotion" data-setting-text="Accessibility.ReduceMotion" data-format="onoff"></button>
 			</div>
 			<div class="row">
+				<span class="label">High contrast</span>
+				<button class="choice" id="high-contrast" onclick="setting-toggle:Accessibility.HighContrast" data-setting-text="Accessibility.HighContrast" data-format="onoff"></button>
+			</div>
+			<div class="row">
+				<span class="label">Subtitles</span>
+				<button class="choice" id="subtitles" onclick="setting-toggle:Accessibility.Subtitles" data-setting-text="Accessibility.Subtitles" data-format="onoff"></button>
+			</div>
+			<div class="row">
+				<span class="label">Speaker names</span>
+				<button class="choice" id="speaker-names" onclick="setting-toggle:Accessibility.SpeakerNames" data-setting-text="Accessibility.SpeakerNames" data-format="onoff"></button>
+			</div>
+			<div class="row">
+				<span class="label">Subtitle size</span>
+				<button class="step" id="subtitle-size-down" onclick="setting-step:Accessibility.SubtitleSize|-0.25">-</button>
+				<span class="value" id="subtitle-size-value" data-setting-text="Accessibility.SubtitleSize" data-format="percent"></span>
+				<button class="step" id="subtitle-size-up" onclick="setting-step:Accessibility.SubtitleSize|0.25">+</button>
+			</div>
+			<div class="row">
+				<span class="label">Subtitle background</span>
+				<button class="step" id="subtitle-bg-down" onclick="setting-step:Accessibility.SubtitleBackground|-0.1">-</button>
+				<span class="value" id="subtitle-bg-value" data-setting-text="Accessibility.SubtitleBackground" data-format="percent"></span>
+				<button class="step" id="subtitle-bg-up" onclick="setting-step:Accessibility.SubtitleBackground|0.1">+</button>
+			</div>
+			<div class="row">
 				<span class="label">Language</span>
 				<div class="choices" data-options="languages"></div>
 			</div>

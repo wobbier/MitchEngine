@@ -19,7 +19,12 @@ class RmlUiCore;
 //   Audio.Master|Music|SFX|UI|Voice   0..1, scaling the project's bus mix
 //   Language                    "" or a string table code (Assets/UI/Strings/<code>.json)
 //   Accessibility.TextScale     0.5..3, the UI's dp text scale
-//   Accessibility.ReduceMotion  bool, for games to read (camera sway, shake)
+//   Accessibility.ReduceMotion  bool: no camera shake (the kit's CameraImpulse); games read it for sway
+//   Accessibility.HighContrast  bool, a high-contrast class on every UI document (PLAY-7)
+//   Accessibility.Subtitles     bool, captions and subtitles (C# Captions) on
+//   Accessibility.SpeakerNames  bool, captions name who's speaking
+//   Accessibility.SubtitleSize  0.75..2, caption text scale
+//   Accessibility.SubtitleBackground  0..1, the caption backdrop's opacity
 //   Input.Bindings              the game input's rebinds (InputActionSystem overrides)
 //   Game.<anything>             the game's own values, any JSON
 //

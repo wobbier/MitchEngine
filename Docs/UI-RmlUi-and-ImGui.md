@@ -88,6 +88,21 @@ Three levels, simplest first:
 
 `Engine/Assets/UI/Options/Options.rml` (PLAY-3) is a complete options menu built only from the above: Graphics (quality presets, window mode), Audio (a −/+ step per bus), Controls (every binding of the game's action map, rebindable), Accessibility (text size, reduce motion, language) and Back / Reset all. Every button is in the focus chain, and showing the document focuses the Graphics tab (`autofocus`), so a gamepad drives all of it. A project replaces it by shipping its own `Assets/UI/Options/Options.rml`. The project templates carry it on a hidden `Options` entity with `PauseMenu.cs` (Pause toggles it and pauses the game), and MitchGame's main menu opens it with `show-document:Options`.
 
+### Captions and accessibility (PLAY-7)
+
+`Engine/Assets/UI/Captions/Captions.rml` is a stock caption strip: add a UIDocument with
+`Assets/UI/Captions/Captions.rml` to a scene, and C# `Captions.Say(speaker, text)` (subtitles) and
+`Captions.Sound("door creaks")` (closed captions, shown as `[door creaks]`) fill its `captions`
+model: up to three lines, newest last, each for as long as it takes to read (or the seconds given,
+real time). The player's `Accessibility.*` settings switch them off, drop speaker names, scale the
+text and set the backdrop; the stock options menu's Accessibility page has a row for each, plus
+**High contrast**, which puts the `high-contrast` class on every document's body
+(`RmlUiCore::SetHighContrast`): style `body.high-contrast ...` in your own documents. The
+`captions` console command (`captions say Guard | Halt!`, `captions sound`, `clear`, `refresh`)
+drives it by hand. Data-expression variable names must avoid RmlUi's reserved words: a model
+value named `size` can't be used in `data-style-*` (the strip uses `fontsize`).
+`AccessibilityFlows.edscript` checks it (`ui-assert-visible`, `ui-assert-class`).
+
 ### Overlays, loading screens and splashes
 
 `RmlUiCore::ShowOverlay( path, sortOrder )` / `HideOverlay` show documents that belong to the engine rather than an entity, so they stay up while the scene changes under them. `LoadingScreen` (`Source/Engine/LoadingScreen.h`, PLAY-5) uses them:

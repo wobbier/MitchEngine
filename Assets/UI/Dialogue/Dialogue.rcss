@@ -55,3 +55,24 @@ button:hover, button:focus-visible {
 	font-size: 15dp;
 	color: #AEB7C7;
 }
+
+/* PLAY-7: high contrast (Accessibility > High contrast). */
+body.high-contrast #dialogue {
+	background-color: #000000;
+	border: 2dp #FFFFFF;
+}
+body.high-contrast #dialogue-speaker {
+	color: #FFFF00;
+}
+body.high-contrast #dialogue-text {
+	color: #FFFFFF;
+}
+body.high-contrast button {
+	color: #FFFFFF;
+	background-color: #000000;
+	border: 2dp #FFFFFF;
+}
+body.high-contrast button:hover, body.high-contrast button:focus-visible {
+	color: #000000;
+	background-color: #FFFF00;
+}

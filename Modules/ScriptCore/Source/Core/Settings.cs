@@ -47,11 +47,45 @@ public static unsafe class Settings
         set => SetJson("Accessibility.TextScale", Number(value));
     }
 
-    // For the game to honour: no camera sway or shake.
+    // No camera shake (the kit's CameraImpulse honours it); games read it for their own sway.
     public static bool ReduceMotion
     {
         get => GetJson("Accessibility.ReduceMotion") == "true";
         set => SetJson("Accessibility.ReduceMotion", value ? "true" : "false");
+    }
+
+    // PLAY-7: the high-contrast class on every UI document.
+    public static bool HighContrast
+    {
+        get => GetJson("Accessibility.HighContrast") == "true";
+        set => SetJson("Accessibility.HighContrast", value ? "true" : "false");
+    }
+
+    // Captions and subtitles (Captions.Say / Sound), on by default.
+    public static bool Subtitles
+    {
+        get => GetJson("Accessibility.Subtitles") != "false";
+        set => SetJson("Accessibility.Subtitles", value ? "true" : "false");
+    }
+
+    public static bool SpeakerNames
+    {
+        get => GetJson("Accessibility.SpeakerNames") != "false";
+        set => SetJson("Accessibility.SpeakerNames", value ? "true" : "false");
+    }
+
+    // Caption text scale, 0.75..2.
+    public static float SubtitleSize
+    {
+        get => (float)GetNumberKey("Accessibility.SubtitleSize", 1.0);
+        set => SetJson("Accessibility.SubtitleSize", Number(value));
+    }
+
+    // The caption backdrop's opacity, 0..1.
+    public static float SubtitleBackground
+    {
+        get => (float)GetNumberKey("Accessibility.SubtitleBackground", 0.7);
+        set => SetJson("Accessibility.SubtitleBackground", Number(value));
     }
 
     // The player's volume for a bus, 0..1 (it scales the project's mix).

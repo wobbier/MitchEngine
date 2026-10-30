@@ -435,6 +435,7 @@ void RmlUiCore::LoadOverlays()
         }
         overlay.Document->SetProperty( "z-index", std::to_string( overlay.SortOrder ) );
         RmlSettings::OnDocumentLoaded( *overlay.Document );
+        overlay.Document->SetClass( "high-contrast", m_highContrast );
         overlay.Document->Show();
         INFO( "UI", "UI: overlay " + overlay.Path );
     }
@@ -470,6 +471,7 @@ void RmlUiCore::LoadDocument( UIDocument& InDocument )
     // Sort order stacks documents without touching their stylesheets.
     document->SetProperty( "z-index", std::to_string( InDocument.SortOrder ) );
     RmlSettings::OnDocumentLoaded( *document );
+    document->SetClass( "high-contrast", m_highContrast );
     if( InDocument.Visible )
     {
         document->Show();
@@ -898,6 +900,19 @@ void RmlUiCore::SyncModels()
 
 
 // --- Text scale, language, key injection (UI-4) --------------------------------------------------
+
+void RmlUiCore::SetHighContrast( bool InHighContrast )
+{
+    m_highContrast = InHighContrast;
+    if( m_context != nullptr )
+    {
+        for( int i = 0; i < m_context->GetNumDocuments(); ++i )
+        {
+            m_context->GetDocument( i )->SetClass( "high-contrast", m_highContrast );
+        }
+    }
+}
+
 
 void RmlUiCore::SetTextScale( float InScale )
 {

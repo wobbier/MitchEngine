@@ -94,6 +94,9 @@ public:
     // and key injection for gamepad navigation and the input-press automation command.
     void SetTextScale( float InScale );
     float GetTextScale() const { return m_textScale; }
+    // PLAY-7: every document's body gets the high-contrast class (the stock styles honour it).
+    void SetHighContrast( bool InHighContrast );
+    bool GetHighContrast() const { return m_highContrast; }
     void SetLanguage( const std::string& InCode );
     const std::string& GetLanguage() const { return m_language; }
     void InjectUiKey( int InKeyIdentifier, int InModifiers = 0 );
@@ -139,6 +142,7 @@ private:
     void CloseOverlays();
     bool m_modelsMaterialized = false;   // a model/variable appeared: reload loaded documents once
     float m_textScale = 1.f;
+    bool m_highContrast = false;
     std::string m_language;
     bool m_gamepadNavDown[5] = {};   // dpad + south, for press transitions
 

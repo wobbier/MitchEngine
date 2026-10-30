@@ -138,3 +138,21 @@ button.waiting {
 	right: 28dp;
 	bottom: 20dp;
 }
+
+/* PLAY-7: Accessibility > High contrast puts the high-contrast class on every document's body. */
+body.high-contrast #options {
+	background-color: #000000;
+	border: 2dp #FFFFFF;
+}
+body.high-contrast .label, body.high-contrast .value, body.high-contrast h1 {
+	color: #FFFFFF;
+}
+body.high-contrast button {
+	color: #FFFFFF;
+	background-color: #000000;
+	border: 2dp #FFFFFF;
+}
+body.high-contrast button:hover, body.high-contrast button:focus, body.high-contrast button.selected {
+	color: #000000;
+	background-color: #FFFF00;
+}

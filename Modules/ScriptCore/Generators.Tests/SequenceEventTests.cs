@@ -4,6 +4,8 @@ using ScriptCore;
 using Xunit;
 
 // GAME-4: the engine's "Sequence" events arrive as typed SequenceEvents on the EventBus.
+// Dispatch looks up receiver scripts in the bridge's instance table, which the registry tests change.
+[Collection("ScriptRegistry")]
 public class SequenceEventTests
 {
     private static void Dispatch(string json) =>

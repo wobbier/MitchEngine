@@ -96,6 +96,14 @@ namespace
         {
             return std::make_pair( 0.5, 3.0 );
         }
+        if( InKey == "Accessibility.SubtitleSize" )
+        {
+            return std::make_pair( 0.75, 2.0 );
+        }
+        if( InKey == "Accessibility.SubtitleBackground" )
+        {
+            return std::make_pair( 0.0, 1.0 );
+        }
         if( InKey == "Graphics.RenderScale" )
         {
             return std::make_pair( 0.5, 1.0 );
@@ -254,7 +262,8 @@ json PlayerSettings::Defaults()
         { "Graphics", { { "Quality", "" }, { "RenderScale", 1.0 }, { "DynamicResolution", false }, { "Upscale", "" } } },
         { "Audio", audio },
         { "Language", "" },
-        { "Accessibility", { { "TextScale", 1.0 }, { "ReduceMotion", false } } },
+        { "Accessibility", { { "TextScale", 1.0 }, { "ReduceMotion", false }, { "HighContrast", false }, { "Subtitles", true }, { "SpeakerNames", true },
+            { "SubtitleSize", 1.0 }, { "SubtitleBackground", 0.7 } } },
         { "Input", { { "Bindings", json::object() } } },
         { "Game", json::object() },
     };
@@ -506,6 +515,7 @@ void PlayerSettings::Apply()
     }
     ApplyKey( "Language" );
     ApplyKey( "Accessibility.TextScale" );
+    ApplyKey( "Accessibility.HighContrast" );
     ApplyKey( kBindingsKey );
 }
 
@@ -565,6 +575,10 @@ void PlayerSettings::ApplyKey( const std::string& InKey )
         {
             m_targets.UI->SetTextScale( value->get<float>() );
         }
+    }
+    else if( InKey == "Accessibility.HighContrast" && m_targets.UI && value->is_boolean() )
+    {
+        m_targets.UI->SetHighContrast( value->get<bool>() );
     }
 #endif
     else if( InKey == kBindingsKey && m_targets.Actions )

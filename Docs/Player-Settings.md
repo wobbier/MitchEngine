@@ -39,7 +39,12 @@ The player's own choices (graphics quality, volumes, rebinds, language, accessib
 | `Audio.Master`, `Audio.Music`, `Audio.SFX`, `Audio.UI`, `Audio.Voice` | number 0..1 | `AudioCore::SetPlayerVolume` |
 | `Language` | string, `""` = no table | `RmlUiCore::SetLanguage` (only when it changes: a switch reloads every document) |
 | `Accessibility.TextScale` | number 0.5..3 | `RmlUiCore::SetTextScale` |
-| `Accessibility.ReduceMotion` | bool | Nothing in the engine yet: for games to read (PLAY-7 wires it) |
+| `Accessibility.ReduceMotion` | bool, `false` | The kit's `CameraImpulse` shows no shake; games read `Settings.ReduceMotion` for their own sway and bob |
+| `Accessibility.HighContrast` | bool, `false` | `RmlUiCore::SetHighContrast`: the `high-contrast` class on every document's body (loaded later too); the stock options, dialogue and caption documents style it |
+| `Accessibility.Subtitles` | bool, `true` | C# `Captions`: off, `Say` / `Sound` show nothing |
+| `Accessibility.SpeakerNames` | bool, `true` | C# `Captions`: names who's speaking |
+| `Accessibility.SubtitleSize` | number 0.75..2, `1` | C# `Captions`: caption text scale (22 dp at 1) |
+| `Accessibility.SubtitleBackground` | number 0..1, `0.7` | C# `Captions`: the backdrop's opacity |
 | `Input.Bindings` | object, `Context/Action/Index[/Part]` → control path | `InputActionSystem::LoadOverrides` |
 | `Game.<anything>` | any JSON, nested by its dots | Nothing: the game reads it |
 

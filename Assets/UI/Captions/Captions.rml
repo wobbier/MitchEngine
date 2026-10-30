@@ -1,0 +1,48 @@
+<rml>
+<head>
+	<title>Captions</title>
+	<style>
+		body {
+			width: 100%;
+			height: 100%;
+			font-family: Inter;
+			pointer-events: none;
+		}
+		#captions {
+			position: absolute;
+			left: 10%;
+			right: 10%;
+			bottom: 12%;
+			text-align: center;
+		}
+		.caption {
+			display: block;
+			margin-top: 6dp;
+			padding: 4dp 12dp;
+			color: #FFFFFF;
+			border-radius: 4dp;
+		}
+		.speaker {
+			color: #FFD866;
+		}
+		body.high-contrast .caption {
+			color: #FFFFFF;
+			background-color: #000000;
+			border: 2dp #FFFFFF;
+		}
+		body.high-contrast .speaker {
+			color: #FFFF00;
+		}
+	</style>
+</head>
+<!-- The stock caption strip (PLAY-7), bound to the "captions" model C# Captions fills: up to three
+     lines (has0..2, line0..2, speaker0..2, hasSpeaker0..2), fontsize and backdrop from the player's
+     Accessibility settings. A project can replace it with its own Assets/UI/Captions/Captions.rml. -->
+<body id="captions-body" data-model="captions">
+	<div id="captions" data-if="visible">
+		<div class="caption" id="caption-0" data-if="has0" data-style-font-size="fontsize" data-style-background-color="backdrop"><span class="speaker" id="caption-speaker-0" data-if="hasSpeaker0">{{ speaker0 }}: </span><span id="caption-text-0">{{ line0 }}</span></div>
+		<div class="caption" id="caption-1" data-if="has1" data-style-font-size="fontsize" data-style-background-color="backdrop"><span class="speaker" id="caption-speaker-1" data-if="hasSpeaker1">{{ speaker1 }}: </span><span id="caption-text-1">{{ line1 }}</span></div>
+		<div class="caption" id="caption-2" data-if="has2" data-style-font-size="fontsize" data-style-background-color="backdrop"><span class="speaker" id="caption-speaker-2" data-if="hasSpeaker2">{{ speaker2 }}: </span><span id="caption-text-2">{{ line2 }}</span></div>
+	</div>
+</body>
+</rml>
