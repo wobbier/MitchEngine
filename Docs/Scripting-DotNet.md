@@ -268,10 +268,10 @@ Script calls act on `ScriptBindings::GetWorld()`:
 
 `Docs/API/ScriptCore.md` is generated from ScriptCore's XML doc comments: a `/// <summary>` on a public type or member is what puts it in the reference (and in IDE tooltips). `Engine/Tools/CheckScriptDocs.py` builds ScriptCore with documentation in a scratch folder and does three things:
 - **Bad comments:** it fails on badly formed doc XML (escape `<`, `>` and `&`).
-- **The baseline:** it fails when any file has more undocumented public members than `Tools/ScriptDocsBaseline.json` allows (1011 when it started, 2026-10-30). Document members, then run it with `--update` to lower the baseline; it never rises.
+- **The baseline:** it fails when any file has more undocumented public members than `Tools/ScriptDocsBaseline.json` allows. It started at 1011 and reached 0 on 2026-10-30, so every new public member needs a `///` comment (or `<inheritdoc/>` on an override). `--update` only ever lowers it.
 - **The page:** it fails when the page no longer matches the comments; `--markdown` rewrites it.
 
-RunChecks runs it as its "Script API docs" step. The generated interop (`Generated/*.g.cs`) and the SDL key enums opt out with `#pragma warning disable CS1591`.
+RunChecks runs it as its "Script API docs" step. ScriptCore.csproj generates `ScriptCore.xml` beside the DLL, so IDEs show the same summaries as tooltips. The generated interop (`Generated/*.g.cs`) and the SDL key enums opt out with `#pragma warning disable CS1591`.
 
 ## How to Extend
 

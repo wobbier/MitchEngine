@@ -4,21 +4,28 @@ using System.Text;
 
 namespace ScriptCore.Dialogue;
 
+/// <summary>Where a DialogueRunner is.</summary>
 public enum DialogueStep
 {
     /// <summary>Speaker / Text show a line; Continue() moves on</summary>
     Line,
     /// <summary>Choices lists the options; Choose(i) picks one</summary>
     Choice,
+    /// <summary>The conversation is over (or never started).</summary>
     End,
 }
 
+/// <summary>An option offered at a choice.</summary>
+/// <param name="Index">What Choose takes.</param>
+/// <param name="Text">The option's text, localized.</param>
 public readonly record struct DialogueChoice(int Index, string Text);
 
 /// <summary>
 /// Raised on the EventBus by &lt;&lt;event name args&gt;&gt;, and when a conversation ends.
 /// </summary>
 public readonly record struct DialogueEvent(string Name, string[] Args);
+/// <summary>A conversation ended (EventBus).</summary>
+/// <param name="Node">The node it ended in.</param>
 public readonly record struct DialogueEndedEvent(string Node);
 
 /// <summary>
@@ -33,26 +40,36 @@ public sealed class DialogueRunner
     private readonly List<Option> _options = new();
     private readonly List<DialogueChoice> _choices = new();
 
+    /// <summary>A runner over a script, sharing variables when given (what the player said in earlier conversations).</summary>
     public DialogueRunner(DialogueScript script, Dictionary<string, object>? variables = null)
     {
         _script = script;
         Variables = variables ?? new Dictionary<string, object>();
     }
 
+    /// <summary>The conversation's variables ($name without the $).</summary>
     public Dictionary<string, object> Variables { get; }
     /// <summary>
     /// Localizes a line or option (default: the engine's Loc, untranslated outside the engine).
     /// </summary>
     public Func<string, string>? Translate;
+    /// <summary>&lt;&lt;event name args&gt;&gt; commands, as they run (also published as DialogueEvent).</summary>
     public event Action<string, string[]>? Event;
 
+    /// <summary>Where the conversation is.</summary>
     public DialogueStep Current { get; private set; } = DialogueStep.End;
+    /// <summary>Whether it hasn't ended.</summary>
     public bool IsRunning => Current != DialogueStep.End;
+    /// <summary>The node it's in.</summary>
     public string Node { get; private set; } = "";
+    /// <summary>The current line's speaker (empty for narration).</summary>
     public string Speaker { get; private set; } = "";
+    /// <summary>The current line's text, localized and interpolated.</summary>
     public string Text { get; private set; } = "";
+    /// <summary>The options at a choice.</summary>
     public IReadOnlyList<DialogueChoice> Choices => _choices;
 
+    /// <summary>Starts at a node (empty: the first) and runs to the first line or choice.</summary>
     public DialogueStep Start(string node = "")
     {
         _stack.Clear();
@@ -60,8 +77,10 @@ public sealed class DialogueRunner
         return Advance();
     }
 
+    /// <summary>Moves past the current line to the next line or choice.</summary>
     public DialogueStep Continue() => Current == DialogueStep.Line ? Advance() : Current;
 
+    /// <summary>Picks an option at a choice and runs on to the next line or choice.</summary>
     public DialogueStep Choose(int index)
     {
         if (Current != DialogueStep.Choice || index < 0 || index >= _options.Count) return Current;
@@ -70,6 +89,7 @@ public sealed class DialogueRunner
         return Advance();
     }
 
+    /// <summary>Ends the conversation now.</summary>
     public void Stop()
     {
         if (IsRunning) Finish();

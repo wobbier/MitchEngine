@@ -33,9 +33,12 @@ namespace ScriptCore.Dialogue;
 /// </summary>
 public sealed class DialogueScript
 {
+    /// <summary>Each node's statements, by title.</summary>
     public readonly Dictionary<string, List<Statement>> Nodes = new();
+    /// <summary>The first node in the file (where Start begins by default).</summary>
     public string FirstNode = "";
 
+    /// <summary>Parses a .dialogue file's text; fileName goes into error messages.</summary>
     public static DialogueScript Parse(string source, string fileName = "dialogue")
     {
         var script = new DialogueScript();
@@ -206,17 +209,78 @@ public sealed class DialogueScript
     }
 }
 
-public abstract class Statement { public int Line; }
-public sealed class LineStatement : Statement { public string Speaker = ""; public string Text = ""; public Expression? Condition; }
-public sealed class Option { public string Text = ""; public Expression? Condition; public List<Statement> Body = new(); public int Line; }
-public sealed class ChoiceStatement : Statement { public readonly List<Option> Options = new(); }
-public sealed class JumpStatement : Statement { public string Node = ""; }
+/// <summary>A parsed statement of a node (the runner walks them).</summary>
+public abstract class Statement
+{
+    /// <summary>The source line, for errors.</summary>
+    public int Line;
+}
+
+/// <summary>A line of dialogue.</summary>
+public sealed class LineStatement : Statement
+{
+    /// <summary>Who says it (empty: narration).</summary>
+    public string Speaker = "";
+    /// <summary>What's said (a localization key; {$var} interpolates).</summary>
+    public string Text = "";
+    /// <summary>Shown only when this holds (null: always).</summary>
+    public Expression? Condition;
+}
+
+/// <summary>One option of a choice.</summary>
+public sealed class Option
+{
+    /// <summary>What the option says.</summary>
+    public string Text = "";
+    /// <summary>Offered only when this holds (null: always).</summary>
+    public Expression? Condition;
+    /// <summary>What runs when it's chosen.</summary>
+    public List<Statement> Body = new();
+    /// <summary>The source line.</summary>
+    public int Line;
+}
+
+/// <summary>A run of "-&gt; option" lines.</summary>
+public sealed class ChoiceStatement : Statement
+{
+    /// <summary>The options, in order.</summary>
+    public readonly List<Option> Options = new();
+}
+
+/// <summary>&lt;&lt;jump Node&gt;&gt;.</summary>
+public sealed class JumpStatement : Statement
+{
+    /// <summary>The node to continue at.</summary>
+    public string Node = "";
+}
+
+/// <summary>&lt;&lt;stop&gt;&gt;: the conversation ends.</summary>
 public sealed class StopStatement : Statement { }
-public sealed class SetStatement : Statement { public string Variable = ""; public Expression Value = null!; }
-public sealed class EventStatement : Statement { public string Name = ""; public string[] Args = Array.Empty<string>(); }
+
+/// <summary>&lt;&lt;set $var = expr&gt;&gt;.</summary>
+public sealed class SetStatement : Statement
+{
+    /// <summary>The variable's name (without the $).</summary>
+    public string Variable = "";
+    /// <summary>The value to assign.</summary>
+    public Expression Value = null!;
+}
+
+/// <summary>&lt;&lt;event name args...&gt;&gt;: raised for the game (DialogueRunner.Event).</summary>
+public sealed class EventStatement : Statement
+{
+    /// <summary>The event's name.</summary>
+    public string Name = "";
+    /// <summary>Its arguments.</summary>
+    public string[] Args = Array.Empty<string>();
+}
+
+/// <summary>&lt;&lt;if&gt;&gt; / &lt;&lt;elseif&gt;&gt; / &lt;&lt;else&gt;&gt; / &lt;&lt;endif&gt;&gt;.</summary>
 public sealed class IfStatement : Statement
 {
+    /// <summary>The if and elseif branches, in order: the first whose condition holds runs.</summary>
     public readonly List<(Expression Condition, List<Statement> Body)> Branches = new();
+    /// <summary>The else branch, if any.</summary>
     public List<Statement>? Else;
 }
 
@@ -226,8 +290,10 @@ public sealed class IfStatement : Statement
 /// </summary>
 public abstract class Expression
 {
+    /// <summary>The expression's value with these variables (bool, double or string).</summary>
     public abstract object Evaluate(IReadOnlyDictionary<string, object> variables);
 
+    /// <summary>A value as a condition: true, non-zero, or a non-empty string.</summary>
     public static bool Truthy(object value) => value switch
     {
         bool b => b,
@@ -246,6 +312,7 @@ public abstract class Expression
         _ => 0,
     };
 
+    /// <summary>A value as text (numbers invariant-culture).</summary>
     public static string Format(object value) => value switch
     {
         bool b => b ? "true" : "false",
@@ -253,6 +320,7 @@ public abstract class Expression
         _ => value?.ToString() ?? "",
     };
 
+    /// <summary>Parses an expression; file and line go into error messages.</summary>
     public static Expression Parse(string text, string file, int line)
     {
         var parser = new Parser(text, file, line);

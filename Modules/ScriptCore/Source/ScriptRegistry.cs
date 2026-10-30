@@ -14,7 +14,9 @@ namespace ScriptCore;
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Field, AllowMultiple = true)]
 public sealed class FormerNameAttribute : Attribute
 {
+    /// <summary>Marks a script class with a name it used to have (scenes saved with the old name still load).</summary>
     public FormerNameAttribute(string name) => Name = name;
+    /// <summary>The former name.</summary>
     public string Name { get; }
 }
 
@@ -26,10 +28,13 @@ public sealed class FormerNameAttribute : Attribute
 [AttributeUsage(AttributeTargets.Class, Inherited = true)]
 public sealed class ExecutionOrderAttribute : Attribute
 {
+    /// <summary>Orders the script's updates: lower runs first (default 0).</summary>
     public ExecutionOrderAttribute(int order) => Order = order;
+    /// <summary>The order.</summary>
     public int Order { get; }
 }
 
+/// <summary>The script classes the game's and mods' assemblies define.</summary>
 public static class ScriptRegistry
 {
     private static List<Type> _types = new();
@@ -39,6 +44,7 @@ public static class ScriptRegistry
     /// console commands rescan when it moves).
     /// </summary>
     public static IReadOnlyList<Assembly> Assemblies => _assemblies;
+    /// <summary>Bumped whenever the assemblies change.</summary>
     public static int Version { get; private set; }
     private static readonly Dictionary<string, int> _shortNames = new();
     private static readonly HashSet<string> _warnedAmbiguous = new();
@@ -125,6 +131,7 @@ public static class ScriptRegistry
         return _types.FirstOrDefault(t => t.GetCustomAttributes<FormerNameAttribute>(false).Any(a => a.Name == name));
     }
 
+    /// <summary>Forgets every type and assembly (before a reload).</summary>
     public static void Clear()
     {
         _types.Clear();

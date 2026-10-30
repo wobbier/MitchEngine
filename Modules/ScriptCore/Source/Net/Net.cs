@@ -8,18 +8,22 @@ namespace ScriptCore;
 /// </summary>
 public struct NetCommand
 {
+    /// <summary>The simulation tick this command is for.</summary>
     public int Tick;
+    /// <summary>The networked button actions held, one bit each (IsDown reads them by name).</summary>
     public int Buttons;
+    /// <summary>The previous command's buttons (for WasPressed / WasReleased).</summary>
     public int PreviousButtons;
+    /// <summary>The networked Value / Vector2 actions, -1..1 at 16 bits.</summary>
     public float Axis0, Axis1, Axis2, Axis3;
-    // The (fractional) server tick the owner's view showed when it sent this command (NET-8);
-    // Net.LagCompensatedRaycast rewinds to it. -1 without one.
+    /// <summary>The (fractional) server tick the owner's view showed when it sent this command (NET-8); Net.LagCompensatedRaycast rewinds to it. -1 without one.</summary>
     public double ViewTick;
     /// <summary>
     /// The owner's absolute aim when it sent this command (NET-15; Net.SetAim), in degrees: Yaw about
     /// +Y (0 looking down +Z, 90 down +X), Pitch up from level. HasAim is false until it sets one.
     /// </summary>
     public bool HasAim;
+    /// <summary>The aim in degrees (see HasAim).</summary>
     public float Yaw, Pitch;
 
     /// <summary>
@@ -38,10 +42,14 @@ public struct NetCommand
     /// </summary>
     public bool Valid;
 
+    /// <summary>Whether a networked button action is held in this command.</summary>
     public bool IsDown(string action) => Bit(Buttons, action);
+    /// <summary>Whether it went down this tick.</summary>
     public bool WasPressed(string action) => Bit(Buttons, action) && !Bit(PreviousButtons, action);
+    /// <summary>Whether it went up this tick.</summary>
     public bool WasReleased(string action) => !Bit(Buttons, action) && Bit(PreviousButtons, action);
 
+    /// <summary>An axis by index (0..3).</summary>
     public float Axis(int i) => i switch { 0 => Axis0, 1 => Axis1, 2 => Axis2, 3 => Axis3, _ => 0f };
 
     private static bool Bit(int buttons, string action)
@@ -65,13 +73,20 @@ public readonly record struct NetHit(bool Hit, Entity Entity, Vector3 Point, boo
 /// </summary>
 public static unsafe class Net
 {
+    /// <summary>No session.</summary>
     public const int RoleNone = 0;
+    /// <summary>This peer is the server.</summary>
     public const int RoleServer = 1;
+    /// <summary>This peer is a client.</summary>
     public const int RoleClient = 2;
 
+    /// <summary>This peer's role: RoleNone, RoleServer or RoleClient.</summary>
     public static int Role => Engine._api.Net_GetRole != null ? Engine._api.Net_GetRole() : RoleNone;
+    /// <summary>Whether there's a session.</summary>
     public static bool IsActive => Role != RoleNone;
+    /// <summary>Whether this peer is the server.</summary>
     public static bool IsServer => Role == RoleServer;
+    /// <summary>Whether this peer is a client.</summary>
     public static bool IsClient => Role == RoleClient;
 
     /// <summary>
@@ -115,10 +130,12 @@ public static unsafe class Net
     /// The client that owns (and predicts) an entity; 0 = the server / nobody.
     /// </summary>
     public static int GetOwner(Entity entity) => Engine._api.Net_GetOwner != null ? Engine._api.Net_GetOwner(entity) : 0;
+    /// <summary>Server: hands an entity to a client, which then predicts it (0: back to the server).</summary>
     public static void SetOwner(Entity entity, int clientId)
     {
         if (Engine._api.Net_SetOwner != null) Engine._api.Net_SetOwner(entity, clientId);
     }
+    /// <summary>Client: whether this client owns (and predicts) the entity.</summary>
     public static bool IsOwner(Entity entity)
     {
         if (!IsClient) return false;
@@ -198,12 +215,14 @@ public static unsafe class Net
     /// OnFixedUpdate on both sides, so a predicted shot and the server's aim the same way.
     /// </summary>
     public static void SetAim(float yawDegrees, float pitchDegrees) { if (Engine._api.Net_SetAim != null) Engine._api.Net_SetAim(1, yawDegrees, pitchDegrees); }
+    /// <summary>Stops sending an aim.</summary>
     public static void ClearAim() { if (Engine._api.Net_SetAim != null) Engine._api.Net_SetAim(0, 0f, 0f); }
 
     /// <summary>
     /// Smoothed round trip in ms: a client's to the server, or (server) to one client.
     /// </summary>
     public static float RoundTripMs => Engine._api.Net_GetRoundTripMs != null ? Engine._api.Net_GetRoundTripMs(0) : 0f;
+    /// <summary>Server: the round trip to one client, in ms.</summary>
     public static float RoundTripMsTo(int clientId) => Engine._api.Net_GetRoundTripMs != null ? Engine._api.Net_GetRoundTripMs(clientId) : 0f;
 
     /// <summary>
@@ -212,13 +231,16 @@ public static unsafe class Net
     /// its confirmation (an RPC, a replicated field) instead. Hit markers and health always should.
     /// </summary>
     public static float PredictImpactsMaxRttMs = 220f;
+    /// <summary>Whether to draw impacts from this peer's predicted hits (false on a client above PredictImpactsMaxRttMs: wait for the server).</summary>
     public static bool PredictImpacts => !IsClient || RoundTripMs <= PredictImpactsMaxRttMs;
 
     /// <summary>
     /// Prediction on this client: mispredictions corrected, ticks that matched, and initial syncs.
     /// </summary>
     public static int Corrections { get { GetPredictionStats(out int c, out _, out _); return c; } }
+    /// <summary>Predicted ticks that matched the server.</summary>
     public static int Matches { get { GetPredictionStats(out _, out int m, out _); return m; } }
+    /// <summary>Times prediction took the server's state without a correction (joining, ownership changes).</summary>
     public static int InitialSyncs { get { GetPredictionStats(out _, out _, out int s); return s; } }
 
     private static void GetPredictionStats(out int corrections, out int matches, out int initialSyncs)
@@ -234,6 +256,7 @@ public static unsafe class Net
     /// The id an entity is known by on every peer (0: not networked), and back.
     /// </summary>
     public static int GetNetId(Entity entity) => Engine._api.Net_GetNetId != null ? Engine._api.Net_GetNetId(entity) : 0;
+    /// <summary>The entity a NetId names here, or Entity.Null.</summary>
     public static Entity FindEntity(int netId)
     {
         if (netId == 0 || Engine._api.Net_FindEntity == null) return Entity.Null;
@@ -273,14 +296,7 @@ public static unsafe class Net
         fixed (byte* p = args) Engine._api.Net_SendRpc(entity, rpcId, kind, p, args.Length);
     }
 
-    // ME-291: a cosmetic event (FX, a sound, a log line) raised from simulation (OnFixedUpdate) that
-    // must show once, not again in every resimulation of its tick:
-    // - offline: script.OnNetEvent(eventId, value) now;
-    // - the server: now, and to every client (as a reserved RPC carrying its tick);
-    // - the predicting owner: now, once per (entity, tick, event): resims of the tick skip it, and so
-    //   does the server's copy when it arrives;
-    // - other clients: when the server's copy arrives.
-    // Needs a networked script (one with [Replicated] / [Predicted] state or RPCs) on a NetIdentity.
+    /// <summary>ME-291: a cosmetic event (FX, a sound, a log line) raised from simulation (OnFixedUpdate) that must show once, not in every resimulation of its tick. Offline: script.OnNetEvent(eventId, value) now. The server: now, and to every client. The predicting owner: now, once per (entity, tick, event); resims and the server's copy skip it. Other clients: when the server's copy arrives. Needs a networked script on a NetIdentity.</summary>
     public static void PredictedEvent(Script script, int eventId, int value = 0)
     {
         int role = Role;
@@ -382,6 +398,7 @@ public sealed class NetEventLedger
     private readonly HashSet<(uint Index, uint Generation, int Tick, int EventId)> _presented = new();
     private int _newestTick = int.MinValue;
 
+    /// <summary>How many events it remembers.</summary>
     public int Count => _presented.Count;
 
     /// <summary>
@@ -402,6 +419,7 @@ public sealed class NetEventLedger
         return true;
     }
 
+    /// <summary>Forgets every event.</summary>
     public void Clear()
     {
         _presented.Clear();

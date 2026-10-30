@@ -23,12 +23,19 @@ namespace ScriptCore;
 /// </summary>
 public static class SimulatedInput
 {
+    /// <summary>A key change in a recording.</summary>
+    /// <param name="Time">Seconds of game time from the start.</param>
+    /// <param name="Key">The key.</param>
+    /// <param name="Held">True to hold it, false to release it.</param>
     public readonly record struct Event(float Time, KeyCode Key, bool Held);
 
+    /// <summary>A timeline of key changes (Play replays it).</summary>
     public sealed class Recording : List<Event>
     {
+        /// <summary>Adds an event (collection initializers: { 0f, KeyCode.W, true }).</summary>
         public void Add(float time, KeyCode key, bool held) => Add(new Event(time, key, held));
 
+        /// <summary>Parses "0 +W; 0.5 +Space; 0.6 -Space" (sorted by time); FormatException on a bad entry.</summary>
         public static Recording Parse(string text)
         {
             var recording = new Recording();
@@ -75,6 +82,7 @@ public static class SimulatedInput
         }
     }
 
+    /// <summary>Holds a key for one frame.</summary>
     public static Task Tap(KeyCode key) => Hold(key, 0f);
 
     /// <summary>
@@ -103,11 +111,13 @@ public static class SimulatedInput
     /// </summary>
     public static Recorder Record() => new Recorder();
 
+    /// <summary>Records the real keyboard until disposed (SimulatedInput.Record).</summary>
     public sealed class Recorder : IDisposable
     {
         private static readonly KeyCode[] Keys = Enum.GetValues<KeyCode>().Where(k => k != KeyCode.None).Distinct().ToArray();
         private readonly HashSet<KeyCode> _down = new();
         private bool _running = true;
+        /// <summary>What it recorded so far.</summary>
         public Recording Recording { get; } = new();
 
         internal Recorder() { _ = Run(); }
@@ -129,6 +139,7 @@ public static class SimulatedInput
             }
         }
 
+        /// <summary>Stops recording and logs the recording.</summary>
         public void Dispose()
         {
             if (!_running) return;

@@ -10,10 +10,13 @@ namespace ScriptCore;
 /// </summary>
 public static class SplineMath
 {
+    /// <summary>Samples per segment for arc length.</summary>
     public const int SamplesPerSegment = 16;
 
+    /// <summary>How many segments a curve through that many points has.</summary>
     public static int GetSegmentCount(int pointCount, bool closed) => pointCount < 2 ? 0 : closed ? pointCount : pointCount - 1;
 
+    /// <summary>The Catmull-Rom curve through points at t (0..1 along it).</summary>
     public static Vector3 Evaluate(IReadOnlyList<Vector3> points, bool closed, float t)
     {
         if (points.Count == 0) return Vector3.Zero;
@@ -69,6 +72,7 @@ public sealed class SplinePath
     private readonly bool _closed;
     private float[]? _lengths;
 
+    /// <summary>A curve through world points (open or closed).</summary>
     public SplinePath(IReadOnlyList<Vector3> worldPoints, bool closed)
     {
         _points = new Vector3[worldPoints.Count];
@@ -76,12 +80,17 @@ public sealed class SplinePath
         _closed = closed;
     }
 
+    /// <summary>Its world points.</summary>
     public IReadOnlyList<Vector3> Points => _points;
+    /// <summary>Whether it loops.</summary>
     public bool Closed => _closed;
 
+    /// <summary>The world point at t (0..1).</summary>
     public Vector3 GetPoint(float t) => SplineMath.Evaluate(_points, _closed, t);
+    /// <summary>The direction of travel at t.</summary>
     public Vector3 GetTangent(float t) => SplineMath.Derivative(_points, _closed, t).Normalized();
 
+    /// <summary>The curve's length.</summary>
     public float Length => Lengths()[^1];
 
     /// <summary>
@@ -103,6 +112,7 @@ public sealed class SplinePath
         return (index - 1 + within) / (table.Length - 1);
     }
 
+    /// <summary>The point distance along the curve.</summary>
     public Vector3 GetPointAtDistance(float distance) => GetPoint(GetTAtDistance(distance));
 
     /// <summary>

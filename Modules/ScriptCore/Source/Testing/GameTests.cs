@@ -27,37 +27,46 @@ namespace ScriptCore;
 [AttributeUsage(AttributeTargets.Method)]
 public sealed class GameTestAttribute : Attribute
 {
+    /// <summary>A play-mode test, loading scene first when one is given.</summary>
     public GameTestAttribute(string scene = "") { Scene = scene; }
 
     /// <summary>
     /// Loaded before the test; empty runs it in whatever scene is playing.
     /// </summary>
     public string Scene { get; }
+    /// <summary>Game-time seconds before the test fails as timed out.</summary>
     public float TimeoutSeconds { get; set; } = 30f;
 }
 
+/// <summary>A failed GameAssert.</summary>
 public sealed class GameTestFailure : Exception
 {
+    /// <summary>A failure with its message.</summary>
     public GameTestFailure(string message) : base(message) { }
 }
 
+/// <summary>Checks for [GameTest]s; a failed one throws GameTestFailure.</summary>
 public static class GameAssert
 {
+    /// <summary>Fails with message unless condition holds.</summary>
     public static void True(bool condition, string message = "expected true")
     {
         if (!condition) throw new GameTestFailure(message);
     }
 
+    /// <summary>Fails unless the values are equal.</summary>
     public static void Equal<T>(T expected, T actual, string what = "value")
     {
         if (!EqualityComparer<T>.Default.Equals(expected, actual)) throw new GameTestFailure($"{what}: expected {expected}, got {actual}");
     }
 
+    /// <summary>Fails unless the values are within tolerance.</summary>
     public static void Near(float expected, float actual, float tolerance, string what = "value")
     {
         if (!(MathF.Abs(expected - actual) <= tolerance)) throw new GameTestFailure($"{what}: expected {expected} ± {tolerance}, got {actual}");
     }
 
+    /// <summary>Fails unless the points are within tolerance of each other.</summary>
     public static void Near(Vector3 expected, Vector3 actual, float tolerance, string what = "position")
     {
         if (!((expected - actual).Length() <= tolerance)) throw new GameTestFailure($"{what}: expected {expected} ± {tolerance}, got {actual}");
@@ -78,11 +87,19 @@ public static class GameAssert
     }
 }
 
+/// <summary>Finds and runs [GameTest]s (the game-tests console command).</summary>
 public static class GameTests
 {
+    /// <summary>One test's outcome.</summary>
+    /// <param name="Name">Class.Method.</param>
+    /// <param name="Passed">Whether it passed.</param>
+    /// <param name="Message">Why it failed (empty when it passed).</param>
+    /// <param name="Seconds">Wall-clock time it took.</param>
     public readonly record struct Result(string Name, bool Passed, string Message, double Seconds);
 
+    /// <summary>Whether a run is going.</summary>
     public static bool IsRunning { get; private set; }
+    /// <summary>The last run's results.</summary>
     public static IReadOnlyList<Result> LastResults => _results;
     private static readonly List<Result> _results = new();
 
@@ -115,8 +132,10 @@ public static class GameTests
         return tests;
     }
 
+    /// <summary>A test's display name, Class.Method.</summary>
     public static string NameOf(MethodInfo method) => $"{method.DeclaringType?.Name}.{method.Name}";
 
+    /// <summary>The game-tests console command: runs every test, or those whose name contains the filter.</summary>
     [ConsoleCommand("game-tests", "Runs the [GameTest] play-mode tests: game-tests [name filter]")]
     public static string RunCommand(string[] args)
     {
@@ -131,6 +150,7 @@ public static class GameTests
         return $"running {tests.Count} game test(s)";
     }
 
+    /// <summary>Runs tests one after another and logs "GameTests: N passed, M failed".</summary>
     public static async Task RunAll(IReadOnlyList<MethodInfo> tests)
     {
         IsRunning = true;

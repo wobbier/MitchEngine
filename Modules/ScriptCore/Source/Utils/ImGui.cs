@@ -9,21 +9,25 @@ public static unsafe class ImGui
 {
     // Rows return true on edit and lay out like every C++ inspector (label column, then value).
 
+    /// <summary>A float drag row; true when it changed.</summary>
     public static bool Float(string label, ref float value)
     {
         fixed (byte* p = Engine.Utf8(label, stackalloc byte[Engine.Utf8StackSize])) fixed (float* v = &value) return Engine._api.ImGui_Float(p, v) != 0;
     }
 
+    /// <summary>A double drag row.</summary>
     public static bool Double(string label, ref double value)
     {
         fixed (byte* p = Engine.Utf8(label, stackalloc byte[Engine.Utf8StackSize])) fixed (double* v = &value) return Engine._api.ImGui_Double(p, v) != 0;
     }
 
+    /// <summary>An int drag row.</summary>
     public static bool Int(string label, ref int value)
     {
         fixed (byte* p = Engine.Utf8(label, stackalloc byte[Engine.Utf8StackSize])) fixed (int* v = &value) return Engine._api.ImGui_Int(p, v) != 0;
     }
 
+    /// <summary>A checkbox row.</summary>
     public static bool Bool(string label, ref bool value)
     {
         byte v = value ? (byte)1 : (byte)0;
@@ -33,16 +37,19 @@ public static unsafe class ImGui
         return changed;
     }
 
+    /// <summary>A float slider.</summary>
     public static bool SliderFloat(string label, ref float value, float min, float max)
     {
         fixed (byte* p = Engine.Utf8(label, stackalloc byte[Engine.Utf8StackSize])) fixed (float* v = &value) return Engine._api.ImGui_SliderFloat(p, v, min, max) != 0;
     }
 
+    /// <summary>An int slider.</summary>
     public static bool SliderInt(string label, ref int value, int min, int max)
     {
         fixed (byte* p = Engine.Utf8(label, stackalloc byte[Engine.Utf8StackSize])) fixed (int* v = &value) return Engine._api.ImGui_SliderInt(p, v, min, max) != 0;
     }
 
+    /// <summary>A text field (capacity in bytes).</summary>
     public static bool InputText(string label, ref string value, int capacity = 512)
     {
         var buffer = TextBuffer(value, capacity);
@@ -52,6 +59,7 @@ public static unsafe class ImGui
         return changed;
     }
 
+    /// <summary>A multi-line text box.</summary>
     public static bool InputMultiline(string label, ref string value, int lines = 4, int capacity = 4096)
     {
         var buffer = TextBuffer(value, capacity);
@@ -61,31 +69,37 @@ public static unsafe class ImGui
         return changed;
     }
 
+    /// <summary>A Vector2 row.</summary>
     public static bool Vec2(string label, ref Vector2 value)
     {
         fixed (byte* p = Engine.Utf8(label, stackalloc byte[Engine.Utf8StackSize])) fixed (Vector2* v = &value) return Engine._api.ImGui_Vec2(p, v) != 0;
     }
 
+    /// <summary>A Vector3 row.</summary>
     public static bool Vec3(string label, ref Vector3 value)
     {
         fixed (byte* p = Engine.Utf8(label, stackalloc byte[Engine.Utf8StackSize])) fixed (Vector3* v = &value) return Engine._api.ImGui_Vec3(p, v) != 0;
     }
 
+    /// <summary>A Vector4 row.</summary>
     public static bool Vec4(string label, ref Vector4 value)
     {
         fixed (byte* p = Engine.Utf8(label, stackalloc byte[Engine.Utf8StackSize])) fixed (Vector4* v = &value) return Engine._api.ImGui_Vec4(p, (float*)v) != 0;
     }
 
+    /// <summary>A rotation row, edited as Euler degrees.</summary>
     public static bool Quat(string label, ref Quaternion value)
     {
         fixed (byte* p = Engine.Utf8(label, stackalloc byte[Engine.Utf8StackSize])) fixed (Quaternion* v = &value) return Engine._api.ImGui_Vec4(p, (float*)v) != 0;
     }
 
+    /// <summary>A color picker row.</summary>
     public static bool ColorRow(string label, ref Color value)
     {
         fixed (byte* p = Engine.Utf8(label, stackalloc byte[Engine.Utf8StackSize])) fixed (Color* v = &value) return Engine._api.ImGui_Color(p, (float*)v) != 0;
     }
 
+    /// <summary>A combo over names; index is the selection.</summary>
     public static bool EnumCombo(string label, ref int index, string[] names)
     {
         bool changed;
@@ -94,11 +108,13 @@ public static unsafe class ImGui
         return changed;
     }
 
+    /// <summary>A section heading.</summary>
     public static void Header(string text)
     {
         fixed (byte* p = Engine.Utf8(text, stackalloc byte[Engine.Utf8StackSize])) Engine._api.ImGui_Header(p);
     }
 
+    /// <summary>Vertical space (0: half a line).</summary>
     public static void Space(float height = 0f) => Engine._api.ImGui_Space(height);
 
     /// <summary>
@@ -109,21 +125,27 @@ public static unsafe class ImGui
         fixed (byte* p = Engine.Utf8(text, stackalloc byte[Engine.Utf8StackSize])) Engine._api.ImGui_Tooltip(p);
     }
 
+    /// <summary>Greys out and disables the rows that follow, until EndDisabled.</summary>
     public static void BeginDisabled() => Engine._api.ImGui_BeginDisabled();
+    /// <summary>Ends BeginDisabled.</summary>
     public static void EndDisabled() => Engine._api.ImGui_EndDisabled();
 
+    /// <summary>A collapsible node; when it returns true, draw the children, then TreePop.</summary>
     public static bool TreeNode(string label)
     {
         fixed (byte* p = Engine.Utf8(label, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.ImGui_TreeNode(p) != 0;
     }
 
+    /// <summary>Ends an open TreeNode.</summary>
     public static void TreePop() => Engine._api.ImGui_TreePop();
 
+    /// <summary>A small button; true when clicked.</summary>
     public static bool SmallButton(string label)
     {
         fixed (byte* p = Engine.Utf8(label, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.ImGui_SmallButton(p) != 0;
     }
 
+    /// <summary>Puts the next item on the same line.</summary>
     public static void SameLine() => Engine._api.ImGui_SameLine();
 
     /// <summary>
@@ -164,16 +186,19 @@ public static unsafe class ImGui
         int length = System.Array.IndexOf(buffer, (byte)0);
         return Encoding.UTF8.GetString(buffer, 0, length < 0 ? buffer.Length : length);
     }
+    /// <summary>Begins a window; call End whatever it returns.</summary>
     public static bool Begin(string name)
     {
         fixed (byte* p = Engine.Utf8(name, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.ImGui_Begin(p) != 0;
     }
 
+    /// <summary>A line of text.</summary>
     public static void Text(string text)
     {
         fixed (byte* p = Engine.Utf8(text, stackalloc byte[Engine.Utf8StackSize])) Engine._api.ImGui_Text(p);
     }
 
+    /// <summary>A checkbox.</summary>
     public static bool Checkbox(string label, ref bool value)
     {
         byte v = value ? (byte)1 : (byte)0;
@@ -183,10 +208,12 @@ public static unsafe class ImGui
         return changed;
     }
 
+    /// <summary>A button; true when clicked.</summary>
     public static bool Button(string label)
     {
         fixed (byte* p = Engine.Utf8(label, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.ImGui_Button(p) != 0;
     }
 
+    /// <summary>Ends a window.</summary>
     public static void End() => Engine._api.ImGui_End();
 }

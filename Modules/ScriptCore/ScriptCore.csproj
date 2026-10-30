@@ -11,7 +11,8 @@
     <Nullable>annotations</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <EnableDefaultItems>false</EnableDefaultItems>
-    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- CS-10: ScriptCore.xml beside the DLL gives IDEs the API docs (Tools/CheckScriptDocs.py keeps them complete). -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <DebugType>portable</DebugType>
   </PropertyGroup>
   <ItemGroup>

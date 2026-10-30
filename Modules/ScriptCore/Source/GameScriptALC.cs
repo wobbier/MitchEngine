@@ -4,6 +4,7 @@ using System.Runtime.Loader;
 
 namespace ScriptCore;
 
+/// <summary>The collectible load context game script assemblies live in, so a hot reload can unload them (host plumbing).</summary>
 public sealed class GameScriptALC : AssemblyLoadContext
 {
     private readonly AssemblyDependencyResolver _resolver;
@@ -12,6 +13,7 @@ public sealed class GameScriptALC : AssemblyLoadContext
     /// </summary>
     public System.Reflection.Assembly? GameAssembly { get; init; }
 
+    /// <summary>A context for the assembly at assemblyPath.</summary>
     public GameScriptALC(string assemblyPath)
         : base($"GameScripts-{Guid.NewGuid():N}", isCollectible: true)
     {

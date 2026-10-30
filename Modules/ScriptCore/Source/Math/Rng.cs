@@ -20,6 +20,7 @@ public sealed class Rng
     /// </summary>
     public static readonly Rng Shared = new Rng((ulong)DateTime.UtcNow.Ticks);
 
+    /// <summary>A generator from a seed; different streams give independent sequences from the same seed.</summary>
     public Rng(ulong seed, ulong stream = 54)
     {
         _increment = (stream << 1) | 1ul;
@@ -29,6 +30,7 @@ public sealed class Rng
         NextUInt();
     }
 
+    /// <summary>The next 32 random bits.</summary>
     public uint NextUInt()
     {
         ulong old = _state;
@@ -63,6 +65,7 @@ public sealed class Rng
         }
     }
 
+    /// <summary>True with that probability (0..1).</summary>
     public bool Chance(float probability) => NextFloat() < probability;
 
     /// <summary>
@@ -74,12 +77,14 @@ public sealed class Rng
         return new Vector3(r * MathF.Cos(a), r * MathF.Sin(a), z);
     }
 
+    /// <summary>A uniform random point in the unit circle.</summary>
     public Vector2 InsideUnitCircle()
     {
         float a = Range(0f, MathF.PI * 2f), r = MathF.Sqrt(NextFloat());
         return new Vector2(r * MathF.Cos(a), r * MathF.Sin(a));
     }
 
+    /// <summary>Shuffles a list in place (Fisher-Yates).</summary>
     public void Shuffle<T>(System.Collections.Generic.IList<T> list)
     {
         for (int i = list.Count - 1; i > 0; --i)

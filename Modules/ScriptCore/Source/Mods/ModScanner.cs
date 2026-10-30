@@ -15,10 +15,13 @@ namespace ScriptCore;
 /// </summary>
 public sealed class ModScanResult
 {
+    /// <summary>True when the scan found nothing to flag.</summary>
     public bool Verified => Issues.Count == 0;
+    /// <summary>What it found: each API reached, and why it's flagged.</summary>
     public List<string> Issues { get; } = new();
 }
 
+/// <summary>Reads a mod assembly's metadata for APIs a mod shouldn't need (MOD-7).</summary>
 public static class ModScanner
 {
     // Types a mod shouldn't need (whole namespaces end with '*'), and why.
@@ -39,6 +42,7 @@ public static class ModScanner
         ("System.Net.WebClient", "opens network connections"),
     };
 
+    /// <summary>Scans an assembly image without loading or running it.</summary>
     public static ModScanResult Scan(byte[] image)
     {
         var result = new ModScanResult();

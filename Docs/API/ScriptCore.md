@@ -29,6 +29,12 @@ Linear RGBA in [0, 1] — drawn with a color row in the inspector.
 - `ToString` (method): "{r, g, b, a}".
 - `White` (field): (1, 1, 1, 1).
 
+## HTTP
+
+Legacy (Mono): not available under .NET 8.
+
+- `DownloadFile(System.String,System.String)` (method): Legacy (a Mono internal call): it has no implementation under .NET 8 and throws.
+
 ## Mathf
 
 Float math helpers (a thin layer over System.MathF, plus game-friendly extras).
@@ -117,11 +123,16 @@ xyzw, identity = (0, 0, 0, 1) — matching the engine's Quaternion layout.
 
 A small, fast, seedable random generator (PCG32, O'Neill's pcg32_random_r): the same seed gives the same sequence on every platform and run, so procedural content and replays are reproducible. Named Rng so scripts with `using System;` don't collide with System.Random.
 
+- `(constructor)(System.UInt64,System.UInt64)` (method): A generator from a seed; different streams give independent sequences from the same seed.
+- `Chance(System.Single)` (method): True with that probability (0..1).
+- `InsideUnitCircle` (method): A uniform random point in the unit circle.
 - `NextFloat` (method): [0, 1)
+- `NextUInt` (method): The next 32 random bits.
 - `OnUnitSphere` (method): A uniformly distributed direction.
 - `Range(System.Int32,System.Int32)` (method): [min, max), unbiased (Lemire's bounded method with rejection).
 - `Range(System.Single,System.Single)` (method): [min, max)
 - `Shared` (field): A shared generator seeded from the clock, for when reproducibility doesn't matter.
+- `Shuffle1(System.Collections.Generic.IList{0})` (method): Shuffles a list in place (Fisher-Yates).
 
 ## AdditiveSceneChanged
 
@@ -453,6 +464,8 @@ The platformer capsule moved by Box2D's mover in the XY plane (Engine/Docs/Physi
 
 Runs on clients (every client, or only the entity's owner): `[ClientRpc] partial void Name(args);` handled by `On{Name}(args)`. Only the server sends them.
 
+- `(constructor)(ScriptCore.NetTarget)` (method): A client RPC sent to target.
+- `Target` (property): Who receives it.
 
 ## Collision
 
@@ -521,6 +534,27 @@ Logging and debug drawing.
 - `Log(System.String)` (method): Logs a message (with the calling file and line).
 - `Warning(System.String)` (method): Logs a warning.
 
+## Dialogue.ChoiceStatement
+
+A run of "-> option" lines.
+
+- `Options` (field): The options, in order.
+
+## Dialogue.DialogueChoice
+
+An option offered at a choice.
+
+- `(constructor)(System.Int32,System.String)` (method): An option offered at a choice.
+- `Index` (property): What Choose takes.
+- `Text` (property): The option's text, localized.
+
+## Dialogue.DialogueEndedEvent
+
+A conversation ended (EventBus).
+
+- `(constructor)(System.String)` (method): A conversation ended (EventBus).
+- `Node` (property): The node it ended in.
+
 ## Dialogue.DialogueEvent
 
 Raised on the EventBus by <<event name args>>, and when a conversation ends.
@@ -532,34 +566,119 @@ Raised on the EventBus by <<event name args>>, and when a conversation ends.
 Reads a .dialogue (any text asset) through the VFS.
 
 - `Clear` (method): Forget parsed files (after editing one).
+- `Load(System.String)` (method): The .dialogue at path, parsed and cached; null when it can't be read.
 
 ## Dialogue.DialogueRunner
 
 Steps through a DialogueScript: Start(node), then Continue() past lines and Choose(i) at choices until End. Variables live in a dictionary that can be shared between runners (what the player said earlier). Text goes through Translate (localization keys = the source text) and then {$var}.
 
+- `(constructor)(ScriptCore.Dialogue.DialogueScript,System.Collections.Generic.Dictionary{System.String,System.Object})` (method): A runner over a script, sharing variables when given (what the player said in earlier conversations).
+- `Choices` (property): The options at a choice.
+- `Choose(System.Int32)` (method): Picks an option at a choice and runs on to the next line or choice.
+- `Continue` (method): Moves past the current line to the next line or choice.
+- `Current` (property): Where the conversation is.
+- `Event` (event): <<event name args>> commands, as they run (also published as DialogueEvent).
+- `IsRunning` (property): Whether it hasn't ended.
+- `Node` (property): The node it's in.
+- `Speaker` (property): The current line's speaker (empty for narration).
+- `Start(System.String)` (method): Starts at a node (empty: the first) and runs to the first line or choice.
+- `Stop` (method): Ends the conversation now.
+- `Text` (property): The current line's text, localized and interpolated.
 - `Translate` (field): Localizes a line or option (default: the engine's Loc, untranslated outside the engine).
+- `Variables` (property): The conversation's variables ($name without the $).
 
 ## Dialogue.DialogueScript
 
 GAME-8: conversations as text (.dialogue files), in the spirit of Yarn: title: Gate --- Guard: Halt! Who goes there? -> A friend. <<set $trusted = true>> Guard: Then pass, friend. -> None of your business. <<if not $trusted>> Guard: Then you stay out. <<jump Refused>> <<if $trusted>> Guard: Mind the stairs, {$name}. <<else>> Guard: Move along. <<endif>> <<event open-gate>> === A node is "title: Name", "---", its lines, "===". A line is "Speaker: text" (or just text); a run of "-> text" lines is a choice, each followed by its indented body; a trailing "<<if expr>>" on an option shows it only when true. Commands: <<jump Node>>, <<set $var = expr>>, <<if expr>> / <<elseif expr>> / <<else>> / <<endif>>, <<event name args...>> (raised for the game), <<stop>>. "//" starts a comment. Text can show variables: {$name}. Lines and options are localization keys (DialogueRunner translates them before interpolating).
 
+- `FirstNode` (field): The first node in the file (where Start begins by default).
+- `Nodes` (field): Each node's statements, by title.
+- `Parse(System.String,System.String)` (method): Parses a .dialogue file's text; fileName goes into error messages.
 
 ## Dialogue.DialogueStep
 
+Where a DialogueRunner is.
+
 - `Choice` (field): Choices lists the options; Choose(i) picks one
+- `End` (field): The conversation is over (or never started).
 - `Line` (field): Speaker / Text show a line; Continue() moves on
 
 ## Dialogue.DialogueView
 
 Shows a DialogueRunner through a UI model ("dialogue": visible, speaker, text, choosing, choice0..3 / has0..3) and answers its events (dialogue_continue, dialogue_choose_0..3). The stock Engine/Assets/UI/Dialogue/Dialogue.rml binds it; a project can bring its own document with the same model. Call Update() every frame while it's up.
 
+- `(constructor)(System.String)` (method): A view over a UI model (the stock Dialogue.rml binds "dialogue").
+- `MaxChoices` (field): The most options the stock view shows.
+- `Model` (field): The UI model it drives.
+- `Refresh` (method): Pushes the runner's state to the UI model.
+- `Runner` (property): The runner it shows (null when hidden).
+- `Show(ScriptCore.Dialogue.DialogueRunner)` (method): Shows a running conversation.
 - `Update` (method): Applies clicks from the document; true while the conversation runs.
+
+## Dialogue.EventStatement
+
+<<event name args...>>: raised for the game (DialogueRunner.Event).
+
+- `Args` (field): Its arguments.
+- `Name` (field): The event's name.
 
 ## Dialogue.Expression
 
 Values are bool, double or string (an unset variable is false). Operators: not, and, or, == != < <= > >=, + - * / (+ joins when either side is a string), ( ).
 
+- `Evaluate(System.Collections.Generic.IReadOnlyDictionary{System.String,System.Object})` (method): The expression's value with these variables (bool, double or string).
+- `Format(System.Object)` (method): A value as text (numbers invariant-culture).
 - `Number(System.Object)` (method): An unset variable is false, which counts as 0: <<set $visits = $visits + 1>> just works.
+- `Parse(System.String,System.String,System.Int32)` (method): Parses an expression; file and line go into error messages.
+- `Truthy(System.Object)` (method): A value as a condition: true, non-zero, or a non-empty string.
+
+## Dialogue.IfStatement
+
+<<if>> / <<elseif>> / <<else>> / <<endif>>.
+
+- `Branches` (field): The if and elseif branches, in order: the first whose condition holds runs.
+- `Else` (field): The else branch, if any.
+
+## Dialogue.JumpStatement
+
+<<jump Node>>.
+
+- `Node` (field): The node to continue at.
+
+## Dialogue.LineStatement
+
+A line of dialogue.
+
+- `Condition` (field): Shown only when this holds (null: always).
+- `Speaker` (field): Who says it (empty: narration).
+- `Text` (field): What's said (a localization key; {$var} interpolates).
+
+## Dialogue.Option
+
+One option of a choice.
+
+- `Body` (field): What runs when it's chosen.
+- `Condition` (field): Offered only when this holds (null: always).
+- `Line` (field): The source line.
+- `Text` (field): What the option says.
+
+## Dialogue.SetStatement
+
+<<set $var = expr>>.
+
+- `Value` (field): The value to assign.
+- `Variable` (field): The variable's name (without the $).
+
+## Dialogue.Statement
+
+A parsed statement of a node (the runner walks them).
+
+- `Line` (field): The source line, for errors.
+
+## Dialogue.StopStatement
+
+<<stop>>: the conversation ends.
+
 
 ## Ease
 
@@ -648,6 +767,8 @@ Typed events between scripts, plus the engine's own (CS-8). Any type can be an e
 
 Update order among scripts: lower runs first (default 0) in OnStart, OnFixedUpdate, OnUpdate and OnLateUpdate; scripts with the same order run in the order they started. [ExecutionOrder(-100)] public class InputReader : Script { ... }
 
+- `(constructor)(System.Int32)` (method): Orders the script's updates: lower runs first (default 0).
+- `Order` (property): The order.
 
 ## FieldReflection
 
@@ -666,10 +787,18 @@ How Rigidbody.AddForce applies a vector.
 
 Keeps saved data loading after a rename. On a script class, scenes that name the old class create this one (and are saved with the new name); on a field, a value saved under the old name is read into it. [FormerName("EnemyBrain")] public class EnemyAI : Script { [FormerName("speed")] public float MoveSpeed; }
 
+- `(constructor)(System.String)` (method): Marks a script class with a name it used to have (scenes saved with the old name still load).
+- `Name` (property): The former name.
 
 ## GameAssert
 
+Checks for [GameTest]s; a failed one throws GameTestFailure.
+
+- `Equal1(0,0,System.String)` (method): Fails unless the values are equal.
 - `Eventually(System.Func{System.Boolean},System.Single,System.String)` (method): Waits (in game time) until the condition holds; fails after the timeout.
+- `Near(System.Single,System.Single,System.Single,System.String)` (method): Fails unless the values are within tolerance.
+- `Near(Vector3,Vector3,System.Single,System.String)` (method): Fails unless the points are within tolerance of each other.
+- `True(System.Boolean,System.String)` (method): Fails with message unless condition holds.
 
 ## GamepadChanged
 
@@ -679,6 +808,9 @@ A pad connected to or left a slot.
 
 ## GameScriptALC
 
+The collectible load context game script assemblies live in, so a hot reload can unload them (host plumbing).
+
+- `(constructor)(System.String)` (method): A context for the assembly at assemblyPath.
 - `GameAssembly` (property): For a mod's context: the game's Game.Script, which the mod resolves to instead of loading its own.
 - `Load(System.Reflection.AssemblyName)` (method)
 
@@ -686,22 +818,60 @@ A pad connected to or left a slot.
 
 CS-12: play-mode tests. A static method returning Task (or void), in the game's or a mod's scripts:
 
+- `(constructor)(System.String)` (method): A play-mode test, loading scene first when one is given.
 - `Scene` (property): Loaded before the test; empty runs it in whatever scene is playing.
+- `TimeoutSeconds` (property): Game-time seconds before the test fails as timed out.
+
+## GameTestFailure
+
+A failed GameAssert.
+
+- `(constructor)(System.String)` (method): A failure with its message.
 
 ## GameTests
 
+Finds and runs [GameTest]s (the game-tests console command).
+
 - `Discover(System.String)` (method): Every [GameTest] in the game's and mods' scripts, by class then method name.
+- `IsRunning` (property): Whether a run is going.
+- `LastResults` (property): The last run's results.
+- `NameOf(System.Reflection.MethodInfo)` (method): A test's display name, Class.Method.
+- `RunAll(System.Collections.Generic.IReadOnlyList{System.Reflection.MethodInfo})` (method): Runs tests one after another and logs "GameTests: N passed, M failed".
+- `RunCommand(System.String[])` (method): The game-tests console command: runs every test, or those whose name contains the filter.
+
+## GameTests.Result
+
+One test's outcome.
+
+- `(constructor)(System.String,System.Boolean,System.String,System.Double)` (method): One test's outcome.
+- `Message` (property): Why it failed (empty when it passed).
+- `Name` (property): Class.Method.
+- `Passed` (property): Whether it passed.
+- `Seconds` (property): Wall-clock time it took.
 
 ## Generation.FieldDescriptor
 
 One persisted field: its name, kind and boxed accessors (generated static lambdas, not reflection, so collectible script assemblies stay unloadable and AOT stays possible).
 
+- `(constructor)(System.String,ScriptCore.Generation.FieldKind,System.String,System.Func{System.Object,System.Object},System.Action{System.Object,System.Object})` (method): A descriptor (generated code builds these).
+- `GetValue` (property): Reads the field from an instance (boxed).
+- `Kind` (property): What kind of value it holds.
+- `Name` (property): The field's name.
+- `SetValue` (property): Writes the field on an instance (boxed).
 - `TypeName` (property): Display name of the field's type ("float", "Vector3", "My.Enum").
 
 ## Generation.FieldKind
 
 What a generated field is, for save/net/inspector/UI layers that need to walk fields without reflection.
 
+- `Bool` (field): bool.
+- `Double` (field): double.
+- `Enum` (field): An enum (stored as its integer).
+- `Float` (field): float.
+- `Int` (field): int.
+- `String` (field): string.
+- `Vector2` (field): Vector2.
+- `Vector3` (field): Vector3.
 
 ## Generation.GenerateSchemaAttribute
 
@@ -712,11 +882,17 @@ Opts a partial class into the CS-9 source generator: a static TypeSchema, SaveFi
 
 Generated module initializers register each schema here, so lookups by type need no reflection. Keys are held weakly: a hot-reloaded script assembly's types must stay collectible, or the old AssemblyLoadContext could never unload.
 
+- `Register(System.Type,ScriptCore.Generation.TypeSchema)` (method): Registers a type's generated schema (generated code calls it).
+- `TryGet(System.Type,ScriptCore.Generation.TypeSchema@)` (method): A type's generated schema; false when it has none.
 
 ## Generation.TypeSchema
 
 A type's generated schema. Hash is a stable FNV-1a over the names and kinds, so two builds agree on it exactly when their fields agree (net handshakes, save versioning).
 
+- `(constructor)(System.String,System.UInt64,ScriptCore.Generation.FieldDescriptor[])` (method): A schema (generated code builds these).
+- `Fields` (property): The persisted fields, in declaration order.
+- `Hash` (property): A hash of the field layout (save and network compatibility checks).
+- `TypeName` (property): The type's full name.
 
 ## HeaderAttribute
 
@@ -751,13 +927,46 @@ What the engine calls on a script. Derive from Script, which implements it, rath
 Immediate-mode ImGui for game scripts (editor inspector widgets live on EngineAPI separately).
 
 - `AssetRow(System.String,System.String@,System.String)` (method): An asset row on a project path; filter narrows the picker ("Texture", or an extension).
+- `Begin(System.String)` (method): Begins a window; call End whatever it returns.
+- `BeginDisabled` (method): Greys out and disables the rows that follow, until EndDisabled.
+- `Bool(System.String,System.Boolean@)` (method): A checkbox row.
+- `Button(System.String)` (method): A button; true when clicked.
+- `Checkbox(System.String,System.Boolean@)` (method): A checkbox.
+- `ColorRow(System.String,Color@)` (method): A color picker row.
+- `Double(System.String,System.Double@)` (method): A double drag row.
+- `End` (method): Ends a window.
+- `EndDisabled` (method): Ends BeginDisabled.
 - `EntityRow(System.String,System.String@)` (method): An entity row on the 16-hex scene GUID an EntityRef stores.
+- `EnumCombo(System.String,System.Int32@,System.String[])` (method): A combo over names; index is the selection.
+- `Float(System.String,System.Single@)` (method): A float drag row; true when it changed.
+- `Header(System.String)` (method): A section heading.
+- `InputMultiline(System.String,System.String@,System.Int32,System.Int32)` (method): A multi-line text box.
+- `InputText(System.String,System.String@,System.Int32)` (method): A text field (capacity in bytes).
+- `Int(System.String,System.Int32@)` (method): An int drag row.
+- `Quat(System.String,Quaternion@)` (method): A rotation row, edited as Euler degrees.
+- `SameLine` (method): Puts the next item on the same line.
+- `SliderFloat(System.String,System.Single@,System.Single,System.Single)` (method): A float slider.
+- `SliderInt(System.String,System.Int32@,System.Int32,System.Int32)` (method): An int slider.
+- `SmallButton(System.String)` (method): A small button; true when clicked.
+- `Space(System.Single)` (method): Vertical space (0: half a line).
+- `Text(System.String)` (method): A line of text.
 - `Tooltip(System.String)` (method): Hover text for the previous row.
+- `TreeNode(System.String)` (method): A collapsible node; when it returns true, draw the children, then TreePop.
+- `TreePop` (method): Ends an open TreeNode.
+- `Vec2(System.String,Vector2@)` (method): A Vector2 row.
+- `Vec3(System.String,Vector3@)` (method): A Vector3 row.
+- `Vec4(System.String,Vector4@)` (method): A Vector4 row.
 
 ## INetScript
 
 Implemented by the NetGenerator; the engine reaches it through the ScriptBridge.Net* entry points.
 
+- `NetDispatchRpc(System.Int32,System.ReadOnlySpan{System.Byte})` (method): Runs RPC rpcId's handler with its packed arguments.
+- `NetFlags` (property): What the script has: 1 predicted fields, 2 replicated fields, 4 RPCs.
+- `NetReadReplicated(System.ReadOnlySpan{System.Byte},System.Boolean)` (method): Reads the replicated fields; with skipPredicted the owner keeps its predicted values (it reconciles them separately).
+- `NetRestorePredicted(System.ReadOnlySpan{System.Byte})` (method): Restores the predicted fields NetSavePredicted wrote.
+- `NetSavePredicted(System.Span{System.Byte})` (method): Saves the predicted fields: returns the bytes needed and only writes when destination is that big.
+- `NetWriteReplicated(System.Span{System.Byte})` (method): Writes every replicated field ([Predicted] ones included, in declaration order); same size convention.
 
 ## Input
 
@@ -783,6 +992,7 @@ Keys, the mouse and the project's input actions (Engine/Docs/Input.md).
 
 The script inspector: every public field as a Havana property row, matching the C++ reflection inspector (ranges, tooltips, headers, colors, references, lists, nested types).
 
+- `DrawDefault(System.Object)` (method): Draws every public field of target as inspector rows (what a script's inspector shows by default).
 
 ## ISequenceReceiver
 
@@ -1022,11 +1232,13 @@ Health points: Damage, Heal and Kill, with events and EventBus messages.
 
 An actor with health (Damageable and the player).
 
+- `Health` (property): The actor's health.
 
 ## Kit.IInventory
 
 An actor with an inventory.
 
+- `Inventory` (property): The actor's inventory.
 
 ## Kit.Interactable
 
@@ -1159,10 +1371,18 @@ The entity's Mesh: its own material's fields, and portal slices.
 - `SetPortalSlice(ScriptCore.Entity,ScriptCore.Entity,ScriptCore.Entity)` (method): A render-only image on the other side of a portal; null entrance clears the source slice.
 - `ShowCameraView(ScriptCore.Camera)` (method): Turns this mesh into a window onto a camera's view: every pixel of the surface shows what the camera sees at the same spot on screen (a "Portal (Camera View)" material). The camera renders at the main camera's size and field of view from then on. Returns false without a Camera.
 
+## ModScanner
+
+Reads a mod assembly's metadata for APIs a mod shouldn't need (MOD-7).
+
+- `Scan(System.Byte[])` (method): Scans an assembly image without loading or running it.
+
 ## ModScanResult
 
 MOD-7: what a mod's assembly reaches beyond the script API, read from its metadata before it loads (nothing runs). Mods are trusted (they load either way); this only labels them, so a Workshop build or the mod manager can say "unverified" next to one that declares native (P/Invoke) methods or uses the APIs below. A heuristic, not a sandbox: reflection over strings can still reach anything, which is why the label is "verified", not "safe".
 
+- `Issues` (property): What it found: each API reached, and why it's flagged.
+- `Verified` (property): True when the scan found nothing to flag.
 
 ## MultilineAttribute
 
@@ -1199,23 +1419,39 @@ Walks the navmesh (Engine/Docs/Navigation.md). Paths are computed by the engine'
 
 NET-6: the session from scripts. Without a session (offline play, the editor) Role is 0 and RPCs run locally, so the same script works on both sides. See Engine/Docs/Networking.md.
 
+- `ClearAim` (method): Stops sending an aim.
 - `Clients` (property): Allocates; GetClients(Span) doesn't.
 - `Command(ScriptCore.Entity)` (method): The owner's command for the tick being simulated (server: as received; client: its own).
 - `Corrections` (property): Prediction on this client: mispredictions corrected, ticks that matched, and initial syncs.
+- `FindEntity(System.Int32)` (method): The entity a NetId names here, or Entity.Null.
 - `GetClients(System.Span{System.Int32})` (method): The connected client ids (server); returns how many, writing at most ids.Length.
 - `GetNetId(ScriptCore.Entity)` (method): The id an entity is known by on every peer (0: not networked), and back.
 - `GetOwner(ScriptCore.Entity)` (method): The client that owns (and predicts) an entity; 0 = the server / nobody.
+- `InitialSyncs` (property): Times prediction took the server's state without a correction (joining, ownership changes).
+- `IsActive` (property): Whether there's a session.
+- `IsClient` (property): Whether this peer is a client.
+- `IsOwner(ScriptCore.Entity)` (method): Client: whether this client owns (and predicts) the entity.
 - `IsPredicted(ScriptCore.Entity)` (method): On a client: the entity it predicts (its pawn).
 - `IsResimulating` (property): True while the client replays its commands after a correction: skip effects and sounds.
+- `IsServer` (property): Whether this peer is the server.
 - `LagCompensatedRaycast(ScriptCore.Entity,Vector3,Vector3,System.Single)` (method): NET-15: a shot judged the way its shooter saw it. On the server the hitboxes (NetHitbox) are rewound to the view the shooter's command was sent from (Command.ViewTick, capped at the rewind window: Clamped), and present-day colliders and rewound occluders still block it. On a client (or offline) it tests the hitboxes as they are now: the predicted hit, for impact FX; only the server's result counts. Shooter: the entity firing (ignored by the ray).
 - `LocalClientId` (property): This client's id (1-255); 0 on the server and offline.
+- `Matches` (property): Predicted ticks that matched the server.
 - `MaxRpcArgsBytes` (field): An RPC's arguments must fit one message (1024 bytes) with its header.
+- `PredictedEvent(ScriptCore.Script,System.Int32,System.Int32)` (method): ME-291: a cosmetic event (FX, a sound, a log line) raised from simulation (OnFixedUpdate) that must show once, not in every resimulation of its tick. Offline: script.OnNetEvent(eventId, value) now. The server: now, and to every client. The predicting owner: now, once per (entity, tick, event); resims and the server's copy skip it. Other clients: when the server's copy arrives. Needs a networked script on a NetIdentity.
 - `PredictedEventRpcId` (field): The RPC id PredictedEvent's server copies travel under (C++: kPredictedEventRpcId).
+- `PredictImpacts` (property): Whether to draw impacts from this peer's predicted hits (false on a client above PredictImpactsMaxRttMs: wait for the server).
 - `PredictImpactsMaxRttMs` (field): Whether to draw impacts (sparks, decals, hit sounds) from a client's own predicted hit. Above PredictImpactsMaxRttMs the predicted view is too far from the server's judgement: wait for its confirmation (an RPC, a replicated field) instead. Hit markers and health always should.
 - `Press(System.String,System.Boolean)` (method): Holds (or releases) a networked action as if its input were down: bots and tests.
+- `Role` (property): This peer's role: RoleNone, RoleServer or RoleClient.
+- `RoleClient` (field): This peer is a client.
+- `RoleNone` (field): No session.
+- `RoleServer` (field): This peer is the server.
 - `RoundTripMs` (property): Smoothed round trip in ms: a client's to the server, or (server) to one client.
+- `RoundTripMsTo(System.Int32)` (method): Server: the round trip to one client, in ms.
 - `SendRpc(ScriptCore.Entity,System.Int32,System.Int32,System.ReadOnlySpan{System.Byte},ScriptCore.INetScript)` (method): Generated RPC stubs call this. kind: 0 to the server, 1 to the owner, 2 to every client. Offline both sides are local, and an RPC addressed to the side we're on runs here directly.
 - `SetAim(System.Single,System.Single)` (method): The local player's absolute aim (NET-15), sent with every command until cleared: degrees, yaw about +Y (0 down +Z, 90 down +X), pitch up from level. Set it from where the view looks each frame; the pawn's script reads Net.Command(Entity).Yaw / Pitch / AimDirection in OnFixedUpdate on both sides, so a predicted shot and the server's aim the same way.
+- `SetOwner(ScriptCore.Entity,System.Int32)` (method): Server: hands an entity to a client, which then predicts it (0: back to the server).
 - `Tick` (property): The simulation tick being run (a past one while resimulating).
 - `WarnRpcTooLarge(System.String)` (method): Generated RPC stubs with string arguments: the arguments didn't fit the RPC buffer.
 
@@ -1224,13 +1460,29 @@ NET-6: the session from scripts. Without a session (offline play, the editor) Ro
 The owner's input for one simulation tick (Net.Command): networked buttons as bits plus four axes.
 
 - `AimDirection` (property): The aim as a unit direction (+Z when there's none).
+- `Axis(System.Int32)` (method): An axis by index (0..3).
+- `Axis0` (field): The networked Value / Vector2 actions, -1..1 at 16 bits.
+- `Axis1` (field): The networked Value / Vector2 actions, -1..1 at 16 bits.
+- `Axis2` (field): The networked Value / Vector2 actions, -1..1 at 16 bits.
+- `Axis3` (field): The networked Value / Vector2 actions, -1..1 at 16 bits.
+- `Buttons` (field): The networked button actions held, one bit each (IsDown reads them by name).
 - `HasAim` (field): The owner's absolute aim when it sent this command (NET-15; Net.SetAim), in degrees: Yaw about +Y (0 looking down +Z, 90 down +X), Pitch up from level. HasAim is false until it sets one.
+- `IsDown(System.String)` (method): Whether a networked button action is held in this command.
+- `Pitch` (field): The aim in degrees (see HasAim).
+- `PreviousButtons` (field): The previous command's buttons (for WasPressed / WasReleased).
+- `Tick` (field): The simulation tick this command is for.
 - `Valid` (field): False when there's no command for the entity this tick (not owned, or none arrived yet).
+- `ViewTick` (field): The (fractional) server tick the owner's view showed when it sent this command (NET-8); Net.LagCompensatedRaycast rewinds to it. -1 without one.
+- `WasPressed(System.String)` (method): Whether it went down this tick.
+- `WasReleased(System.String)` (method): Whether it went up this tick.
+- `Yaw` (field): The aim in degrees (see HasAim).
 
 ## NetEventLedger
 
 ME-291: the predicted events a client has presented, by (entity, tick, event), so a resimulated tick or the server's copy doesn't present one twice. Keeps about the last 256 ticks.
 
+- `Clear` (method): Forgets every event.
+- `Count` (property): How many events it remembers.
 - `TryPresent(ScriptCore.Entity,System.Int32,System.Int32)` (method): True the first time (present it now), false for a repeat.
 
 ## NetHit
@@ -1243,14 +1495,45 @@ Net.LagCompensatedRaycast's result. Entity: the hitbox's entity (also when Occlu
 
 Reads what NetWriter wrote; past the end every read returns the default and sets Overflowed.
 
+- `(constructor)(System.ReadOnlySpan{System.Byte})` (method): A reader over buffer.
+- `Overflowed` (property): Whether a read ran past the end (the rest read as defaults).
+- `Position` (property): Bytes read so far.
+- `ReadBool` (method): Reads a bool.
+- `ReadDouble` (method): Reads a double.
+- `ReadEntity` (method): Reads an entity (as its NetId: Entity.Null when it isn't known here).
+- `ReadFloat` (method): Reads a float.
+- `ReadInt` (method): Reads an int.
+- `ReadQuaternion` (method): Reads a Quaternion.
 - `ReadString` (method): Allocates (RPC arguments only). -1 is null.
+- `ReadVector2` (method): Reads a Vector2.
+- `ReadVector3` (method): Reads a Vector3.
+- `Remaining` (property): Bytes left.
+- `Skip(System.Int32)` (method): Skips size bytes.
+
+## NetTarget
+
+Which clients a [ClientRpc] reaches.
+
+- `All` (field): Every client.
+- `Owner` (field): Only the entity's owner.
 
 ## NetWriter
 
 Raw little-endian encoding of net state and RPC arguments: bool 1 byte, int / float 4, double 8, Vector2 8, Vector3 12, Quaternion 16 (x, y, z, w), string = int32 byte length (-1 null) + UTF-8, Entity = its int32 net id. Floats are bit-exact (prediction compares them). A value that doesn't fit sets Overflowed and nothing more is written.
 
+- `(constructor)(System.Span{System.Byte})` (method): A writer over buffer.
+- `Overflowed` (property): Whether a write didn't fit (the rest are dropped).
+- `Position` (property): Bytes written so far.
+- `WriteBool(System.Boolean)` (method): Writes a bool (one byte).
+- `WriteDouble(System.Double)` (method): Writes a double.
 - `WriteEntity(ScriptCore.Entity)` (method): As its net id (0 when it isn't networked); the receiver finds its own copy.
+- `WriteFloat(System.Single)` (method): Writes a float.
+- `WriteInt(System.Int32)` (method): Writes an int.
+- `WriteQuaternion(Quaternion)` (method): Writes a Quaternion.
 - `WriteString(System.String)` (method): RPC arguments only: the length is counted first, so nothing is allocated.
+- `WriteVector2(Vector2)` (method): Writes a Vector2.
+- `WriteVector3(Vector3)` (method): Writes a Vector3.
+- `Written` (property): The bytes written.
 
 ## ParticleSystem
 
@@ -1466,17 +1749,23 @@ The engine's entry points into managed code ([UnmanagedCallersOnly]: script life
 
 ## ScriptRegistry
 
+The script classes the game's and mods' assemblies define.
+
 - `Assemblies` (property): The game's assembly and each mod's, and a counter bumped whenever they change (PLAY-10's console commands rescan when it moves).
+- `Clear` (method): Forgets every type and assembly (before a reload).
 - `Find(System.String)` (method): By full name; then by class name (when two classes share it, the game's wins and that's logged once); then by a [FormerName] of a renamed class.
 - `NameOf(System.Type)` (method): What scenes and the editor call a script: its class name, or its full name ("ExampleMod.Spinner") when another script class has the same name.
 - `Scan(System.Reflection.Assembly)` (method): The game's assembly: replaces whatever was scanned.
 - `ScanMod(System.Reflection.Assembly)` (method): A mod's assembly (MOD-2): its classes join the game's.
 - `ScriptTypes` (property): The game's script classes, then each mod's (MOD-2), then the engine's own (the GAME-7 starter kit: Door, Pickup...), each group by name. A game class with the same name as an engine one wins.
+- `Version` (property): Bumped whenever the assemblies change.
 
 ## ScriptSerializer
 
 simple JSON serialization for script state, using the same field reflection as the inspector. not super efficient but hey, it's only for editor persistence and maybe some debug dumping, so who cares.
 
+- `Deserialize(System.Object,System.String)` (method): Sets the fields named in JSON on target.
+- `Serialize(System.Object,System.Boolean)` (method): The public fields (and [Save] fields when asked) as JSON.
 
 ## SDLKey
 
@@ -1561,9 +1850,30 @@ Timed simulated input for play-mode tests and replays, on top of Input.Simulate 
 - `Hold(ScriptCore.KeyCode,System.Single)` (method): Holds the key for the given game time (at least one frame), then releases it.
 - `Play(System.Collections.Generic.IReadOnlyList{ScriptCore.SimulatedInput.Event})` (method): Applies each event once the recording's game time reaches it. Keys still held at the end stay held (end a recording with its releases, or call Input.ReleaseSimulated).
 - `Record` (method): Records the real keyboard's key changes until disposed, then logs the recording.
+- `Tap(ScriptCore.KeyCode)` (method): Holds a key for one frame.
+
+## SimulatedInput.Event
+
+A key change in a recording.
+
+- `(constructor)(System.Single,ScriptCore.KeyCode,System.Boolean)` (method): A key change in a recording.
+- `Held` (property): True to hold it, false to release it.
+- `Key` (property): The key.
+- `Time` (property): Seconds of game time from the start.
+
+## SimulatedInput.Recorder
+
+Records the real keyboard until disposed (SimulatedInput.Record).
+
+- `Dispose` (method): Stops recording and logs the recording.
+- `Recording` (property): What it recorded so far.
 
 ## SimulatedInput.Recording
 
+A timeline of key changes (Play replays it).
+
+- `Add(System.Single,ScriptCore.KeyCode,System.Boolean)` (method): Adds an event (collection initializers: { 0f, KeyCode.W, true }).
+- `Parse(System.String)` (method): Parses "0 +W; 0.5 +Space; 0.6 -Space" (sorted by time); FormatException on a bad entry.
 - `ToString` (method)
 
 ## SpaceAttribute
@@ -1591,13 +1901,23 @@ The entity's Spline (GAME-2): a curve through local points, for camera paths, ra
 GAME-2: the Spline component's curve math (C++ SplineMath in Components/Gameplay/Spline.cpp, kept in step): a uniform Catmull-Rom curve through every point. Open curves extrapolate their end tangents, closed ones wrap; t runs 0..1 over the whole curve, each segment an equal share.
 
 - `Derivative(System.Collections.Generic.IReadOnlyList{Vector3},System.Boolean,System.Single)` (method): dP/dt (t over the whole curve).
+- `Evaluate(System.Collections.Generic.IReadOnlyList{Vector3},System.Boolean,System.Single)` (method): The Catmull-Rom curve through points at t (0..1 along it).
+- `GetSegmentCount(System.Int32,System.Boolean)` (method): How many segments a curve through that many points has.
+- `SamplesPerSegment` (field): Samples per segment for arc length.
 
 ## SplinePath
 
 A spline's curve in world space at one moment: build it once (Spline.GetPath()) and ask it several questions, rather than reading the component for each.
 
+- `(constructor)(System.Collections.Generic.IReadOnlyList{Vector3},System.Boolean)` (method): A curve through world points (open or closed).
+- `Closed` (property): Whether it loops.
 - `GetNearestT(Vector3)` (method): The t of the curve's point nearest a world position.
+- `GetPoint(System.Single)` (method): The world point at t (0..1).
+- `GetPointAtDistance(System.Single)` (method): The point distance along the curve.
+- `GetTangent(System.Single)` (method): The direction of travel at t.
 - `GetTAtDistance(System.Single)` (method): The t a distance along the curve reaches (closed curves wrap; open ones clamp).
+- `Length` (property): The curve's length.
+- `Points` (property): Its world points.
 
 ## SpriteRenderer
 

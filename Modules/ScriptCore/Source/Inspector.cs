@@ -64,6 +64,7 @@ internal static class FieldReflection
 /// </summary>
 public static class Inspector
 {
+    /// <summary>Draws every public field of target as inspector rows (what a script's inspector shows by default).</summary>
     public static void DrawDefault(object target)
     {
         DrawObjectFields(target);
@@ -329,6 +330,7 @@ public static class ScriptSerializer
 
     internal static void ResetCaches() => Options = new() { IncludeFields = true };
 
+    /// <summary>The public fields (and [Save] fields when asked) as JSON.</summary>
     public static string Serialize(object target, bool includeSaveFields = false)
     {
         var dict = new Dictionary<string, object?>();
@@ -341,6 +343,7 @@ public static class ScriptSerializer
         return JsonSerializer.Serialize(dict, Options);
     }
 
+    /// <summary>Sets the fields named in JSON on target.</summary>
     public static void Deserialize(object target, string json)
     {
         if (string.IsNullOrEmpty(json)) return;

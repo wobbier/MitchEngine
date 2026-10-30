@@ -12,11 +12,13 @@ public static class SchemaRegistry
 {
     private static readonly ConditionalWeakTable<Type, TypeSchema> s_schemas = new();
 
+    /// <summary>Registers a type's generated schema (generated code calls it).</summary>
     public static void Register(Type type, TypeSchema schema)
     {
         s_schemas.AddOrUpdate(type, schema);
     }
 
+    /// <summary>A type's generated schema; false when it has none.</summary>
     public static bool TryGet(Type type, out TypeSchema? schema)
     {
         return s_schemas.TryGetValue(type, out schema);

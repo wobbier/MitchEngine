@@ -12,10 +12,14 @@ namespace ScriptCore.Dialogue;
 /// </summary>
 public sealed class DialogueView
 {
+    /// <summary>The most options the stock view shows.</summary>
     public const int MaxChoices = 4;
+    /// <summary>The UI model it drives.</summary>
     public readonly string Model;
+    /// <summary>The runner it shows (null when hidden).</summary>
     public DialogueRunner? Runner { get; private set; }
 
+    /// <summary>A view over a UI model (the stock Dialogue.rml binds "dialogue").</summary>
     public DialogueView(string model = "dialogue")
     {
         Model = model;
@@ -26,6 +30,7 @@ public sealed class DialogueView
         Refresh();
     }
 
+    /// <summary>Shows a running conversation.</summary>
     public void Show(DialogueRunner runner)
     {
         Runner = runner;
@@ -49,6 +54,7 @@ public sealed class DialogueView
         return Runner?.IsRunning ?? false;
     }
 
+    /// <summary>Pushes the runner's state to the UI model.</summary>
     public void Refresh()
     {
         var ui = UI.Model(Model);
@@ -75,6 +81,7 @@ public static class DialogueFiles
 {
     private static readonly Dictionary<string, DialogueScript> Cache = new();
 
+    /// <summary>The .dialogue at path, parsed and cached; null when it can't be read.</summary>
     public static DialogueScript? Load(string path)
     {
         if (Cache.TryGetValue(path, out var cached)) return cached;

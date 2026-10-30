@@ -13,9 +13,17 @@ namespace ScriptCore.Kit;
 //   }
 
 /// <summary>An actor with health (Damageable and the player).</summary>
-public interface IHealth { Health Health { get; } }
+public interface IHealth
+{
+    /// <summary>The actor's health.</summary>
+    Health Health { get; }
+}
 /// <summary>An actor with an inventory.</summary>
-public interface IInventory { Inventory Inventory { get; } }
+public interface IInventory
+{
+    /// <summary>The actor's inventory.</summary>
+    Inventory Inventory { get; }
+}
 
 /// <summary>
 /// Published on the EventBus.
