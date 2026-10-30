@@ -56,13 +56,7 @@ internal static class NetDiagnostics
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true );
 
-    public static readonly DiagnosticDescriptor DerivedNetScript = new(
-        id: "MEGEN011",
-        title: "Networked scripts can't derive from another networked script",
-        messageFormat: "'{0}' derives from networked script '{1}': networked members on both a base and a derived script aren't supported (keep them in one class)",
-        category: Category,
-        defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true );
+    // MEGEN011 (a net script deriving from another) was retired by ME-294: the layers chain now.
 
     public static readonly DiagnosticDescriptor MissingHandler = new(
         id: "MEGEN010",

@@ -46,55 +46,35 @@ partial class MiniNet : global::ScriptCore.INetScript
     /// <summary>Generated net layout hash (NET-6): peers must agree on it in the session handshake.</summary>
     public const ulong __NetSchemaHash = 0x40AB1CECDDE59FC5UL;
 
-    int global::ScriptCore.INetScript.NetFlags => 7;
+    protected virtual int __NetFlags => 7;
+    protected virtual int __NetPredictedSize => 4;
+    protected virtual int __NetReplicatedSize => 8;
+    protected virtual int __NetRpcCount => 2;
 
-    int global::ScriptCore.INetScript.NetSavePredicted( global::System.Span<byte> destination )
+    protected virtual void __NetSavePredictedLayer( ref global::ScriptCore.NetWriter writer )
     {
-        if( destination.Length < 4 )
-        {
-            return 4;
-        }
-        var writer = new global::ScriptCore.NetWriter( destination );
         writer.WriteFloat( this.Stamina );
-        return 4;
     }
 
-    void global::ScriptCore.INetScript.NetRestorePredicted( global::System.ReadOnlySpan<byte> source )
+    protected virtual void __NetRestorePredictedLayer( ref global::ScriptCore.NetReader reader )
     {
-        if( source.Length < 4 )
-        {
-            return;
-        }
-        var reader = new global::ScriptCore.NetReader( source );
         this.Stamina = reader.ReadFloat();
     }
 
-    int global::ScriptCore.INetScript.NetWriteReplicated( global::System.Span<byte> destination )
+    protected virtual void __NetWriteReplicatedLayer( ref global::ScriptCore.NetWriter writer )
     {
-        if( destination.Length < 8 )
-        {
-            return 8;
-        }
-        var writer = new global::ScriptCore.NetWriter( destination );
         writer.WriteFloat( this.Stamina );
         writer.WriteInt( this.Score );
-        return 8;
     }
 
-    void global::ScriptCore.INetScript.NetReadReplicated( global::System.ReadOnlySpan<byte> source, bool skipPredicted )
+    protected virtual void __NetReadReplicatedLayer( ref global::ScriptCore.NetReader reader, bool skipPredicted )
     {
-        if( source.Length < 8 )
-        {
-            return;
-        }
-        var reader = new global::ScriptCore.NetReader( source );
         if( skipPredicted ) { reader.Skip( 4 ); } else { this.Stamina = reader.ReadFloat(); }
         this.Score = reader.ReadInt();
     }
 
-    void global::ScriptCore.INetScript.NetDispatchRpc( int rpcId, global::System.ReadOnlySpan<byte> args )
+    protected virtual void __NetDispatchRpcLayer( int rpcId, ref global::ScriptCore.NetReader reader )
     {
-        var reader = new global::ScriptCore.NetReader( args );
         switch( rpcId )
         {
             case 0:
@@ -120,6 +100,56 @@ partial class MiniNet : global::ScriptCore.INetScript
                 return;
             }
         }
+    }
+
+    int global::ScriptCore.INetScript.NetFlags => this.__NetFlags;
+
+    int global::ScriptCore.INetScript.NetSavePredicted( global::System.Span<byte> destination )
+    {
+        int size = this.__NetPredictedSize;
+        if( size > 0 && destination.Length >= size )
+        {
+            var writer = new global::ScriptCore.NetWriter( destination );
+            this.__NetSavePredictedLayer( ref writer );
+        }
+        return size;
+    }
+
+    void global::ScriptCore.INetScript.NetRestorePredicted( global::System.ReadOnlySpan<byte> source )
+    {
+        int size = this.__NetPredictedSize;
+        if( size > 0 && source.Length >= size )
+        {
+            var reader = new global::ScriptCore.NetReader( source );
+            this.__NetRestorePredictedLayer( ref reader );
+        }
+    }
+
+    int global::ScriptCore.INetScript.NetWriteReplicated( global::System.Span<byte> destination )
+    {
+        int size = this.__NetReplicatedSize;
+        if( size > 0 && destination.Length >= size )
+        {
+            var writer = new global::ScriptCore.NetWriter( destination );
+            this.__NetWriteReplicatedLayer( ref writer );
+        }
+        return size;
+    }
+
+    void global::ScriptCore.INetScript.NetReadReplicated( global::System.ReadOnlySpan<byte> source, bool skipPredicted )
+    {
+        int size = this.__NetReplicatedSize;
+        if( size > 0 && source.Length >= size )
+        {
+            var reader = new global::ScriptCore.NetReader( source );
+            this.__NetReadReplicatedLayer( ref reader, skipPredicted );
+        }
+    }
+
+    void global::ScriptCore.INetScript.NetDispatchRpc( int rpcId, global::System.ReadOnlySpan<byte> args )
+    {
+        var reader = new global::ScriptCore.NetReader( args );
+        this.__NetDispatchRpcLayer( rpcId, ref reader );
     }
 
     partial void Fire( int shot )
@@ -203,7 +233,7 @@ namespace Game.Net
         Assert.Contains("public partial void b( string text, global::ScriptCore.Entity who )", generated);
         Assert.Contains("stackalloc byte[1008]", generated);
         Assert.Contains("global::ScriptCore.Net.SendRpc( this.Entity, 2, 2, __writer.Written, this );", generated);
-        Assert.Contains("int global::ScriptCore.INetScript.NetFlags => 4;", generated);
+        Assert.Contains("protected virtual int __NetFlags => 4;", generated);
     }
 
 
@@ -366,21 +396,70 @@ public partial class Rpcs : Script
 
 
     [Fact]
-    public void A_net_script_deriving_from_a_net_script_reports_MEGEN011()
+    public void A_net_script_deriving_from_a_net_script_chains_its_layer_after_the_base()
     {
         var result = RunNet(@"using ScriptCore;
 public partial class PawnBase : Script
 {
     [Replicated] public int Health;
+    [ServerRpc] partial void Hurt(int amount);
+    void OnHurt(int amount) { }
+}
+public class Middle : PawnBase { }
+public sealed partial class Ranger : Middle
+{
+    [Predicted] public float Cooldown;
+    [ClientRpc] partial void Dash();
+    void OnDash() { }
+}
+");
+        Assert.Empty(result.GeneratorDiagnostics);
+        Assert.Empty(result.CompileDiagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+        var ranger = result.Sources["Ranger.Net.g.cs"];
+        // No second INetScript: the base implements it through the virtual layers.
+        Assert.DoesNotContain("INetScript", ranger);
+        Assert.Contains("partial class Ranger\n", ranger.Replace("\r", ""));
+        Assert.Contains("protected override int __NetPredictedSize => base.__NetPredictedSize + 4;", ranger);
+        Assert.Contains("protected override int __NetRpcCount => base.__NetRpcCount + 1;", ranger);
+        Assert.Contains("base.__NetWriteReplicatedLayer( ref writer );", ranger);
+        Assert.Contains("switch( rpcId - base.__NetRpcCount )", ranger);
+        Assert.Contains("global::ScriptCore.Net.SendRpc( this.Entity, base.__NetRpcCount + 0, 2, default, this );", ranger);
+        // The handshake hash folds in the base's.
+        Assert.Contains("public new const ulong __NetSchemaHash = unchecked(", ranger);
+        Assert.Contains("global::PawnBase.__NetSchemaHash", ranger);
+    }
+
+
+    [Fact]
+    public void A_derived_rpc_named_like_a_base_rpc_is_an_error()
+    {
+        var result = RunNet(@"using ScriptCore;
+public partial class PawnBase : Script
+{
+    [ServerRpc] partial void Fire();
+    void OnFire() { }
 }
 public partial class Ranger : PawnBase
 {
-    [Predicted] public float Cooldown;
+    [ServerRpc] partial void Fire();
 }
 ");
-        Assert.Contains(result.GeneratorDiagnostics, d => d.Id == "MEGEN011" && d.Severity == DiagnosticSeverity.Error && d.GetMessage().Contains("Ranger"));
-        Assert.True(result.Sources.ContainsKey("PawnBase.Net.g.cs"));
-        Assert.False(result.Sources.ContainsKey("Ranger.Net.g.cs"));
+        Assert.Contains(result.GeneratorDiagnostics, d => d.Id == "MEGEN008" && d.GetMessage().Contains("already an RPC on a base script"));
+    }
+
+
+    [Fact]
+    public void A_sealed_root_net_script_needs_no_virtual_layers()
+    {
+        var result = RunNet(@"using ScriptCore;
+public sealed partial class Leaf : Script
+{
+    [Replicated] public int Score;
+}
+");
+        Assert.Empty(result.GeneratorDiagnostics);
+        Assert.Empty(result.CompileDiagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+        Assert.Contains("private int __NetFlags => 2;", NetSource(result));
     }
 
 

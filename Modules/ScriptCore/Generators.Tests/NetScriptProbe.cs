@@ -49,3 +49,32 @@ public partial class NetScriptProbe : Script
     public void SendHello(int value, string text, Vector3 where, NetProbeMode mode, bool flag) => Hello(value, text, where, mode, flag);
     public void SendAck(float value) => Ack(value);
 }
+
+// ME-294: a net script deriving from another; the base's state and RPCs come first.
+public partial class NetPawnProbe : Script
+{
+    [Replicated] public int Health;
+    [Predicted] public float Stamina;
+    [ServerRpc] partial void Hurt(int amount);
+    [ClientRpc] partial void Flash();
+
+    public int Hurts;
+    public int Flashes;
+    protected void OnHurt(int amount) { Health -= amount; Hurts++; }
+    private void OnFlash() { Flashes++; }
+
+    public void SendHurt(int amount) => Hurt(amount);
+    public void SendFlash() => Flash();
+}
+
+public partial class NetRangerProbe : NetPawnProbe
+{
+    [Predicted] public float Cooldown;
+    [Replicated] public Vector3 Target;
+    [ServerRpc] partial void Aim(Vector3 at);
+
+    public int Aims;
+    private void OnAim(Vector3 at) { Target = at; Aims++; }
+
+    public void SendAim(Vector3 at) => Aim(at);
+}

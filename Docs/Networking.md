@@ -232,10 +232,16 @@ public partial class Dasher : Script
   - MEGEN005: not a `Script`.
   - MEGEN006: nested or generic.
   - MEGEN007: an unsupported, static or readonly net field.
-  - MEGEN008: an RPC that isn't a bodiless `partial void`.
+  - MEGEN008: an RPC that isn't a bodiless `partial void`, or one named like an RPC on a base script.
   - MEGEN009: an unsupported RPC parameter.
   - MEGEN010: a missing or mismatched `On{Name}`.
-  - MEGEN011: a net script deriving from another net script; keep the net members in one class.
+- **Inheritance (ME-294):** a net script can derive from another (directly or through plain classes), and both layers can have net members.
+  - **The interface:** only the root net script implements `INetScript`. Each layer generates `__Net*Layer` methods that a derived layer overrides, calling the base's first.
+  - **Layout:** the base's state comes first, then the derived layer's appended.
+  - **RPC ids:** a derived layer's ids start after the base's (`base.__NetRpcCount + i`), and its `On{Name}` handlers can stay private.
+  - **Hash:** a derived `__NetSchemaHash` folds in its base's.
+  - **Sealed:** a sealed root script gets private, non-virtual layers.
+  - **No shared names:** a derived RPC can't reuse a base RPC's name (MEGEN008). MEGEN011, which used to reject the case, is retired.
 - **Dispatch only runs on the side an RPC is addressed to:** a ServerRpc on the server, a ClientRpc on a client, both offline. A client can't make the server run a ClientRpc handler.
 
 **`Net`** (`Modules/ScriptCore/Source/Net/Net.cs`, over the `## Networking` slots of `ScriptAPI.def`):
