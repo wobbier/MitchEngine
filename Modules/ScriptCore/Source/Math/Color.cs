@@ -6,11 +6,15 @@ using System.Runtime.InteropServices;
 [StructLayout(LayoutKind.Sequential)]
 public struct Color
 {
+    /// <summary>The channels, linear (alpha is coverage, 0..1).</summary>
     public float r, g, b, a;
 
+    /// <summary>(1, 1, 1, 1).</summary>
     public static readonly Color White = new Color(1f, 1f, 1f, 1f);
+    /// <summary>(0, 0, 0, 1).</summary>
     public static readonly Color Black = new Color(0f, 0f, 0f, 1f);
 
+    /// <summary>A color from linear channels (alpha defaults to opaque).</summary>
     public Color( float r, float g, float b, float a = 1f )
     {
         this.r = r;
@@ -19,25 +23,34 @@ public struct Color
         this.a = a;
     }
 
+    /// <summary>Transparent black (0, 0, 0, 0).</summary>
     public static readonly Color Clear = new Color(0f, 0f, 0f, 0f);
+    /// <summary>Pure red.</summary>
     public static readonly Color Red = new Color(1f, 0f, 0f, 1f);
+    /// <summary>Pure green.</summary>
     public static readonly Color Green = new Color(0f, 1f, 0f, 1f);
+    /// <summary>Pure blue.</summary>
     public static readonly Color Blue = new Color(0f, 0f, 1f, 1f);
 
+    /// <summary>Linear interpolation of every channel (t clamped to 0..1).</summary>
     public static Color Lerp(Color a, Color b, float t)
     {
         t = System.Math.Clamp(t, 0f, 1f);
         return new Color(a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t, a.a + (b.a - a.a) * t);
     }
 
+    /// <summary>Channel-wise sum.</summary>
     public static Color operator +(Color x, Color y) => new Color(x.r + y.r, x.g + y.g, x.b + y.b, x.a + y.a);
+    /// <summary>Channel-wise product (tinting).</summary>
     public static Color operator *(Color x, Color y) => new Color(x.r * y.r, x.g * y.g, x.b * y.b, x.a * y.a);
+    /// <summary>Scales every channel.</summary>
     public static Color operator *(Color c, float s) => new Color(c.r * s, c.g * s, c.b * s, c.a * s);
 
     /// <summary>
     /// sRGB-encoded (what color pickers and hex codes are) to the engine's linear, and back.
     /// </summary>
     public static float SrgbToLinear(float c) => c <= 0.04045f ? c / 12.92f : System.MathF.Pow((c + 0.055f) / 1.055f, 2.4f);
+    /// <summary>Linear to sRGB-encoded, per channel (the inverse of SrgbToLinear).</summary>
     public static float LinearToSrgb(float c) => c <= 0.0031308f ? c * 12.92f : 1.055f * System.MathF.Pow(c, 1f / 2.4f) - 0.055f;
 
     /// <summary>
@@ -51,6 +64,7 @@ public struct Color
         return new Color(SrgbToLinear(Channel(0)), SrgbToLinear(Channel(2)), SrgbToLinear(Channel(4)), h.Length == 8 ? Channel(6) : 1f);
     }
 
+    /// <summary>"#RRGGBBAA" (sRGB), the inverse of FromHex.</summary>
     public string ToHex()
     {
         int Byte(float v) => (int)System.MathF.Round(System.Math.Clamp(v, 0f, 1f) * 255f);
@@ -68,5 +82,6 @@ public struct Color
         return new Color(SrgbToLinear(r + m), SrgbToLinear(g + m), SrgbToLinear(b + m), alpha);
     }
 
+    /// <summary>"{r, g, b, a}".</summary>
     public override string ToString() => $"({r}, {g}, {b}, {a})";
 }

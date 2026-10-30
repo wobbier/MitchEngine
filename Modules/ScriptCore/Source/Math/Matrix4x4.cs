@@ -12,10 +12,14 @@ public struct Matrix4x4
     /// Column 0, then 1, 2, 3.
     /// </summary>
     public float m00, m10, m20, m30;
+    /// <summary>Column 1.</summary>
     public float m01, m11, m21, m31;
+    /// <summary>Column 2.</summary>
     public float m02, m12, m22, m32;
+    /// <summary>Column 3 (the translation, and the projective row 3).</summary>
     public float m03, m13, m23, m33;
 
+    /// <summary>The identity matrix.</summary>
     public static readonly Matrix4x4 Identity = new Matrix4x4 { m00 = 1f, m11 = 1f, m22 = 1f, m33 = 1f };
 
     /// <summary>
@@ -47,6 +51,7 @@ public struct Matrix4x4
         }
     }
 
+    /// <summary>A translation matrix.</summary>
     public static Matrix4x4 Translate(Vector3 t)
     {
         Matrix4x4 m = Identity;
@@ -54,6 +59,7 @@ public struct Matrix4x4
         return m;
     }
 
+    /// <summary>A scale matrix.</summary>
     public static Matrix4x4 Scale(Vector3 s)
     {
         Matrix4x4 m = Identity;
@@ -61,6 +67,7 @@ public struct Matrix4x4
         return m;
     }
 
+    /// <summary>A rotation matrix.</summary>
     public static Matrix4x4 Rotate(Quaternion q)
     {
         q.Normalize();
@@ -77,6 +84,7 @@ public struct Matrix4x4
     /// </summary>
     public static Matrix4x4 TRS(Vector3 translation, Quaternion rotation, Vector3 scale) => Translate(translation) * Rotate(rotation) * Scale(scale);
 
+    /// <summary>The matrix product: applies b, then a.</summary>
     public static Matrix4x4 operator *(Matrix4x4 a, Matrix4x4 b)
     {
         Matrix4x4 m = default;
@@ -105,8 +113,10 @@ public struct Matrix4x4
     /// </summary>
     public Vector3 MultiplyVector(Vector3 d) => new Vector3(m00 * d.x + m01 * d.y + m02 * d.z, m10 * d.x + m11 * d.y + m12 * d.z, m20 * d.x + m21 * d.y + m22 * d.z);
 
+    /// <summary>The translation (column 3).</summary>
     public Vector3 GetTranslation() => new Vector3(m03, m13, m23);
 
+    /// <summary>The transpose.</summary>
     public Matrix4x4 Transposed()
     {
         Matrix4x4 t = default;
@@ -145,5 +155,6 @@ public struct Matrix4x4
         return m;
     }
 
+    /// <summary>The four rows, separated by semicolons.</summary>
     public override string ToString() => $"[{m00}, {m01}, {m02}, {m03}; {m10}, {m11}, {m12}, {m13}; {m20}, {m21}, {m22}, {m23}; {m30}, {m31}, {m32}, {m33}]";
 }

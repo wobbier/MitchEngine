@@ -7,40 +7,111 @@
 
 Linear RGBA in [0, 1] — drawn with a color row in the inspector.
 
+- `(constructor)(System.Single,System.Single,System.Single,System.Single)` (method): A color from linear channels (alpha defaults to opaque).
+- `a` (field): The channels, linear (alpha is coverage, 0..1).
+- `b` (field): The channels, linear (alpha is coverage, 0..1).
+- `Black` (field): (0, 0, 0, 1).
+- `Blue` (field): Pure blue.
+- `Clear` (field): Transparent black (0, 0, 0, 0).
 - `FromHex(System.String)` (method): "#RRGGBB" or "#RRGGBBAA" (sRGB) as a linear color.
 - `FromHsv(System.Single,System.Single,System.Single,System.Single)` (method): Hue 0..360, saturation and value 0..1 (in the sRGB space hex codes use).
+- `g` (field): The channels, linear (alpha is coverage, 0..1).
+- `Green` (field): Pure green.
+- `Lerp(Color,Color,System.Single)` (method): Linear interpolation of every channel (t clamped to 0..1).
+- `LinearToSrgb(System.Single)` (method): Linear to sRGB-encoded, per channel (the inverse of SrgbToLinear).
+- `op_Addition(Color,Color)` (method): Channel-wise sum.
+- `op_Multiply(Color,Color)` (method): Channel-wise product (tinting).
+- `op_Multiply(Color,System.Single)` (method): Scales every channel.
+- `r` (field): The channels, linear (alpha is coverage, 0..1).
+- `Red` (field): Pure red.
 - `SrgbToLinear(System.Single)` (method): sRGB-encoded (what color pickers and hex codes are) to the engine's linear, and back.
+- `ToHex` (method): "#RRGGBBAA" (sRGB), the inverse of FromHex.
+- `ToString` (method): "{r, g, b, a}".
+- `White` (field): (1, 1, 1, 1).
 
 ## Mathf
 
+Float math helpers (a thin layer over System.MathF, plus game-friendly extras).
+
+- `Abs(System.Single)` (method): The absolute value.
+- `Atan2(System.Single,System.Single)` (method): The angle of (x, y) from +X, in radians (-pi..pi).
+- `Clamp(System.Single,System.Single,System.Single)` (method): The value kept within [min, max].
+- `Clamp01(System.Single)` (method): The value kept within [0, 1].
+- `Cos(System.Single)` (method): The cosine of radians.
 - `Damp(System.Single,System.Single,System.Single,System.Single)` (method): Frame-rate independent smoothing: moves current towards target, covering most of the way in about "halfLife * 4" seconds.
+- `Damp(Vector3,Vector3,System.Single,System.Single)` (method): Frame-rate independent smoothing of a vector (see the float Damp).
+- `Deg2Rad` (field): Multiply degrees by it for radians.
+- `Lerp(System.Single,System.Single,System.Single)` (method): Linear interpolation: a at t = 0, b at t = 1 (t isn't clamped).
+- `Lerp(Vector3,Vector3,System.Single)` (method): Linear interpolation of vectors (t isn't clamped).
+- `Max(System.Single,System.Single)` (method): The larger value.
+- `Min(System.Single,System.Single)` (method): The smaller value.
+- `PI` (field): Pi.
+- `Rad2Deg` (field): Multiply radians by it for degrees.
+- `Sin(System.Double)` (method): The sine of radians.
+- `Sin(System.Single)` (method): The sine of radians.
+- `Sqrt(System.Single)` (method): The square root.
 
 ## Matrix4x4
 
 A 4x4 transform, column-major like the engine's (glm): m[column, row], translation in column 3. Points are columns: Matrix * point.
 
+- `GetTranslation` (method): The translation (column 3).
+- `Identity` (field): The identity matrix.
 - `Inverse` (method): The general inverse (Gauss-Jordan); Identity when the matrix is singular.
 - `Item(System.Int32,System.Int32)` (property): Element at row r, column c.
 - `m00` (field): Column 0, then 1, 2, 3.
+- `m01` (field): Column 1.
+- `m02` (field): Column 2.
+- `m03` (field): Column 3 (the translation, and the projective row 3).
 - `m10` (field): Column 0, then 1, 2, 3.
+- `m11` (field): Column 1.
+- `m12` (field): Column 2.
+- `m13` (field): Column 3 (the translation, and the projective row 3).
 - `m20` (field): Column 0, then 1, 2, 3.
+- `m21` (field): Column 1.
+- `m22` (field): Column 2.
+- `m23` (field): Column 3 (the translation, and the projective row 3).
 - `m30` (field): Column 0, then 1, 2, 3.
+- `m31` (field): Column 1.
+- `m32` (field): Column 2.
+- `m33` (field): Column 3 (the translation, and the projective row 3).
 - `MultiplyPoint(Vector3)` (method): A point (w = 1): translation applies.
 - `MultiplyVector(Vector3)` (method): A direction (w = 0): no translation.
+- `op_Multiply(Matrix4x4,Matrix4x4)` (method): The matrix product: applies b, then a.
+- `Rotate(Quaternion)` (method): A rotation matrix.
+- `Scale(Vector3)` (method): A scale matrix.
+- `ToString` (method): The four rows, separated by semicolons.
+- `Translate(Vector3)` (method): A translation matrix.
+- `Transposed` (method): The transpose.
 - `TRS(Vector3,Quaternion,Vector3)` (method): Translation * Rotation * Scale: what a Transform's local matrix is.
 
 ## Quaternion
 
 xyzw, identity = (0, 0, 0, 1) — matching the engine's Quaternion layout.
 
+- `(constructor)(System.Single,System.Single,System.Single,System.Single)` (method): A quaternion from its components (not normalized for you).
 - `Angle(Quaternion,Quaternion)` (method): The angle between two rotations, in degrees.
 - `AngleAxis(System.Single,Vector3)` (method): A rotation of `degrees` about `axis` (normalized here).
+- `Conjugate` (method): The conjugate (the inverse, for a unit quaternion).
+- `Dot(Quaternion,Quaternion)` (method): The 4D dot product (1 or -1 for the same rotation).
+- `Euler(System.Single,System.Single,System.Single)` (method): A rotation from Euler angles in degrees (as Euler(Vector3) does).
 - `Euler(Vector3)` (method): Euler angles in degrees, the engine's convention (Transform.Rotation; glm's quat(vec3)).
+- `Identity` (field): No rotation (0, 0, 0, 1).
+- `Inverse` (method): The inverse rotation (Identity for a zero quaternion).
+- `Length` (method): The quaternion's length (1 for a rotation).
+- `LookRotation(Vector3)` (method): The rotation that looks along forward, with +Y as up.
 - `LookRotation(Vector3,Vector3)` (method): Faces `forward` (+Z is the engine's forward) with `up` as close to up as it can be.
+- `Normalize` (method): Scales this quaternion to unit length.
+- `Normalized` (method): A unit-length copy.
 - `op_Multiply(Quaternion,Quaternion)` (method): a then b: (a * b) rotates by b first, then by a (the glm / Unity order).
 - `op_Multiply(Quaternion,Vector3)` (method): Rotates a vector.
 - `Slerp(Quaternion,Quaternion,System.Single)` (method): The shortest-path spherical blend.
 - `ToEuler` (method): Back to Euler degrees (glm::eulerAngles).
+- `ToString` (method): "{x, y, z, w}".
+- `w` (field): The components (x, y, z vector part, w scalar part).
+- `x` (field): The components (x, y, z vector part, w scalar part).
+- `y` (field): The components (x, y, z vector part, w scalar part).
+- `z` (field): The components (x, y, z vector part, w scalar part).
 
 ## Rng
 
@@ -898,6 +969,69 @@ The yield instructions coroutines understand (plus null = the next frame, and a 
 - `LoadSceneAdditive(System.String,System.Boolean)` (method): Loads a scene on top of this one (a streamed level chunk, a shared lighting scene) and returns its id. Async (the default) reads it in the background and adds it at the start of a later frame: watch SceneState. Its entities unload together and go when the main scene changes.
 - `LoadSceneAsync(System.String,System.String)` (method): Loads a scene in the background under a loading screen (PLAY-5): the current scene keeps running while the file is read, and the screen stays up until the new scene's assets have loaded. loadingScreen: "" = the project's (Assets/UI/Loading/Loading.rml by default), "none" = no screen. False when the scene doesn't exist or a load is already running.
 
+## Vector2
+
+A 2D vector (UI pixels, 2D physics on the XY plane, stick input).
+
+- `(constructor)(System.Single,System.Single)` (method): A vector from its components.
+- `(constructor)(Vector2)` (method): A copy of another vector.
+- `(constructor)(Vector3)` (method): The X and Y of a 3D vector.
+- `Length` (method): The vector's length.
+- `op_Addition(Vector2,Vector2)` (method): Component-wise sum.
+- `op_Multiply(Vector2,System.Single)` (method): Scales both components.
+- `op_Subtraction(Vector2,Vector2)` (method): Component-wise difference.
+- `ToString` (method): "{x, y}".
+- `x` (field): The components.
+- `y` (field): The components.
+
 ## Vector3
 
+A 3D vector in metres, +Y up (the engine's coordinates: +X right, +Z forward).
+
+- `(constructor)(System.Single,System.Single,System.Single)` (method): A vector from its components.
+- `(constructor)(Vector3)` (method): A copy of another vector.
+- `Cross(Vector3,Vector3)` (method): The cross product (right-handed).
+- `Distance(Vector3,Vector3)` (method): The distance between two points.
+- `Dot(Vector3,Vector3)` (method): The dot product.
+- `Forward` (property): +Z (0, 0, 1).
+- `Length` (method): The vector's length.
+- `LengthSquared` (method): The squared length (cheaper than Length for comparisons).
+- `Lerp(Vector3,Vector3,System.Single)` (method): Linear interpolation: a at t = 0, b at t = 1 (t isn't clamped).
 - `Normalized` (method): Unit length, or zero for a zero vector.
+- `One` (property): (1, 1, 1).
+- `op_Addition(Vector3,Vector3)` (method): Component-wise sum.
+- `op_Division(Vector3,System.Single)` (method): Divides every component.
+- `op_Multiply(System.Single,Vector3)` (method): Scales every component.
+- `op_Multiply(Vector3,System.Single)` (method): Scales every component.
+- `op_Subtraction(Vector3,Vector3)` (method): Component-wise difference.
+- `op_UnaryNegation(Vector3)` (method): The opposite vector.
+- `Right` (property): +X (1, 0, 0).
+- `ToString` (method): "{x, y, z}".
+- `Up` (property): +Y (0, 1, 0).
+- `x` (field): The components.
+- `y` (field): The components.
+- `z` (field): The components.
+- `Zero` (property): (0, 0, 0).
+
+## Vector4
+
+A 4-component vector (homogeneous points, packed parameters).
+
+- `(constructor)(System.Single,System.Single,System.Single,System.Single)` (method): A vector from its components.
+- `Dot(Vector4,Vector4)` (method): The dot product.
+- `Length` (method): The vector's length.
+- `Lerp(Vector4,Vector4,System.Single)` (method): Linear interpolation: a at t = 0, b at t = 1 (t isn't clamped).
+- `Normalized` (method): Unit length, or zero for a zero vector.
+- `One` (field): (1, 1, 1, 1).
+- `op_Addition(Vector4,Vector4)` (method): Component-wise sum.
+- `op_Division(Vector4,System.Single)` (method): Divides every component.
+- `op_Multiply(System.Single,Vector4)` (method): Scales every component.
+- `op_Multiply(Vector4,System.Single)` (method): Scales every component.
+- `op_Subtraction(Vector4,Vector4)` (method): Component-wise difference.
+- `op_UnaryNegation(Vector4)` (method): The opposite vector.
+- `ToString` (method): "{x, y, z, w}".
+- `w` (field): The components.
+- `x` (field): The components.
+- `y` (field): The components.
+- `z` (field): The components.
+- `Zero` (field): (0, 0, 0, 0).

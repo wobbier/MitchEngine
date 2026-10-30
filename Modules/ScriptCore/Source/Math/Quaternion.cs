@@ -7,10 +7,13 @@ using System.Runtime.InteropServices;
 [StructLayout(LayoutKind.Sequential)]
 public struct Quaternion
 {
+    /// <summary>The components (x, y, z vector part, w scalar part).</summary>
     public float x, y, z, w;
 
+    /// <summary>No rotation (0, 0, 0, 1).</summary>
     public static readonly Quaternion Identity = new Quaternion(0f, 0f, 0f, 1f);
 
+    /// <summary>A quaternion from its components (not normalized for you).</summary>
     public Quaternion( float x, float y, float z, float w )
     {
         this.x = x;
@@ -19,11 +22,13 @@ public struct Quaternion
         this.w = w;
     }
 
+    /// <summary>The quaternion's length (1 for a rotation).</summary>
     public float Length()
     {
         return (float)Math.Sqrt( (double)( x * x + y * y + z * z + w * w ) );
     }
 
+    /// <summary>Scales this quaternion to unit length.</summary>
     public void Normalize()
     {
         float length = Length();
@@ -51,6 +56,7 @@ public struct Quaternion
             cx * cy * cz + sx * sy * sz);
     }
 
+    /// <summary>A rotation from Euler angles in degrees (as Euler(Vector3) does).</summary>
     public static Quaternion Euler(float x, float y, float z) => Euler(new Vector3(x, y, z));
 
     /// <summary>
@@ -87,6 +93,7 @@ public struct Quaternion
         return FromBasis(r, u, f);
     }
 
+    /// <summary>The rotation that looks along forward, with +Y as up.</summary>
     public static Quaternion LookRotation(Vector3 forward) => LookRotation(forward, new Vector3(0f, 1f, 0f));
 
     // The rotation whose local X, Y and Z axes are the given (orthonormal) axes.
@@ -119,6 +126,7 @@ public struct Quaternion
         return q;
     }
 
+    /// <summary>A unit-length copy.</summary>
     public Quaternion Normalized()
     {
         Quaternion q = this;
@@ -126,14 +134,17 @@ public struct Quaternion
         return q;
     }
 
+    /// <summary>The conjugate (the inverse, for a unit quaternion).</summary>
     public Quaternion Conjugate() => new Quaternion(-x, -y, -z, w);
 
+    /// <summary>The inverse rotation (Identity for a zero quaternion).</summary>
     public Quaternion Inverse()
     {
         float lengthSq = x * x + y * y + z * z + w * w;
         return lengthSq > 1e-12f ? new Quaternion(-x / lengthSq, -y / lengthSq, -z / lengthSq, w / lengthSq) : Identity;
     }
 
+    /// <summary>The 4D dot product (1 or -1 for the same rotation).</summary>
     public static float Dot(Quaternion a, Quaternion b) => a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
 
     /// <summary>
@@ -181,5 +192,6 @@ public struct Quaternion
         return v + t * q.w + Vector3.Cross(u, t);
     }
 
+    /// <summary>"{x, y, z, w}".</summary>
     public override string ToString() => $"({x}, {y}, {z}, {w})";
 }
