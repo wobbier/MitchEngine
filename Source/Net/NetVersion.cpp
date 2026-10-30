@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "Net/NetVersion.h"
 #include "Net/BitStream.h"
+#include <algorithm>
 
 
 void NetVersion::Write( BitWriter& InWriter ) const
@@ -11,6 +12,59 @@ void NetVersion::Write( BitWriter& InWriter ) const
         InWriter.WriteBits( static_cast<uint32_t>( value ), 32 );
         InWriter.WriteBits( static_cast<uint32_t>( value >> 32 ), 32 );
     }
+    const size_t count = std::min<size_t>( Mods.size(), 64 );
+    InWriter.WriteVarUInt( count );
+    for( size_t i = 0; i < count; ++i )
+    {
+        InWriter.WriteString( Mods[i] );
+    }
+}
+
+
+void NetVersion::SetMods( std::vector<std::string> InMods )
+{
+    std::sort( InMods.begin(), InMods.end() );
+    Mods = std::move( InMods );
+    ModSet = 0;
+    if( !Mods.empty() )
+    {
+        ModSet = Hash( "" );
+        for( const std::string& mod : Mods )
+        {
+            ModSet = Hash( mod + "\n", ModSet );
+        }
+    }
+}
+
+
+std::string NetVersion::DescribeModDifferences( const NetVersion& InClient ) const
+{
+    std::string needed;
+    std::string extra;
+    for( const std::string& mod : Mods )
+    {
+        if( !std::binary_search( InClient.Mods.begin(), InClient.Mods.end(), mod ) )
+        {
+            needed += ( needed.empty() ? "" : ", " ) + mod;
+        }
+    }
+    for( const std::string& mod : InClient.Mods )
+    {
+        if( !std::binary_search( Mods.begin(), Mods.end(), mod ) )
+        {
+            extra += ( extra.empty() ? "" : ", " ) + mod;
+        }
+    }
+    std::string text;
+    if( !needed.empty() )
+    {
+        text = "the server needs " + needed;
+    }
+    if( !extra.empty() )
+    {
+        text += ( text.empty() ? "" : "; " ) + std::string( "you also have " ) + extra;
+    }
+    return text;
 }
 
 
@@ -24,6 +78,12 @@ NetVersion NetVersion::Read( BitReader& InReader )
         const uint64_t high = InReader.ReadBits( 32 );
         *value = low | ( high << 32 );
     }
+    const uint64_t count = InReader.ReadVarUInt();
+    for( uint64_t i = 0; i < count && i < 64 && !InReader.IsOverflowed(); ++i )
+    {
+        version.Mods.push_back( InReader.ReadString( 256 ) );
+    }
+    std::sort( version.Mods.begin(), version.Mods.end() );
     return version;
 }
 

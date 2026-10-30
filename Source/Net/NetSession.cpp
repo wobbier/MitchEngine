@@ -159,6 +159,11 @@ void NetServer::HandleReliable( Client& InClient, const std::vector<uint8_t>& In
         {
             reason += " " + difference;
         }
+        // MOD-3: which mods.
+        if( const std::string mods = m_version.DescribeModDifferences( theirs ); !mods.empty() )
+        {
+            reason += " (" + mods + ")";
+        }
     }
     else if( GetClientCount() >= m_maxClients )
     {

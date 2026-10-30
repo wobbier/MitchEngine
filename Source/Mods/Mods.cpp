@@ -141,3 +141,21 @@ void ModManager::UnmountAll()
     m_mounts.clear();
     m_loaded.clear();
 }
+
+
+std::vector<std::string> ModManager::GetNetRequired() const
+{
+    std::vector<std::string> mods;
+    for( const std::string& id : m_loaded )
+    {
+        for( const ModManifest& manifest : m_discovered )
+        {
+            if( manifest.Id == id && manifest.NetRequired )
+            {
+                mods.push_back( id + "@" + manifest.Version.ToString() );
+                break;
+            }
+        }
+    }
+    return mods;
+}

@@ -1,5 +1,6 @@
 #include "PCH.h"
 #include "Cores/NetCore.h"
+#include "Mods/Mods.h"
 #include "Components/Networking/NetIdentity.h"
 #include "Components/Transform.h"
 #include "Cores/PhysicsCore.h"
@@ -115,6 +116,8 @@ NetVersion NetCore::MakeVersion()
         scene = NetVersion::Hash( guid, scene );
     }
     version.Scene = scene;
+    // MOD-3: mods that change what's simulated must match ("netRequired" in mod.json).
+    version.SetMods( ModManager::Get().GetNetRequired() );
     return version;
 }
 

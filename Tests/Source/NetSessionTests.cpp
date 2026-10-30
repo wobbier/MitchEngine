@@ -317,3 +317,41 @@ TEST_CASE( "Net: a client with another build or scene is rejected and told why" 
     CHECK( match.ClientNet.GetClient()->GetState() == NetClient::State::Connected );
     CHECK( match.ServerNet.GetServer()->GetClientCount() == 1 );
 }
+
+
+TEST_CASE( "Net: a client with other net-required mods is rejected with the list; the same mods get in (MOD-3)" )
+{
+    Harness net( Link( 20.f, 0.f, 0.f, 1 ), Link( 20.f, 0.f, 0.f, 2 ) );
+    net.Place( 0xAB );
+    NetVersion server = net.ServerNet.MakeVersion();
+    server.SetMods( { "com.example.core@1.2.0", "com.example.weapons@2.0.0" } );
+    net.ServerNet.SetVersionOverride( server );
+    NetVersion client = net.ClientNet.MakeVersion();
+    client.SetMods( { "com.example.weapons@1.9.0", "com.example.core@1.2.0", "com.example.hats@1.0.0" } );
+    net.ClientNet.SetVersionOverride( client );
+    net.Start();
+    net.Run( 1.0 );
+    CHECK( net.ClientNet.GetClient()->GetState() == NetClient::State::Rejected );
+    CHECK( net.ClientNet.GetClient()->GetRejectReason()
+        == "version mismatch: mods (the server needs com.example.weapons@2.0.0; you also have com.example.hats@1.0.0, com.example.weapons@1.9.0)" );
+
+    // The same mods, listed in another order: accepted.
+    Harness same( Link( 20.f, 0.f, 0.f, 1 ), Link( 20.f, 0.f, 0.f, 2 ) );
+    same.Place( 0xAB );
+    NetVersion serverVersion = same.ServerNet.MakeVersion();
+    serverVersion.SetMods( { "b@1.0.0", "a@1.0.0" } );
+    same.ServerNet.SetVersionOverride( serverVersion );
+    NetVersion clientVersion = same.ClientNet.MakeVersion();
+    clientVersion.SetMods( { "a@1.0.0", "b@1.0.0" } );
+    same.ClientNet.SetVersionOverride( clientVersion );
+    CHECK( serverVersion.ModSet == clientVersion.ModSet );
+    CHECK( serverVersion.ModSet != 0 );
+    same.Start();
+    same.Run( 1.0 );
+    CHECK( same.ClientNet.GetClient()->GetState() == NetClient::State::Connected );
+
+    // No net-required mods: ModSet 0, as before.
+    NetVersion none;
+    none.SetMods( {} );
+    CHECK( none.ModSet == 0 );
+}

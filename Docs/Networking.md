@@ -46,7 +46,7 @@ The editor tooling (NET-7) comes next.
 | `Source/Net/NetQuantize.h` | A float in a range at N bits, round-tripping within half a step (out of range clamps, NaN maps to the minimum). `Vector3` per component; quaternions as "smallest three", 2 + 3·N bits |
 | `Source/Net/NetTransport.h` | `INetTransport` (datagrams between `NetAddress`es). `LoopbackNetwork` + `LoopbackTransport` join worlds in one process. `ConditionedTransport` wraps any transport with `NetConditions` |
 | `Source/Net/NetConnection.h` | `NetConnection`, one end of a link, and `NetStats` |
-| `Source/Net/NetVersion.h` | What both sides must agree on: protocol, build (product name and version), C# script classes, mod set, placed entities (sorted GUIDs). FNV-1a hashes, the same on every platform |
+| `Source/Net/NetVersion.h` | What both sides must agree on: protocol, build (product name and version), C# script classes, mod set (the net-required mods, sent as `id@version` so a rejection lists the differences; MOD-3, protocol 5), placed entities (sorted GUIDs). FNV-1a hashes, the same on every platform |
 | `Source/Net/NetCommands.h` | `InputCommand` (tick, buttons, 4 axes at 16 bits), delta-coded lists of up to 16, and `NetCommandBuffer`, the server's per-client queue |
 | `Source/Net/NetClock.h` | The client's command-frame clock: adaptive target slack (NET-14), dilation up to ±5%, a resync beyond 8 ticks |
 | `Source/Net/NetSession.h` | `NetServer` and `NetClient`: the handshake, commands up, and server reports down |

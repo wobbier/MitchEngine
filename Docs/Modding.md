@@ -1,6 +1,6 @@
 # Modding
 
-> Status: MOD-1 (manifest, discovery, resolver, VFS layers), 2026-10-30. Per-mod C# assemblies are MOD-2, the mod set in the net handshake MOD-3, the in-game manager MOD-6.
+> Status: MOD-1 (manifest, discovery, resolver, VFS layers) and MOD-3 (net-required mods in the handshake), 2026-10-30. Per-mod C# assemblies are MOD-2, the in-game manager MOD-6.
 
 ## Overview
 
@@ -56,7 +56,8 @@ A mod is a folder with a `mod.json`. Its files mount over the game's as a VFS la
 ## Caveats & Fragility
 
 - **Only folder mods so far.** Zip and `.mpak` mods (the design's other forms) aren't discovered yet.
-- **`assemblies` and `netRequired` are only read.** MOD-2 and MOD-3 use them.
+- **`assemblies` is only read** (MOD-2 loads them).
+- **`netRequired` (MOD-3):** the loaded mods marked `netRequired` go into the session handshake as `id@version` (`NetVersion::Mods`; `ModSet` hashes them). A client whose set differs is turned away with the differences, e.g. `version mismatch: mods (the server needs com.example.weapons@2.0.0; you also have com.example.hats@1.0.0)`. Cosmetic mods leave the flag off and can differ between players.
 - **Cooked side files:** an override texture's `.dds` and `.meta` are written next to it in the mod folder, the first time it's cooked.
 - **`kEngineVersion` is set by hand** (0.1.0) until ME-267 stamps builds.
 

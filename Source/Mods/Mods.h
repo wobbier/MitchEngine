@@ -32,6 +32,8 @@ public:
     const std::vector<ModManifest>& GetDiscovered() const { return m_discovered; }
     const std::vector<std::string>& GetLoadedIds() const { return m_loaded; }
     const std::vector<std::string>& GetProblems() const { return m_problems; }
+    // MOD-3: the loaded mods marked "netRequired", as "id@version" (the session handshake).
+    std::vector<std::string> GetNetRequired() const;
 
     ModSettings LoadSettings() const;
     bool SaveSettings( const ModSettings& InSettings ) const;
