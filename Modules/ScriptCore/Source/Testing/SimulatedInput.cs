@@ -45,6 +45,7 @@ public static class SimulatedInput
             return recording;
         }
 
+        /// <inheritdoc/>
         public override string ToString()
         {
             var text = new StringBuilder();

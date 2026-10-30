@@ -11,8 +11,11 @@ namespace ScriptCore.Kit;
 /// </summary>
 public class Conversation : Interactable
 {
+    /// <summary>The .dialogue file.</summary>
     public string File = "";
+    /// <summary>The node to start at (empty: the first).</summary>
     public string Node = "";
+    /// <summary>Start talking when the game starts.</summary>
     public bool StartOnPlay = false;
 
     /// <summary>
@@ -27,17 +30,22 @@ public class Conversation : Interactable
     private DialogueView? _view;
     private DialogueRunner? _runner;
 
+    /// <summary>A conversation that says "Talk".</summary>
     public Conversation() { Prompt = "Talk"; }
 
+    /// <summary>Whether the conversation is running.</summary>
     public bool IsTalking => _runner?.IsRunning ?? false;
 
+    /// <inheritdoc/>
     public override void OnStart()
     {
         if (StartOnPlay) Begin();
     }
 
+    /// <inheritdoc/>
     public override string GetPrompt(Entity by) => IsTalking ? "Continue" : Prompt;
 
+    /// <inheritdoc/>
     public override void Interact(Entity by)
     {
         if (!IsTalking)
@@ -51,6 +59,7 @@ public class Conversation : Interactable
         }
     }
 
+    /// <summary>Starts the conversation; false when the file doesn't load.</summary>
     public bool Begin()
     {
         var script = DialogueFiles.Load(File);
@@ -64,6 +73,7 @@ public class Conversation : Interactable
         return IsTalking;
     }
 
+    /// <inheritdoc/>
     public override void OnUpdate(float deltaTime)
     {
         if (_view == null || _runner == null) return;
@@ -74,6 +84,7 @@ public class Conversation : Interactable
         }
     }
 
+    /// <inheritdoc/>
     public override void OnDestroy()
     {
         if (Active == this) Active = null;

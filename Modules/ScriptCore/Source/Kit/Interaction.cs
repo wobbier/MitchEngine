@@ -7,13 +7,16 @@ namespace ScriptCore.Kit;
 /// </summary>
 public abstract class Interactable : Script
 {
+    /// <summary>What the prompt says ("Open", "Talk").</summary>
     public string Prompt = "Use";
+    /// <summary>Whether it can be used now.</summary>
     public bool Enabled = true;
 
     /// <summary>
     /// The prompt shown for this actor ("Open", "Locked (needs Key)").
     /// </summary>
     public virtual string GetPrompt(Entity by) => Prompt;
+    /// <summary>Called when by uses it.</summary>
     public abstract void Interact(Entity by);
 }
 
@@ -24,10 +27,14 @@ public abstract class Interactable : Script
 /// </summary>
 public sealed class Interactor
 {
+    /// <summary>How far it reaches, metres.</summary>
     public float Range = 2.5f;
+    /// <summary>The input action that uses the focused Interactable.</summary>
     public string Action = "Interact";
+    /// <summary>The UI model the prompt binds to.</summary>
     public string Model = "interact";
 
+    /// <summary>The Interactable in range now, or null.</summary>
     public Interactable? Current { get; private set; }
     private string _shown = "\\0";
 

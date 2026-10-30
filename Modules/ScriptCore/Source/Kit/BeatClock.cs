@@ -21,6 +21,7 @@ public readonly record struct BeatEvent(Entity Owner, int Beat, int Bar, int Bea
 /// </summary>
 public sealed class BeatClock
 {
+    /// <summary>A clock at bpm, with beatsPerBar beats a bar and the first beat offsetSeconds into the track; with an owner it publishes BeatEvents.</summary>
     public BeatClock(float bpm, int beatsPerBar = 4, double offsetSeconds = 0.0, Entity owner = default)
     {
         Bpm = bpm;
@@ -29,7 +30,9 @@ public sealed class BeatClock
         Owner = owner;
     }
 
+    /// <summary>Beats per minute.</summary>
     public float Bpm;
+    /// <summary>Beats in a bar.</summary>
     public int BeatsPerBar;
     /// <summary>
     /// Seconds into the track of the first beat.
@@ -53,19 +56,24 @@ public sealed class BeatClock
     /// (beat, bar, beat in bar), from beat 0 at Offset.
     /// </summary>
     public event Action<int, int, int>? OnBeat;
+    /// <summary>Fires with the bar number on each bar's first beat.</summary>
     public event Action<int>? OnBar;
 
     /// <summary>
     /// Seconds into the track, as the clock keeps it.
     /// </summary>
     public double SongTime { get; private set; }
+    /// <summary>Seconds per beat.</summary>
     public double SecondsPerBeat => 60.0 / Math.Max(Bpm, 1e-3f);
     /// <summary>
     /// Beats since the first one (fractional, negative before Offset).
     /// </summary>
     public double BeatPosition => (SongTime - Offset) / SecondsPerBeat;
+    /// <summary>The current beat (negative before Offset).</summary>
     public int Beat => (int)Math.Floor(BeatPosition);
+    /// <summary>The current bar.</summary>
     public int Bar => FloorDiv(Beat, BeatsPerBar);
+    /// <summary>The beat within the bar, 0..BeatsPerBar-1.</summary>
     public int BeatInBar => Beat - Bar * BeatsPerBar;
     /// <summary>
     /// How far into the current beat, 0..1 (a pulse: 1 - BeatPhase).
@@ -144,6 +152,7 @@ public sealed class BeatClock
     /// </summary>
     public int NearestBeat(out double errorSeconds) => NearestBeat(SongTime, out errorSeconds);
 
+    /// <summary>The beat nearest a track time and how far from it, in seconds (negative: early).</summary>
     public int NearestBeat(double songTime, out double errorSeconds)
     {
         double position = (songTime - Offset) / SecondsPerBeat;

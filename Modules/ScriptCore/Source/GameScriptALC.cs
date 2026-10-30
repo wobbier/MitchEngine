@@ -18,6 +18,7 @@ public sealed class GameScriptALC : AssemblyLoadContext
         _resolver = new AssemblyDependencyResolver(assemblyPath);
     }
 
+    /// <inheritdoc/>
     protected override Assembly? Load(AssemblyName name)
     {
         if (name.Name == "ScriptCore")

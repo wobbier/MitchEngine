@@ -129,50 +129,155 @@ An additive scene (World.LoadSceneAdditive) loaded, or unloaded (Loaded false).
 
 - `(constructor)(System.Int32,System.String,System.Boolean)` (method): An additive scene (World.LoadSceneAdditive) loaded, or unloaded (Loaded false).
 
+## AI.ActionNode
+
+A leaf that runs a function (BT.Action).
+
+- `(constructor)(System.Func{ScriptCore.AI.BTContext,ScriptCore.AI.BTStatus},System.Action)` (method): A leaf from a function, and an optional reset when it's interrupted.
+- `Reset` (method)
+- `Run(ScriptCore.AI.BTContext@)` (method)
+
 ## AI.Blackboard
 
 Named values shared by a tree's nodes (and whoever else holds it).
 
+- `Clear` (method): Removes every value.
+- `Get1(System.String,0)` (method): The value under key as T, or the fallback when it's missing or another type.
+- `Has(System.String)` (method): Whether key has a value.
+- `Remove(System.String)` (method): Removes key; false when it had no value.
+- `Set1(System.String,0)` (method): Stores a value under key.
 
 ## AI.BT
 
+GAME-3: behaviour trees authored in C#. Build a tree once, Tick it every update:
+
+- `Action(System.Func{ScriptCore.AI.BTContext,ScriptCore.AI.BTStatus},System.Action)` (method): An action leaf.
+- `Action(System.Func{ScriptCore.AI.BTStatus},System.Action)` (method): An action leaf that ignores the context.
+- `Condition(System.Func{ScriptCore.AI.BTContext,System.Boolean})` (method): A condition leaf that reads the context.
+- `Condition(System.Func{System.Boolean})` (method): A condition leaf.
+- `Cooldown(System.Single,ScriptCore.AI.BTNode)` (method): Fails for seconds after child succeeds.
 - `Do(System.Action)` (method): Runs an action once and succeeds.
+- `MemorySequence(ScriptCore.AI.BTNode[])` (method): A MemorySequence of children.
+- `Not(ScriptCore.AI.BTNode)` (method): Inverts a node.
+- `Selector(ScriptCore.AI.BTNode[])` (method): A Selector over children.
+- `Sequence(ScriptCore.AI.BTNode[])` (method): A Sequence of children.
+- `Wait(System.Single)` (method): Running for seconds, then Success.
+
+## AI.BTContext
+
+What a tick passes down the tree.
+
+- `(constructor)(ScriptCore.AI.Blackboard,System.Single)` (method): What a tick passes down the tree.
+- `Blackboard` (property): The tree's shared values.
+- `DeltaTime` (property): Seconds since the last tick.
 
 ## AI.BTNode
 
+A behaviour tree node: Tick runs it and remembers LastStatus.
+
 - `LastStatus` (property): The node that ran last tick under a composite (for debugging / logs).
+- `Name` (field): A name for debugging.
 - `Reset` (method): Called when a running node stops being ticked (a higher branch took over).
+- `Run(ScriptCore.AI.BTContext@)` (method): What the node does on a tick.
+- `Tick(ScriptCore.AI.BTContext@)` (method): Runs the node once and returns (and remembers) its status.
+
+## AI.BTStatus
+
+What a behaviour tree node reports each tick.
+
+- `Failure` (field): It finished and didn't work (or doesn't apply).
+- `Running` (field): It needs more ticks.
+- `Success` (field): It finished and worked.
+
+## AI.ConditionNode
+
+A leaf that succeeds when a test holds (BT.Condition).
+
+- `(constructor)(System.Func{ScriptCore.AI.BTContext,System.Boolean})` (method): A condition from a test.
+- `Run(ScriptCore.AI.BTContext@)` (method)
 
 ## AI.Cooldown
 
 Fails for Seconds after its child succeeds (don't bark every frame).
 
+- `(constructor)(System.Single,ScriptCore.AI.BTNode)` (method): Ticks child, then fails for seconds after it succeeds.
+- `Run(ScriptCore.AI.BTContext@)` (method)
+
+## AI.Inverter
+
+Swaps its child's Success and Failure (BT.Not).
+
+- `(constructor)(ScriptCore.AI.BTNode)` (method): Inverts child.
+- `Reset` (method)
+- `Run(ScriptCore.AI.BTContext@)` (method)
 
 ## AI.MemorySequence
 
 A sequence that carries on from the child that was running (steps that must finish in order).
 
+- `(constructor)(ScriptCore.AI.BTNode[])` (method): A memory sequence of children.
+- `Reset` (method)
+- `Run(ScriptCore.AI.BTContext@)` (method)
 
 ## AI.Noise
 
 Sounds AIs can hear: Noise.Make(where, radius) from gunshots, footsteps, a thrown bottle.
 
 - `Count` (property): How many noises have ever been made (perception remembers where it read up to).
+- `Make(Vector3,System.Single,ScriptCore.Entity)` (method): Makes a noise everyone with Perception in radius can hear.
+- `Since(System.Int32)` (method): The noises made after index (oldest first).
+
+## AI.Noise.Event
+
+A noise: where, how far it carries, who made it, and its order.
+
+- `(constructor)(Vector3,System.Single,ScriptCore.Entity,System.Int32)` (method): A noise: where, how far it carries, who made it, and its order.
+- `Index` (property): Its order among noises (Since).
+- `Position` (property): Where it happened.
+- `Radius` (property): How far it's heard, in metres.
+- `Source` (property): Who made it (Entity.Null for none).
 
 ## AI.Perception
 
 What an AI noticed: sight (range, field of view, line of sight through physics) and hearing (Noise.Make), with a memory of where it last saw or heard its target.
 
+- `CanSee` (property): Whether the target is in sight now.
 - `EyeHeight` (field): Above the entity's position
 - `FieldOfView` (field): Degrees, full cone
+- `Forget` (method): Drops the last known position.
+- `HasLastKnown` (property): Whether there's a recent enough last known position.
+- `HeardSomething` (property): Whether a noise reached it this update.
 - `HearingScale` (field): Multiplies each noise's radius
 - `InCone(Vector3,Vector3,Vector3,System.Single,System.Single)` (method): Within range and inside the view cone (ignoring height), from an eye looking along forward.
+- `LastKnownAge` (property): Seconds since then.
+- `LastKnownPosition` (property): Where the target was last seen or heard.
+- `MemorySeconds` (field): How long the last known position stays useful, in seconds.
+- `SightRange` (field): How far it can see, in metres.
 - `Update(ScriptCore.Entity,ScriptCore.Entity,System.Single)` (method): Looks for target from self and listens for noises; call once per update.
+
+## AI.Selector
+
+Ticks its children in order until one doesn't fail: higher-priority branches come first and interrupt lower ones.
+
+- `(constructor)(ScriptCore.AI.BTNode[])` (method): A selector over children, highest priority first.
+- `Reset` (method)
+- `Run(ScriptCore.AI.BTContext@)` (method)
+
+## AI.Sequence
+
+Ticks its children in order while they succeed, from the first child every tick.
+
+- `(constructor)(ScriptCore.AI.BTNode[])` (method): A sequence of children.
+- `Reset` (method)
+- `Run(ScriptCore.AI.BTContext@)` (method)
 
 ## AI.Wait
 
 Running for Seconds, then Success.
 
+- `(constructor)(System.Single)` (method): Waits that many seconds.
+- `Reset` (method)
+- `Run(ScriptCore.AI.BTContext@)` (method)
 
 ## AnimationMarker
 
@@ -575,6 +680,7 @@ A pad connected to or left a slot.
 ## GameScriptALC
 
 - `GameAssembly` (property): For a mod's context: the game's Game.Script, which the mod resolves to instead of loading its own.
+- `Load(System.Reflection.AssemblyName)` (method)
 
 ## GameTestAttribute
 
@@ -695,14 +801,23 @@ script friendly names for my SDL garbage
 
 NEXT-8: a music clock for rhythm and beat-synced gameplay. It follows an AudioSource's playback position as the audio mixer sees it (sample-accurate, not frame time), smoothed between mixer updates, and fires each beat and bar it crosses exactly once, in order, even across hitches. A script owns one and ticks it:
 
+- `(constructor)(System.Single,System.Int32,System.Double,ScriptCore.Entity)` (method): A clock at bpm, with beatsPerBar beats a bar and the first beat offsetSeconds into the track; with an owner it publishes BeatEvents.
 - `Advance(System.Double,System.Double)` (method): One step: InDelta seconds passed; InPlayback is the track's position as the mixer reports it, or < 0 to advance by InDelta alone.
+- `Bar` (property): The current bar.
+- `Beat` (property): The current beat (negative before Offset).
+- `BeatInBar` (property): The beat within the bar, 0..BeatsPerBar-1.
 - `BeatPhase` (property): How far into the current beat, 0..1 (a pulse: 1 - BeatPhase).
 - `BeatPosition` (property): Beats since the first one (fractional, negative before Offset).
+- `BeatsPerBar` (field): Beats in a bar.
+- `Bpm` (field): Beats per minute.
 - `MaxCatchUp` (field): Beats fired at most per tick after a hitch (the oldest missed ones are skipped).
+- `NearestBeat(System.Double,System.Double@)` (method): The beat nearest a track time and how far from it, in seconds (negative: early).
 - `NearestBeat(System.Double@)` (method): The beat nearest the clock's time (or InSongTime) and how far from it, in seconds (negative: early). Rhythm games judge presses with it.
 - `Offset` (field): Seconds into the track of the first beat.
+- `OnBar` (event): Fires with the bar number on each bar's first beat.
 - `OnBeat` (event): (beat, bar, beat in bar), from beat 0 at Offset.
 - `Owner` (field): Publishes BeatEvents when set.
+- `SecondsPerBeat` (property): Seconds per beat.
 - `SnapSeconds` (field): A playback position this far from the clock is a seek or a loop: the clock jumps to it. Closer ones are the mixer's block steps, which the clock smooths over.
 - `SongTime` (property): Seconds into the track, as the clock keeps it.
 - `Tick` (method): Follows game time alone (no track): beats every SecondsPerBeat from when it started.
@@ -718,18 +833,43 @@ Published on the EventBus by a BeatClock with an owner: each beat it crosses, on
 
 Goes on the entity with the Camera. Shows the live VirtualCamera with the highest Priority (ties: the one that started last), blending over the new one's BlendSeconds when that changes.
 
+- `Active` (property): The rig shown now.
+- `BlendProgress` (property): How far the blend is, 0..1.
+- `DefaultBlend` (field): Blend used when a rig's own BlendSeconds is negative.
+- `IsBlending` (property): Whether it's blending to a new rig.
+- `OnLateUpdate(System.Single)` (method)
+- `OnStart` (method)
 
 ## Kit.CameraImpulse
 
 Camera shake: Shake(strength, seconds) adds a decaying wobble to whatever the brain shows (none while the player's Reduce motion setting is on).
 
+- `Frequency` (field): Wobbles per second.
+- `IsShaking` (property): Whether a shake is running.
+- `Shake(System.Single,System.Single)` (method): Adds a decaying shake of that strength for seconds (a stronger running shake keeps its strength).
+
+## Kit.CameraPose
+
+Where a camera is and where it looks.
+
+- `(constructor)(Vector3,Vector3,Vector3,System.Single)` (method): Where a camera is and where it looks.
+- `FieldOfView` (property): Degrees (0: leave the camera's).
+- `Forward` (property): View direction.
+- `Position` (property): World position.
+- `Up` (property): Up direction.
 
 ## Kit.CameraRigMath
 
+The rigs' math, exposed for custom rigs and tests.
+
+- `Blend(ScriptCore.Kit.CameraPose,ScriptCore.Kit.CameraPose,System.Single)` (method): Blends two poses: a at t = 0, b at t = 1 (the brain smoothsteps t first).
 - `DeadZone(System.Single,System.Single,System.Single)` (method): Moves current only as far as needed to keep target within +-zone of it.
 - `OrbitForward(System.Single,System.Single)` (method): The FollowCamera convention: yaw about +Y from +Z, pitch looking down.
+- `SmoothStep(System.Single)` (method): 3t² − 2t³ for t in 0..1.
 
 ## Kit.CameraRigMode
+
+How a VirtualCamera places itself.
 
 - `Fixed` (field): Stays where its entity is (LookAt optional)
 - `Follow` (field): Target's position + Offset, looking at the target
@@ -740,19 +880,45 @@ Camera shake: Shake(strength, seconds) adds a decaying wobble to whatever the br
 
 Where an actor comes back: entering its trigger makes it that actor's respawn point. Checkpoint.Respawn(actor) puts the actor there (and refills its health).
 
+- `Offset` (field): Where respawns go, from the checkpoint.
+- `OnTriggerEnter(ScriptCore.Entity)` (method)
 - `Respawn(ScriptCore.Entity,System.Nullable{Vector3})` (method): Moves the actor to its last checkpoint (or Fallback when it reached none) and refills it.
+- `TryGetRespawn(ScriptCore.Entity,Vector3@)` (method): The respawn point of the last checkpoint an actor reached; false when none.
+
+## Kit.CheckpointReachedEvent
+
+An actor reached a checkpoint.
+
+- `(constructor)(ScriptCore.Entity,ScriptCore.Entity)` (method): An actor reached a checkpoint.
+- `Actor` (property): Who reached it.
+- `Checkpoint` (property): The checkpoint.
 
 ## Kit.Conversation
 
 Talk to it (GAME-8): runs a .dialogue file through the stock dialogue UI (put a UIDocument with Assets/UI/Dialogue/Dialogue.rml in the scene). Interact starts it and then continues past lines; the document's buttons pick choices. Variables are shared by every Conversation, so what was said in one is remembered in the next. <<event>>s are logged and published (DialogueEvent).
 
+- `(constructor)` (method): A conversation that says "Talk".
 - `Active` (property): The conversation on screen, if any (a controller can stop walking while it's set).
+- `Begin` (method): Starts the conversation; false when the file doesn't load.
+- `File` (field): The .dialogue file.
+- `GetPrompt(ScriptCore.Entity)` (method)
+- `Interact(ScriptCore.Entity)` (method)
+- `IsTalking` (property): Whether the conversation is running.
+- `Node` (field): The node to start at (empty: the first).
+- `OnDestroy` (method)
+- `OnStart` (method)
+- `OnUpdate(System.Single)` (method)
+- `StartOnPlay` (field): Start talking when the game starts.
 - `Variables` (field): Shared by every conversation (what the player said earlier).
 
 ## Kit.Damageable
 
 Health for props and enemies that have no script of their own (a crate that breaks, a target).
 
+- `DestroyOnDeath` (field): Destroy the entity when its health reaches zero.
+- `Health` (property): Its health.
+- `MaxHealth` (field): Health it starts with.
+- `OnStart` (method)
 
 ## Kit.DamagedEvent
 
@@ -764,34 +930,121 @@ Published on the EventBus.
 
 Hurts anything with health inside its trigger collider: Damage once on entering, then DamagePerSecond while inside.
 
+- `Damage` (field): Damage once, when something enters.
+- `DamagePerSecond` (field): Damage per second while something stays inside.
+- `OnTriggerEnter(ScriptCore.Entity)` (method)
+- `OnTriggerExit(ScriptCore.Entity)` (method)
+- `OnUpdate(System.Single)` (method)
+
+## Kit.DiedEvent
+
+An actor's health reached zero.
+
+- `(constructor)(ScriptCore.Entity,ScriptCore.Entity)` (method): An actor's health reached zero.
+- `Source` (property): Who did it (Entity.Null when unknown).
+- `Target` (property): Who died.
 
 ## Kit.Door
 
 A door that slides by OpenOffset (world units) over Duration when used, optionally locked until the user's Inventory has RequiredItem. Give it a kinematic Rigidbody so its collider moves with it.
 
+- `(constructor)` (method): A door that says "Open".
+- `CanUnlock(ScriptCore.Entity)` (method): Whether by may open it (has the RequiredItem, if any).
+- `Close(ScriptCore.Entity)` (method): Closes it.
+- `ConsumeItem` (field): Whether opening uses up the item.
+- `Duration` (field): Seconds to open or close.
+- `GetPrompt(ScriptCore.Entity)` (method)
+- `Interact(ScriptCore.Entity)` (method)
+- `IsOpen` (property): Whether it's open (or opening).
+- `OnStart` (method)
+- `OnUpdate(System.Single)` (method)
+- `OpenOffset` (field): How far it moves to open (local space), metres.
 - `Progress` (property): 0 closed .. 1 open.
+- `RequiredItem` (field): An item the interactor needs to open it (empty: none).
+- `StartsOpen` (field): Open when the game starts.
+- `TryOpen(ScriptCore.Entity)` (method): Opens it if by can unlock it (true when it's already open); false, with a locked DoorEvent, when they can't.
+
+## Kit.DoorEvent
+
+A door opened or closed, or someone tried a locked one.
+
+- `(constructor)(ScriptCore.Entity,ScriptCore.Entity,System.Boolean,System.Boolean)` (method): A door opened or closed, or someone tried a locked one.
+- `By` (property): Who.
+- `Door` (property): The door.
+- `Locked` (property): Whether it was locked to them.
+- `Opened` (property): Whether it's open now.
 
 ## Kit.GuardBrain
 
 GAME-3's sample AI, on an entity with a NavMeshAgent: patrols Waypoints (entity names, comma separated), chases Target when it sees it, stops when it catches it, and when it loses sight searches where it last saw (or heard) it before going back to patrolling. State shows what it's doing (Patrol, Chase, Caught, Search); changes are logged ("Guard: sees Intruder").
 
+- `Blackboard` (property): The behaviour tree's shared values.
+- `CatchDistance` (field): How close counts as caught, metres.
+- `ChaseSpeed` (field): Running speed when chasing.
+- `FieldOfView` (field): Its view cone, degrees.
+- `OnReload` (method)
+- `OnStart` (method)
+- `OnUpdate(System.Single)` (method)
+- `PatrolSpeed` (field): Walking speed on patrol, metres per second.
+- `PauseSeconds` (field): Seconds spent at each waypoint and at a searched spot.
+- `Perception` (property): What it sees and hears.
+- `SightRange` (field): How far it sees, metres.
+- `State` (field): Patrol, Chase or Search (readable for UI and tests).
+- `Target` (field): The entity it hunts (by name).
+- `Waypoints` (field): Entity names to patrol between, comma-separated.
+
+## Kit.HealedEvent
+
+An actor was healed.
+
+- `(constructor)(ScriptCore.Entity,System.Single,System.Single)` (method): An actor was healed.
+- `Amount` (property): How much it actually gained.
+- `Remaining` (property): Its health now.
+- `Target` (property): Who was healed.
 
 ## Kit.Health
 
+Health points: Damage, Heal and Kill, with events and EventBus messages.
+
+- `(constructor)(System.Single)` (method): Full health of max.
+- `Current` (field): Health now.
 - `Damage(ScriptCore.Entity,System.Single,ScriptCore.Entity)` (method): Damage(10, attacker) on the entity that owns this health (the events name it).
 - `Damaged` (event): Fired with the amount actually taken / healed.
+- `Died` (event): Fires once when health reaches zero, with the source.
+- `Heal(ScriptCore.Entity,System.Single)` (method): Heals up to Max (not the dead); returns how much it gained.
+- `Invulnerable` (field): While true, damage does nothing.
+- `IsDead` (property): Whether health is at zero.
+- `Kill(ScriptCore.Entity,ScriptCore.Entity)` (method): Takes all remaining health.
+- `Max` (field): The most health.
 - `Reset` (method): Back to full (a respawn).
+
+## Kit.IHealth
+
+An actor with health (Damageable and the player).
+
+
+## Kit.IInventory
+
+An actor with an inventory.
+
 
 ## Kit.Interactable
 
 Something an Interactor can use: a door, a lever, a terminal. Subclass and implement Interact.
 
+- `Enabled` (field): Whether it can be used now.
 - `GetPrompt(ScriptCore.Entity)` (method): The prompt shown for this actor ("Open", "Locked (needs Key)").
+- `Interact(ScriptCore.Entity)` (method): Called when by uses it.
+- `Prompt` (field): What the prompt says ("Open", "Talk").
 
 ## Kit.Interactor
 
 An actor's "press E to use": each Update finds the nearest Interactable within Range (in front of it), shows its prompt through a UI model (Model, keys "prompt" and "visible") and uses it when Action is pressed. Owned by the actor's script, which calls Update(Entity) every frame.
 
+- `Action` (field): The input action that uses the focused Interactable.
+- `Current` (property): The Interactable in range now, or null.
+- `Model` (field): The UI model the prompt binds to.
+- `Range` (field): How far it reaches, metres.
 - `Update(ScriptCore.Entity,System.Nullable{Vector3})` (method): Picks, shows and (on the action) uses. Returns what was used, if anything.
 - `Use(ScriptCore.Entity)` (method): Uses the current Interactable now (scripts and tests).
 
@@ -799,20 +1052,85 @@ An actor's "press E to use": each Update finds the nearest Interactable within R
 
 Counts of named items ("Key", "Coin"). Owned by an actor's script (IInventory).
 
+- `Add(System.String,System.Int32)` (method): Adds amount of an item.
+- `Clear` (method): Removes every item.
+- `Count(System.String)` (method): How many of an item there are.
+- `Has(System.String,System.Int32)` (method): Whether there are at least amount of an item.
+- `Items` (property): Every item and its count.
+- `Remove(System.String,System.Int32)` (method): Removes amount of an item; false (and nothing removed) when there aren't enough.
+
+## Kit.PickedUpEvent
+
+Something was picked up.
+
+- `(constructor)(ScriptCore.Entity,ScriptCore.Entity,System.String,System.Int32)` (method): Something was picked up.
+- `Amount` (property): How many.
+- `Collector` (property): Who picked it up.
+- `Item` (property): The item's name.
+- `Pickup` (property): The pickup.
 
 ## Kit.Pickup
 
 Collected by touching its trigger: Item x Amount into the collector's Inventory and/or Heal into its Health, then it's gone. Spins while it waits.
 
+- `Amount` (field): How many.
+- `Heal` (field): Health it restores (0: none).
+- `Item` (field): The item it gives.
+- `OnTriggerEnter(ScriptCore.Entity)` (method)
+- `OnUpdate(System.Single)` (method)
+- `SpinDegreesPerSecond` (field): Idle spin, degrees per second.
+
+## Kit.SpawnedEvent
+
+A spawner spawned something.
+
+- `(constructor)(ScriptCore.Entity,ScriptCore.Entity)` (method): A spawner spawned something.
+- `Spawned` (property): The new entity.
+- `Spawner` (property): The spawner.
 
 ## Kit.Spawner
 
 Makes copies of a prefab at its position: one every Interval seconds while fewer than MaxAlive of its copies exist, Total in all (0 = no limit).
 
+- `Alive` (property): How many of its spawns are alive.
+- `Interval` (field): Seconds between spawns.
+- `MaxAlive` (field): The most of its spawns alive at once.
+- `OnStart` (method)
+- `OnUpdate(System.Single)` (method)
+- `Prefab` (field): The prefab to spawn.
+- `Spawn` (method): Spawns one now if the limits allow (Entity.Null if not).
+- `Spawned` (property): How many it has spawned.
+- `SpawnOnStart` (field): Spawn one as the game starts.
+- `Total` (field): The most spawns in all (0: no limit).
 
 ## Kit.VirtualCamera
 
+A camera rig: where the camera should be. The CameraBrain shows the live rig with the highest Priority, blending between them.
+
+- `AvoidWalls` (field): Orbit: pull in when a wall is between the camera and the target.
+- `BlendSeconds` (field): Seconds to blend in when this rig takes over (0 = cut)
+- `Confine` (field): Keep the camera inside ConfineMin..ConfineMax.
+- `ConfineMax` (field): The confinement box's maximum corner.
+- `ConfineMin` (field): The confinement box's minimum corner.
+- `DeadZone` (field): Platformer2D: how far the target moves before the camera does.
+- `Distance` (field): Orbit and Platformer2D: how far back from the target, in metres.
+- `FieldOfView` (field): Degrees; 0 leaves the camera's field of view alone.
+- `FollowHalfLife` (field): Seconds for the position to close half the gap (0 = locked on)
+- `Height` (field): Orbit: the pivot's height above the target.
+- `LookAt` (field): Fixed / Follow: an entity to keep looking at (Follow defaults to Target)
+- `MaxPitch` (field): Orbit: the highest pitch, degrees.
+- `MinPitch` (field): Orbit: the lowest pitch, degrees.
+- `Mode` (field): How it places itself.
+- `Offset` (field): Follow: from the target, in world units.
+- `OnReload` (method)
+- `OnStart` (method)
 - `OnUpdate(System.Single)` (method): Runs before the brain (which is late), so the brain sees this frame's pose.
+- `Pitch` (field): Orbit: the starting pitch, degrees (positive looks down).
+- `Pose` (property): Where the rig wants the camera this frame.
+- `Priority` (field): Higher wins; ties go to the rig that started last.
+- `Sensitivity` (field): Orbit: degrees per unit of the Look action (0 = no player control)
+- `Target` (field): The entity it follows or orbits (by name).
+- `Yaw` (field): Orbit: the starting yaw, degrees.
 
 ## Light
 
@@ -1243,6 +1561,10 @@ Timed simulated input for play-mode tests and replays, on top of Input.Simulate 
 - `Hold(ScriptCore.KeyCode,System.Single)` (method): Holds the key for the given game time (at least one frame), then releases it.
 - `Play(System.Collections.Generic.IReadOnlyList{ScriptCore.SimulatedInput.Event})` (method): Applies each event once the recording's game time reaches it. Keys still held at the end stay held (end a recording with its releases, or call Input.ReleaseSimulated).
 - `Record` (method): Records the real keyboard's key changes until disposed, then logs the recording.
+
+## SimulatedInput.Recording
+
+- `ToString` (method)
 
 ## SpaceAttribute
 

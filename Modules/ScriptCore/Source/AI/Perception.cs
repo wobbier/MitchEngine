@@ -9,6 +9,7 @@ namespace ScriptCore.AI;
 /// </summary>
 public sealed class Perception
 {
+    /// <summary>How far it can see, in metres.</summary>
     public float SightRange = 12f;
     /// <summary>Degrees, full cone</summary>
     public float FieldOfView = 120f;
@@ -16,12 +17,18 @@ public sealed class Perception
     public float EyeHeight = 0.6f;
     /// <summary>Multiplies each noise's radius</summary>
     public float HearingScale = 1f;
+    /// <summary>How long the last known position stays useful, in seconds.</summary>
     public float MemorySeconds = 6f;
 
+    /// <summary>Whether the target is in sight now.</summary>
     public bool CanSee { get; private set; }
+    /// <summary>Whether there's a recent enough last known position.</summary>
     public bool HasLastKnown => _lastKnownAge <= MemorySeconds && _hasLastKnown;
+    /// <summary>Where the target was last seen or heard.</summary>
     public Vector3 LastKnownPosition { get; private set; }
+    /// <summary>Seconds since then.</summary>
     public float LastKnownAge => _lastKnownAge;
+    /// <summary>Whether a noise reached it this update.</summary>
     public bool HeardSomething { get; private set; }
 
     private bool _hasLastKnown;
@@ -53,6 +60,7 @@ public sealed class Perception
         _lastNoise = Noise.Count;
     }
 
+    /// <summary>Drops the last known position.</summary>
     public void Forget()
     {
         _hasLastKnown = false;
@@ -100,6 +108,11 @@ public sealed class Perception
 /// </summary>
 public static class Noise
 {
+    /// <summary>A noise: where, how far it carries, who made it, and its order.</summary>
+    /// <param name="Position">Where it happened.</param>
+    /// <param name="Radius">How far it's heard, in metres.</param>
+    /// <param name="Source">Who made it (Entity.Null for none).</param>
+    /// <param name="Index">Its order among noises (Since).</param>
     public readonly record struct Event(Vector3 Position, float Radius, Entity Source, int Index);
     private static readonly List<Event> Recent = new();
     private static int _count;
@@ -109,12 +122,14 @@ public static class Noise
     /// </summary>
     public static int Count => _count;
 
+    /// <summary>Makes a noise everyone with Perception in radius can hear.</summary>
     public static void Make(Vector3 position, float radius, Entity source = default)
     {
         Recent.Add(new Event(position, radius, source, _count++));
         if (Recent.Count > 64) Recent.RemoveAt(0);
     }
 
+    /// <summary>The noises made after index (oldest first).</summary>
     public static IEnumerable<Event> Since(int index)
     {
         foreach (var e in Recent)

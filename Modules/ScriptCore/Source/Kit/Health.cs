@@ -12,36 +12,68 @@ namespace ScriptCore.Kit;
 //       public Inventory Inventory { get; } = new();
 //   }
 
+/// <summary>An actor with health (Damageable and the player).</summary>
 public interface IHealth { Health Health { get; } }
+/// <summary>An actor with an inventory.</summary>
 public interface IInventory { Inventory Inventory { get; } }
 
 /// <summary>
 /// Published on the EventBus.
 /// </summary>
 public readonly record struct DamagedEvent(Entity Target, float Amount, float Remaining, Entity Source);
+/// <summary>An actor's health reached zero.</summary>
+/// <param name="Target">Who died.</param>
+/// <param name="Source">Who did it (Entity.Null when unknown).</param>
 public readonly record struct DiedEvent(Entity Target, Entity Source);
+/// <summary>An actor was healed.</summary>
+/// <param name="Target">Who was healed.</param>
+/// <param name="Amount">How much it actually gained.</param>
+/// <param name="Remaining">Its health now.</param>
 public readonly record struct HealedEvent(Entity Target, float Amount, float Remaining);
+/// <summary>Something was picked up.</summary>
+/// <param name="Collector">Who picked it up.</param>
+/// <param name="Pickup">The pickup.</param>
+/// <param name="Item">The item's name.</param>
+/// <param name="Amount">How many.</param>
 public readonly record struct PickedUpEvent(Entity Collector, Entity Pickup, string Item, int Amount);
+/// <summary>An actor reached a checkpoint.</summary>
+/// <param name="Actor">Who reached it.</param>
+/// <param name="Checkpoint">The checkpoint.</param>
 public readonly record struct CheckpointReachedEvent(Entity Actor, Entity Checkpoint);
+/// <summary>A door opened or closed, or someone tried a locked one.</summary>
+/// <param name="Door">The door.</param>
+/// <param name="By">Who.</param>
+/// <param name="Opened">Whether it's open now.</param>
+/// <param name="Locked">Whether it was locked to them.</param>
 public readonly record struct DoorEvent(Entity Door, Entity By, bool Opened, bool Locked);
+/// <summary>A spawner spawned something.</summary>
+/// <param name="Spawner">The spawner.</param>
+/// <param name="Spawned">The new entity.</param>
 public readonly record struct SpawnedEvent(Entity Spawner, Entity Spawned);
 
+/// <summary>Health points: Damage, Heal and Kill, with events and EventBus messages.</summary>
 public sealed class Health
 {
+    /// <summary>Full health of max.</summary>
     public Health(float max = 100f)
     {
         Max = max;
         Current = max;
     }
 
+    /// <summary>The most health.</summary>
     public float Max;
+    /// <summary>Health now.</summary>
     public float Current;
+    /// <summary>While true, damage does nothing.</summary>
     public bool Invulnerable;
+    /// <summary>Whether health is at zero.</summary>
     public bool IsDead => Current <= 0f;
     /// <summary>
     /// Fired with the amount actually taken / healed.
     /// </summary>
     public event Action<float, Entity>? Damaged;
+    /// <summary>Fires once when health reaches zero, with the source.</summary>
     public event Action<Entity>? Died;
 
     /// <summary>
@@ -65,6 +97,7 @@ public sealed class Health
         return taken;
     }
 
+    /// <summary>Heals up to Max (not the dead); returns how much it gained.</summary>
     public float Heal(Entity owner, float amount)
     {
         if (IsDead || amount <= 0f)
@@ -80,6 +113,7 @@ public sealed class Health
         return healed;
     }
 
+    /// <summary>Takes all remaining health.</summary>
     public void Kill(Entity owner, Entity source = default) => Damage(owner, Current, source);
 
     /// <summary>

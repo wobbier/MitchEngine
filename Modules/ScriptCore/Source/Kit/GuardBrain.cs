@@ -12,18 +12,29 @@ namespace ScriptCore.Kit;
 /// </summary>
 public class GuardBrain : Script
 {
+    /// <summary>The entity it hunts (by name).</summary>
     public string Target = "Player";
+    /// <summary>Entity names to patrol between, comma-separated.</summary>
     public string Waypoints = "";
+    /// <summary>Walking speed on patrol, metres per second.</summary>
     public float PatrolSpeed = 2.5f;
+    /// <summary>Running speed when chasing.</summary>
     public float ChaseSpeed = 5.0f;
+    /// <summary>How close counts as caught, metres.</summary>
     public float CatchDistance = 1.5f;
+    /// <summary>How far it sees, metres.</summary>
     public float SightRange = 12f;
+    /// <summary>Its view cone, degrees.</summary>
     public float FieldOfView = 120f;
+    /// <summary>Seconds spent at each waypoint and at a searched spot.</summary>
     [Tooltip("Seconds spent at each waypoint and at a searched spot")]
     public float PauseSeconds = 1.0f;
+    /// <summary>Patrol, Chase or Search (readable for UI and tests).</summary>
     public string State = "Patrol";
 
+    /// <summary>What it sees and hears.</summary>
     public Perception Perception { get; } = new();
+    /// <summary>The behaviour tree's shared values.</summary>
     public Blackboard Blackboard { get; } = new();
 
     private NavMeshAgent? _agent;
@@ -32,6 +43,7 @@ public class GuardBrain : Script
     private int _waypoint;
     private BTNode? _tree;
 
+    /// <inheritdoc/>
     public override void OnStart()
     {
         _agent = HasComponent<NavMeshAgent>() ? GetComponent<NavMeshAgent>() : null;
@@ -51,8 +63,10 @@ public class GuardBrain : Script
             BT.MemorySequence(BT.Action(Patrol, StopMoving), BT.Wait(PauseSeconds), BT.Do(NextWaypoint)));
     }
 
+    /// <inheritdoc/>
     public override void OnReload() => OnStart();
 
+    /// <inheritdoc/>
     public override void OnUpdate(float deltaTime)
     {
         if (_agent == null || _tree == null) return;
