@@ -7,7 +7,7 @@ namespace ScriptCore;
 public unsafe struct EngineAPIBindings
 {
     // The ABI both sides were generated from (C++: kScriptEngineAPIHash).
-    public const ulong AbiHash = 0xE9A4BE54B48E7486UL;
+    public const ulong AbiHash = 0x47A23E3C4C5FAAB1UL;
 
     // Core
     public delegate* unmanaged<byte*, void> Log;
@@ -388,6 +388,10 @@ public unsafe struct EngineAPIBindings
     public delegate* unmanaged<Entity, int> Net_GetNetId;
     public delegate* unmanaged<int, Entity*, void> Net_FindEntity;
     public delegate* unmanaged<int*, int*, int*, void> Net_GetPredictionStats;
+
+    // Input simulation (tests, replays): keys held as if pressed on top of the devices; actions read them
+    public delegate* unmanaged<int, byte, void> Input_SetSimulatedKey;
+    public delegate* unmanaged<void> Input_ClearSimulatedKeys;
 }
 
 // The sizes C++ static_asserts for the structs that cross (checked when the API is bound).

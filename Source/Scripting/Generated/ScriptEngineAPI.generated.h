@@ -19,7 +19,7 @@ struct ScriptRaycastHit
 };
 
 // The ABI both sides were generated from (C# checks it: ScriptBridge.GetEngineAPIHash).
-constexpr uint64_t kScriptEngineAPIHash = 0xE9A4BE54B48E7486ULL;
+constexpr uint64_t kScriptEngineAPIHash = 0x47A23E3C4C5FAAB1ULL;
 
 // Structs that cross: their layout is part of the ABI (C# checks the same sizes).
 static_assert( sizeof( EntityID ) == 8, "EntityID crosses into C#: its size is part of the script ABI" );
@@ -411,4 +411,8 @@ struct ScriptEngineAPI
     int ( *Net_GetNetId )( EntityID id ) noexcept;
     void ( *Net_FindEntity )( int netId, EntityID* outId ) noexcept;
     void ( *Net_GetPredictionStats )( int* outCorrections, int* outMatches, int* outInitialSyncs ) noexcept;
+
+    // Input simulation (tests, replays): keys held as if pressed on top of the devices; actions read them
+    void ( *Input_SetSimulatedKey )( int key, bool held ) noexcept;
+    void ( *Input_ClearSimulatedKeys )() noexcept;
 };

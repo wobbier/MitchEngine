@@ -379,6 +379,19 @@ static bool Eng_Input_IsMouseCaptured() noexcept
     return GetEngine().GetInput().IsMouseCaptured();
 }
 
+
+// What the input-hold edscript command does: actions read the key as held until it's released.
+static void Eng_Input_SetSimulatedKey( int inKey, bool inHeld ) noexcept
+{
+    GetEngine().GetInput().SetSimulatedKey( static_cast<KeyCode>( inKey ), inHeld );
+}
+
+
+static void Eng_Input_ClearSimulatedKeys() noexcept
+{
+    GetEngine().GetInput().ClearSimulatedKeys();
+}
+
 // Audio
 
 static void Eng_Audio_PlayOneShot( const uint8_t* inClip, float inVolume ) noexcept
@@ -832,6 +845,8 @@ void Register_GameplayBindings( ScriptEngineAPI& inAPI )
     inAPI.Input_GetMouseDelta = Eng_Input_GetMouseDelta;
     inAPI.Input_SetMouseCapture = Eng_Input_SetMouseCapture;
     inAPI.Input_IsMouseCaptured = Eng_Input_IsMouseCaptured;
+    inAPI.Input_SetSimulatedKey = Eng_Input_SetSimulatedKey;
+    inAPI.Input_ClearSimulatedKeys = Eng_Input_ClearSimulatedKeys;
     inAPI.Input_GetPlayerCount = Eng_Input_GetPlayerCount;
     inAPI.Input_GetPlayerActionValue = Eng_Input_GetPlayerActionValue;
     inAPI.Input_GetPlayerActionVector2 = Eng_Input_GetPlayerActionVector2;

@@ -47,5 +47,5 @@ play
 assert-playing 1
 wait 30
 console game-tests
-wait-log GameTests: 3 passed, 0 failed | 2400
+wait-log GameTests: 4 passed, 0 failed | 2400
 stop

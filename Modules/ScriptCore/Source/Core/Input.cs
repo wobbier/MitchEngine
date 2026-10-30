@@ -511,6 +511,13 @@ public static unsafe class Input
         set => Engine._api.Input_SetMouseCapture((byte)(value ? 1 : 0));
     }
 
+    // Holds a key as if pressed, on top of the real devices, until it's released (play-mode
+    // tests and input replays; Testing/SimulatedInput.cs times them). Actions read it, focus or
+    // not; IsKeyDown / WasKeyPressed read the devices and don't. [GameTest]s release every
+    // simulated key when they end.
+    public static void Simulate(KeyCode key, bool held = true) => Engine._api.Input_SetSimulatedKey((int)key, (byte)(held ? 1 : 0));
+    public static void ReleaseSimulated() => Engine._api.Input_ClearSimulatedKeys();
+
     // Actions from the project's .inputactions map (Engine/Docs/Input.md).
     public static float GetAction(string action)
     {

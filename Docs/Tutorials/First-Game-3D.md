@@ -215,10 +215,10 @@ Run it: press Play, open the console with **~** and type `game-tests`. The log s
 
 ```
 [GameTest] PASS CoinHuntTests.Collecting_every_coin_wins (0.5 s)
-GameTests: 4 passed, 0 failed
+GameTests: 5 passed, 0 failed
 ```
 
-(the other three are the template's own tests, in `Assets/Scripts/Tests/FirstPersonTests.cs`).
+(the other four are the template's own tests, in `Assets/Scripts/Tests/FirstPersonTests.cs`).
 `game-tests Coin` runs just yours. To run them unattended, as a build machine would, put these
 lines in an `.edscript` and pass it with `--editor-exec`:
 
@@ -226,7 +226,7 @@ lines in an `.edscript` and pass it with `--editor-exec`:
 play
 wait 30
 console game-tests
-wait-log GameTests: 4 passed, 0 failed | 3000
+wait-log GameTests: 5 passed, 0 failed | 3000
 stop
 ```
 
@@ -261,5 +261,5 @@ See [Building](../Building.md) for profiles and what goes in the folder.
 
 `Engine/Tests/Tutorials/CoinHunt/` holds this page's `Goal.cs`, `CoinHuntTests.cs`, a script that
 places the coins, the goal and the HUD lines in a fresh First-Person project, and the flow above.
-RunChecks' Tutorials step creates the project, applies them and requires `GameTests: 4 passed`.
+RunChecks' Tutorials step creates the project, applies them and requires `GameTests: 5 passed`.
 If you change a snippet here, change it there.

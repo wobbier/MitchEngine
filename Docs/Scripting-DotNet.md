@@ -194,8 +194,8 @@ public static async Task The_hazard_hurts_and_the_medkit_heals()
 
 - **Asserts:** `GameAssert.True`, `Equal`, `Near` (floats, vectors) and `await GameAssert.Eventually(condition, seconds, what)`; a failed one throws `GameTestFailure`, and any other exception fails the test with its type and message.
 - **Output:** `[GameTest] PASS Class.Name (0.1 s)` or `[GameTest] FAIL Class.Name: reason` per test, then `GameTests: N passed, M failed`. `GameTests.LastResults` has them too.
-- **In CI:** a flow plays, runs `console game-tests` and waits for the summary line (`wait-log GameTests: 3 passed, 0 failed | 2400`). The FirstPerson template's `Assets/Scripts/Tests/FirstPersonTests.cs` runs this way in RunChecks' Templates step.
-- **Input:** there is no C# input replay yet (it needs a script-API slot); a flow can hold keys around the tests with `input-hold`, or a test can move actors directly (`Teleport`).
+- **In CI:** a flow plays, runs `console game-tests` and waits for the summary line (`wait-log GameTests: 4 passed, 0 failed | 2400`). The FirstPerson template's `Assets/Scripts/Tests/FirstPersonTests.cs` runs this way in RunChecks' Templates step.
+- **Input:** `await SimulatedInput.Hold(KeyCode.W, 1f)` holds a key for game time, `Tap` for one frame, and `Play(recording)` replays a timeline such as `SimulatedInput.Recording.Parse("0 +W; 0.5 +Space; 0.6 -Space; 2 -W")`. They sit on `Input.Simulate(key, held)` / `Input.ReleaseSimulated()`, which work like the `input-hold` edscript command: actions read the key as held, focus or not, while the raw `Input.IsKeyDown` doesn't see it. `using (SimulatedInput.Record()) { ... }` logs the real keyboard's changes as a recording to paste into a test. Each test releases its simulated keys when it ends. A test can also move actors directly (`Teleport`). `FirstPersonTests.Holding_W_walks_the_player_forward` uses `Hold`.
 
 ### Data assets (CS-7)
 

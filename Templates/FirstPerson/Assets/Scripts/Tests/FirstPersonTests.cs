@@ -3,7 +3,8 @@ using ScriptCore;
 using ScriptCore.Kit;
 
 // Play-mode tests for this template (CS-12). Run them in Play with the console: game-tests
-// Each loads Main.lvl fresh, moves the player with Teleport and checks what the kit pieces did.
+// Each loads Main.lvl fresh, moves the player (with Teleport, or held keys through SimulatedInput)
+// and checks what the kit pieces did.
 public static class FirstPersonTests
 {
     private const string Scene = "Assets/Scenes/Main.lvl";
@@ -19,6 +20,17 @@ public static class FirstPersonTests
         GameAssert.True(health != null, "the player has health");
         GameAssert.Equal(health!.Health.Max, health.Health.Current, "health");
         await GameAssert.Eventually(() => Player().GetComponent<Transform>().Position.y < 1.2f, 3f, "the player settles");
+    }
+
+    [GameTest(Scene)]
+    public static async Task Holding_W_walks_the_player_forward()
+    {
+        var body = Player().GetComponent<Transform>();
+        await GameAssert.Eventually(() => body.Position.y < 1.2f, 3f, "the player settles");
+        var start = body.Position;
+        await SimulatedInput.Hold(KeyCode.W, 1f);
+        GameAssert.True(body.Position.z > start.z + 1f, $"walked forward: z {start.z} -> {body.Position.z}");
+        GameAssert.Near(start.x, body.Position.x, 0.25f, "x");
     }
 
     [GameTest(Scene)]

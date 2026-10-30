@@ -75,6 +75,8 @@ Gamepad shaping:
 
 **Fixed steps.** The engine runs zero or more fixed steps per frame (`Docs/Architecture.md`), so per-frame edges would be missed by frames without a step and repeated by frames with several. Around each step the engine calls `Input::BeginFixedStep` / `EndFixedStep`: in between, `WasKeyPressed`/`WasKeyReleased`, `WasMouseButtonPressed`, `WasGamepadButtonPressed`/`Released` and every player's `WasPressed`/`WasReleased` report the edges since the previous step, so `OnFixedUpdate` sees each press and release exactly once at any frame rate. Outside a step (`OnUpdate`, `OnLateUpdate`) they report this frame's edges as before. While the simulation is paused, edges are discarded rather than carried into the resumed game.
 
+**Simulated keys.** `SetSimulatedKey( key, held )` / `ClearSimulatedKeys` hold keys on top of the snapshot, so actions read them as pressed whether or not the instance is capturing; the raw `IsKeyDown` / `WasKeyPressed` queries read SDL and don't see them. The `input-hold` / `input-release` edscript commands and C#'s `Input.Simulate` / `Input.ReleaseSimulated` (timed by `SimulatedInput.Hold`, `Tap` and `Play` for play-mode tests and replays, `Docs/Scripting-DotNet.md`) use them.
+
 `GetAction( name )` returns the action from the highest-priority enabled context that defines it. If no enabled context has it, it returns a zero state, and the same for unknown names. Actions with the same name in several contexts (`Back` in Menu, `Pause` in Gameplay) therefore resolve to whichever context is live.
 
 ### Rebinding and overrides

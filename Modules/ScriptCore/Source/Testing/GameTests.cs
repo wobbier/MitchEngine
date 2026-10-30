@@ -159,6 +159,8 @@ public static class GameTests
         }
         catch (TargetInvocationException ex) { failure = Describe(ex.InnerException ?? ex); }
         catch (Exception ex) { failure = Describe(ex); }
+        // A test's simulated keys don't outlive it, even when it fails mid-hold.
+        Input.ReleaseSimulated();
         var result = new Result(name, failure.Length == 0, failure, clock.Elapsed.TotalSeconds);
         Debug.Log(result.Passed ? $"[GameTest] PASS {name} ({result.Seconds:0.0} s)" : $"[GameTest] FAIL {name}: {failure}");
         return result;

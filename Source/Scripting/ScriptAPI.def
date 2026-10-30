@@ -378,3 +378,7 @@ void Net_SendRpc( Entity id, int rpcId, int kind, byte* data, int size )
 int Net_GetNetId( Entity id )
 void Net_FindEntity( int netId, Entity* outId )
 void Net_GetPredictionStats( int* outCorrections, int* outMatches, int* outInitialSyncs )
+
+## Input simulation (tests, replays): keys held as if pressed on top of the devices; actions read them
+void Input_SetSimulatedKey( int key, bool held )
+void Input_ClearSimulatedKeys()
