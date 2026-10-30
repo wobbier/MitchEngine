@@ -293,68 +293,115 @@ void EditorActions::DrawPalette()
         scrollToSelection = true;
     }
 
-    std::vector<std::pair<int, const EditorAction*>> matches;
-    for( const EditorAction& action : m_actions )
+    // Searched when the text changes (and once a second for new entities and files), not every frame.
+    if( m_cachedFilter != m_paletteFilter || ImGui::GetTime() - m_cachedAt > 1.0 || scrollToSelection )
     {
-        if( !action.Execute || action.HideInPalette )
-        {
-            continue;
-        }
-        const int score = FuzzyScore( action.Category + " " + action.DisplayName, m_paletteFilter );
-        if( score >= 0 )
-        {
-            matches.emplace_back( score, &action );
-        }
+        m_cachedFilter = m_paletteFilter;
+        m_cachedAt = ImGui::GetTime();
+        m_cachedResults = Search( m_paletteFilter );
     }
-    std::stable_sort( matches.begin(), matches.end(), []( const auto& a, const auto& b ) { return a.first < b.first; } );
+    const std::vector<PaletteItem>& matches = m_cachedResults;
 
     m_paletteSelection += selectionDelta;
     scrollToSelection |= selectionDelta != 0;
     m_paletteSelection = matches.empty() ? 0 : std::clamp( m_paletteSelection, 0, static_cast<int>( matches.size() ) - 1 );
 
-    const EditorAction* chosen = nullptr;
+    const PaletteItem* chosen = nullptr;
     ImGui::BeginChild( "##PaletteResults", ImVec2( 0.f, std::min( 12, static_cast<int>( matches.size() ) ) * ImGui::GetTextLineHeightWithSpacing() + ImGui::GetStyle().ItemSpacing.y ) );
     for( int i = 0; i < static_cast<int>( matches.size() ); ++i )
     {
-        const EditorAction& action = *matches[i].second;
-        const bool enabled = !action.IsEnabled || action.IsEnabled();
-        const std::string label = action.Category + ": " + action.DisplayName;
-        ImGui::BeginDisabled( !enabled );
+        const PaletteItem& item = matches[i];
+        const std::string label = item.Category + ": " + item.Label;
+        ImGui::PushID( i );
+        ImGui::BeginDisabled( !item.Enabled );
         if( ImGui::Selectable( label.c_str(), i == m_paletteSelection ) )
         {
-            chosen = &action;
+            chosen = &item;
         }
         ImGui::EndDisabled();
+        ImGui::PopID();
         // Follow keyboard selection changes without fighting mouse-wheel scrolling.
         if( scrollToSelection && i == m_paletteSelection )
         {
             ImGui::SetScrollHereY();
         }
-        const std::string shortcut = ShortcutToString( action.Shortcut );
-        if( !shortcut.empty() )
+        if( !item.Shortcut.empty() )
         {
-            ImGui::SameLine( ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize( shortcut.c_str() ).x + ImGui::GetCursorPosX() - ImGuiTheme::PanelInset() );
-            ImGui::TextDisabled( "%s", shortcut.c_str() );
+            ImGui::SameLine( ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize( item.Shortcut.c_str() ).x + ImGui::GetCursorPosX() - ImGuiTheme::PanelInset() );
+            ImGui::TextDisabled( "%s", item.Shortcut.c_str() );
         }
     }
     ImGui::EndChild();
 
     if( submitted && !matches.empty() )
     {
-        chosen = matches[m_paletteSelection].second;
+        chosen = &matches[m_paletteSelection];
     }
     if( ImGui::IsKeyPressed( ImGuiKey_Escape ) )
     {
         ImGui::CloseCurrentPopup();
     }
-    if( chosen && ( !chosen->IsEnabled || chosen->IsEnabled() ) )
+    if( chosen && chosen->Enabled && chosen->Run )
     {
         ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
-        chosen->Execute();
+        const std::function<void()> run = chosen->Run;
+        run();
         return;
     }
     ImGui::EndPopup();
+}
+
+std::vector<EditorActions::PaletteItem> EditorActions::Search( const std::string& InFilter, size_t InMax ) const
+{
+    std::vector<std::pair<int, PaletteItem>> scored;
+    for( const EditorAction& action : m_actions )
+    {
+        if( !action.Execute || action.HideInPalette )
+        {
+            continue;
+        }
+        const int score = FuzzyScore( action.Category + " " + action.DisplayName, InFilter );
+        if( score >= 0 )
+        {
+            PaletteItem item;
+            item.Category = action.Category;
+            item.Label = action.DisplayName;
+            item.Run = action.Execute;
+            item.Shortcut = ShortcutToString( action.Shortcut );
+            item.Enabled = !action.IsEnabled || action.IsEnabled();
+            scored.emplace_back( score, std::move( item ) );
+        }
+    }
+    // The rest of the editor only once something is typed (assets alone can be thousands).
+    if( !InFilter.empty() )
+    {
+        std::vector<PaletteItem> found;
+        for( const auto& provider : SearchProviders )
+        {
+            provider( found );
+        }
+        for( PaletteItem& item : found )
+        {
+            const int score = FuzzyScore( item.Category + " " + item.Label, InFilter );
+            if( score >= 0 )
+            {
+                // Behind an action that matches as well.
+                scored.emplace_back( score + 1, std::move( item ) );
+            }
+        }
+    }
+    std::stable_sort( scored.begin(), scored.end(), []( const auto& a, const auto& b ) { return a.first < b.first; } );
+    std::vector<PaletteItem> items;
+    for( auto& [score, item] : scored )
+    {
+        if( items.size() >= InMax )
+        {
+            break;
+        }
+        items.push_back( std::move( item ) );
+    }
+    return items;
 }
 
 #endif

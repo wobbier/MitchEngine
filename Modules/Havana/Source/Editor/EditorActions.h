@@ -74,6 +74,20 @@ public:
     void OpenPalette() { m_openPalette = true; }
     void DrawPalette();
 
+    // ED-15: search everywhere. Providers add what the palette can find besides actions (entities,
+    // assets, settings, docs) once something is typed; results are fuzzy-matched with the actions.
+    struct PaletteItem
+    {
+        std::string Category;
+        std::string Label;
+        std::function<void()> Run;
+        std::string Shortcut;
+        bool Enabled = true;
+    };
+    std::vector<std::function<void( std::vector<PaletteItem>& OutItems )>> SearchProviders;
+    // What the palette lists for InFilter, best first (actions, then providers' items), capped.
+    std::vector<PaletteItem> Search( const std::string& InFilter, size_t InMax = 200 ) const;
+
     // "Ctrl+Shift+Z"
     static std::string ShortcutToString( ImGuiKeyChord InChord );
     // Replaces ImGuiMod_Shortcut with the platform's modifier.
@@ -90,6 +104,9 @@ private:
     bool m_openPalette = false;
     char m_paletteFilter[128] = {};
     int m_paletteSelection = 0;
+    std::string m_cachedFilter;
+    double m_cachedAt = -100.0;
+    std::vector<PaletteItem> m_cachedResults;
 };
 
 #endif

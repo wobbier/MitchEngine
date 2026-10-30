@@ -48,6 +48,8 @@
 #include "Widgets/OnboardingWidgets.h"
 #include "Widgets/UIDesigner/UIDesignerWidget.h"
 #include "Utils/PlatformUtils.h"
+#include "Engine/Project.h"
+#include "Editor/Selection.h"
 #include "Widgets/SequenceWidget.h"
 #include "Widgets/ProfilerWidget.h"
 #include "Widgets/SettingsWidgets.h"
@@ -195,6 +197,88 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
     actions.Register( { "View.Profiler", "Profiler", "View", 0, 0, [this]() { ShowWidget( "Profiler" ); } } );
     ReflectionUI::RegisterDefaultDrawers();
     actions.Register( { "View.AssetSearch", "Quick Asset Search", "View", ImGuiMod_Shortcut | ImGuiKey_Space, 0, [this]() { AssetBrowser->RequestOverlay( nullptr ); } } );
+    // ED-15: the command palette also finds entities, assets, settings and docs.
+    actions.SearchProviders.push_back( []( std::vector<EditorActions::PaletteItem>& OutItems ) {
+        SharedPtr<World> world = GetEngine().GetWorld().lock();
+        if( !world )
+        {
+            return;
+        }
+        world->ForEachEntity( [&]( Entity& InEntity ) {
+            if( world->IsSingletonEntity( InEntity.GetId() ) || InEntity.GetName().empty() )
+            {
+                return;
+            }
+            EntityHandle handle = InEntity.GetHandle();
+            OutItems.push_back( { "Entity", InEntity.GetName(), [handle]() {
+                if( handle )
+                {
+                    Selection::Get().Clear();
+                    Selection::Get().Add( handle );
+                    EditorActions::Get().Execute( "View.FrameSelected" );
+                }
+            } } );
+        } );
+    } );
+    actions.SearchProviders.push_back( [this]( std::vector<EditorActions::PaletteItem>& OutItems ) {
+        // The project's files (sources, not cooked or editor sidecars), rescanned every few seconds.
+        static std::vector<std::string> s_assets;
+        static double s_scannedAt = -100.0;
+        const double now = ImGui::GetTime();
+        if( now - s_scannedAt > 5.0 )
+        {
+            s_scannedAt = now;
+            s_assets.clear();
+            std::error_code error;
+            const std::filesystem::path root( Path( "Assets" ).FullPath );
+            for( auto it = std::filesystem::recursive_directory_iterator( root, std::filesystem::directory_options::skip_permission_denied, error );
+                 it != std::filesystem::recursive_directory_iterator(); it.increment( error ) )
+            {
+                if( error || !it->is_regular_file( error ) )
+                {
+                    continue;
+                }
+                const std::string extension = it->path().extension().string();
+                if( extension == ".meta" || extension == ".dds" || extension == ".bin" || extension == ".assbin" || extension == ".navmesh" )
+                {
+                    continue;
+                }
+                s_assets.push_back( "Assets/" + std::filesystem::relative( it->path(), root, error ).generic_string() );
+            }
+        }
+        for( const std::string& asset : s_assets )
+        {
+            OutItems.push_back( { "Asset", asset, [this, asset]() {
+                ShowWidget( "Asset Browser" );
+                if( AssetBrowser )
+                {
+                    AssetBrowser->ShowAsset( asset );
+                }
+            } } );
+        }
+    } );
+    actions.SearchProviders.push_back( [this]( std::vector<EditorActions::PaletteItem>& OutItems ) {
+        for( const char* tab : { "Appearance", "General", "Scene View", "Shortcuts" } )
+        {
+            OutItems.push_back( { "Setting", std::string( "Preferences > " ) + tab, [this]() { ShowWidget( "Preferences" ); } } );
+        }
+        for( const char* tab : { "Time", "Project", "Hardware", "Look", "Layers", "Physics", "Input", "Audio", "Terrain", "Navigation" } )
+        {
+            OutItems.push_back( { "Setting", std::string( "Project Settings > " ) + tab, [this]() { ShowWidget( "Project Settings" ); } } );
+        }
+    } );
+    actions.SearchProviders.push_back( []( std::vector<EditorActions::PaletteItem>& OutItems ) {
+        std::error_code error;
+        const std::filesystem::path docs = std::filesystem::path( Project::GetEngineRoot() ) / "Docs";
+        for( const auto& entry : std::filesystem::directory_iterator( docs, error ) )
+        {
+            if( entry.path().extension() == ".md" )
+            {
+                const std::string file = entry.path().generic_string();
+                OutItems.push_back( { "Doc", entry.path().stem().string(), [file]() { PlatformUtils::OpenInCodeEditor( file, 1 ); } } );
+            }
+        }
+    } );
     const ImGuiKey workspaceKeys[] = { ImGuiKey_1, ImGuiKey_2, ImGuiKey_3, ImGuiKey_4, ImGuiKey_5, ImGuiKey_6, ImGuiKey_7, ImGuiKey_8, ImGuiKey_9 };
     for( int workspace = 1; workspace <= 9; ++workspace )
     {

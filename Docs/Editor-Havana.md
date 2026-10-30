@@ -1,6 +1,7 @@
 # Havana Editor
 
 Havana is the ImGui-based editor. `EditorApp` is itself a `Game` subclass (standard entry point in `Modules/Havana/Source/main.cpp`) that hosts dockable widgets around a small set of **editor services**: one `Selection`, an `UndoStack`, named `EditorActions` (menus, shortcuts, command palette, scripts) and `EditorOps`, the undoable operations every widget uses to change the scene. Play mode snapshots the scene in memory and restores it on Stop. `--editor-exec` drives all of it from a script for unattended testing.
+- **Search everywhere (ED-15):** once something is typed, the palette also finds entities (select and frame), assets (shown in the Asset Browser), settings (the Preferences / Project Settings tabs) and docs (`Engine/Docs/*.md`, opened in the code editor). Providers live in `EditorActions::SearchProviders`; results are cached per filter for a second.
 
 > Verified against engine commit 7e869c6e, 2026-10-09; Create menu, overlays and View menu rendering toggles against 1fa55311, 2026-10-09 (Wave 3); physics gizmos, menus and settings against 8fdd99b1, 2026-10-09 (Wave 4); audio gizmos and settings, and the `pick` / `assert-audio` commands against afce7083, 2026-10-09; tabbed Project Settings, data assets and `show-asset` against e0ca1f26, 2026-10-09; `wait-log` / `replace-in-file` against 6a4b006f, 2026-10-09; navigation menus, settings and choice fields against 8d6769a5, 2026-10-10; the Hardware tab and the budget overlay against 3f04199c plus the hardware profiles change, 2026-10-22; the rectangle light gizmo and preset against 94407e9d plus the concert lighting change, 2026-10-29; render textures (Create menu, details, pickers, the Camera preview and the `rtt-*` commands) against 89e036be plus the render texture change, 2026-10-29.
 
@@ -201,6 +202,7 @@ The script runs one command per frame after a short warm-up and logs `[editor-ex
 | `pick fx fy` | Clicks the scene view at that fraction of its size; GPU picking selects what is drawn there |
 | `show-asset path` | Opens the Assets window on a file with its details shown (data assets show their editable contents) |
 | `assert-browser-layout Project` (or `Folder`), `assert-browser-asset path`, `wait-asset-preview` | Check the browser layout and project-wide listing, or wait for the selected graph's GPU preview (fails on graph/shader errors or timeout) |
+| `palette-search filter | text`, `palette-run filter | text` (ED-15: the command palette lists / runs a result whose "Category: Label" contains the text) | Palette |
 | `console <line>` (PLAY-10: runs a developer console line, a C++ or C# command), `assert-console-output text` (the last line's output contains it) | Console |
 | `assert-mod-loaded id | 0/1` (MOD-6: what loaded at start; a flow header's `--mods` / `--mod-dir <folder>` reach the editor through RunEditorFlows) | Mods |
 | `copy-file from | to`, `write-file path | text` (under the project), `material-texture Name | Slot | texture` (as the material inspector assigns it), `assert-texture-format texture | BC5` (its cooked .dds: BC1/BC3/BC5/BC7/Uncompressed; `!BC5` for anything else) | Texture and material checks |

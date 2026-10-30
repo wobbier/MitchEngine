@@ -736,6 +736,30 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             Fail( "delete-file: couldn't delete " + args );
         }
     }
+    else if( command == "palette-search" || command == "palette-run" )
+    {
+        // palette-search crate | Asset: Assets/Textures/Sprites/Crate.png   (ED-15: the command
+        // palette lists a result whose "Category: Label" contains the text; palette-run runs it)
+        auto [filter, expected] = SplitArgs( args );
+        const EditorActions::PaletteItem* match = nullptr;
+        const std::vector<EditorActions::PaletteItem> items = EditorActions::Get().Search( filter );
+        for( const EditorActions::PaletteItem& item : items )
+        {
+            if( ( item.Category + ": " + item.Label ).find( expected ) != std::string::npos )
+            {
+                match = &item;
+                break;
+            }
+        }
+        if( !match )
+        {
+            Fail( command + ": nothing for '" + filter + "' reads '" + expected + "' (" + std::to_string( items.size() ) + " results)" );
+        }
+        else if( command == "palette-run" && match->Run )
+        {
+            match->Run();
+        }
+    }
     else if( command == "console" )
     {
         // console greet world   (PLAY-10: runs a developer console line, C++ or C# command)
