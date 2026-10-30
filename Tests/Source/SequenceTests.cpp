@@ -3,6 +3,9 @@
 #include "Components/Camera.h"
 #include "Components/Transform.h"
 #include "Cores/SequenceCore.h"
+#include "Cores/AnimationCore.h"
+#include "Components/Animation/Animator.h"
+#include "Scene/AnimationClip.h"
 #include "Engine/World.h"
 #include "Events/EventReceiver.h"
 #include "World/SceneSerializer.h"
@@ -591,4 +594,34 @@ TEST_CASE( "Sequence camera cuts: the active cut's camera is current while sampl
     rig.Object->GetComponent<Camera>().SetCurrent();
     rig.Core.Advance( 1.f );                       // finished: gameplay owns the camera again
     CHECK( rig.Object->GetComponent<Camera>().IsCurrent() );
+}
+
+
+TEST_CASE( "Sequence markers: a PlayAnimation cue plays the receiver's Animator state with no script" )
+{
+    Rig rig;
+    AnimationCore animation;
+    rig.GameWorld->AddCore( animation );
+    EntityHandle actor = rig.GameWorld->CreateEntity( "Actor" );
+    actor->AddComponent<Transform>();
+    std::vector<Moonlight::AnimationClip> clips( 2 );
+    clips[0].Name = "Idle";
+    clips[1].Name = "Wave";
+    for( auto& clip : clips ) clip.Duration = 1.f;
+    actor->AddComponent<Animator>().UseClips( std::make_shared<std::vector<Moonlight::AnimationClip>>( std::move( clips ) ) );
+    SequenceMarker wave;
+    wave.Frame = 30;
+    wave.Name = "Wave";
+    wave.Target = actor;
+    wave.Action = SequenceMarkerAction::PlayAnimation;
+    wave.Payload = "Wave";
+    rig.Clip().Markers = { wave };
+    rig.GameWorld->Simulate();
+    rig.GameWorld->Start();
+    rig.Core.Advance( 0.5f );
+    animation.Advance( 0.5f );
+    CHECK( actor->GetComponent<Animator>().GetCurrentState() == "Idle" );
+    rig.Core.Advance( 0.6f );
+    animation.Advance( 0.1f );
+    CHECK( actor->GetComponent<Animator>().GetCurrentState() == "Wave" );
 }

@@ -22,6 +22,7 @@ ME_REFLECT_BEGIN( SequenceClipMarker )
     ME_FIELD( Binding );
     ME_FIELD( Payload );
     ME_FIELD( Number );
+    ME_FIELD( Action );
 ME_REFLECT_END()
 
 ME_REFLECT_BEGIN( SequenceClipCut )
@@ -86,6 +87,11 @@ bool SequenceClipData::FromJson( const json& InData, std::string& OutError )
             if( !marker.contains( "Frame" ) || !marker["Frame"].is_number_integer() || marker["Frame"].get<double>() < 0. || marker["Frame"].get<double>() > duration ) return fail( "Marker outside clip duration" );
             if( !marker.contains( "Name" ) || !marker["Name"].is_string() || marker["Name"].get<std::string>().empty() ) return fail( "A marker needs a name" );
             if( marker.contains( "Number" ) && ( !marker["Number"].is_number() || !std::isfinite( marker["Number"].get<double>() ) ) ) return fail( "Invalid marker number" );
+            if( marker.contains( "Action" ) )
+            {
+                const std::string action = marker["Action"].is_string() ? marker["Action"].get<std::string>() : std::string();
+                if( action != "Event" && action != "PlayAudio" && action != "StopAudio" && action != "PlayAnimation" ) return fail( "Unknown marker action" );
+            }
         }
     }
     // Camera cuts (GAME-4) are optional too: one per frame, each naming its camera's slot.
@@ -159,7 +165,7 @@ SequenceClipData SequenceClipData::Capture( const Sequence& InSequence )
     data.FrameRate = InSequence.FrameRate;
     data.DurationFrames = InSequence.DurationFrames;
     for( const auto& track : InSequence.Tracks ) data.Tracks.push_back( { track.Binding, track.Component, track.Property, track.Enabled, track.Keys } );
-    for( const auto& marker : InSequence.Markers ) data.Markers.push_back( { marker.Frame, marker.Name, marker.Binding, marker.Payload, marker.Number } );
+    for( const auto& marker : InSequence.Markers ) data.Markers.push_back( { marker.Frame, marker.Name, marker.Binding, marker.Payload, marker.Number, marker.Action } );
     for( const auto& cut : InSequence.Cuts ) data.Cuts.push_back( { cut.Frame, cut.Binding } );
     return data;
 }
@@ -191,6 +197,7 @@ void SequenceClipData::Apply( Sequence& InSequence ) const
         marker.Binding = source.Binding;
         marker.Payload = source.Payload;
         marker.Number = source.Number;
+        marker.Action = source.Action;
         InSequence.Markers.push_back( std::move( marker ) );
     }
     InSequence.Cuts.clear();

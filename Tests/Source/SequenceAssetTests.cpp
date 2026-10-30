@@ -339,6 +339,7 @@ TEST_CASE( "Sequence asset: markers export by slot, round trip, and validate" )
     open.Target = door;
     open.Payload = "slow";
     open.Number = 3.f;
+    open.Action = SequenceMarkerAction::PlayAnimation;
     rig.Player().Markers = { open, self };
     rig.Player().OnPropertyChanged( "Markers" );
     rig.Player().PrepareAssetBindings();
@@ -361,13 +362,16 @@ TEST_CASE( "Sequence asset: markers export by slot, round trip, and validate" )
     REQUIRE( other.Markers.size() == 2 );
     CHECK( other.Markers[1].Target == door );
     CHECK( other.Markers[1].Payload == "slow" );
+    CHECK( other.Markers[1].Action == SequenceMarkerAction::PlayAnimation );
+    CHECK( valid["Markers"][1]["Action"] == "PlayAnimation" );
     json old = valid;
     old.erase( "Markers" );
     CHECK( loaded.FromJson( old, error ) );
     CHECK( loaded.Markers.empty() );
-    for( int bad = 0; bad < 4; ++bad )
+    for( int bad = 0; bad < 5; ++bad )
     {
         json changed = valid;
+        if( bad == 4 ) changed["Markers"][0]["Action"] = "Explode";
         if( bad == 0 ) changed["Markers"][0]["Target"] = "some-scene-guid";
         if( bad == 1 ) changed["Markers"][0]["Frame"] = 61;
         if( bad == 2 ) changed["Markers"][0]["Name"] = "";

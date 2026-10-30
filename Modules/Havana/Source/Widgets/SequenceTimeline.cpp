@@ -436,10 +436,11 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
         const float x = keyX( static_cast<float>( marker.Frame ) );
         if( x < grid - 8.f || x > origin.x + width + 8.f ) continue;
         const bool selected = i == SelectedMarker;
-        const ImU32 colour = ImGui::GetColorU32( selected ? palette.Warning : palette.Info );
+        const ImVec4 tone = marker.Action == SequenceMarkerAction::Event ? palette.Info : marker.Action == SequenceMarkerAction::PlayAnimation ? ImVec4( 0.65f, 0.58f, 0.95f, 1.f ) : palette.Success;
+        const ImU32 colour = ImGui::GetColorU32( selected ? palette.Warning : tone );
         const float top = origin.y + header + ImGuiTheme::Em( 0.3f );
         const float bottom = tracksTop - ImGuiTheme::Em( 0.3f );
-        draw->AddLine( ImVec2( x, tracksTop ), ImVec2( x, origin.y + height ), ImGui::GetColorU32( ImGuiTheme::WithAlpha( selected ? palette.Warning : palette.Info, 0.25f ) ) );
+        draw->AddLine( ImVec2( x, tracksTop ), ImVec2( x, origin.y + height ), ImGui::GetColorU32( ImGuiTheme::WithAlpha( selected ? palette.Warning : tone, 0.25f ) ) );
         draw->AddLine( ImVec2( x, top ), ImVec2( x, bottom ), colour, 1.5f );
         draw->AddTriangleFilled( ImVec2( x, top ), ImVec2( x + ImGuiTheme::Em( 0.7f ), top + ImGuiTheme::Em( 0.35f ) ), ImVec2( x, top + ImGuiTheme::Em( 0.7f ) ), colour );
         draw->AddText( ImVec2( x + ImGuiTheme::Em( 0.85f ), top - ImGuiTheme::Em( 0.1f ) ), ImGui::GetColorU32( selected ? palette.Text : palette.Muted ), marker.Name.c_str() );

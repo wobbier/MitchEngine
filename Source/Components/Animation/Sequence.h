@@ -46,6 +46,12 @@ public:
     EntityHandle Target;
 };
 
+// What a marker does on the receiver besides the event (GAME-4): audio and animation cues need no
+// script. PlayAudio plays the receiver's AudioSource, or a one-shot of Payload (a clip path) at
+// volume Number (0 = 1); StopAudio stops it; PlayAnimation plays Animator state Payload with a
+// Number-second fade.
+enum class SequenceMarkerAction { Event, PlayAudio, StopAudio, PlayAnimation };
+
 // A named moment for gameplay (GAME-4). Runtime playback fires it once each time it crosses the
 // marker's frame: a SequenceEvent natively, and SequenceEvent / ISequenceReceiver in C#.
 struct SequenceMarker
@@ -60,7 +66,10 @@ public:
     // Free-form arguments for the receiver.
     std::string Payload;
     float Number = 0.f;
+    SequenceMarkerAction Action = SequenceMarkerAction::Event;
 
+    // Runs Action on a receiver (nothing for Event, or when it lacks the component).
+    void RunAction( const EntityHandle& InReceiver ) const;
     // An unbound slot has no receiver: the event still reaches EventBus subscribers.
     EntityHandle ResolveReceiver( const EntityHandle& InPlayer ) const { return Target ? Target : Binding.empty() ? InPlayer : EntityHandle(); }
 };

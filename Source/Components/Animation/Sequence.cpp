@@ -2,6 +2,8 @@
 #include "Sequence.h"
 #include "Animation/SequenceAsset.h"
 #include "Components/Camera.h"
+#include "Components/Animation/Animator.h"
+#include "Components/Audio/AudioSource.h"
 #include "Resource/ResourceCache.h"
 #include <algorithm>
 #include <cmath>
@@ -33,6 +35,9 @@ ME_REFLECT_BEGIN( SequenceBinding )
     ME_FIELD( Target );
 ME_REFLECT_END()
 
+ME_REFLECT_ENUM( SequenceMarkerAction, { { "Event", SequenceMarkerAction::Event }, { "PlayAudio", SequenceMarkerAction::PlayAudio },
+    { "StopAudio", SequenceMarkerAction::StopAudio }, { "PlayAnimation", SequenceMarkerAction::PlayAnimation } } )
+
 ME_REFLECT_BEGIN( SequenceMarker )
     ME_FIELD( Frame );
     ME_FIELD( Name );
@@ -40,7 +45,24 @@ ME_REFLECT_BEGIN( SequenceMarker )
     ME_FIELD( Binding );
     ME_FIELD( Payload );
     ME_FIELD( Number );
+    ME_FIELD( Action );
 ME_REFLECT_END()
+
+
+void SequenceMarker::RunAction( const EntityHandle& InReceiver ) const
+{
+    if( Action == SequenceMarkerAction::Event || !InReceiver ) return;
+    if( Action == SequenceMarkerAction::PlayAnimation )
+    {
+        if( Animator* animator = InReceiver->TryGetComponent<Animator>(); animator && !Payload.empty() ) animator->Play( Payload, std::max( Number, 0.f ) );
+        return;
+    }
+    AudioSource* source = InReceiver->TryGetComponent<AudioSource>();
+    if( !source ) return;
+    if( Action == SequenceMarkerAction::StopAudio ) source->Stop( false );
+    else if( Payload.empty() ) source->Play();
+    else source->PlayOneShot( Path( Payload ), Number > 0.f ? Number : 1.f );
+}
 
 ME_REFLECT_BEGIN( SequenceCut )
     ME_FIELD( Frame );
@@ -436,6 +458,7 @@ void Sequence::FireMarkers( double InFrom, double InTo )
             event.Frame = marker.Frame;
             event.Clip = GetActiveClipPath();
             event.Fire();
+            marker.RunAction( event.Receiver );
         }
         if( Loop && start + duration > InFrom && start + duration <= InTo ) Notify( SequenceEventKind::Looped );
     }

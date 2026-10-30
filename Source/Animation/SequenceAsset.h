@@ -26,6 +26,7 @@ public:
     std::string Binding;
     std::string Payload;
     float Number = 0.f;
+    SequenceMarkerAction Action = SequenceMarkerAction::Event;
 };
 
 struct SequenceClipCut

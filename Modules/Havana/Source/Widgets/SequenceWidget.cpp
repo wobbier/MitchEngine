@@ -5,6 +5,8 @@
 #include "Cores/SequenceCore.h"
 #include "Components/Scripting/ScriptComponent.h"
 #include "Components/Camera.h"
+#include "Components/Animation/Animator.h"
+#include "Components/Audio/AudioSource.h"
 #include "Editor/EditorActions.h"
 #include "Editor/EditorOperations.h"
 #include "Editor/Selection.h"
@@ -703,12 +705,38 @@ void SequenceWidget::DrawEventInspector( Sequence& sequence, EntityHandle select
     const EntityHandle receiver = marker.ResolveReceiver( m_owner );
     if( !marker.Binding.empty() && !marker.Target ) ImGui::TextColored( ImGuiTheme::WarningText(), "Slot %s isn't bound on this player: only EventBus subscribers hear it.", marker.Binding.c_str() );
     else if( receiver && !receiver->HasComponent<ScriptComponent>() ) ImGui::TextColored( ImGuiTheme::WarningText(), "%s has no script: only EventBus subscribers hear it.", receiver->GetName().c_str() );
-    ImGui::TextDisabled( "Payload" ); ImGui::SetNextItemWidth( -1.f );
-    ImGui::InputText( "##Payload", &marker.Payload );
-    ImGui::SetItemTooltip( "Text passed to the receiver (SequenceEvent.Payload)" );
-    ImGui::SetNextItemWidth( ImGuiTheme::Em( 5.f ) );
-    ImGui::DragFloat( "Number", &marker.Number, 0.1f, 0.f, 0.f, "%.2f" );
-    ImGui::SetItemTooltip( "A number passed to the receiver (SequenceEvent.Number)" );
+    // Audio and animation cues act on the receiver directly; every marker still sends its event.
+    int action = static_cast<int>( marker.Action );
+    ImGui::SetNextItemWidth( -1.f );
+    if( ImGui::Combo( "##Action", &action, "Event (scripts only)\0Play audio\0Stop audio\0Play animation state\0" ) ) marker.Action = static_cast<SequenceMarkerAction>( action );
+    const bool audio = marker.Action == SequenceMarkerAction::PlayAudio || marker.Action == SequenceMarkerAction::StopAudio;
+    const bool animation = marker.Action == SequenceMarkerAction::PlayAnimation;
+    if( receiver && audio && !receiver->HasComponent<AudioSource>() ) ImGui::TextColored( ImGuiTheme::WarningText(), "%s has no AudioSource.", receiver->GetName().c_str() );
+    if( receiver && animation && !receiver->HasComponent<Animator>() ) ImGui::TextColored( ImGuiTheme::WarningText(), "%s has no Animator.", receiver->GetName().c_str() );
+    if( marker.Action == SequenceMarkerAction::StopAudio ) ImGui::TextDisabled( "Stops the receiver's AudioSource." );
+    else if( animation && receiver && receiver->HasComponent<Animator>() && !receiver->GetComponent<Animator>().States.empty() )
+    {
+        ImGui::TextDisabled( "State" ); ImGui::SetNextItemWidth( -1.f );
+        if( ImGui::BeginCombo( "##State", marker.Payload.empty() ? "Choose a state" : marker.Payload.c_str() ) )
+        {
+            for( const auto& state : receiver->GetComponent<Animator>().States )
+                if( ImGui::Selectable( state.Name.c_str(), state.Name == marker.Payload ) ) marker.Payload = state.Name;
+            ImGui::EndCombo();
+        }
+    }
+    else
+    {
+        ImGui::TextDisabled( "%s", animation ? "State" : audio ? "Clip (empty: the source's own)" : "Payload" ); ImGui::SetNextItemWidth( -1.f );
+        ImGui::InputText( "##Payload", &marker.Payload );
+        ImGui::SetItemTooltip( "%s", animation ? "The Animator state to play" : audio ? "A clip path to play as a one-shot at the source" : "Text passed to the receiver (SequenceEvent.Payload)" );
+    }
+    if( animation && marker.Payload.empty() ) ImGui::TextColored( ImGuiTheme::WarningText(), "Name the state to play." );
+    if( marker.Action != SequenceMarkerAction::StopAudio )
+    {
+        ImGui::SetNextItemWidth( ImGuiTheme::Em( 5.f ) );
+        ImGui::DragFloat( animation ? "Fade (s)" : audio ? "Volume" : "Number", &marker.Number, animation ? 0.01f : 0.1f, 0.f, 0.f, "%.2f" );
+        ImGui::SetItemTooltip( "%s", animation ? "Crossfade into the state, in seconds" : audio ? "One-shot volume scale (0 = 1)" : "A number passed to the receiver (SequenceEvent.Number)" );
+    }
     if( ImGui::Button( "Delete Event" ) ) { m_timeline.DeleteMarker( sequence ); return; }
     ImGuiTheme::SectionGap();
     ImGui::TextDisabled( "C# (on the receiver)" );
@@ -1019,6 +1047,22 @@ bool SequenceWidget::ExecuteAutomation( const std::string& command, const std::s
                 if( !target ) { error = "No entity named " + name; return false; }
             }
             SetMarkerReceiver( *sequence, *found, target );
+            CommitEdit( before );
+            return true;
+        }
+        // seq-marker-action index | Event | PlayAudio | StopAudio | PlayAnimation [| payload [| number]]
+        if( command == "seq-marker-action" )
+        {
+            SequenceMarker* found = marker( 0 );
+            if( !found ) return false;
+            const std::string name = fields.size() > 1 ? fields[1] : std::string();
+            const std::pair<const char*, SequenceMarkerAction> actions[] = { { "Event", SequenceMarkerAction::Event }, { "PlayAudio", SequenceMarkerAction::PlayAudio },
+                { "StopAudio", SequenceMarkerAction::StopAudio }, { "PlayAnimation", SequenceMarkerAction::PlayAnimation } };
+            const auto match = std::find_if( std::begin( actions ), std::end( actions ), [&]( const auto& a ) { return name == a.first; } );
+            if( match == std::end( actions ) ) { error = "Unknown marker action " + name; return false; }
+            found->Action = match->second;
+            if( fields.size() > 2 ) found->Payload = fields[2];
+            if( fields.size() > 3 ) found->Number = static_cast<float>( std::atof( fields[3].c_str() ) );
             CommitEdit( before );
             return true;
         }

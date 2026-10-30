@@ -108,6 +108,12 @@ event goes to the player itself. In a clip asset a receiver is a binding slot li
 (choosing an object makes the slot, and each player binds it); the tab warns when the slot is
 unbound on this player, or when the receiver has no script.
 
+A marker's **Action** adds a cue that needs no script (every marker still sends its event):
+**Play audio** plays the receiver's AudioSource, or a one-shot of a clip path (Payload) at volume
+Number; **Stop audio** stops it; **Play animation state** plays the receiver's Animator state
+(Payload, picked from its states) with a Number-second crossfade. Pennants are coloured by action;
+the tab warns when the receiver lacks the AudioSource or Animator.
+
 Runtime playback fires each marker once per crossing, for times in (last time, now]: at any frame
 rate and on a single long hitch (up to 8 laps of a short loop at once). Simultaneous markers fire
 in list order, which stays sorted by frame (a marker moved onto a frame fires after the ones
@@ -143,8 +149,9 @@ EventBus.Subscribe<SequenceEvent>(e => ...);   // every player's
 Markers are saved with the animation: in the scene for an embedded sequence, in the `.sequence`
 asset (as `Markers`, receivers by slot) for a clip. Older assets without markers still load.
 `SequenceEventsTest.lvl` + `SequenceEventFlows.edscript` author markers with `seq-add-marker`,
-`seq-move-marker`, `seq-marker-receiver`, `seq-delete-marker` and `seq-assert-marker`, then play
-and check what `SequenceEventProbe.cs` heard.
+`seq-move-marker`, `seq-marker-receiver`, `seq-marker-action`, `seq-delete-marker` and
+`seq-assert-marker`, then play and check what `SequenceEventProbe.cs` heard (and that a
+PlayAnimation cue switched the tube's Animator).
 
 ## Camera cuts (GAME-4)
 
