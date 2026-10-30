@@ -105,7 +105,14 @@ private:
 	// Reset Layout runs between frames (an ImGui NewFramePre hook, installed in InitUI).
 	bool m_resetLayoutPending = false;
 	int m_resetLayoutPhase = 0;
+	// ME-272: rebuild the dock tree from the loaded layout next NewFrame. Hidden windows that
+	// have a DockId but no dock node lose it in the rebuild (and trip an ImGui assert), so their
+	// DockId is set aside and given back once the tree is rebuilt.
+	void RequestDockRebuild();
+	std::vector<std::pair<unsigned int, unsigned int>> m_dockIdsToRestore;     // window ID, DockId
 	void ApplyLayoutReset();
+	// Loads an ImGui layout (.ini / imgui.cfg), re-pointing windows docked into split nodes (ME-272).
+	static void LoadLayoutFile( const char* InPath );
 
 	Path GetWorkspaceLayoutPath( int InWorkspace ) const;
 	void SaveWorkspaceLayout( int InWorkspace );

@@ -1,4 +1,9 @@
 #include "Havana.h"
+#include <cstring>
+#include <fstream>
+#include <map>
+#include <set>
+#include <sstream>
 #include <imgui.h>
 
 #include "Engine/World.h"
@@ -240,6 +245,28 @@ void Havana::InitUI()
         }
     };
     ImGui::AddContextHook( ImGui::GetCurrentContext(), &layoutHook );
+    // ME-272: after NewFrame's dock rebuild, hidden windows get their layout DockId back (they dock
+    // there the next time they open).
+    ImGuiContextHook restoreHook;
+    restoreHook.Type = ImGuiContextHookType_NewFramePost;
+    restoreHook.UserData = this;
+    restoreHook.Callback = []( ImGuiContext*, ImGuiContextHook* InHook ) {
+        Havana* self = static_cast<Havana*>( InHook->UserData );
+        if( self->m_dockIdsToRestore.empty() || ImGui::GetCurrentContext()->DockContext.WantFullRebuild )
+        {
+            return;
+        }
+        for( const auto& [windowId, dockId] : self->m_dockIdsToRestore )
+        {
+            ImGuiWindow* window = ImGui::FindWindowByID( windowId );
+            if( window && !window->DockNode && window->DockId == 0 )
+            {
+                window->DockId = dockId;
+            }
+        }
+        self->m_dockIdsToRestore.clear();
+    };
+    ImGui::AddContextHook( ImGui::GetCurrentContext(), &restoreHook );
 
     // The dock layout is per user (.tmp/imgui.ini, never committed). The project's
     // Assets/Config/imgui.cfg is the default layout a fresh checkout starts from; it's never written.
@@ -253,15 +280,15 @@ void Havana::InitUI()
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     if( activeWorkspaceLayout.Exists )
     {
-        ImGui::LoadIniSettingsFromDisk( activeWorkspaceLayout.FullPath.c_str() );
+        LoadLayoutFile( activeWorkspaceLayout.FullPath.c_str() );
     }
     else if( EngineConfigFilePath.Exists )
     {
-        ImGui::LoadIniSettingsFromDisk( EngineConfigFilePath.FullPath.c_str() );
+        LoadLayoutFile( EngineConfigFilePath.FullPath.c_str() );
     }
     else if( DefaultLayoutFilePath.Exists )
     {
-        ImGui::LoadIniSettingsFromDisk( DefaultLayoutFilePath.FullPath.c_str() );
+        LoadLayoutFile( DefaultLayoutFilePath.FullPath.c_str() );
     }
     // Unattended runs use the layout without ever writing it back.
     io.IniFilename = AutomationRunner::IsUnattendedRun() ? nullptr : EngineConfigFilePath.FullPath.c_str();
@@ -485,6 +512,109 @@ std::string Havana::GetWorkspaceName( int InWorkspace )
 }
 
 
+namespace
+{
+    // ME-272: a layout can dock a window into a node that has since been split (Assets/Config/
+    // imgui.cfg docks Debug, Game Preview and Resource Monitor into split node 0x9). ImGui gives
+    // that split node a tab bar once such a window shows, and DockNodeUpdate asserts. Each such
+    // window goes to the split node's first leaf as the layout loads.
+    std::string SanitizeLayout( const std::string& InIni )
+    {
+        std::vector<std::string> lines;
+        {
+            std::istringstream stream( InIni );
+            for( std::string line; std::getline( stream, line ); )
+            {
+                lines.push_back( line );
+            }
+        }
+        auto field = []( const std::string& InLine, const char* InKey ) {
+            const size_t at = InLine.find( InKey );
+            if( at == std::string::npos )
+            {
+                return std::string();
+            }
+            const size_t begin = at + std::strlen( InKey );
+            return InLine.substr( begin, InLine.find_first_of( " ,\r", begin ) - begin );
+        };
+        std::map<std::string, std::vector<std::string>> children;     // node -> children in file order
+        std::set<std::string> splitNodes;
+        for( const std::string& line : lines )
+        {
+            const size_t first = line.find_first_not_of( " \t" );
+            if( first == std::string::npos || ( line.compare( first, 8, "DockNode" ) != 0 && line.compare( first, 9, "DockSpace" ) != 0 ) )
+            {
+                continue;
+            }
+            const std::string id = field( line, " ID=" );
+            const std::string parent = field( line, " Parent=" );
+            if( !parent.empty() )
+            {
+                children[parent].push_back( id );
+            }
+            if( line.find( " Split=" ) != std::string::npos )
+            {
+                splitNodes.insert( id );
+            }
+        }
+        std::string out;
+        out.reserve( InIni.size() );
+        for( std::string& line : lines )
+        {
+            if( line.rfind( "DockId=", 0 ) == 0 )
+            {
+                const std::string id = field( line, "DockId=" );
+                if( splitNodes.count( id ) )
+                {
+                    std::string leaf = id;
+                    while( splitNodes.count( leaf ) && !children[leaf].empty() )
+                    {
+                        leaf = children[leaf].front();
+                    }
+                    line.replace( 7, id.size(), leaf );
+                }
+            }
+            out += line;
+            out += '\n';
+        }
+        return out;
+    }
+}
+
+
+void Havana::LoadLayoutFile( const char* InPath )
+{
+    std::ifstream file( InPath, std::ios::binary );
+    if( !file )
+    {
+        return;
+    }
+    std::stringstream text;
+    text << file.rdbuf();
+    const std::string ini = SanitizeLayout( text.str() );
+    ImGui::LoadIniSettingsFromMemory( ini.c_str(), ini.size() );
+}
+
+
+void Havana::RequestDockRebuild()
+{
+    ImGuiContext& context = *ImGui::GetCurrentContext();
+    for( ImGuiWindow* window : context.Windows )
+    {
+        if( window->DockId == 0 || window->DockNode )
+        {
+            continue;
+        }
+        // Where the freshly loaded layout puts it (the rebuild re-saves live state over it).
+        const ImGuiWindowSettings* settings = ImGui::FindWindowSettingsByID( window->ID );
+        const ImGuiID dockId = settings && settings->DockId ? settings->DockId : window->DockId;
+        m_dockIdsToRestore.emplace_back( window->ID, dockId );
+        window->DockId = 0;
+    }
+    context.DockContext.WantFullRebuild = true;
+}
+
+
 void Havana::ResetLayout()
 {
     m_resetLayoutPending = true;
@@ -518,11 +648,11 @@ void Havana::ApplyLayoutReset()
     ImGui::ClearIniSettings();
     if( DefaultLayoutFilePath.Exists )
     {
-        ImGui::LoadIniSettingsFromDisk( DefaultLayoutFilePath.FullPath.c_str() );
+        LoadLayoutFile( DefaultLayoutFilePath.FullPath.c_str() );
     }
     // NewFrame rebuilds the dock tree from the loaded settings (patching live nodes in place
     // leaves the windows docked in them with stale tab bars).
-    ImGui::GetCurrentContext()->DockContext.WantFullRebuild = true;
+    RequestDockRebuild();
     std::error_code error;
     std::filesystem::remove( GetWorkspaceLayoutPath( ActiveWorkspace ).FullPath, error );
     json& workspaces = EditorConfig::GetInstance().Preferences["Workspaces"];
@@ -604,11 +734,11 @@ void Havana::SwitchWorkspace( int InWorkspace )
     SaveWorkspaceLayout( ActiveWorkspace );
     const Path target = GetWorkspaceLayoutPath( InWorkspace );
     ImGui::ClearIniSettings();
-    if( target.Exists ) ImGui::LoadIniSettingsFromDisk( target.FullPath.c_str() );
-    else if( DefaultLayoutFilePath.Exists ) ImGui::LoadIniSettingsFromDisk( DefaultLayoutFilePath.FullPath.c_str() );
+    if( target.Exists ) LoadLayoutFile( target.FullPath.c_str() );
+    else if( DefaultLayoutFilePath.Exists ) LoadLayoutFile( DefaultLayoutFilePath.FullPath.c_str() );
     // A full dock rebuild next frame: with panels open and docked, patching the live tree trips
     // ImGui's tab bar asserts (as Reset Layout did).
-    ImGui::GetCurrentContext()->DockContext.WantFullRebuild = true;
+    RequestDockRebuild();
     RestoreWorkspacePanelVisibility( InWorkspace );
     ActiveWorkspace = InWorkspace;
     EditorConfig::GetInstance().SetPreference( "ActiveWorkspace", ActiveWorkspace );
