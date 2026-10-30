@@ -19,7 +19,7 @@ struct ScriptRaycastHit
 };
 
 // The ABI both sides were generated from (C# checks it: ScriptBridge.GetEngineAPIHash).
-constexpr uint64_t kScriptEngineAPIHash = 0x47A23E3C4C5FAAB1ULL;
+constexpr uint64_t kScriptEngineAPIHash = 0x17023FBE0AD8B88CULL;
 
 // Structs that cross: their layout is part of the ABI (C# checks the same sizes).
 static_assert( sizeof( EntityID ) == 8, "EntityID crosses into C#: its size is part of the script ABI" );
@@ -415,4 +415,9 @@ struct ScriptEngineAPI
     // Input simulation (tests, replays): keys held as if pressed on top of the devices; actions read them
     void ( *Input_SetSimulatedKey )( int key, bool held ) noexcept;
     void ( *Input_ClearSimulatedKeys )() noexcept;
+
+    // Lag-compensated hits (NET-15). Flags: 1 hit, 2 occluded, 4 rejected, 8 clamped, 16 rewound (the server, with the shooter's command)
+    bool ( *Net_LagCompensatedRaycast )( EntityID shooter, const Vector3* origin, const Vector3* direction, float range, EntityID* outEntity, Vector3* outPoint, int* outFlags ) noexcept;
+    double ( *Net_GetCommandViewTick )( EntityID id ) noexcept;
+    float ( *Net_GetRoundTripMs )( int clientId ) noexcept;
 };

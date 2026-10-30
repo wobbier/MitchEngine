@@ -382,3 +382,8 @@ void Net_GetPredictionStats( int* outCorrections, int* outMatches, int* outIniti
 ## Input simulation (tests, replays): keys held as if pressed on top of the devices; actions read them
 void Input_SetSimulatedKey( int key, bool held )
 void Input_ClearSimulatedKeys()
+
+## Lag-compensated hits (NET-15). Flags: 1 hit, 2 occluded, 4 rejected, 8 clamped, 16 rewound (the server, with the shooter's command)
+bool Net_LagCompensatedRaycast( Entity shooter, const Vector3* origin, const Vector3* direction, float range, Entity* outEntity, Vector3* outPoint, int* outFlags )
+double Net_GetCommandViewTick( Entity id )
+float Net_GetRoundTripMs( int clientId )

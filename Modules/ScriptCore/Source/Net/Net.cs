@@ -10,6 +10,9 @@ public struct NetCommand
     public int Buttons;
     public int PreviousButtons;
     public float Axis0, Axis1, Axis2, Axis3;
+    // The (fractional) server tick the owner's view showed when it sent this command (NET-8);
+    // Net.LagCompensatedRaycast rewinds to it. -1 without one.
+    public double ViewTick;
     // False when there's no command for the entity this tick (not owned, or none arrived yet).
     public bool Valid;
 
@@ -25,6 +28,11 @@ public struct NetCommand
         return index >= 0 && (buttons & (1 << index)) != 0;
     }
 }
+
+
+// Net.LagCompensatedRaycast's result. Entity: the hitbox's entity (also when Occluded hid it).
+// Rejected: the shooter's view was in the future. Rewound: judged at the shooter's view (server).
+public readonly record struct NetHit(bool Hit, Entity Entity, Vector3 Point, bool Occluded, bool Rejected, bool Clamped, bool Rewound);
 
 
 // NET-6: the session from scripts. Without a session (offline play, the editor) Role is 0 and RPCs
@@ -99,6 +107,7 @@ public static unsafe class Net
         command.Axis1 = axes[1];
         command.Axis2 = axes[2];
         command.Axis3 = axes[3];
+        command.ViewTick = Engine._api.Net_GetCommandViewTick != null ? Engine._api.Net_GetCommandViewTick(entity) : -1.0;
         return command;
     }
 
@@ -113,6 +122,31 @@ public static unsafe class Net
         }
         if (Engine._api.Net_SetActionOverride != null) Engine._api.Net_SetActionOverride(index, held ? (byte)1 : (byte)0);
     }
+
+    // NET-15: a shot judged the way its shooter saw it. On the server the hitboxes (NetHitbox) are
+    // rewound to the view the shooter's command was sent from (Command.ViewTick, capped at the
+    // rewind window: Clamped), and present-day colliders and rewound occluders still block it. On
+    // a client (or offline) it tests the hitboxes as they are now: the predicted hit, for impact
+    // FX; only the server's result counts. Shooter: the entity firing (ignored by the ray).
+    public static NetHit LagCompensatedRaycast(Entity shooter, Vector3 origin, Vector3 direction, float range)
+    {
+        if (Engine._api.Net_LagCompensatedRaycast == null) return default;
+        Entity hit;
+        Vector3 point;
+        int flags;
+        Engine._api.Net_LagCompensatedRaycast(shooter, &origin, &direction, range, &hit, &point, &flags);
+        return new NetHit((flags & 1) != 0, hit, point, (flags & 2) != 0, (flags & 4) != 0, (flags & 8) != 0, (flags & 16) != 0);
+    }
+
+    // Smoothed round trip in ms: a client's to the server, or (server) to one client.
+    public static float RoundTripMs => Engine._api.Net_GetRoundTripMs != null ? Engine._api.Net_GetRoundTripMs(0) : 0f;
+    public static float RoundTripMsTo(int clientId) => Engine._api.Net_GetRoundTripMs != null ? Engine._api.Net_GetRoundTripMs(clientId) : 0f;
+
+    // Whether to draw impacts (sparks, decals, hit sounds) from a client's own predicted hit. Above
+    // PredictImpactsMaxRttMs the predicted view is too far from the server's judgement: wait for
+    // its confirmation (an RPC, a replicated field) instead. Hit markers and health always should.
+    public static float PredictImpactsMaxRttMs = 220f;
+    public static bool PredictImpacts => !IsClient || RoundTripMs <= PredictImpactsMaxRttMs;
 
     // Prediction on this client: mispredictions corrected, ticks that matched, and initial syncs.
     public static int Corrections { get { GetPredictionStats(out int c, out _, out _); return c; } }

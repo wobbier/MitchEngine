@@ -414,6 +414,26 @@ LagCompensatedHit NetCore::LagCompensatedRaycast( const Vector3& InOrigin, const
 }
 
 
+LagCompensatedHit NetCore::PresentRaycast( const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, const EntityHandle& InShooter )
+{
+    // One recorded frame of the hitboxes as they are, judged at that frame.
+    NetLagCompensation present;
+    present.Record( GetWorld(), 0 );
+    return present.Raycast( GetWorld().GetCore<PhysicsCore>(), InOrigin, InDirection, InMaxDistance, -1.0, InShooter );
+}
+
+
+float NetCore::GetRoundTripMs( uint8_t InClient ) const
+{
+    if( m_client )
+    {
+        return m_client->GetConnection().GetStats().RoundTripMs;
+    }
+    const NetServer::Client* client = m_server ? m_server->FindClient( InClient ) : nullptr;
+    return client && client->Connection ? client->Connection->GetStats().RoundTripMs : 0.f;
+}
+
+
 void NetCore::Close( double InNow )
 {
     m_lastNow = InNow;

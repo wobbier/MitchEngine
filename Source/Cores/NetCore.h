@@ -127,7 +127,14 @@ public:
     // blocked by colliders in the present. InShooter is ignored.
     LagCompensatedHit LagCompensatedRaycast( const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, const InputCommand& InCommand,
         const EntityHandle& InShooter = EntityHandle() );
+    // The same ray against the hitboxes where they are now (a client's own view, for impact FX it
+    // predicts; offline play), with no rewind: what NET-15's Net.LagCompensatedRaycast does off
+    // the server. InShooter is ignored.
+    LagCompensatedHit PresentRaycast( const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, const EntityHandle& InShooter = EntityHandle() );
     NetLagCompensation& GetLagCompensation() { return m_lagCompensation; }
+    // Smoothed round trip in ms: a client's to its server, or the server's to one client (0
+    // without a session or before the first ack).
+    float GetRoundTripMs( uint8_t InClient = 0 ) const;
     // The tick being simulated (BeginTick to EndTick): the server's, or the client's.
     // (During a resimulation: the tick being replayed.)
     uint32_t GetTick() const { return m_predictor && m_predictor->IsResimulating() ? m_predictor->GetCommand().Tick : m_tick; }

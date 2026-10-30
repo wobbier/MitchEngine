@@ -7,7 +7,7 @@ namespace ScriptCore;
 public unsafe struct EngineAPIBindings
 {
     // The ABI both sides were generated from (C++: kScriptEngineAPIHash).
-    public const ulong AbiHash = 0x47A23E3C4C5FAAB1UL;
+    public const ulong AbiHash = 0x17023FBE0AD8B88CUL;
 
     // Core
     public delegate* unmanaged<byte*, void> Log;
@@ -392,6 +392,11 @@ public unsafe struct EngineAPIBindings
     // Input simulation (tests, replays): keys held as if pressed on top of the devices; actions read them
     public delegate* unmanaged<int, byte, void> Input_SetSimulatedKey;
     public delegate* unmanaged<void> Input_ClearSimulatedKeys;
+
+    // Lag-compensated hits (NET-15). Flags: 1 hit, 2 occluded, 4 rejected, 8 clamped, 16 rewound (the server, with the shooter's command)
+    public delegate* unmanaged<Entity, Vector3*, Vector3*, float, Entity*, Vector3*, int*, byte> Net_LagCompensatedRaycast;
+    public delegate* unmanaged<Entity, double> Net_GetCommandViewTick;
+    public delegate* unmanaged<int, float> Net_GetRoundTripMs;
 }
 
 // The sizes C++ static_asserts for the structs that cross (checked when the API is bound).

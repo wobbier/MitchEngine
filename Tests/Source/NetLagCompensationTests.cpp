@@ -378,3 +378,45 @@ TEST_CASE( "Net: at 600 ms the client extrapolates within the rewind cap; no sho
     CHECK( hits > 0 );
     CHECK( missesAwayFromReversals <= shots / 10 );
 }
+
+
+TEST_CASE( "Net: a client's present-view raycast tests its hitboxes where it shows them; round trips read on both ends (NET-15)" )
+{
+    Harness net( Link( 50.f, 0.f, 61 ), Link( 50.f, 0.f, 62 ) );
+    net.Place( 0x7A26E8 );     // the target, mirrored to the client
+    EntityHandle target;
+    EntityHandle clientTarget;
+    net.ServerWorld->ForEachEntity( [&]( Entity& InEntity ) {
+        if( InEntity.GetGUID() == 0x7A26E8 ) target = net.ServerWorld->GetEntity( InEntity.GetId() );
+    } );
+    net.ClientWorld->ForEachEntity( [&]( Entity& InEntity ) {
+        if( InEntity.GetGUID() == 0x7A26E8 ) clientTarget = net.ClientWorld->GetEntity( InEntity.GetId() );
+    } );
+    // The client's copy has its hitbox too (scenes put them on both sides).
+    NetHitbox& hitbox = clientTarget->AddComponent<NetHitbox>();
+    hitbox.Radius = 0.4f;
+    hitbox.Height = 1.8f;
+    net.ClientWorld->Simulate();
+    net.OnServerTick = [&]( NetServer& InServer ) {
+        target->GetComponent<Transform>().SetPosition( TargetAt( InServer.GetTick() ) );
+        net.ServerWorld->Simulate();
+    };
+    net.Start();
+    net.Run( 2.0 );
+
+    // Where the client shows the target now (interpolated, ~100 ms behind the server's).
+    const Vector3 muzzle( 0.f, 1.f, -10.f );
+    const Vector3 shown = clientTarget->GetComponent<Transform>().GetWorldPosition();
+    const LagCompensatedHit hit = net.ClientNet.PresentRaycast( muzzle, shown - muzzle, 100.f );
+    CHECK( hit.Hit );
+    CHECK( hit.Entity == clientTarget );
+    CHECK( hit.RewoundTicks == 0.0 );
+    CHECK_FALSE( hit.Rejected );
+    CHECK_FALSE( net.ClientNet.PresentRaycast( muzzle, shown + Vector3( 2.f, 0.f, 0.f ) - muzzle, 100.f ).Hit );
+
+    // 50 ms each way.
+    MESSAGE( "round trip: client " << net.ClientNet.GetRoundTripMs() << " ms, server to client 1 " << net.ServerNet.GetRoundTripMs( 1 ) << " ms" );
+    CHECK( net.ClientNet.GetRoundTripMs() == doctest::Approx( 100.f ).epsilon( 0.25 ) );
+    CHECK( net.ServerNet.GetRoundTripMs( 1 ) == doctest::Approx( 100.f ).epsilon( 0.25 ) );
+    CHECK( net.ServerNet.GetRoundTripMs( 9 ) == 0.f );
+}

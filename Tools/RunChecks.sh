@@ -340,7 +340,8 @@ fi
 # UDP port, a client joins it for 900 frames and leaves, and both report: connected, nobody timed
 # out, snapshots at the tick rate, a clean goodbye, then the client's capture against its reference.
 # NET-6: NetProbe.cs (the off-camera pawn) proves the C# side: an RPC each way, a replicated field,
-# and a networked Dash predicted with 0 corrections.
+# and a networked Dash predicted with 0 corrections; NET-15: the dash fires a shot the server judges
+# with Net.LagCompensatedRaycast at the owner's view, and the owner predicts it.
 if [[ -f Assets/Scenes/Tests/NetTest.lvl ]]; then
     step "Networking smoke"
     server=.build/Server_linux_Debug/Game_EntryPoint_x64
@@ -351,7 +352,8 @@ if [[ -f Assets/Scenes/Tests/NetTest.lvl ]]; then
             --wrapper "$here/Headless.sh" --scene Assets/Scenes/Tests/NetTest.lvl --reference Assets/Scenes/Tests/Reference \
             --expect-server "NetProbe: ServerRpc ok" --expect-client "NetProbe: ClientRpc ok" \
             --expect-client "NetProbe: Replicated ok" --expect-client "NetProbe: dash: 0 corrections" \
-            --expect-server "NetProbe: server dash fx #1" --expect-client "NetProbe: dash fx once"; then
+            --expect-server "NetProbe: server dash fx #1" --expect-client "NetProbe: dash fx once" \
+            --expect-server "NetProbe: lag-compensated hit" --expect-client "NetProbe: predicted hit" --expect-client "predict impacts True"; then
         failed+=("networking smoke")
     elif ! python3 "$here/RunNetSmoke.py" --server-game "$server" --client-game .build/Game_linux_Debug/Game_EntryPoint_x64 \
             --wrapper "$here/Headless.sh" --scene Assets/Scenes/Tests/NetTest.lvl --reference Assets/Scenes/Tests/Reference \

@@ -313,9 +313,14 @@ public partial class Dasher : Script
   - **The client side:** NetCore tells the replication client the oldest render tick the server will still accept (`SetMinRenderTick`: the next command's tick less the cap, less two ticks).
   - **Extrapolation:** when the interpolated view would be older than that, the render tick moves forward, up to `MaxExtrapolationSeconds` (0.25 s) past the newest sample. Remote movers then dead-reckon from their last two samples (`IsExtrapolating`). The view tick sent with commands stays what was really shown.
   - **The 600 ms doctest:** no shot rejected, 71 of 75 judged at the cap, the shown target within about 0.2 m of the server's at the view tick.
-  - **Not yet:** `Net.PredictImpacts` (C# needs an RTT binding).
+  - **Impact FX:** C#'s `Net.PredictImpacts` is false on a client whose round trip is over `Net.PredictImpactsMaxRttMs` (220 ms): draw impacts from the server's confirmation there instead of the predicted hit.
 - **Broadphase (NET-15):** `Record` keeps each hitbox's bounds swept over the rewind window. A shot only rewinds and tests the hitboxes whose swept box its ray crosses (`LagCompensatedHit::Tested`), with the same results as testing all of them. In a 200-hitbox doctest that's about 7 tested per shot. `UseBroadphase = false` turns it off for comparisons.
 - **Moving occluders (NET-15):** a `NetHitbox` with `Occluder` on (a door, a platform, the payload; give it a shape covering the collider) is recorded like any hitbox. It blocks a shot where it was at the shooter's view tick, never takes the hit, and the shot ignores its present-day colliders. A door that closed after the shooter saw it open doesn't block, and one that was closed in their view does.
+- **From C# (NET-15):** `Net.LagCompensatedRaycast( shooter, origin, direction, range )` returns a `NetHit` (`Hit`, `Entity`, `Point`, `Occluded`, `Rejected`, `Clamped`, `Rewound`).
+  - **On the server:** it is `LagCompensatedRaycast` with the shooter's current command, so `Rewound` is set. A shooter without a command is judged at the newest recorded tick.
+  - **On a client, or offline:** it is `NetCore::PresentRaycast`, the hitboxes where that peer shows them now. That is the predicted hit, for impact FX; only the server's counts.
+  - **Also exposed:** `Net.Command(e).ViewTick`, `Net.RoundTripMs` (a client's) and `Net.RoundTripMsTo(clientId)` (the server's, per client).
+  - **Not yet:** aim in the command. The direction is whatever the script computes; the command carries no yaw or pitch.
 - **Overlays:** with `DrawOverlays`, each shot draws the ray (green on a hit, red otherwise), the rewound hitboxes in yellow and the present ones in gray, for 2 s.
 
 ### UDP and dedicated servers (NET-5)
@@ -424,7 +429,8 @@ The session starts after the scene loads, because the handshake hashes the scene
     - all 50 unobstructed shots hit with rewind;
     - the other 10 were correctly blocked by a wall;
     - 2 hit without rewind, near the target's turnaround;
-    - all 60 forged views 30 ticks further back were rejected.
+    - all 60 forged views 30 ticks further back were rejected (NET-15: now judged at the cap instead).
+  - **Present view (NET-15):** a client's `PresentRaycast` hits its hitbox where it shows it, with no rewind, and misses 2 m to the side. At 50 ms each way, both ends' `GetRoundTripMs` read about 117 ms.
 - **Handshake:** another build is rejected (`"version mismatch: build"`) and the server lets it go; so is another scene (`"version mismatch: scene"`); a match connects.
 - **UDP and session endings (`NetUdpTests.cpp`):**
   - Addresses resolve (`localhost` too) and print, and malformed ones are refused.
@@ -445,6 +451,7 @@ The session starts after the scene loads, because the handshake hashes the scene
     - The client presses Dash through `Net.Press`, predicts the dash, and pings.
     - The server logs **"ServerRpc ok"**. The client logs **"ClientRpc ok"**, **"Replicated ok"** and **"dash: 0 corrections"**, only once the server-confirmed `Dashes` is 1.
     - It passes on a clean link and at 40 ms + 2% loss each way (RTT 115 ms).
+    - **NET-15:** the dash also fires a shot ahead at "NetProbe Target", a `NetHitbox`. The server logs **"lag-compensated hit"** (judged about 10 ticks back at the owner's view). The owner logs **"predicted hit"** from its present-view ray, with its RTT and **"predict impacts True"**.
 - **The NET-5 done-when (`RunNetSmoke.py`):** the Server build and a client on NetTest.lvl over localhost UDP for 900 client frames (about 15 s).
   - **Clean link:** connected, 0 timeouts, 0 resyncs, 60.06 snapshots/s at 60 Hz (±5% required). The client left cleanly and the server exited by itself. The capture matches its reference exactly (0.00%).
   - **Lossy link:** with `--net-lag 40 --net-jitter 5 --net-loss 2%` on both sides: RTT 111 ms, 59.08 snapshots/s, 0 timeouts, the same capture.

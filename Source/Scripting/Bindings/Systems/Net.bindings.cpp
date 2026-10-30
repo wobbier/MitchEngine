@@ -4,6 +4,7 @@
 #if USING( ME_SCRIPTING )
 
 #include "Cores/NetCore.h"
+#include "Cores/PhysicsCore.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "Scripting/Bindings/BindingContext.h"
@@ -19,6 +20,13 @@ namespace
         SharedPtr<World> world = ScriptBindings::GetWorld().lock();
         NetCore* net = world ? world->GetCore<NetCore>() : nullptr;
         return net && net->IsActive() ? net : nullptr;
+    }
+
+    // The script world's NetCore with or without a session (offline play raycasts the present).
+    NetCore* AnyNet()
+    {
+        SharedPtr<World> world = ScriptBindings::GetWorld().lock();
+        return world ? world->GetCore<NetCore>() : nullptr;
     }
 }
 
@@ -191,6 +199,65 @@ static void Eng_Net_GetPredictionStats( int* outCorrections, int* outMatches, in
 }
 
 
+// NET-15: the server rewinds to the view the shooter's command was sent from (a shooter without
+// one is judged now); a client, or offline play, tests the hitboxes as they are now (for FX).
+static bool Eng_Net_LagCompensatedRaycast( EntityID shooter, const Vector3* origin, const Vector3* direction, float range, EntityID* outEntity, Vector3* outPoint, int* outFlags ) noexcept
+{
+    NetCore* net = AnyNet();
+    EntityHandle shooterHandle = MakeHandle( shooter );
+    LagCompensatedHit hit;
+    bool rewound = false;
+    if( net && origin && direction )
+    {
+        InputCommand command;
+        InputCommand previous;
+        if( net->IsActive() && net->IsServer() && shooterHandle && net->GetCommand( *shooterHandle.Get(), command, previous ) )
+        {
+            hit = net->LagCompensatedRaycast( *origin, *direction, range, command, shooterHandle );
+            rewound = true;
+        }
+        else if( net->IsActive() && net->IsServer() )
+        {
+            hit = net->GetLagCompensation().Raycast( net->GetWorld().GetCore<PhysicsCore>(), *origin, *direction, range, -1.0, shooterHandle );
+        }
+        else
+        {
+            hit = net->PresentRaycast( *origin, *direction, range, shooterHandle );
+        }
+    }
+    if( outEntity )
+    {
+        *outEntity = hit.Entity ? hit.Entity->GetId() : EntityID();
+    }
+    if( outPoint )
+    {
+        *outPoint = hit.Point;
+    }
+    if( outFlags )
+    {
+        *outFlags = ( hit.Hit ? 1 : 0 ) | ( hit.Occluded ? 2 : 0 ) | ( hit.Rejected ? 4 : 0 ) | ( hit.Clamped ? 8 : 0 ) | ( rewound ? 16 : 0 );
+    }
+    return hit.Hit;
+}
+
+
+static double Eng_Net_GetCommandViewTick( EntityID id ) noexcept
+{
+    NetCore* net = Net();
+    EntityHandle entity = MakeHandle( id );
+    InputCommand command;
+    InputCommand previous;
+    return net && entity && net->GetCommand( *entity.Get(), command, previous ) ? command.ViewTick : -1.0;
+}
+
+
+static float Eng_Net_GetRoundTripMs( int clientId ) noexcept
+{
+    NetCore* net = Net();
+    return net && clientId >= 0 && clientId <= 255 ? net->GetRoundTripMs( static_cast<uint8_t>( clientId ) ) : 0.f;
+}
+
+
 void Register_NetBindings( ScriptEngineAPI& inAPI )
 {
     inAPI.Net_GetRole = &Eng_Net_GetRole;
@@ -208,6 +275,9 @@ void Register_NetBindings( ScriptEngineAPI& inAPI )
     inAPI.Net_GetNetId = &Eng_Net_GetNetId;
     inAPI.Net_FindEntity = &Eng_Net_FindEntity;
     inAPI.Net_GetPredictionStats = &Eng_Net_GetPredictionStats;
+    inAPI.Net_LagCompensatedRaycast = &Eng_Net_LagCompensatedRaycast;
+    inAPI.Net_GetCommandViewTick = &Eng_Net_GetCommandViewTick;
+    inAPI.Net_GetRoundTripMs = &Eng_Net_GetRoundTripMs;
 }
 
 #endif
