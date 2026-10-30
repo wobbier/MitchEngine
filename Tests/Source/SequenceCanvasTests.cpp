@@ -70,5 +70,41 @@ TEST_CASE( "Sequence canvas: mouse marquee selects keys across tracks and draggi
     tick( timeline.KeyPosition( 18.f, 0.f ), false, true );
     CHECK( sequence.Tracks[0].Keys[0].Frame == 15 );
     CHECK( sequence.Tracks[1].Keys[0].Frame == 15 );
+
+    // GAME-4: double-clicking the Events lane adds a marker; dragging it re-sorts the list and
+    // Escape puts it back. Keys stay where they were.
+    SequenceMarker existing;
+    existing.Frame = 30;
+    existing.Name = "Existing";
+    sequence.Markers = { existing };
+    timeline.Selected.clear();
+    const ImVec2 lane = timeline.MarkerPosition( 12.f );
+    tick( lane, false );
+    tick( lane, true );
+    tick( lane, false );
+    tick( lane, true );
+    tick( lane, false );
+    REQUIRE( sequence.Markers.size() == 2 );
+    CHECK( sequence.Markers[0].Frame == 12 );
+    CHECK( timeline.SelectedMarker == 0 );
+    tick( lane, true );
+    tick( timeline.MarkerPosition( 45.f ), true );
+    tick( timeline.MarkerPosition( 45.f ), false );
+    REQUIRE( sequence.Markers.size() == 2 );
+    CHECK( sequence.Markers[0].Name == "Existing" );
+    CHECK( sequence.Markers[1].Frame == 45 );
+    CHECK( timeline.SelectedMarker == 1 );
+    const ImVec2 dragged = timeline.MarkerPosition( 45.f );
+    tick( dragged, false );
+    tick( dragged, true );
+    tick( timeline.MarkerPosition( 5.f ), true );
+    CHECK( sequence.Markers[0].Frame == 5 );
+    io.AddKeyEvent( ImGuiKey_Escape, true );
+    tick( timeline.MarkerPosition( 5.f ), true );
+    io.AddKeyEvent( ImGuiKey_Escape, false );
+    tick( timeline.MarkerPosition( 5.f ), false );
+    CHECK( sequence.Markers[1].Frame == 45 );
+    CHECK( sequence.Markers[0].Frame == 30 );
+    CHECK( sequence.Tracks[0].Keys[0].Frame == 15 );
 }
 #endif

@@ -56,6 +56,9 @@ private:
     void DrawTrackInspector( Sequence& InSequence, EntityHandle InSelected );
     void DrawPlayerInspector( Sequence& InSequence, World& InWorld );
     void DrawClipLibrary( Sequence& InSequence );
+    void DrawEventInspector( Sequence& InSequence, EntityHandle InSelected );
+    void SetMarkerReceiver( Sequence& InSequence, SequenceMarker& InMarker, EntityHandle InTarget );
+    int m_shownMarker = -1;
     void AssignAsset( const std::string& InPath );
     bool TransportButton( const char* InIcon, const char* InTooltip );
     void DrawUnsaved();

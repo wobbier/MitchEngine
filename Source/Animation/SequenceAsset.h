@@ -16,6 +16,18 @@ public:
     std::vector<SequenceKey> Keys;
 };
 
+// A marker in a clip names its receiver by binding slot; empty is the playing entity.
+struct SequenceClipMarker
+{
+    ME_REFLECTABLE( SequenceClipMarker )
+public:
+    int Frame = 0;
+    std::string Name;
+    std::string Binding;
+    std::string Payload;
+    float Number = 0.f;
+};
+
 struct SequenceClipData
 {
     ME_REFLECTABLE( SequenceClipData )
@@ -24,6 +36,7 @@ public:
     int FrameRate = 30;
     int DurationFrames = 240;
     std::vector<SequenceClipTrack> Tracks;
+    std::vector<SequenceClipMarker> Markers;
 
     json ToJson() const;
     bool FromJson( const json& InData, std::string& OutError );

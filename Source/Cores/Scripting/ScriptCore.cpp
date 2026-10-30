@@ -13,6 +13,7 @@
 #include "Physics/PhysicsTypes.h"
 #include "Engine/Engine.h"
 #include "Components/Animation/Animator.h"
+#include "Components/Animation/Sequence.h"
 #include "Events/PlatformEvents.h"
 #include "Events/SceneEvents.h"
 #include "Input/Gamepads.h"
@@ -51,6 +52,16 @@ ScriptCore::ScriptCore()
     } );
     Listen<AnimationEvent>( [this, entityJson]( const AnimationEvent& InEvent ) {
         QueueEngineEvent( { { "Type", "Animation" }, { "Entity", entityJson( InEvent.Entity.GetID() ) }, { "State", InEvent.State }, { "Name", InEvent.Name } } );
+    } );
+    // Sequencer markers and playback notifications (GAME-4); an unbound receiver is [0, 0].
+    Listen<SequenceEvent>( [this, entityJson]( const SequenceEvent& InEvent ) {
+        if( !m_running )
+        {
+            return;
+        }
+        QueueEngineEvent( { { "Type", "Sequence" }, { "Player", entityJson( InEvent.Player.GetID() ) }, { "Receiver", entityJson( InEvent.Receiver.GetID() ) },
+            { "Kind", static_cast<int>( InEvent.Kind ) }, { "Name", InEvent.Name }, { "Payload", InEvent.Payload }, { "Number", InEvent.Number },
+            { "Frame", InEvent.Frame }, { "Clip", InEvent.Clip } } );
     } );
     // Project files edited while playing (tools builds): data assets re-read in place.
     Listen<AssetsChangedEvent>( [this]( const AssetsChangedEvent& InEvent ) {

@@ -155,7 +155,7 @@ The API is 120 functions (`ScriptAPI.def`). Strings cross as UTF-8 `byte*`, enti
 | Math | `Quaternion.Euler/ToEuler` (the engine's glm convention), `AngleAxis`, `LookRotation`, `Slerp`, `Angle`, `Inverse`, `q * q`, `q * v`; `Matrix4x4.TRS/Translate/Rotate/Scale`, `MultiplyPoint/Vector`, `Inverse`; `Color.FromHex/ToHex/FromHsv/Lerp` (sRGB↔linear); `Vector4.Dot/Lerp/Normalized`; `Rng` (PCG32, seedable: `Range`, `Chance`, `OnUnitSphere`, `Shuffle`). Tested in `Generators.Tests/MathTests.cs` |
 | Data assets | `DataAsset` subclasses in `.asset` files; `AssetRef.Load<T>()` / `DataAssets.Load<T>(path)` (cached, shared), `DataAssets.Save` (see below) |
 | Async | `await Async.Seconds(s)` / `Frames(n)` / `NextFrame()` / `Until(cond)`, `Async.Frame`; coroutines `StartCoroutine(IEnumerator)` with `WaitForSeconds` / `WaitFrames` / `WaitUntil` / `null`; `After(s, a)` / `Every(s, a)` (`Timer`); `Tween.Float` / `Vector` / `Move` with `Ease` (see below) |
-| Events | `EventBus.Publish(evt)` / `Subscribe<T>(handler)` (a disposable token) / `Unsubscribe`, `Script.On<T>(handler)`; engine events `SceneLoaded`, `AdditiveSceneChanged`, `GamepadChanged`, `PlayerChanged`, `AnimationMarker`, `WindowResized` (see below) |
+| Events | `EventBus.Publish(evt)` / `Subscribe<T>(handler)` (a disposable token) / `Unsubscribe`, `Script.On<T>(handler)`; engine events `SceneLoaded`, `AdditiveSceneChanged`, `GamepadChanged`, `PlayerChanged`, `AnimationMarker`, `SequenceEvent`, `WindowResized` (see below) |
 | Localization | `Loc.Get(key)`, `Loc.Language` (sets the player setting), `Loc.Languages` (`Docs/Localization.md`) |
 | Save games | `SaveGame.Save(slot, name)`, `Load`, `Delete`, `Exists`, `List()` (`SaveSlot`: slot, name, scene, date, playtime), `IsWriting`, `Playtime`; `[Save]` keeps a non-public field in save games (`Docs/Save-Games.md`) |
 | Settings | The player's settings (`Docs/Player-Settings.md`): `Quality` / `QualityPresets`, `GetVolume` / `SetVolume(AudioBus, v)`, `Language`, `TextScale`, `ReduceMotion`, `Rebind(action, binding, control, part)`, `GetBindingDisplay`, `ResetBindings`, the game's own `GetFloat` / `SetFloat` / `GetInt` / `GetBool` / `GetString` (and setters, under `Game.`), `GetJson` / `SetJson`, `Save`, `Reset` |
@@ -218,6 +218,7 @@ A `DataAsset` subclass (`Modules/ScriptCore/Source/Core/DataAsset.cs`) is tuning
 | `GamepadChanged(Slot, Connected, Name)` | A pad connected or left |
 | `PlayerChanged(Player, GamepadSlot, Change)` | A local player joined, lost or regained its pad |
 | `AnimationMarker(Entity, State, Name)` | An Animator passed a marker |
+| `SequenceEvent(Player, Receiver, Kind, Name, Payload, Number, Frame, Clip)` | A Sequencer marker was crossed, or playback Started / Finished / was Interrupted / Looped (GAME-4; a receiver's `ISequenceReceiver` script hears it first, see [Sequences](Sequences.md#event-markers-game-4)) |
 | `WindowResized(Size)` | The window resized |
 | `AssetsChanged(Paths)` | Project files changed while playing (tools builds; data assets re-read first) |
 

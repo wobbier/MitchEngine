@@ -8,9 +8,10 @@
 void SequenceTimeline::Reset()
 {
     Selected.clear();
+    SelectedMarker = -1;
     m_original.clear();
     m_originalSelection.clear();
-    m_box = m_drag = m_scrub = false;
+    m_box = m_drag = m_scrub = m_markerDrag = false;
     m_fit = true;
     Message.clear();
 }
@@ -19,6 +20,56 @@ void SequenceTimeline::Reset()
 ImVec2 SequenceTimeline::KeyPosition( float InFrame, float InRow ) const
 {
     return ImVec2( m_gridOrigin.x + ( InFrame - m_firstFrame ) * m_pixelsPerFrame, m_gridOrigin.y + ( InRow + 0.5f ) * m_rowHeight );
+}
+
+
+ImVec2 SequenceTimeline::MarkerPosition( float InFrame ) const
+{
+    return ImVec2( m_gridOrigin.x + ( InFrame - m_firstFrame ) * m_pixelsPerFrame, m_markerLaneY );
+}
+
+
+int SequenceTimeline::AddMarker( Sequence& InSequence, int InFrame )
+{
+    InSequence.StopPreview();
+    SequenceMarker marker;
+    marker.Frame = std::clamp( InFrame, 0, InSequence.DurationFrames );
+    int suffix = static_cast<int>( InSequence.Markers.size() ) + 1;
+    auto taken = [&]( const std::string& InName ) {
+        return std::any_of( InSequence.Markers.begin(), InSequence.Markers.end(), [&]( const SequenceMarker& m ) { return m.Name == InName; } );
+    };
+    do marker.Name = "Event " + std::to_string( suffix++ ); while( taken( marker.Name ) );
+    // After every marker already on that frame, so it fires last among them.
+    auto at = std::upper_bound( InSequence.Markers.begin(), InSequence.Markers.end(), marker.Frame, []( int f, const SequenceMarker& m ) { return f < m.Frame; } );
+    const auto inserted = InSequence.Markers.insert( at, marker );
+    SelectedMarker = static_cast<int>( inserted - InSequence.Markers.begin() );
+    Selected.clear();
+    return SelectedMarker;
+}
+
+
+bool SequenceTimeline::MoveMarker( Sequence& InSequence, int InIndex, int InFrame )
+{
+    if( InIndex < 0 || InIndex >= static_cast<int>( InSequence.Markers.size() ) ) return false;
+    InSequence.StopPreview();
+    SequenceMarker marker = InSequence.Markers[InIndex];
+    marker.Frame = std::clamp( InFrame, 0, InSequence.DurationFrames );
+    InSequence.Markers.erase( InSequence.Markers.begin() + InIndex );
+    // Keeps the list sorted; a marker dropped onto others fires after them.
+    auto at = std::upper_bound( InSequence.Markers.begin(), InSequence.Markers.end(), marker.Frame, []( int f, const SequenceMarker& m ) { return f < m.Frame; } );
+    const auto inserted = InSequence.Markers.insert( at, marker );
+    SelectedMarker = static_cast<int>( inserted - InSequence.Markers.begin() );
+    return true;
+}
+
+
+bool SequenceTimeline::DeleteMarker( Sequence& InSequence )
+{
+    if( SelectedMarker < 0 || SelectedMarker >= static_cast<int>( InSequence.Markers.size() ) ) return false;
+    InSequence.StopPreview();
+    InSequence.Markers.erase( InSequence.Markers.begin() + SelectedMarker );
+    SelectedMarker = -1;
+    return true;
 }
 
 
@@ -60,6 +111,7 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
     if( ImGui::Button( "Fit" ) ) m_fit = true;
     ImGui::SetItemTooltip( "Fit the entire clip in the timeline" );
     ImGui::SameLine();
+    if( SelectedMarker >= static_cast<int>( sequence.Markers.size() ) ) SelectedMarker = -1;
     ImGui::BeginDisabled( Selected.empty() );
     if( ImGui::Button( "<" ) ) changed |= Move( sequence, -1 );
     ImGui::SetItemTooltip( "Move selected keys one frame left" );
@@ -67,7 +119,10 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
     if( ImGui::Button( ">" ) ) changed |= Move( sequence, 1 );
     ImGui::SetItemTooltip( "Move selected keys one frame right" );
     ImGui::SameLine();
-    if( ImGui::Button( "Delete" ) ) changed |= Delete( sequence );
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    ImGui::BeginDisabled( Selected.empty() && SelectedMarker < 0 );
+    if( ImGui::Button( "Delete" ) ) changed |= Selected.empty() ? DeleteMarker( sequence ) : Delete( sequence );
     ImGui::EndDisabled();
     ImGui::SameLine();
     ImGui::SetNextItemWidth( ImGuiTheme::Em( 3.8f ) );
@@ -78,7 +133,7 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
     ImGui::TextDisabled( "Snap" );
     ImGui::SameLine();
     ImGui::TextDisabled( "(?)" );
-    ImGui::SetItemTooltip( "Box select: drag empty space\nAdd selection: Shift\nToggle key: Ctrl/Cmd-click\nMove selection: drag a selected key\nZoom: Ctrl/Cmd + wheel\nPan: middle drag\nCancel drag: Escape" );
+    ImGui::SetItemTooltip( "Box select: drag empty space\nAdd selection: Shift\nToggle key: Ctrl/Cmd-click\nMove selection: drag a selected key\nAdd event marker: double-click the Events lane\nZoom: Ctrl/Cmd + wheel\nPan: middle drag\nCancel drag: Escape" );
     if( !Message.empty() ) ImGui::TextColored( ImGuiTheme::WarningText(), "%s", Message.c_str() );
 
     ImGui::PushStyleColor( ImGuiCol_ChildBg, ImGuiTheme::ActivePalette().Recessed );
@@ -88,12 +143,15 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
     const float width = std::max( ImGui::GetContentRegionAvail().x, ImGuiTheme::Em( 6.f ) );
     const float rowHeight = ImGuiTheme::Em( 2.9f );
     const float header = ImGuiTheme::Em( 2.1f );
+    const float markerLane = ImGuiTheme::Em( 1.9f );
+    const float tracksTop = origin.y + header + markerLane;
     const float legend = std::clamp( width * 0.3f, ImGuiTheme::Em( 8.f ), ImGuiTheme::Em( 15.f ) );
     const float grid = origin.x + legend;
     const float gridWidth = std::max( width - legend - 10.f, 20.f );
-    m_gridOrigin = ImVec2( grid, origin.y + header );
+    m_gridOrigin = ImVec2( grid, tracksTop );
+    m_markerLaneY = origin.y + header + markerLane * 0.5f;
     m_rowHeight = rowHeight;
-    const float height = std::max( header + rowHeight * sequence.Tracks.size(), ImGui::GetContentRegionAvail().y );
+    const float height = std::max( header + markerLane + rowHeight * sequence.Tracks.size(), ImGui::GetContentRegionAvail().y );
     if( m_fit || m_pixelsPerFrame <= 0.f )
     {
         m_pixelsPerFrame = std::clamp( gridWidth / std::max( sequence.DurationFrames, 1 ), 0.05f, 80.f );
@@ -102,15 +160,15 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
     }
     ImGui::InvisibleButton( "##keys", ImVec2( width, height ), ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonMiddle );
     // Entering runtime can disable the canvas in the middle of a pointer gesture.
-    if( ImGui::GetItemFlags() & ImGuiItemFlags_Disabled ) m_drag = m_box = m_scrub = false;
+    if( ImGui::GetItemFlags() & ImGuiItemFlags_Disabled ) m_drag = m_box = m_scrub = m_markerDrag = false;
     const bool hovered = ImGui::IsItemHovered();
     const bool active = ImGui::IsItemActive();
     const ImGuiIO& io = ImGui::GetIO();
     const bool control = io.KeyCtrl || io.KeySuper;
     auto toFrame = [&]( float x ) { return m_firstFrame + ( x - grid ) / m_pixelsPerFrame; };
-    auto toRow = [&]( float y ) { return static_cast<int>( std::floor( ( y - origin.y - header ) / rowHeight ) ); };
+    auto toRow = [&]( float y ) { return static_cast<int>( std::floor( ( y - tracksTop ) / rowHeight ) ); };
     auto keyX = [&]( float f ) { return grid + ( f - m_firstFrame ) * m_pixelsPerFrame; };
-    auto keyY = [&]( int row ) { return origin.y + header + ( row + 0.5f ) * rowHeight; };
+    auto keyY = [&]( int row ) { return tracksTop + ( row + 0.5f ) * rowHeight; };
 
     if( hovered && control && io.MouseWheel != 0.f )
     {
@@ -129,6 +187,12 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
         for( const auto& key : sequence.Tracks[mouseRow].Keys )
             if( std::abs( io.MousePos.x - keyX( key.Frame ) ) <= hitRadius && std::abs( io.MousePos.y - keyY( mouseRow ) ) <= hitRadius ) { hit = { static_cast<size_t>( mouseRow ), key.Frame }; hasHit = true; break; }
 
+    const bool inMarkerLane = io.MousePos.y >= origin.y + header && io.MousePos.y < tracksTop;
+    int markerHit = -1;
+    if( inMarkerLane && io.MousePos.x >= grid )
+        for( int i = static_cast<int>( sequence.Markers.size() ) - 1; i >= 0 && markerHit < 0; --i )
+            if( std::abs( io.MousePos.x - keyX( static_cast<float>( sequence.Markers[i].Frame ) ) ) <= hitRadius ) markerHit = i;
+
     if( hovered && ImGui::IsMouseClicked( ImGuiMouseButton_Left ) )
     {
         Message.clear();
@@ -138,8 +202,25 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
             if( mouseRow >= 0 && mouseRow < static_cast<int>( sequence.Tracks.size() ) ) track = mouseRow;
         }
         else if( io.MousePos.y < origin.y + header ) m_scrub = true;
+        else if( inMarkerLane )
+        {
+            Selected.clear();
+            if( markerHit >= 0 )
+            {
+                SelectedMarker = markerHit;
+                m_markerDrag = true;
+                m_markerOriginal = sequence.Markers[markerHit].Frame;
+            }
+            else if( ImGui::IsMouseDoubleClicked( ImGuiMouseButton_Left ) )
+            {
+                AddMarker( sequence, static_cast<int>( std::lround( toFrame( io.MousePos.x ) / m_snap ) ) * m_snap );
+                changed = true;
+            }
+            else SelectedMarker = -1;
+        }
         else if( hasHit )
         {
+            SelectedMarker = -1;
             track = static_cast<int>( hit.Track );
             const bool selected = SequenceEditing::Contains( Selected, hit );
             if( control && selected ) Selected.erase( std::remove( Selected.begin(), Selected.end(), hit ), Selected.end() );
@@ -172,6 +253,12 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
         SelectBox( sequence, toFrame( std::min( m_start.x, io.MousePos.x ) ), toFrame( std::max( m_start.x, io.MousePos.x ) ),
             toRow( std::min( m_start.y, io.MousePos.y ) ), toRow( std::max( m_start.y, io.MousePos.y ) ), m_addBox );
     }
+    if( m_markerDrag && SelectedMarker >= 0 && ImGui::IsMouseDragging( ImGuiMouseButton_Left ) )
+    {
+        const int delta = static_cast<int>( std::lround( ( io.MousePos.x - m_start.x ) / m_pixelsPerFrame / m_snap ) ) * m_snap;
+        const int target = std::clamp( m_markerOriginal + delta, 0, sequence.DurationFrames );
+        if( sequence.Markers[SelectedMarker].Frame != target ) changed |= MoveMarker( sequence, SelectedMarker, target );
+    }
     if( m_drag && ImGui::IsMouseDragging( ImGuiMouseButton_Left ) )
     {
         int delta = static_cast<int>( std::lround( ( io.MousePos.x - m_start.x ) / m_pixelsPerFrame / m_snap ) ) * m_snap;
@@ -190,10 +277,11 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
     if( active && ImGui::IsKeyPressed( ImGuiKey_Escape, false ) )
     {
         if( m_drag ) { sequence.Tracks = m_original; changed = true; }
-        Selected = m_originalSelection;
-        m_drag = m_box = m_scrub = false;
+        if( m_markerDrag && SelectedMarker >= 0 ) changed |= MoveMarker( sequence, SelectedMarker, m_markerOriginal );
+        else Selected = m_originalSelection;
+        m_drag = m_box = m_scrub = m_markerDrag = false;
     }
-    if( !io.MouseDown[0] ) m_drag = m_box = m_scrub = false;
+    if( !io.MouseDown[0] ) m_drag = m_box = m_scrub = m_markerDrag = false;
 
     ImDrawList* draw = ImGui::GetWindowDrawList();
     const auto& palette = ImGuiTheme::ActivePalette();
@@ -205,9 +293,12 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
         return lane.Component == "Camera" ? palette.Info : lane.Property == "Rotation" ? ImVec4( 0.65f, 0.58f, 0.95f, 1.f ) :
             lane.Property == "Scale" ? palette.Success : palette.AccentText;
     };
+    draw->AddRectFilled( ImVec2( origin.x, origin.y + header ), ImVec2( origin.x + width, tracksTop ), ImGui::GetColorU32( ImGuiTheme::Mix( palette.Recessed, palette.Text, 0.05f ) ) );
+    draw->AddText( ImVec2( origin.x + inset, origin.y + header + ImGuiTheme::Em( 0.35f ) ), ImGui::GetColorU32( palette.Muted ), "EVENTS" );
+    draw->AddLine( ImVec2( origin.x, tracksTop ), ImVec2( origin.x + width, tracksTop ), ImGui::GetColorU32( ImGuiTheme::WithAlpha( palette.Muted, 0.2f ) ) );
     for( size_t row = 0; row < sequence.Tracks.size(); ++row )
     {
-        const float y = origin.y + header + row * rowHeight;
+        const float y = tracksTop + row * rowHeight;
         if( y + rowHeight < ImGui::GetWindowPos().y || y > ImGui::GetWindowPos().y + ImGui::GetWindowHeight() ) continue;
         const bool selected = static_cast<int>( row ) == track;
         const auto& lane = sequence.Tracks[row];
@@ -254,6 +345,21 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
             draw->AddQuadFilled( ImVec2( p.x, p.y - radius ), ImVec2( p.x + radius, p.y ), ImVec2( p.x, p.y + radius ), ImVec2( p.x - radius, p.y ), colour );
             if( selected ) draw->AddQuad( ImVec2( p.x, p.y - radius ), ImVec2( p.x + radius, p.y ), ImVec2( p.x, p.y + radius ), ImVec2( p.x - radius, p.y ), ImGui::GetColorU32( palette.Text ) );
         }
+    // Markers: a pennant in the lane and a faint rule down through the tracks.
+    for( int i = 0; i < static_cast<int>( sequence.Markers.size() ); ++i )
+    {
+        const SequenceMarker& marker = sequence.Markers[i];
+        const float x = keyX( static_cast<float>( marker.Frame ) );
+        if( x < grid - 8.f || x > origin.x + width + 8.f ) continue;
+        const bool selected = i == SelectedMarker;
+        const ImU32 colour = ImGui::GetColorU32( selected ? palette.Warning : palette.Info );
+        const float top = origin.y + header + ImGuiTheme::Em( 0.3f );
+        const float bottom = tracksTop - ImGuiTheme::Em( 0.3f );
+        draw->AddLine( ImVec2( x, tracksTop ), ImVec2( x, origin.y + height ), ImGui::GetColorU32( ImGuiTheme::WithAlpha( selected ? palette.Warning : palette.Info, 0.25f ) ) );
+        draw->AddLine( ImVec2( x, top ), ImVec2( x, bottom ), colour, 1.5f );
+        draw->AddTriangleFilled( ImVec2( x, top ), ImVec2( x + ImGuiTheme::Em( 0.7f ), top + ImGuiTheme::Em( 0.35f ) ), ImVec2( x, top + ImGuiTheme::Em( 0.7f ) ), colour );
+        draw->AddText( ImVec2( x + ImGuiTheme::Em( 0.85f ), top - ImGuiTheme::Em( 0.1f ) ), ImGui::GetColorU32( selected ? palette.Text : palette.Muted ), marker.Name.c_str() );
+    }
     const float playhead = keyX( static_cast<float>( frame ) );
     const ImU32 playheadColour = ImGui::GetColorU32( palette.Error );
     draw->AddLine( ImVec2( playhead, origin.y + header - 7.f ), ImVec2( playhead, origin.y + height ), playheadColour, 1.5f );
@@ -266,13 +372,21 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
         draw->AddRect( a, b, ImGui::GetColorU32( ImGuiCol_NavHighlight ) );
     }
     draw->PopClipRect();
-    if( hovered && hasHit && !m_drag && !m_box )
+    if( hovered && markerHit >= 0 && !m_markerDrag && !m_drag && !m_box )
+    {
+        const SequenceMarker& marker = sequence.Markers[markerHit];
+        const std::string receiver = marker.Target ? marker.Target->GetName() : marker.Binding.empty() ? "this player" : marker.Binding + " (unbound)";
+        ImGui::SetTooltip( "%s\nFrame %d  |  %.2f s\nReceiver: %s%s%s", marker.Name.c_str(), marker.Frame, float( marker.Frame ) / sequence.FrameRate, receiver.c_str(),
+            marker.Payload.empty() ? "" : "\nPayload: ", marker.Payload.c_str() );
+        ImGui::SetMouseCursor( ImGuiMouseCursor_ResizeEW );
+    }
+    else if( hovered && hasHit && !m_drag && !m_box )
     {
         ImGui::SetTooltip( "%s.%s\nFrame %d  |  %.2f s", sequence.Tracks[hit.Track].Component.c_str(), sequence.Tracks[hit.Track].Property.c_str(), hit.Frame, float( hit.Frame ) / sequence.FrameRate );
         ImGui::SetMouseCursor( ImGuiMouseCursor_ResizeEW );
     }
     if( sequence.Tracks.empty() )
-        draw->AddText( ImVec2( grid + inset, origin.y + header + inset ), ImGui::GetColorU32( palette.Muted ), "Add a track to begin animating" );
+        draw->AddText( ImVec2( grid + inset, tracksTop + inset ), ImGui::GetColorU32( palette.Muted ), "Add a track to begin animating" );
     ImGui::EndChild();
     return changed;
 }

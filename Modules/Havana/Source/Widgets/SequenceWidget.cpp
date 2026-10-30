@@ -3,6 +3,7 @@
 #include "Animation/SequenceAsset.h"
 #include "Editor/SequenceDocument.h"
 #include "Cores/SequenceCore.h"
+#include "Components/Scripting/ScriptComponent.h"
 #include "Editor/EditorActions.h"
 #include "Editor/EditorOperations.h"
 #include "Editor/Selection.h"
@@ -150,8 +151,13 @@ void SequenceWidget::ExecuteAction( const std::string& id )
         m_timeline.Reset();
     }
     else if( id == "Edit.SelectAll" ) m_timeline.SelectBox( *sequence, 0.f, static_cast<float>( sequence->DurationFrames ), 0, static_cast<int>( sequence->Tracks.size() ) );
-    else if( id == "Edit.Deselect" ) m_timeline.Selected.clear();
-    else if( id == "Edit.Delete" ) { const json before = EditState(); m_timeline.Delete( *sequence ); CommitEdit( before ); }
+    else if( id == "Edit.Deselect" ) { m_timeline.Selected.clear(); m_timeline.SelectedMarker = -1; }
+    else if( id == "Edit.Delete" )
+    {
+        const json before = EditState();
+        if( m_timeline.Selected.empty() ) m_timeline.DeleteMarker( *sequence ); else m_timeline.Delete( *sequence );
+        CommitEdit( before );
+    }
 }
 
 
@@ -486,9 +492,13 @@ void SequenceWidget::DrawBody()
         ImGui::TableNextColumn();
         ImGui::BeginChild( "Sequence inspector", ImVec2( 0.f, paneHeight ), ImGuiChildFlags_AlwaysUseWindowPadding );
         ImGui::BeginDisabled( runtime );
+        // Picking a marker on the canvas brings its tab forward.
+        const bool showEvents = m_timeline.SelectedMarker >= 0 && m_timeline.SelectedMarker != m_shownMarker;
+        m_shownMarker = m_timeline.SelectedMarker;
         if( ImGui::BeginTabBar( "Inspector tabs" ) )
         {
             if( ImGui::BeginTabItem( "Track" ) ) { DrawTrackInspector( *sequence, selected ); ImGui::EndTabItem(); }
+            if( ImGui::BeginTabItem( "Events", nullptr, showEvents ? ImGuiTabItemFlags_SetSelected : 0 ) ) { DrawEventInspector( *sequence, selected ); ImGui::EndTabItem(); }
             if( ImGui::BeginTabItem( "Player" ) ) { DrawPlayerInspector( *sequence, world ); ImGui::EndTabItem(); }
             if( ImGui::BeginTabItem( "Clips" ) ) { DrawClipLibrary( *sequence ); ImGui::EndTabItem(); }
             ImGui::EndTabBar();
@@ -631,6 +641,72 @@ void SequenceWidget::DrawTrackInspector( Sequence& sequence, EntityHandle select
 }
 
 
+void SequenceWidget::SetMarkerReceiver( Sequence& sequence, SequenceMarker& marker, EntityHandle target )
+{
+    sequence.StopPreview();
+    // The player itself needs no slot: every instance's own player receives it.
+    if( !target || target == m_owner ) { marker.Binding.clear(); marker.Target.Reset(); return; }
+    if( IsAsset() && !marker.Binding.empty() ) { sequence.SetBinding( marker.Binding, target ); return; }
+    marker.Target = target;
+    if( IsAsset() ) sequence.PrepareAssetBindings();
+}
+
+
+void SequenceWidget::DrawEventInspector( Sequence& sequence, EntityHandle selected )
+{
+    if( ImGui::Button( "+ Add Event at Playhead", ImVec2( -1.f, 0.f ) ) ) m_timeline.AddMarker( sequence, m_frame );
+    if( sequence.Markers.empty() )
+    {
+        ImGuiTheme::SectionGap();
+        ImGui::TextWrapped( "Events call scripts when playback passes them: a door opening on a beat, a line of dialogue, a camera shake. Double-click the Events lane to add one." );
+    }
+    if( ImGui::BeginListBox( "##Events", ImVec2( -1.f, std::min( ImGuiTheme::Em( 8.f ), ImGui::GetFrameHeightWithSpacing() * ( sequence.Markers.size() + 0.5f ) ) ) ) )
+    {
+        for( int i = 0; i < static_cast<int>( sequence.Markers.size() ); ++i )
+        {
+            ImGui::PushID( i );
+            const std::string label = std::to_string( sequence.Markers[i].Frame ) + "  " + sequence.Markers[i].Name;
+            if( ImGui::Selectable( label.c_str(), i == m_timeline.SelectedMarker ) ) { m_timeline.SelectedMarker = i; m_timeline.Selected.clear(); }
+            ImGui::PopID();
+        }
+        ImGui::EndListBox();
+    }
+    const int index = m_timeline.SelectedMarker;
+    if( index < 0 || index >= static_cast<int>( sequence.Markers.size() ) ) return;
+    SequenceMarker& marker = sequence.Markers[index];
+    ImGui::SeparatorText( "Event" );
+    ImGui::TextDisabled( "Name" ); ImGui::SetNextItemWidth( -1.f );
+    if( ImGui::InputText( "##Event name", &marker.Name ) ) sequence.StopPreview();
+    if( marker.Name.empty() ) ImGui::TextColored( ImGuiTheme::WarningText(), "Name the event so receivers can tell it apart." );
+    int frame = marker.Frame;
+    ImGui::SetNextItemWidth( ImGuiTheme::Em( 5.f ) );
+    if( ImGui::DragInt( "Frame", &frame, 1.f, 0, sequence.DurationFrames, "%d f", ImGuiSliderFlags_AlwaysClamp ) ) { m_timeline.MoveMarker( sequence, index, frame ); return; }
+    ImGui::TextDisabled( "Receiver" );
+    EntityHandle target = marker.Target ? marker.Target : marker.Binding.empty() ? m_owner : EntityHandle();
+    const EntityHandle old = target;
+    ImGui::SetNextItemWidth( -1.f );
+    if( m_owner ) TargetPicker( "##Receiver", target, EditorOps::GetWorld() );
+    if( target != old ) SetMarkerReceiver( sequence, marker, target );
+    if( m_owner && selected && selected != target && ImGui::SmallButton( "Use selected object" ) ) SetMarkerReceiver( sequence, marker, selected );
+    if( !marker.Binding.empty() ) ImGui::TextDisabled( "Slot: %s", marker.Binding.c_str() );
+    const EntityHandle receiver = marker.ResolveReceiver( m_owner );
+    if( !marker.Binding.empty() && !marker.Target ) ImGui::TextColored( ImGuiTheme::WarningText(), "Slot %s isn't bound on this player: only EventBus subscribers hear it.", marker.Binding.c_str() );
+    else if( receiver && !receiver->HasComponent<ScriptComponent>() ) ImGui::TextColored( ImGuiTheme::WarningText(), "%s has no script: only EventBus subscribers hear it.", receiver->GetName().c_str() );
+    ImGui::TextDisabled( "Payload" ); ImGui::SetNextItemWidth( -1.f );
+    ImGui::InputText( "##Payload", &marker.Payload );
+    ImGui::SetItemTooltip( "Text passed to the receiver (SequenceEvent.Payload)" );
+    ImGui::SetNextItemWidth( ImGuiTheme::Em( 5.f ) );
+    ImGui::DragFloat( "Number", &marker.Number, 0.1f, 0.f, 0.f, "%.2f" );
+    ImGui::SetItemTooltip( "A number passed to the receiver (SequenceEvent.Number)" );
+    if( ImGui::Button( "Delete Event" ) ) { m_timeline.DeleteMarker( sequence ); return; }
+    ImGuiTheme::SectionGap();
+    ImGui::TextDisabled( "C# (on the receiver)" );
+    ImGui::TextUnformatted( "class Door : Script, ISequenceReceiver" );
+    ImGui::TextUnformatted( "  public void OnSequenceEvent(SequenceEvent e)" );
+    ImGui::TextUnformatted( "  { if (e.Name == \"Open\") ... }" );
+}
+
+
 void SequenceWidget::DrawPlayerInspector( Sequence& sequence, World& world )
 {
     ImGui::SeparatorText( "Clip settings" );
@@ -745,6 +821,90 @@ bool SequenceWidget::ExecuteAutomation( const std::string& command, const std::s
     if( command == "seq-move-keys" ) { int delta; if( !( input >> delta ) ) return false; const json before = EditState(); if( !m_timeline.Move( *sequence, delta ) ) { error = m_timeline.Message; return false; } CommitEdit( before ); return true; }
     if( command == "seq-delete-keys" ) { const json before = EditState(); m_timeline.Delete( *sequence ); CommitEdit( before ); return true; }
     if( command == "seq-length" ) { int length; if( !( input >> length ) ) return false; const json before = EditState(); sequence->DurationFrames = length; CommitEdit( before ); return true; }
+    // Event markers: "|"-separated fields, so names and payloads may contain spaces.
+    if( command.rfind( "seq-", 0 ) == 0 && command.find( "marker" ) != std::string::npos )
+    {
+        std::vector<std::string> fields;
+        for( size_t start = 0;; )
+        {
+            const size_t bar = args.find( '|', start );
+            std::string field = args.substr( start, bar == std::string::npos ? std::string::npos : bar - start );
+            field.erase( 0, field.find_first_not_of( " \t" ) );
+            field.erase( field.find_last_not_of( " \t" ) + 1 );
+            fields.push_back( field );
+            if( bar == std::string::npos ) break;
+            start = bar + 1;
+        }
+        auto number = [&]( size_t i, int fallback ) { return i < fields.size() && !fields[i].empty() ? std::atoi( fields[i].c_str() ) : fallback; };
+        auto marker = [&]( size_t i ) -> SequenceMarker* {
+            const int index = number( i, -1 );
+            if( index < 0 || index >= static_cast<int>( sequence->Markers.size() ) ) { error = "No event marker " + std::to_string( index ); return nullptr; }
+            return &sequence->Markers[index];
+        };
+        const json before = EditState();
+        // seq-add-marker frame | name [| payload [| number]]
+        if( command == "seq-add-marker" )
+        {
+            if( fields.size() < 2 || fields[1].empty() ) { error = "seq-add-marker frame | name [| payload [| number]]"; return false; }
+            SequenceMarker& added = sequence->Markers[m_timeline.AddMarker( *sequence, number( 0, 0 ) )];
+            added.Name = fields[1];
+            if( fields.size() > 2 ) added.Payload = fields[2];
+            if( fields.size() > 3 ) added.Number = static_cast<float>( std::atof( fields[3].c_str() ) );
+            CommitEdit( before );
+            return true;
+        }
+        // seq-move-marker index | frame
+        if( command == "seq-move-marker" )
+        {
+            if( !marker( 0 ) ) return false;
+            m_timeline.MoveMarker( *sequence, number( 0, 0 ), number( 1, 0 ) );
+            CommitEdit( before );
+            return true;
+        }
+        if( command == "seq-delete-marker" )
+        {
+            if( !marker( 0 ) ) return false;
+            m_timeline.SelectedMarker = number( 0, 0 );
+            m_timeline.DeleteMarker( *sequence );
+            CommitEdit( before );
+            return true;
+        }
+        // seq-marker-receiver index | entity name (empty: the player)
+        if( command == "seq-marker-receiver" )
+        {
+            SequenceMarker* found = marker( 0 );
+            if( !found ) return false;
+            EntityHandle target;
+            const std::string name = fields.size() > 1 ? fields[1] : std::string();
+            if( !name.empty() )
+            {
+                EditorOps::GetWorld().ForEachEntity( [&]( Entity& entity ) { if( !target && entity.GetName() == name ) target = entity.GetHandle(); } );
+                if( !target ) { error = "No entity named " + name; return false; }
+            }
+            SetMarkerReceiver( *sequence, *found, target );
+            CommitEdit( before );
+            return true;
+        }
+        // seq-assert-marker index | frame | name [| receiver name]
+        if( command == "seq-assert-marker" )
+        {
+            const SequenceMarker* found = marker( 0 );
+            if( !found ) return false;
+            const EntityHandle receiver = found->ResolveReceiver( m_owner );
+            const std::string receiverName = receiver ? receiver->GetName() : std::string( "<unbound>" );
+            if( found->Frame != number( 1, -1 ) || ( fields.size() > 2 && found->Name != fields[2] ) || ( fields.size() > 3 && receiverName != fields[3] ) )
+            {
+                error = "Event marker is " + std::to_string( found->Frame ) + " | " + found->Name + " | " + receiverName;
+                return false;
+            }
+            return true;
+        }
+        if( command == "seq-assert-marker-count" )
+        {
+            if( static_cast<int>( sequence->Markers.size() ) != number( 0, -1 ) ) { error = "There are " + std::to_string( sequence->Markers.size() ) + " event markers"; return false; }
+            return true;
+        }
+    }
     if( command == "seq-assert-key" || command == "seq-assert-no-key" )
     {
         size_t row; int frame;

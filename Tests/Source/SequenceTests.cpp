@@ -4,6 +4,7 @@
 #include "Components/Transform.h"
 #include "Cores/SequenceCore.h"
 #include "Engine/World.h"
+#include "Events/EventReceiver.h"
 #include "World/SceneSerializer.h"
 #include <algorithm>
 #include <cmath>
@@ -409,4 +410,139 @@ TEST_CASE( "Sequence: focal length interpolation pairs with linear motion and re
     fov.Keys[1].Value.x = endFov;
     fov.Property = "Near";
     CHECK_FALSE( fov.Apply( 15.f ) );
+}
+
+
+namespace
+{
+    // Markers by name, notifications by kind.
+    struct SequenceLog
+        : public EventReceiver
+    {
+        SequenceLog()
+        {
+            Listen<SequenceEvent>( [this]( const SequenceEvent& InEvent ) {
+                static const char* kinds[] = { "Marker", "Started", "Finished", "Interrupted", "Looped" };
+                Entries.push_back( InEvent.Kind == SequenceEventKind::Marker ? InEvent.Name : kinds[static_cast<int>( InEvent.Kind )] );
+                Events.push_back( InEvent );
+            } );
+        }
+
+        std::vector<std::string> Entries;
+        std::vector<SequenceEvent> Events;
+    };
+
+    void AddMarker( Sequence& InSequence, int InFrame, const std::string& InName )
+    {
+        SequenceMarker marker;
+        marker.Frame = InFrame;
+        marker.Name = InName;
+        InSequence.Markers.push_back( marker );
+        InSequence.OnPropertyChanged( "Markers" );
+    }
+}
+
+
+TEST_CASE( "Sequence markers: each crossing fires once, in frame then list order, at any frame rate" )
+{
+    using Log = std::vector<std::string>;
+    const Log expected = { "Started", "Start", "Mid", "Mid 2", "End", "Finished" };
+    for( float step : { 1.f / 120.f, 1.f / 7.f, 5.f } )
+    {
+        Rig rig;
+        SequenceLog log;
+        AddMarker( rig.Clip(), 30, "Mid" );
+        AddMarker( rig.Clip(), 60, "End" );
+        AddMarker( rig.Clip(), 0, "Start" );
+        AddMarker( rig.Clip(), 30, "Mid 2" );
+        rig.GameWorld->Start();
+        for( float time = 0.f; time < 3.f; time += step ) rig.Core.Advance( step );
+        CHECK( log.Entries == expected );
+        REQUIRE( log.Events.size() == expected.size() );
+        CHECK( log.Events[1].Receiver == rig.Object );
+        CHECK( log.Events[1].Player == rig.Object );
+        CHECK( log.Events[2].Frame == 30 );
+    }
+}
+
+
+TEST_CASE( "Sequence markers: loops fire every lap with Looped between laps, stepped or in one hitch" )
+{
+    const std::vector<std::string> expected = { "Started", "A", "B", "Looped", "A", "B", "Looped", "A" };
+    for( int steps : { 1, 270 } )
+    {
+        Rig rig;
+        SequenceLog log;
+        rig.Clip().Loop = true;
+        AddMarker( rig.Clip(), 0, "A" );
+        AddMarker( rig.Clip(), 60, "B" );
+        rig.GameWorld->Start();
+        for( int i = 0; i < steps; ++i ) rig.Core.Advance( 4.5f / steps );
+        CHECK( log.Entries == expected );
+    }
+}
+
+
+TEST_CASE( "Sequence markers: seek, pause and preview never fire; stop and restart interrupt" )
+{
+    {
+        Rig rig;
+        SequenceLog log;
+        AddMarker( rig.Clip(), 30, "Mid" );
+        AddMarker( rig.Clip(), 45, "Late" );
+        rig.GameWorld->Start();
+        rig.Core.Advance( 0.5f );
+        rig.Clip().Seek( 1.f );                     // onto Mid: it is not crossed
+        rig.Core.Advance( 0.1f );
+        rig.Clip().Pause();
+        rig.Core.Advance( 1.f );
+        rig.Clip().Play( false );                   // a resume, not a start
+        rig.Core.Advance( 0.5f );                   // crosses Late (1.5 s)
+        rig.Clip().Play();                          // restart while playing
+        rig.Core.Advance( 0.1f );
+        rig.Clip().Stop();
+        rig.Clip().Stop();                          // already stopped: nothing
+        CHECK( log.Entries == std::vector<std::string>{ "Started", "Late", "Interrupted", "Started", "Interrupted" } );
+    }
+    {
+        Rig rig;
+        SequenceLog log;
+        AddMarker( rig.Clip(), 30, "Mid" );
+        rig.Clip().StartPreview( 0.f, true );
+        rig.Core.UpdatePreviews( 3.f );
+        rig.Clip().StopPreview();
+        CHECK( log.Entries.empty() );
+    }
+}
+
+
+TEST_CASE( "Sequence markers: receivers resolve targets and bindings; unbound slots have none" )
+{
+    Rig rig;
+    SequenceLog log;
+    EntityHandle door = rig.GameWorld->CreateEntity( "Door" );
+    door->AddComponent<Transform>();
+    SequenceMarker open;
+    open.Frame = 10;
+    open.Name = "Open";
+    open.Target = door;
+    open.Payload = "fast";
+    open.Number = 2.5f;
+    SequenceMarker slot;
+    slot.Frame = 20;
+    slot.Name = "Slot";
+    slot.Binding = "Lamp";
+    rig.Clip().Markers = { open, slot };
+    rig.Clip().ResolveBindings();
+    rig.GameWorld->Start();
+    rig.Core.Advance( 1.f );
+    REQUIRE( log.Events.size() == 3 );
+    CHECK( log.Events[1].Receiver == door );
+    CHECK( log.Events[1].Payload == "fast" );
+    CHECK( log.Events[1].Number == doctest::Approx( 2.5f ) );
+    CHECK_FALSE( log.Events[2].Receiver );
+    rig.Clip().SetBinding( "Lamp", door );
+    rig.Clip().Play();
+    rig.Core.Advance( 1.f );
+    CHECK( log.Events.back().Receiver == door );
 }

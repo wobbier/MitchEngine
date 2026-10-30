@@ -1,6 +1,7 @@
 #pragma once
 #include "ECS/Component.h"
 #include "ECS/ComponentDetail.h"
+#include "Events/Event.h"
 
 enum class SequenceInterpolation { Linear, SmoothStep, Hold, FocalLength, SmoothFocalLength };
 class SequenceResource;
@@ -45,6 +46,48 @@ public:
     EntityHandle Target;
 };
 
+// A named moment for gameplay (GAME-4). Runtime playback fires it once each time it crosses the
+// marker's frame: a SequenceEvent natively, and SequenceEvent / ISequenceReceiver in C#.
+struct SequenceMarker
+{
+    ME_REFLECTABLE( SequenceMarker )
+public:
+    int Frame = 0;
+    std::string Name;
+    // The receiving object. Clip assets name a binding slot; with neither, it's the player itself.
+    EntityHandle Target;
+    std::string Binding;
+    // Free-form arguments for the receiver.
+    std::string Payload;
+    float Number = 0.f;
+
+    // An unbound slot has no receiver: the event still reaches EventBus subscribers.
+    EntityHandle ResolveReceiver( const EntityHandle& InPlayer ) const { return Target ? Target : Binding.empty() ? InPlayer : EntityHandle(); }
+};
+
+enum class SequenceEventKind { Marker, Started, Finished, Interrupted, Looped };
+
+// Fired synchronously from the sequence's update (ScriptCore queues it for C#). Notifications
+// (Started, Finished, Interrupted, Looped) are sent to the player's own entity.
+class SequenceEvent
+    : public Event<SequenceEvent>
+{
+public:
+    SequenceEvent()
+        : Event()
+    {
+    }
+
+    EntityHandle Player;
+    EntityHandle Receiver;
+    SequenceEventKind Kind = SequenceEventKind::Marker;
+    std::string Name;
+    std::string Payload;
+    float Number = 0.f;
+    int Frame = 0;
+    std::string Clip;
+};
+
 struct SequenceClipEntry
 {
     ME_REFLECTABLE( SequenceClipEntry )
@@ -68,6 +111,8 @@ public:
     bool Loop = false;
     float Speed = 1.f;
     std::vector<SequenceTrack> Tracks;
+    // Kept sorted by frame; simultaneous markers fire in list order.
+    std::vector<SequenceMarker> Markers;
     std::string Clip;
     std::vector<SequenceBinding> Bindings;
     std::vector<SequenceClipEntry> Clips;
@@ -88,7 +133,9 @@ public:
     const std::string& GetActiveClipPath() const { return m_activeClip.empty() ? Clip : m_activeClip; }
     void Pause();
     // Stop rewinds and applies the first frame. A completed sequence holds its last frame.
+    // Stopping (or replacing) running playback sends Interrupted; Pause sends nothing.
     void Stop();
+    // Seeking never fires markers: playback continues from the new time.
     void Seek( float InSeconds );
     bool IsPlaying() const { return m_playing; }
     float GetTime() const { return static_cast<float>( m_time ); }
@@ -128,7 +175,12 @@ private:
     std::string m_clipError;
     uint32_t m_clipVersion = 0;
     std::string m_activeClip;
+    // Markers fire for times in (m_markerTime, now]; Play from the start puts it just before 0.
+    double m_markerTime = 0.;
     void Advance( float InDeltaSeconds );
+    void FireMarkers( double InFrom, double InTo );
+    void Notify( SequenceEventKind InKind ) const;
+    void SortMarkers();
     void OnDeserialize( const json& InJson ) override;
     void OnSerialize( json& OutJson ) override;
 };

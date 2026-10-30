@@ -56,7 +56,7 @@ Camera examples include FieldOfView, OrthographicSize, Near/Far, ClearColor, Vie
 ProceduralSky.CloudCoverage. Scalars use `Value.x`; vectors/quaternions use their xy/xyz/xyzw
 components. Keys use float precision. Reflected scalar ranges and component property-change
 callbacks apply when sampling. Unsupported fields and missing/inactive/disabled targets are
-skipped. Arrays, discrete enum/bool tracks, events and blending between sequences are future work.
+skipped. Arrays, discrete enum/bool tracks and blending between sequences are future work.
 
 Player binding targets serialize as GUIDs and remap with prefabs/duplication. Runtime bindings resolve
 on each sample, so removed components/entities cannot leave cached pointers behind. The engine
@@ -98,6 +98,56 @@ sequence.SetBinding( "Camera", camera );
 bool started = sequence.PlayClip( "DollyZoom" );
 ```
 
+## Event markers (GAME-4)
+
+The **Events** lane above the tracks holds named markers for gameplay: a door opening on a beat,
+a line of dialogue, a camera shake. Double-click the lane (or **Events > Add Event at Playhead**)
+to add one, drag a pennant to move it (snapping, Escape cancels), and edit it in the **Events**
+tab: name, frame, **receiver** object, a text **Payload** and a **Number**. With no receiver, the
+event goes to the player itself. In a clip asset a receiver is a binding slot like a track's
+(choosing an object makes the slot, and each player binds it); the tab warns when the slot is
+unbound on this player, or when the receiver has no script.
+
+Runtime playback fires each marker once per crossing, for times in (last time, now]: at any frame
+rate and on a single long hitch (up to 8 laps of a short loop at once). Simultaneous markers fire
+in list order, which stays sorted by frame (a marker moved onto a frame fires after the ones
+already there). Play from the start fires frame-0 markers; a marker on the final frame fires
+before Finished. Seeking, Pause and editor previews never fire markers; a resume continues from
+where playback stopped. Speed can't be negative, so there is no reverse playback to define.
+
+Playback notifications go to the player's entity: **Started** (Play from the start, or a
+restart), **Finished** (a non-looping sequence reaching its end), **Interrupted** (Stop, a
+restart or another clip while playing) and **Looped** (between laps, after that lap's markers).
+Pause sends nothing.
+
+Natively each one is a `SequenceEvent` (`Listen<SequenceEvent>`), fired during `SequenceCore`'s
+update. C# gets them before that frame's `OnUpdate` (the engine-event queue, like animation
+markers): first the receiver's script, if it implements `ISequenceReceiver`, then the EventBus.
+
+```csharp
+public class Door : Script, ISequenceReceiver
+{
+    public void OnSequenceEvent(SequenceEvent e)
+    {
+        if (e.Kind == SequenceEventKind.Marker && e.Name == "Open") Open(e.Payload == "fast" ? e.Number : 1f);
+    }
+}
+
+// Or from anywhere: this player's markers and notifications (gone with the script, or Dispose).
+GetComponent<Sequence>().OnEvent(e => { if (e.Kind == SequenceEventKind.Finished) StartGameplay(); });
+EventBus.Subscribe<SequenceEvent>(e => ...);   // every player's
+```
+
+`SequenceEvent` carries `Player`, `Receiver` (`Entity.Null` for an unbound slot), `Kind`, `Name`
+(the marker's, or the sequence's for notifications), `Payload`, `Number`, `Frame` and `Clip`.
+Markers are saved with the animation: in the scene for an embedded sequence, in the `.sequence`
+asset (as `Markers`, receivers by slot) for a clip. Older assets without markers still load.
+`SequenceEventsTest.lvl` + `SequenceEventFlows.edscript` author markers with `seq-add-marker`,
+`seq-move-marker`, `seq-marker-receiver`, `seq-delete-marker` and `seq-assert-marker`, then play
+and check what `SequenceEventProbe.cs` heard.
+
+## Clip playback rules
+
 Switching to a different asset starts it at frame zero, including when `restart` is false.
 Requesting the same asset with `restart: false` resumes its current time. Missing/duplicate names,
 empty paths and assets that cannot load return false without interrupting existing playback.
@@ -129,7 +179,8 @@ The generator `Tools/CameraSequences.py` calculates compensated endpoints from t
 
 Validation lives in `Tests/Source/SequenceTests.cpp` and
 `Tests/Source/SequenceAssetTests.cpp`, `Tests/Source/SequenceCanvasTests.cpp`, and the managed
-`Assets/Scripts/Tests/SequenceClipProbe.cs`, plus `Assets/Scenes/Tests/SequenceFlows.edscript`
-(run via `Tools/RunEditorFlows.py --only Sequence`).
+`Assets/Scripts/Tests/SequenceClipProbe.cs`, `Generators.Tests/SequenceEventTests.cs`, plus
+`Assets/Scenes/Tests/SequenceFlows.edscript` and `SequenceEventFlows.edscript` (run via
+`Tools/RunEditorFlows.py --only Sequence`).
 
 The proposed next steps and C# event semantics are in [Sequencer roadmap](Sequencer-Roadmap.md).

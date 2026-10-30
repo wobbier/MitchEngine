@@ -21,6 +21,7 @@ void SequenceCore::OnStart()
         sequence.m_initialized = false;
         sequence.m_playing = false;
         sequence.m_time = 0.;
+        sequence.m_markerTime = 0.;
     }
 }
 

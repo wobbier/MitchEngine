@@ -50,12 +50,18 @@ public static class EventBus
 
     public static int SubscriberCount<T>() => Handlers.TryGetValue(typeof(T), out var list) ? list.Count : 0;
 
-    // A destroyed script's handlers (delegates whose target is it).
+    // A wrapper handler (a filter) that belongs to the script its inner delegate targets.
+    internal interface IOwnedHandler
+    {
+        object? Owner { get; }
+    }
+
+    // A destroyed script's handlers (delegates whose target is it, or a wrapper it owns).
     internal static void RemoveTarget(object target)
     {
         foreach (var list in Handlers.Values)
         {
-            list.RemoveAll(d => ReferenceEquals(d.Target, target));
+            list.RemoveAll(d => ReferenceEquals(d.Target, target) || (d.Target is IOwnedHandler owned && ReferenceEquals(owned.Owner, target)));
         }
     }
 
@@ -80,6 +86,18 @@ public static class EventBus
                     Publish(new AnimationMarker(new Entity(id[0].GetUInt32(), id[1].GetUInt32()), Text(e, "State"), Text(e, "Name")));
                     break;
                 }
+                case "Sequence":
+                {
+                    var e2 = new SequenceEvent(EntityOf(e, "Player"), EntityOf(e, "Receiver"), (SequenceEventKind)Int(e, "Kind"), Text(e, "Name"), Text(e, "Payload"),
+                        e.TryGetProperty("Number", out var n) && n.ValueKind == JsonValueKind.Number ? n.GetSingle() : 0f, Int(e, "Frame"), Text(e, "Clip"));
+                    if (!e2.Receiver.Equals(Entity.Null) && ScriptBridge.FindScript<ISequenceReceiver>(e2.Receiver) is { } receiver)
+                    {
+                        try { receiver.OnSequenceEvent(e2); }
+                        catch (Exception ex) { ScriptBridge.ReportHandlerException(nameof(ISequenceReceiver), ex); }
+                    }
+                    Publish(e2);
+                    break;
+                }
                 case "AssetsChanged":
                 {
                     var paths = new List<string>();
@@ -98,6 +116,11 @@ public static class EventBus
         }
     }
 
+    private static Entity EntityOf(JsonElement e, string key)
+    {
+        if (!e.TryGetProperty(key, out var id) || id.ValueKind != JsonValueKind.Array || id.GetArrayLength() != 2) return Entity.Null;
+        return new Entity(id[0].GetUInt32(), id[1].GetUInt32());
+    }
     private static string Text(JsonElement e, string key) => e.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
     private static int Int(JsonElement e, string key) => e.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt32() : 0;
     private static bool Bool(JsonElement e, string key) => e.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.True;

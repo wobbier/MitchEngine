@@ -16,11 +16,20 @@ ME_REFLECT_BEGIN( SequenceClipTrack )
     ME_FIELD( Keys );
 ME_REFLECT_END()
 
+ME_REFLECT_BEGIN( SequenceClipMarker )
+    ME_FIELD( Frame );
+    ME_FIELD( Name );
+    ME_FIELD( Binding );
+    ME_FIELD( Payload );
+    ME_FIELD( Number );
+ME_REFLECT_END()
+
 ME_REFLECT_BEGIN( SequenceClipData )
     ME_FIELD( Name );
     ME_FIELD( FrameRate );
     ME_FIELD( DurationFrames );
     ME_FIELD( Tracks );
+    ME_FIELD( Markers );
 ME_REFLECT_END()
 
 
@@ -61,9 +70,22 @@ bool SequenceClipData::FromJson( const json& InData, std::string& OutError )
             if( mode != "Linear" && mode != "SmoothStep" && mode != "Hold" && mode != "FocalLength" && mode != "SmoothFocalLength" ) return fail( "Unknown key interpolation" );
         }
     }
+    // Markers (GAME-4) are optional: older clips have none.
+    if( InData.contains( "Markers" ) )
+    {
+        if( !InData["Markers"].is_array() ) return fail( "Markers must be an array" );
+        for( const auto& marker : InData["Markers"] )
+        {
+            if( !marker.is_object() || marker.contains( "Target" ) ) return fail( "Clip markers use named bindings, not entity GUIDs" );
+            if( !marker.contains( "Frame" ) || !marker["Frame"].is_number_integer() || marker["Frame"].get<double>() < 0. || marker["Frame"].get<double>() > duration ) return fail( "Marker outside clip duration" );
+            if( !marker.contains( "Name" ) || !marker["Name"].is_string() || marker["Name"].get<std::string>().empty() ) return fail( "A marker needs a name" );
+            if( marker.contains( "Number" ) && ( !marker["Number"].is_number() || !std::isfinite( marker["Number"].get<double>() ) ) ) return fail( "Invalid marker number" );
+        }
+    }
     SequenceClipData parsed;
     Reflection::FromJson( StaticType(), &parsed, InData );
     for( auto& track : parsed.Tracks ) std::sort( track.Keys.begin(), track.Keys.end(), []( const SequenceKey& a, const SequenceKey& b ) { return a.Frame < b.Frame; } );
+    std::stable_sort( parsed.Markers.begin(), parsed.Markers.end(), []( const SequenceClipMarker& a, const SequenceClipMarker& b ) { return a.Frame < b.Frame; } );
     *this = std::move( parsed );
     return true;
 }
@@ -102,6 +124,8 @@ std::vector<std::string> SequenceClipData::GetSlots() const
     std::vector<std::string> slots;
     for( const auto& track : Tracks )
         if( std::find( slots.begin(), slots.end(), track.Binding ) == slots.end() ) slots.push_back( track.Binding );
+    for( const auto& marker : Markers )
+        if( !marker.Binding.empty() && std::find( slots.begin(), slots.end(), marker.Binding ) == slots.end() ) slots.push_back( marker.Binding );
     return slots;
 }
 
@@ -113,6 +137,7 @@ SequenceClipData SequenceClipData::Capture( const Sequence& InSequence )
     data.FrameRate = InSequence.FrameRate;
     data.DurationFrames = InSequence.DurationFrames;
     for( const auto& track : InSequence.Tracks ) data.Tracks.push_back( { track.Binding, track.Component, track.Property, track.Enabled, track.Keys } );
+    for( const auto& marker : InSequence.Markers ) data.Markers.push_back( { marker.Frame, marker.Name, marker.Binding, marker.Payload, marker.Number } );
     return data;
 }
 
@@ -133,6 +158,17 @@ void SequenceClipData::Apply( Sequence& InSequence ) const
         track.Enabled = source.Enabled;
         track.Keys = source.Keys;
         InSequence.Tracks.push_back( std::move( track ) );
+    }
+    InSequence.Markers.clear();
+    for( const auto& source : Markers )
+    {
+        SequenceMarker marker;
+        marker.Frame = source.Frame;
+        marker.Name = source.Name;
+        marker.Binding = source.Binding;
+        marker.Payload = source.Payload;
+        marker.Number = source.Number;
+        InSequence.Markers.push_back( std::move( marker ) );
     }
     InSequence.ResolveBindings();
 }

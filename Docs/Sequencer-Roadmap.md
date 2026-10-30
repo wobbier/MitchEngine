@@ -23,7 +23,8 @@ collision protection, snapping, deletion, nudging, zoom and pan. The next milest
    changes only when explicitly armed, and a recording take should create one undo operation.
    Draw motion paths and camera frustums in the scene. Add relative-to-start/additive transform
    modes so a clip can play at another object's starting pose.
-3. **C# event markers.** Add a dedicated event lane containing a receiver binding, event name and
+3. **C# event markers.** *Done (GAME-4): see [Sequences](Sequences.md#event-markers-game-4). The
+   original plan follows.* Add a dedicated event lane containing a receiver binding, event name and
    typed payload. Prefer a typed `OnSequenceEvent(SequenceEvent e)` callback / registered handlers
    with editor validation over arbitrary method-name invocation. Fire events crossed during
    runtime playback exactly once per crossing, including low FPS and loop wrap; define ordering

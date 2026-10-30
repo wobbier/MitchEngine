@@ -32,6 +32,15 @@ ME_REFLECT_BEGIN( SequenceBinding )
     ME_FIELD( Target );
 ME_REFLECT_END()
 
+ME_REFLECT_BEGIN( SequenceMarker )
+    ME_FIELD( Frame );
+    ME_FIELD( Name );
+    ME_FIELD( Target );
+    ME_FIELD( Binding );
+    ME_FIELD( Payload );
+    ME_FIELD( Number );
+ME_REFLECT_END()
+
 ME_REFLECT_BEGIN( SequenceClipEntry )
     ME_FIELD( Name );
     ME_FIELD( Clip ).Asset( "Sequence" );
@@ -48,6 +57,7 @@ ME_REFLECT_BEGIN( Sequence )
     ME_FIELD( Loop );
     ME_FIELD( Speed ).Range( 0.f, 16.f );
     ME_FIELD( Tracks ).CustomInspector();
+    ME_FIELD( Markers ).CustomInspector();
 ME_REFLECT_END()
 
 namespace
@@ -264,8 +274,17 @@ void Sequence::Play( bool InRestart )
 {
     if( !RefreshClip() ) return;
     m_initialized = true;
-    if( InRestart || m_time >= GetDuration() ) m_time = 0.;
+    const bool restart = InRestart || m_time >= GetDuration();
+    if( restart && m_playing ) Notify( SequenceEventKind::Interrupted );
+    if( restart ) m_time = 0.;
+    // A resume after Pause continues; playback from the start fires the markers on frame 0.
+    const bool starting = restart || ( !m_playing && m_time <= 0. );
     m_playing = true;
+    if( starting )
+    {
+        m_markerTime = -1.;
+        Notify( SequenceEventKind::Started );
+    }
     Apply( GetFrame() );
 }
 
@@ -300,6 +319,8 @@ bool Sequence::PlayAsset( const std::string& InPath, bool InRestart )
     if( !resource || resource->Version == 0 ) return false;
     if( GetActiveClipPath() != path )
     {
+        if( m_playing ) Notify( SequenceEventKind::Interrupted );
+        m_playing = false;
         StopPreview();
         m_activeClip = path;
         m_time = 0.;
@@ -319,6 +340,7 @@ void Sequence::Pause()
 
 void Sequence::Stop()
 {
+    if( m_playing ) Notify( SequenceEventKind::Interrupted );
     Pause();
     Seek( 0.f );
 }
@@ -329,6 +351,7 @@ void Sequence::Seek( float InSeconds )
     m_initialized = true;
     if( !std::isfinite( InSeconds ) ) return;
     m_time = std::clamp( InSeconds, 0.f, GetDuration() );
+    m_markerTime = m_time;
     Apply( GetFrame() );
 }
 
@@ -342,12 +365,77 @@ void Sequence::Advance( float InDeltaSeconds )
     {
         m_time += static_cast<double>( InDeltaSeconds ) * Speed;
         const double duration = GetDuration();
-        if( Loop ) m_time = std::fmod( m_time, duration );
-        else if( m_time >= duration ) { m_time = duration; m_playing = false; }
+        // Markers are tested on the unwrapped time, so each lap's crossings fire once.
+        if( Loop )
+        {
+            FireMarkers( m_markerTime, m_time );
+            m_time = std::fmod( m_time, duration );
+        }
+        else if( m_time >= duration )
+        {
+            m_time = duration;
+            m_playing = false;
+            FireMarkers( m_markerTime, m_time );
+            Notify( SequenceEventKind::Finished );
+        }
+        else FireMarkers( m_markerTime, m_time );
+        m_markerTime = m_time;
     }
     // Only a live preview or playback owns the values. Pausing/finishing leaves the last sample.
     Apply( GetFrame() );
     m_previewNeedsApply = false;
+}
+
+
+void Sequence::FireMarkers( double InFrom, double InTo )
+{
+    if( m_preview || !Parent || ( Markers.empty() && !Loop ) ) return;
+    const double duration = GetDuration();
+    const double rate = std::clamp( FrameRate, 1, 240 );
+    // A hitch at high speed on a short loop fires at most this many laps' markers.
+    constexpr int kMaxLaps = 8;
+    const int firstLap = std::max( 0, static_cast<int>( std::floor( InFrom / duration ) ) );
+    const int lastLap = Loop ? static_cast<int>( std::floor( InTo / duration ) ) : firstLap;
+    for( int lap = firstLap; lap <= lastLap && lap < firstLap + kMaxLaps; ++lap )
+    {
+        const double start = lap * duration;
+        for( const SequenceMarker& marker : Markers )
+        {
+            const double at = start + marker.Frame / rate;
+            if( at <= InFrom || at > InTo ) continue;
+            SequenceEvent event;
+            event.Player = Parent;
+            event.Receiver = marker.ResolveReceiver( Parent );
+            event.Kind = SequenceEventKind::Marker;
+            event.Name = marker.Name;
+            event.Payload = marker.Payload;
+            event.Number = marker.Number;
+            event.Frame = marker.Frame;
+            event.Clip = GetActiveClipPath();
+            event.Fire();
+        }
+        if( Loop && start + duration > InFrom && start + duration <= InTo ) Notify( SequenceEventKind::Looped );
+    }
+}
+
+
+void Sequence::Notify( SequenceEventKind InKind ) const
+{
+    if( m_preview || !Parent ) return;
+    SequenceEvent event;
+    event.Player = Parent;
+    event.Receiver = Parent;
+    event.Kind = InKind;
+    event.Name = Name;
+    event.Frame = static_cast<int>( std::lround( GetFrame() ) );
+    event.Clip = GetActiveClipPath();
+    event.Fire();
+}
+
+
+void Sequence::SortMarkers()
+{
+    std::stable_sort( Markers.begin(), Markers.end(), []( const SequenceMarker& a, const SequenceMarker& b ) { return a.Frame < b.Frame; } );
 }
 
 
@@ -412,6 +500,8 @@ void Sequence::OnPropertyChanged( const std::string& )
     FrameRate = std::clamp( FrameRate, 1, 240 );
     DurationFrames = std::clamp( DurationFrames, 1, 100000 );
     Speed = std::isfinite( Speed ) ? std::clamp( Speed, 0.f, 16.f ) : 1.f;
+    for( SequenceMarker& marker : Markers ) marker.Frame = std::clamp( marker.Frame, 0, DurationFrames );
+    SortMarkers();
     RefreshClip();
     ResolveBindings();
 }
@@ -476,6 +566,7 @@ bool Sequence::RefreshClip( bool InForce )
         m_clipResource->Data.Apply( *this );
         m_clipVersion = m_clipResource->Version;
         m_time = std::clamp( m_time, 0., double( GetDuration() ) );
+        m_markerTime = std::min( m_markerTime, m_time );
     }
     return true;
 }
@@ -483,13 +574,14 @@ bool Sequence::RefreshClip( bool InForce )
 
 void Sequence::ResolveBindings()
 {
-    for( auto& track : Tracks )
-    {
-        if( track.Binding.empty() ) continue;
-        track.Target.Reset();
+    auto resolve = [&]( const std::string& InSlot, EntityHandle& OutTarget ) {
+        if( InSlot.empty() ) return;
+        OutTarget.Reset();
         for( const auto& binding : Bindings )
-            if( binding.Slot == track.Binding ) { track.Target = binding.Target; break; }
-    }
+            if( binding.Slot == InSlot ) { OutTarget = binding.Target; break; }
+    };
+    for( auto& track : Tracks ) resolve( track.Binding, track.Target );
+    for( auto& marker : Markers ) resolve( marker.Binding, marker.Target );
 }
 
 
@@ -505,22 +597,20 @@ void Sequence::SetBinding( const std::string& InSlot, EntityHandle InTarget )
 
 void Sequence::PrepareAssetBindings()
 {
-    for( auto& track : Tracks )
-    {
-        if( track.Binding.empty() )
-        {
-            for( const auto& binding : Bindings ) if( track.Target && binding.Target == track.Target ) { track.Binding = binding.Slot; break; }
-            if( track.Binding.empty() )
-            {
-                const std::string base = track.Target ? track.Target->GetName() : "Target";
-                track.Binding = base;
-                int suffix = 2;
-                auto exists = [&]() { return std::any_of( Bindings.begin(), Bindings.end(), [&]( const SequenceBinding& b ) { return b.Slot == track.Binding; } ); };
-                while( exists() ) track.Binding = base + " " + std::to_string( suffix++ );
-                Bindings.push_back( { track.Binding, track.Target } );
-            }
-        }
-    }
+    auto prepare = [&]( std::string& InOutSlot, const EntityHandle& InTarget ) {
+        if( !InOutSlot.empty() ) return;
+        for( const auto& binding : Bindings ) if( InTarget && binding.Target == InTarget ) { InOutSlot = binding.Slot; break; }
+        if( !InOutSlot.empty() ) return;
+        const std::string base = InTarget ? InTarget->GetName() : "Target";
+        InOutSlot = base;
+        int suffix = 2;
+        auto exists = [&]() { return std::any_of( Bindings.begin(), Bindings.end(), [&]( const SequenceBinding& b ) { return b.Slot == InOutSlot; } ); };
+        while( exists() ) InOutSlot = base + " " + std::to_string( suffix++ );
+        Bindings.push_back( { InOutSlot, InTarget } );
+    };
+    for( auto& track : Tracks ) prepare( track.Binding, track.Target );
+    // A marker for the player itself needs no slot: every instance's player receives it.
+    for( auto& marker : Markers ) if( marker.Target && marker.Target != Parent ) prepare( marker.Binding, marker.Target );
 }
 
 

@@ -324,3 +324,54 @@ TEST_CASE( "Sequence document: grouped edits undo in one step and asset save sta
     CHECK( saved.Tracks[0].Keys[1].Frame == 50 );
 }
 #endif
+
+
+TEST_CASE( "Sequence asset: markers export by slot, round trip, and validate" )
+{
+    ClipRig rig;
+    EntityHandle door = rig.GameWorld->CreateEntity( "Door" );
+    SequenceMarker self;
+    self.Frame = 5;
+    self.Name = "Self";
+    SequenceMarker open;
+    open.Frame = 30;
+    open.Name = "Open";
+    open.Target = door;
+    open.Payload = "slow";
+    open.Number = 3.f;
+    rig.Player().Markers = { open, self };
+    rig.Player().OnPropertyChanged( "Markers" );
+    rig.Player().PrepareAssetBindings();
+    const SequenceClipData clip = SequenceClipData::Capture( rig.Player() );
+    REQUIRE( clip.Markers.size() == 2 );
+    CHECK( clip.Markers[0].Name == "Self" );
+    CHECK( clip.Markers[0].Binding.empty() );
+    CHECK( clip.Markers[1].Binding == "Door" );
+    const auto slots = clip.GetSlots();
+    CHECK( std::find( slots.begin(), slots.end(), "Door" ) != slots.end() );
+    const json valid = clip.ToJson();
+    CHECK_FALSE( valid["Markers"][1].contains( "Target" ) );
+    std::string error;
+    SequenceClipData loaded;
+    REQUIRE( loaded.FromJson( valid, error ) );
+    CHECK( loaded.ToJson() == valid );
+    Sequence other;
+    other.Bindings = { { "Door", door } };
+    loaded.Apply( other );
+    REQUIRE( other.Markers.size() == 2 );
+    CHECK( other.Markers[1].Target == door );
+    CHECK( other.Markers[1].Payload == "slow" );
+    json old = valid;
+    old.erase( "Markers" );
+    CHECK( loaded.FromJson( old, error ) );
+    CHECK( loaded.Markers.empty() );
+    for( int bad = 0; bad < 4; ++bad )
+    {
+        json changed = valid;
+        if( bad == 0 ) changed["Markers"][0]["Target"] = "some-scene-guid";
+        if( bad == 1 ) changed["Markers"][0]["Frame"] = 61;
+        if( bad == 2 ) changed["Markers"][0]["Name"] = "";
+        if( bad == 3 ) changed["Markers"] = "nope";
+        CHECK_FALSE( loaded.FromJson( changed, error ) );
+    }
+}
