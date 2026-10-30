@@ -19,6 +19,8 @@
 #include "Mods/Mods.h"
 #include "Engine/DevConsole.h"
 #include "Core/WorkStatus.h"
+#include "Editor/SplineGizmo.h"
+#include "Components/Gameplay/Spline.h"
 #include "Widgets/SequenceWidget.h"
 #include "Widgets/SceneViewWidget.h"
 #include "Widgets/SettingsWidgets.h"
@@ -1769,7 +1771,44 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             }
         }
     }
-    else if( command == "sprite-handle-mouse" || command == "scene-mouse-offset" || command == "scene-mouse-down" || command == "scene-mouse-up" )
+    else if( command == "assert-spline" )
+    {
+        // assert-spline Path | 0.5 | 1 0 2     the curve's world point at t (within 0.05)
+        // assert-spline Path | point 2 | 1 0 2   a control point, local
+        // assert-spline Path | length | 6.2      its world length (within 0.05)
+        // assert-spline Path | point 1 | != 2 0 0  anywhere else (a drag moved it)
+        auto [name, rest] = SplitArgs( args );
+        auto [where, expectedRaw] = SplitArgs( rest );
+        const bool differs = expectedRaw.rfind( "!=", 0 ) == 0;
+        const std::string expectedText = differs ? expectedRaw.substr( 2 ) : expectedRaw;
+        EntityHandle entity = FindEntity( name );
+        Spline* spline = entity ? entity->TryGetComponent<Spline>() : nullptr;
+        std::istringstream numbers( expectedText );
+        Vector3 expected;
+        numbers >> expected.x >> expected.y >> expected.z;
+        if( !spline )
+        {
+            Fail( "assert-spline: no spline on " + name );
+        }
+        else if( where == "length" )
+        {
+            if( std::abs( spline->GetLength() - expected.x ) > 0.05f )
+            {
+                Fail( "assert-spline: length is " + std::to_string( spline->GetLength() ) );
+            }
+        }
+        else
+        {
+            const bool control = where.rfind( "point ", 0 ) == 0;
+            const size_t index = control ? static_cast<size_t>( std::atoi( where.c_str() + 6 ) ) : 0;
+            const Vector3 actual = control ? ( index < spline->Points.size() ? spline->Points[index] : Vector3( 1e9f, 0.f, 0.f ) ) : spline->GetPoint( static_cast<float>( std::atof( where.c_str() ) ) );
+            if( ( ( actual - expected ).Length() > 0.05f ) != differs )
+            {
+                Fail( "assert-spline: " + where + " is " + std::to_string( actual.x ) + " " + std::to_string( actual.y ) + " " + std::to_string( actual.z ) );
+            }
+        }
+    }
+    else if( command == "sprite-handle-mouse" || command == "spline-handle-mouse" || command == "scene-mouse-offset" || command == "scene-mouse-down" || command == "scene-mouse-up" )
     {
         // Drives the World view's mouse through SDL as a user would (ImGui reads these events):
         //   sprite-handle-mouse right   the pointer onto a handle of the selected sprite's rect gizmo
@@ -1778,7 +1817,16 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         SDLWindow* window = static_cast<SDLWindow*>( GetEngine().GetWindow() );
         SDL_Window* handle = window ? window->WindowHandle : nullptr;
         static Vector2 s_pointer;
-        if( command == "sprite-handle-mouse" )
+        if( command == "spline-handle-mouse" )
+        {
+            // spline-handle-mouse 2   the pointer onto point 2 of the selected spline
+            SceneViewWidget* sceneView = InApp.Editor ? InApp.Editor->GetSceneView() : nullptr;
+            if( !sceneView || !SplineGizmo::GetHandleScreenPosition( *sceneView, std::atoi( args.c_str() ), s_pointer ) )
+            {
+                Fail( "spline-handle-mouse: no selected spline, or no point " + args );
+            }
+        }
+        else if( command == "sprite-handle-mouse" )
         {
             SceneViewWidget* sceneView = InApp.Editor ? InApp.Editor->GetSceneView() : nullptr;
             const int which = SpriteRectGizmo::HandleFromName( args );
