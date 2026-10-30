@@ -1,7 +1,9 @@
 namespace ScriptCore;
 
+/// <summary>The entity's Camera: projection, clipping, render scaling and screen rays.</summary>
 public class Camera : Component
 {
+    /// <summary>The background color when the camera clears to a color (linear RGB).</summary>
     public Vector3 ClearColor
     {
         get { unsafe { Vector3 v; Engine._api.Camera_GetClearColor(Entity, &v); return v; } }
@@ -18,6 +20,7 @@ public class Camera : Component
         unsafe { Engine._api.Camera_SetClipPlane(Entity, &point, &normal); }
     }
 
+    /// <summary>Removes the clip plane SetClipPlane set.</summary>
     public void ClearClipPlane()
     {
         unsafe { Engine._api.Camera_ClearClipPlane(Entity); }
@@ -43,12 +46,14 @@ public class Camera : Component
         set => Entity.SetField("Camera", "Zoom", value);
     }
 
+    /// <summary>The near clipping distance in metres.</summary>
     public float Near
     {
         get => Entity.GetField<float>("Camera", "Near", 0.1f);
         set => Entity.SetField("Camera", "Near", value);
     }
 
+    /// <summary>The far clipping distance in metres.</summary>
     public float Far
     {
         get => Entity.GetField<float>("Camera", "Far", 1000f);
@@ -72,8 +77,7 @@ public class Camera : Component
         get { unsafe { Vector2 size; Engine._api.Camera_GetOutputSize(Entity, &size); return size; } }
     }
 
-    // A ray from the camera through a screen point (pixels from the top left), e.g. the mouse:
-    //   camera.ScreenToRay(Input.MousePosition, out var origin, out var direction);
+    /// <summary>A ray from the camera through a screen point (pixels from the top left), e.g. the mouse: camera.ScreenToRay(Input.MousePosition, out var origin, out var direction).</summary>
     public void ScreenToRay(Vector2 screen, out Vector3 origin, out Vector3 direction)
     {
         unsafe
@@ -105,12 +109,14 @@ public class Camera : Component
         set => Entity.SetField("Camera", "RenderScale", value);
     }
 
+    /// <summary>How the camera's scaled-down image is stretched to its output (RenderScale below 1).</summary>
     public UpscaleFilter Upscale
     {
         get => System.Enum.TryParse(Entity.GetField<string>("Camera", "Upscale", "Bilinear"), out UpscaleFilter filter) ? filter : UpscaleFilter.Bilinear;
         set => Entity.SetField("Camera", "Upscale", value.ToString());
     }
 
+    /// <summary>Lowers RenderScale automatically when frames run long, and raises it back when there's headroom.</summary>
     public bool DynamicResolution
     {
         get => Entity.GetField<bool>("Camera", "DynamicResolution", false);
@@ -133,7 +139,9 @@ public class Camera : Component
 /// </summary>
 public enum UpscaleFilter
 {
+    /// <summary>Smooth stretching.</summary>
     Bilinear,
+    /// <summary>Nearest-pixel stretching (hard edges).</summary>
     Nearest,
     /// <summary>Whole-number blocks, for pixel art</summary>
     Pixel,

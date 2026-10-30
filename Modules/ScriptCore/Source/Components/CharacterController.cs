@@ -30,19 +30,23 @@ public class CharacterController : Component
         unsafe { Engine._api.Character_Teleport(Entity, &position, &forward); }
     }
 
+    /// <summary>Jumps when grounded (the controller's jump speed).</summary>
     public void Jump()
     {
         unsafe { Engine._api.Character_Jump(Entity); }
     }
 
+    /// <summary>Whether the character stands on something.</summary>
     public bool IsGrounded { get { unsafe { return Engine._api.Character_IsGrounded(Entity) != 0; } } }
 
+    /// <summary>The character's velocity in metres per second.</summary>
     public Vector3 Velocity
     {
         get { unsafe { Vector3 v; Engine._api.Character_GetVelocity(Entity, &v); return v; } }
         set { unsafe { Engine._api.Character_SetVelocity(Entity, &value); } }
     }
 
+    /// <summary>The top walking speed in metres per second.</summary>
     public float MaxSpeed
     {
         get { unsafe { return Engine._api.Character_GetMaxSpeed(Entity); } }

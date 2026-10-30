@@ -7,6 +7,7 @@ namespace ScriptCore;
 /// </summary>
 public class TextRenderer : Component
 {
+    /// <summary>The text shown.</summary>
     public string Text
     {
         get

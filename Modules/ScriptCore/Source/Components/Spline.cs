@@ -2,10 +2,7 @@ using System;
 
 namespace ScriptCore;
 
-// The entity's Spline (GAME-2): a curve through local points, for camera paths, rails, roads and
-// patrols. Queries are in world space; for several in a frame, take GetPath() once.
-//   var path = GetComponent<Spline>().GetPath();
-//   transform.WorldPosition = path.GetPointAtDistance(_travelled);
+/// <summary>The entity's Spline (GAME-2): a curve through local points, for camera paths, rails, roads and patrols. Queries are in world space; for several in a frame, take GetPath() once: var path = GetComponent&lt;Spline&gt;().GetPath(); transform.WorldPosition = path.GetPointAtDistance(travelled);</summary>
 public class Spline : Component
 {
     /// <summary>
@@ -17,6 +14,7 @@ public class Spline : Component
         set => Entity.SetField("Spline", "Points", value ?? Array.Empty<Vector3>());
     }
 
+    /// <summary>Whether the curve loops back to its first point.</summary>
     public bool Closed
     {
         get => Entity.GetField("Spline", "Closed", false);
@@ -51,9 +49,14 @@ public class Spline : Component
         return new SplinePath(world, Closed);
     }
 
+    /// <summary>The world point at t (0..1 along the curve).</summary>
     public Vector3 GetPoint(float t) => GetPath().GetPoint(t);
+    /// <summary>The world direction of travel at t.</summary>
     public Vector3 GetTangent(float t) => GetPath().GetTangent(t);
+    /// <summary>The curve's world length.</summary>
     public float Length => GetPath().Length;
+    /// <summary>The t that lies distance along the curve.</summary>
     public float GetTAtDistance(float distance) => GetPath().GetTAtDistance(distance);
+    /// <summary>The t nearest a world point.</summary>
     public float GetNearestT(Vector3 world) => GetPath().GetNearestT(world);
 }

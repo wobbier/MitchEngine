@@ -1,5 +1,6 @@
 namespace ScriptCore;
 
+/// <summary>The entity's Mesh: its own material's fields, and portal slices.</summary>
 public class Mesh : Component
 {
     /// <summary>
@@ -8,6 +9,7 @@ public class Mesh : Component
     /// material's parameters.
     /// </summary>
     public T GetMaterial<T>(string field, T fallback = default!) => Entity.GetField("Mesh", "Material." + field, fallback);
+    /// <summary>Sets a field of this mesh's material (see GetMaterial); false when there's no such field.</summary>
     public bool SetMaterial<T>(string field, T value) => Entity.SetField("Mesh", "Material." + field, value);
 
     /// <summary>

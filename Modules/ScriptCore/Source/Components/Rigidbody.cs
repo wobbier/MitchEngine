@@ -1,12 +1,15 @@
 namespace ScriptCore;
 
+/// <summary>The entity's Rigidbody: forces and velocity.</summary>
 public class Rigidbody : Component
 {
+    /// <summary>Applies a force (see ForceMode for continuous or instant, with or without mass).</summary>
     public void AddForce(Vector3 force, ForceMode mode = ForceMode.Force)
     {
         unsafe { Engine._api.Rigidbody_AddForce(Entity, &force, (int)mode); }
     }
 
+    /// <summary>The body's velocity in metres per second.</summary>
     public Vector3 Velocity
     {
         get { unsafe { Vector3 v; Engine._api.Rigidbody_GetVelocity(Entity, &v); return v; } }

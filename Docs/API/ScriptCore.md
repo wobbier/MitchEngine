@@ -182,8 +182,17 @@ An Animator passed a named marker in a state.
 
 The entity's Animator (CS-5 a): parameters drive its state machine's transitions, Play jumps (or fades) to a state. Markers placed in states arrive as EventBus AnimationMarker events.
 
+- `GetBool(System.String)` (method): A bool parameter's value.
+- `GetFloat(System.String)` (method): A float parameter's value.
 - `GetNormalizedTime(System.String)` (method): 0..1 through the current state's clip (it loops past 1).
 - `GetState(System.String)` (method): The state playing on a layer ("" = the base layer).
+- `IsPlaying` (property): Whether a state is playing.
+- `Play(System.String,System.Single)` (method): Jumps to a state, or cross-fades into it over fadeSeconds.
+- `SetBool(System.String,System.Boolean)` (method): Sets a bool parameter.
+- `SetFloat(System.String,System.Single)` (method): Sets a float parameter (transition conditions, blend trees).
+- `SetLayerWeight(System.String,System.Single)` (method): A layer's blend weight, 0..1.
+- `SetTrigger(System.String)` (method): Sets a trigger: true until a transition consumes it.
+- `Stop` (method): Stops the animation (the pose stays).
 
 ## App
 
@@ -233,17 +242,30 @@ The engine's audio buses, in AudioBus order.
 
 The entity's AudioSource (CS-5 b): play, stop, pause; fields (Volume, Pitch, Loop, Bus...) through GetField / SetField like any component.
 
+- `IsPlaying` (property): Whether the clip is playing (paused counts; PlaybackSeconds is -1 while paused).
+- `Pause` (method): Pauses the clip where it is.
+- `Play` (method): Plays the clip (looping if the source's Loop is set).
 - `PlaybackSeconds` (property): NEXT-8: the playing clip's position as the audio mixer sees it, in seconds (sample-accurate, what Kit.BeatClock follows); -1 while stopped or paused, -2 without an audio engine.
+- `Stop` (method): Stops the clip.
 
 ## Camera
 
+The entity's Camera: projection, clipping, render scaling and screen rays.
+
+- `ClearClipPlane` (method): Removes the clip plane SetClipPlane set.
+- `ClearColor` (property): The background color when the camera clears to a color (linear RGB).
+- `DynamicResolution` (property): Lowers RenderScale automatically when frames run long, and raises it back when there's headroom.
+- `Far` (property): The far clipping distance in metres.
 - `FieldOfView` (property): CS-5 e: projection. FieldOfView is the vertical angle in degrees (the engine's Zoom field).
+- `Near` (property): The near clipping distance in metres.
 - `OrthographicSize` (property): Half the view height in metres, for an orthographic camera.
 - `OutputSize` (property): The pixels it renders (its output size times its viewport rect).
 - `RenderScale` (property): Render scaling (LOOK-S1, ME-275): the scene renders at OutputSize * RenderScale (0.1..1) and is stretched back up with Upscale. Dynamic resolution lowers the scale while the GPU is over budget. The player's Graphics.RenderScale setting multiplies on top.
+- `ScreenToRay(Vector2,Vector3@,Vector3@)` (method): A ray from the camera through a screen point (pixels from the top left), e.g. the mouse: camera.ScreenToRay(Input.MousePosition, out var origin, out var direction).
 - `SetClipPlane(Vector3,Vector3)` (method): Hides everything behind a world-space plane (the side the normal points away from), as if the near plane were that surface. A camera looking out of a portal or a mirror uses the exit surface. Ignored while the camera is in front of the plane.
 - `TargetTexture` (property): Render texture: renders into this .rendertexture asset (a project path such as "Assets/Textures/Feed.rendertexture"), at the asset's size, instead of to the screen. Materials show the image by naming the same asset in a texture slot. Empty renders normally.
 - `UpdateInterval` (property): Renders every Nth frame (1 = every frame); the texture keeps its last image in between.
+- `Upscale` (property): How the camera's scaled-down image is stretched to its output (RenderScale below 1).
 - `WorldToScreen(Vector3)` (method): Where a world point lands on screen: x, y in pixels from the top left, z its distance in front of the camera (negative behind it).
 
 ## CaptionLines
@@ -263,17 +285,24 @@ PLAY-7: subtitles and closed captions in the stock caption strip (Engine/Assets/
 
 The capsule character moved by the physics mover (Engine/Docs/Physics.md).
 
+- `IsGrounded` (property): Whether the character stands on something.
+- `Jump` (method): Jumps when grounded (the controller's jump speed).
+- `MaxSpeed` (property): The top walking speed in metres per second.
 - `Move(Vector3)` (method): A displacement added on the next physics step.
 - `SetMoveInput(Vector3)` (method): Desired horizontal direction in world space; length <= 1 scales the speed. Kept until changed.
 - `Teleport(Vector3,Vector3)` (method): Moves the character instantly, turned to face forward (flattened: characters stay upright). Clears its velocity; set Velocity afterwards to keep moving.
+- `Velocity` (property): The character's velocity in metres per second.
 
 ## CharacterController2D
 
 The platformer capsule moved by Box2D's mover in the XY plane (Engine/Docs/Physics.md): runs along slopes, jumps with a short coyote time, falls with gravity.
 
+- `IsGrounded` (property): Whether the character stands on something.
 - `Jump` (method): Jumps when on the ground, or within the controller's CoyoteTime of leaving it.
+- `MaxSpeed` (property): The top horizontal speed, units per second.
 - `SetMoveInput(System.Single)` (method): Desired horizontal direction in [-1, 1]. Kept until changed.
 - `Teleport(Vector2)` (method): Moves the character instantly; clears its velocity.
+- `Velocity` (property): The character's velocity (XY plane), units per second.
 
 ## ClientRpcAttribute
 
@@ -539,6 +568,7 @@ The script inspector: every public field as a Havana property row, matching the 
 
 A script on a receiver object gets its sequence events here, before EventBus subscribers.
 
+- `OnSequenceEvent(ScriptCore.SequenceEvent)` (method): A marker or notification addressed to this object (before EventBus subscribers).
 
 ## KeyCode
 
@@ -670,6 +700,11 @@ Makes copies of a prefab at its position: one every Interval seconds while fewer
 
 The entity's Light (CS-5 e): its reflected fields as properties. Linear color, intensity in the engine's units, range in metres, cone angles in degrees (spot lights).
 
+- `Color` (property): The light's linear RGB color.
+- `InnerConeAngle` (property): Spot lights: the full-intensity half-angle, degrees.
+- `Intensity` (property): The intensity, in the engine's units.
+- `OuterConeAngle` (property): Spot lights: the outer half-angle where the beam fades out, degrees.
+- `Range` (property): How far a local light reaches, in metres.
 
 ## Loc
 
@@ -677,7 +712,10 @@ The entity's Light (CS-5 e): its reflected fields as properties. Linear color, i
 
 ## Mesh
 
+The entity's Mesh: its own material's fields, and portal slices.
+
 - `GetMaterial1(System.String,0)` (method): CS-5 d: this mesh's own material (every mesh has its own instance), by field: e.g. "DiffuseColor", "Metallic", "Roughness", "Tiling" on a StandardMaterial, or a shader graph material's parameters.
+- `SetMaterial1(System.String,0)` (method): Sets a field of this mesh's material (see GetMaterial); false when there's no such field.
 - `SetPortalSlice(ScriptCore.Entity,ScriptCore.Entity,ScriptCore.Entity)` (method): A render-only image on the other side of a portal; null entrance clears the source slice.
 - `ShowCameraView(ScriptCore.Camera)` (method): Turns this mesh into a window onto a camera's view: every pixel of the surface shows what the camera sees at the same spot on screen (a "Portal (Camera View)" material). The camera renders at the main camera's size and field of view from then on. Returns false without a Camera.
 
@@ -706,8 +744,14 @@ Navmesh queries (Engine/Docs/Navigation.md). They use the navmesh under the star
 Walks the navmesh (Engine/Docs/Navigation.md). Paths are computed by the engine's navigation update, so HasPath turns true (and the agent starts moving) a frame after SetDestination.
 
 - `DesiredVelocity` (property): Where the crowd wants to go this frame (move a character controller with it when the agent doesn't update its own position).
+- `HasArrived` (property): Whether it reached its destination.
 - `HasPath` (property): True from SetDestination until it arrives (including while the path is being computed).
 - `IsStopped` (property): Stopped agents keep their path and continue where they were when resumed.
+- `RemainingDistance` (property): How far along the path to the destination, in metres.
+- `ResetPath` (method): Drops the path and stops.
+- `SetDestination(Vector3)` (method): Asks for a path to destination (it starts moving a frame later); false when it isn't on a navmesh.
+- `Speed` (property): The agent's top speed, in metres per second.
+- `Velocity` (property): The agent's velocity this frame.
 - `Warp(Vector3)` (method): Moves the agent instantly and drops its path.
 
 ## Net
@@ -771,6 +815,10 @@ Raw little-endian encoding of net state and RPC arguments: bool 1 byte, int / fl
 
 The entity's ParticleSystem (CS-5 c). Play restarts emission, Stop ends it (live particles finish their lives), Burst emits a number at once.
 
+- `Burst(System.Int32)` (method): Emits count particles at once.
+- `ParticleCount` (property): How many particles are alive.
+- `Play` (method): Restarts emission.
+- `Stop` (method): Stops emitting; live particles finish their lives.
 
 ## Physics
 
@@ -819,6 +867,8 @@ Entity queries (CS-5 h) and application calls (CS-5 j).
 
 The entity's Ragdoll (GAME-5): physics takes the bones while Simulating, and clearing it blends back to the animation over BlendSeconds. Build its parts in the inspector (Build from skeleton). GetComponent<Ragdoll>().Simulating = true; // knocked out
 
+- `BlendSeconds` (property): Seconds to blend from the ragdoll pose back to the animation.
+- `Simulating` (property): Physics drives the bones while true; clearing it blends back to the animation over BlendSeconds.
 
 ## RangeAttribute
 
@@ -849,7 +899,11 @@ Server-authoritative state sent to clients in snapshots. bool, int, float, doubl
 
 ## Rigidbody
 
+The entity's Rigidbody: forces and velocity.
+
+- `AddForce(Vector3,ScriptCore.ForceMode)` (method): Applies a force (see ForceMode for continuous or instant, with or without mass).
 - `Teleport(Vector3,Vector3,Vector3)` (method): Moves the body (and its Transform) instantly, facing forward with up as close to up as possible. Keeps its velocity.
+- `Velocity` (property): The body's velocity in metres per second.
 
 ## Rigidbody2D
 
@@ -961,14 +1015,34 @@ this is clearly a problem
 
 Authored property tracks on any number of scene objects. Times are in seconds.
 
+- `Bind(System.String,ScriptCore.Entity)` (method): Binds a clip's slot to an entity (what its tracks animate).
+- `Duration` (property): The clip's length, in seconds.
+- `HasClip(System.String)` (method): Whether the player has a clip of that name (the Sequencer's Clips tab).
+- `IsPlaying` (property): Whether it's playing.
 - `OnEvent(System.Action{ScriptCore.SequenceEvent})` (method): This player's markers and notifications (GAME-4). Like Script.On, a script's handler goes when it's destroyed (and on a hot reload); Dispose the result to stop sooner.
+- `Pause` (method): Pauses at the current time.
+- `Play(System.Boolean)` (method): Plays the sequence's clip (from the start unless restart is false).
 - `Play(System.String,System.Boolean)` (method): Names are configured in the Sequencer's Clips tab. False leaves the current playback intact.
+- `PlayAsset(System.String,System.Boolean)` (method): Plays a .sequence asset on this player, binding its slots by name; false when it can't be loaded.
+- `Seek(System.Single)` (method): Moves the playhead to a time in seconds.
+- `Stop` (method): Stops and rewinds.
+- `Time` (property): The playhead, in seconds.
 
 ## SequenceEvent
 
 A Sequencer marker crossed during playback (Kind Marker: Name, Payload and Number as authored), or a playback notification (Name is the sequence's). Markers go to the marker's receiver object, notifications to the player; both are also published on the EventBus. Receiver is Entity.Null for a marker whose binding slot isn't bound.
 
 - `(constructor)(ScriptCore.Entity,ScriptCore.Entity,ScriptCore.SequenceEventKind,System.String,System.String,System.Single,System.Int32,System.String)` (method): A Sequencer marker crossed during playback (Kind Marker: Name, Payload and Number as authored), or a playback notification (Name is the sequence's). Markers go to the marker's receiver object, notifications to the player; both are also published on the EventBus. Receiver is Entity.Null for a marker whose binding slot isn't bound.
+
+## SequenceEventKind
+
+What a SequenceEvent reports.
+
+- `Finished` (field): The clip played to its end.
+- `Interrupted` (field): Playback stopped, or another clip took over, before the end.
+- `Looped` (field): A looping clip wrapped around.
+- `Marker` (field): A marker the playhead crossed.
+- `Started` (field): Playback started.
 
 ## ServerRpcAttribute
 
@@ -1010,7 +1084,15 @@ Vertical spacing above the field (defaults to half a line).
 
 ## Spline
 
+The entity's Spline (GAME-2): a curve through local points, for camera paths, rails, roads and patrols. Queries are in world space; for several in a frame, take GetPath() once: var path = GetComponent<Spline>().GetPath(); transform.WorldPosition = path.GetPointAtDistance(travelled);
+
+- `Closed` (property): Whether the curve loops back to its first point.
+- `GetNearestT(Vector3)` (method): The t nearest a world point.
 - `GetPath` (method): The curve now, in world space. Points go through the entity's world position, rotation and scale (the product of the local scales up the hierarchy).
+- `GetPoint(System.Single)` (method): The world point at t (0..1 along the curve).
+- `GetTangent(System.Single)` (method): The world direction of travel at t.
+- `GetTAtDistance(System.Single)` (method): The t that lies distance along the curve.
+- `Length` (property): The curve's world length.
 - `Points` (property): Local positions the curve passes through, in order.
 
 ## SplineMath
@@ -1031,7 +1113,11 @@ A spline's curve in world space at one moment: build it once (Spline.GetPath()) 
 The entity's SpriteRenderer (LOOK-S2): which sprite of its sheet it shows, flips, the tint and the draw order. Animators with flipbook clips set the sprite themselves while they play.
 
 - `Color` (property): sRGB tint (rgb) and opacity (a).
+- `FlipX` (property): Mirrors the sprite horizontally.
+- `FlipY` (property): Mirrors the sprite vertically.
+- `OrderInLayer` (property): The order within the sorting layer: higher draws on top.
 - `SetSprite(System.String,System.String)` (method): A sprite from another sheet (a .spritesheet path); "" keeps the current sheet.
+- `SortingLayer` (property): The sorting layer: higher layers draw over lower ones.
 - `Sprite` (property): The sprite's name in the sheet.
 - `Texture` (property): A plain image instead of (or under) the sheet's.
 
@@ -1040,11 +1126,18 @@ The entity's SpriteRenderer (LOOK-S2): which sprite of its sheet it shows, flips
 The entity's TextRenderer (LOOK-S12): world-space text for signs, labels and damage numbers.
 
 - `Color` (property): sRGB colour (rgb) and opacity (a).
+- `Text` (property): The text shown.
 
 ## Tilemap
 
 The entity's Tilemap (LOOK-S5): cells by palette index (-1 = empty). A TilemapCollider2D on the entity follows the changes on the next physics step.
 
+- `Clear` (method): Empties every cell.
+- `ClearTile(System.Int32,System.Int32)` (method): Empties a cell.
+- `FillRect(System.Int32,System.Int32,System.Int32,System.Int32,System.Int32)` (method): Fills the rectangle of cells from (x0, y0) to (x1, y1) inclusive.
+- `GetTile(System.Int32,System.Int32)` (method): The palette index at a cell (-1: empty).
+- `SetTile(System.Int32,System.Int32,System.Int32)` (method): Sets a cell to a palette index.
+- `TileCount` (property): How many cells hold a tile.
 - `WorldToCell(Vector3)` (method): The cell a world point lies in (on the tilemap's plane).
 
 ## Time
@@ -1063,9 +1156,19 @@ Hover text on the field's row.
 
 ## Transform
 
+The entity's Transform: position, rotation and scale, local and world.
+
+- `Forward` (property): The local +Z axis in world space.
+- `LookAt(Vector3)` (method): Turns the entity so its forward (+Z) points at a world position.
 - `LookDirection(Vector3,Vector3)` (method): Turns to face a world direction, with up as close to the given up as possible.
 - `Parent` (property): The parent entity (Entity.Null at the scene root); setting it keeps the world pose.
+- `Position` (property): The position relative to the parent (the scene root for a top-level entity).
+- `Right` (property): The local +X axis in world space.
 - `Rotate(Vector3)` (method): Rotates by degrees about the local axes using quaternion composition.
+- `Rotation` (property): Local Euler angles in degrees. Reading back can return an equivalent set of angles: use Rotate for continuous motion rather than reading and incrementing one axis.
+- `Scale` (property): The local scale.
+- `Up` (property): The local +Y axis in world space.
+- `WorldPosition` (property): The position in world space.
 
 ## Tween
 
@@ -1085,6 +1188,8 @@ Hover text on the field's row.
 
 How a camera's scaled-down image is stretched to its output.
 
+- `Bilinear` (field): Smooth stretching.
+- `Nearest` (field): Nearest-pixel stretching (hard edges).
 - `Pixel` (field): Whole-number blocks, for pixel art
 - `Sharp` (field): Catmull-Rom plus contrast-adaptive sharpening
 

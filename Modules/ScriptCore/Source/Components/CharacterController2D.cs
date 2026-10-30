@@ -30,13 +30,16 @@ public class CharacterController2D : Component
         unsafe { Engine._api.Character2D_Teleport(Entity, &position); }
     }
 
+    /// <summary>Whether the character stands on something.</summary>
     public bool IsGrounded { get { unsafe { return Engine._api.Character2D_IsGrounded(Entity) != 0; } } }
 
+    /// <summary>The character's velocity (XY plane), units per second.</summary>
     public Vector2 Velocity
     {
         get { unsafe { Vector2 v; Engine._api.Character2D_GetVelocity(Entity, &v); return v; } }
     }
 
+    /// <summary>The top horizontal speed, units per second.</summary>
     public float MaxSpeed
     {
         get { unsafe { return Engine._api.Character2D_GetMaxSpeed(Entity); } }

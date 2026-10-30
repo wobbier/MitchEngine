@@ -39,12 +39,14 @@ public class SpriteRenderer : Component
         set { unsafe { fixed (byte* t = Engine.Utf8(value, stackalloc byte[Engine.Utf8StackSize])) Engine._api.Sprite_SetTexture(Entity, t); } }
     }
 
+    /// <summary>Mirrors the sprite horizontally.</summary>
     public bool FlipX
     {
         get { unsafe { return (Engine._api.Sprite_GetFlip(Entity) & 1) != 0; } }
         set { unsafe { Engine._api.Sprite_SetFlip(Entity, value ? (byte)1 : (byte)0, FlipY ? (byte)1 : (byte)0); } }
     }
 
+    /// <summary>Mirrors the sprite vertically.</summary>
     public bool FlipY
     {
         get { unsafe { return (Engine._api.Sprite_GetFlip(Entity) & 2) != 0; } }
@@ -69,12 +71,14 @@ public class SpriteRenderer : Component
         }
     }
 
+    /// <summary>The sorting layer: higher layers draw over lower ones.</summary>
     public int SortingLayer
     {
         get { unsafe { return Engine._api.Sprite_GetSortingLayer(Entity); } }
         set { unsafe { Engine._api.Sprite_SetSorting(Entity, value, OrderInLayer); } }
     }
 
+    /// <summary>The order within the sorting layer: higher draws on top.</summary>
     public int OrderInLayer
     {
         get { unsafe { return Engine._api.Sprite_GetOrderInLayer(Entity); } }

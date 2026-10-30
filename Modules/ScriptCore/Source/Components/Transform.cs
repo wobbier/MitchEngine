@@ -1,21 +1,23 @@
 namespace ScriptCore;
 
+/// <summary>The entity's Transform: position, rotation and scale, local and world.</summary>
 public class Transform : Component
 {
+    /// <summary>The position relative to the parent (the scene root for a top-level entity).</summary>
     public Vector3 Position
     {
         get { unsafe { Vector3 v; Engine._api.Transform_GetTranslation(Entity, &v); return v; } }
         set { unsafe { Engine._api.Transform_SetTranslation(Entity, &value); } }
     }
 
+    /// <summary>The local scale.</summary>
     public Vector3 Scale
     {
         get { unsafe { Vector3 v; Engine._api.Transform_GetScale(Entity, &v); return v; } }
         set { unsafe { Engine._api.Transform_SetScale(Entity, &value); } }
     }
 
-    // Local Euler angles in degrees. Readback can return an equivalent set of angles;
-    // use Rotate for continuous motion instead of reading and incrementing one Euler axis.
+    /// <summary>Local Euler angles in degrees. Reading back can return an equivalent set of angles: use Rotate for continuous motion rather than reading and incrementing one axis.</summary>
     public Vector3 Rotation
     {
         get { unsafe { Vector3 v; Engine._api.Transform_GetRotation(Entity, &v); return v; } }
@@ -30,16 +32,21 @@ public class Transform : Component
         unsafe { Engine._api.Transform_Rotate(Entity, &degrees); }
     }
 
+    /// <summary>The position in world space.</summary>
     public Vector3 WorldPosition
     {
         get { unsafe { Vector3 v; Engine._api.Transform_GetWorldPosition(Entity, &v); return v; } }
         set { unsafe { Engine._api.Transform_SetWorldPosition(Entity, &value); } }
     }
 
+    /// <summary>The local +Z axis in world space.</summary>
     public Vector3 Forward { get { unsafe { Vector3 v; Engine._api.Transform_GetForward(Entity, &v); return v; } } }
+    /// <summary>The local +X axis in world space.</summary>
     public Vector3 Right { get { unsafe { Vector3 v; Engine._api.Transform_GetRight(Entity, &v); return v; } } }
+    /// <summary>The local +Y axis in world space.</summary>
     public Vector3 Up { get { unsafe { Vector3 v; Engine._api.Transform_GetUp(Entity, &v); return v; } } }
 
+    /// <summary>Turns the entity so its forward (+Z) points at a world position.</summary>
     public void LookAt(Vector3 worldTarget)
     {
         unsafe { Engine._api.Transform_LookAt(Entity, &worldTarget); }
