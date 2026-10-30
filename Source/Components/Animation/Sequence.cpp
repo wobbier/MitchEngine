@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "Sequence.h"
 #include "Animation/SequenceAsset.h"
+#include "Components/Camera.h"
 #include "Resource/ResourceCache.h"
 #include <algorithm>
 #include <cmath>
@@ -41,6 +42,12 @@ ME_REFLECT_BEGIN( SequenceMarker )
     ME_FIELD( Number );
 ME_REFLECT_END()
 
+ME_REFLECT_BEGIN( SequenceCut )
+    ME_FIELD( Frame );
+    ME_FIELD( Target );
+    ME_FIELD( Binding );
+ME_REFLECT_END()
+
 ME_REFLECT_BEGIN( SequenceClipEntry )
     ME_FIELD( Name );
     ME_FIELD( Clip ).Asset( "Sequence" );
@@ -58,6 +65,7 @@ ME_REFLECT_BEGIN( Sequence )
     ME_FIELD( Speed ).Range( 0.f, 16.f );
     ME_FIELD( Tracks ).CustomInspector();
     ME_FIELD( Markers ).CustomInspector();
+    ME_FIELD( Cuts ).CustomInspector();
 ME_REFLECT_END()
 
 namespace
@@ -267,6 +275,21 @@ float Sequence::GetFrame() const
 void Sequence::Apply( float InFrame ) const
 {
     for( const auto& track : Tracks ) track.Apply( InFrame );
+    const EntityHandle camera = GetCutCamera( InFrame );
+    if( camera && camera->HasComponent<Camera>() ) camera->GetComponent<Camera>().SetCurrent();
+}
+
+
+EntityHandle Sequence::GetCutCamera( float InFrame ) const
+{
+    EntityHandle camera;
+    // A small tolerance: a sample on a cut's frame shows the new camera.
+    for( const SequenceCut& cut : Cuts )
+    {
+        if( static_cast<float>( cut.Frame ) > InFrame + 1e-3f ) break;
+        camera = cut.Target;
+    }
+    return camera;
 }
 
 
@@ -452,6 +475,7 @@ void Sequence::StartPreview( float InFrame, bool InPlaying )
             Reflection::ValueToJson( *property.Ops, property.Value, saved.Value );
             m_saved.push_back( std::move( saved ) );
         }
+        m_savedCamera = Camera::CurrentCamera && Camera::CurrentCamera->Parent ? Camera::CurrentCamera->Parent : EntityHandle();
         m_preview = true;
     }
     m_previewIdle = 0;
@@ -473,6 +497,7 @@ void Sequence::RestorePreviewValues()
         if( property && Reflection::ValueFromJson( *property.Ops, property.Value, saved.Value ) )
             track.ResolveComponent()->OnPropertyChanged( saved.Property.substr( 0, saved.Property.find( '.' ) ) );
     }
+    if( !Cuts.empty() && m_savedCamera && m_savedCamera->HasComponent<Camera>() ) m_savedCamera->GetComponent<Camera>().SetCurrent();
 }
 
 
@@ -481,6 +506,7 @@ void Sequence::StopPreview()
     if( !m_preview ) return;
     RestorePreviewValues();
     m_saved.clear();
+    m_savedCamera.Reset();
     m_preview = false;
     m_previewNeedsApply = false;
     m_playing = false;
@@ -502,6 +528,8 @@ void Sequence::OnPropertyChanged( const std::string& )
     Speed = std::isfinite( Speed ) ? std::clamp( Speed, 0.f, 16.f ) : 1.f;
     for( SequenceMarker& marker : Markers ) marker.Frame = std::clamp( marker.Frame, 0, DurationFrames );
     SortMarkers();
+    for( SequenceCut& cut : Cuts ) cut.Frame = std::clamp( cut.Frame, 0, DurationFrames );
+    std::stable_sort( Cuts.begin(), Cuts.end(), []( const SequenceCut& a, const SequenceCut& b ) { return a.Frame < b.Frame; } );
     RefreshClip();
     ResolveBindings();
 }
@@ -582,6 +610,7 @@ void Sequence::ResolveBindings()
     };
     for( auto& track : Tracks ) resolve( track.Binding, track.Target );
     for( auto& marker : Markers ) resolve( marker.Binding, marker.Target );
+    for( auto& cut : Cuts ) resolve( cut.Binding, cut.Target );
 }
 
 
@@ -611,6 +640,7 @@ void Sequence::PrepareAssetBindings()
     for( auto& track : Tracks ) prepare( track.Binding, track.Target );
     // A marker for the player itself needs no slot: every instance's player receives it.
     for( auto& marker : Markers ) if( marker.Target && marker.Target != Parent ) prepare( marker.Binding, marker.Target );
+    for( auto& cut : Cuts ) prepare( cut.Binding, cut.Target );
 }
 
 

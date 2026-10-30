@@ -546,3 +546,49 @@ TEST_CASE( "Sequence markers: receivers resolve targets and bindings; unbound sl
     rig.Core.Advance( 1.f );
     CHECK( log.Events.back().Receiver == door );
 }
+
+
+TEST_CASE( "Sequence camera cuts: the active cut's camera is current while sampled, and previews restore it" )
+{
+    Rig rig;
+    EntityHandle wide = rig.GameWorld->CreateEntity( "Wide" );
+    wide->AddComponent<Transform>();
+    wide->AddComponent<Camera>();
+    EntityHandle close = rig.GameWorld->CreateEntity( "Close" );
+    close->AddComponent<Transform>();
+    close->AddComponent<Camera>();
+    rig.Object->GetComponent<Camera>().SetCurrent();
+    SequenceCut first;
+    first.Frame = 15;
+    first.Target = wide;
+    SequenceCut second;
+    second.Frame = 45;
+    second.Target = close;
+    rig.Clip().Cuts = { second, first };
+    rig.Clip().OnPropertyChanged( "Cuts" );
+    REQUIRE( rig.Clip().Cuts[0].Frame == 15 );
+    CHECK_FALSE( rig.Clip().GetCutCamera( 10.f ) );
+    CHECK( rig.Clip().GetCutCamera( 15.f ) == wide );
+    CHECK( rig.Clip().GetCutCamera( 44.9f ) == wide );
+    CHECK( rig.Clip().GetCutCamera( 60.f ) == close );
+
+    // An edit preview switches cameras and gives the scene its own back.
+    rig.Clip().StartPreview( 30.f );
+    CHECK( wide->GetComponent<Camera>().IsCurrent() );
+    rig.Clip().StartPreview( 50.f );
+    CHECK( close->GetComponent<Camera>().IsCurrent() );
+    rig.Clip().StopPreview();
+    CHECK( rig.Object->GetComponent<Camera>().IsCurrent() );
+
+    // Playback: before the first cut the scene's camera stays; the last cut holds at the end.
+    rig.GameWorld->Start();
+    rig.Core.Advance( 0.25f );
+    CHECK( rig.Object->GetComponent<Camera>().IsCurrent() );
+    rig.Core.Advance( 0.5f );
+    CHECK( wide->GetComponent<Camera>().IsCurrent() );
+    rig.Core.Advance( 5.f );
+    CHECK( close->GetComponent<Camera>().IsCurrent() );
+    rig.Object->GetComponent<Camera>().SetCurrent();
+    rig.Core.Advance( 1.f );                       // finished: gameplay owns the camera again
+    CHECK( rig.Object->GetComponent<Camera>().IsCurrent() );
+}

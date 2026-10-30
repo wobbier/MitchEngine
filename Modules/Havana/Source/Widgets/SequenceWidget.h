@@ -59,6 +59,9 @@ private:
     void DrawEventInspector( Sequence& InSequence, EntityHandle InSelected );
     void SetMarkerReceiver( Sequence& InSequence, SequenceMarker& InMarker, EntityHandle InTarget );
     int m_shownMarker = -1;
+    void DrawCutInspector( Sequence& InSequence, EntityHandle InSelected );
+    void SetCutCamera( Sequence& InSequence, SequenceCut& InCut, EntityHandle InCamera );
+    int m_shownCut = -1;
     void AssignAsset( const std::string& InPath );
     bool TransportButton( const char* InIcon, const char* InTooltip );
     void DrawUnsaved();

@@ -4,6 +4,7 @@
 #include "Editor/SequenceDocument.h"
 #include "Cores/SequenceCore.h"
 #include "Components/Scripting/ScriptComponent.h"
+#include "Components/Camera.h"
 #include "Editor/EditorActions.h"
 #include "Editor/EditorOperations.h"
 #include "Editor/Selection.h"
@@ -151,11 +152,13 @@ void SequenceWidget::ExecuteAction( const std::string& id )
         m_timeline.Reset();
     }
     else if( id == "Edit.SelectAll" ) m_timeline.SelectBox( *sequence, 0.f, static_cast<float>( sequence->DurationFrames ), 0, static_cast<int>( sequence->Tracks.size() ) );
-    else if( id == "Edit.Deselect" ) { m_timeline.Selected.clear(); m_timeline.SelectedMarker = -1; }
+    else if( id == "Edit.Deselect" ) { m_timeline.Selected.clear(); m_timeline.SelectedMarker = m_timeline.SelectedCut = -1; }
     else if( id == "Edit.Delete" )
     {
         const json before = EditState();
-        if( m_timeline.Selected.empty() ) m_timeline.DeleteMarker( *sequence ); else m_timeline.Delete( *sequence );
+        if( !m_timeline.Selected.empty() ) m_timeline.Delete( *sequence );
+        else if( m_timeline.SelectedMarker >= 0 ) m_timeline.DeleteMarker( *sequence );
+        else m_timeline.DeleteCut( *sequence );
         CommitEdit( before );
     }
 }
@@ -486,7 +489,12 @@ void SequenceWidget::DrawBody()
         ImGui::TableNextColumn();
         ImGui::BeginChild( "Timeline pane", ImVec2( 0.f, paneHeight ), ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar );
         ImGui::BeginDisabled( runtime );
+        // New cuts use the selected camera.
+        m_timeline.CutCamera = selected && selected->HasComponent<Camera>() ? selected : EntityHandle();
         m_timeline.Draw( *sequence, m_frame, m_track );
+        // A clip names cut cameras by slot.
+        if( !runtime && IsAsset() && std::any_of( sequence->Cuts.begin(), sequence->Cuts.end(), []( const SequenceCut& cut ) { return cut.Binding.empty(); } ) )
+            sequence->PrepareAssetBindings();
         ImGui::EndDisabled();
         ImGui::EndChild();
         ImGui::TableNextColumn();
@@ -495,10 +503,13 @@ void SequenceWidget::DrawBody()
         // Picking a marker on the canvas brings its tab forward.
         const bool showEvents = m_timeline.SelectedMarker >= 0 && m_timeline.SelectedMarker != m_shownMarker;
         m_shownMarker = m_timeline.SelectedMarker;
+        const bool showCuts = m_timeline.SelectedCut >= 0 && m_timeline.SelectedCut != m_shownCut;
+        m_shownCut = m_timeline.SelectedCut;
         if( ImGui::BeginTabBar( "Inspector tabs" ) )
         {
             if( ImGui::BeginTabItem( "Track" ) ) { DrawTrackInspector( *sequence, selected ); ImGui::EndTabItem(); }
             if( ImGui::BeginTabItem( "Events", nullptr, showEvents ? ImGuiTabItemFlags_SetSelected : 0 ) ) { DrawEventInspector( *sequence, selected ); ImGui::EndTabItem(); }
+            if( ImGui::BeginTabItem( "Cameras", nullptr, showCuts ? ImGuiTabItemFlags_SetSelected : 0 ) ) { DrawCutInspector( *sequence, selected ); ImGui::EndTabItem(); }
             if( ImGui::BeginTabItem( "Player" ) ) { DrawPlayerInspector( *sequence, world ); ImGui::EndTabItem(); }
             if( ImGui::BeginTabItem( "Clips" ) ) { DrawClipLibrary( *sequence ); ImGui::EndTabItem(); }
             ImGui::EndTabBar();
@@ -707,6 +718,70 @@ void SequenceWidget::DrawEventInspector( Sequence& sequence, EntityHandle select
 }
 
 
+void SequenceWidget::SetCutCamera( Sequence& sequence, SequenceCut& cut, EntityHandle camera )
+{
+    sequence.StopPreview();
+    if( IsAsset() && !cut.Binding.empty() ) { sequence.SetBinding( cut.Binding, camera ); return; }
+    cut.Target = camera;
+    if( IsAsset() ) sequence.PrepareAssetBindings();
+}
+
+
+void SequenceWidget::DrawCutInspector( Sequence& sequence, EntityHandle selected )
+{
+    const bool selectedCamera = selected && selected->HasComponent<Camera>();
+    if( ImGui::Button( selectedCamera ? "+ Cut to Selected Camera at Playhead" : "+ Add Cut at Playhead", ImVec2( -1.f, 0.f ) ) )
+    {
+        m_timeline.CutCamera = selectedCamera ? selected : EntityHandle();
+        m_timeline.AddCut( sequence, m_frame );
+        if( IsAsset() ) sequence.PrepareAssetBindings();
+    }
+    if( sequence.Cuts.empty() )
+    {
+        ImGuiTheme::SectionGap();
+        ImGui::TextWrapped( "Camera cuts switch the Game View between cameras: each shot lasts until the next cut. Select a camera and double-click the Cameras lane to cut to it." );
+        return;
+    }
+    if( ImGui::BeginListBox( "##Cuts", ImVec2( -1.f, std::min( ImGuiTheme::Em( 8.f ), ImGui::GetFrameHeightWithSpacing() * ( sequence.Cuts.size() + 0.5f ) ) ) ) )
+    {
+        for( int i = 0; i < static_cast<int>( sequence.Cuts.size() ); ++i )
+        {
+            ImGui::PushID( i );
+            const SequenceCut& cut = sequence.Cuts[i];
+            const std::string label = std::to_string( cut.Frame ) + "  " + ( cut.Target ? cut.Target->GetName() : cut.Binding.empty() ? std::string( "No camera" ) : cut.Binding );
+            if( ImGui::Selectable( label.c_str(), i == m_timeline.SelectedCut ) ) { m_timeline.SelectedCut = i; m_timeline.SelectedMarker = -1; m_timeline.Selected.clear(); }
+            ImGui::PopID();
+        }
+        ImGui::EndListBox();
+    }
+    const int index = m_timeline.SelectedCut;
+    if( index < 0 || index >= static_cast<int>( sequence.Cuts.size() ) ) return;
+    SequenceCut& cut = sequence.Cuts[index];
+    ImGui::SeparatorText( "Cut" );
+    int frame = cut.Frame;
+    ImGui::SetNextItemWidth( ImGuiTheme::Em( 5.f ) );
+    if( ImGui::DragInt( "Frame", &frame, 1.f, 0, sequence.DurationFrames, "%d f", ImGuiSliderFlags_AlwaysClamp ) ) { m_timeline.MoveCut( sequence, index, frame ); return; }
+    ImGui::TextDisabled( "Camera" );
+    if( m_owner && ImGui::BeginCombo( "##Cut camera", cut.Target ? cut.Target->GetName().c_str() : "No camera" ) )
+    {
+        EditorOps::GetWorld().ForEachEntity( [&]( Entity& entity ) {
+            if( !entity.HasComponent<Camera>() ) return;
+            ImGui::PushID( static_cast<int>( entity.GetId().Index ) );
+            if( ImGui::Selectable( entity.GetName().c_str(), entity.GetHandle() == cut.Target ) ) SetCutCamera( sequence, cut, entity.GetHandle() );
+            ImGui::PopID();
+        } );
+        ImGui::EndCombo();
+    }
+    if( m_owner && selectedCamera && selected != cut.Target && ImGui::SmallButton( "Use selected camera" ) ) SetCutCamera( sequence, cut, selected );
+    if( !cut.Binding.empty() ) ImGui::TextDisabled( "Slot: %s", cut.Binding.c_str() );
+    if( !cut.Target ) ImGui::TextColored( ImGuiTheme::WarningText(), "%s", cut.Binding.empty() ? "Choose the camera this shot uses." : "This slot isn't bound on this player: the shot keeps the previous camera." );
+    else if( !cut.Target->HasComponent<Camera>() ) ImGui::TextColored( ImGuiTheme::WarningText(), "%s has no Camera component.", cut.Target->GetName().c_str() );
+    if( ImGui::Button( "Delete Cut" ) ) { m_timeline.DeleteCut( sequence ); return; }
+    ImGuiTheme::SectionGap();
+    ImGui::TextWrapped( "Before the first cut the scene's own camera stays current. A finished sequence holds its last shot until gameplay changes cameras." );
+}
+
+
 void SequenceWidget::DrawPlayerInspector( Sequence& sequence, World& world )
 {
     ImGui::SeparatorText( "Clip settings" );
@@ -822,7 +897,7 @@ bool SequenceWidget::ExecuteAutomation( const std::string& command, const std::s
     if( command == "seq-delete-keys" ) { const json before = EditState(); m_timeline.Delete( *sequence ); CommitEdit( before ); return true; }
     if( command == "seq-length" ) { int length; if( !( input >> length ) ) return false; const json before = EditState(); sequence->DurationFrames = length; CommitEdit( before ); return true; }
     // Event markers: "|"-separated fields, so names and payloads may contain spaces.
-    if( command.rfind( "seq-", 0 ) == 0 && command.find( "marker" ) != std::string::npos )
+    if( command.rfind( "seq-", 0 ) == 0 && ( command.find( "marker" ) != std::string::npos || command.find( "cut" ) != std::string::npos ) )
     {
         std::vector<std::string> fields;
         for( size_t start = 0;; )
@@ -841,7 +916,69 @@ bool SequenceWidget::ExecuteAutomation( const std::string& command, const std::s
             if( index < 0 || index >= static_cast<int>( sequence->Markers.size() ) ) { error = "No event marker " + std::to_string( index ); return nullptr; }
             return &sequence->Markers[index];
         };
+        auto entityNamed = [&]( const std::string& InName ) {
+            EntityHandle found;
+            EditorOps::GetWorld().ForEachEntity( [&]( Entity& entity ) { if( !found && entity.GetName() == InName ) found = entity.GetHandle(); } );
+            if( !found ) error = "No entity named " + InName;
+            return found;
+        };
+        auto cutAt = [&]( size_t i ) -> SequenceCut* {
+            const int index = number( i, -1 );
+            if( index < 0 || index >= static_cast<int>( sequence->Cuts.size() ) ) { error = "No camera cut " + std::to_string( index ); return nullptr; }
+            return &sequence->Cuts[index];
+        };
         const json before = EditState();
+        // seq-add-cut frame | camera name
+        if( command == "seq-add-cut" )
+        {
+            m_timeline.CutCamera = fields.size() > 1 && !fields[1].empty() ? entityNamed( fields[1] ) : EntityHandle();
+            if( !error.empty() ) return false;
+            if( m_timeline.AddCut( *sequence, number( 0, 0 ) ) < 0 ) { error = m_timeline.Message; return false; }
+            if( IsAsset() ) sequence->PrepareAssetBindings();
+            CommitEdit( before );
+            return true;
+        }
+        // seq-move-cut index | frame
+        if( command == "seq-move-cut" )
+        {
+            if( !cutAt( 0 ) ) return false;
+            if( !m_timeline.MoveCut( *sequence, number( 0, 0 ), number( 1, 0 ) ) ) { error = m_timeline.Message; return false; }
+            CommitEdit( before );
+            return true;
+        }
+        if( command == "seq-delete-cut" )
+        {
+            if( !cutAt( 0 ) ) return false;
+            m_timeline.SelectedCut = number( 0, 0 );
+            m_timeline.DeleteCut( *sequence );
+            CommitEdit( before );
+            return true;
+        }
+        // seq-assert-cut index | frame | camera name
+        if( command == "seq-assert-cut" )
+        {
+            const SequenceCut* found = cutAt( 0 );
+            if( !found ) return false;
+            const std::string camera = found->Target ? found->Target->GetName() : std::string( "<none>" );
+            if( found->Frame != number( 1, -1 ) || ( fields.size() > 2 && camera != fields[2] ) )
+            {
+                error = "Camera cut is " + std::to_string( found->Frame ) + " | " + camera;
+                return false;
+            }
+            return true;
+        }
+        // seq-assert-cut-camera name: the camera the Game View renders now.
+        if( command == "seq-assert-cut-camera" )
+        {
+            const std::string current = Camera::CurrentCamera && Camera::CurrentCamera->Parent ? Camera::CurrentCamera->Parent->GetName() : std::string( "<none>" );
+            if( current != args ) { error = "The current camera is " + current; return false; }
+            return true;
+        }
+        if( command == "seq-assert-cut-count" )
+        {
+            if( static_cast<int>( sequence->Cuts.size() ) != number( 0, -1 ) ) { error = "There are " + std::to_string( sequence->Cuts.size() ) + " camera cuts"; return false; }
+            return true;
+        }
         // seq-add-marker frame | name [| payload [| number]]
         if( command == "seq-add-marker" )
         {

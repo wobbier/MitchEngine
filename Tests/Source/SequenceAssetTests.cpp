@@ -375,3 +375,38 @@ TEST_CASE( "Sequence asset: markers export by slot, round trip, and validate" )
         CHECK_FALSE( loaded.FromJson( changed, error ) );
     }
 }
+
+
+TEST_CASE( "Sequence asset: camera cuts export by slot, bind per player, and validate" )
+{
+    ClipRig rig;
+    EntityHandle wide = rig.GameWorld->CreateEntity( "Wide" );
+    SequenceCut cut;
+    cut.Frame = 20;
+    cut.Target = wide;
+    rig.Player().Cuts = { cut };
+    rig.Player().PrepareAssetBindings();
+    const SequenceClipData clip = SequenceClipData::Capture( rig.Player() );
+    REQUIRE( clip.Cuts.size() == 1 );
+    CHECK( clip.Cuts[0].Binding == "Wide" );
+    const json valid = clip.ToJson();
+    CHECK_FALSE( valid["Cuts"][0].contains( "Target" ) );
+    std::string error;
+    SequenceClipData loaded;
+    REQUIRE( loaded.FromJson( valid, error ) );
+    Sequence other;
+    EntityHandle another = rig.GameWorld->CreateEntity( "Another" );
+    other.Bindings = { { "Wide", another } };
+    loaded.Apply( other );
+    REQUIRE( other.Cuts.size() == 1 );
+    CHECK( other.Cuts[0].Target == another );
+    for( int bad = 0; bad < 4; ++bad )
+    {
+        json changed = valid;
+        if( bad == 0 ) changed["Cuts"][0]["Target"] = "some-scene-guid";
+        if( bad == 1 ) changed["Cuts"][0]["Frame"] = 99;
+        if( bad == 2 ) changed["Cuts"][0]["Binding"] = "";
+        if( bad == 3 ) changed["Cuts"].push_back( changed["Cuts"][0] );
+        CHECK_FALSE( loaded.FromJson( changed, error ) );
+    }
+}

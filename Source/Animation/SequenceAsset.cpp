@@ -24,12 +24,18 @@ ME_REFLECT_BEGIN( SequenceClipMarker )
     ME_FIELD( Number );
 ME_REFLECT_END()
 
+ME_REFLECT_BEGIN( SequenceClipCut )
+    ME_FIELD( Frame );
+    ME_FIELD( Binding );
+ME_REFLECT_END()
+
 ME_REFLECT_BEGIN( SequenceClipData )
     ME_FIELD( Name );
     ME_FIELD( FrameRate );
     ME_FIELD( DurationFrames );
     ME_FIELD( Tracks );
     ME_FIELD( Markers );
+    ME_FIELD( Cuts );
 ME_REFLECT_END()
 
 
@@ -82,8 +88,22 @@ bool SequenceClipData::FromJson( const json& InData, std::string& OutError )
             if( marker.contains( "Number" ) && ( !marker["Number"].is_number() || !std::isfinite( marker["Number"].get<double>() ) ) ) return fail( "Invalid marker number" );
         }
     }
+    // Camera cuts (GAME-4) are optional too: one per frame, each naming its camera's slot.
+    if( InData.contains( "Cuts" ) )
+    {
+        if( !InData["Cuts"].is_array() ) return fail( "Cuts must be an array" );
+        std::set<int> frames;
+        for( const auto& cut : InData["Cuts"] )
+        {
+            if( !cut.is_object() || cut.contains( "Target" ) ) return fail( "Clip camera cuts use named bindings, not entity GUIDs" );
+            if( !cut.contains( "Frame" ) || !cut["Frame"].is_number_integer() || cut["Frame"].get<double>() < 0. || cut["Frame"].get<double>() > duration ) return fail( "Camera cut outside clip duration" );
+            if( !frames.insert( cut["Frame"].get<int>() ).second ) return fail( "Two camera cuts on one frame" );
+            if( !cut.contains( "Binding" ) || !cut["Binding"].is_string() || cut["Binding"].get<std::string>().empty() ) return fail( "A camera cut needs a binding" );
+        }
+    }
     SequenceClipData parsed;
     Reflection::FromJson( StaticType(), &parsed, InData );
+    std::sort( parsed.Cuts.begin(), parsed.Cuts.end(), []( const SequenceClipCut& a, const SequenceClipCut& b ) { return a.Frame < b.Frame; } );
     for( auto& track : parsed.Tracks ) std::sort( track.Keys.begin(), track.Keys.end(), []( const SequenceKey& a, const SequenceKey& b ) { return a.Frame < b.Frame; } );
     std::stable_sort( parsed.Markers.begin(), parsed.Markers.end(), []( const SequenceClipMarker& a, const SequenceClipMarker& b ) { return a.Frame < b.Frame; } );
     *this = std::move( parsed );
@@ -126,6 +146,8 @@ std::vector<std::string> SequenceClipData::GetSlots() const
         if( std::find( slots.begin(), slots.end(), track.Binding ) == slots.end() ) slots.push_back( track.Binding );
     for( const auto& marker : Markers )
         if( !marker.Binding.empty() && std::find( slots.begin(), slots.end(), marker.Binding ) == slots.end() ) slots.push_back( marker.Binding );
+    for( const auto& cut : Cuts )
+        if( std::find( slots.begin(), slots.end(), cut.Binding ) == slots.end() ) slots.push_back( cut.Binding );
     return slots;
 }
 
@@ -138,6 +160,7 @@ SequenceClipData SequenceClipData::Capture( const Sequence& InSequence )
     data.DurationFrames = InSequence.DurationFrames;
     for( const auto& track : InSequence.Tracks ) data.Tracks.push_back( { track.Binding, track.Component, track.Property, track.Enabled, track.Keys } );
     for( const auto& marker : InSequence.Markers ) data.Markers.push_back( { marker.Frame, marker.Name, marker.Binding, marker.Payload, marker.Number } );
+    for( const auto& cut : InSequence.Cuts ) data.Cuts.push_back( { cut.Frame, cut.Binding } );
     return data;
 }
 
@@ -169,6 +192,14 @@ void SequenceClipData::Apply( Sequence& InSequence ) const
         marker.Payload = source.Payload;
         marker.Number = source.Number;
         InSequence.Markers.push_back( std::move( marker ) );
+    }
+    InSequence.Cuts.clear();
+    for( const auto& source : Cuts )
+    {
+        SequenceCut cut;
+        cut.Frame = source.Frame;
+        cut.Binding = source.Binding;
+        InSequence.Cuts.push_back( std::move( cut ) );
     }
     InSequence.ResolveBindings();
 }

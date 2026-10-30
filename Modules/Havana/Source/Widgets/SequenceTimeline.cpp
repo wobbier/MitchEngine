@@ -9,9 +9,10 @@ void SequenceTimeline::Reset()
 {
     Selected.clear();
     SelectedMarker = -1;
+    SelectedCut = -1;
     m_original.clear();
     m_originalSelection.clear();
-    m_box = m_drag = m_scrub = m_markerDrag = false;
+    m_box = m_drag = m_scrub = m_markerDrag = m_cutDrag = false;
     m_fit = true;
     Message.clear();
 }
@@ -73,6 +74,57 @@ bool SequenceTimeline::DeleteMarker( Sequence& InSequence )
 }
 
 
+ImVec2 SequenceTimeline::CutPosition( float InFrame ) const
+{
+    return ImVec2( m_gridOrigin.x + ( InFrame - m_firstFrame ) * m_pixelsPerFrame, m_cutLaneY );
+}
+
+
+int SequenceTimeline::AddCut( Sequence& InSequence, int InFrame )
+{
+    const int frame = std::clamp( InFrame, 0, InSequence.DurationFrames );
+    for( const SequenceCut& cut : InSequence.Cuts ) if( cut.Frame == frame ) { Message = "There is already a camera cut on that frame."; return -1; }
+    InSequence.StopPreview();
+    SequenceCut cut;
+    cut.Frame = frame;
+    cut.Target = CutCamera;
+    auto at = std::upper_bound( InSequence.Cuts.begin(), InSequence.Cuts.end(), frame, []( int f, const SequenceCut& c ) { return f < c.Frame; } );
+    const auto inserted = InSequence.Cuts.insert( at, cut );
+    SelectedCut = static_cast<int>( inserted - InSequence.Cuts.begin() );
+    SelectedMarker = -1;
+    Selected.clear();
+    return SelectedCut;
+}
+
+
+bool SequenceTimeline::MoveCut( Sequence& InSequence, int InIndex, int InFrame )
+{
+    if( InIndex < 0 || InIndex >= static_cast<int>( InSequence.Cuts.size() ) ) return false;
+    const int frame = std::clamp( InFrame, 0, InSequence.DurationFrames );
+    for( int i = 0; i < static_cast<int>( InSequence.Cuts.size() ); ++i )
+        if( i != InIndex && InSequence.Cuts[i].Frame == frame ) { Message = "Move blocked: that frame already has a camera cut."; return false; }
+    InSequence.StopPreview();
+    SequenceCut cut = InSequence.Cuts[InIndex];
+    cut.Frame = frame;
+    InSequence.Cuts.erase( InSequence.Cuts.begin() + InIndex );
+    auto at = std::upper_bound( InSequence.Cuts.begin(), InSequence.Cuts.end(), frame, []( int f, const SequenceCut& c ) { return f < c.Frame; } );
+    const auto inserted = InSequence.Cuts.insert( at, cut );
+    SelectedCut = static_cast<int>( inserted - InSequence.Cuts.begin() );
+    Message.clear();
+    return true;
+}
+
+
+bool SequenceTimeline::DeleteCut( Sequence& InSequence )
+{
+    if( SelectedCut < 0 || SelectedCut >= static_cast<int>( InSequence.Cuts.size() ) ) return false;
+    InSequence.StopPreview();
+    InSequence.Cuts.erase( InSequence.Cuts.begin() + SelectedCut );
+    SelectedCut = -1;
+    return true;
+}
+
+
 void SequenceTimeline::SelectBox( const Sequence& InSequence, float InFirst, float InLast, int InFirstRow, int InLastRow, bool InAdd )
 {
     SequenceEditing::BoxSelect( InSequence.Tracks, InFirst, InLast, InFirstRow, InLastRow, Selected, InAdd );
@@ -112,6 +164,7 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
     ImGui::SetItemTooltip( "Fit the entire clip in the timeline" );
     ImGui::SameLine();
     if( SelectedMarker >= static_cast<int>( sequence.Markers.size() ) ) SelectedMarker = -1;
+    if( SelectedCut >= static_cast<int>( sequence.Cuts.size() ) ) SelectedCut = -1;
     ImGui::BeginDisabled( Selected.empty() );
     if( ImGui::Button( "<" ) ) changed |= Move( sequence, -1 );
     ImGui::SetItemTooltip( "Move selected keys one frame left" );
@@ -121,8 +174,8 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
     ImGui::SameLine();
     ImGui::EndDisabled();
     ImGui::SameLine();
-    ImGui::BeginDisabled( Selected.empty() && SelectedMarker < 0 );
-    if( ImGui::Button( "Delete" ) ) changed |= Selected.empty() ? DeleteMarker( sequence ) : Delete( sequence );
+    ImGui::BeginDisabled( Selected.empty() && SelectedMarker < 0 && SelectedCut < 0 );
+    if( ImGui::Button( "Delete" ) ) changed |= !Selected.empty() ? Delete( sequence ) : SelectedMarker >= 0 ? DeleteMarker( sequence ) : DeleteCut( sequence );
     ImGui::EndDisabled();
     ImGui::SameLine();
     ImGui::SetNextItemWidth( ImGuiTheme::Em( 3.8f ) );
@@ -133,7 +186,7 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
     ImGui::TextDisabled( "Snap" );
     ImGui::SameLine();
     ImGui::TextDisabled( "(?)" );
-    ImGui::SetItemTooltip( "Box select: drag empty space\nAdd selection: Shift\nToggle key: Ctrl/Cmd-click\nMove selection: drag a selected key\nAdd event marker: double-click the Events lane\nZoom: Ctrl/Cmd + wheel\nPan: middle drag\nCancel drag: Escape" );
+    ImGui::SetItemTooltip( "Box select: drag empty space\nAdd selection: Shift\nToggle key: Ctrl/Cmd-click\nMove selection: drag a selected key\nAdd event marker: double-click the Events lane\nAdd camera cut: double-click the Cameras lane\nZoom: Ctrl/Cmd + wheel\nPan: middle drag\nCancel drag: Escape" );
     if( !Message.empty() ) ImGui::TextColored( ImGuiTheme::WarningText(), "%s", Message.c_str() );
 
     ImGui::PushStyleColor( ImGuiCol_ChildBg, ImGuiTheme::ActivePalette().Recessed );
@@ -144,14 +197,16 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
     const float rowHeight = ImGuiTheme::Em( 2.9f );
     const float header = ImGuiTheme::Em( 2.1f );
     const float markerLane = ImGuiTheme::Em( 1.9f );
-    const float tracksTop = origin.y + header + markerLane;
+    const float cutsTop = origin.y + header + markerLane;
+    const float tracksTop = cutsTop + markerLane;
     const float legend = std::clamp( width * 0.3f, ImGuiTheme::Em( 8.f ), ImGuiTheme::Em( 15.f ) );
     const float grid = origin.x + legend;
     const float gridWidth = std::max( width - legend - 10.f, 20.f );
     m_gridOrigin = ImVec2( grid, tracksTop );
     m_markerLaneY = origin.y + header + markerLane * 0.5f;
+    m_cutLaneY = cutsTop + markerLane * 0.5f;
     m_rowHeight = rowHeight;
-    const float height = std::max( header + markerLane + rowHeight * sequence.Tracks.size(), ImGui::GetContentRegionAvail().y );
+    const float height = std::max( header + markerLane * 2.f + rowHeight * sequence.Tracks.size(), ImGui::GetContentRegionAvail().y );
     if( m_fit || m_pixelsPerFrame <= 0.f )
     {
         m_pixelsPerFrame = std::clamp( gridWidth / std::max( sequence.DurationFrames, 1 ), 0.05f, 80.f );
@@ -160,7 +215,7 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
     }
     ImGui::InvisibleButton( "##keys", ImVec2( width, height ), ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonMiddle );
     // Entering runtime can disable the canvas in the middle of a pointer gesture.
-    if( ImGui::GetItemFlags() & ImGuiItemFlags_Disabled ) m_drag = m_box = m_scrub = m_markerDrag = false;
+    if( ImGui::GetItemFlags() & ImGuiItemFlags_Disabled ) m_drag = m_box = m_scrub = m_markerDrag = m_cutDrag = false;
     const bool hovered = ImGui::IsItemHovered();
     const bool active = ImGui::IsItemActive();
     const ImGuiIO& io = ImGui::GetIO();
@@ -187,7 +242,12 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
         for( const auto& key : sequence.Tracks[mouseRow].Keys )
             if( std::abs( io.MousePos.x - keyX( key.Frame ) ) <= hitRadius && std::abs( io.MousePos.y - keyY( mouseRow ) ) <= hitRadius ) { hit = { static_cast<size_t>( mouseRow ), key.Frame }; hasHit = true; break; }
 
-    const bool inMarkerLane = io.MousePos.y >= origin.y + header && io.MousePos.y < tracksTop;
+    const bool inMarkerLane = io.MousePos.y >= origin.y + header && io.MousePos.y < cutsTop;
+    const bool inCutLane = io.MousePos.y >= cutsTop && io.MousePos.y < tracksTop;
+    int cutHit = -1;
+    if( inCutLane && io.MousePos.x >= grid )
+        for( int i = 0; i < static_cast<int>( sequence.Cuts.size() ) && cutHit < 0; ++i )
+            if( std::abs( io.MousePos.x - keyX( static_cast<float>( sequence.Cuts[i].Frame ) ) ) <= hitRadius ) cutHit = i;
     int markerHit = -1;
     if( inMarkerLane && io.MousePos.x >= grid )
         for( int i = static_cast<int>( sequence.Markers.size() ) - 1; i >= 0 && markerHit < 0; --i )
@@ -202,9 +262,24 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
             if( mouseRow >= 0 && mouseRow < static_cast<int>( sequence.Tracks.size() ) ) track = mouseRow;
         }
         else if( io.MousePos.y < origin.y + header ) m_scrub = true;
+        else if( inCutLane )
+        {
+            Selected.clear();
+            SelectedMarker = -1;
+            if( cutHit >= 0 )
+            {
+                SelectedCut = cutHit;
+                m_cutDrag = true;
+                m_cutOriginal = sequence.Cuts[cutHit].Frame;
+            }
+            else if( ImGui::IsMouseDoubleClicked( ImGuiMouseButton_Left ) )
+                changed |= AddCut( sequence, static_cast<int>( std::lround( toFrame( io.MousePos.x ) / m_snap ) ) * m_snap ) >= 0;
+            else SelectedCut = -1;
+        }
         else if( inMarkerLane )
         {
             Selected.clear();
+            SelectedCut = -1;
             if( markerHit >= 0 )
             {
                 SelectedMarker = markerHit;
@@ -220,7 +295,7 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
         }
         else if( hasHit )
         {
-            SelectedMarker = -1;
+            SelectedMarker = SelectedCut = -1;
             track = static_cast<int>( hit.Track );
             const bool selected = SequenceEditing::Contains( Selected, hit );
             if( control && selected ) Selected.erase( std::remove( Selected.begin(), Selected.end(), hit ), Selected.end() );
@@ -259,6 +334,12 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
         const int target = std::clamp( m_markerOriginal + delta, 0, sequence.DurationFrames );
         if( sequence.Markers[SelectedMarker].Frame != target ) changed |= MoveMarker( sequence, SelectedMarker, target );
     }
+    if( m_cutDrag && SelectedCut >= 0 && ImGui::IsMouseDragging( ImGuiMouseButton_Left ) )
+    {
+        const int delta = static_cast<int>( std::lround( ( io.MousePos.x - m_start.x ) / m_pixelsPerFrame / m_snap ) ) * m_snap;
+        const int target = std::clamp( m_cutOriginal + delta, 0, sequence.DurationFrames );
+        if( sequence.Cuts[SelectedCut].Frame != target ) changed |= MoveCut( sequence, SelectedCut, target );
+    }
     if( m_drag && ImGui::IsMouseDragging( ImGuiMouseButton_Left ) )
     {
         int delta = static_cast<int>( std::lround( ( io.MousePos.x - m_start.x ) / m_pixelsPerFrame / m_snap ) ) * m_snap;
@@ -278,10 +359,11 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
     {
         if( m_drag ) { sequence.Tracks = m_original; changed = true; }
         if( m_markerDrag && SelectedMarker >= 0 ) changed |= MoveMarker( sequence, SelectedMarker, m_markerOriginal );
+        else if( m_cutDrag && SelectedCut >= 0 ) changed |= MoveCut( sequence, SelectedCut, m_cutOriginal );
         else Selected = m_originalSelection;
-        m_drag = m_box = m_scrub = m_markerDrag = false;
+        m_drag = m_box = m_scrub = m_markerDrag = m_cutDrag = false;
     }
-    if( !io.MouseDown[0] ) m_drag = m_box = m_scrub = m_markerDrag = false;
+    if( !io.MouseDown[0] ) m_drag = m_box = m_scrub = m_markerDrag = m_cutDrag = false;
 
     ImDrawList* draw = ImGui::GetWindowDrawList();
     const auto& palette = ImGuiTheme::ActivePalette();
@@ -295,6 +377,8 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
     };
     draw->AddRectFilled( ImVec2( origin.x, origin.y + header ), ImVec2( origin.x + width, tracksTop ), ImGui::GetColorU32( ImGuiTheme::Mix( palette.Recessed, palette.Text, 0.05f ) ) );
     draw->AddText( ImVec2( origin.x + inset, origin.y + header + ImGuiTheme::Em( 0.35f ) ), ImGui::GetColorU32( palette.Muted ), "EVENTS" );
+    draw->AddLine( ImVec2( origin.x, cutsTop ), ImVec2( origin.x + width, cutsTop ), ImGui::GetColorU32( ImGuiTheme::WithAlpha( palette.Muted, 0.12f ) ) );
+    draw->AddText( ImVec2( origin.x + inset, cutsTop + ImGuiTheme::Em( 0.35f ) ), ImGui::GetColorU32( palette.Muted ), "CAMERAS" );
     draw->AddLine( ImVec2( origin.x, tracksTop ), ImVec2( origin.x + width, tracksTop ), ImGui::GetColorU32( ImGuiTheme::WithAlpha( palette.Muted, 0.2f ) ) );
     for( size_t row = 0; row < sequence.Tracks.size(); ++row )
     {
@@ -359,6 +443,24 @@ bool SequenceTimeline::Draw( Sequence& sequence, int& frame, int& track )
         draw->AddLine( ImVec2( x, top ), ImVec2( x, bottom ), colour, 1.5f );
         draw->AddTriangleFilled( ImVec2( x, top ), ImVec2( x + ImGuiTheme::Em( 0.7f ), top + ImGuiTheme::Em( 0.35f ) ), ImVec2( x, top + ImGuiTheme::Em( 0.7f ) ), colour );
         draw->AddText( ImVec2( x + ImGuiTheme::Em( 0.85f ), top - ImGuiTheme::Em( 0.1f ) ), ImGui::GetColorU32( selected ? palette.Text : palette.Muted ), marker.Name.c_str() );
+    }
+    // Cuts: a shot bar from each cut to the next (or the end), named after its camera.
+    for( int i = 0; i < static_cast<int>( sequence.Cuts.size() ); ++i )
+    {
+        const SequenceCut& cut = sequence.Cuts[i];
+        const float x = keyX( static_cast<float>( cut.Frame ) );
+        const float next = keyX( static_cast<float>( i + 1 < static_cast<int>( sequence.Cuts.size() ) ? sequence.Cuts[i + 1].Frame : sequence.DurationFrames ) );
+        if( next < grid || x > origin.x + width ) continue;
+        const bool selected = i == SelectedCut;
+        const ImVec4 tone = selected ? palette.Warning : cut.Target ? palette.Success : palette.Muted;
+        const float top = cutsTop + ImGuiTheme::Em( 0.3f );
+        const float bottom = tracksTop - ImGuiTheme::Em( 0.3f );
+        draw->AddRectFilled( ImVec2( x, top ), ImVec2( std::max( next - 2.f, x + 3.f ), bottom ), ImGui::GetColorU32( ImGuiTheme::WithAlpha( tone, 0.28f ) ), 3.f );
+        draw->AddRectFilled( ImVec2( x, top ), ImVec2( x + 3.f, bottom ), ImGui::GetColorU32( tone ) );
+        const std::string label = cut.Target ? cut.Target->GetName() : cut.Binding.empty() ? std::string( "No camera" ) : cut.Binding + " (unbound)";
+        draw->PushClipRect( ImVec2( x, top ), ImVec2( std::max( next - 4.f, x ), bottom ), true );
+        draw->AddText( ImVec2( x + ImGuiTheme::Em( 0.45f ), top + ImGuiTheme::Em( 0.05f ) ), ImGui::GetColorU32( selected ? palette.Text : palette.Muted ), label.c_str() );
+        draw->PopClipRect();
     }
     const float playhead = keyX( static_cast<float>( frame ) );
     const ImU32 playheadColour = ImGui::GetColorU32( palette.Error );

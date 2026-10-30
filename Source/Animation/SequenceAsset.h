@@ -28,6 +28,14 @@ public:
     float Number = 0.f;
 };
 
+struct SequenceClipCut
+{
+    ME_REFLECTABLE( SequenceClipCut )
+public:
+    int Frame = 0;
+    std::string Binding;
+};
+
 struct SequenceClipData
 {
     ME_REFLECTABLE( SequenceClipData )
@@ -37,6 +45,7 @@ public:
     int DurationFrames = 240;
     std::vector<SequenceClipTrack> Tracks;
     std::vector<SequenceClipMarker> Markers;
+    std::vector<SequenceClipCut> Cuts;
 
     json ToJson() const;
     bool FromJson( const json& InData, std::string& OutError );

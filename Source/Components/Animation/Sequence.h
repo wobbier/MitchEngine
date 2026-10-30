@@ -65,6 +65,17 @@ public:
     EntityHandle ResolveReceiver( const EntityHandle& InPlayer ) const { return Target ? Target : Binding.empty() ? InPlayer : EntityHandle(); }
 };
 
+// A camera cut (GAME-4): from its frame until the next cut, this camera is the current one.
+struct SequenceCut
+{
+    ME_REFLECTABLE( SequenceCut )
+public:
+    int Frame = 0;
+    EntityHandle Target;
+    // Clip assets name the camera by binding slot.
+    std::string Binding;
+};
+
 enum class SequenceEventKind { Marker, Started, Finished, Interrupted, Looped };
 
 // Fired synchronously from the sequence's update (ScriptCore queues it for C#). Notifications
@@ -113,6 +124,9 @@ public:
     std::vector<SequenceTrack> Tracks;
     // Kept sorted by frame; simultaneous markers fire in list order.
     std::vector<SequenceMarker> Markers;
+    // Sorted by frame, one per frame. Sampling makes the active cut's camera current; before the
+    // first cut the current camera is left alone.
+    std::vector<SequenceCut> Cuts;
     std::string Clip;
     std::vector<SequenceBinding> Bindings;
     std::vector<SequenceClipEntry> Clips;
@@ -142,6 +156,8 @@ public:
     float GetFrame() const;
     float GetDuration() const;
     void Apply( float InFrame ) const;
+    // The camera cut active at a frame (empty before the first cut or for an unbound slot).
+    EntityHandle GetCutCamera( float InFrame ) const;
 
     void StartPreview( float InFrame = 0.f, bool InPlaying = false );
     void StopPreview();
@@ -164,6 +180,7 @@ private:
         json Value;
     };
     std::vector<SavedProperty> m_saved;
+    EntityHandle m_savedCamera;
     double m_time = 0.;
     bool m_playing = false;
     bool m_initialized = false;

@@ -32,7 +32,8 @@ collision protection, snapping, deletion, nudging, zoom and pan. The next milest
    preview should not invoke gameplay events by default. Also expose Started, Finished,
    Interrupted and Looped notifications for gameplay orchestration. These are proposed APIs,
    not implemented callbacks.
-4. **Cinematic composition.** Add camera-cut and shot tracks, audio clips/waveforms, nested
+4. **Cinematic composition.** *Camera cuts done (GAME-4, see [Sequences](Sequences.md#camera-cuts-game-4)).*
+   Add camera-cut and shot tracks, audio clips/waveforms, nested
    sequences, play ranges/markers, crossfades, constraints/look-at targets and animation-clip
    tracks for actors. Keep playback deterministic at a requested time for captures and tools.
 5. **Ownership and production behavior.** Specify hold-final versus restore-on-stop/interruption,

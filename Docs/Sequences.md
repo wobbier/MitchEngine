@@ -146,6 +146,23 @@ asset (as `Markers`, receivers by slot) for a clip. Older assets without markers
 `seq-move-marker`, `seq-marker-receiver`, `seq-delete-marker` and `seq-assert-marker`, then play
 and check what `SequenceEventProbe.cs` heard.
 
+## Camera cuts (GAME-4)
+
+The **Cameras** lane below Events cuts the Game View between cameras: each cut names a camera,
+and its shot lasts until the next cut (bars show the shots). Select a camera and double-click the
+lane (or **Cameras > Cut to Selected Camera at Playhead**); drag a cut to move it. One cut per
+frame: moves and adds onto an occupied frame are refused. The **Cameras** tab picks a cut's
+camera (entities with a Camera component) and warns about an unbound slot. In a clip asset a cut
+names its camera by binding slot (`Cuts` in the `.sequence`), so each player binds its own.
+
+Cutting is part of sampling: a sample makes the active cut's camera current
+(`Camera::SetCurrent`), so scrubbing and previews show the shot, and stopping a preview gives the
+scene its camera back. Before the first cut the scene's current camera is left alone. Playback
+owns the camera only while it runs: a finished (or paused) sequence holds its last shot until
+gameplay changes cameras. `Sequence::GetCutCamera( frame )` answers which camera a frame uses.
+Flows: `seq-add-cut frame | camera`, `seq-move-cut`, `seq-delete-cut`, `seq-assert-cut`,
+`seq-assert-cut-count` and `seq-assert-cut-camera name` (the camera rendering now).
+
 ## Clip playback rules
 
 Switching to a different asset starts it at frame zero, including when `restart` is false.

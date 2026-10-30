@@ -18,12 +18,19 @@ public:
     int AddMarker( Sequence& InSequence, int InFrame );
     bool MoveMarker( Sequence& InSequence, int InIndex, int InFrame );
     bool DeleteMarker( Sequence& InSequence );
+    // Camera cuts: one per frame, in the Cameras lane. New cuts use CutCamera (the widget sets it).
+    int AddCut( Sequence& InSequence, int InFrame );
+    bool MoveCut( Sequence& InSequence, int InIndex, int InFrame );
+    bool DeleteCut( Sequence& InSequence );
+    EntityHandle CutCamera;
     SequenceEditing::Selection Selected;
     int SelectedMarker = -1;
+    int SelectedCut = -1;
     std::string Message;
     // Canvas coordinates also let UI tests drive the same pointer gestures as the user.
     ImVec2 KeyPosition( float InFrame, float InRow ) const;
     ImVec2 MarkerPosition( float InFrame ) const;
+    ImVec2 CutPosition( float InFrame ) const;
 private:
     float m_firstFrame = 0.f;
     float m_pixelsPerFrame = 0.f;
@@ -33,6 +40,9 @@ private:
     bool m_markerDrag = false;
     int m_markerOriginal = 0;
     float m_markerLaneY = 0.f;
+    bool m_cutDrag = false;
+    int m_cutOriginal = 0;
+    float m_cutLaneY = 0.f;
     ImVec2 m_start;
     std::vector<SequenceTrack> m_original;
     SequenceEditing::Selection m_originalSelection;
