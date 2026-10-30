@@ -70,6 +70,7 @@
 #include "Core/Assert.h"
 #include "Events/EditorEvents.h"
 #include "Core/CommandLine.h"
+#include "Mods/Mods.h"
 #include "Core/CrashHandler.h"
 #include "Resource/AssetMetaCache.h"
 #include "Resource/FileWatcher.h"
@@ -238,6 +239,17 @@ void Engine::Init( Game* game )
         const std::filesystem::path userDir = std::filesystem::absolute( CommandLine::GetString( "--user-dir" ), error );
         VFS::Get().SetUserRoot( userDir.generic_string() );
         CLog::GetInstance().Log( CLog::LogType::Info, "User state: " + userDir.generic_string() );
+    }
+    // MOD-1: mods mount over the game as VFS layers once user:// is known (user://Mods and the
+    // player's user://Config/Mods.json). The editor edits the game's own files unless --mods.
+#if USING( ME_EDITOR )
+    const bool applyMods = CommandLine::Has( "--mods" );
+#else
+    const bool applyMods = !CommandLine::Has( "--no-mods" );
+#endif
+    if( applyMods )
+    {
+        ModManager::Get().Apply();
     }
 #if USING( ME_RETAIL )
     // The log and crash reports join the player's other state. Unattended runs (automation reads

@@ -1,0 +1,6 @@
+{
+    "id": "com.mitchengine.tests.blue-crates",
+    "name": "Blue Crates (test mod)",
+    "version": "1.0.0",
+    "engine": ">=0.1"
+}

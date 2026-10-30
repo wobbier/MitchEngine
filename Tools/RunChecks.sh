@@ -368,6 +368,16 @@ if [[ -e "${test_references[0]}" ]]; then
     fi
 fi
 
+# Mods (MOD-1): Tests/Mods/BlueCrates replaces the crate sprite as a VFS layer, loaded through
+# --mod-dir; Physics2D captured with it must match its own reference (blue crates).
+if [[ -f "$here/../Tests/Mods/Reference/Physics2D.png" && -f Assets/Scenes/Showcase/Physics2D.lvl ]]; then
+    step "Mods"
+    if ! python3 "$here/ScreenshotRegression.py" --game .build/Game_linux_Debug/Game_EntryPoint_x64 --reference "$here/../Tests/Mods/Reference" \
+            --wrapper "$here/Headless.sh" --game-args "--mod-dir $here/../Tests/Mods" Assets/Scenes/Showcase/Physics2D.lvl; then
+        failed+=("mods (texture override)")
+    fi
+fi
+
 echo
 if [[ ${#failed[@]} -gt 0 ]]; then
     echo "FAILED: ${failed[*]}"
