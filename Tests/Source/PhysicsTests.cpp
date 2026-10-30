@@ -795,3 +795,24 @@ TEST_CASE( "Physics: destroying a collider mid-contact sends a one-sided Exit" )
     CHECK( hits[0].Self == ground );
     CHECK_FALSE( hits[0].Other );   // the destroyed side's shape is gone
 }
+
+
+TEST_CASE( "Physics: nested dynamic bodies (a ragdoll's bones) keep their own poses" )
+{
+    // Each box is the child of the one before. Poses are written parents first, so moving a
+    // parent never drags an already-written child along (which then read as an external move).
+    Scene scene;
+    EntityHandle a = scene.DynamicBox( "A", Vector3( 0.f, 20.f, 0.f ) );
+    EntityHandle b = scene.DynamicBox( "B", Vector3( 3.f, 0.f, 0.f ) );
+    EntityHandle c = scene.DynamicBox( "C", Vector3( 3.f, 0.f, 0.f ) );
+    b->GetComponent<Transform>().SetParent( a->GetComponent<Transform>() );
+    c->GetComponent<Transform>().SetParent( b->GetComponent<Transform>() );
+    scene.Start();
+    REQUIRE( PositionOf( c ).x == doctest::Approx( 6.f ) );
+    scene.Run( 1.f );
+    const float drop = 20.f - PositionOf( a ).y;
+    CHECK( drop == doctest::Approx( 0.5f * 9.81f ).epsilon( 0.05 ) );
+    CHECK( 20.f - PositionOf( b ).y == doctest::Approx( drop ).epsilon( 0.001 ) );
+    CHECK( 20.f - PositionOf( c ).y == doctest::Approx( drop ).epsilon( 0.001 ) );
+    CHECK( PositionOf( c ).x == doctest::Approx( 6.f ).epsilon( 0.001 ) );
+}

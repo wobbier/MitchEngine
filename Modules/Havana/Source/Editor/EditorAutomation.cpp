@@ -36,6 +36,7 @@
 #include "Components/Audio/AudioSource.h"
 #include "Components/Transform.h"
 #include "Components/Camera.h"
+#include "Components/Physics/Ragdoll.h"
 #include "Components/Graphics/Model.h"
 #include "Core/CommandLine.h"
 #include "Cores/SceneCore.h"
@@ -544,6 +545,19 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             if( !EditorOps::CompactModel( *selected.Get() ) ) Fail( "model-compact: selected model is not ready or is already compact" );
         }
         else if( !EditorOps::ExposeModelNode( *selected.Get(), args ) ) Fail( "model-expose: no matching model node" );
+    }
+    else if( command == "ragdoll-build" || command == "ragdoll-clear" || command == "assert-ragdoll-bones" )
+    {
+        // GAME-5, on the selected entity's Ragdoll: build / clear its parts (one undo step), or
+        // assert-ragdoll-bones 3 (how many bones have parts).
+        EntityHandle selected = Selection::Get().GetActive();
+        Ragdoll* ragdoll = selected ? selected->TryGetComponent<Ragdoll>() : nullptr;
+        if( !ragdoll ) Fail( command + ": select an entity with a Ragdoll first" );
+        else if( command == "assert-ragdoll-bones" )
+        {
+            if( static_cast<int>( ragdoll->Bones.size() ) != std::atoi( args.c_str() ) ) Fail( "assert-ragdoll-bones: the ragdoll has " + std::to_string( ragdoll->Bones.size() ) + " bones" );
+        }
+        else EditorOps::BuildRagdoll( *selected.Get(), command == "ragdoll-clear" );
     }
     else if( command == "show-assets" )
     {

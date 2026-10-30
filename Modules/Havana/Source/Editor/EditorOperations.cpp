@@ -11,6 +11,7 @@
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "World/SceneSerializer.h"
+#include "Components/Physics/Ragdoll.h"
 #include "CLog.h"
 #include <imgui.h>
 #include <algorithm>
@@ -811,6 +812,57 @@ namespace EditorOps
         component->Deserialize( InState );
         component->OnPropertyChanged( "" );
         return true;
+    }
+
+
+    int BuildRagdoll( Entity& InOwner, bool InClear )
+    {
+        Ragdoll* ragdoll = InOwner.TryGetComponent<Ragdoll>();
+        if( !ragdoll )
+        {
+            return 0;
+        }
+        UndoStack::Get().BeginTransaction( InClear ? "Remove Ragdoll Parts" : "Build Ragdoll" );
+        const json before = CaptureComponent( InOwner, "Ragdoll" );
+        // Rebuilding starts clean: the old parts go first (bones may have changed).
+        for( EntityHandle& bone : ragdoll->Bones )
+        {
+            for( const char* type : { "PhysicsJoint", "CapsuleCollider", "Rigidbody" } )
+            {
+                if( bone && bone->GetComponentByName( type ) )
+                {
+                    RemoveComponent( *bone.Get(), type );
+                }
+            }
+        }
+        ragdoll->Bones.clear();
+        if( !InClear )
+        {
+            SerializationWorldScope scope( &GetWorld() );
+            for( const Ragdoll::Part& part : ragdoll->Plan() )
+            {
+                if( !part.Bone )
+                {
+                    continue;
+                }
+                BaseComponent* component = AddComponent( *part.Bone.Get(), part.Type );
+                if( !component )
+                {
+                    continue;
+                }
+                const json added = CaptureComponent( *part.Bone.Get(), part.Type );
+                component->Deserialize( part.State );
+                component->OnPropertyChanged( "" );
+                RecordComponentEdit( *part.Bone.Get(), part.Type, added, CaptureComponent( *part.Bone.Get(), part.Type ), "Build Ragdoll" );
+                if( std::find( ragdoll->Bones.begin(), ragdoll->Bones.end(), part.Bone ) == ragdoll->Bones.end() )
+                {
+                    ragdoll->Bones.push_back( part.Bone );
+                }
+            }
+        }
+        RecordComponentEdit( InOwner, "Ragdoll", before, CaptureComponent( InOwner, "Ragdoll" ), "Build Ragdoll" );
+        UndoStack::Get().EndTransaction();
+        return static_cast<int>( ragdoll->Bones.size() );
     }
 
 

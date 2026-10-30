@@ -66,6 +66,10 @@ namespace EditorOps
     json CaptureComponent( Entity& InEntity, const std::string& InTypeName );
     bool ApplyComponent( uint64_t InEntityGUID, const std::string& InTypeName, const json& InState );
 
+    // GAME-5: adds (or, with InClear, removes) the ragdoll parts on the bones under an entity with
+    // a Ragdoll, as one undo step. Returns the number of bones with parts.
+    int BuildRagdoll( Entity& InOwner, bool InClear = false );
+
     // Clears the selection and undo history (new scene / scene load).
     void ResetForNewScene();
 }

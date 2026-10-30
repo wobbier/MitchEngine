@@ -20,6 +20,7 @@ class World;
 // snapshot, so custom inspector code gets undo for free.
 class PropertiesWidget
 	: public HavanaWidget
+	, public EventReceiver
 {
 public:
 	PropertiesWidget();

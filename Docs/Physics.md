@@ -18,6 +18,7 @@ Both cores step at the fixed rate while the world is started, then interpolate t
 | Shapes | `BoxCollider`, `SphereCollider`, `CapsuleCollider`, `MeshCollider` | `b3Shape` (hull, sphere, capsule, mesh) |
 | Compound body | colliders on children of an entity with a `Rigidbody` | several shapes on one body |
 | Constraint | `PhysicsJoint` | weld / revolute / spherical / prismatic / distance joint |
+| Ragdoll | `Ragdoll` | rigidbodies, capsules and cone joints on a skeleton's bones; kinematic while animated, dynamic while `Simulating`, blended back on recovery |
 | Character | `CharacterController` | Box3D mover + a kinematic capsule body |
 | Collision callbacks | `CollisionEvent` (`Source/Physics/PhysicsTypes.h`), per entity through `CollisionRouter` (`Engine::Collisions`) | contact and sensor begin/end events |
 
@@ -173,6 +174,35 @@ The character mover skips that host only while the capsule fits inside the openi
 - **Breaking:** `BreakForce` > 0 sets the force and torque thresholds. Box3D reports a joint event once a threshold is exceeded, and the core destroys the joint.
 
 Joints have their own signature and are re-created when it changes.
+
+### Ragdolls (GAME-5)
+
+A `Ragdoll` on a character's root (`Source/Components/Physics/Ragdoll.h`) works over an expanded
+skeleton, where bones are entities (an imported Model's nodes are, until it's compacted).
+
+- **Build** (the inspector's **Build from skeleton**, one undo step; `Ragdoll::Build()` in code;
+  `ragdoll-build` in flows). Every descendant with a child at least `MinBoneLength` away is a bone.
+  Each gets a `Rigidbody` (mass `TotalMass` shared by bone length), a `CapsuleCollider` along the
+  bone (from its origin to its first child, radius `RadiusRatio` × length, on the bone's dominant
+  local axis) and, below the first bone, a `BallSocket` `PhysicsJoint` to its parent bone whose
+  cone (`SwingLimit`) is centred on the bone. `Bones` lists them, parents first; **Remove parts**
+  (`Clear()`) takes them off again. The parts are ordinary components, so each can be tuned.
+- **Animated** (`Simulating` off): the bodies are kinematic and follow the pose, so they push
+  things and can be hit.
+- **Simulating**: the bodies turn dynamic and `AnimationCore` stops writing that Animator's bones
+  (it keeps sampling). Physics writes nested dynamic bodies parents first, so each bone keeps its
+  own pose.
+- **Recovering** (clearing `Simulating`): the bodies go kinematic and `AnimationCore` blends each
+  bone's local pose from where it fell to the live animation over `BlendSeconds` (smoothstep).
+- **C#:** `GetComponent<Ragdoll>().Simulating = true;` (`BlendSeconds` too).
+- **Limits:** compact models aren't supported (no bone entities); the root of the character
+  doesn't follow the fallen body (move it before recovering for a get-up); IK still runs on
+  simulating bones.
+
+Tests: `Tests/Source/RagdollTests.cpp` (build, simulate, recover and blend),
+`PhysicsTests.cpp` (nested dynamic bodies) and `RagdollFlows.edscript` on
+`Assets/Scenes/Tests/RagdollTest.lvl` (the skinned test tube: build + undo, then
+`RagdollProbe.cs` drops it and stands it back up in Play).
 
 ### Threading
 

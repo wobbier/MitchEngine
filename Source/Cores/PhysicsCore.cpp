@@ -1478,22 +1478,39 @@ void PhysicsCore::ProcessEvents()
 
 void PhysicsCore::WritePoses( float InAlpha )
 {
+    // Parents first: a dynamic body under another (a ragdoll's bones) is written after its parent
+    // moved, so its world pose sticks (GAME-5).
+    std::vector<std::pair<int, BodyRecord*>> dynamic;
     for( auto& [id, record] : m_bodies )
     {
         if( !IsBody( record.Body ) || !record.Owner || b3Body_GetType( Body( record.Body ) ) != b3_dynamicBody )
         {
             continue;
         }
-        Rigidbody* rigidbody = record.Owner->TryGetComponent<Rigidbody>();
+        int depth = 0;
+        for( Transform* parent = record.Owner->GetComponent<Transform>().GetParentTransform(); parent; parent = parent->GetParentTransform() )
+        {
+            ++depth;
+        }
+        dynamic.emplace_back( depth, &record );
+    }
+    std::stable_sort( dynamic.begin(), dynamic.end(), []( const auto& a, const auto& b ) { return a.first < b.first; } );
+    for( auto& [depth, record] : dynamic )
+    {
+        Rigidbody* rigidbody = record->Owner->TryGetComponent<Rigidbody>();
         const bool interpolate = rigidbody && rigidbody->Interpolate;
-        const Vector3 position = interpolate ? record.PreviousPosition + ( record.CurrentPosition - record.PreviousPosition ) * InAlpha : record.CurrentPosition;
-        const Quaternion rotation = interpolate ? Nlerp( record.PreviousRotation, record.CurrentRotation, InAlpha ) : record.CurrentRotation;
-        Transform& transform = record.Owner->GetComponent<Transform>();
+        const Vector3 position = interpolate ? record->PreviousPosition + ( record->CurrentPosition - record->PreviousPosition ) * InAlpha : record->CurrentPosition;
+        const Quaternion rotation = interpolate ? Nlerp( record->PreviousRotation, record->CurrentRotation, InAlpha ) : record->CurrentRotation;
+        Transform& transform = record->Owner->GetComponent<Transform>();
         transform.SetWorldPosition( position );
         transform.SetWorldRotation( rotation );
-        // Read back so later comparisons see exactly what the Transform holds.
-        record.AppliedPosition = transform.GetWorldPosition();
-        record.AppliedRotation = transform.GetWorldRotation();
+    }
+    // Read back once every write is done, so later comparisons see exactly what the Transforms hold.
+    for( auto& [depth, record] : dynamic )
+    {
+        Transform& transform = record->Owner->GetComponent<Transform>();
+        record->AppliedPosition = transform.GetWorldPosition();
+        record->AppliedRotation = transform.GetWorldRotation();
     }
 
     for( Entity& entity : GetEntities() )

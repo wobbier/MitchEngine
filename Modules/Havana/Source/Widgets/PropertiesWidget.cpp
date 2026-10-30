@@ -1,4 +1,5 @@
 #include "PropertiesWidget.h"
+#include "Components/Physics/Ragdoll.h"
 #include <optick.h>
 #include <ECS/Component.h>
 #include <ECS/Core.h>
@@ -42,6 +43,14 @@ namespace
 PropertiesWidget::PropertiesWidget()
 	: HavanaWidget("Properties")
 {
+	// The Ragdoll inspector's Build / Remove buttons (GAME-5): one undo step through EditorOps.
+	Listen<RagdollBuildRequestEvent>([](const RagdollBuildRequestEvent& InEvent) {
+		if (InEvent.Owner)
+		{
+			EditorOps::BuildRagdoll(*InEvent.Owner.Get(), InEvent.Clear);
+		}
+		return true;
+	});
 }
 
 

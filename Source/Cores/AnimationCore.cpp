@@ -1,4 +1,5 @@
 #include "PCH.h"
+#include "Components/Physics/Ragdoll.h"
 #include "AnimationCore.h"
 #include "Components/Animation/Animator.h"
 #include "Components/Animation/IKConstraints.h"
@@ -1153,8 +1154,26 @@ void AnimationCore::Advance( float InDeltaSeconds )
     } );
     for( Animator* animator : active )
     {
+        // A simulating ragdoll's bones belong to physics; the pose keeps sampling, so recovering
+        // blends into where the animation is now (GAME-5).
+        Ragdoll* ragdoll = animator->Parent ? animator->Parent->TryGetComponent<Ragdoll>() : nullptr;
+        if( ragdoll && ragdoll->IsEnabled() && ragdoll->Simulating )
+        {
+            continue;
+        }
+        if( ragdoll && ragdoll->IsEnabled() && ragdoll->IsBlending() )
+        {
+            ragdoll->ResetToRest();
+        }
         WritePose( *animator );
         ApplyRootMotion( *animator );
+    }
+    for( Entity& entity : GetEntities() )
+    {
+        if( Ragdoll* ragdoll = entity.TryGetComponent<Ragdoll>(); ragdoll && ragdoll->IsEnabled() )
+        {
+            ragdoll->Blend( InDeltaSeconds );
+        }
     }
     Model::UpdateExposedNodes( GetWorld() );
     SolveIK( GetWorld() );
