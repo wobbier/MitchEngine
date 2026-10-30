@@ -241,7 +241,8 @@ The session starts after the scene loads, because the handshake hashes the scene
   - Outside the dev shell it re-runs itself through `Tools/NixEnv.sh`. Logs and reports land in `.tmp/NetLocal/`.
 - **VS Code** (the game's and the project template's `.vscode`):
   - Tasks "Net: server + 2 clients" and "Net: server + 2 clients (50 ms, 2% loss)" build both configurations first (`build-net-debug`) and ask for the scene.
-  - The compound launch "Net: server + client (debug both)" runs the server and a client under gdb together, with `--net-timeout 60` so breakpoints don't drop the session.
+  - Run and Debug has the same thing: "Net: server + 2 clients (no debugger)" runs `RunNetLocal.py` in a terminal.
+  - The compounds "Net: server + client (debug both)" and "Net: server + 2 clients (debug all)" run the server and one or two clients under gdb together. They use `--net-timeout 60`, so breakpoints don't drop the session.
 - **Window placement:** tiling window managers and native Wayland place windows themselves; the offsets matter on stacking desktops.
 
 **The smoke test** (`Tools/RunNetSmoke.py`, the RunChecks "Networking smoke" step):

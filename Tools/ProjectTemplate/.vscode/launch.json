@@ -49,11 +49,11 @@
       ]
     },
     {
-      "name": "Net Client (Debug, Linux)",
+      "name": "Net Client 1 (Debug, Linux)",
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/.build/Game_linux_Debug/Game_EntryPoint_x64",
-      "args": ["--scene", "Assets/Example.lvl", "--connect", "127.0.0.1:7777", "--net-timeout", "60", "--width", "800", "--height", "450", "--window-mode", "windowed"],
+      "args": ["--scene", "Assets/Example.lvl", "--connect", "127.0.0.1:7777", "--net-timeout", "60", "--width", "800", "--height", "450", "--window-mode", "windowed", "--window-x", "40", "--window-y", "40"],
       "cwd": "${workspaceFolder}",
       "externalConsole": false,
       "MIMode": "gdb",
@@ -62,12 +62,41 @@
       "setupCommands": [
         { "text": "-enable-pretty-printing", "ignoreFailures": true }
       ]
+    },
+    {
+      "name": "Net Client 2 (Debug, Linux)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/.build/Game_linux_Debug/Game_EntryPoint_x64",
+      "args": ["--scene", "Assets/Example.lvl", "--connect", "127.0.0.1:7777", "--net-timeout", "60", "--width", "800", "--height", "450", "--window-mode", "windowed", "--window-x", "864", "--window-y", "40"],
+      "cwd": "${workspaceFolder}",
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "${workspaceFolder}/Engine/Tools/NixGdb.sh",
+      "miDebuggerArgs": "--project \"${workspaceFolder}\"",
+      "setupCommands": [
+        { "text": "-enable-pretty-printing", "ignoreFailures": true }
+      ]
+    },
+    {
+      "name": "Net: server + 2 clients (no debugger)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "python3 Engine/Tools/RunNetLocal.py --clients 2 --scene Assets/Example.lvl",
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "build-net-debug"
     }
   ],
   "compounds": [
     {
       "name": "Net: server + client (debug both)",
-      "configurations": ["Net Server (Server_Debug, Linux)", "Net Client (Debug, Linux)"],
+      "configurations": ["Net Server (Server_Debug, Linux)", "Net Client 1 (Debug, Linux)"],
+      "preLaunchTask": "build-net-debug",
+      "stopAll": true
+    },
+    {
+      "name": "Net: server + 2 clients (debug all)",
+      "configurations": ["Net Server (Server_Debug, Linux)", "Net Client 1 (Debug, Linux)", "Net Client 2 (Debug, Linux)"],
       "preLaunchTask": "build-net-debug",
       "stopAll": true
     }
