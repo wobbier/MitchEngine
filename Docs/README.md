@@ -6,6 +6,8 @@ Technical documentation for MitchEngine — a C++20, ECS-based game engine built
 
 | Doc | What it covers |
 |-----|----------------|
+| [Tutorials/First-Game-3D.md](Tutorials/First-Game-3D.md) | **Start here to make a game**: Coin Hunt, from the First-Person template (kit pickups, a script, a HUD, a play-mode test, Build Game) |
+| [Tutorials/First-Game-2D.md](Tutorials/First-Game-2D.md) | Coin Hop, its 2D twin on the 2D Platformer template (triggers, EventBus, an RmlUi HUD, a kill zone, tests) |
 | [Architecture.md](Architecture.md) | Module layout, `Engine` singleton lifecycle, the verified frame loop, engine-owned vs scene-loaded cores, feature flags |
 | [ECS.md](ECS.md) | `EntityID` packing, component storage, `ComponentFilter`, `World` caches and `Simulate()`, registration macros, add-a-component / add-a-core recipes |
 | [Jobs-and-Events.md](Jobs-and-Events.md) | `Jobs::JobSystem` (work stealing, helping waits, `ParallelFor`), `EventManager` — **the threading rulebook** |
@@ -42,7 +44,7 @@ Technical documentation for MitchEngine — a C++20, ECS-based game engine built
 | [Build-System.md](Build-System.md) | Sharpmake project graph, target matrix, ThirdParty-existence feature defines, flake.nix, tools |
 | [State-of-the-Engine.md](State-of-the-Engine.md) | **Opinions live here**: maturity scorecard, platform matrix, half-finished inventory, improvement themes, priorities |
 
-**Suggested reading order:** start with [Architecture.md](Architecture.md), then [ECS.md](ECS.md) and [Jobs-and-Events.md](Jobs-and-Events.md) — nearly everything else builds on those three. [State-of-the-Engine.md](State-of-the-Engine.md) is the executive summary of where things stand.
+**Suggested reading order:** to *make a game*, do a tutorial first. To learn the engine, start with [Architecture.md](Architecture.md), then [ECS.md](ECS.md) and [Jobs-and-Events.md](Jobs-and-Events.md) — nearly everything else builds on those three. [State-of-the-Engine.md](State-of-the-Engine.md) is the executive summary of where things stand.
 
 ## Conventions
 

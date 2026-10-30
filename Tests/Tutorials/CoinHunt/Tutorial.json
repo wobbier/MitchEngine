@@ -1,0 +1,6 @@
+{
+    "Doc": "Docs/Tutorials/First-Game-3D.md",
+    "Template": "FirstPerson",
+    "Name": "CoinHunt",
+    "Expect": "GameTests: 4 passed, 0 failed"
+}

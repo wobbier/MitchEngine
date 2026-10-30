@@ -327,6 +327,15 @@ if [[ -d $template_checks ]]; then
     rm -rf "$templates_dir"
 fi
 
+# Tutorials (DOC-2): each Docs/Tutorials page's game, made from its template with the page's code
+# (every file must still appear on the page verbatim), plays its [GameTest]s in the editor.
+if [[ -d $here/../Tests/Tutorials ]]; then
+    step "Tutorials"
+    if ! python3 "$here/RunTutorialChecks.py" --editor .build/Editor_Debug/Havana; then
+        failed+=("tutorials")
+    fi
+fi
+
 # Networking (NET-5): the dedicated server build (no window, bgfx Noop) hosts NetTest.lvl on a free
 # UDP port, a client joins it for 900 frames and leaves, and both report: connected, nobody timed
 # out, snapshots at the tick rate, a clean goodbye, then the client's capture against its reference.

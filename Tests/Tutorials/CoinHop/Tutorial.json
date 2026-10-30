@@ -1,0 +1,6 @@
+{
+    "Doc": "Docs/Tutorials/First-Game-2D.md",
+    "Template": "Platformer2D",
+    "Name": "CoinHop",
+    "Expect": "GameTests: 2 passed, 0 failed"
+}
