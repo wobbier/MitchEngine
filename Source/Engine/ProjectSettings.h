@@ -23,6 +23,13 @@ public:
     // The project file lives at Assets/Config/ProjectSettings.json; tests point these elsewhere.
     void LoadFrom( const std::string& InPath );
     void SaveTo( const std::string& InPath ) const;
+    // The settings as the file's JSON, and back (ED-13: Project Settings undo snapshots them).
+    std::string Serialize() const;
+    bool Deserialize( const std::string& InJson );
+    // Where Save writes ("" = the project's file). Editor flows point it at a scratch file.
+    void SetSavePath( const std::string& InPath ) { m_savePath = InPath; }
+    // Bumped by every save, so the editor can notice a change and record it for undo.
+    uint32_t GetSaveCount() const { return m_saveCount; }
 
     const std::string& GetLayerName( int InLayer ) const;
     void SetLayerName( int InLayer, const std::string& InName );
@@ -127,4 +134,6 @@ public:
 private:
     std::array<std::string, kLayerCount> m_layerNames;
     std::array<uint32_t, kLayerCount> m_collisionMasks;
+    mutable uint32_t m_saveCount = 0;
+    std::string m_savePath;
 };

@@ -111,6 +111,10 @@ private:
     void CommitRename();
     void DuplicateSelection();
     void MoveSelectionTo( const std::string& InFolder );
+    // ED-13: delete to the Trash / put back from it, both undoable.
+    void TrashPaths( const std::vector<std::string>& InPaths );
+    bool RestoreFromTrash( const std::string& InOriginal );
+    void DrawTrash();
     void CreatePrefabIn( const std::string& InDirectory, Transform* InRoot );
 
     SharedPtr<Moonlight::Texture> GetThumbnail( const Entry& InEntry );
@@ -150,6 +154,7 @@ private:
     char m_renameBuffer[256] = {};
     std::string m_fileOperationError;
     bool m_focusRename = false;
+    bool m_showTrash = false;
 
     // Dragging
     AssetDescriptor m_dragDescriptor;

@@ -50,6 +50,10 @@ public:
 	void Destroy() override {}
 	void Update() override {}
 	void Render() override;
+
+	// ED-13: records saved Project Settings changes on the undo history (before/after snapshots of
+	// the settings file). Runs every frame, open or not, since edscript and other tools save too.
+	static void TrackChanges();
 };
 
 #endif

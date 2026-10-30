@@ -46,6 +46,12 @@ Every scene edit goes through `EditorOps`, which applies the change and pushes a
 - Reparent/reorder records parent, sibling index and transform state before and after (world transforms are kept).
 - Component edits store before/after JSON. The inspector captures them generically: it keeps a baseline snapshot, refreshes it before inspector input, and commits when the interaction in that component's UI ends. Pending edits keep their original baseline. Idle selection does not repeatedly serialize large models. Custom `OnEditorInspect` code therefore gets undo for free. Gizmo drags record one step per drag.
 
+Outside the scene (ED-13), the same history also covers these. None of them mark the scene modified, since the commands report `AffectsSavedState() == false`.
+- **Asset Browser renames and moves:** `AssetMoveCommand`, which moves the file with its `.meta` through `MoveWithMeta`. Renaming a script also restores the old class name and file contents.
+- **Deletes:** each deleted asset goes to its own folder under `.tmp/Trash`, and `.tmp/Trash/Trash.json` records where it came from and its GUID. Undo puts the asset back and registers the GUID again. The browser's background menu has **Trash...**, a window listing what's there with Restore (itself undoable).
+- **Project Settings:** every save of `ProjectSettings` is recorded as before/after snapshots of the file (`ProjectSettings::Serialize/Deserialize`, `ProjectSettingsWidget::TrackChanges`). Saves less than a second apart merge into one step. The Time tab (Engine.cfg) isn't covered.
+- **Prefab Apply:** field and whole-instance applies record the prefab file before and after. Undo writes the old file and pushes it back into the other instances. The applying instance keeps its values, which become overrides again.
+
 `UndoStack` supports transactions (`UndoTransaction` RAII), merging consecutive commands with the same merge key, a 256-entry cap, and dirty tracking: the scene is dirty when the undo cursor isn't at the saved position, which drives the `*` in the title and the unsaved-changes prompts. While playing, the stack is **suspended**: pushes are dropped and undo/redo are disabled.
 
 ### Actions, shortcuts and the command palette
@@ -204,6 +210,7 @@ The script runs one command per frame after a short warm-up and logs `[editor-ex
 | `show-asset path` | Opens the Assets window on a file with its details shown (data assets show their editable contents) |
 | `assert-browser-layout Project` (or `Folder`), `assert-browser-asset path`, `wait-asset-preview` | Check the browser layout and project-wide listing, or wait for the selected graph's GPU preview (fails on graph/shader errors or timeout) |
 | `work-begin label | progress`, `work-end`, `notify message | actionId`, `assert-work label | 0/1` (ED-14: stand-in background work and notices, and what's running) | Status |
+| `asset-rename path | name`, `asset-move path | folder`, `asset-delete path`, `asset-restore path`, `asset-trash-window`, `assert-file path | 0/1`, `project-settings-file path`, `project-set Key | json`, `project-assert Key | json`; `delete-file path | optional` (ED-13: asset operations through the browser, project settings saved to a scratch file) | Undo |
 | `palette-search filter | text`, `palette-run filter | text` (ED-15: the command palette lists / runs a result whose "Category: Label" contains the text) | Palette |
 | `console <line>` (PLAY-10: runs a developer console line, a C++ or C# command), `assert-console-output text` (the last line's output contains it) | Console |
 | `assert-mod-loaded id | 0/1` (MOD-6: what loaded at start; a flow header's `--mods` / `--mod-dir <folder>` reach the editor through RunEditorFlows) | Mods |

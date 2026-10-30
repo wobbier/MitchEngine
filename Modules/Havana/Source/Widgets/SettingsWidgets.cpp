@@ -943,8 +943,111 @@ ProjectSettingsWidget::ProjectSettingsWidget()
 }
 
 
+namespace
+{
+	// ED-13: the settings as last recorded, and the save count they were recorded at.
+	struct ProjectSettingsHistory
+	{
+		std::string Snapshot;
+		uint32_t SeenSaves = 0;
+		bool Started = false;
+	};
+
+
+	ProjectSettingsHistory& GetSettingsHistory()
+	{
+		static ProjectSettingsHistory history;
+		return history;
+	}
+
+
+	void RestoreProjectSettings(const std::string& InJson)
+	{
+		ProjectSettings& settings = ProjectSettings::Get();
+		const std::string look = settings.Look;
+		settings.Deserialize(InJson);
+		settings.Save();
+		if (settings.Look != look)
+		{
+			LookPresets& looks = LookPresets::Get();
+			if (looks.GetAll().empty())
+			{
+				looks.Load();
+			}
+			LookPresets::ApplyProjectDefaults(looks.Find(settings.Look));
+		}
+		ProjectSettingsHistory& history = GetSettingsHistory();
+		history.Snapshot = InJson;
+		history.SeenSaves = settings.GetSaveCount();
+	}
+
+
+	// One saved change: the whole file before and after. Saves within a second of each other (a
+	// dragged value saving as it goes) merge into one step. Settings aren't part of the scene, so
+	// undoing them never marks it modified.
+	class ProjectSettingsCommand
+		: public UndoCommand
+	{
+	public:
+		ProjectSettingsCommand(std::string InBefore, std::string InAfter)
+			: m_before(std::move(InBefore))
+			, m_after(std::move(InAfter))
+			, m_time(ImGui::GetTime())
+		{
+		}
+
+		void Undo() override { RestoreProjectSettings(m_before); }
+		void Redo() override { RestoreProjectSettings(m_after); }
+		std::string GetName() const override { return "Edit Project Settings"; }
+		bool AffectsSavedState() const override { return false; }
+		bool MergeWith(const UndoCommand& InNext) override
+		{
+			const ProjectSettingsCommand* next = dynamic_cast<const ProjectSettingsCommand*>(&InNext);
+			if (!next || next->m_time - m_time > 1.0)
+			{
+				return false;
+			}
+			m_after = next->m_after;
+			m_time = next->m_time;
+			return true;
+		}
+
+	private:
+		std::string m_before;
+		std::string m_after;
+		double m_time = 0.0;
+	};
+}
+
+
+void ProjectSettingsWidget::TrackChanges()
+{
+	ProjectSettings& settings = ProjectSettings::Get();
+	ProjectSettingsHistory& history = GetSettingsHistory();
+	if (!history.Started)
+	{
+		history.Snapshot = settings.Serialize();
+		history.SeenSaves = settings.GetSaveCount();
+		history.Started = true;
+		return;
+	}
+	if (settings.GetSaveCount() == history.SeenSaves || UndoStack::Get().IsApplying())
+	{
+		return;
+	}
+	history.SeenSaves = settings.GetSaveCount();
+	std::string current = settings.Serialize();
+	if (current != history.Snapshot)
+	{
+		UndoStack::Get().Push(std::make_unique<ProjectSettingsCommand>(history.Snapshot, current));
+		history.Snapshot = std::move(current);
+	}
+}
+
+
 void ProjectSettingsWidget::Render()
 {
+	TrackChanges();
 	if (!IsOpen)
 	{
 		return;

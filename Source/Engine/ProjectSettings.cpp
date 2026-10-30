@@ -82,10 +82,16 @@ void ProjectSettings::LoadFrom( const std::string& InPath )
     {
         return;
     }
-    const json root = json::parse( contents, nullptr, false );
+    Deserialize( contents );
+}
+
+
+bool ProjectSettings::Deserialize( const std::string& InJson )
+{
+    const json root = json::parse( InJson, nullptr, false );
     if( root.is_discarded() || !root.is_object() )
     {
-        return;
+        return false;
     }
     if( root.contains( "Layers" ) && root["Layers"].is_array() )
     {
@@ -249,6 +255,7 @@ void ProjectSettings::LoadFrom( const std::string& InPath )
             }
         }
     }
+    return true;
 }
 
 
@@ -299,11 +306,19 @@ const ProjectSettings::BuildProfile* ProjectSettings::FindBuildProfile( const st
 
 void ProjectSettings::Save() const
 {
-    SaveTo( kSettingsPath );
+    SaveTo( m_savePath.empty() ? std::string( kSettingsPath ) : m_savePath );
 }
 
 
 void ProjectSettings::SaveTo( const std::string& InPath ) const
+{
+    File file{ Path( InPath, true ) };
+    file.Write( Serialize() );
+    ++m_saveCount;
+}
+
+
+std::string ProjectSettings::Serialize() const
 {
     json root;
     root["Layers"] = json::array();
@@ -361,8 +376,7 @@ void ProjectSettings::SaveTo( const std::string& InPath ) const
             profiles.push_back( ProfileToJson( profile ) );
         }
     }
-    File file{ Path( InPath, true ) };
-    file.Write( root.dump( 4 ) );
+    return root.dump( 4 );
 }
 
 

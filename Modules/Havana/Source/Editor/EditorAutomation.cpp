@@ -725,16 +725,103 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
     else if( command == "delete-file" )
     {
         // delete-file Assets/Scripts/Tests/New   (a file or folder under the project, e.g. what a flow created)
-        const std::filesystem::path target = std::filesystem::weakly_canonical( Path( args ).FullPath );
+        // delete-file .tmp/Tests/X | optional     (no failure when it's already gone)
+        auto [pathText, option] = SplitArgs( args );
+        const std::filesystem::path target = std::filesystem::weakly_canonical( Path( pathText ).FullPath );
         const std::string root = std::filesystem::weakly_canonical( Project::GetRoot() ).generic_string() + "/";
         std::error_code error;
-        if( args.empty() || target.generic_string().rfind( root, 0 ) != 0 || target.generic_string().size() <= root.size() )
+        if( pathText.empty() || target.generic_string().rfind( root, 0 ) != 0 || target.generic_string().size() <= root.size() )
         {
             Fail( "delete-file: " + args + " isn't under the project" );
+        }
+        else if( option == "optional" && !std::filesystem::exists( target ) )
+        {
         }
         else if( std::filesystem::remove_all( target, error ) == 0 || error )
         {
             Fail( "delete-file: couldn't delete " + args );
+        }
+    }
+    else if( command == "asset-trash-window" )
+    {
+        if( AssetBrowserWidget* browser = InApp.Editor ? InApp.Editor->GetAssetBrowser() : nullptr )
+        {
+            browser->m_showTrash = true;
+        }
+    }
+    else if( command == "asset-rename" || command == "asset-move" || command == "asset-delete" || command == "asset-restore" )
+    {
+        // ED-13, through the Asset Browser's own operations (so they land on the undo history):
+        // asset-rename Assets/X.txt | Y.txt     asset-move Assets/X.txt | Assets/Folder
+        // asset-delete Assets/X.txt (to the Trash)   asset-restore Assets/X.txt (from the Trash)
+        AssetBrowserWidget* browser = InApp.Editor ? InApp.Editor->GetAssetBrowser() : nullptr;
+        auto [pathText, target] = SplitArgs( args );
+        const std::string path = std::filesystem::path( Path( pathText ).FullPath ).lexically_normal().generic_string();
+        if( !browser )
+        {
+            Fail( command + ": no asset browser" );
+        }
+        else if( command == "asset-rename" )
+        {
+            browser->m_renamingPath = path;
+            std::snprintf( browser->m_renameBuffer, sizeof( browser->m_renameBuffer ), "%s", target.c_str() );
+            browser->CommitRename();
+        }
+        else if( command == "asset-move" )
+        {
+            browser->m_draggedPaths = { path };
+            browser->MoveSelectionTo( std::filesystem::path( Path( target ).FullPath ).lexically_normal().generic_string() );
+        }
+        else if( command == "asset-delete" )
+        {
+            browser->TrashPaths( { path } );
+        }
+        else if( !browser->RestoreFromTrash( path ) )
+        {
+            Fail( "asset-restore: couldn't restore " + pathText );
+        }
+    }
+    else if( command == "assert-file" )
+    {
+        // assert-file Assets/X.txt | 1   (the file exists, or with 0 doesn't)
+        auto [pathText, expectedText] = SplitArgs( args );
+        const bool exists = std::filesystem::exists( Path( pathText ).FullPath );
+        if( exists != ( expectedText != "0" ) )
+        {
+            Fail( pathText + ( exists ? " exists" : " doesn't exist" ) );
+        }
+    }
+    else if( command == "project-settings-file" || command == "project-set" || command == "project-assert" )
+    {
+        // project-settings-file .tmp/Tests/ProjectSettings.json   saves go there, not the project's file
+        // project-set Physics.Gravity | [0,-5,0]   a key of the settings file's JSON, then saves
+        // project-assert Physics.Gravity | [0,-5,0]
+        ProjectSettings& settings = ProjectSettings::Get();
+        auto [key, valueText] = SplitArgs( args );
+        if( command == "project-settings-file" )
+        {
+            settings.SetSavePath( Path( args ).FullPath );
+        }
+        else
+        {
+            json data = json::parse( settings.Serialize(), nullptr, false );
+            std::string pointer = "/" + key;
+            std::replace( pointer.begin(), pointer.end(), '.', '/' );
+            const json value = json::parse( valueText, nullptr, false );
+            if( value.is_discarded() )
+            {
+                Fail( command + ": not JSON: " + valueText );
+            }
+            else if( command == "project-set" )
+            {
+                data[json::json_pointer( pointer )] = value;
+                settings.Deserialize( data.dump() );
+                settings.Save();
+            }
+            else if( !data.contains( json::json_pointer( pointer ) ) || data[json::json_pointer( pointer )] != value )
+            {
+                Fail( "project setting " + key + " is " + ( data.contains( json::json_pointer( pointer ) ) ? data[json::json_pointer( pointer )].dump() : std::string( "missing" ) ) + ", expected " + valueText );
+            }
         }
     }
     else if( command == "work-begin" || command == "work-end" || command == "notify" )

@@ -135,10 +135,17 @@ namespace TerrainAssetActions
         if( widget && !widget->CanRemoveAssets( path, error ) ) return false;
         if( !IsSource( path ) )
         {
-            if( !PlatformUtils::MoveToTrash( Path( path ), Path( ".tmp/Trash" ).FullPath ) ) { error = "Could not move asset to Trash"; return false; }
+            // Its own folder, so the Trash (ED-13) can restore it and its .meta by name.
+            const auto directory = std::filesystem::path( Path( ".tmp/Trash" ).FullPath ) / ( "Asset-" + std::to_string( EngineGUID::Generate() ) );
+            const auto destination = directory / std::filesystem::path( Path( path ).FullPath ).filename();
+            std::error_code failed;
+            std::filesystem::create_directories( directory, failed );
+            std::filesystem::rename( Path( path ).FullPath, destination, failed );
+            if( failed ) { error = "Could not move asset to Trash: " + failed.message(); std::filesystem::remove( directory, failed ); return false; }
+            if( std::filesystem::exists( Path( path ).FullPath + ".meta" ) ) std::filesystem::rename( Path( path ).FullPath + ".meta", destination.generic_string() + ".meta", failed );
             AssetDatabase::Get().Unregister( Path( path ).GetLocalPathString() );
             if( widget ) widget->OnAssetsRemoved( path );
-            out.clear(); return true;
+            out = destination.generic_string(); return true;
         }
         const auto directory = std::filesystem::path( Path( ".tmp/Trash" ).FullPath ) / ( "Terrain-" + std::to_string( EngineGUID::Generate() ) );
         try { std::filesystem::create_directories( directory ); }

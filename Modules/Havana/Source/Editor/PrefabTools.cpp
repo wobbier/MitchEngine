@@ -5,6 +5,7 @@
 #include "EditorOperations.h"
 #include "Selection.h"
 #include "UndoStack.h"
+#include <unordered_set>
 #include "Components/Transform.h"
 #include "ECS/Component.h"
 #include "Engine/World.h"
@@ -186,13 +187,14 @@ namespace PrefabTools
 
         // Pushes prefab changes (old -> new file contents) into every instance in the world: values
         // still equal to the old prefab take the new value; components the prefab gained are added.
-        void PropagateToInstances( const std::string& InAsset, const json& InOld, const json& InNew )
+        // InSkip: entities left alone (the instance an apply came from keeps its values on undo).
+        void PropagateToInstances( const std::string& InAsset, const json& InOld, const json& InNew, const std::unordered_set<uint64_t>* InSkip = nullptr )
         {
             World& world = EditorOps::GetWorld();
             std::vector<Entity*> linked;
             world.ForEachEntity( [&]( Entity& entity ) {
                 World::EntityRecord* record = Record( entity );
-                if( record && record->PrefabAsset == InAsset )
+                if( record && record->PrefabAsset == InAsset && !( InSkip && InSkip->count( entity.GetGUID() ) ) )
                 {
                     linked.push_back( &entity );
                 }
@@ -310,6 +312,77 @@ namespace PrefabTools
 
             std::vector<Link> m_links;
         };
+
+
+        // Apply (ED-13): the prefab file before and after. Undo writes the old file and pushes it
+        // back into the other instances the way the apply pushed it forward; the instance it came
+        // from keeps its values (overrides again), and entities the apply linked are unlinked.
+        class PrefabApplyCommand
+            : public UndoCommand
+        {
+        public:
+            PrefabApplyCommand( std::string InAsset, json InBefore, json InAfter, std::unordered_set<uint64_t> InInstance, std::vector<PrefabLinkCommand::Link> InLinked, std::string InName )
+                : m_asset( std::move( InAsset ) )
+                , m_before( std::move( InBefore ) )
+                , m_after( std::move( InAfter ) )
+                , m_instance( std::move( InInstance ) )
+                , m_linked( std::move( InLinked ) )
+                , m_name( std::move( InName ) )
+            {
+            }
+
+            void Undo() override
+            {
+                WritePrefab( m_asset, m_before );
+                PropagateToInstances( m_asset, m_after, m_before, &m_instance );
+                Link( false );
+            }
+
+            void Redo() override
+            {
+                WritePrefab( m_asset, m_after );
+                Link( true );
+                PropagateToInstances( m_asset, m_before, m_after, &m_instance );
+            }
+
+            std::string GetName() const override { return m_name; }
+
+        private:
+            void Link( bool InLinked )
+            {
+                World& world = EditorOps::GetWorld();
+                for( const PrefabLinkCommand::Link& link : m_linked )
+                {
+                    EntityHandle entity = world.FindEntityByGUID( link.GUID );
+                    World::EntityRecord* record = entity ? Record( *entity.Get() ) : nullptr;
+                    if( record )
+                    {
+                        record->PrefabAsset = InLinked ? link.Asset : std::string();
+                        record->PrefabSource = InLinked ? link.Source : 0;
+                    }
+                }
+            }
+
+            std::string m_asset;
+            json m_before;
+            json m_after;
+            std::unordered_set<uint64_t> m_instance;
+            std::vector<PrefabLinkCommand::Link> m_linked;
+            std::string m_name;
+        };
+
+
+        std::unordered_set<uint64_t> InstanceGUIDs( Entity& InEntity )
+        {
+            std::vector<Entity*> entities;
+            CollectSubtree( InEntity, entities );
+            std::unordered_set<uint64_t> guids;
+            for( Entity* entity : entities )
+            {
+                guids.insert( entity->GetGUID() );
+            }
+            return guids;
+        }
     }
 
 
@@ -506,7 +579,9 @@ namespace PrefabTools
             ( *component )[InField] = value[InField];
         }
         WritePrefab( asset, newData );
-        PropagateToInstances( asset, oldData, newData );
+        const std::unordered_set<uint64_t> instance = InstanceGUIDs( root ? *root : InEntity );
+        PropagateToInstances( asset, oldData, newData, &instance );
+        UndoStack::Get().Push( std::make_unique<PrefabApplyCommand>( asset, oldData, newData, instance, std::vector<PrefabLinkCommand::Link>(), "Apply " + InField + " to Prefab" ) );
     }
 
 
@@ -543,6 +618,7 @@ namespace PrefabTools
         // Entities added to this instance are now part of the prefab.
         std::vector<Entity*> entities;
         CollectSubtree( *root, entities );
+        std::vector<PrefabLinkCommand::Link> linked;
         for( Entity* entity : entities )
         {
             World::EntityRecord* record = Record( *entity );
@@ -550,9 +626,15 @@ namespace PrefabTools
             {
                 record->PrefabAsset = asset;
                 record->PrefabSource = instanceToSource[entity->GetGUID()];
+                linked.push_back( { entity->GetGUID(), asset, record->PrefabSource } );
             }
         }
-        PropagateToInstances( asset, oldData, newData );
+        const std::unordered_set<uint64_t> instance = InstanceGUIDs( *root );
+        PropagateToInstances( asset, oldData, newData, &instance );
+        if( !oldData.is_null() )
+        {
+            UndoStack::Get().Push( std::make_unique<PrefabApplyCommand>( asset, oldData, newData, instance, std::move( linked ), "Apply Prefab Instance" ) );
+        }
         CLog::Log( CLog::LogType::Info, "Applied instance to " + asset );
     }
 

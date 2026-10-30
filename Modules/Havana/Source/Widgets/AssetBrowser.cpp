@@ -23,6 +23,8 @@
 #include "Graphics/SpriteSheet.h"
 #include "Graphics/ShaderFile.h"
 #include "File.h"
+#include "Editor/UndoStack.h"
+#include "JSON.h"
 #include "Components/Transform.h"
 #include "Engine/Engine.h"
 #include "Engine/Project.h"
@@ -290,6 +292,223 @@ namespace
         if( auto* terrain = TerrainWidget::Get() ) terrain->OnAssetsMoved( from, to );
         return true;
     }
+
+
+    // Files changed outside the browser's own handlers (undo / redo): it refreshes next frame.
+    bool g_assetsChanged = false;
+
+
+    // ED-13: the Trash. Each deleted asset gets its own folder under .tmp/Trash, and
+    // .tmp/Trash/Trash.json remembers where it came from, so undo and the Trash window can put it
+    // back (with its .meta, and its GUID registered again).
+    struct TrashEntry
+    {
+        std::string Original;
+        std::string Trashed;
+        uint64_t GUID = 0;
+        int64_t Time = 0;
+    };
+
+
+    std::string TrashManifestPath()
+    {
+        return Path( ".tmp/Trash" ).FullPath + "/Trash.json";
+    }
+
+
+    std::vector<TrashEntry> ReadTrash()
+    {
+        std::vector<TrashEntry> entries;
+        if( !fs::exists( TrashManifestPath() ) )
+        {
+            return entries;
+        }
+        File file{ Path( TrashManifestPath(), true ) };
+        const json data = json::parse( file.Read(), nullptr, false );
+        if( !data.is_array() )
+        {
+            return entries;
+        }
+        for( const json& item : data )
+        {
+            TrashEntry entry{ item.value( "Original", std::string() ), item.value( "Trashed", std::string() ), item.value( "GUID", uint64_t( 0 ) ), item.value( "Time", int64_t( 0 ) ) };
+            // Entries whose files are gone (the Trash was emptied by hand) are dropped.
+            if( !entry.Trashed.empty() && fs::exists( entry.Trashed ) )
+            {
+                entries.push_back( std::move( entry ) );
+            }
+        }
+        return entries;
+    }
+
+
+    void WriteTrash( const std::vector<TrashEntry>& InEntries )
+    {
+        json data = json::array();
+        for( const TrashEntry& entry : InEntries )
+        {
+            data.push_back( { { "Original", entry.Original }, { "Trashed", entry.Trashed }, { "GUID", entry.GUID }, { "Time", entry.Time } } );
+        }
+        std::error_code error;
+        fs::create_directories( fs::path( TrashManifestPath() ).parent_path(), error );
+        File file{ Path( TrashManifestPath(), true ) };
+        file.Write( data.dump( 4 ) );
+    }
+
+
+    bool TrashAsset( const std::string& InPath, std::string& OutError )
+    {
+        const uint64_t guid = AssetDatabase::Get().FindGUID( ProjectRelative( InPath ) );
+        std::string trashed;
+        if( !TerrainAssetActions::Trash( InPath, trashed, OutError ) )
+        {
+            return false;
+        }
+        AssetDatabase::Get().Unregister( ProjectRelative( InPath ) );
+        std::vector<TrashEntry> entries = ReadTrash();
+        const int64_t now = std::chrono::duration_cast<std::chrono::seconds>( std::chrono::system_clock::now().time_since_epoch() ).count();
+        entries.push_back( { InPath, trashed, guid, now } );
+        WriteTrash( entries );
+        return true;
+    }
+
+
+    // Puts back the most recently trashed asset that came from InOriginal.
+    bool RestoreAsset( const std::string& InOriginal, std::string& OutError )
+    {
+        std::vector<TrashEntry> entries = ReadTrash();
+        auto it = std::find_if( entries.rbegin(), entries.rend(), [&InOriginal]( const TrashEntry& InEntry ) { return InEntry.Original == InOriginal; } );
+        if( it == entries.rend() )
+        {
+            OutError = "it isn't in the Trash";
+            return false;
+        }
+        const TrashEntry entry = *it;
+        if( fs::exists( entry.Original ) )
+        {
+            OutError = "something else is at " + ProjectRelative( entry.Original ) + " now";
+            return false;
+        }
+        std::error_code error;
+        fs::create_directories( fs::path( entry.Original ).parent_path(), error );
+        if( TerrainAssetActions::IsSource( entry.Trashed ) )
+        {
+            if( !TerrainAssetActions::Move( entry.Trashed, entry.Original, OutError ) )
+            {
+                return false;
+            }
+        }
+        else
+        {
+            const bool folder = fs::is_directory( entry.Trashed );
+            fs::rename( entry.Trashed, entry.Original, error );
+            if( error )
+            {
+                OutError = error.message();
+                return false;
+            }
+            if( fs::exists( entry.Trashed + ".meta" ) )
+            {
+                fs::rename( entry.Trashed + ".meta", entry.Original + ".meta", error );
+            }
+            if( folder )
+            {
+                AssetDatabase::Get().Refresh( { "Assets", "Engine/Assets" } );
+            }
+            else if( entry.GUID != 0 )
+            {
+                AssetDatabase::Get().Register( ProjectRelative( entry.Original ), entry.GUID );
+            }
+        }
+        fs::remove( fs::path( entry.Trashed ).parent_path(), error );   // its own folder, once empty
+        entries.erase( std::next( it ).base() );
+        WriteTrash( entries );
+        g_assetsChanged = true;
+        return true;
+    }
+
+
+    // A rename or move (ED-13). Renaming a script also renamed its class: the file's contents
+    // before and after go with it. Asset files aren't the scene, so this never marks it modified.
+    class AssetMoveCommand
+        : public UndoCommand
+    {
+    public:
+        AssetMoveCommand( std::string InFrom, std::string InTo, std::string InName, std::string InBefore = {}, std::string InAfter = {} )
+            : m_from( std::move( InFrom ) )
+            , m_to( std::move( InTo ) )
+            , m_name( std::move( InName ) )
+            , m_before( std::move( InBefore ) )
+            , m_after( std::move( InAfter ) )
+        {
+        }
+
+        void Undo() override { Apply( m_to, m_from, m_before ); }
+        void Redo() override { Apply( m_from, m_to, m_after ); }
+        std::string GetName() const override { return m_name; }
+        bool AffectsSavedState() const override { return false; }
+
+    private:
+        void Apply( const std::string& InFrom, const std::string& InTo, const std::string& InContents )
+        {
+            std::string error;
+            if( !MoveWithMeta( InFrom, InTo, error ) )
+            {
+                return;
+            }
+            if( !InContents.empty() )
+            {
+                File file( Path( InTo, true ) );
+                file.Write( InContents );
+            }
+            g_assetsChanged = true;
+        }
+
+        std::string m_from;
+        std::string m_to;
+        std::string m_name;
+        std::string m_before;
+        std::string m_after;
+    };
+
+
+    // Moving assets to the Trash (or, with InRestore, putting them back from the Trash window).
+    class AssetTrashCommand
+        : public UndoCommand
+    {
+    public:
+        AssetTrashCommand( std::vector<std::string> InPaths, bool InRestore )
+            : m_paths( std::move( InPaths ) )
+            , m_restore( InRestore )
+        {
+        }
+
+        void Undo() override { Apply( !m_restore ); }
+        void Redo() override { Apply( m_restore ); }
+        std::string GetName() const override
+        {
+            const std::string verb = m_restore ? "Restore " : "Delete ";
+            return m_paths.size() == 1 ? verb + fs::path( m_paths.front() ).filename().string() : verb + std::to_string( m_paths.size() ) + " Assets";
+        }
+        bool AffectsSavedState() const override { return false; }
+
+    private:
+        void Apply( bool InRestore )
+        {
+            for( const std::string& path : m_paths )
+            {
+                std::string error;
+                if( InRestore ? !RestoreAsset( path, error ) : !TrashAsset( path, error ) )
+                {
+                    YIKES( std::string( InRestore ? "Couldn't restore " : "Couldn't delete " ) + ProjectRelative( path ) + ": " + error );
+                }
+            }
+            g_assetsChanged = true;
+        }
+
+        std::vector<std::string> m_paths;
+        bool m_restore = false;
+    };
 }
 
 
@@ -669,6 +888,15 @@ void AssetBrowserWidget::Render()
 {
     OPTICK_CATEGORY( "Asset Browser", Optick::Category::Debug );
     m_thumbnailLoadsThisFrame = 0;
+    if( g_assetsChanged )
+    {
+        g_assetsChanged = false;
+        for( auto it = m_selection.begin(); it != m_selection.end(); )
+        {
+            it = fs::exists( *it ) ? std::next( it ) : m_selection.erase( it );
+        }
+        Refresh();
+    }
     if( !IsOpen )
     {
         m_pickCallback = nullptr;
@@ -1709,6 +1937,10 @@ void AssetBrowserWidget::DrawBackgroundContextMenu()
     {
         Refresh();
     }
+    if( ImGui::MenuItem( "Trash..." ) )
+    {
+        m_showTrash = true;
+    }
     if( ImGui::MenuItem( "Cook All Textures, Models & Shaders" ) )
     {
         BuildAssets();
@@ -2142,24 +2374,8 @@ void AssetBrowserWidget::DrawModals()
         ImGui::Separator();
         if( ImGui::Button( "Delete", ImGuiTheme::DialogButtonSize() ) || ImGui::IsKeyPressed( ImGuiKey_Enter ) )
         {
-            for( const std::string& path : m_pendingDelete )
-            {
-                std::string trashPath, error;
-                if( !TerrainAssetActions::Trash( path, trashPath, error ) )
-                {
-                    m_fileOperationError = error;
-                    YIKES( "Failed to move asset to trash: " + path + ": " + error );
-                }
-                else
-                {
-                    AssetDatabase::Get().Unregister( ProjectRelative( path ) );
-                }
-                m_thumbnails.erase( path );
-            }
+            TrashPaths( m_pendingDelete );
             m_pendingDelete.clear();
-            m_selection.clear();
-            TryDestroyMetaFile();
-            Refresh();
             ImGui::CloseCurrentPopup();
         }
         ImGui::SameLine();
@@ -2170,6 +2386,7 @@ void AssetBrowserWidget::DrawModals()
         }
         ImGui::EndPopup();
     }
+    DrawTrash();
 }
 
 
@@ -2256,6 +2473,12 @@ void AssetBrowserWidget::CommitRename()
         BRUH( "Can't rename: " + LocalPath( to ) + " already exists." );
         return;
     }
+    std::string scriptBefore, scriptAfter;
+    if( isScript )
+    {
+        File script( Path( from, true ) );
+        scriptBefore = script.Read();
+    }
     if( MoveWithMeta( from, to, m_fileOperationError ) )
     {
         if( isScript )
@@ -2273,8 +2496,10 @@ void AssetBrowserWidget::CommitRename()
                     CLog::GetInstance().Log( CLog::LogType::Info, "Scenes still name " + oldName + ": added [FormerName(\"" + oldName + "\")] to " + newClass + ".cs" );
                 }
                 script.Write( source );
+                scriptAfter = source;
             }
         }
+        UndoStack::Get().Push( std::make_unique<AssetMoveCommand>( from, to, "Rename " + fs::path( from ).filename().string(), scriptAfter.empty() ? std::string() : scriptBefore, scriptAfter ) );
         m_thumbnails.erase( from );
         m_selection = { to };
         Refresh();
@@ -2326,6 +2551,7 @@ void AssetBrowserWidget::MoveSelectionTo( const std::string& InFolder )
 {
     const fs::path target( InFolder );
     int moved = 0;
+    UndoTransaction transaction( "Move Assets" );
     for( const std::string& path : m_draggedPaths )
     {
         const fs::path source( path );
@@ -2341,6 +2567,7 @@ void AssetBrowserWidget::MoveSelectionTo( const std::string& InFolder )
         }
         if( MoveWithMeta( path, destination, m_fileOperationError ) )
         {
+            UndoStack::Get().Push( std::make_unique<AssetMoveCommand>( path, destination, "Move " + source.filename().string() ) );
             ++moved;
         }
     }
@@ -2351,6 +2578,97 @@ void AssetBrowserWidget::MoveSelectionTo( const std::string& InFolder )
     m_draggedPaths.clear();
     m_selection.clear();
     Refresh();
+}
+
+
+void AssetBrowserWidget::TrashPaths( const std::vector<std::string>& InPaths )
+{
+    std::vector<std::string> trashed;
+    for( const std::string& path : InPaths )
+    {
+        std::string error;
+        if( !TrashAsset( path, error ) )
+        {
+            m_fileOperationError = error;
+            YIKES( "Failed to move asset to trash: " + path + ": " + error );
+            continue;
+        }
+        trashed.push_back( path );
+        m_thumbnails.erase( path );
+    }
+    if( !trashed.empty() )
+    {
+        UndoStack::Get().Push( std::make_unique<AssetTrashCommand>( std::move( trashed ), false ) );
+    }
+    m_selection.clear();
+    TryDestroyMetaFile();
+    Refresh();
+}
+
+
+bool AssetBrowserWidget::RestoreFromTrash( const std::string& InOriginal )
+{
+    std::string error;
+    if( !RestoreAsset( InOriginal, error ) )
+    {
+        m_fileOperationError = error;
+        BRUH( "Can't restore " + LocalPath( InOriginal ) + ": " + error );
+        return false;
+    }
+    UndoStack::Get().Push( std::make_unique<AssetTrashCommand>( std::vector<std::string>{ InOriginal }, true ) );
+    m_selection = { InOriginal };
+    Refresh();
+    return true;
+}
+
+
+// ED-13: what's in .tmp/Trash, newest first, each with Restore.
+void AssetBrowserWidget::DrawTrash()
+{
+    if( !m_showTrash )
+    {
+        return;
+    }
+    ImGui::SetNextWindowSize( ImVec2( ImGuiTheme::Em( 30.f ), ImGuiTheme::Em( 18.f ) ), ImGuiCond_FirstUseEver );
+    if( ImGui::Begin( "Trash", &m_showTrash ) )
+    {
+        const std::vector<TrashEntry> entries = ReadTrash();
+        if( entries.empty() )
+        {
+            ImGui::TextDisabled( "The Trash is empty." );
+        }
+        else if( ImGui::BeginTable( "##Trash", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp ) )
+        {
+            ImGui::TableSetupColumn( "Asset", ImGuiTableColumnFlags_WidthStretch );
+            ImGui::TableSetupColumn( "Deleted", ImGuiTableColumnFlags_WidthFixed );
+            ImGui::TableSetupColumn( "##Restore", ImGuiTableColumnFlags_WidthFixed );
+            ImGui::TableHeadersRow();
+            const int64_t now = std::chrono::duration_cast<std::chrono::seconds>( std::chrono::system_clock::now().time_since_epoch() ).count();
+            std::string restore;
+            for( auto it = entries.rbegin(); it != entries.rend(); ++it )
+            {
+                ImGui::PushID( it->Trashed.c_str() );
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::TextUnformatted( ProjectRelative( it->Original ).c_str() );
+                ImGui::TableNextColumn();
+                const int64_t ago = std::max<int64_t>( 0, now - it->Time );
+                ImGui::TextDisabled( "%s", ago < 60 ? "just now" : ago < 3600 ? ( std::to_string( ago / 60 ) + " min ago" ).c_str() : ago < 86400 ? ( std::to_string( ago / 3600 ) + " h ago" ).c_str() : ( std::to_string( ago / 86400 ) + " d ago" ).c_str() );
+                ImGui::TableNextColumn();
+                if( ImGui::SmallButton( "Restore" ) )
+                {
+                    restore = it->Original;
+                }
+                ImGui::PopID();
+            }
+            ImGui::EndTable();
+            if( !restore.empty() )
+            {
+                RestoreFromTrash( restore );
+            }
+        }
+    }
+    ImGui::End();
 }
 
 
