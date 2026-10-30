@@ -2,6 +2,7 @@
 #include "Dementia.h"
 #include "ECS/EntityHandle.h"
 #include "JSON.h"
+#include "Math/Bounds.h"
 #include <string>
 #include <vector>
 
@@ -82,6 +83,10 @@ namespace EditorOps
     // (mesh bounds, the entities themselves and their children ignored), else on the y = 0 plane
     // when it's above it; one undo step. Returns how many moved.
     int DropToSurface( const std::vector<Entity*>& InRoots );
+    // ED-8, surface snap: moves the roots together so the first one's bounds bottom centre sits
+    // where InRay first hits a mesh (the roots and their children ignored). No undo (the gizmo drag
+    // or the caller records it); false on a miss.
+    bool PlaceOnSurface( const std::vector<Entity*>& InRoots, const Ray& InRay );
 
     // GAME-5: adds (or, with InClear, removes) the ragdoll parts on the bones under an entity with
     // a Ragdoll, as one undo step. Returns the number of bones with parts.

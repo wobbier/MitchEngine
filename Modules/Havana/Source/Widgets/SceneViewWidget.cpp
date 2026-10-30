@@ -426,6 +426,89 @@ void SceneViewWidget::WrapNavigationCursor()
 }
 
 
+Vector3 SceneViewWidget::SurfacePoint(const Vector2& InPixel) const
+{
+	// A mesh under the pixel, else the ground plane, else 10 m out.
+	const Ray ray = SceneTools::ScreenRay(InPixel, SceneViewRenderSize, MainCamera->View, GetProjection());
+	SceneTools::RayHit hit;
+	if (SceneTools::Raycast(ray, hit))
+	{
+		return hit.Point;
+	}
+	const float distance = ray.IntersectPlane(Vector3::Up, 0.f);
+	return ray.GetPoint(distance > 0.f ? distance : 10.f);
+}
+
+
+bool SceneViewWidget::DrawMeasure()
+{
+	if (!m_measureMode || !MainCamera)
+	{
+		return false;
+	}
+	const ImGuiIO& io = ImGui::GetIO();
+	if (IsViewportHovered && !io.KeyAlt && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+	{
+		m_measuring = m_hasMeasure = true;
+		m_measureFrom = m_measureTo = SurfacePoint(ViewportMousePosition);
+	}
+	if (m_measuring)
+	{
+		m_measureTo = SurfacePoint(ViewportMousePosition);
+		if (!ImGui::IsMouseDown(ImGuiMouseButton_Left))
+		{
+			m_measuring = false;
+		}
+	}
+	if (m_hasMeasure)
+	{
+		const Vector4 color(1.f, 0.85f, 0.2f, 1.f);
+		DebugDraw::Line(m_measureFrom, m_measureTo, color, 0.f, DebugDraw::EditorOnly);
+		// The length at the line's middle, over the image.
+		const glm::mat4 viewProjection = GetProjection().GetInternalMatrix() * MainCamera->View.GetInternalMatrix();
+		Vector2 pixel;
+		if (SceneTools::WorldToScreen((m_measureFrom + m_measureTo) * 0.5f, SceneViewRenderSize, Matrix4(viewProjection), pixel))
+		{
+			const float scale = m_viewportScreenSize.x / std::max(SceneViewRenderSize.x, 1.f);
+			char text[64];
+			std::snprintf(text, sizeof(text), "%.3f m", (m_measureTo - m_measureFrom).Length());
+			const ImVec2 at(m_viewportScreenMin.x + pixel.x * scale, m_viewportScreenMin.y + pixel.y * scale);
+			const ImVec2 size = ImGui::CalcTextSize(text);
+			ImDrawList* drawList = ImGui::GetWindowDrawList();
+			drawList->AddRectFilled(ImVec2(at.x - 4.f, at.y - 2.f), ImVec2(at.x + size.x + 4.f, at.y + size.y + 2.f), IM_COL32(0, 0, 0, 170), 3.f);
+			drawList->AddText(at, IM_COL32(255, 220, 60, 255), text);
+		}
+	}
+	// The tool owns left clicks over the image (no picking or gizmo while measuring).
+	return IsViewportHovered && !io.KeyAlt && (ImGui::IsMouseDown(ImGuiMouseButton_Left) || m_measuring);
+}
+
+
+float SceneViewWidget::Measure(const Vector2& InFrom, const Vector2& InTo)
+{
+	if (!MainCamera)
+	{
+		return -1.f;
+	}
+	m_measureMode = m_hasMeasure = true;
+	m_measuring = false;
+	m_measureFrom = SurfacePoint(Vector2(InFrom.x * SceneViewRenderSize.x, InFrom.y * SceneViewRenderSize.y));
+	m_measureTo = SurfacePoint(Vector2(InTo.x * SceneViewRenderSize.x, InTo.y * SceneViewRenderSize.y));
+	return (m_measureTo - m_measureFrom).Length();
+}
+
+
+bool SceneViewWidget::PlaceSelectionOnSurface(const Vector2& InViewportFraction)
+{
+	if (!MainCamera)
+	{
+		return false;
+	}
+	const Vector2 pixel(InViewportFraction.x * SceneViewRenderSize.x, InViewportFraction.y * SceneViewRenderSize.y);
+	return EditorOps::PlaceOnSurface(Selection::Get().GetRootEntities(), SceneTools::ScreenRay(pixel, SceneViewRenderSize, MainCamera->View, GetProjection()));
+}
+
+
 bool SceneViewWidget::SetViewOption(const std::string& InId, bool InValue)
 {
 	for (const ViewOption& option : kViewOptions)
@@ -654,7 +737,11 @@ void SceneViewWidget::Render()
 			|| TilemapPainter::DrawViewport(*this, m_viewportScreenMin, m_viewportScreenSize)
 			|| SpriteRectGizmo::DrawViewport(*this, m_viewportScreenMin, m_viewportScreenSize)
 			|| SplineGizmo::DrawViewport(*this, m_viewportScreenMin, m_viewportScreenSize);
-		if (!terrainOwnsMouse)
+		if (!terrainOwnsMouse && DrawMeasure())
+		{
+			m_pressed = m_marquee = m_clicked = false;
+		}
+		else if (!terrainOwnsMouse)
 		{
 			DrawManipulator();
 			IsUsingGuizmo |= cubeOwnsMouse;
@@ -806,8 +893,9 @@ void SceneViewWidget::DrawSceneToolbar()
 	{
 		ToggleSnapping();
 	}
-	// The snap toggle and its settings arrow read as one split button.
-	ImGui::SameLine(0.f, 0.f);
+	// The snap toggle and its settings arrow read as one split button. (The toolbar is a menu bar,
+	// which lays items out in a row already: SameLine there drops them onto a hidden second line.)
+	ImGui::SetCursorPosX(ImGui::GetCursorPosX() - ImGui::GetStyle().ItemSpacing.x);
 	if (ImGui::ArrowButton("##SnapSettings", ImGuiDir_Down))
 	{
 		ImGui::OpenPopup("SnapSettings");
@@ -827,6 +915,12 @@ void SceneViewWidget::DrawSceneToolbar()
 			SavePreferences();
 		}
 		ImGui::EndPopup();
+	}
+
+	if (ToolbarToggle("Measure", m_measureMode, "Drag in the view to measure between surfaces (metres)"))
+	{
+		m_measureMode = !m_measureMode;
+		m_measuring = m_hasMeasure = false;
 	}
 }
 
@@ -986,6 +1080,20 @@ void SceneViewWidget::DrawManipulator()
 			// Physics bodies notice the moved Transform and teleport with it.
 			transform->SetWorldMatrix(Matrix4(delta * dragged.StartWorld.GetInternalMatrix()));
 		}
+	}
+	// ED-8, surface snap: Shift while moving slides the selection over the surface under the cursor.
+	if (m_dragging && m_operation == GizmoOperation::Translate && ImGui::GetIO().KeyShift)
+	{
+		std::vector<Entity*> roots;
+		World& world = EditorOps::GetWorld();
+		for (const DraggedEntity& dragged : m_dragged)
+		{
+			if (EntityHandle entity = world.FindEntityByGUID(dragged.GUID))
+			{
+				roots.push_back(entity.Get());
+			}
+		}
+		EditorOps::PlaceOnSurface(roots, SceneTools::ScreenRay(ViewportMousePosition, SceneViewRenderSize, MainCamera->View, GetProjection()));
 	}
 	if (!using_ && m_dragging)
 	{

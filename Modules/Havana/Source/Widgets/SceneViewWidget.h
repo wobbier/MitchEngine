@@ -62,6 +62,13 @@ public:
 	// Automation: a view option by id (DebugDraw, Fog, ...) for this session, not saved; false
 	// for an unknown id.
 	bool SetViewOption(const std::string& InId, bool InValue);
+	// Automation (ED-8): the selection onto the surface at a fraction of the view, as Shift-drag does.
+	bool PlaceSelectionOnSurface(const Vector2& InViewportFraction);
+	// Automation (ED-8): measures between two points of the view (fractions) as the Measure tool
+	// does, and returns the distance in metres.
+	float Measure(const Vector2& InFrom, const Vector2& InTo);
+	const Vector3& GetMeasureFrom() const { return m_measureFrom; }
+	const Vector3& GetMeasureTo() const { return m_measureTo; }
 
 	// A left click (press + release without dragging) landed on the viewport this frame.
 	bool ConsumeClick();
@@ -107,6 +114,9 @@ private:
 	void DrawSceneToolbar();
 	void DrawGameToolbar();
 	void DrawManipulator();
+	// ED-8, the Measure tool: LMB drag between surface points; true while it owns the mouse.
+	bool DrawMeasure();
+	Vector3 SurfacePoint(const Vector2& InPixel) const;
 	void DrawViewCube();
 	void DrawStatsOverlay();
 	// Per view: "Scene.ShowStats" or "GameView.ShowStats".
@@ -126,6 +136,11 @@ private:
 	ImGuizmo::MODE m_mode = ImGuizmo::LOCAL;
 	PivotMode m_pivotMode = PivotMode::Pivot;
 	bool m_snapEnabled = false;
+	bool m_measureMode = false;
+	bool m_measuring = false;
+	bool m_hasMeasure = false;
+	Vector3 m_measureFrom;
+	Vector3 m_measureTo;
 	float m_snapTranslate = 0.5f;
 	float m_snapRotate = 15.f;
 	float m_snapScale = 0.1f;

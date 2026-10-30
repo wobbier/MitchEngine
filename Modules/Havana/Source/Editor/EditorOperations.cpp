@@ -817,9 +817,10 @@ namespace EditorOps
     }
 
 
-    int DropToSurface( const std::vector<Entity*>& InRoots )
+    namespace
     {
-        auto isUnder = []( Entity& InEntity, Entity& InRoot ) {
+        bool IsUnder( Entity& InEntity, Entity& InRoot )
+        {
             for( Transform* node = InEntity.TryGetComponent<Transform>(); node; node = node->GetParentTransform() )
             {
                 if( node->Parent && node->Parent->GetId() == InRoot.GetId() )
@@ -828,7 +829,47 @@ namespace EditorOps
                 }
             }
             return false;
-        };
+        }
+
+        // The bottom centre of what an entity draws (or its pivot, for one that draws nothing).
+        Vector3 BottomCentre( Entity& InEntity )
+        {
+            const AABB bounds = SceneTools::ComputeWorldBounds( InEntity, true );
+            return bounds.IsValid() ? Vector3( ( bounds.Min.x + bounds.Max.x ) * 0.5f, bounds.Min.y, ( bounds.Min.z + bounds.Max.z ) * 0.5f )
+                : InEntity.GetComponent<Transform>().GetWorldPosition();
+        }
+    }
+
+
+    bool PlaceOnSurface( const std::vector<Entity*>& InRoots, const Ray& InRay )
+    {
+        if( InRoots.empty() || !InRoots.front() || !InRoots.front()->HasComponent<Transform>() )
+        {
+            return false;
+        }
+        SceneTools::RayHit hit;
+        const bool found = SceneTools::Raycast( InRay, hit, [&]( Entity& InEntity ) {
+            return std::any_of( InRoots.begin(), InRoots.end(), [&]( Entity* InRoot ) { return InRoot && IsUnder( InEntity, *InRoot ); } );
+        } );
+        if( !found )
+        {
+            return false;
+        }
+        const Vector3 offset = hit.Point - BottomCentre( *InRoots.front() );
+        for( Entity* root : InRoots )
+        {
+            if( Transform* transform = root ? root->TryGetComponent<Transform>() : nullptr )
+            {
+                transform->SetWorldPosition( transform->GetWorldPosition() + offset );
+            }
+        }
+        return true;
+    }
+
+
+    int DropToSurface( const std::vector<Entity*>& InRoots )
+    {
+        auto isUnder = []( Entity& InEntity, Entity& InRoot ) { return IsUnder( InEntity, InRoot ); };
         std::vector<ComponentEdit> edits;
         for( Entity* root : InRoots )
         {
@@ -837,10 +878,8 @@ namespace EditorOps
             {
                 continue;
             }
-            // The bottom centre of what it draws (or its pivot, for an entity that draws nothing).
-            const AABB bounds = SceneTools::ComputeWorldBounds( *root, true );
             const Vector3 pivot = transform->GetWorldPosition();
-            const Vector3 base = bounds.IsValid() ? Vector3( ( bounds.Min.x + bounds.Max.x ) * 0.5f, bounds.Min.y, ( bounds.Min.z + bounds.Max.z ) * 0.5f ) : pivot;
+            const Vector3 base = BottomCentre( *root );
             SceneTools::RayHit hit;
             float floor = 0.f;
             if( SceneTools::Raycast( Ray( base + Vector3( 0.f, 1e-3f, 0.f ), Vector3( 0.f, -1.f, 0.f ) ), hit, [&]( Entity& InEntity ) { return isUnder( InEntity, *root ); } ) )

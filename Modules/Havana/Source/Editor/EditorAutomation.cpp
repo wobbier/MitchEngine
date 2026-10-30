@@ -1340,6 +1340,50 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             EditorOps::SetKeepPlayValues( active->GetGUID(), args, true );
         }
     }
+    else if( command == "surface-place" )
+    {
+        // surface-place 0.5 0.5   (ED-8: the selection onto the surface at that fraction of the World
+        // View, as Shift-dragging the move gizmo does; one undo step)
+        auto [xText, yText] = SplitWord( args );
+        SceneViewWidget* view = InApp.Editor ? InApp.Editor->GetSceneView() : nullptr;
+        std::vector<Entity*> roots = Selection::Get().GetRootEntities();
+        std::vector<EditorOps::ComponentEdit> edits;
+        for( Entity* root : roots ) edits.push_back( { root->GetGUID(), "Transform", EditorOps::CaptureComponent( *root, "Transform" ), json() } );
+        if( !view || roots.empty() || !view->PlaceSelectionOnSurface( Vector2( static_cast<float>( std::atof( xText.c_str() ) ), static_cast<float>( std::atof( yText.c_str() ) ) ) ) )
+        {
+            Fail( "surface-place: nothing selected, or no surface there" );
+        }
+        else
+        {
+            for( EditorOps::ComponentEdit& edit : edits )
+            {
+                if( EntityHandle entity = EditorOps::GetWorld().FindEntityByGUID( edit.GUID ) ) edit.After = EditorOps::CaptureComponent( *entity.Get(), "Transform" );
+            }
+            EditorOps::RecordComponentEdits( edits, "Place on Surface" );
+        }
+    }
+    else if( command == "measure" )
+    {
+        // measure 0.3 0.5 | 0.7 0.5   (ED-8: the Measure tool between two points of the World View;
+        // logs "Measure: <metres> m from [x, y, z] to [x, y, z]")
+        auto [fromText, toText] = SplitArgs( args );
+        auto [fx, fy] = SplitWord( fromText );
+        auto [tx, ty] = SplitWord( toText );
+        SceneViewWidget* view = InApp.Editor ? InApp.Editor->GetSceneView() : nullptr;
+        const float length = view ? view->Measure( Vector2( std::stof( fx ), std::stof( fy ) ), Vector2( std::stof( tx ), std::stof( ty ) ) ) : -1.f;
+        if( length < 0.f )
+        {
+            Fail( "measure: no World View" );
+        }
+        else
+        {
+            char text[160];
+            const Vector3 a = view->GetMeasureFrom();
+            const Vector3 b = view->GetMeasureTo();
+            std::snprintf( text, sizeof( text ), "Measure: %.3f m from [%.2f, %.2f, %.2f] to [%.2f, %.2f, %.2f]", length, a.x, a.y, a.z, b.x, b.y, b.z );
+            CLog::Log( CLog::LogType::Info, text );
+        }
+    }
     else if( command == "view-option" )
     {
         // view-option DebugDraw | true   (the World View's view option, for this session)
