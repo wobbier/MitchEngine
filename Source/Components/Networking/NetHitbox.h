@@ -24,5 +24,9 @@ public:
     float Radius = 0.4f;
     float Height = 1.8f;
     Vector3 HalfExtents = Vector3( 0.5f, 0.5f, 0.5f );
+    // NET-15: a moving blocker (a door, a platform, the payload), not something to hit: a shot is
+    // blocked by it where it was in the shooter's view, and this entity's present-day colliders
+    // are ignored. Give it a shape covering the collider.
+    bool Occluder = false;
 };
 ME_REGISTER_COMPONENT_FOLDER( NetHitbox, "Networking" )

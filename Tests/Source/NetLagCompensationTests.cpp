@@ -224,3 +224,52 @@ TEST_CASE( "Net: the rewind broadphase gives the same hits while testing under 1
     CHECK( hits > 50 );
     CHECK( perShot < 20.0 );
 }
+
+
+TEST_CASE( "Net: a moving door blocks shots where it was in the shooter's view, not where it is now (NET-15)" )
+{
+    // 200 ms of round trip: the shooter's view is about 12 ticks behind the server's newest.
+    std::shared_ptr<World> world = std::make_shared<World>();
+    world->IsLoading = false;
+    EntityHandle target = world->CreateEntity( "Target" );
+    target->AddComponent<Transform>().SetPosition( Vector3( 0.f, 1.f, 10.f ) );
+    target->AddComponent<NetHitbox>();
+    EntityHandle door = world->CreateEntity( "Door" );
+    door->AddComponent<Transform>();
+    NetHitbox& doorBox = door->AddComponent<NetHitbox>();
+    doorBox.Shape = NetHitboxShape::Box;
+    doorBox.HalfExtents = Vector3( 1.f, 1.5f, 0.1f );
+    doorBox.Occluder = true;
+    // The door slides across the line of fire at tick 46 (open: 3 m aside), and back at tick 76.
+    auto doorAt = []( uint32_t InTick ) { return Vector3( InTick >= 46 && InTick < 76 ? 0.f : 3.f, 1.f, 5.f ); };
+    NetLagCompensation lag;
+    const Vector3 muzzle( 0.f, 1.f, 0.f );
+    const Vector3 aim( 0.f, 0.f, 1.f );
+    LagCompensatedHit doorOpenInView;
+    LagCompensatedHit doorClosedInView;
+    LagCompensatedHit present;
+    for( uint32_t tick = 1; tick <= 90; ++tick )
+    {
+        door->GetComponent<Transform>().SetPosition( doorAt( tick ) );
+        lag.Record( *world, tick );
+        if( tick == 52 )
+        {
+            // Closed now (since 46, 100 ms ago), but the shooter saw tick 40, still open: a hit.
+            doorOpenInView = lag.Raycast( nullptr, muzzle, aim, 100.f, 40.0 );
+            present = lag.Raycast( nullptr, muzzle, aim, 100.f, -1.0 );
+        }
+        if( tick == 82 )
+        {
+            // Open again now (since 76), but the shooter saw tick 70, closed: blocked.
+            doorClosedInView = lag.Raycast( nullptr, muzzle, aim, 100.f, 70.0 );
+        }
+    }
+    CHECK( doorOpenInView.Hit );
+    CHECK( doorOpenInView.Entity == target );
+    CHECK_FALSE( doorOpenInView.Occluded );
+    CHECK_FALSE( present.Hit );         // without rewind the closed door is in the way
+    CHECK( present.Occluded );
+    CHECK_FALSE( doorClosedInView.Hit );
+    CHECK( doorClosedInView.Occluded );
+    CHECK( doorClosedInView.Entity == target );
+}

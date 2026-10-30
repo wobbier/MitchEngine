@@ -169,6 +169,7 @@ void NetLagCompensation::Record( World& InWorld, uint32_t InTick )
         pose.Radius = hitbox->Radius;
         pose.HalfHeight = std::max( 0.f, hitbox->Height * 0.5f - hitbox->Radius );
         pose.HalfExtents = hitbox->HalfExtents;
+        pose.Occluder = hitbox->Occluder;
         frame.Hitboxes.push_back( pose );
     } );
     m_frames.push_back( std::move( frame ) );
@@ -293,6 +294,8 @@ LagCompensatedHit NetLagCompensation::Raycast( PhysicsCore* InPhysics, const Vec
     }
     const std::vector<HitboxPose> poses = PosesAt( viewTick, UseBroadphase ? &candidates : nullptr );
     float nearest = -1.f;
+    // Moving blockers (Occluder hitboxes) block where they were in the shooter's view (NET-15).
+    float occluder = -1.f;
     for( const HitboxPose& pose : poses )
     {
         if( InIgnore && pose.Entity == InIgnore )
@@ -301,16 +304,23 @@ LagCompensatedHit NetLagCompensation::Raycast( PhysicsCore* InPhysics, const Vec
         }
         ++result.Tested;
         const float t = Intersect( pose, InOrigin, direction, InMaxDistance );
-        if( t >= 0.f && ( nearest < 0.f || t < nearest ) )
+        if( t < 0.f )
+        {
+            continue;
+        }
+        if( pose.Occluder )
+        {
+            occluder = occluder < 0.f ? t : std::min( occluder, t );
+        }
+        else if( nearest < 0.f || t < nearest )
         {
             nearest = t;
             result.Entity = pose.Entity;
         }
     }
 
-    // The present world's colliders block it (hitbox owners' own bodies are where they are now,
-    // not where they were: they don't count).
-    float occluder = -1.f;
+    // The present world's colliders block it too (hitbox owners' own bodies, occluders' included,
+    // are where they are now, not where they were: they don't count).
     if( InPhysics )
     {
         for( const RaycastHit& hit : InPhysics->RaycastAll( InOrigin, direction, InMaxDistance ) )

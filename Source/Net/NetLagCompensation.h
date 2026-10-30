@@ -19,7 +19,7 @@ struct LagCompensatedHit
     EntityHandle Entity;        // the hitbox's entity
     Vector3 Point;
     float Distance = 0.f;
-    bool Occluded = false;      // a collider was in the way (Entity is still the hitbox it hid)
+    bool Occluded = false;      // a collider, or a rewound occluder hitbox, was in the way (Entity is still the hitbox it hid)
     double RewoundTicks = 0.0;
     int Tested = 0;             // hitboxes rewound and tested against the ray (after the broadphase)
 };
@@ -60,6 +60,7 @@ public:
         float Radius = 0.f;
         float HalfHeight = 0.f; // capsule: centre to cap centre
         Vector3 HalfExtents;
+        bool Occluder = false;  // blocks rewound shots, isn't hit (NET-15)
     };
     // The hitboxes as they were at InTick (fractional), for overlays and tests.
     std::vector<HitboxPose> GetPosesAt( double InTick ) const;

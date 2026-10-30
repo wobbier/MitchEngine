@@ -311,6 +311,7 @@ public partial class Dasher : Script
   4. A hit behind an occluder comes back `Occluded`.
 - **The cap:** a view older than `MaxRewindSeconds` (0.4 s, about 300 ms RTT plus the view's delay and slack) is `Rejected`.
 - **Broadphase (NET-15):** `Record` keeps each hitbox's bounds swept over the rewind window. A shot only rewinds and tests the hitboxes whose swept box its ray crosses (`LagCompensatedHit::Tested`), with the same results as testing all of them. In a 200-hitbox doctest that's about 7 tested per shot. `UseBroadphase = false` turns it off for comparisons.
+- **Moving occluders (NET-15):** a `NetHitbox` with `Occluder` on (a door, a platform, the payload; give it a shape covering the collider) is recorded like any hitbox. It blocks a shot where it was at the shooter's view tick, never takes the hit, and the shot ignores its present-day colliders. A door that closed after the shooter saw it open doesn't block, and one that was closed in their view does.
 - **Overlays:** with `DrawOverlays`, each shot draws the ray (green on a hit, red otherwise), the rewound hitboxes in yellow and the present ones in gray, for 2 s.
 
 ### UDP and dedicated servers (NET-5)

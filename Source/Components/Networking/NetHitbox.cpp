@@ -9,6 +9,7 @@ ME_REFLECT_BEGIN( NetHitbox )
     ME_FIELD( Radius ).Range( 0.01f, 10.f );
     ME_FIELD( Height ).Range( 0.f, 20.f ).Tooltip( "Capsule: end to end, including the caps" );
     ME_FIELD( HalfExtents ).Tooltip( "Box" );
+    ME_FIELD( Occluder ).Tooltip( "A moving blocker (door, platform): shots are blocked where it was in the shooter's view, never hit it" );
 ME_REFLECT_END()
 
 
