@@ -804,6 +804,15 @@ void NetReplicationClient::Update( double InFrameSeconds )
         // Steer gently towards the target so motion stays smooth.
         m_renderTick += ticks * ( 1.0 + std::clamp( ( target - m_renderTick ) * 0.1, -0.1, 0.1 ) );
     }
+    // High ping (NET-15): never show the world further back than the server will rewind a shot.
+    const double maxAheadTicks = MaxExtrapolationSeconds * m_client.GetTickRate();
+    m_extrapolating = m_minRenderTick >= 0.0 && m_renderTick < m_minRenderTick;
+    if( m_extrapolating )
+    {
+        // No further than the extrapolation cap past the newest sample: the view tick sent with
+        // commands stays what was really shown, and the server judges anything older at its cap.
+        m_renderTick = std::min( m_minRenderTick, latest + maxAheadTicks );
+    }
 
     // Adaptive delay: running past the samples of something that moves means it's too short.
     bool starved = false;
@@ -849,6 +858,17 @@ void NetReplicationClient::Update( double InFrameSeconds )
             const float t = static_cast<float>( ( m_renderTick - before->Tick ) / ( after->Tick - before->Tick ) );
             position = position + ( after->State.GetPosition() - position ) * t;
             rotation = Quaternion::Slerp( rotation, after->State.GetRotation(), t );
+        }
+        else if( !after && before->Tick < m_renderTick && samples.size() > 1 && m_extrapolating )
+        {
+            // Ahead of the newest sample on purpose: dead-reckon from the last two.
+            const Sample& previous = samples[samples.size() - 2];
+            if( before->Tick > previous.Tick )
+            {
+                const double ahead = std::min( m_renderTick - before->Tick, maxAheadTicks );
+                const Vector3 perTick = ( before->State.GetPosition() - previous.State.GetPosition() ) * ( 1.f / static_cast<float>( before->Tick - previous.Tick ) );
+                position = position + perTick * static_cast<float>( ahead );
+            }
         }
         else if( !after && before->Tick < m_renderTick && samples.size() > 1 && samples[samples.size() - 2].State.Position != before->State.Position )
         {

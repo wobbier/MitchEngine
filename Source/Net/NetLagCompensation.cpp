@@ -266,13 +266,21 @@ LagCompensatedHit NetLagCompensation::Raycast( PhysicsCore* InPhysics, const Vec
 {
     LagCompensatedHit result;
     const double newest = GetNewestTick();
-    const double viewTick = InViewTick < 0.0 ? newest : InViewTick;
-    result.RewoundTicks = newest - viewTick;
-    if( result.RewoundTicks > MaxRewindSeconds * m_tickRate + 1e-6 || result.RewoundTicks < -1.0 )
+    double viewTick = InViewTick < 0.0 ? newest : InViewTick;
+    if( newest - viewTick < -1.0 )
     {
         result.Rejected = true;
         return result;
     }
+    // High ping (NET-15): a view older than the cap is judged at the cap, not refused. A target
+    // isn't pulled back behind cover further than that; a shot that misses there simply misses.
+    const double maxTicks = MaxRewindSeconds * m_tickRate;
+    if( newest - viewTick > maxTicks + 1e-6 )
+    {
+        viewTick = newest - maxTicks;
+        result.Clamped = true;
+    }
+    result.RewoundTicks = newest - viewTick;
     const float length = InDirection.Length();
     if( length < 1e-9f )
     {

@@ -160,6 +160,13 @@ public:
     // The (fractional) server tick entities are shown at.
     double GetRenderTick() const { return m_renderTick; }
     double GetDelayTicks() const { return m_delay; }
+    // NET-15, high ping: the oldest render tick the server will still rewind a shot to (the next
+    // command's tick less its rewind cap). A render tick older than that jumps forward to it, and
+    // remote movers past their newest sample dead-reckon from their last two, up to
+    // MaxExtrapolationSeconds. < 0: no limit.
+    void SetMinRenderTick( double InTick ) { m_minRenderTick = InTick; }
+    bool IsExtrapolating() const { return m_extrapolating; }
+    double MaxExtrapolationSeconds = 0.25;
     uint32_t GetNewestSnapshotTick() const { return m_newest; }
     uint64_t GetSnapshotsReceived() const { return m_received; }
 
@@ -201,4 +208,6 @@ private:
     double m_renderTick = 0.0;
     double m_delay = 2.0;
     double m_settleSeconds = 0.0;
+    double m_minRenderTick = -1.0;
+    bool m_extrapolating = false;
 };

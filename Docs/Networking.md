@@ -309,7 +309,11 @@ public partial class Dasher : Script
   2. The ray is tested analytically against each, skipping the shooter. Nothing in the physics world moves.
   3. A present-day `RaycastAll` finds occluders, ignoring entities with hitboxes, whose bodies are in the present.
   4. A hit behind an occluder comes back `Occluded`.
-- **The cap:** a view older than `MaxRewindSeconds` (0.4 s, about 300 ms RTT plus the view's delay and slack) is `Rejected`.
+- **The cap (NET-15 high ping):** a view older than `MaxRewindSeconds` (0.4 s, about 300 ms RTT plus the view's delay and slack) is judged at the cap (`Clamped`) rather than refused. A target isn't pulled back behind cover further than that, and a shot that misses there simply misses. Only a view tick in the future is `Rejected`.
+  - **The client side:** NetCore tells the replication client the oldest render tick the server will still accept (`SetMinRenderTick`: the next command's tick less the cap, less two ticks).
+  - **Extrapolation:** when the interpolated view would be older than that, the render tick moves forward, up to `MaxExtrapolationSeconds` (0.25 s) past the newest sample. Remote movers then dead-reckon from their last two samples (`IsExtrapolating`). The view tick sent with commands stays what was really shown.
+  - **The 600 ms doctest:** no shot rejected, 71 of 75 judged at the cap, the shown target within about 0.2 m of the server's at the view tick.
+  - **Not yet:** `Net.PredictImpacts` (C# needs an RTT binding).
 - **Broadphase (NET-15):** `Record` keeps each hitbox's bounds swept over the rewind window. A shot only rewinds and tests the hitboxes whose swept box its ray crosses (`LagCompensatedHit::Tested`), with the same results as testing all of them. In a 200-hitbox doctest that's about 7 tested per shot. `UseBroadphase = false` turns it off for comparisons.
 - **Moving occluders (NET-15):** a `NetHitbox` with `Occluder` on (a door, a platform, the payload; give it a shape covering the collider) is recorded like any hitbox. It blocks a shot where it was at the shooter's view tick, never takes the hit, and the shot ignores its present-day colliders. A door that closed after the shooter saw it open doesn't block, and one that was closed in their view does.
 - **Overlays:** with `DrawOverlays`, each shot draws the ray (green on a hit, red otherwise), the rewound hitboxes in yellow and the present ones in gray, for 2 s.

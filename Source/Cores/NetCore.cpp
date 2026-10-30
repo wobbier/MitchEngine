@@ -628,6 +628,9 @@ void NetCore::BeginTick()
     if( m_client && m_client->GetState() == NetClient::State::Connected )
     {
         m_tick = m_client->GetClock().GetTick();
+        // High ping (NET-15): keep the view within what the server will rewind to (its cap, less
+        // two ticks for the view's quantization and arrival); past it, remote movers extrapolate.
+        m_replicationClient->SetMinRenderTick( static_cast<double>( m_tick ) - ( m_lagCompensation.MaxRewindSeconds * m_client->GetTickRate() - 2.0 ) );
         // What the player is looking at: lag compensation rewinds shots to it.
         if( m_replicationClient->GetSnapshotsReceived() > 0 )
         {

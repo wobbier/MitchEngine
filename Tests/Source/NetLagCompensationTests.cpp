@@ -65,7 +65,7 @@ TEST_CASE( "Net: hitbox rays hit capsules and oriented boxes where they are, and
     CHECK( NetLagCompensation::Intersect( box, Vector3( 1.5f, 0.f, 0.f ), Vector3( 0.f, 0.f, 1.f ), 100.f ) < 0.f );
 }
 
-TEST_CASE( "Net: at 200 ms a shot at a strafing target hits with rewind and misses without; beyond the cap is rejected; walls still block" )
+TEST_CASE( "Net: at 200 ms a shot at a strafing target hits with rewind and misses without; beyond the cap is clamped; walls still block" )
 {
     PhysicsCore physics;
     Harness net( Link( 100.f, 5.f, 51 ), Link( 100.f, 5.f, 52 ) );
@@ -122,7 +122,9 @@ TEST_CASE( "Net: at 200 ms a shot at a strafing target hits with rewind and miss
         const LagCompensatedHit withoutRewind = net.ServerNet.LagCompensatedRaycast( muzzle, direction, 100.f, present, self );
         InputCommand forged = InCommand;
         forged.ViewTick -= 30.0;   // half a second further back than it really saw
-        rejectedForged += net.ServerNet.LagCompensatedRaycast( muzzle, direction, 100.f, forged, self ).Rejected ? 1 : 0;
+        const LagCompensatedHit forgedHit = net.ServerNet.LagCompensatedRaycast( muzzle, direction, 100.f, forged, self );
+        // NET-15: judged at the cap rather than refused.
+        rejectedForged += forgedHit.Clamped && !forgedHit.Rejected && forgedHit.RewoundTicks <= 0.4 * 60.0 + 1e-6 ? 1 : 0;
         ++shots;
         rewoundHits += withRewind.Hit && withRewind.Entity == target ? 1 : 0;
         presentHits += withoutRewind.Hit ? 1 : 0;
@@ -272,4 +274,107 @@ TEST_CASE( "Net: a moving door blocks shots where it was in the shooter's view, 
     CHECK_FALSE( doorClosedInView.Hit );
     CHECK( doorClosedInView.Occluded );
     CHECK( doorClosedInView.Entity == target );
+}
+
+
+TEST_CASE( "Net: at 600 ms the client extrapolates within the rewind cap; no shot is rejected, and reversals are the misses (NET-15)" )
+{
+    PhysicsCore physics;
+    Harness net( Link( 300.f, 5.f, 61 ), Link( 300.f, 5.f, 62 ) );
+    net.ServerWorld->AddCore( physics );
+    net.Place( 0x7A26E7 );
+    net.Place( 0x5400 );
+    EntityHandle target;
+    EntityHandle shooter;
+    EntityHandle clientTarget;
+    net.ServerWorld->ForEachEntity( [&]( Entity& InEntity ) {
+        if( InEntity.GetGUID() == 0x7A26E7 ) target = net.ServerWorld->GetEntity( InEntity.GetId() );
+        if( InEntity.GetGUID() == 0x5400 ) shooter = net.ServerWorld->GetEntity( InEntity.GetId() );
+    } );
+    net.ClientWorld->ForEachEntity( [&]( Entity& InEntity ) {
+        if( InEntity.GetGUID() == 0x7A26E7 ) clientTarget = net.ClientWorld->GetEntity( InEntity.GetId() );
+    } );
+    NetHitbox& hitbox = target->AddComponent<NetHitbox>();
+    hitbox.Radius = 0.4f;
+    hitbox.Height = 1.8f;
+    shooter->GetComponent<Transform>().SetPosition( Vector3( 0.f, 1.f, -10.f ) );
+    shooter->GetComponent<NetIdentity>().SetOwner( 1 );
+    net.ServerWorld->Simulate();
+    net.ServerWorld->Start();
+
+    const Vector3 muzzle( 0.f, 1.f, -10.f );
+    double errorSum = 0.0;
+    int errorCount = 0;
+    double aheadSum = 0.0;
+    net.MakeCommand = [&]( uint32_t InTick ) {
+        InputCommand command;
+        const Vector3 shown = clientTarget->GetComponent<Transform>().GetWorldPosition();
+        const double render = net.ClientNet.GetReplicationClient()->GetRenderTick();
+        const float x0 = TargetAt( static_cast<uint32_t>( render ) ).x;
+        const float x1 = TargetAt( static_cast<uint32_t>( render ) + 1 ).x;
+        const float expected = x0 + ( x1 - x0 ) * static_cast<float>( render - std::floor( render ) );
+        errorSum += std::abs( shown.x - expected );
+        aheadSum += render - net.ClientNet.GetReplicationClient()->GetNewestSnapshotTick();
+        ++errorCount;
+        const Vector3 aim = ( shown - muzzle ).Normalized();
+        command.Axes = { aim.x, aim.y, aim.z, 0.f };
+        command.Buttons = InTick % 20 == 0 ? 2u : 0u;
+        return command;
+    };
+    int shots = 0;
+    int hits = 0;
+    int rejected = 0;
+    int clamped = 0;
+    int missesAwayFromReversals = 0;
+    double worstRewind = 0.0;
+    net.ServerNet.SetCommandHandler( [&]( Entity& InShooter, const InputCommand& InCommand ) {
+        if( !( InCommand.Buttons & 2u ) || InCommand.ViewTick < 0.0 )
+        {
+            return;
+        }
+        const Vector3 direction( InCommand.Axes[0], InCommand.Axes[1], InCommand.Axes[2] );
+        const LagCompensatedHit hit = net.ServerNet.LagCompensatedRaycast( muzzle, direction, 100.f, InCommand, net.ServerWorld->GetEntity( InShooter.GetId() ) );
+        ++shots;
+        hits += hit.Hit ? 1 : 0;
+        rejected += hit.Rejected ? 1 : 0;
+        clamped += hit.Clamped ? 1 : 0;
+        worstRewind = std::max( worstRewind, hit.RewoundTicks );
+        if( !hit.Hit )
+        {
+            // Extrapolation can only be wrong where the target turned: within 0.6 s of an end.
+            const float phase = std::fmod( 5.f * static_cast<float>( InCommand.ViewTick ) / 60.f, 8.f );
+            missesAwayFromReversals += phase > 3.f && phase < 5.f ? 1 : 0;
+        }
+    } );
+    net.OnServerTick = [&]( NetServer& InServer ) {
+        target->GetComponent<Transform>().SetPosition( TargetAt( InServer.GetTick() ) );
+        TestContext context;
+        context.FixedDeltaTime = 1.f / 60.f;
+        context.InterpolationAlpha = 1.f;
+        net.ServerWorld->Simulate();
+        context.IsFixedStepActive = true;
+        physics.FixedUpdate( context );
+        context.IsFixedStepActive = false;
+        physics.Update( context );
+    };
+    net.Start();
+    net.Run( 3.0 );
+    shots = hits = rejected = clamped = missesAwayFromReversals = 0;
+    worstRewind = 0.0;
+    errorSum = aheadSum = 0.0;
+    errorCount = 0;
+    net.Run( 25.0 );
+    MESSAGE( "600 ms: shown vs server x error " << errorSum / std::max( errorCount, 1 ) << " m, render ahead of newest sample " << aheadSum / std::max( errorCount, 1 ) << " ticks" );
+    MESSAGE( "600 ms: " << shots << " shots, " << hits << " hits, " << clamped << " clamped, worst rewind " << worstRewind
+        << " ticks, extrapolating " << net.ClientNet.GetReplicationClient()->IsExtrapolating() );
+    REQUIRE( shots >= 50 );
+    // Never refused: views past the cap are judged at the cap.
+    CHECK( rejected == 0 );
+    CHECK( clamped > 0 );
+    CHECK( worstRewind <= 0.4 * 60.0 + 1e-6 );
+    CHECK( net.ClientNet.GetReplicationClient()->IsExtrapolating() );
+    // What the client showed was a fair dead-reckoning of where the target was at its view tick.
+    CHECK( errorSum / std::max( errorCount, 1 ) < 0.25 );
+    CHECK( hits > 0 );
+    CHECK( missesAwayFromReversals <= shots / 10 );
 }

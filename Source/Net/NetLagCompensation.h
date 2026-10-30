@@ -15,7 +15,8 @@ class World;
 struct LagCompensatedHit
 {
     bool Hit = false;
-    bool Rejected = false;      // the shooter claimed to see further back than the cap
+    bool Rejected = false;      // the shooter's view tick is in the future
+    bool Clamped = false;       // it claimed to see further back than the cap: judged at the cap (NET-15)
     EntityHandle Entity;        // the hitbox's entity
     Vector3 Point;
     float Distance = 0.f;
