@@ -193,7 +193,8 @@ public class Engine : BaseProject
         conf.LibraryFiles.Add("winhttp.lib");
 
 
-        if (Directory.Exists(Globals.FMOD_Win64_Dir))
+        // Headless servers (Mode.Server) have no audio: no FMOD to link or ship (ME-287).
+        if (Directory.Exists(Globals.FMOD_Win64_Dir) && target.HasAudio)
         {
             conf.IncludePaths.Add(Path.Combine(Globals.FMOD_Win64_Dir, "api/core/inc"));
             conf.LibraryPaths.Add(Path.Combine(Globals.FMOD_Win64_Dir, "api/core/lib/x64"));
@@ -337,7 +338,7 @@ public class Engine : BaseProject
             conf.LibraryFiles.Add("zlibstatic");
         }
 
-        if (Directory.Exists(Globals.FMOD_macOS_Dir))
+        if (Directory.Exists(Globals.FMOD_macOS_Dir) && target.HasAudio)
         {
             conf.IncludePaths.Add(Path.Combine(Globals.FMOD_macOS_Dir, "api/core/inc"));
             conf.LibraryPaths.Add(Path.Combine(Globals.FMOD_macOS_Dir, "api/core/lib"));
@@ -381,7 +382,7 @@ public class Engine : BaseProject
             conf.EventPostBuildExe.Add(copyRuntimeConfig);
         }
 
-        if (Directory.Exists(Globals.FMOD_Linux_Dir))
+        if (Directory.Exists(Globals.FMOD_Linux_Dir) && target.HasAudio)
         {
             conf.IncludePaths.Add(Path.Combine(Globals.FMOD_Linux_Dir, "api/core/inc"));
             conf.LibraryPaths.Add(Path.Combine(Globals.FMOD_Linux_Dir, "api/core/lib/x86_64"));

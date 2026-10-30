@@ -45,6 +45,8 @@ public class CommonTarget : Sharpmake.ITarget
         Server = 1 << 2
     }
     public Mode SelectedMode = Mode.Game;
+    // Whether the target plays audio (links FMOD when its SDK is there): not headless servers.
+    public bool HasAudio => SelectedMode != Mode.Server;
 
     public CommonTarget() { }
 

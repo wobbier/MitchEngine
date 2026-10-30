@@ -161,7 +161,7 @@ public abstract class BaseProject : Project
                 )
         );
 
-        if (Directory.Exists(Globals.FMOD_Win64_Dir))
+        if (Directory.Exists(Globals.FMOD_Win64_Dir) && target.HasAudio)
         {
             conf.Defines.Add("DEFINE_ME_FMOD");
         }
@@ -261,7 +261,7 @@ public abstract class BaseProject : Project
             conf.AdditionalCompilerOptions.Add("-O0");               // no optimisation
         }
 
-        if (Directory.Exists(Globals.FMOD_Linux_Dir))
+        if (Directory.Exists(Globals.FMOD_Linux_Dir) && target.HasAudio)
         {
             conf.Defines.Add("DEFINE_ME_FMOD");
             // Bake the fmod lib dir into the binary's RPATH so it loads without LD_LIBRARY_PATH
@@ -303,7 +303,7 @@ public abstract class BaseProject : Project
         // linker group, so order is irrelevant. Bare names become -l:lib<name>.a; the
         // shared libs need their full .so filename to avoid the forced .a suffix.
         conf.LibraryFiles.Add("libwayland-egl.so");
-        if (Directory.Exists(Globals.FMOD_Linux_Dir))
+        if (Directory.Exists(Globals.FMOD_Linux_Dir) && target.HasAudio)
         {
             conf.LibraryFiles.Add(target.Optimization == Optimization.Retail ? "libfmod.so" : "libfmodL.so");
         }
