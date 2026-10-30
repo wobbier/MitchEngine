@@ -53,6 +53,7 @@ The C# API (NET-6) and the editor tooling (NET-7) come next.
 | `Source/Engine/NetLaunch.h` | The command line (`--server`, `--connect`, `--net-*`): starts the session after the scene loads, logs it, writes the report, says goodbye on exit |
 | `Source/Window/NullWindow.h` | The headless build's window: a size and SDL's event loop (Ctrl+C / SIGTERM close it) |
 | `Tools/RunNetSmoke.py` | The two-process smoke test (below) |
+| `Tools/RunNetLocal.py` | A server plus N client windows on this machine, for playing and debugging (below) |
 | `Tests/Source/NetTests.cpp`, `NetSessionTests.cpp`, `NetHarness.h` | The proofs (below). The harness runs a server world and a client world in one process at 1 ms resolution |
 
 ## How It Works
@@ -227,6 +228,21 @@ The session starts after the scene loads, because the handshake hashes the scene
 - **A failed start** (a taken port, an unresolvable host) logs why and quits with exit code 1, and the report carries an `Error`.
 - **Headless runs don't write the player's state:** no `Engine.cfg` window or scene, and Retail logs go to `Logs/Server.txt`.
 - **On exit:** the report is written first, then Disconnect goes to the other side.
+
+**Playing locally** (`Tools/RunNetLocal.py`, ME-289):
+
+- **What it does:** starts the Server build, waits for it to host, then opens N client windows side by side.
+  - Each client is a game build with `--connect`, sized with `--width/--height`, placed with `--window-x/--window-y` and kept `--window-mode windowed`.
+  - Each window's title says which client it is (`[client #2]`; `NetLaunch` sets it).
+  - The server quits once the last window closes. Ctrl+C stops everything.
+  - At the end it prints each side's report: joined / left / timed out, RTT, loss, snapshots per second, kbps.
+- **Running it:**
+  - `Engine/Tools/RunNetLocal.py [--scene X.lvl] [--clients N] [--port 7777|0] [--net-args "--net-lag 50 --net-loss 2%"] [--build]`.
+  - Outside the dev shell it re-runs itself through `Tools/NixEnv.sh`. Logs and reports land in `.tmp/NetLocal/`.
+- **VS Code** (the game's and the project template's `.vscode`):
+  - Tasks "Net: server + 2 clients" and "Net: server + 2 clients (50 ms, 2% loss)" build both configurations first (`build-net-debug`) and ask for the scene.
+  - The compound launch "Net: server + client (debug both)" runs the server and a client under gdb together, with `--net-timeout 60` so breakpoints don't drop the session.
+- **Window placement:** tiling window managers and native Wayland place windows themselves; the offsets matter on stacking desktops.
 
 **The smoke test** (`Tools/RunNetSmoke.py`, the RunChecks "Networking smoke" step):
 

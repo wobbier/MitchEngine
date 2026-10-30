@@ -1046,6 +1046,10 @@ void SDLWindow::ExitMaximize()
 
 void SDLWindow::SetTitle( const std::string& title )
 {
+    if( WindowHandle )
+    {
+        SDL_SetWindowTitle( WindowHandle, title.c_str() );
+    }
 }
 
 

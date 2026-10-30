@@ -331,6 +331,16 @@ void Engine::Init( Game* game )
         {
             engineConfig.WindowSize = Vector2( static_cast<float>( CommandLine::GetInt( "--width" ) ), static_cast<float>( CommandLine::GetInt( "--height" ) ) );
         }
+        // Where the window opens (Tools/RunNetLocal.py tiles its clients); 0 centres it. Tiling
+        // window managers and native Wayland place windows themselves.
+        if( CommandLine::Has( "--window-x" ) )
+        {
+            engineConfig.WindowPosition.x = static_cast<float>( CommandLine::GetInt( "--window-x" ) );
+        }
+        if( CommandLine::Has( "--window-y" ) )
+        {
+            engineConfig.WindowPosition.y = static_cast<float>( CommandLine::GetInt( "--window-y" ) );
+        }
 #if USING( ME_HEADLESS )
         // Nothing waits on a display: without a cap a dedicated server would spin. One frame per
         // tick, unless --max-fps or the config's MaxFrameRate says otherwise (0 = uncapped).
@@ -580,7 +590,7 @@ void Engine::Run()
 
     // --server / --connect (NET-5): after the scene loads, since the handshake hashes its
     // networked entities. One tick per fixed step.
-    m_netLaunch.Start( *Net, static_cast<uint16_t>( std::lround( 1.0 / m_fixedTimeStep ) ) );
+    m_netLaunch.Start( *Net, static_cast<uint16_t>( std::lround( 1.0 / m_fixedTimeStep ) ), GameWindow, engineConfig.GetValue( "Title" ) );
 
     GameClock.Reset();
     m_fixedAccumulator = 0.0;

@@ -32,6 +32,44 @@
         { "text": "-enable-pretty-printing", "ignoreFailures": true }
       ],
       "preLaunchTask": "build-havana-game-debug"
+    },
+    {
+      "name": "Net Server (Server_Debug, Linux)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/.build/Server_linux_Debug/Game_EntryPoint_x64",
+      "args": ["--scene", "Assets/Example.lvl", "--server", "7777", "--net-timeout", "60"],
+      "cwd": "${workspaceFolder}",
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "${workspaceFolder}/Engine/Tools/NixGdb.sh",
+      "miDebuggerArgs": "--project \"${workspaceFolder}\"",
+      "setupCommands": [
+        { "text": "-enable-pretty-printing", "ignoreFailures": true }
+      ]
+    },
+    {
+      "name": "Net Client (Debug, Linux)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/.build/Game_linux_Debug/Game_EntryPoint_x64",
+      "args": ["--scene", "Assets/Example.lvl", "--connect", "127.0.0.1:7777", "--net-timeout", "60", "--width", "800", "--height", "450", "--window-mode", "windowed"],
+      "cwd": "${workspaceFolder}",
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "${workspaceFolder}/Engine/Tools/NixGdb.sh",
+      "miDebuggerArgs": "--project \"${workspaceFolder}\"",
+      "setupCommands": [
+        { "text": "-enable-pretty-printing", "ignoreFailures": true }
+      ]
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Net: server + client (debug both)",
+      "configurations": ["Net Server (Server_Debug, Linux)", "Net Client (Debug, Linux)"],
+      "preLaunchTask": "build-net-debug",
+      "stopAll": true
     }
   ]
 }

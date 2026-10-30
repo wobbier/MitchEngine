@@ -18,6 +18,45 @@
       "options": { "cwd": "${workspaceFolder}" },
       "group": "build",
       "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build-server-debug",
+      "type": "process",
+      "command": "${workspaceFolder}/Engine/Tools/BuildProject.sh",
+      "args": ["Game_EntryPoint", "server_linux_debug"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build-net-debug",
+      "dependsOn": ["build-havana-game-debug", "build-server-debug"],
+      "dependsOrder": "sequence",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Net: server + 2 clients",
+      "type": "process",
+      "command": "${workspaceFolder}/Engine/Tools/NixEnv.sh",
+      "args": ["--project", "${workspaceFolder}", "python3", "Engine/Tools/RunNetLocal.py", "--scene", "${input:netScene}", "--clients", "2"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "dependsOn": "build-net-debug",
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Net: server + 2 clients (50 ms, 2% loss)",
+      "type": "process",
+      "command": "${workspaceFolder}/Engine/Tools/NixEnv.sh",
+      "args": ["--project", "${workspaceFolder}", "python3", "Engine/Tools/RunNetLocal.py", "--scene", "${input:netScene}", "--clients", "2", "--net-args", "--net-lag 25 --net-jitter 5 --net-loss 1%"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "dependsOn": "build-net-debug",
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": []
     }
+  ],
+  "inputs": [
+    { "id": "netScene", "type": "promptString", "description": "Scene to play over the network", "default": "Assets/Example.lvl" }
   ]
 }

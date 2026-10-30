@@ -3,6 +3,7 @@
 #include <memory>
 #include <string>
 
+class IWindow;
 class NetCore;
 class UdpTransport;
 class ConditionedTransport;
@@ -32,13 +33,18 @@ public:
 
     // Starts what the command line asks for: false when it asked and couldn't (logged; Update then
     // says to quit, and the report says why). InTickRate: the engine's fixed steps per second.
-    bool Start( NetCore& InNet, uint16_t InTickRate );
+    // The window's title (InTitle) gains the session's role, so local test windows tell apart.
+    bool Start( NetCore& InNet, uint16_t InTickRate, IWindow* InWindow = nullptr, const std::string& InTitle = "" );
     // Every frame: logs how the session is going; true when the engine should quit.
     bool Update( NetCore& InNet );
     // Before the engine shuts down: the report, goodbyes, the session ends.
     void Shutdown( NetCore& InNet, double InNow );
 
 private:
+    void ShowRole( const std::string& InRole );
+
+    IWindow* m_window = nullptr;
+    std::string m_title;
     std::unique_ptr<UdpTransport> m_socket;
     std::unique_ptr<ConditionedTransport> m_conditioned;
     std::string m_reportPath;

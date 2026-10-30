@@ -6,6 +6,7 @@
 #include "JSON.h"
 #include "Net/NetTransport.h"
 #include "Net/UdpTransport.h"
+#include "Window/IWindow.h"
 #include <algorithm>
 #include <cstdlib>
 #include <fstream>
@@ -48,8 +49,19 @@ bool NetLaunch::IsRequested()
 }
 
 
-bool NetLaunch::Start( NetCore& InNet, uint16_t InTickRate )
+void NetLaunch::ShowRole( const std::string& InRole )
 {
+    if( m_window && !m_title.empty() )
+    {
+        m_window->SetTitle( m_title + " [" + InRole + "]" );
+    }
+}
+
+
+bool NetLaunch::Start( NetCore& InNet, uint16_t InTickRate, IWindow* InWindow, const std::string& InTitle )
+{
+    m_window = InWindow;
+    m_title = InTitle;
     m_requested = IsRequested();
     m_reportPath = CommandLine::GetString( "--net-report" );
     m_exitWhenEmpty = CommandLine::Has( "--net-exit-when-empty" );
@@ -123,11 +135,13 @@ bool NetLaunch::Start( NetCore& InNet, uint16_t InTickRate )
     {
         InNet.Host( *transport, InTickRate );
         Say( CLog::LogType::Info, "Net: hosting on UDP port " + std::to_string( m_socket->GetPort() ) + " at " + std::to_string( InTickRate ) + " Hz" + conditioned );
+        ShowRole( "server :" + std::to_string( m_socket->GetPort() ) );
     }
     else
     {
         InNet.Connect( *transport, server );
         Say( CLog::LogType::Info, "Net: connecting to " + UdpTransport::ToString( server ) + conditioned );
+        ShowRole( "connecting to " + UdpTransport::ToString( server ) );
     }
     return true;
 }
@@ -181,15 +195,19 @@ bool NetLaunch::Update( NetCore& InNet )
             {
             case NetClient::State::Connected:
                 Say( CLog::LogType::Info, "Net: connected as client #" + std::to_string( client->GetClientId() ) + " at " + std::to_string( client->GetTickRate() ) + " Hz" );
+                ShowRole( "client #" + std::to_string( client->GetClientId() ) );
                 break;
             case NetClient::State::Rejected:
                 Say( CLog::LogType::Error, "Net: the server turned us away: " + client->GetRejectReason() );
+                ShowRole( "rejected" );
                 break;
             case NetClient::State::TimedOut:
                 Say( CLog::LogType::Error, "Net: the server stopped answering (timed out)" );
+                ShowRole( "timed out" );
                 break;
             case NetClient::State::Disconnected:
                 Say( CLog::LogType::Warning, "Net: disconnected: " + client->GetDisconnectReason() );
+                ShowRole( "disconnected" );
                 break;
             default:
                 break;
