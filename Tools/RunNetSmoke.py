@@ -11,6 +11,9 @@ for a fixed number of frames against it and captures the client's view. Passes w
   - the client's capture matches its reference (as ScreenshotRegression compares them);
   - every --expect-server / --expect-client line shows up in that side's log, and not in the other's
     (NET-6: NetProbe.cs logs "ServerRpc ok" on the server, "dash: 0 corrections" on the client).
+  - with --observer, a second client that owns nothing joins once the first is connected, and every
+    --expect-observer line shows up in its log (ME-291: NetProbe's owner waits for it before dashing,
+    through Game.NetProbePeers, and it must see the dash's predicted event once).
 
   Engine/Tools/RunNetSmoke.py --server-game .build/Server_linux_Debug/Game_EntryPoint_x64 \\
       --client-game .build/Game_linux_Debug/Game_EntryPoint_x64 --wrapper Engine/Tools/Headless.sh \\
@@ -102,6 +105,8 @@ def main():
     parser.add_argument("--min-connected", type=float, default=0.8, help="share of the run's frames (at --max-fps) the client must stay connected")
     parser.add_argument("--expect-server", action="append", default=[], help="text the server's log must contain (and the client's must not); repeatable")
     parser.add_argument("--expect-client", action="append", default=[], help="text the client's log must contain (and the server's must not); repeatable")
+    parser.add_argument("--observer", action="store_true", help="also run a second client that owns nothing (it joins once the first is connected, so the first stays the owner)")
+    parser.add_argument("--expect-observer", action="append", default=[], help="text the observer's log must contain (ME-291: NetProbe's 'observer dash fx once'); repeatable")
     parser.add_argument("--out", default=".tmp/NetSmoke")
     parser.add_argument("--update", action="store_true", help="write the client's capture as the reference")
     args = parser.parse_args()
@@ -110,6 +115,7 @@ def main():
     name = os.path.splitext(os.path.basename(args.scene))[0]
     server_log_path = os.path.join(args.out, "server.log")
     client_log_path = os.path.join(args.out, "client.log")
+    observer_log_path = os.path.join(args.out, "observer.log")
     server_report = os.path.join(args.out, "server.json")
     client_report = os.path.join(args.out, "client.json")
     shot = os.path.join(args.out, name + ".png")
@@ -135,13 +141,40 @@ def main():
         hosting = re.search(r"Net: hosting on UDP port (\d+)", read_text(server_log_path))
         port = int(hosting.group(1))
 
+        observer_args = []
+        if args.observer:
+            # NetProbe's owner waits for the second client before it dashes (Game.NetProbePeers).
+            user_dir = os.path.abspath(os.path.join(args.out, "owner-user"))
+            os.makedirs(user_dir, exist_ok=True)
+            with open(os.path.join(user_dir, "Settings.json"), "w") as settings:
+                json.dump({"Version": 1, "Game": {"NetProbePeers": 2}}, settings)
+            observer_args = ["--user-dir", user_dir]
         client_command = shlex.split(args.wrapper) + [
             args.client_game, "--scene", args.scene, "--connect", f"127.0.0.1:{port}", "--frames", str(args.frames),
             "--max-fps", str(args.max_fps), "--width", str(args.width), "--height", str(args.height), "--no-audio",
-            "--no-profile-enforcement", "--screenshot", shot, "--net-report", client_report, "--exit"] + net_args
+            "--no-profile-enforcement", "--screenshot", shot, "--net-report", client_report, "--exit"] + observer_args + net_args
         print("client: " + " ".join(shlex.quote(part) for part in client_command))
+        observer = None
         with open(client_log_path, "w") as client_log:
             client = subprocess.Popen(client_command, stdout=client_log, stderr=subprocess.STDOUT, start_new_session=True)
+            if args.observer:
+                # After the first client is in, so the server hands it the pawn.
+                if not wait_for_line(client_log_path, "Net: connected", client, args.client_timeout):
+                    failures.append(f"the client never connected, so no observer joined (see {client_log_path})")
+                else:
+                    observer_command = shlex.split(args.wrapper) + [
+                        args.client_game, "--scene", args.scene, "--connect", f"127.0.0.1:{port}", "--frames", str(args.frames),
+                        "--max-fps", str(args.max_fps), "--width", "320", "--height", "180", "--no-audio",
+                        "--no-profile-enforcement", "--exit"] + net_args
+                    print("observer: " + " ".join(shlex.quote(part) for part in observer_command))
+                    observer_log = open(observer_log_path, "w")
+                    # Its own virtual display: Headless.sh stops the Xvfb it started when its command
+                    # ends, so sharing the client's would cut the observer off when the client leaves.
+                    observer_env = dict(os.environ)
+                    base = os.environ.get("HEADLESS_DISPLAY", ":99").lstrip(":")
+                    observer_env["HEADLESS_DISPLAY"] = f":{int(base) + 20 if base.isdigit() else 119}"
+                    observer = subprocess.Popen(observer_command, stdout=observer_log, stderr=subprocess.STDOUT, start_new_session=True,
+                                                env=observer_env)
             try:
                 client_code = client.wait(timeout=args.client_timeout)
             except subprocess.TimeoutExpired:
@@ -150,6 +183,15 @@ def main():
                 failures.append(f"the client hung (stopped after {args.client_timeout:.0f} s; see {client_log_path})")
         if client_code not in (0, None):
             failures.append(f"the client exited with {client_code} (see {client_log_path})")
+        if observer is not None:
+            try:
+                observer_code = observer.wait(timeout=args.client_timeout)
+            except subprocess.TimeoutExpired:
+                stop_group(observer)
+                observer_code = None
+                failures.append(f"the observer hung (see {observer_log_path})")
+            if observer_code not in (0, None):
+                failures.append(f"the observer exited with {observer_code} (see {observer_log_path})")
 
         try:
             server.wait(timeout=30)
@@ -202,6 +244,13 @@ def main():
             failures.append("the client didn't leave cleanly (no Disconnect reached the server)")
 
     logs = {"server": read_text(server_log_path), "client": read_text(client_log_path)}
+    if args.observer:
+        logs["observer"] = read_text(observer_log_path)
+        for needle in args.expect_observer:
+            if needle not in logs["observer"]:
+                failures.append(f"the observer never logged {needle!r}")
+            else:
+                print(f"      observer: {needle}")
     for label, log_path in (("server", server_log_path), ("client", client_log_path)):
         if "--- ASSERT ---" in logs[label] or "[bgfx] FATAL" in logs[label]:
             failures.append(f"the {label} hit an assert (see {log_path})")

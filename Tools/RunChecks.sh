@@ -344,6 +344,12 @@ if [[ -f Assets/Scenes/Tests/NetTest.lvl ]]; then
             --expect-client "NetProbe: Replicated ok" --expect-client "NetProbe: dash: 0 corrections" \
             --expect-server "NetProbe: server dash fx #1" --expect-client "NetProbe: dash fx once"; then
         failed+=("networking smoke")
+    elif ! python3 "$here/RunNetSmoke.py" --server-game "$server" --client-game .build/Game_linux_Debug/Game_EntryPoint_x64 \
+            --wrapper "$here/Headless.sh" --scene Assets/Scenes/Tests/NetTest.lvl --reference Assets/Scenes/Tests/Reference \
+            --out .tmp/NetSmokeObserver --observer --frames 1500 \
+            --expect-client "NetProbe: dash fx once" --expect-observer "NetProbe: observer dash fx once"; then
+        # ME-291: a second client that owns nothing sees the dash's predicted event once too.
+        failed+=("networking smoke (observer)")
     fi
 fi
 

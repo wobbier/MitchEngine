@@ -296,7 +296,7 @@ public partial class Dasher : Script
   - **Other clients:** they present it when the server's copy arrives.
   - **Requirements:** the script must be networked (any net member) on a `NetIdentity`.
   - **Not yet:** a predicted event the server never produced isn't cancelled, and there's no per-frame FX budget or queue (the GDC review's deferred-FX idea).
-  - **Tested by:** NetProbe's dash: "dash fx once" on the owner and "server dash fx #1" on the server, in RunNetSmoke and RunChecks.
+  - **Tested by:** NetProbe's dash: "dash fx once" on the owner and "server dash fx #1" on the server, in RunNetSmoke and RunChecks. With `RunNetSmoke.py --observer`, a second, non-owning client logs "observer dash fx once". The owner waits for it before dashing (`Game.NetProbePeers` = 2 through `--user-dir`). Under heavy load the owner still showed the event once through 6 real corrections.
 - Keep `[Predicted]` state deterministic: the same code on the same commands. It is compared byte for byte.
 - One `ScriptComponent` per networked entity carries its net state.
 
