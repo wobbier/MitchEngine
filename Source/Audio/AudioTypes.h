@@ -110,6 +110,8 @@ public:
     void SetPitch( float InPitch );
     void SetPosition( const Vector3& InPosition, const Vector3& InVelocity = Vector3() );
     unsigned int GetPositionMs() const;
+    // Sample-accurate: the mixer's position in the sound, in seconds (NEXT-8); -1 without one.
+    double GetPositionSeconds() const;
     void SetPositionMs( unsigned int InPosition );
     // The voice's final level after its volume, bus and distance attenuation (0..1).
     float GetAudibility() const;

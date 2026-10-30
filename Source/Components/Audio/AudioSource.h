@@ -74,6 +74,9 @@ public:
 
     unsigned int GetLength() const;
     unsigned int GetPositionMs() const;
+    // NEXT-8: the playing voice's position as the mixer sees it, in seconds (sample-accurate);
+    // -1 while stopped or paused.
+    double GetPlaybackSeconds() const;
     void SetPositionMs( unsigned int position );
     void SetPositionPercent( float positionPercent );
     float GetVolume();

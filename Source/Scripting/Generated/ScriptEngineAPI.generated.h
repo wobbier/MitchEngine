@@ -19,7 +19,7 @@ struct ScriptRaycastHit
 };
 
 // The ABI both sides were generated from (C# checks it: ScriptBridge.GetEngineAPIHash).
-constexpr uint64_t kScriptEngineAPIHash = 0x724EA93B295D7D04ULL;
+constexpr uint64_t kScriptEngineAPIHash = 0x1E4AD123BFF4836DULL;
 
 // Structs that cross: their layout is part of the ABI (C# checks the same sizes).
 static_assert( sizeof( EntityID ) == 8, "EntityID crosses into C#: its size is part of the script ABI" );
@@ -424,4 +424,7 @@ struct ScriptEngineAPI
     // Aim in commands (NET-15): degrees; yaw about +Y (0 down +Z, 90 down +X), pitch up from level
     void ( *Net_SetAim )( bool has, float yaw, float pitch ) noexcept;
     bool ( *Net_GetCommandAim )( EntityID id, float* outYaw, float* outPitch ) noexcept;
+
+    // Beat clock (NEXT-8): the AudioSource voice position in seconds, sample-accurate; -1 not playing, -2 no audio engine
+    double ( *AudioSource_GetPlaybackSeconds )( EntityID id ) noexcept;
 };

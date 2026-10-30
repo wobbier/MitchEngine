@@ -390,3 +390,6 @@ float Net_GetRoundTripMs( int clientId )
 ## Aim in commands (NET-15): degrees; yaw about +Y (0 down +Z, 90 down +X), pitch up from level
 void Net_SetAim( bool has, float yaw, float pitch )
 bool Net_GetCommandAim( Entity id, float* outYaw, float* outPitch )
+
+## Beat clock (NEXT-8): the AudioSource voice position in seconds, sample-accurate; -1 not playing, -2 no audio engine
+double AudioSource_GetPlaybackSeconds( Entity id )

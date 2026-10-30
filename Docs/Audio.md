@@ -128,6 +128,17 @@ A 3D source whose line to the listener is blocked sounds muffled. FMOD's 3D occl
 | A reverb zone leaves the world | Its FMOD reverb is released |
 | `Engine::Shutdown` → `AudioCore::Shutdown` | Every voice stops. Each `Sound` of this system is released and evicted from `ResourceCache` (holders keep an empty `Sound`). The buses and the FMOD system are released |
 
+### Beat clock (NEXT-8)
+
+`AudioSource::GetPlaybackSeconds` (C# `AudioSource.PlaybackSeconds`) is the playing voice's position as the mixer sees it: FMOD's PCM position over the sound's sample rate, so it's sample-accurate and follows the audio rather than frame time. It reads -1 while stopped or paused, and -2 from C# when there's no audio engine.
+
+C#'s `Kit.BeatClock` (Bpm, BeatsPerBar, Offset to the first beat) is a plain object a script owns and ticks with its AudioSource each frame.
+- **Smoothing:** the mixer moves the position in blocks, so the clock re-anchors on each new one and runs on with unscaled frame time between them. It never steps backwards for a block step. A jump past `SnapSeconds` is a seek or a loop: a loop re-arms beat 0, and a seek into the middle of a beat waits for the next one.
+- **Events:** `OnBeat( beat, bar, beatInBar )` and `OnBar` fire once per crossing, in order, catching up after a hitch (at most `MaxCatchUp`). With an `Owner` they're also published as `BeatEvent` on the EventBus.
+- **Queries:** `BeatPhase` (0..1 into the beat) and `NearestBeat( out error )` for judging presses.
+- **Fallbacks:** while the source is paused or stopped the clock holds; with no audio engine, or `Tick()` with no source, it follows game time.
+- **Tests:** `Generators.Tests/BeatClockTests.cs` covers the arithmetic. BeatClockFlows plays `BeatClockTest.lvl`, where BeatProbe ticks a 120 bpm clock off the looping 2 s `Hum.wav`; the beats run 0–3, the loop, then 0 again, staying within 0.1 s of the mixer.
+
 ### Editor
 
 - **Inspector.** `AudioSource` fields are reflected: an asset picker for the clip, and a "3D Sound" category. Edits are undoable and multi-editable. Below the fields are Play / Stop / Pause / One-Shot preview buttons, a seek bar and an audibility meter.

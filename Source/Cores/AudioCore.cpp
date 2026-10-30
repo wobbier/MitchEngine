@@ -212,6 +212,22 @@ unsigned int AudioVoice::GetPositionMs() const
 }
 
 
+double AudioVoice::GetPositionSeconds() const
+{
+#if USING( ME_FMOD )
+    unsigned int samples = 0;
+    FMOD::Sound* sound = nullptr;
+    float frequency = 0.f;
+    if( m_channel && m_channel->getPosition( &samples, FMOD_TIMEUNIT_PCM ) == FMOD_OK && m_channel->getCurrentSound( &sound ) == FMOD_OK && sound
+        && sound->getDefaults( &frequency, nullptr ) == FMOD_OK && frequency > 0.f )
+    {
+        return samples / static_cast<double>( frequency );
+    }
+#endif
+    return -1.0;
+}
+
+
 void AudioVoice::SetPositionMs( unsigned int InPosition )
 {
 #if USING( ME_FMOD )

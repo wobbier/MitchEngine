@@ -8,4 +8,7 @@ public class AudioSource : Component
     public void Stop() { unsafe { Engine._api.AudioSource_Stop(Entity); } }
     public void Pause() { unsafe { Engine._api.AudioSource_Pause(Entity); } }
     public bool IsPlaying { get { unsafe { return Engine._api.AudioSource_IsPlaying(Entity) != 0; } } }
+    // NEXT-8: the playing clip's position as the audio mixer sees it, in seconds (sample-accurate,
+    // what Kit.BeatClock follows); -1 while stopped or paused, -2 without an audio engine.
+    public double PlaybackSeconds { get { unsafe { return Engine._api.AudioSource_GetPlaybackSeconds != null ? Engine._api.AudioSource_GetPlaybackSeconds(Entity) : -2.0; } } }
 }

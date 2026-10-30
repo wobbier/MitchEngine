@@ -319,6 +319,12 @@ unsigned int AudioSource::GetPositionMs() const
 }
 
 
+double AudioSource::GetPlaybackSeconds() const
+{
+    return m_voice.IsPlaying() && !m_voice.IsPaused() ? m_voice.GetPositionSeconds() : -1.0;
+}
+
+
 void AudioSource::SetPositionMs( unsigned int position )
 {
     m_voice.SetPositionMs( position );

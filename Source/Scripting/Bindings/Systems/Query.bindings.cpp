@@ -6,6 +6,7 @@
 
 #include "Components/Animation/Animator.h"
 #include "Components/Audio/AudioSource.h"
+#include "Cores/AudioCore.h"
 #include "Components/Camera.h"
 #include <bgfx/bgfx.h>
 #include <glm/glm.hpp>
@@ -209,6 +210,18 @@ static bool Eng_AudioSource_IsPlaying( EntityID inId ) noexcept
 {
     AudioSource* source = ComponentOf<AudioSource>( inId );
     return source && source->IsPlaying();
+}
+
+
+// NEXT-8: -1 while not playing (a BeatClock holds), -2 without an audio engine (it uses game time).
+static double Eng_AudioSource_GetPlaybackSeconds( EntityID inId ) noexcept
+{
+    if( !GetEngine().AudioThread || !GetEngine().AudioThread->IsAvailable() )
+    {
+        return -2.0;
+    }
+    AudioSource* source = ComponentOf<AudioSource>( inId );
+    return source ? source->GetPlaybackSeconds() : -1.0;
 }
 
 
@@ -800,6 +813,7 @@ void Register_QueryBindings( ScriptEngineAPI& inAPI )
     inAPI.AudioSource_Stop = Eng_AudioSource_Stop;
     inAPI.AudioSource_Pause = Eng_AudioSource_Pause;
     inAPI.AudioSource_IsPlaying = Eng_AudioSource_IsPlaying;
+    inAPI.AudioSource_GetPlaybackSeconds = Eng_AudioSource_GetPlaybackSeconds;
     inAPI.Particles_Play = Eng_Particles_Play;
     inAPI.Particles_Stop = Eng_Particles_Stop;
     inAPI.Particles_Burst = Eng_Particles_Burst;
