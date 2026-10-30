@@ -44,6 +44,9 @@ public:
     };
     // Every diagnostic in a build's output, once each, with paths under InRoot made relative to it.
     static std::vector<BuildDiagnostic> ParseBuildDiagnostics( const std::string& InOutput, const std::string& InRoot );
+    // ME-233: the last failed build's diagnostics (the editor's Error List); empty once a build succeeds.
+    static std::vector<BuildDiagnostic> GetBuildDiagnostics();
+    static size_t GetBuildErrorCount();
     static void Shutdown();
 
     // dotnet build of kScriptProject into GetAssemblyDirectory() (tools builds).

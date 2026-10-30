@@ -1742,6 +1742,19 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             Fail( "play state mismatch" );
         }
     }
+    else if( command == "assert-build-errors" )
+    {
+        // assert-build-errors 1   (what the Error List shows: the last failed script build's errors)
+#if USING( ME_SCRIPTING )
+        const size_t errors = ScriptEngine::GetBuildErrorCount();
+        if( errors != static_cast<size_t>( std::atoll( args.c_str() ) ) )
+        {
+            Fail( "build error count " + std::to_string( errors ) + " != " + args );
+        }
+#else
+        CLog::Log( CLog::LogType::Info, "[editor-exec] SKIP line " + std::to_string( m_nextLine ) + ": assert-build-errors (no scripting in this build)" );
+#endif
+    }
     else if( command == "assert-paused" )
     {
         const bool expected = args == "1" || args == "true";

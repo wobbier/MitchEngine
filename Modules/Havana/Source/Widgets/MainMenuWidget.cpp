@@ -21,6 +21,7 @@
 #include "Events/EditorEvents.h"
 #include "Widgets/Tree/TreeWidget.h"
 #include <ImGuiTheme.h>
+#include "Scripting/ScriptEngine.h"
 
 #if USING( ME_EDITOR )
 
@@ -339,8 +340,18 @@ void MainMenuWidget::Render()
 #if USING( ME_OPTICK )
         utilityLeft -= buttonWidth;
 #endif
+        // ME-233: a failed script build's error count, left of the utilities; opens the Error List.
+        float titleBarRight = utilityLeft;
+        std::string errorBadge;
+#if USING( ME_SCRIPTING )
+        if( const size_t scriptErrors = ScriptEngine::GetBuildErrorCount() )
+        {
+            errorBadge = std::to_string( scriptErrors ) + ( scriptErrors == 1 ? " C# error" : " C# errors" );
+            titleBarRight -= ImGui::CalcTextSize( errorBadge.c_str() ).x + ImGui::GetStyle().FramePadding.x * 2.f + spacing;
+        }
+#endif
         TitleBarDragPosition = Vector2( endOfMenu, 0.f );
-        TitleBarDragSize = Vector2( std::max( 0.f, utilityLeft - endOfMenu ), MainMenuSize.y );
+        TitleBarDragSize = Vector2( std::max( 0.f, titleBarRight - endOfMenu ), MainMenuSize.y );
         const Vector2 pos = editorInput.GetMousePosition();
         if( ImGui::IsMouseDoubleClicked( 0 ) && pos > TitleBarDragPosition && pos < TitleBarDragPosition + TitleBarDragSize )
         {
@@ -350,7 +361,7 @@ void MainMenuWidget::Render()
 
         // Clip long scene titles to the free space between menus and window buttons.
         const std::string title = UndoStack::Get().IsDirty() ? WindowTitle + " *" : WindowTitle;
-        const float titleLeft = endOfMenu + spacing * 2.f, titleRight = utilityLeft - spacing * 1.5f;
+        const float titleLeft = endOfMenu + spacing * 2.f, titleRight = titleBarRight - spacing * 1.5f;
         if( titleRight > titleLeft )
         {
             const ImVec2 origin = ImGui::GetWindowPos();
@@ -362,6 +373,19 @@ void MainMenuWidget::Render()
         }
 
         ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0, 0, 0, 0 ) );
+        if( !errorBadge.empty() )
+        {
+            ImGui::SetCursorPosX( titleBarRight );
+            ImGui::SetCursorPosY( ( MainMenuSize.y - ImGui::GetFrameHeight() ) * 0.5f );
+            ImGui::PushStyleColor( ImGuiCol_Text, ImGuiTheme::ErrorText() );
+            if( ImGui::Button( errorBadge.c_str() ) && Editor )
+            {
+                Editor->ShowWidget( "Error List" );
+            }
+            ImGui::PopStyleColor();
+            ImGui::SetItemTooltip( "The scripts don't build, so Play waits: open the Error List" );
+            ImGui::SetCursorPosY( menuY );
+        }
 #if USING( ME_OPTICK )
         ImGui::SetCursorPosX( utilityLeft );
         if( iconButton( "Profiler", "Open Optick profiler" ) ) PlatformUtils::RunProcess( Path( "Engine/Tools/Optick.exe" ) );

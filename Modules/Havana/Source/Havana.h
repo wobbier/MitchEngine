@@ -23,6 +23,7 @@ class PropertiesWidget;
 class AssetPreviewWidget;
 class AssetBrowserWidget;
 class HistoryWidget;
+class ErrorListWidget;
 class LocalizationWidget;
 class TourWidget;
 class UIDesignerWidget;
@@ -121,6 +122,7 @@ private:
 	SharedPtr<AssetPreviewWidget> AssetPreview;
 	SharedPtr<AssetBrowserWidget> AssetBrowser;
 	SharedPtr<HistoryWidget> History;
+	SharedPtr<ErrorListWidget> ErrorList;
 	SharedPtr<LocalizationWidget> LocalizationTables;
 	SharedPtr<TourWidget> Tour;
 	SharedPtr<UIDesignerWidget> UIDesigner;

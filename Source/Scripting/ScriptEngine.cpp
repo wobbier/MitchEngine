@@ -178,6 +178,16 @@ namespace
 
     // The last script build failed (Play waits until the scripts compile).
     std::atomic<bool> gHasBuildErrors{ false };
+    // Its diagnostics (the startup build reports from the init thread, so behind a lock).
+    std::mutex gDiagnosticsMutex;
+    std::vector<ScriptEngine::BuildDiagnostic> gBuildDiagnostics;
+
+
+    void SetBuildDiagnostics( std::vector<ScriptEngine::BuildDiagnostic> InDiagnostics )
+    {
+        std::lock_guard<std::mutex> lock( gDiagnosticsMutex );
+        gBuildDiagnostics = std::move( InDiagnostics );
+    }
 
 
     // Logs each diagnostic as its own entry, "Assets/File.cs:line:col: error CODE: text", so the Log
@@ -185,13 +195,15 @@ namespace
     int LogBuildDiagnostics( const std::string& InOutput )
     {
         int errors = 0;
-        for( const ScriptEngine::BuildDiagnostic& diagnostic : ScriptEngine::ParseBuildDiagnostics( InOutput, fs::current_path().generic_string() ) )
+        std::vector<ScriptEngine::BuildDiagnostic> diagnostics = ScriptEngine::ParseBuildDiagnostics( InOutput, fs::current_path().generic_string() );
+        for( const ScriptEngine::BuildDiagnostic& diagnostic : diagnostics )
         {
             const std::string text = diagnostic.File + ":" + std::to_string( diagnostic.Line ) + ":" + std::to_string( diagnostic.Column ) + ": "
                 + ( diagnostic.IsError ? "error " : "warning " ) + diagnostic.Code + ": " + diagnostic.Message;
             CLog::Log( diagnostic.IsError ? CLog::LogType::Error : CLog::LogType::Warning, text );
             errors += diagnostic.IsError ? 1 : 0;
         }
+        SetBuildDiagnostics( std::move( diagnostics ) );
         return errors;
     }
 
@@ -594,6 +606,20 @@ bool ScriptEngine::HasBuildErrors()
 }
 
 
+std::vector<ScriptEngine::BuildDiagnostic> ScriptEngine::GetBuildDiagnostics()
+{
+    std::lock_guard<std::mutex> lock( gDiagnosticsMutex );
+    return gBuildDiagnostics;
+}
+
+
+size_t ScriptEngine::GetBuildErrorCount()
+{
+    std::lock_guard<std::mutex> lock( gDiagnosticsMutex );
+    return static_cast<size_t>( std::count_if( gBuildDiagnostics.begin(), gBuildDiagnostics.end(), []( const BuildDiagnostic& InDiagnostic ) { return InDiagnostic.IsError; } ) );
+}
+
+
 bool ScriptEngine::IsAvailable()
 {
     return gAvailable;
@@ -661,6 +687,7 @@ bool ScriptEngine::PollReload()
     else
     {
         gHasBuildErrors = false;
+        SetBuildDiagnostics( {} );
         reloaded = Reload();
     }
     if( gReloadQueued )
