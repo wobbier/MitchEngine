@@ -35,55 +35,71 @@ namespace
 }
 
 
-static int Eng_Settings_Get( const uint8_t* inKey, uint8_t* outJson, int inSize )
+static int Eng_Settings_Get( const uint8_t* inKey, uint8_t* outJson, int inSize ) noexcept
 {
-    return CopyOut( PlayerSettings::Get().GetValue( Text( inKey ) ).dump(), outJson, inSize );
+    try
+    {
+        return CopyOut( PlayerSettings::Get().GetValue( Text( inKey ) ).dump(), outJson, inSize );
+    }
+    catch( const std::exception& e )
+    {
+        YIKES( std::string( "[Scripts] Settings_Get threw: " ) + e.what() );
+        return -1;
+    }
 }
 
 
-static bool Eng_Settings_Set( const uint8_t* inKey, const uint8_t* inJson )
+static bool Eng_Settings_Set( const uint8_t* inKey, const uint8_t* inJson ) noexcept
 {
-    const json value = json::parse( Text( inJson ), nullptr, false );
-    if( value.is_discarded() )
+    try
     {
-        YIKES( std::string( "[Settings] " ) + Text( inKey ) + ": not JSON: " + Text( inJson ) );
+        const json value = json::parse( Text( inJson ), nullptr, false );
+        if( value.is_discarded() )
+        {
+            YIKES( std::string( "[Settings] " ) + Text( inKey ) + ": not JSON: " + Text( inJson ) );
+            return false;
+        }
+        std::string error;
+        if( !PlayerSettings::Get().SetValue( Text( inKey ), value, &error ) )
+        {
+            YIKES( "[Settings] " + error );
+            return false;
+        }
+        return true;
+    }
+    catch( const std::exception& e )
+    {
+        YIKES( std::string( "[Scripts] Settings_Set threw: " ) + e.what() );
         return false;
     }
-    std::string error;
-    if( !PlayerSettings::Get().SetValue( Text( inKey ), value, &error ) )
-    {
-        YIKES( "[Settings] " + error );
-        return false;
-    }
-    return true;
 }
 
 
-static bool Eng_Settings_Save()
+static bool Eng_Settings_Save() noexcept
 {
     return PlayerSettings::Get().Save();
 }
 
 
-static void Eng_Settings_Reset()
+static void Eng_Settings_Reset() noexcept
 {
     PlayerSettings::Get().Reset();
 }
 
 
-static bool Eng_Settings_Rebind( const uint8_t* inAction, int inBinding, const uint8_t* inPart, const uint8_t* inControl )
+static bool Eng_Settings_Rebind( const uint8_t* inAction, int inBinding, const uint8_t* inPart, const uint8_t* inControl ) noexcept
 {
     return inBinding >= 0 && PlayerSettings::Get().Rebind( Text( inAction ), static_cast<size_t>( inBinding ), Text( inPart ), Text( inControl ) );
 }
 
 
-static void Eng_Settings_ResetBindings()
+static void Eng_Settings_ResetBindings() noexcept
 {
     PlayerSettings::Get().ResetBindings();
 }
 
 
-static int Eng_Settings_GetBindingDisplay( const uint8_t* inAction, int inBinding, uint8_t* outText, int inSize )
+static int Eng_Settings_GetBindingDisplay( const uint8_t* inAction, int inBinding, uint8_t* outText, int inSize ) noexcept
 {
     const std::string display = inBinding >= 0 ? GetEngine().GetInput().GetActions().GetBindingDisplay( Text( inAction ), static_cast<size_t>( inBinding ) ) : std::string();
     return CopyOut( display, outText, inSize );
@@ -91,7 +107,7 @@ static int Eng_Settings_GetBindingDisplay( const uint8_t* inAction, int inBindin
 
 
 // Newline-separated, in file order.
-static int Eng_Settings_GetQualityPresets( uint8_t* outNames, int inSize )
+static int Eng_Settings_GetQualityPresets( uint8_t* outNames, int inSize ) noexcept
 {
     std::string names;
     for( const QualityPreset& preset : HardwareBudget::Get().GetQualityPresets() )

@@ -9,7 +9,7 @@
 
 using ScriptBindings::MakeHandle;
 
-static void Eng_Transform_GetTranslation( EntityID inId, Vector3* outTranslation )
+static void Eng_Transform_GetTranslation( EntityID inId, Vector3* outTranslation ) noexcept
 {
     EntityHandle handle = MakeHandle( inId );
     if( handle )
@@ -19,7 +19,7 @@ static void Eng_Transform_GetTranslation( EntityID inId, Vector3* outTranslation
 }
 
 
-static void Eng_Transform_SetTranslation( EntityID inId, const Vector3* inTranslation )
+static void Eng_Transform_SetTranslation( EntityID inId, const Vector3* inTranslation ) noexcept
 {
     EntityHandle handle = MakeHandle( inId );
     if( handle )
@@ -29,7 +29,7 @@ static void Eng_Transform_SetTranslation( EntityID inId, const Vector3* inTransl
 }
 
 
-static void Eng_Transform_GetScale( EntityID inId, Vector3* outScale )
+static void Eng_Transform_GetScale( EntityID inId, Vector3* outScale ) noexcept
 {
     EntityHandle handle = MakeHandle( inId );
     if( handle )
@@ -39,7 +39,7 @@ static void Eng_Transform_GetScale( EntityID inId, Vector3* outScale )
 }
 
 
-static void Eng_Transform_SetScale( EntityID inId, const Vector3* inScale )
+static void Eng_Transform_SetScale( EntityID inId, const Vector3* inScale ) noexcept
 {
     EntityHandle handle = MakeHandle( inId );
     if( handle )
@@ -49,7 +49,7 @@ static void Eng_Transform_SetScale( EntityID inId, const Vector3* inScale )
 }
 
 
-static void Eng_Transform_GetRotation( EntityID inId, Vector3* outEuler )
+static void Eng_Transform_GetRotation( EntityID inId, Vector3* outEuler ) noexcept
 {
     EntityHandle handle = MakeHandle( inId );
     if( handle )
@@ -59,7 +59,7 @@ static void Eng_Transform_GetRotation( EntityID inId, Vector3* outEuler )
 }
 
 
-static void Eng_Transform_SetRotation( EntityID inId, const Vector3* inEuler )
+static void Eng_Transform_SetRotation( EntityID inId, const Vector3* inEuler ) noexcept
 {
     EntityHandle handle = MakeHandle( inId );
     if( handle )
@@ -69,7 +69,7 @@ static void Eng_Transform_SetRotation( EntityID inId, const Vector3* inEuler )
 }
 
 
-static void Eng_Transform_Rotate( EntityID inId, const Vector3* inDegrees )
+static void Eng_Transform_Rotate( EntityID inId, const Vector3* inDegrees ) noexcept
 {
     EntityHandle handle = MakeHandle( inId );
     if( handle )

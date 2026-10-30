@@ -9,13 +9,13 @@
 
 using ScriptBindings::MakeHandle;
 
-static bool Eng_Entity_IsAlive( EntityID inId )
+static bool Eng_Entity_IsAlive( EntityID inId ) noexcept
 {
     return static_cast<bool>( MakeHandle( inId ) );
 }
 
 
-static bool Eng_Entity_HasComponent( EntityID inId, const uint8_t* inComponent )
+static bool Eng_Entity_HasComponent( EntityID inId, const uint8_t* inComponent ) noexcept
 {
     EntityHandle handle = MakeHandle( inId );
     if( !handle )
@@ -27,7 +27,7 @@ static bool Eng_Entity_HasComponent( EntityID inId, const uint8_t* inComponent )
 }
 
 
-static void Eng_Entity_AddComponent( EntityID inId, const uint8_t* inComponent )
+static void Eng_Entity_AddComponent( EntityID inId, const uint8_t* inComponent ) noexcept
 {
     EntityHandle handle = MakeHandle( inId );
     if( !handle )

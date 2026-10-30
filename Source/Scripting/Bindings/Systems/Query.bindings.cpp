@@ -63,7 +63,7 @@ namespace
 }
 
 
-static int Eng_World_FindAllWithComponent( const uint8_t* inComponent, EntityID* outEntities, int inMax )
+static int Eng_World_FindAllWithComponent( const uint8_t* inComponent, EntityID* outEntities, int inMax ) noexcept
 {
     const std::string name = reinterpret_cast<const char*>( inComponent );
     auto info = FindComponentInfo( name );
@@ -76,14 +76,14 @@ static int Eng_World_FindAllWithComponent( const uint8_t* inComponent, EntityID*
 }
 
 
-static int Eng_World_FindAllByName( const uint8_t* inName, EntityID* outEntities, int inMax )
+static int Eng_World_FindAllByName( const uint8_t* inName, EntityID* outEntities, int inMax ) noexcept
 {
     const std::string name = reinterpret_cast<const char*>( inName );
     return Fill( Collect( [&name]( Entity& InEntity ) { return InEntity.GetName() == name; } ), outEntities, inMax );
 }
 
 
-static int Eng_Transform_GetChildren( EntityID inId, EntityID* outEntities, int inMax )
+static int Eng_Transform_GetChildren( EntityID inId, EntityID* outEntities, int inMax ) noexcept
 {
     std::vector<EntityID> found;
     EntityHandle handle = ScriptBindings::MakeHandle( inId );
@@ -102,7 +102,7 @@ static int Eng_Transform_GetChildren( EntityID inId, EntityID* outEntities, int 
 }
 
 
-static int Eng_Entity_GetGuid( EntityID inId, uint8_t* outGuid, int inSize )
+static int Eng_Entity_GetGuid( EntityID inId, uint8_t* outGuid, int inSize ) noexcept
 {
     EntityHandle handle = ScriptBindings::MakeHandle( inId );
     const std::string guid = handle ? SceneSerializer::GUIDToString( handle->GetGUID() ) : std::string();
@@ -116,14 +116,14 @@ static int Eng_Entity_GetGuid( EntityID inId, uint8_t* outGuid, int inSize )
 }
 
 
-static int Eng_Entity_GetLayer( EntityID inId )
+static int Eng_Entity_GetLayer( EntityID inId ) noexcept
 {
     EntityHandle handle = ScriptBindings::MakeHandle( inId );
     return handle ? handle->GetLayer() : 0;
 }
 
 
-static void Eng_Entity_SetLayer( EntityID inId, int inLayer )
+static void Eng_Entity_SetLayer( EntityID inId, int inLayer ) noexcept
 {
     if( EntityHandle handle = ScriptBindings::MakeHandle( inId ) )
     {
@@ -132,13 +132,13 @@ static void Eng_Entity_SetLayer( EntityID inId, int inLayer )
 }
 
 
-static bool Eng_Input_Rumble( int inPlayer, float inLow, float inHigh, float inSeconds )
+static bool Eng_Input_Rumble( int inPlayer, float inLow, float inHigh, float inSeconds ) noexcept
 {
     return GetEngine().GetInput().RumblePlayer( inPlayer, inLow, inHigh, inSeconds );
 }
 
 
-static void Eng_App_Quit()
+static void Eng_App_Quit() noexcept
 {
 #if USING( ME_EDITOR )
     CLog::Log( CLog::LogType::Info, "App.Quit (ignored in the editor)" );
@@ -148,21 +148,21 @@ static void Eng_App_Quit()
 }
 
 
-static void Eng_Window_GetSize( Vector2* outSize )
+static void Eng_Window_GetSize( Vector2* outSize ) noexcept
 {
     IWindow* window = GetEngine().GetWindow();
     *outSize = window ? window->GetSize() : Vector2();
 }
 
 
-static int Eng_Window_GetMode()
+static int Eng_Window_GetMode() noexcept
 {
     IWindow* window = GetEngine().GetWindow();
     return window ? static_cast<int>( window->GetWindowMode() ) : 0;
 }
 
 
-static void Eng_Window_SetMode( int inMode )
+static void Eng_Window_SetMode( int inMode ) noexcept
 {
 #if USING( ME_EDITOR )
     CLog::Log( CLog::LogType::Info, "Window.Mode (ignored in the editor)" );
@@ -187,50 +187,50 @@ namespace
 }
 
 
-static void Eng_AudioSource_Play( EntityID inId )
+static void Eng_AudioSource_Play( EntityID inId ) noexcept
 {
     if( AudioSource* source = ComponentOf<AudioSource>( inId ) ) source->Play();
 }
 
 
-static void Eng_AudioSource_Stop( EntityID inId )
+static void Eng_AudioSource_Stop( EntityID inId ) noexcept
 {
     if( AudioSource* source = ComponentOf<AudioSource>( inId ) ) source->Stop();
 }
 
 
-static void Eng_AudioSource_Pause( EntityID inId )
+static void Eng_AudioSource_Pause( EntityID inId ) noexcept
 {
     if( AudioSource* source = ComponentOf<AudioSource>( inId ) ) source->Pause();
 }
 
 
-static bool Eng_AudioSource_IsPlaying( EntityID inId )
+static bool Eng_AudioSource_IsPlaying( EntityID inId ) noexcept
 {
     AudioSource* source = ComponentOf<AudioSource>( inId );
     return source && source->IsPlaying();
 }
 
 
-static void Eng_Particles_Play( EntityID inId )
+static void Eng_Particles_Play( EntityID inId ) noexcept
 {
     if( ParticleSystem* particles = ComponentOf<ParticleSystem>( inId ) ) particles->Play();
 }
 
 
-static void Eng_Particles_Stop( EntityID inId )
+static void Eng_Particles_Stop( EntityID inId ) noexcept
 {
     if( ParticleSystem* particles = ComponentOf<ParticleSystem>( inId ) ) particles->Stop();
 }
 
 
-static void Eng_Particles_Burst( EntityID inId, int inCount )
+static void Eng_Particles_Burst( EntityID inId, int inCount ) noexcept
 {
     if( ParticleSystem* particles = ComponentOf<ParticleSystem>( inId ) ) particles->Burst( inCount );
 }
 
 
-static int Eng_Particles_GetCount( EntityID inId )
+static int Eng_Particles_GetCount( EntityID inId ) noexcept
 {
     ParticleSystem* particles = ComponentOf<ParticleSystem>( inId );
     return particles ? static_cast<int>( particles->GetParticleCount() ) : 0;
@@ -255,7 +255,7 @@ namespace
 }
 
 
-static bool Eng_Physics_RaycastMasked( const Vector3* inOrigin, const Vector3* inDirection, float inMaxDistance, int inMask, ScriptRaycastHit* outHit )
+static bool Eng_Physics_RaycastMasked( const Vector3* inOrigin, const Vector3* inDirection, float inMaxDistance, int inMask, ScriptRaycastHit* outHit ) noexcept
 {
     *outHit = ScriptRaycastHit();
     PhysicsCore* physics = ScriptBindings::Physics();
@@ -269,7 +269,7 @@ static bool Eng_Physics_RaycastMasked( const Vector3* inOrigin, const Vector3* i
 }
 
 
-static int Eng_Physics_RaycastAll( const Vector3* inOrigin, const Vector3* inDirection, float inMaxDistance, int inMask, ScriptRaycastHit* outHits, int inMaxHits )
+static int Eng_Physics_RaycastAll( const Vector3* inOrigin, const Vector3* inDirection, float inMaxDistance, int inMask, ScriptRaycastHit* outHits, int inMaxHits ) noexcept
 {
     PhysicsCore* physics = ScriptBindings::Physics();
     if( !physics )
@@ -286,7 +286,7 @@ static int Eng_Physics_RaycastAll( const Vector3* inOrigin, const Vector3* inDir
 }
 
 
-static bool Eng_Physics_SphereCast( const Vector3* inOrigin, float inRadius, const Vector3* inDirection, float inMaxDistance, int inMask, ScriptRaycastHit* outHit )
+static bool Eng_Physics_SphereCast( const Vector3* inOrigin, float inRadius, const Vector3* inDirection, float inMaxDistance, int inMask, ScriptRaycastHit* outHit ) noexcept
 {
     *outHit = ScriptRaycastHit();
     PhysicsCore* physics = ScriptBindings::Physics();
@@ -300,7 +300,7 @@ static bool Eng_Physics_SphereCast( const Vector3* inOrigin, float inRadius, con
 }
 
 
-static int Eng_Physics_OverlapBox( const Vector3* inCenter, const Vector3* inHalfExtents, const Vector3* inEuler, int inMask, EntityID* outEntities, int inMax )
+static int Eng_Physics_OverlapBox( const Vector3* inCenter, const Vector3* inHalfExtents, const Vector3* inEuler, int inMask, EntityID* outEntities, int inMax ) noexcept
 {
     PhysicsCore* physics = ScriptBindings::Physics();
     if( !physics )
@@ -325,58 +325,58 @@ namespace
 }
 
 
-static void Eng_Animator_Play( EntityID inId, const uint8_t* inState, float inFade )
+static void Eng_Animator_Play( EntityID inId, const uint8_t* inState, float inFade ) noexcept
 {
     if( Animator* animator = ComponentOf<Animator>( inId ) ) animator->Play( Text( inState ), inFade );
 }
 
 
-static void Eng_Animator_Stop( EntityID inId )
+static void Eng_Animator_Stop( EntityID inId ) noexcept
 {
     if( Animator* animator = ComponentOf<Animator>( inId ) ) animator->Stop();
 }
 
 
-static bool Eng_Animator_IsPlaying( EntityID inId )
+static bool Eng_Animator_IsPlaying( EntityID inId ) noexcept
 {
     Animator* animator = ComponentOf<Animator>( inId );
     return animator && animator->IsPlaying();
 }
 
 
-static void Eng_Animator_SetFloat( EntityID inId, const uint8_t* inName, float inValue )
+static void Eng_Animator_SetFloat( EntityID inId, const uint8_t* inName, float inValue ) noexcept
 {
     if( Animator* animator = ComponentOf<Animator>( inId ) ) animator->SetFloat( Text( inName ), inValue );
 }
 
 
-static float Eng_Animator_GetFloat( EntityID inId, const uint8_t* inName )
+static float Eng_Animator_GetFloat( EntityID inId, const uint8_t* inName ) noexcept
 {
     Animator* animator = ComponentOf<Animator>( inId );
     return animator ? animator->GetFloat( Text( inName ) ) : 0.f;
 }
 
 
-static void Eng_Animator_SetBool( EntityID inId, const uint8_t* inName, bool inValue )
+static void Eng_Animator_SetBool( EntityID inId, const uint8_t* inName, bool inValue ) noexcept
 {
     if( Animator* animator = ComponentOf<Animator>( inId ) ) animator->SetBool( Text( inName ), inValue );
 }
 
 
-static bool Eng_Animator_GetBool( EntityID inId, const uint8_t* inName )
+static bool Eng_Animator_GetBool( EntityID inId, const uint8_t* inName ) noexcept
 {
     Animator* animator = ComponentOf<Animator>( inId );
     return animator && animator->GetBool( Text( inName ) );
 }
 
 
-static void Eng_Animator_SetTrigger( EntityID inId, const uint8_t* inName )
+static void Eng_Animator_SetTrigger( EntityID inId, const uint8_t* inName ) noexcept
 {
     if( Animator* animator = ComponentOf<Animator>( inId ) ) animator->SetTrigger( Text( inName ) );
 }
 
 
-static int Eng_Animator_GetState( EntityID inId, const uint8_t* inLayer, uint8_t* outState, int inSize )
+static int Eng_Animator_GetState( EntityID inId, const uint8_t* inLayer, uint8_t* outState, int inSize ) noexcept
 {
     Animator* animator = ComponentOf<Animator>( inId );
     const std::string state = animator ? animator->GetCurrentState( Text( inLayer ) ) : std::string();
@@ -390,20 +390,20 @@ static int Eng_Animator_GetState( EntityID inId, const uint8_t* inLayer, uint8_t
 }
 
 
-static float Eng_Animator_GetNormalizedTime( EntityID inId, const uint8_t* inLayer )
+static float Eng_Animator_GetNormalizedTime( EntityID inId, const uint8_t* inLayer ) noexcept
 {
     Animator* animator = ComponentOf<Animator>( inId );
     return animator ? animator->GetNormalizedTime( Text( inLayer ) ) : 0.f;
 }
 
 
-static void Eng_Animator_SetLayerWeight( EntityID inId, const uint8_t* inLayer, float inWeight )
+static void Eng_Animator_SetLayerWeight( EntityID inId, const uint8_t* inLayer, float inWeight ) noexcept
 {
     if( Animator* animator = ComponentOf<Animator>( inId ) ) animator->SetLayerWeight( Text( inLayer ), inWeight );
 }
 
 
-static bool Eng_Physics2D_Raycast( Vector2* inOrigin, Vector2* inDirection, float inMaxDistance, int inMask, ScriptRaycastHit* outHit )
+static bool Eng_Physics2D_Raycast( Vector2* inOrigin, Vector2* inDirection, float inMaxDistance, int inMask, ScriptRaycastHit* outHit ) noexcept
 {
     *outHit = ScriptRaycastHit();
     Physics2DCore* physics = ScriptBindings::Physics2D();
@@ -417,7 +417,7 @@ static bool Eng_Physics2D_Raycast( Vector2* inOrigin, Vector2* inDirection, floa
 }
 
 
-static int Eng_Physics2D_OverlapCircle( Vector2* inCenter, float inRadius, int inMask, EntityID* outEntities, int inMax )
+static int Eng_Physics2D_OverlapCircle( Vector2* inCenter, float inRadius, int inMask, EntityID* outEntities, int inMax ) noexcept
 {
     std::vector<EntityID> found;
     if( Physics2DCore* physics = ScriptBindings::Physics2D() )
@@ -431,7 +431,7 @@ static int Eng_Physics2D_OverlapCircle( Vector2* inCenter, float inRadius, int i
 }
 
 
-static int Eng_Physics2D_OverlapPoint( Vector2* inPoint, int inMask, EntityID* outEntities, int inMax )
+static int Eng_Physics2D_OverlapPoint( Vector2* inPoint, int inMask, EntityID* outEntities, int inMax ) noexcept
 {
     std::vector<EntityID> found;
     if( Physics2DCore* physics = ScriptBindings::Physics2D() )
@@ -445,65 +445,65 @@ static int Eng_Physics2D_OverlapPoint( Vector2* inPoint, int inMask, EntityID* o
 }
 
 
-static void Eng_Rigidbody2D_AddForce( EntityID inId, Vector2* inForce, int inMode )
+static void Eng_Rigidbody2D_AddForce( EntityID inId, Vector2* inForce, int inMode ) noexcept
 {
     if( Rigidbody2D* body = ComponentOf<Rigidbody2D>( inId ) ) body->AddForce( *inForce, static_cast<ForceMode>( std::clamp( inMode, 0, 3 ) ) );
 }
 
 
-static void Eng_Rigidbody2D_GetVelocity( EntityID inId, Vector2* outVelocity )
+static void Eng_Rigidbody2D_GetVelocity( EntityID inId, Vector2* outVelocity ) noexcept
 {
     Rigidbody2D* body = ComponentOf<Rigidbody2D>( inId );
     *outVelocity = body ? body->GetVelocity() : Vector2();
 }
 
 
-static void Eng_Rigidbody2D_SetVelocity( EntityID inId, Vector2* inVelocity )
+static void Eng_Rigidbody2D_SetVelocity( EntityID inId, Vector2* inVelocity ) noexcept
 {
     if( Rigidbody2D* body = ComponentOf<Rigidbody2D>( inId ) ) body->SetVelocity( *inVelocity );
 }
 
 
-static void Eng_Character2D_SetMoveInput( EntityID inId, float inHorizontal )
+static void Eng_Character2D_SetMoveInput( EntityID inId, float inHorizontal ) noexcept
 {
     if( CharacterController2D* character = ComponentOf<CharacterController2D>( inId ) ) character->SetMoveInput( inHorizontal );
 }
 
 
-static void Eng_Character2D_Jump( EntityID inId )
+static void Eng_Character2D_Jump( EntityID inId ) noexcept
 {
     if( CharacterController2D* character = ComponentOf<CharacterController2D>( inId ) ) character->Jump();
 }
 
 
-static bool Eng_Character2D_IsGrounded( EntityID inId )
+static bool Eng_Character2D_IsGrounded( EntityID inId ) noexcept
 {
     CharacterController2D* character = ComponentOf<CharacterController2D>( inId );
     return character && character->IsOnGround();
 }
 
 
-static void Eng_Character2D_GetVelocity( EntityID inId, Vector2* outVelocity )
+static void Eng_Character2D_GetVelocity( EntityID inId, Vector2* outVelocity ) noexcept
 {
     CharacterController2D* character = ComponentOf<CharacterController2D>( inId );
     *outVelocity = character ? character->GetVelocity() : Vector2();
 }
 
 
-static float Eng_Character2D_GetMaxSpeed( EntityID inId )
+static float Eng_Character2D_GetMaxSpeed( EntityID inId ) noexcept
 {
     CharacterController2D* character = ComponentOf<CharacterController2D>( inId );
     return character ? character->MaxSpeed : 0.f;
 }
 
 
-static void Eng_Character2D_SetMaxSpeed( EntityID inId, float inSpeed )
+static void Eng_Character2D_SetMaxSpeed( EntityID inId, float inSpeed ) noexcept
 {
     if( CharacterController2D* character = ComponentOf<CharacterController2D>( inId ) ) character->MaxSpeed = std::max( inSpeed, 0.f );
 }
 
 
-static void Eng_Character2D_Teleport( EntityID inId, Vector2* inPosition )
+static void Eng_Character2D_Teleport( EntityID inId, Vector2* inPosition ) noexcept
 {
     if( CharacterController2D* character = ComponentOf<CharacterController2D>( inId ) ) character->Teleport( *inPosition );
 }
@@ -526,7 +526,7 @@ namespace
 }
 
 
-static void Eng_Camera_ScreenToRay( EntityID inCamera, Vector2* inScreen, Vector3* outOrigin, Vector3* outDirection )
+static void Eng_Camera_ScreenToRay( EntityID inCamera, Vector2* inScreen, Vector3* outOrigin, Vector3* outDirection ) noexcept
 {
     *outOrigin = Vector3();
     *outDirection = Vector3( 0.f, 0.f, 1.f );
@@ -550,7 +550,7 @@ static void Eng_Camera_ScreenToRay( EntityID inCamera, Vector2* inScreen, Vector
 }
 
 
-static void Eng_Camera_WorldToScreen( EntityID inCamera, const Vector3* inWorld, Vector3* outScreen )
+static void Eng_Camera_WorldToScreen( EntityID inCamera, const Vector3* inWorld, Vector3* outScreen ) noexcept
 {
     *outScreen = Vector3();
     glm::mat4 viewProjection;
@@ -570,7 +570,7 @@ static void Eng_Camera_WorldToScreen( EntityID inCamera, const Vector3* inWorld,
 }
 
 
-static void Eng_Camera_GetOutputSize( EntityID inCamera, Vector2* outSize )
+static void Eng_Camera_GetOutputSize( EntityID inCamera, Vector2* outSize ) noexcept
 {
     Camera* camera = ComponentOf<Camera>( inCamera );
     *outSize = camera ? camera->GetViewportSize() : Vector2();
@@ -578,14 +578,14 @@ static void Eng_Camera_GetOutputSize( EntityID inCamera, Vector2* outSize )
 
 
 // The mouse in the game's pixels (in the editor: relative to the game view).
-static void Eng_Input_GetMousePosition( Vector2* outPosition )
+static void Eng_Input_GetMousePosition( Vector2* outPosition ) noexcept
 {
     Input& input = GetEngine().GetInput();
     *outPosition = input.GetMousePosition() - input.GetMouseOffset();
 }
 
 
-static void Eng_Sprite_SetSprite( EntityID inId, const uint8_t* inSheet, const uint8_t* inSprite )
+static void Eng_Sprite_SetSprite( EntityID inId, const uint8_t* inSheet, const uint8_t* inSprite ) noexcept
 {
     if( SpriteRenderer* sprite = ComponentOf<SpriteRenderer>( inId ) )
     {
@@ -599,7 +599,7 @@ static void Eng_Sprite_SetSprite( EntityID inId, const uint8_t* inSheet, const u
 }
 
 
-static int Eng_Sprite_GetSprite( EntityID inId, uint8_t* outSprite, int inSize )
+static int Eng_Sprite_GetSprite( EntityID inId, uint8_t* outSprite, int inSize ) noexcept
 {
     SpriteRenderer* sprite = ComponentOf<SpriteRenderer>( inId );
     const std::string name = sprite ? sprite->SpriteName : std::string();
@@ -613,7 +613,7 @@ static int Eng_Sprite_GetSprite( EntityID inId, uint8_t* outSprite, int inSize )
 }
 
 
-static void Eng_Sprite_SetTexture( EntityID inId, const uint8_t* inTexture )
+static void Eng_Sprite_SetTexture( EntityID inId, const uint8_t* inTexture ) noexcept
 {
     if( SpriteRenderer* sprite = ComponentOf<SpriteRenderer>( inId ) )
     {
@@ -622,7 +622,7 @@ static void Eng_Sprite_SetTexture( EntityID inId, const uint8_t* inTexture )
 }
 
 
-static void Eng_Sprite_SetFlip( EntityID inId, bool inFlipX, bool inFlipY )
+static void Eng_Sprite_SetFlip( EntityID inId, bool inFlipX, bool inFlipY ) noexcept
 {
     if( SpriteRenderer* sprite = ComponentOf<SpriteRenderer>( inId ) )
     {
@@ -632,14 +632,14 @@ static void Eng_Sprite_SetFlip( EntityID inId, bool inFlipX, bool inFlipY )
 }
 
 
-static int Eng_Sprite_GetFlip( EntityID inId )
+static int Eng_Sprite_GetFlip( EntityID inId ) noexcept
 {
     SpriteRenderer* sprite = ComponentOf<SpriteRenderer>( inId );
     return sprite ? ( sprite->FlipX ? 1 : 0 ) | ( sprite->FlipY ? 2 : 0 ) : 0;
 }
 
 
-static void Eng_Sprite_SetColor( EntityID inId, Vector4* inColor )
+static void Eng_Sprite_SetColor( EntityID inId, Vector4* inColor ) noexcept
 {
     if( SpriteRenderer* sprite = ComponentOf<SpriteRenderer>( inId ); sprite && inColor )
     {
@@ -649,7 +649,7 @@ static void Eng_Sprite_SetColor( EntityID inId, Vector4* inColor )
 }
 
 
-static void Eng_Sprite_GetColor( EntityID inId, Vector4* outColor )
+static void Eng_Sprite_GetColor( EntityID inId, Vector4* outColor ) noexcept
 {
     SpriteRenderer* sprite = ComponentOf<SpriteRenderer>( inId );
     if( outColor )
@@ -659,7 +659,7 @@ static void Eng_Sprite_GetColor( EntityID inId, Vector4* outColor )
 }
 
 
-static void Eng_Sprite_SetSorting( EntityID inId, int inLayer, int inOrder )
+static void Eng_Sprite_SetSorting( EntityID inId, int inLayer, int inOrder ) noexcept
 {
     if( SpriteRenderer* sprite = ComponentOf<SpriteRenderer>( inId ) )
     {
@@ -669,53 +669,53 @@ static void Eng_Sprite_SetSorting( EntityID inId, int inLayer, int inOrder )
 }
 
 
-static int Eng_Sprite_GetSortingLayer( EntityID inId )
+static int Eng_Sprite_GetSortingLayer( EntityID inId ) noexcept
 {
     SpriteRenderer* sprite = ComponentOf<SpriteRenderer>( inId );
     return sprite ? sprite->SortingLayer : 0;
 }
 
 
-static int Eng_Sprite_GetOrderInLayer( EntityID inId )
+static int Eng_Sprite_GetOrderInLayer( EntityID inId ) noexcept
 {
     SpriteRenderer* sprite = ComponentOf<SpriteRenderer>( inId );
     return sprite ? sprite->OrderInLayer : 0;
 }
 
 
-static void Eng_Tilemap_SetTile( EntityID inId, int inX, int inY, int inIndex )
+static void Eng_Tilemap_SetTile( EntityID inId, int inX, int inY, int inIndex ) noexcept
 {
     if( Tilemap* tilemap = ComponentOf<Tilemap>( inId ) ) tilemap->SetTile( inX, inY, inIndex );
 }
 
 
-static int Eng_Tilemap_GetTile( EntityID inId, int inX, int inY )
+static int Eng_Tilemap_GetTile( EntityID inId, int inX, int inY ) noexcept
 {
     Tilemap* tilemap = ComponentOf<Tilemap>( inId );
     return tilemap ? tilemap->GetTile( inX, inY ) : -1;
 }
 
 
-static void Eng_Tilemap_FillRect( EntityID inId, int inX0, int inY0, int inX1, int inY1, int inIndex )
+static void Eng_Tilemap_FillRect( EntityID inId, int inX0, int inY0, int inX1, int inY1, int inIndex ) noexcept
 {
     if( Tilemap* tilemap = ComponentOf<Tilemap>( inId ) ) tilemap->FillRect( inX0, inY0, inX1, inY1, inIndex );
 }
 
 
-static void Eng_Tilemap_Clear( EntityID inId )
+static void Eng_Tilemap_Clear( EntityID inId ) noexcept
 {
     if( Tilemap* tilemap = ComponentOf<Tilemap>( inId ) ) tilemap->Clear();
 }
 
 
-static int Eng_Tilemap_GetTileCount( EntityID inId )
+static int Eng_Tilemap_GetTileCount( EntityID inId ) noexcept
 {
     Tilemap* tilemap = ComponentOf<Tilemap>( inId );
     return tilemap ? static_cast<int>( tilemap->GetTileCount() ) : 0;
 }
 
 
-static void Eng_Tilemap_WorldToCell( EntityID inId, const Vector3* inWorld, int* outCell )
+static void Eng_Tilemap_WorldToCell( EntityID inId, const Vector3* inWorld, int* outCell ) noexcept
 {
     Tilemap* tilemap = ComponentOf<Tilemap>( inId );
     Transform* transform = ComponentOf<Transform>( inId );
@@ -732,13 +732,13 @@ static void Eng_Tilemap_WorldToCell( EntityID inId, const Vector3* inWorld, int*
 }
 
 
-static void Eng_Text_SetText( EntityID inId, const uint8_t* inText )
+static void Eng_Text_SetText( EntityID inId, const uint8_t* inText ) noexcept
 {
     if( TextRenderer* text = ComponentOf<TextRenderer>( inId ) ) text->Text = Text( inText );
 }
 
 
-static int Eng_Text_GetText( EntityID inId, uint8_t* outText, int inSize )
+static int Eng_Text_GetText( EntityID inId, uint8_t* outText, int inSize ) noexcept
 {
     TextRenderer* text = ComponentOf<TextRenderer>( inId );
     const std::string value = text ? text->Text : std::string();
@@ -752,7 +752,7 @@ static int Eng_Text_GetText( EntityID inId, uint8_t* outText, int inSize )
 }
 
 
-static void Eng_Text_SetColor( EntityID inId, Vector4* inColor )
+static void Eng_Text_SetColor( EntityID inId, Vector4* inColor ) noexcept
 {
     if( TextRenderer* text = ComponentOf<TextRenderer>( inId ); text && inColor )
     {

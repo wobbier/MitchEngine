@@ -44,11 +44,11 @@ namespace fs = std::filesystem;
 static ScriptHost gScriptHost;
 
 
-static void Eng_Log( const uint8_t* inMsg )
+static void Eng_Log( const uint8_t* inMsg ) noexcept
 {
     DBG( "{}", reinterpret_cast<const char*>( inMsg ) );
 }
-static float Eng_GetTime()
+static float Eng_GetTime() noexcept
 {
     // Seconds since the scripting runtime started (wall clock).
     static const auto start = std::chrono::steady_clock::now();

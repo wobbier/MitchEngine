@@ -22,14 +22,14 @@ namespace
 }
 
 
-static bool Eng_NavAgent_SetDestination( EntityID inId, const Vector3* inDestination )
+static bool Eng_NavAgent_SetDestination( EntityID inId, const Vector3* inDestination ) noexcept
 {
     NavMeshAgent* agent = AgentOf( inId );
     return agent && agent->SetDestination( *inDestination );
 }
 
 
-static void Eng_NavAgent_SetStopped( EntityID inId, bool inStopped )
+static void Eng_NavAgent_SetStopped( EntityID inId, bool inStopped ) noexcept
 {
     if( NavMeshAgent* agent = AgentOf( inId ) )
     {
@@ -38,7 +38,7 @@ static void Eng_NavAgent_SetStopped( EntityID inId, bool inStopped )
 }
 
 
-static void Eng_NavAgent_ResetPath( EntityID inId )
+static void Eng_NavAgent_ResetPath( EntityID inId ) noexcept
 {
     if( NavMeshAgent* agent = AgentOf( inId ) )
     {
@@ -47,7 +47,7 @@ static void Eng_NavAgent_ResetPath( EntityID inId )
 }
 
 
-static void Eng_NavAgent_Warp( EntityID inId, const Vector3* inPosition )
+static void Eng_NavAgent_Warp( EntityID inId, const Vector3* inPosition ) noexcept
 {
     if( NavMeshAgent* agent = AgentOf( inId ) )
     {
@@ -56,49 +56,49 @@ static void Eng_NavAgent_Warp( EntityID inId, const Vector3* inPosition )
 }
 
 
-static bool Eng_NavAgent_HasPath( EntityID inId )
+static bool Eng_NavAgent_HasPath( EntityID inId ) noexcept
 {
     NavMeshAgent* agent = AgentOf( inId );
     return agent && ( agent->HasPath() || agent->IsPathPending() );
 }
 
 
-static bool Eng_NavAgent_HasArrived( EntityID inId )
+static bool Eng_NavAgent_HasArrived( EntityID inId ) noexcept
 {
     NavMeshAgent* agent = AgentOf( inId );
     return agent && agent->HasArrived();
 }
 
 
-static float Eng_NavAgent_GetRemainingDistance( EntityID inId )
+static float Eng_NavAgent_GetRemainingDistance( EntityID inId ) noexcept
 {
     NavMeshAgent* agent = AgentOf( inId );
     return agent ? agent->GetRemainingDistance() : 0.f;
 }
 
 
-static void Eng_NavAgent_GetVelocity( EntityID inId, Vector3* outVelocity )
+static void Eng_NavAgent_GetVelocity( EntityID inId, Vector3* outVelocity ) noexcept
 {
     NavMeshAgent* agent = AgentOf( inId );
     *outVelocity = agent ? agent->GetVelocity() : Vector3();
 }
 
 
-static void Eng_NavAgent_GetDesiredVelocity( EntityID inId, Vector3* outVelocity )
+static void Eng_NavAgent_GetDesiredVelocity( EntityID inId, Vector3* outVelocity ) noexcept
 {
     NavMeshAgent* agent = AgentOf( inId );
     *outVelocity = agent ? agent->GetDesiredVelocity() : Vector3();
 }
 
 
-static float Eng_NavAgent_GetSpeed( EntityID inId )
+static float Eng_NavAgent_GetSpeed( EntityID inId ) noexcept
 {
     NavMeshAgent* agent = AgentOf( inId );
     return agent ? agent->Speed : 0.f;
 }
 
 
-static void Eng_NavAgent_SetSpeed( EntityID inId, float inSpeed )
+static void Eng_NavAgent_SetSpeed( EntityID inId, float inSpeed ) noexcept
 {
     if( NavMeshAgent* agent = AgentOf( inId ) )
     {
@@ -107,7 +107,7 @@ static void Eng_NavAgent_SetSpeed( EntityID inId, float inSpeed )
 }
 
 
-static int Eng_Navigation_FindPath( const Vector3* inStart, const Vector3* inEnd, Vector3* outCorners, int inMaxCorners )
+static int Eng_Navigation_FindPath( const Vector3* inStart, const Vector3* inEnd, Vector3* outCorners, int inMaxCorners ) noexcept
 {
     NavigationCore* navigation = ScriptBindings::Navigation();
     if( !navigation || inMaxCorners <= 0 )
@@ -125,7 +125,7 @@ static int Eng_Navigation_FindPath( const Vector3* inStart, const Vector3* inEnd
 }
 
 
-static bool Eng_Navigation_SamplePosition( const Vector3* inPoint, float inMaxDistance, Vector3* outPosition )
+static bool Eng_Navigation_SamplePosition( const Vector3* inPoint, float inMaxDistance, Vector3* outPosition ) noexcept
 {
     NavigationCore* navigation = ScriptBindings::Navigation();
     NavMeshHit hit;
@@ -139,7 +139,7 @@ static bool Eng_Navigation_SamplePosition( const Vector3* inPoint, float inMaxDi
 }
 
 
-static bool Eng_Navigation_Raycast( const Vector3* inStart, const Vector3* inEnd, Vector3* outHit )
+static bool Eng_Navigation_Raycast( const Vector3* inStart, const Vector3* inEnd, Vector3* outHit ) noexcept
 {
     NavigationCore* navigation = ScriptBindings::Navigation();
     NavMeshHit hit;
@@ -149,7 +149,7 @@ static bool Eng_Navigation_Raycast( const Vector3* inStart, const Vector3* inEnd
 }
 
 
-static bool Eng_Navigation_GetRandomPoint( Vector3* outPoint )
+static bool Eng_Navigation_GetRandomPoint( Vector3* outPoint ) noexcept
 {
     NavigationCore* navigation = ScriptBindings::Navigation();
     return navigation && navigation->GetRandomPoint( *outPoint );

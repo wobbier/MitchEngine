@@ -15,7 +15,7 @@
 #include "Engine/World.h"
 #include "ECS/Entity.h"
 
-static bool Eng_ImGui_Float( const uint8_t* inLabel, float* inOutValue )
+static bool Eng_ImGui_Float( const uint8_t* inLabel, float* inOutValue ) noexcept
 {
 #if USING( ME_EDITOR )
     return HavanaUtils::Float( reinterpret_cast<const char*>( inLabel ), *inOutValue );
@@ -25,7 +25,7 @@ static bool Eng_ImGui_Float( const uint8_t* inLabel, float* inOutValue )
 }
 
 
-static bool Eng_ImGui_Int( const uint8_t* inLabel, int* inOutValue )
+static bool Eng_ImGui_Int( const uint8_t* inLabel, int* inOutValue ) noexcept
 {
 #if USING( ME_EDITOR )
     return HavanaUtils::Int( reinterpret_cast<const char*>( inLabel ), *inOutValue );
@@ -35,7 +35,7 @@ static bool Eng_ImGui_Int( const uint8_t* inLabel, int* inOutValue )
 }
 
 
-static bool Eng_ImGui_Bool( const uint8_t* inLabel, uint8_t* inOutValue )
+static bool Eng_ImGui_Bool( const uint8_t* inLabel, uint8_t* inOutValue ) noexcept
 {
 #if USING( ME_EDITOR )
     bool b = ( *inOutValue != 0 );
@@ -48,7 +48,7 @@ static bool Eng_ImGui_Bool( const uint8_t* inLabel, uint8_t* inOutValue )
 }
 
 
-static bool Eng_ImGui_Vec3( const uint8_t* inLabel, Vector3* inOutValue )
+static bool Eng_ImGui_Vec3( const uint8_t* inLabel, Vector3* inOutValue ) noexcept
 {
 #if USING( ME_EDITOR )
     return HavanaUtils::EditableVector3( reinterpret_cast<const char*>( inLabel ), *inOutValue );
@@ -66,13 +66,13 @@ static bool HasImGui()
 }
 
 
-static bool Eng_ImGui_Begin( const uint8_t* inLabel )
+static bool Eng_ImGui_Begin( const uint8_t* inLabel ) noexcept
 {
     return HasImGui() && ImGui::Begin( reinterpret_cast<const char*>( inLabel ) );
 }
 
 
-static void Eng_ImGui_End()
+static void Eng_ImGui_End() noexcept
 {
     if( HasImGui() )
     {
@@ -81,7 +81,7 @@ static void Eng_ImGui_End()
 }
 
 
-static void Eng_ImGui_Text( const uint8_t* inText )
+static void Eng_ImGui_Text( const uint8_t* inText ) noexcept
 {
     if( HasImGui() )
     {
@@ -90,7 +90,7 @@ static void Eng_ImGui_Text( const uint8_t* inText )
 }
 
 
-static bool Eng_ImGui_Checkbox( const uint8_t* inLabel, uint8_t* inOutValue )
+static bool Eng_ImGui_Checkbox( const uint8_t* inLabel, uint8_t* inOutValue ) noexcept
 {
     if( !HasImGui() )
     {
@@ -103,7 +103,7 @@ static bool Eng_ImGui_Checkbox( const uint8_t* inLabel, uint8_t* inOutValue )
 }
 
 
-static bool Eng_ImGui_Button( const uint8_t* inLabel )
+static bool Eng_ImGui_Button( const uint8_t* inLabel ) noexcept
 {
     return HasImGui() && ImGui::Button( reinterpret_cast<const char*>( inLabel ) );
 }
@@ -111,7 +111,7 @@ static bool Eng_ImGui_Button( const uint8_t* inLabel )
 
 // --- Script inspector rows (the same property-row layout as the C++ reflection inspector) ------
 
-static bool Eng_ImGui_String( const uint8_t* inLabel, uint8_t* inOutUtf8, int inSize )
+static bool Eng_ImGui_String( const uint8_t* inLabel, uint8_t* inOutUtf8, int inSize ) noexcept
 {
 #if USING( ME_EDITOR )
     const char* label = reinterpret_cast<const char*>( inLabel );
@@ -126,7 +126,7 @@ static bool Eng_ImGui_String( const uint8_t* inLabel, uint8_t* inOutUtf8, int in
 }
 
 
-static bool Eng_ImGui_Multiline( const uint8_t* inLabel, uint8_t* inOutUtf8, int inSize, int inLines )
+static bool Eng_ImGui_Multiline( const uint8_t* inLabel, uint8_t* inOutUtf8, int inSize, int inLines ) noexcept
 {
 #if USING( ME_EDITOR )
     const char* label = reinterpret_cast<const char*>( inLabel );
@@ -142,7 +142,7 @@ static bool Eng_ImGui_Multiline( const uint8_t* inLabel, uint8_t* inOutUtf8, int
 }
 
 
-static bool Eng_ImGui_Vec2( const uint8_t* inLabel, Vector2* inOutValue )
+static bool Eng_ImGui_Vec2( const uint8_t* inLabel, Vector2* inOutValue ) noexcept
 {
 #if USING( ME_EDITOR )
     return HavanaUtils::EditableVector( reinterpret_cast<const char*>( inLabel ), *inOutValue );
@@ -152,7 +152,7 @@ static bool Eng_ImGui_Vec2( const uint8_t* inLabel, Vector2* inOutValue )
 }
 
 
-static bool Eng_ImGui_Vec4( const uint8_t* inLabel, float* inOutXyzw )
+static bool Eng_ImGui_Vec4( const uint8_t* inLabel, float* inOutXyzw ) noexcept
 {
 #if USING( ME_EDITOR )
     const char* label = reinterpret_cast<const char*>( inLabel );
@@ -167,7 +167,7 @@ static bool Eng_ImGui_Vec4( const uint8_t* inLabel, float* inOutXyzw )
 }
 
 
-static bool Eng_ImGui_Color( const uint8_t* inLabel, float* inOutRgba )
+static bool Eng_ImGui_Color( const uint8_t* inLabel, float* inOutRgba ) noexcept
 {
 #if USING( ME_EDITOR )
     const char* label = reinterpret_cast<const char*>( inLabel );
@@ -182,7 +182,7 @@ static bool Eng_ImGui_Color( const uint8_t* inLabel, float* inOutRgba )
 }
 
 
-static bool Eng_ImGui_Enum( const uint8_t* inLabel, int* inOutIndex, const uint8_t* inNames )
+static bool Eng_ImGui_Enum( const uint8_t* inLabel, int* inOutIndex, const uint8_t* inNames ) noexcept
 {
 #if USING( ME_EDITOR )
     const char* label = reinterpret_cast<const char*>( inLabel );
@@ -228,7 +228,7 @@ static bool Eng_ImGui_Enum( const uint8_t* inLabel, int* inOutIndex, const uint8
 }
 
 
-static bool Eng_ImGui_Double( const uint8_t* inLabel, double* inOutValue )
+static bool Eng_ImGui_Double( const uint8_t* inLabel, double* inOutValue ) noexcept
 {
 #if USING( ME_EDITOR )
     return HavanaUtils::Double( reinterpret_cast<const char*>( inLabel ), *inOutValue );
@@ -238,7 +238,7 @@ static bool Eng_ImGui_Double( const uint8_t* inLabel, double* inOutValue )
 }
 
 
-static bool Eng_ImGui_SliderFloat( const uint8_t* inLabel, float* inOutValue, float inMin, float inMax )
+static bool Eng_ImGui_SliderFloat( const uint8_t* inLabel, float* inOutValue, float inMin, float inMax ) noexcept
 {
 #if USING( ME_EDITOR )
     const char* label = reinterpret_cast<const char*>( inLabel );
@@ -253,7 +253,7 @@ static bool Eng_ImGui_SliderFloat( const uint8_t* inLabel, float* inOutValue, fl
 }
 
 
-static bool Eng_ImGui_SliderInt( const uint8_t* inLabel, int* inOutValue, int inMin, int inMax )
+static bool Eng_ImGui_SliderInt( const uint8_t* inLabel, int* inOutValue, int inMin, int inMax ) noexcept
 {
 #if USING( ME_EDITOR )
     const char* label = reinterpret_cast<const char*>( inLabel );
@@ -268,19 +268,19 @@ static bool Eng_ImGui_SliderInt( const uint8_t* inLabel, int* inOutValue, int in
 }
 
 
-static void Eng_ImGui_Header( const uint8_t* inText )
+static void Eng_ImGui_Header( const uint8_t* inText ) noexcept
 {
     ImGui::SeparatorText( reinterpret_cast<const char*>( inText ) );
 }
 
 
-static void Eng_ImGui_Space( float inHeight )
+static void Eng_ImGui_Space( float inHeight ) noexcept
 {
     ImGui::Dummy( ImVec2( 0.f, inHeight > 0.f ? inHeight : ImGui::GetTextLineHeight() * 0.5f ) );
 }
 
 
-static void Eng_ImGui_Tooltip( const uint8_t* inText )
+static void Eng_ImGui_Tooltip( const uint8_t* inText ) noexcept
 {
     if( ImGui::IsItemHovered( ImGuiHoveredFlags_DelayShort ) )
     {
@@ -289,43 +289,43 @@ static void Eng_ImGui_Tooltip( const uint8_t* inText )
 }
 
 
-static void Eng_ImGui_BeginDisabled()
+static void Eng_ImGui_BeginDisabled() noexcept
 {
     ImGui::BeginDisabled();
 }
 
 
-static void Eng_ImGui_EndDisabled()
+static void Eng_ImGui_EndDisabled() noexcept
 {
     ImGui::EndDisabled();
 }
 
 
-static bool Eng_ImGui_TreeNode( const uint8_t* inLabel )
+static bool Eng_ImGui_TreeNode( const uint8_t* inLabel ) noexcept
 {
     return ImGui::TreeNodeEx( reinterpret_cast<const char*>( inLabel ), ImGuiTreeNodeFlags_SpanAvailWidth );
 }
 
 
-static void Eng_ImGui_TreePop()
+static void Eng_ImGui_TreePop() noexcept
 {
     ImGui::TreePop();
 }
 
 
-static bool Eng_ImGui_SmallButton( const uint8_t* inLabel )
+static bool Eng_ImGui_SmallButton( const uint8_t* inLabel ) noexcept
 {
     return ImGui::SmallButton( reinterpret_cast<const char*>( inLabel ) );
 }
 
 
-static void Eng_ImGui_SameLine()
+static void Eng_ImGui_SameLine() noexcept
 {
     ImGui::SameLine();
 }
 
 
-static bool Eng_ImGui_EntityRef( const uint8_t* inLabel, uint8_t* inOutGuid, int inSize )
+static bool Eng_ImGui_EntityRef( const uint8_t* inLabel, uint8_t* inOutGuid, int inSize ) noexcept
 {
 #if USING( ME_EDITOR )
     const char* label = reinterpret_cast<const char*>( inLabel );
@@ -374,7 +374,7 @@ static bool Eng_ImGui_EntityRef( const uint8_t* inLabel, uint8_t* inOutGuid, int
 }
 
 
-static bool Eng_ImGui_AssetRef( const uint8_t* inLabel, uint8_t* inOutPath, int inSize, const uint8_t* inExtensions )
+static bool Eng_ImGui_AssetRef( const uint8_t* inLabel, uint8_t* inOutPath, int inSize, const uint8_t* inExtensions ) noexcept
 {
 #if USING( ME_EDITOR )
     const char* label = reinterpret_cast<const char*>( inLabel );

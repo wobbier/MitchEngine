@@ -26,20 +26,20 @@ namespace
 }
 
 
-static int Eng_Loc_Get( const uint8_t* inKey, uint8_t* outText, int inSize )
+static int Eng_Loc_Get( const uint8_t* inKey, uint8_t* outText, int inSize ) noexcept
 {
     return CopyOut( Localization::Get().Get( inKey ? reinterpret_cast<const char*>( inKey ) : "" ), outText, inSize );
 }
 
 
-static int Eng_Loc_GetLanguage( uint8_t* outCode, int inSize )
+static int Eng_Loc_GetLanguage( uint8_t* outCode, int inSize ) noexcept
 {
     return CopyOut( Localization::Get().GetLanguage(), outCode, inSize );
 }
 
 
 // Newline-separated codes.
-static int Eng_Loc_GetLanguages( uint8_t* outCodes, int inSize )
+static int Eng_Loc_GetLanguages( uint8_t* outCodes, int inSize ) noexcept
 {
     std::string codes;
     for( const std::string& code : Localization::Get().GetLanguages() )

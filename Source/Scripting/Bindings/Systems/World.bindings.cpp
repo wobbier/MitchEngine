@@ -12,7 +12,7 @@
 #include "Scripting/Bindings/BindingContext.h"
 #include <cstdlib>
 
-static void Eng_World_CreateEntity( const uint8_t* inName, EntityID* outId )
+static void Eng_World_CreateEntity( const uint8_t* inName, EntityID* outId ) noexcept
 {
     *outId = EntityID{};
     auto world = ScriptBindings::GetWorld().lock();
@@ -29,7 +29,7 @@ static void Eng_World_CreateEntity( const uint8_t* inName, EntityID* outId )
 }
 
 
-static void Eng_World_FindByName( const uint8_t* inName, EntityID* outId )
+static void Eng_World_FindByName( const uint8_t* inName, EntityID* outId ) noexcept
 {
     // Any live entity with that name, at any depth.
     *outId = EntityID{};
@@ -45,7 +45,7 @@ static void Eng_World_FindByName( const uint8_t* inName, EntityID* outId )
 }
 
 
-static bool Eng_World_FindByGuid( const uint8_t* inGuid, EntityID* outId )
+static bool Eng_World_FindByGuid( const uint8_t* inGuid, EntityID* outId ) noexcept
 {
     // The 16-hex scene GUID, as EntityRef fields and .lvl files store it.
     *outId = EntityID{};
@@ -68,19 +68,19 @@ static bool Eng_World_FindByGuid( const uint8_t* inGuid, EntityID* outId )
 }
 
 
-static bool Eng_World_LoadSceneAsync( const uint8_t* inScene, const uint8_t* inDocument )
+static bool Eng_World_LoadSceneAsync( const uint8_t* inScene, const uint8_t* inDocument ) noexcept
 {
     return LoadingScreen::Get().LoadSceneAsync( reinterpret_cast<const char*>( inScene ), inDocument ? reinterpret_cast<const char*>( inDocument ) : "" );
 }
 
 
-static float Eng_World_GetLoadProgress()
+static float Eng_World_GetLoadProgress() noexcept
 {
     return LoadingScreen::Get().GetProgress();
 }
 
 
-static bool Eng_World_IsLoadingScene()
+static bool Eng_World_IsLoadingScene() noexcept
 {
     return LoadingScreen::Get().IsLoading();
 }

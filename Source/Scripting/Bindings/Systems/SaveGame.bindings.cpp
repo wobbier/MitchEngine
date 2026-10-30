@@ -31,42 +31,50 @@ namespace
 }
 
 
-static bool Eng_SaveGame_Save( const uint8_t* inSlot, const uint8_t* inName )
+static bool Eng_SaveGame_Save( const uint8_t* inSlot, const uint8_t* inName ) noexcept
 {
     return SaveGames::Get().Save( Text( inSlot ), Text( inName ) );
 }
 
 
-static bool Eng_SaveGame_Load( const uint8_t* inSlot )
+static bool Eng_SaveGame_Load( const uint8_t* inSlot ) noexcept
 {
     return SaveGames::Get().Load( Text( inSlot ) );
 }
 
 
-static bool Eng_SaveGame_Delete( const uint8_t* inSlot )
+static bool Eng_SaveGame_Delete( const uint8_t* inSlot ) noexcept
 {
     return SaveGames::Get().Delete( Text( inSlot ) );
 }
 
 
-static int Eng_SaveGame_List( uint8_t* outJson, int inSize )
+static int Eng_SaveGame_List( uint8_t* outJson, int inSize ) noexcept
 {
-    json slots = json::array();
-    for( const SaveGames::SlotInfo& info : SaveGames::Get().List() )
+    try
     {
-        slots.push_back( info.ToJson() );
+        json slots = json::array();
+        for( const SaveGames::SlotInfo& info : SaveGames::Get().List() )
+        {
+            slots.push_back( info.ToJson() );
+        }
+        return CopyOut( slots.dump(), outJson, inSize );
     }
-    return CopyOut( slots.dump(), outJson, inSize );
+    catch( const std::exception& e )
+    {
+        YIKES( std::string( "[Scripts] SaveGame_List threw: " ) + e.what() );
+        return -1;
+    }
 }
 
 
-static bool Eng_SaveGame_IsWriting()
+static bool Eng_SaveGame_IsWriting() noexcept
 {
     return SaveGames::Get().IsWriting();
 }
 
 
-static float Eng_SaveGame_GetPlaytime()
+static float Eng_SaveGame_GetPlaytime() noexcept
 {
     return static_cast<float>( SaveGames::Get().GetPlaytime() );
 }

@@ -9,7 +9,7 @@
 
 // Project files for scripts (CS-7 data assets), through the VFS so paks and cooked trees serve them.
 
-static int Eng_Asset_ReadText( const uint8_t* inPath, uint8_t* outText, int inSize )
+static int Eng_Asset_ReadText( const uint8_t* inPath, uint8_t* outText, int inSize ) noexcept
 {
     std::string text;
     if( inPath == nullptr || !VFS::Get().ReadText( reinterpret_cast<const char*>( inPath ), text ) )
@@ -26,7 +26,7 @@ static int Eng_Asset_ReadText( const uint8_t* inPath, uint8_t* outText, int inSi
 }
 
 
-static bool Eng_Asset_WriteText( const uint8_t* inPath, const uint8_t* inText )
+static bool Eng_Asset_WriteText( const uint8_t* inPath, const uint8_t* inText ) noexcept
 {
     return inPath != nullptr && inText != nullptr && VFS::Get().WriteText( std::string( reinterpret_cast<const char*>( inPath ) ), std::string( reinterpret_cast<const char*>( inText ) ) );
 }

@@ -40,7 +40,7 @@ namespace
 }
 
 
-static bool Eng_UIModel_Ensure( const uint8_t* inModel )
+static bool Eng_UIModel_Ensure( const uint8_t* inModel ) noexcept
 {
 #if USING( ME_RMLUI )
     if( RmlUiCore* core = UiCore() )
@@ -53,7 +53,7 @@ static bool Eng_UIModel_Ensure( const uint8_t* inModel )
 }
 
 
-static void Eng_UIModel_SetNumber( const uint8_t* inModel, const uint8_t* inKey, double inValue )
+static void Eng_UIModel_SetNumber( const uint8_t* inModel, const uint8_t* inKey, double inValue ) noexcept
 {
 #if USING( ME_RMLUI )
     if( RmlUiCore* core = UiCore() )
@@ -64,7 +64,7 @@ static void Eng_UIModel_SetNumber( const uint8_t* inModel, const uint8_t* inKey,
 }
 
 
-static void Eng_UIModel_SetString( const uint8_t* inModel, const uint8_t* inKey, const uint8_t* inValue )
+static void Eng_UIModel_SetString( const uint8_t* inModel, const uint8_t* inKey, const uint8_t* inValue ) noexcept
 {
 #if USING( ME_RMLUI )
     if( RmlUiCore* core = UiCore() )
@@ -75,7 +75,7 @@ static void Eng_UIModel_SetString( const uint8_t* inModel, const uint8_t* inKey,
 }
 
 
-static void Eng_UIModel_RegisterEvent( const uint8_t* inModel, const uint8_t* inKey )
+static void Eng_UIModel_RegisterEvent( const uint8_t* inModel, const uint8_t* inKey ) noexcept
 {
 #if USING( ME_RMLUI )
     if( RmlUiCore* core = UiCore() )
@@ -86,7 +86,7 @@ static void Eng_UIModel_RegisterEvent( const uint8_t* inModel, const uint8_t* in
 }
 
 
-static double Eng_UIModel_GetNumber( const uint8_t* inModel, const uint8_t* inKey )
+static double Eng_UIModel_GetNumber( const uint8_t* inModel, const uint8_t* inKey ) noexcept
 {
 #if USING( ME_RMLUI )
     if( RmlUiCore* core = UiCore() )
@@ -98,7 +98,7 @@ static double Eng_UIModel_GetNumber( const uint8_t* inModel, const uint8_t* inKe
 }
 
 
-static int Eng_UIModel_GetString( const uint8_t* inModel, const uint8_t* inKey, uint8_t* outValue, int inSize )
+static int Eng_UIModel_GetString( const uint8_t* inModel, const uint8_t* inKey, uint8_t* outValue, int inSize ) noexcept
 {
 #if USING( ME_RMLUI )
     if( RmlUiCore* core = UiCore() )
@@ -110,7 +110,7 @@ static int Eng_UIModel_GetString( const uint8_t* inModel, const uint8_t* inKey, 
 }
 
 
-static int Eng_UIModel_PollEvent( const uint8_t* inModel, uint8_t* outName, int inSize )
+static int Eng_UIModel_PollEvent( const uint8_t* inModel, uint8_t* outName, int inSize ) noexcept
 {
 #if USING( ME_RMLUI )
     if( RmlUiCore* core = UiCore() )
@@ -122,7 +122,7 @@ static int Eng_UIModel_PollEvent( const uint8_t* inModel, uint8_t* outName, int 
 }
 
 
-static bool Eng_UI_SetDocumentVisible( const uint8_t* inEntityName, int inMode )
+static bool Eng_UI_SetDocumentVisible( const uint8_t* inEntityName, int inMode ) noexcept
 {
 #if USING( ME_RMLUI )
     if( RmlUiCore* core = UiCore() )
@@ -135,7 +135,7 @@ static bool Eng_UI_SetDocumentVisible( const uint8_t* inEntityName, int inMode )
 }
 
 
-static bool Eng_UI_IsDocumentVisible( const uint8_t* inEntityName )
+static bool Eng_UI_IsDocumentVisible( const uint8_t* inEntityName ) noexcept
 {
 #if USING( ME_RMLUI )
     if( RmlUiCore* core = UiCore() )
@@ -149,7 +149,7 @@ static bool Eng_UI_IsDocumentVisible( const uint8_t* inEntityName )
 
 // BasicUIView left with Ultralight (UI-5). Its ABI slot stays (order is the ABI), so a script
 // built against the old API gets a one-time pointer to the replacement instead of a crash.
-static void Eng_BasicUIView_ExecuteJS( EntityID, const uint8_t* )
+static void Eng_BasicUIView_ExecuteJS( EntityID, const uint8_t* ) noexcept
 {
     static bool s_warned = false;
     if( !s_warned )

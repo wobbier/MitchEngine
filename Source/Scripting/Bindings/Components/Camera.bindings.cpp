@@ -12,7 +12,7 @@
 
 using ScriptBindings::MakeHandle;
 
-static void Eng_Camera_GetClearColor( EntityID inId, Vector3* outColor )
+static void Eng_Camera_GetClearColor( EntityID inId, Vector3* outColor ) noexcept
 {
     EntityHandle handle = MakeHandle( inId );
     if( handle )
@@ -22,7 +22,7 @@ static void Eng_Camera_GetClearColor( EntityID inId, Vector3* outColor )
 }
 
 
-static void Eng_Camera_SetClearColor( EntityID inId, const Vector3* inColor )
+static void Eng_Camera_SetClearColor( EntityID inId, const Vector3* inColor ) noexcept
 {
     EntityHandle handle = MakeHandle( inId );
     if( handle )
@@ -32,7 +32,7 @@ static void Eng_Camera_SetClearColor( EntityID inId, const Vector3* inColor )
 }
 
 
-static void Eng_Camera_SetClipPlane( EntityID inId, const Vector3* inPoint, const Vector3* inNormal )
+static void Eng_Camera_SetClipPlane( EntityID inId, const Vector3* inPoint, const Vector3* inNormal ) noexcept
 {
     EntityHandle handle = MakeHandle( inId );
     if( Camera* camera = handle ? handle->TryGetComponent<Camera>() : nullptr )
@@ -42,7 +42,7 @@ static void Eng_Camera_SetClipPlane( EntityID inId, const Vector3* inPoint, cons
 }
 
 
-static void Eng_Camera_ClearClipPlane( EntityID inId )
+static void Eng_Camera_ClearClipPlane( EntityID inId ) noexcept
 {
     EntityHandle handle = MakeHandle( inId );
     if( Camera* camera = handle ? handle->TryGetComponent<Camera>() : nullptr )
@@ -54,7 +54,7 @@ static void Eng_Camera_ClearClipPlane( EntityID inId )
 
 // Gives the mesh a PortalMaterial showing the camera's view (keeping a PortalMaterial it already
 // has, with its tint) and sizes the camera to match the main camera.
-static bool Eng_Mesh_ShowCameraView( EntityID inId, EntityID inCamera )
+static bool Eng_Mesh_ShowCameraView( EntityID inId, EntityID inCamera ) noexcept
 {
     EntityHandle handle = MakeHandle( inId );
     EntityHandle cameraHandle = MakeHandle( inCamera );

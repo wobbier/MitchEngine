@@ -7,7 +7,7 @@
 #include "Engine/Input.h"
 
 
-static bool Eng_Input_IsKeyDown( int inKey )
+static bool Eng_Input_IsKeyDown( int inKey ) noexcept
 {
     return GetEngine().GetInput().IsKeyDown( static_cast<KeyCode>( inKey ) );
 }

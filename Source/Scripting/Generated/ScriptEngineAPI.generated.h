@@ -33,381 +33,381 @@ static_assert( offsetof( ScriptRaycastHit, Point ) == 8 && offsetof( ScriptRayca
 struct ScriptEngineAPI
 {
     // Core
-    void ( *Log )( const uint8_t* message );
-    float ( *GetTime )();
+    void ( *Log )( const uint8_t* message ) noexcept;
+    float ( *GetTime )() noexcept;
 
     // Entity
-    bool ( *Entity_IsAlive )( EntityID id );
-    bool ( *Entity_HasComponent )( EntityID id, const uint8_t* component );
-    void ( *Entity_AddComponent )( EntityID id, const uint8_t* component );
-    void ( *Transform_GetTranslation )( EntityID id, Vector3* outTranslation );
-    void ( *Transform_SetTranslation )( EntityID id, const Vector3* translation );
+    bool ( *Entity_IsAlive )( EntityID id ) noexcept;
+    bool ( *Entity_HasComponent )( EntityID id, const uint8_t* component ) noexcept;
+    void ( *Entity_AddComponent )( EntityID id, const uint8_t* component ) noexcept;
+    void ( *Transform_GetTranslation )( EntityID id, Vector3* outTranslation ) noexcept;
+    void ( *Transform_SetTranslation )( EntityID id, const Vector3* translation ) noexcept;
 
     // ImGui (inOut values are read for display and written back on edit)
-    bool ( *ImGui_Float )( const uint8_t* label, float* inOutValue );
-    bool ( *ImGui_Int )( const uint8_t* label, int* inOutValue );
-    bool ( *ImGui_Bool )( const uint8_t* label, uint8_t* inOutValue );
-    bool ( *ImGui_Vec3 )( const uint8_t* label, Vector3* inOutValue );
-    bool ( *ImGui_Begin )( const uint8_t* label );
-    void ( *ImGui_Text )( const uint8_t* text );
-    bool ( *ImGui_Checkbox )( const uint8_t* label, uint8_t* inOutValue );
-    bool ( *ImGui_Button )( const uint8_t* label );
-    void ( *ImGui_End )();
+    bool ( *ImGui_Float )( const uint8_t* label, float* inOutValue ) noexcept;
+    bool ( *ImGui_Int )( const uint8_t* label, int* inOutValue ) noexcept;
+    bool ( *ImGui_Bool )( const uint8_t* label, uint8_t* inOutValue ) noexcept;
+    bool ( *ImGui_Vec3 )( const uint8_t* label, Vector3* inOutValue ) noexcept;
+    bool ( *ImGui_Begin )( const uint8_t* label ) noexcept;
+    void ( *ImGui_Text )( const uint8_t* text ) noexcept;
+    bool ( *ImGui_Checkbox )( const uint8_t* label, uint8_t* inOutValue ) noexcept;
+    bool ( *ImGui_Button )( const uint8_t* label ) noexcept;
+    void ( *ImGui_End )() noexcept;
 
     // Input
-    bool ( *Input_IsKeyDown )( int key );
+    bool ( *Input_IsKeyDown )( int key ) noexcept;
 
     // World
-    void ( *World_CreateEntity )( const uint8_t* name, EntityID* outId );
-    void ( *World_FindByName )( const uint8_t* name, EntityID* outId );
+    void ( *World_CreateEntity )( const uint8_t* name, EntityID* outId ) noexcept;
+    void ( *World_FindByName )( const uint8_t* name, EntityID* outId ) noexcept;
 
     // Camera
-    void ( *Camera_GetClearColor )( EntityID id, Vector3* outColor );
-    void ( *Camera_SetClearColor )( EntityID id, const Vector3* color );
+    void ( *Camera_GetClearColor )( EntityID id, Vector3* outColor ) noexcept;
+    void ( *Camera_SetClearColor )( EntityID id, const Vector3* color ) noexcept;
 
     // Transform
-    void ( *Transform_GetScale )( EntityID id, Vector3* outScale );
-    void ( *Transform_SetScale )( EntityID id, const Vector3* scale );
-    void ( *Transform_GetRotation )( EntityID id, Vector3* outEuler );
-    void ( *Transform_SetRotation )( EntityID id, const Vector3* euler );
+    void ( *Transform_GetScale )( EntityID id, Vector3* outScale ) noexcept;
+    void ( *Transform_SetScale )( EntityID id, const Vector3* scale ) noexcept;
+    void ( *Transform_GetRotation )( EntityID id, Vector3* outEuler ) noexcept;
+    void ( *Transform_SetRotation )( EntityID id, const Vector3* euler ) noexcept;
 
     // UI
-    void ( *BasicUIView_ExecuteJS )( EntityID id, const uint8_t* script );
+    void ( *BasicUIView_ExecuteJS )( EntityID id, const uint8_t* script ) noexcept;
 
     // Logging
-    void ( *LogWarning )( const uint8_t* message );
-    void ( *LogError )( const uint8_t* message );
+    void ( *LogWarning )( const uint8_t* message ) noexcept;
+    void ( *LogError )( const uint8_t* message ) noexcept;
 
     // Time (game time: scaled, zero while paused)
-    float ( *Time_GetDeltaTime )();
-    float ( *Time_GetUnscaledDeltaTime )();
-    float ( *Time_GetFixedDeltaTime )();
-    float ( *Time_GetTimeScale )();
-    void ( *Time_SetTimeScale )( float scale );
+    float ( *Time_GetDeltaTime )() noexcept;
+    float ( *Time_GetUnscaledDeltaTime )() noexcept;
+    float ( *Time_GetFixedDeltaTime )() noexcept;
+    float ( *Time_GetTimeScale )() noexcept;
+    void ( *Time_SetTimeScale )( float scale ) noexcept;
 
     // Entity lifecycle
-    void ( *Entity_Destroy )( EntityID id );
-    bool ( *Entity_IsActive )( EntityID id );
-    void ( *Entity_SetActive )( EntityID id, bool active );
-    int ( *Entity_GetName )( EntityID id, uint8_t* outName, int size );
-    void ( *Entity_SetName )( EntityID id, const uint8_t* name );
+    void ( *Entity_Destroy )( EntityID id ) noexcept;
+    bool ( *Entity_IsActive )( EntityID id ) noexcept;
+    void ( *Entity_SetActive )( EntityID id, bool active ) noexcept;
+    int ( *Entity_GetName )( EntityID id, uint8_t* outName, int size ) noexcept;
+    void ( *Entity_SetName )( EntityID id, const uint8_t* name ) noexcept;
 
     // Transform hierarchy and world space
-    void ( *Transform_GetWorldPosition )( EntityID id, Vector3* outPosition );
-    void ( *Transform_SetWorldPosition )( EntityID id, const Vector3* position );
-    void ( *Transform_GetForward )( EntityID id, Vector3* outForward );
-    void ( *Transform_GetRight )( EntityID id, Vector3* outRight );
-    void ( *Transform_GetUp )( EntityID id, Vector3* outUp );
-    void ( *Transform_LookAt )( EntityID id, const Vector3* target );
-    void ( *Transform_GetParent )( EntityID id, EntityID* outParent );
-    void ( *Transform_SetParent )( EntityID id, EntityID parent );
+    void ( *Transform_GetWorldPosition )( EntityID id, Vector3* outPosition ) noexcept;
+    void ( *Transform_SetWorldPosition )( EntityID id, const Vector3* position ) noexcept;
+    void ( *Transform_GetForward )( EntityID id, Vector3* outForward ) noexcept;
+    void ( *Transform_GetRight )( EntityID id, Vector3* outRight ) noexcept;
+    void ( *Transform_GetUp )( EntityID id, Vector3* outUp ) noexcept;
+    void ( *Transform_LookAt )( EntityID id, const Vector3* target ) noexcept;
+    void ( *Transform_GetParent )( EntityID id, EntityID* outParent ) noexcept;
+    void ( *Transform_SetParent )( EntityID id, EntityID parent ) noexcept;
 
     // World and scenes
-    void ( *World_Instantiate )( const uint8_t* prefab, EntityID parent, EntityID* outId );
-    void ( *World_LoadScene )( const uint8_t* scene );
+    void ( *World_Instantiate )( const uint8_t* prefab, EntityID parent, EntityID* outId ) noexcept;
+    void ( *World_LoadScene )( const uint8_t* scene ) noexcept;
 
     // Input actions (Engine/Docs/Input.md)
-    float ( *Input_GetActionValue )( const uint8_t* action );
-    void ( *Input_GetActionVector2 )( const uint8_t* action, Vector2* outValue );
-    bool ( *Input_IsActionPressed )( const uint8_t* action );
-    bool ( *Input_WasActionPressed )( const uint8_t* action );
-    bool ( *Input_WasActionReleased )( const uint8_t* action );
-    bool ( *Input_WasKeyPressed )( int key );
-    void ( *Input_GetMouseDelta )( Vector2* outDelta );
+    float ( *Input_GetActionValue )( const uint8_t* action ) noexcept;
+    void ( *Input_GetActionVector2 )( const uint8_t* action, Vector2* outValue ) noexcept;
+    bool ( *Input_IsActionPressed )( const uint8_t* action ) noexcept;
+    bool ( *Input_WasActionPressed )( const uint8_t* action ) noexcept;
+    bool ( *Input_WasActionReleased )( const uint8_t* action ) noexcept;
+    bool ( *Input_WasKeyPressed )( int key ) noexcept;
+    void ( *Input_GetMouseDelta )( Vector2* outDelta ) noexcept;
 
     // Audio
-    void ( *Audio_PlayOneShot )( const uint8_t* clip, float volume );
-    void ( *Audio_PlayOneShotAt )( const uint8_t* clip, const Vector3* position, float volume );
+    void ( *Audio_PlayOneShot )( const uint8_t* clip, float volume ) noexcept;
+    void ( *Audio_PlayOneShotAt )( const uint8_t* clip, const Vector3* position, float volume ) noexcept;
 
     // Physics
-    bool ( *Physics_Raycast )( const Vector3* origin, const Vector3* direction, float maxDistance, ScriptRaycastHit* outHit );
-    void ( *Rigidbody_AddForce )( EntityID id, const Vector3* force, int mode );
-    void ( *Rigidbody_GetVelocity )( EntityID id, Vector3* outVelocity );
-    void ( *Rigidbody_SetVelocity )( EntityID id, const Vector3* velocity );
+    bool ( *Physics_Raycast )( const Vector3* origin, const Vector3* direction, float maxDistance, ScriptRaycastHit* outHit ) noexcept;
+    void ( *Rigidbody_AddForce )( EntityID id, const Vector3* force, int mode ) noexcept;
+    void ( *Rigidbody_GetVelocity )( EntityID id, Vector3* outVelocity ) noexcept;
+    void ( *Rigidbody_SetVelocity )( EntityID id, const Vector3* velocity ) noexcept;
 
     // Debug draw (visible in game and editor views; duration 0 = this frame)
-    void ( *Debug_DrawLine )( const Vector3* from, const Vector3* to, const Vector3* color, float duration );
-    void ( *Debug_DrawSphere )( const Vector3* center, float radius, const Vector3* color, float duration );
+    void ( *Debug_DrawLine )( const Vector3* from, const Vector3* to, const Vector3* color, float duration ) noexcept;
+    void ( *Debug_DrawSphere )( const Vector3* center, float radius, const Vector3* color, float duration ) noexcept;
 
     // Navigation (Engine/Docs/Navigation.md)
-    bool ( *NavAgent_SetDestination )( EntityID id, const Vector3* destination );
-    void ( *NavAgent_SetStopped )( EntityID id, bool stopped );
-    void ( *NavAgent_ResetPath )( EntityID id );
-    void ( *NavAgent_Warp )( EntityID id, const Vector3* position );
-    bool ( *NavAgent_HasPath )( EntityID id );
-    bool ( *NavAgent_HasArrived )( EntityID id );
-    float ( *NavAgent_GetRemainingDistance )( EntityID id );
-    void ( *NavAgent_GetVelocity )( EntityID id, Vector3* outVelocity );
-    void ( *NavAgent_GetDesiredVelocity )( EntityID id, Vector3* outVelocity );
-    float ( *NavAgent_GetSpeed )( EntityID id );
-    void ( *NavAgent_SetSpeed )( EntityID id, float speed );
-    int ( *Navigation_FindPath )( const Vector3* start, const Vector3* end, Vector3* outCorners, int maxCorners );
-    bool ( *Navigation_SamplePosition )( const Vector3* point, float maxDistance, Vector3* outPosition );
-    bool ( *Navigation_Raycast )( const Vector3* start, const Vector3* end, Vector3* outHit );
-    bool ( *Navigation_GetRandomPoint )( Vector3* outPoint );
+    bool ( *NavAgent_SetDestination )( EntityID id, const Vector3* destination ) noexcept;
+    void ( *NavAgent_SetStopped )( EntityID id, bool stopped ) noexcept;
+    void ( *NavAgent_ResetPath )( EntityID id ) noexcept;
+    void ( *NavAgent_Warp )( EntityID id, const Vector3* position ) noexcept;
+    bool ( *NavAgent_HasPath )( EntityID id ) noexcept;
+    bool ( *NavAgent_HasArrived )( EntityID id ) noexcept;
+    float ( *NavAgent_GetRemainingDistance )( EntityID id ) noexcept;
+    void ( *NavAgent_GetVelocity )( EntityID id, Vector3* outVelocity ) noexcept;
+    void ( *NavAgent_GetDesiredVelocity )( EntityID id, Vector3* outVelocity ) noexcept;
+    float ( *NavAgent_GetSpeed )( EntityID id ) noexcept;
+    void ( *NavAgent_SetSpeed )( EntityID id, float speed ) noexcept;
+    int ( *Navigation_FindPath )( const Vector3* start, const Vector3* end, Vector3* outCorners, int maxCorners ) noexcept;
+    bool ( *Navigation_SamplePosition )( const Vector3* point, float maxDistance, Vector3* outPosition ) noexcept;
+    bool ( *Navigation_Raycast )( const Vector3* start, const Vector3* end, Vector3* outHit ) noexcept;
+    bool ( *Navigation_GetRandomPoint )( Vector3* outPoint ) noexcept;
 
     // Character controller (Engine/Docs/Physics.md)
-    void ( *Character_SetMoveInput )( EntityID id, const Vector3* direction );
-    void ( *Character_Move )( EntityID id, const Vector3* displacement );
-    void ( *Character_Jump )( EntityID id );
-    bool ( *Character_IsGrounded )( EntityID id );
-    void ( *Character_GetVelocity )( EntityID id, Vector3* outVelocity );
-    float ( *Character_GetMaxSpeed )( EntityID id );
-    void ( *Character_SetMaxSpeed )( EntityID id, float speed );
+    void ( *Character_SetMoveInput )( EntityID id, const Vector3* direction ) noexcept;
+    void ( *Character_Move )( EntityID id, const Vector3* displacement ) noexcept;
+    void ( *Character_Jump )( EntityID id ) noexcept;
+    bool ( *Character_IsGrounded )( EntityID id ) noexcept;
+    void ( *Character_GetVelocity )( EntityID id, Vector3* outVelocity ) noexcept;
+    float ( *Character_GetMaxSpeed )( EntityID id ) noexcept;
+    void ( *Character_SetMaxSpeed )( EntityID id, float speed ) noexcept;
 
     // Components by name: any reflected field (or serialized key) as JSON, e.g. ("Light", "Intensity")
-    int ( *Component_GetField )( EntityID id, const uint8_t* component, const uint8_t* path, uint8_t* outJson, int size );
-    bool ( *Component_SetField )( EntityID id, const uint8_t* component, const uint8_t* path, const uint8_t* json );
+    int ( *Component_GetField )( EntityID id, const uint8_t* component, const uint8_t* path, uint8_t* outJson, int size ) noexcept;
+    bool ( *Component_SetField )( EntityID id, const uint8_t* component, const uint8_t* path, const uint8_t* json ) noexcept;
 
     // Local multiplayer input: player 0 is the default player (Engine/Docs/Input.md)
-    int ( *Input_GetPlayerCount )();
-    float ( *Input_GetPlayerActionValue )( int player, const uint8_t* action );
-    void ( *Input_GetPlayerActionVector2 )( int player, const uint8_t* action, Vector2* outValue );
-    bool ( *Input_IsPlayerActionPressed )( int player, const uint8_t* action );
-    bool ( *Input_WasPlayerActionPressed )( int player, const uint8_t* action );
-    bool ( *Input_WasPlayerActionReleased )( int player, const uint8_t* action );
-    int ( *Input_GetPlayerGamepad )( int player );
-    void ( *Input_SetJoining )( int maxPlayers );
+    int ( *Input_GetPlayerCount )() noexcept;
+    float ( *Input_GetPlayerActionValue )( int player, const uint8_t* action ) noexcept;
+    void ( *Input_GetPlayerActionVector2 )( int player, const uint8_t* action, Vector2* outValue ) noexcept;
+    bool ( *Input_IsPlayerActionPressed )( int player, const uint8_t* action ) noexcept;
+    bool ( *Input_WasPlayerActionPressed )( int player, const uint8_t* action ) noexcept;
+    bool ( *Input_WasPlayerActionReleased )( int player, const uint8_t* action ) noexcept;
+    int ( *Input_GetPlayerGamepad )( int player ) noexcept;
+    void ( *Input_SetJoining )( int maxPlayers ) noexcept;
 
     // Additive scenes (streaming) on top of the main scene (Engine/Docs/Serialization-and-Scenes.md)
-    int ( *World_LoadSceneAdditive )( const uint8_t* scene, bool async );
-    bool ( *World_UnloadScene )( int scene );
-    int ( *World_GetSceneState )( int scene );
+    int ( *World_LoadSceneAdditive )( const uint8_t* scene, bool async ) noexcept;
+    bool ( *World_UnloadScene )( int scene ) noexcept;
+    int ( *World_GetSceneState )( int scene ) noexcept;
 
     // Incremental local rotation (quaternion composition, avoiding Euler readback)
-    void ( *Transform_Rotate )( EntityID id, const Vector3* degrees );
+    void ( *Transform_Rotate )( EntityID id, const Vector3* degrees ) noexcept;
 
     // Mouse capture: relative mode, hidden cursor (Engine/Docs/Input.md)
-    void ( *Input_SetMouseCapture )( bool capture );
-    bool ( *Input_IsMouseCaptured )();
+    void ( *Input_SetMouseCapture )( bool capture ) noexcept;
+    bool ( *Input_IsMouseCaptured )() noexcept;
 
     // Overlap query: entities whose colliders touch a sphere (deduplicated); returns the total found
-    int ( *Physics_OverlapSphere )( const Vector3* center, float radius, EntityID* outEntities, int maxEntities );
+    int ( *Physics_OverlapSphere )( const Vector3* center, float radius, EntityID* outEntities, int maxEntities ) noexcept;
 
     // Portals and screen-space camera views (Engine/Docs/Rendering-Pipeline.md)
-    void ( *Camera_SetClipPlane )( EntityID id, const Vector3* point, const Vector3* normal );
-    void ( *Camera_ClearClipPlane )( EntityID id );
-    bool ( *Mesh_ShowCameraView )( EntityID id, EntityID camera );
-    void ( *Transform_LookDirection )( EntityID id, const Vector3* forward, const Vector3* up );
-    void ( *Character_SetVelocity )( EntityID id, const Vector3* velocity );
-    void ( *Character_Teleport )( EntityID id, const Vector3* position, const Vector3* forward );
-    void ( *Rigidbody_Teleport )( EntityID id, const Vector3* position, const Vector3* forward, const Vector3* up );
+    void ( *Camera_SetClipPlane )( EntityID id, const Vector3* point, const Vector3* normal ) noexcept;
+    void ( *Camera_ClearClipPlane )( EntityID id ) noexcept;
+    bool ( *Mesh_ShowCameraView )( EntityID id, EntityID camera ) noexcept;
+    void ( *Transform_LookDirection )( EntityID id, const Vector3* forward, const Vector3* up ) noexcept;
+    void ( *Character_SetVelocity )( EntityID id, const Vector3* velocity ) noexcept;
+    void ( *Character_Teleport )( EntityID id, const Vector3* position, const Vector3* forward ) noexcept;
+    void ( *Rigidbody_Teleport )( EntityID id, const Vector3* position, const Vector3* forward, const Vector3* up ) noexcept;
 
     // Authored object/property sequences (time in seconds)
-    void ( *Sequence_Play )( EntityID id, bool restart );
-    void ( *Sequence_Pause )( EntityID id );
-    void ( *Sequence_Stop )( EntityID id );
-    void ( *Sequence_Seek )( EntityID id, float seconds );
-    bool ( *Sequence_IsPlaying )( EntityID id );
-    float ( *Sequence_GetTime )( EntityID id );
-    float ( *Sequence_GetDuration )( EntityID id );
+    void ( *Sequence_Play )( EntityID id, bool restart ) noexcept;
+    void ( *Sequence_Pause )( EntityID id ) noexcept;
+    void ( *Sequence_Stop )( EntityID id ) noexcept;
+    void ( *Sequence_Seek )( EntityID id, float seconds ) noexcept;
+    bool ( *Sequence_IsPlaying )( EntityID id ) noexcept;
+    float ( *Sequence_GetTime )( EntityID id ) noexcept;
+    float ( *Sequence_GetDuration )( EntityID id ) noexcept;
 
     // Named sequence clips and reusable asset playback
-    bool ( *Sequence_PlayClip )( EntityID id, const uint8_t* name, bool restart );
-    bool ( *Sequence_PlayAsset )( EntityID id, const uint8_t* path, bool restart );
-    bool ( *Sequence_HasClip )( EntityID id, const uint8_t* name );
-    void ( *Sequence_Bind )( EntityID id, const uint8_t* slot, EntityID target );
+    bool ( *Sequence_PlayClip )( EntityID id, const uint8_t* name, bool restart ) noexcept;
+    bool ( *Sequence_PlayAsset )( EntityID id, const uint8_t* path, bool restart ) noexcept;
+    bool ( *Sequence_HasClip )( EntityID id, const uint8_t* name ) noexcept;
+    void ( *Sequence_Bind )( EntityID id, const uint8_t* slot, EntityID target ) noexcept;
 
     // Script inspector rows (Havana property rows in editor builds; no-ops elsewhere)
-    bool ( *ImGui_String )( const uint8_t* label, uint8_t* inOutUtf8, int size );
-    bool ( *ImGui_Multiline )( const uint8_t* label, uint8_t* inOutUtf8, int size, int lines );
-    bool ( *ImGui_Vec2 )( const uint8_t* label, Vector2* inOutValue );
-    bool ( *ImGui_Vec4 )( const uint8_t* label, float* inOutXyzw );
-    bool ( *ImGui_Color )( const uint8_t* label, float* inOutRgba );
-    bool ( *ImGui_Enum )( const uint8_t* label, int* inOutIndex, const uint8_t* names );
-    bool ( *ImGui_Double )( const uint8_t* label, double* inOutValue );
-    bool ( *ImGui_SliderFloat )( const uint8_t* label, float* inOutValue, float min, float max );
-    bool ( *ImGui_SliderInt )( const uint8_t* label, int* inOutValue, int min, int max );
-    void ( *ImGui_Header )( const uint8_t* text );
-    void ( *ImGui_Space )( float height );
-    void ( *ImGui_Tooltip )( const uint8_t* text );
-    void ( *ImGui_BeginDisabled )();
-    void ( *ImGui_EndDisabled )();
-    bool ( *ImGui_TreeNode )( const uint8_t* label );
-    void ( *ImGui_TreePop )();
-    bool ( *ImGui_SmallButton )( const uint8_t* label );
-    void ( *ImGui_SameLine )();
-    bool ( *ImGui_EntityRef )( const uint8_t* label, uint8_t* inOutGuid, int size );
-    bool ( *ImGui_AssetRef )( const uint8_t* label, uint8_t* inOutPath, int size, const uint8_t* extensions );
+    bool ( *ImGui_String )( const uint8_t* label, uint8_t* inOutUtf8, int size ) noexcept;
+    bool ( *ImGui_Multiline )( const uint8_t* label, uint8_t* inOutUtf8, int size, int lines ) noexcept;
+    bool ( *ImGui_Vec2 )( const uint8_t* label, Vector2* inOutValue ) noexcept;
+    bool ( *ImGui_Vec4 )( const uint8_t* label, float* inOutXyzw ) noexcept;
+    bool ( *ImGui_Color )( const uint8_t* label, float* inOutRgba ) noexcept;
+    bool ( *ImGui_Enum )( const uint8_t* label, int* inOutIndex, const uint8_t* names ) noexcept;
+    bool ( *ImGui_Double )( const uint8_t* label, double* inOutValue ) noexcept;
+    bool ( *ImGui_SliderFloat )( const uint8_t* label, float* inOutValue, float min, float max ) noexcept;
+    bool ( *ImGui_SliderInt )( const uint8_t* label, int* inOutValue, int min, int max ) noexcept;
+    void ( *ImGui_Header )( const uint8_t* text ) noexcept;
+    void ( *ImGui_Space )( float height ) noexcept;
+    void ( *ImGui_Tooltip )( const uint8_t* text ) noexcept;
+    void ( *ImGui_BeginDisabled )() noexcept;
+    void ( *ImGui_EndDisabled )() noexcept;
+    bool ( *ImGui_TreeNode )( const uint8_t* label ) noexcept;
+    void ( *ImGui_TreePop )() noexcept;
+    bool ( *ImGui_SmallButton )( const uint8_t* label ) noexcept;
+    void ( *ImGui_SameLine )() noexcept;
+    bool ( *ImGui_EntityRef )( const uint8_t* label, uint8_t* inOutGuid, int size ) noexcept;
+    bool ( *ImGui_AssetRef )( const uint8_t* label, uint8_t* inOutPath, int size, const uint8_t* extensions ) noexcept;
 
     // Entity lookup by scene GUID (the 16-hex string scenes and EntityRef fields store)
-    bool ( *World_FindByGuid )( const uint8_t* guid, EntityID* outId );
+    bool ( *World_FindByGuid )( const uint8_t* guid, EntityID* outId ) noexcept;
 
     // RmlUi data models (UI-3): script-owned view models for data-model documents. Values live
 
     // engine-side, so they survive C# hot reloads; documents referencing a model reload when it
 
     // first materializes. Events queue per model; scripts drain them each update.
-    bool ( *UIModel_Ensure )( const uint8_t* model );
-    void ( *UIModel_SetNumber )( const uint8_t* model, const uint8_t* key, double value );
-    void ( *UIModel_SetString )( const uint8_t* model, const uint8_t* key, const uint8_t* value );
-    void ( *UIModel_RegisterEvent )( const uint8_t* model, const uint8_t* key );
-    double ( *UIModel_GetNumber )( const uint8_t* model, const uint8_t* key );
-    int ( *UIModel_GetString )( const uint8_t* model, const uint8_t* key, uint8_t* outValue, int size );
-    int ( *UIModel_PollEvent )( const uint8_t* model, uint8_t* outName, int size );
+    bool ( *UIModel_Ensure )( const uint8_t* model ) noexcept;
+    void ( *UIModel_SetNumber )( const uint8_t* model, const uint8_t* key, double value ) noexcept;
+    void ( *UIModel_SetString )( const uint8_t* model, const uint8_t* key, const uint8_t* value ) noexcept;
+    void ( *UIModel_RegisterEvent )( const uint8_t* model, const uint8_t* key ) noexcept;
+    double ( *UIModel_GetNumber )( const uint8_t* model, const uint8_t* key ) noexcept;
+    int ( *UIModel_GetString )( const uint8_t* model, const uint8_t* key, uint8_t* outValue, int size ) noexcept;
+    int ( *UIModel_PollEvent )( const uint8_t* model, uint8_t* outName, int size ) noexcept;
 
     // Player settings (PLAY-2): dotted keys over user://Settings.json ("Audio.Music", "Graphics.Quality",
 
     // "Game.<yours>"), values as JSON text. Rebinds land in the game input and save with the settings.
-    int ( *Settings_Get )( const uint8_t* key, uint8_t* outJson, int size );
-    bool ( *Settings_Set )( const uint8_t* key, const uint8_t* json );
-    bool ( *Settings_Save )();
-    void ( *Settings_Reset )();
-    bool ( *Settings_Rebind )( const uint8_t* action, int binding, const uint8_t* part, const uint8_t* control );
-    void ( *Settings_ResetBindings )();
-    int ( *Settings_GetBindingDisplay )( const uint8_t* action, int binding, uint8_t* outText, int size );
-    int ( *Settings_GetQualityPresets )( uint8_t* outNames, int size );
+    int ( *Settings_Get )( const uint8_t* key, uint8_t* outJson, int size ) noexcept;
+    bool ( *Settings_Set )( const uint8_t* key, const uint8_t* json ) noexcept;
+    bool ( *Settings_Save )() noexcept;
+    void ( *Settings_Reset )() noexcept;
+    bool ( *Settings_Rebind )( const uint8_t* action, int binding, const uint8_t* part, const uint8_t* control ) noexcept;
+    void ( *Settings_ResetBindings )() noexcept;
+    int ( *Settings_GetBindingDisplay )( const uint8_t* action, int binding, uint8_t* outText, int size ) noexcept;
+    int ( *Settings_GetQualityPresets )( uint8_t* outNames, int size ) noexcept;
 
     // UIDocument visibility by entity name (PLAY-3: menus such as the stock options menu).
 
     // mode: 0 hide, 1 show, 2 toggle; false when no UIDocument entity has that name.
-    bool ( *UI_SetDocumentVisible )( const uint8_t* entityName, int mode );
-    bool ( *UI_IsDocumentVisible )( const uint8_t* entityName );
+    bool ( *UI_SetDocumentVisible )( const uint8_t* entityName, int mode ) noexcept;
+    bool ( *UI_IsDocumentVisible )( const uint8_t* entityName ) noexcept;
 
     // Save games (PLAY-4): slots under user://Saves; a load is queued for the end of the frame.
-    bool ( *SaveGame_Save )( const uint8_t* slot, const uint8_t* name );
-    bool ( *SaveGame_Load )( const uint8_t* slot );
-    bool ( *SaveGame_Delete )( const uint8_t* slot );
-    int ( *SaveGame_List )( uint8_t* outJson, int size );
-    bool ( *SaveGame_IsWriting )();
-    float ( *SaveGame_GetPlaytime )();
+    bool ( *SaveGame_Save )( const uint8_t* slot, const uint8_t* name ) noexcept;
+    bool ( *SaveGame_Load )( const uint8_t* slot ) noexcept;
+    bool ( *SaveGame_Delete )( const uint8_t* slot ) noexcept;
+    int ( *SaveGame_List )( uint8_t* outJson, int size ) noexcept;
+    bool ( *SaveGame_IsWriting )() noexcept;
+    float ( *SaveGame_GetPlaytime )() noexcept;
 
     // Loading screens (PLAY-5): a main-scene load in the background under a loading document
 
     // ("" = the project's LoadingDocument, "none" = no screen); progress is 0..1, 1 while idle.
-    bool ( *World_LoadSceneAsync )( const uint8_t* scene, const uint8_t* loadingDocument );
-    float ( *World_GetLoadProgress )();
-    bool ( *World_IsLoadingScene )();
+    bool ( *World_LoadSceneAsync )( const uint8_t* scene, const uint8_t* loadingDocument ) noexcept;
+    float ( *World_GetLoadProgress )() noexcept;
+    bool ( *World_IsLoadingScene )() noexcept;
 
     // Localization (PLAY-6): string tables by key (Engine/Docs/Localization.md); a missing key returns itself.
-    int ( *Loc_Get )( const uint8_t* key, uint8_t* outText, int size );
-    int ( *Loc_GetLanguage )( uint8_t* outCode, int size );
-    int ( *Loc_GetLanguages )( uint8_t* outCodes, int size );
+    int ( *Loc_Get )( const uint8_t* key, uint8_t* outText, int size ) noexcept;
+    int ( *Loc_GetLanguage )( uint8_t* outCode, int size ) noexcept;
+    int ( *Loc_GetLanguages )( uint8_t* outCodes, int size ) noexcept;
 
     // Project files through the VFS (CS-7 data assets): text, or -1 when the file isn't there; writes
 
     // go to the project (false in a shipped, read-only build).
-    int ( *Asset_ReadText )( const uint8_t* path, uint8_t* outText, int size );
-    bool ( *Asset_WriteText )( const uint8_t* path, const uint8_t* text );
+    int ( *Asset_ReadText )( const uint8_t* path, uint8_t* outText, int size ) noexcept;
+    bool ( *Asset_WriteText )( const uint8_t* path, const uint8_t* text ) noexcept;
 
     // Entity queries (CS-5 h): ids fill outEntities up to max; each returns the total found
-    int ( *World_FindAllWithComponent )( const uint8_t* component, EntityID* outEntities, int maxEntities );
-    int ( *World_FindAllByName )( const uint8_t* name, EntityID* outEntities, int maxEntities );
-    int ( *Transform_GetChildren )( EntityID id, EntityID* outEntities, int maxEntities );
-    int ( *Entity_GetGuid )( EntityID id, uint8_t* outGuid, int size );
-    int ( *Entity_GetLayer )( EntityID id );
-    void ( *Entity_SetLayer )( EntityID id, int layer );
+    int ( *World_FindAllWithComponent )( const uint8_t* component, EntityID* outEntities, int maxEntities ) noexcept;
+    int ( *World_FindAllByName )( const uint8_t* name, EntityID* outEntities, int maxEntities ) noexcept;
+    int ( *Transform_GetChildren )( EntityID id, EntityID* outEntities, int maxEntities ) noexcept;
+    int ( *Entity_GetGuid )( EntityID id, uint8_t* outGuid, int size ) noexcept;
+    int ( *Entity_GetLayer )( EntityID id ) noexcept;
+    void ( *Entity_SetLayer )( EntityID id, int layer ) noexcept;
 
     // Application (CS-5 j): rumble a local player's pad, leave the game, the window
-    bool ( *Input_Rumble )( int player, float low, float high, float seconds );
-    void ( *App_Quit )();
-    void ( *Window_GetSize )( Vector2* outSize );
-    int ( *Window_GetMode )();
-    void ( *Window_SetMode )( int mode );
+    bool ( *Input_Rumble )( int player, float low, float high, float seconds ) noexcept;
+    void ( *App_Quit )() noexcept;
+    void ( *Window_GetSize )( Vector2* outSize ) noexcept;
+    int ( *Window_GetMode )() noexcept;
+    void ( *Window_SetMode )( int mode ) noexcept;
 
     // Audio sources and particles (CS-5 b, c): on the entity's AudioSource / ParticleSystem
-    void ( *AudioSource_Play )( EntityID id );
-    void ( *AudioSource_Stop )( EntityID id );
-    void ( *AudioSource_Pause )( EntityID id );
-    bool ( *AudioSource_IsPlaying )( EntityID id );
-    void ( *Particles_Play )( EntityID id );
-    void ( *Particles_Stop )( EntityID id );
-    void ( *Particles_Burst )( EntityID id, int count );
-    int ( *Particles_GetCount )( EntityID id );
+    void ( *AudioSource_Play )( EntityID id ) noexcept;
+    void ( *AudioSource_Stop )( EntityID id ) noexcept;
+    void ( *AudioSource_Pause )( EntityID id ) noexcept;
+    bool ( *AudioSource_IsPlaying )( EntityID id ) noexcept;
+    void ( *Particles_Play )( EntityID id ) noexcept;
+    void ( *Particles_Stop )( EntityID id ) noexcept;
+    void ( *Particles_Burst )( EntityID id, int count ) noexcept;
+    int ( *Particles_GetCount )( EntityID id ) noexcept;
 
     // Physics queries with layer masks (CS-5 f): mask bit n = layer n (-1 = every layer)
-    bool ( *Physics_RaycastMasked )( const Vector3* origin, const Vector3* direction, float maxDistance, int layerMask, ScriptRaycastHit* outHit );
-    int ( *Physics_RaycastAll )( const Vector3* origin, const Vector3* direction, float maxDistance, int layerMask, ScriptRaycastHit* outHits, int maxHits );
-    bool ( *Physics_SphereCast )( const Vector3* origin, float radius, const Vector3* direction, float maxDistance, int layerMask, ScriptRaycastHit* outHit );
-    int ( *Physics_OverlapBox )( const Vector3* center, const Vector3* halfExtents, const Vector3* eulerDegrees, int layerMask, EntityID* outEntities, int maxEntities );
+    bool ( *Physics_RaycastMasked )( const Vector3* origin, const Vector3* direction, float maxDistance, int layerMask, ScriptRaycastHit* outHit ) noexcept;
+    int ( *Physics_RaycastAll )( const Vector3* origin, const Vector3* direction, float maxDistance, int layerMask, ScriptRaycastHit* outHits, int maxHits ) noexcept;
+    bool ( *Physics_SphereCast )( const Vector3* origin, float radius, const Vector3* direction, float maxDistance, int layerMask, ScriptRaycastHit* outHit ) noexcept;
+    int ( *Physics_OverlapBox )( const Vector3* center, const Vector3* halfExtents, const Vector3* eulerDegrees, int layerMask, EntityID* outEntities, int maxEntities ) noexcept;
 
     // Animator (CS-5 a): parameters, playback and state on the entity's Animator (markers arrive as
 
     // EventBus AnimationMarker events)
-    void ( *Animator_Play )( EntityID id, const uint8_t* state, float fadeSeconds );
-    void ( *Animator_Stop )( EntityID id );
-    bool ( *Animator_IsPlaying )( EntityID id );
-    void ( *Animator_SetFloat )( EntityID id, const uint8_t* name, float value );
-    float ( *Animator_GetFloat )( EntityID id, const uint8_t* name );
-    void ( *Animator_SetBool )( EntityID id, const uint8_t* name, bool value );
-    bool ( *Animator_GetBool )( EntityID id, const uint8_t* name );
-    void ( *Animator_SetTrigger )( EntityID id, const uint8_t* name );
-    int ( *Animator_GetState )( EntityID id, const uint8_t* layer, uint8_t* outState, int size );
-    float ( *Animator_GetNormalizedTime )( EntityID id, const uint8_t* layer );
-    void ( *Animator_SetLayerWeight )( EntityID id, const uint8_t* layer, float weight );
+    void ( *Animator_Play )( EntityID id, const uint8_t* state, float fadeSeconds ) noexcept;
+    void ( *Animator_Stop )( EntityID id ) noexcept;
+    bool ( *Animator_IsPlaying )( EntityID id ) noexcept;
+    void ( *Animator_SetFloat )( EntityID id, const uint8_t* name, float value ) noexcept;
+    float ( *Animator_GetFloat )( EntityID id, const uint8_t* name ) noexcept;
+    void ( *Animator_SetBool )( EntityID id, const uint8_t* name, bool value ) noexcept;
+    bool ( *Animator_GetBool )( EntityID id, const uint8_t* name ) noexcept;
+    void ( *Animator_SetTrigger )( EntityID id, const uint8_t* name ) noexcept;
+    int ( *Animator_GetState )( EntityID id, const uint8_t* layer, uint8_t* outState, int size ) noexcept;
+    float ( *Animator_GetNormalizedTime )( EntityID id, const uint8_t* layer ) noexcept;
+    void ( *Animator_SetLayerWeight )( EntityID id, const uint8_t* layer, float weight ) noexcept;
 
     // 2D physics (CS-5 g): queries in the XY plane and Rigidbody2D motion; contacts reach
 
     // OnCollisionEnter / Exit like 3D ones
-    bool ( *Physics2D_Raycast )( Vector2* origin, Vector2* direction, float maxDistance, int layerMask, ScriptRaycastHit* outHit );
-    int ( *Physics2D_OverlapCircle )( Vector2* center, float radius, int layerMask, EntityID* outEntities, int maxEntities );
-    int ( *Physics2D_OverlapPoint )( Vector2* point, int layerMask, EntityID* outEntities, int maxEntities );
-    void ( *Rigidbody2D_AddForce )( EntityID id, Vector2* force, int mode );
-    void ( *Rigidbody2D_GetVelocity )( EntityID id, Vector2* outVelocity );
-    void ( *Rigidbody2D_SetVelocity )( EntityID id, Vector2* velocity );
-    void ( *Character2D_SetMoveInput )( EntityID id, float horizontal );
-    void ( *Character2D_Jump )( EntityID id );
-    bool ( *Character2D_IsGrounded )( EntityID id );
-    void ( *Character2D_GetVelocity )( EntityID id, Vector2* outVelocity );
-    float ( *Character2D_GetMaxSpeed )( EntityID id );
-    void ( *Character2D_SetMaxSpeed )( EntityID id, float speed );
-    void ( *Character2D_Teleport )( EntityID id, Vector2* position );
+    bool ( *Physics2D_Raycast )( Vector2* origin, Vector2* direction, float maxDistance, int layerMask, ScriptRaycastHit* outHit ) noexcept;
+    int ( *Physics2D_OverlapCircle )( Vector2* center, float radius, int layerMask, EntityID* outEntities, int maxEntities ) noexcept;
+    int ( *Physics2D_OverlapPoint )( Vector2* point, int layerMask, EntityID* outEntities, int maxEntities ) noexcept;
+    void ( *Rigidbody2D_AddForce )( EntityID id, Vector2* force, int mode ) noexcept;
+    void ( *Rigidbody2D_GetVelocity )( EntityID id, Vector2* outVelocity ) noexcept;
+    void ( *Rigidbody2D_SetVelocity )( EntityID id, Vector2* velocity ) noexcept;
+    void ( *Character2D_SetMoveInput )( EntityID id, float horizontal ) noexcept;
+    void ( *Character2D_Jump )( EntityID id ) noexcept;
+    bool ( *Character2D_IsGrounded )( EntityID id ) noexcept;
+    void ( *Character2D_GetVelocity )( EntityID id, Vector2* outVelocity ) noexcept;
+    float ( *Character2D_GetMaxSpeed )( EntityID id ) noexcept;
+    void ( *Character2D_SetMaxSpeed )( EntityID id, float speed ) noexcept;
+    void ( *Character2D_Teleport )( EntityID id, Vector2* position ) noexcept;
 
     // Cameras and the mouse in pixels (CS-5 e): screen points are pixels from the top left of the
 
     // camera's output; WorldToScreen's z is the distance in front of the camera (negative: behind)
-    void ( *Camera_ScreenToRay )( EntityID camera, Vector2* screen, Vector3* outOrigin, Vector3* outDirection );
-    void ( *Camera_WorldToScreen )( EntityID camera, const Vector3* world, Vector3* outScreen );
-    void ( *Camera_GetOutputSize )( EntityID camera, Vector2* outSize );
-    void ( *Input_GetMousePosition )( Vector2* outPosition );
+    void ( *Camera_ScreenToRay )( EntityID camera, Vector2* screen, Vector3* outOrigin, Vector3* outDirection ) noexcept;
+    void ( *Camera_WorldToScreen )( EntityID camera, const Vector3* world, Vector3* outScreen ) noexcept;
+    void ( *Camera_GetOutputSize )( EntityID camera, Vector2* outSize ) noexcept;
+    void ( *Input_GetMousePosition )( Vector2* outPosition ) noexcept;
 
     // Sprites (LOOK-S2 / ME-276): the entity's SpriteRenderer; colours are sRGB tint + opacity
-    void ( *Sprite_SetSprite )( EntityID id, const uint8_t* sheet, const uint8_t* sprite );
-    int ( *Sprite_GetSprite )( EntityID id, uint8_t* outSprite, int size );
-    void ( *Sprite_SetTexture )( EntityID id, const uint8_t* texture );
-    void ( *Sprite_SetFlip )( EntityID id, bool flipX, bool flipY );
-    int ( *Sprite_GetFlip )( EntityID id );
-    void ( *Sprite_SetColor )( EntityID id, Vector4* color );
-    void ( *Sprite_GetColor )( EntityID id, Vector4* outColor );
-    void ( *Sprite_SetSorting )( EntityID id, int layer, int order );
-    int ( *Sprite_GetSortingLayer )( EntityID id );
-    int ( *Sprite_GetOrderInLayer )( EntityID id );
+    void ( *Sprite_SetSprite )( EntityID id, const uint8_t* sheet, const uint8_t* sprite ) noexcept;
+    int ( *Sprite_GetSprite )( EntityID id, uint8_t* outSprite, int size ) noexcept;
+    void ( *Sprite_SetTexture )( EntityID id, const uint8_t* texture ) noexcept;
+    void ( *Sprite_SetFlip )( EntityID id, bool flipX, bool flipY ) noexcept;
+    int ( *Sprite_GetFlip )( EntityID id ) noexcept;
+    void ( *Sprite_SetColor )( EntityID id, Vector4* color ) noexcept;
+    void ( *Sprite_GetColor )( EntityID id, Vector4* outColor ) noexcept;
+    void ( *Sprite_SetSorting )( EntityID id, int layer, int order ) noexcept;
+    int ( *Sprite_GetSortingLayer )( EntityID id ) noexcept;
+    int ( *Sprite_GetOrderInLayer )( EntityID id ) noexcept;
 
     // Tilemaps (LOOK-S5): cells of the entity's Tilemap by palette index (-1 = empty); a change
 
     // rebuilds its TilemapCollider2D on the next physics step
-    void ( *Tilemap_SetTile )( EntityID id, int x, int y, int index );
-    int ( *Tilemap_GetTile )( EntityID id, int x, int y );
-    void ( *Tilemap_FillRect )( EntityID id, int x0, int y0, int x1, int y1, int index );
-    void ( *Tilemap_Clear )( EntityID id );
-    int ( *Tilemap_GetTileCount )( EntityID id );
-    void ( *Tilemap_WorldToCell )( EntityID id, const Vector3* world, int* outCell );
+    void ( *Tilemap_SetTile )( EntityID id, int x, int y, int index ) noexcept;
+    int ( *Tilemap_GetTile )( EntityID id, int x, int y ) noexcept;
+    void ( *Tilemap_FillRect )( EntityID id, int x0, int y0, int x1, int y1, int index ) noexcept;
+    void ( *Tilemap_Clear )( EntityID id ) noexcept;
+    int ( *Tilemap_GetTileCount )( EntityID id ) noexcept;
+    void ( *Tilemap_WorldToCell )( EntityID id, const Vector3* world, int* outCell ) noexcept;
 
     // World-space text (LOOK-S12): the entity's TextRenderer
-    void ( *Text_SetText )( EntityID id, const uint8_t* text );
-    int ( *Text_GetText )( EntityID id, uint8_t* outText, int size );
-    void ( *Text_SetColor )( EntityID id, Vector4* color );
+    void ( *Text_SetText )( EntityID id, const uint8_t* text ) noexcept;
+    int ( *Text_GetText )( EntityID id, uint8_t* outText, int size ) noexcept;
+    void ( *Text_SetColor )( EntityID id, Vector4* color ) noexcept;
 
     // Portal passages: narrow openings in a stationary host collider; raycasts still hit the host
-    bool ( *Physics_SetPortalPassage )( EntityID portal, EntityID host, const Vector3* center, const Vector3* right, const Vector3* up, float halfWidth, float halfHeight, float depth );
-    void ( *Physics_ClearPortalPassage )( EntityID portal );
+    bool ( *Physics_SetPortalPassage )( EntityID portal, EntityID host, const Vector3* center, const Vector3* right, const Vector3* up, float halfWidth, float halfHeight, float depth ) noexcept;
+    void ( *Physics_ClearPortalPassage )( EntityID portal ) noexcept;
 
     // Networking (NET-6): role 0 none / 1 server / 2 client; client ids 1-255 (0: the server, nobody)
-    int ( *Net_GetRole )();
-    int ( *Net_GetLocalClientId )();
-    int ( *Net_GetTick )();
-    bool ( *Net_IsResimulating )();
-    int ( *Net_GetClients )( int* outIds, int max );
-    int ( *Net_GetOwner )( EntityID id );
-    void ( *Net_SetOwner )( EntityID id, int clientId );
-    bool ( *Net_IsPredicted )( EntityID id );
-    bool ( *Net_GetCommand )( EntityID id, int* outButtons, int* outPreviousButtons, float* outAxes, int* outTick );
-    int ( *Net_GetActionIndex )( const uint8_t* action );
-    void ( *Net_SetActionOverride )( int index, bool held );
+    int ( *Net_GetRole )() noexcept;
+    int ( *Net_GetLocalClientId )() noexcept;
+    int ( *Net_GetTick )() noexcept;
+    bool ( *Net_IsResimulating )() noexcept;
+    int ( *Net_GetClients )( int* outIds, int max ) noexcept;
+    int ( *Net_GetOwner )( EntityID id ) noexcept;
+    void ( *Net_SetOwner )( EntityID id, int clientId ) noexcept;
+    bool ( *Net_IsPredicted )( EntityID id ) noexcept;
+    bool ( *Net_GetCommand )( EntityID id, int* outButtons, int* outPreviousButtons, float* outAxes, int* outTick ) noexcept;
+    int ( *Net_GetActionIndex )( const uint8_t* action ) noexcept;
+    void ( *Net_SetActionOverride )( int index, bool held ) noexcept;
 
     // RPC kind: 0 to the server, 1 to the entity's owner, 2 to every client
-    void ( *Net_SendRpc )( EntityID id, int rpcId, int kind, uint8_t* data, int size );
-    int ( *Net_GetNetId )( EntityID id );
-    void ( *Net_FindEntity )( int netId, EntityID* outId );
-    void ( *Net_GetPredictionStats )( int* outCorrections, int* outMatches, int* outInitialSyncs );
+    void ( *Net_SendRpc )( EntityID id, int rpcId, int kind, uint8_t* data, int size ) noexcept;
+    int ( *Net_GetNetId )( EntityID id ) noexcept;
+    void ( *Net_FindEntity )( int netId, EntityID* outId ) noexcept;
+    void ( *Net_GetPredictionStats )( int* outCorrections, int* outMatches, int* outInitialSyncs ) noexcept;
 };

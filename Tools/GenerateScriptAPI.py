@@ -147,7 +147,9 @@ def cpp(sections):
             out.append(f"    // {title}")
         for ret, name, params in functions:
             args = ", ".join(f"{TYPES[t][0]} {n}" for t, n in params)
-            out.append(f"    {TYPES[ret][0]} ( *{name} )( {args} );" if args else f"    {TYPES[ret][0]} ( *{name} )();")
+            # noexcept is part of the pointer type: every binding must be noexcept, so a C++ exception
+            # can't unwind into the managed frames that called it (ME-301; it terminates here instead).
+            out.append(f"    {TYPES[ret][0]} ( *{name} )( {args} ) noexcept;" if args else f"    {TYPES[ret][0]} ( *{name} )() noexcept;")
     out += ["};", ""]
     return "\n".join(out)
 

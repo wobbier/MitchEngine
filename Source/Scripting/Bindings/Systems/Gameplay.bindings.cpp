@@ -56,51 +56,51 @@ namespace
 
 // Logging
 
-static void Eng_LogWarning( const uint8_t* inMessage )
+static void Eng_LogWarning( const uint8_t* inMessage ) noexcept
 {
     CLog::Log( CLog::LogType::Warning, Text( inMessage ) );
 }
 
 
-static void Eng_LogError( const uint8_t* inMessage )
+static void Eng_LogError( const uint8_t* inMessage ) noexcept
 {
     CLog::Log( CLog::LogType::Error, Text( inMessage ) );
 }
 
 // Time
 
-static float Eng_Time_GetDeltaTime()
+static float Eng_Time_GetDeltaTime() noexcept
 {
     return GetEngine().DeltaTime;
 }
 
 
-static float Eng_Time_GetUnscaledDeltaTime()
+static float Eng_Time_GetUnscaledDeltaTime() noexcept
 {
     return GetEngine().UnscaledDeltaTime;
 }
 
 
-static float Eng_Time_GetFixedDeltaTime()
+static float Eng_Time_GetFixedDeltaTime() noexcept
 {
     return GetEngine().GetFixedTimeStep();
 }
 
 
-static float Eng_Time_GetTimeScale()
+static float Eng_Time_GetTimeScale() noexcept
 {
     return GetEngine().GetTimeScale();
 }
 
 
-static void Eng_Time_SetTimeScale( float inScale )
+static void Eng_Time_SetTimeScale( float inScale ) noexcept
 {
     GetEngine().SetTimeScale( inScale );
 }
 
 // Entity lifecycle
 
-static void Eng_Entity_Destroy( EntityID inId )
+static void Eng_Entity_Destroy( EntityID inId ) noexcept
 {
     if( EntityHandle handle = MakeHandle( inId ) )
     {
@@ -109,14 +109,14 @@ static void Eng_Entity_Destroy( EntityID inId )
 }
 
 
-static bool Eng_Entity_IsActive( EntityID inId )
+static bool Eng_Entity_IsActive( EntityID inId ) noexcept
 {
     EntityHandle handle = MakeHandle( inId );
     return handle && handle->IsActiveSelf();
 }
 
 
-static void Eng_Entity_SetActive( EntityID inId, bool inActive )
+static void Eng_Entity_SetActive( EntityID inId, bool inActive ) noexcept
 {
     if( EntityHandle handle = MakeHandle( inId ) )
     {
@@ -125,7 +125,7 @@ static void Eng_Entity_SetActive( EntityID inId, bool inActive )
 }
 
 
-static int Eng_Entity_GetName( EntityID inId, uint8_t* outName, int inSize )
+static int Eng_Entity_GetName( EntityID inId, uint8_t* outName, int inSize ) noexcept
 {
     EntityHandle handle = MakeHandle( inId );
     const std::string name = handle ? handle->GetName() : std::string();
@@ -139,7 +139,7 @@ static int Eng_Entity_GetName( EntityID inId, uint8_t* outName, int inSize )
 }
 
 
-static void Eng_Entity_SetName( EntityID inId, const uint8_t* inName )
+static void Eng_Entity_SetName( EntityID inId, const uint8_t* inName ) noexcept
 {
     if( EntityHandle handle = MakeHandle( inId ) )
     {
@@ -149,14 +149,14 @@ static void Eng_Entity_SetName( EntityID inId, const uint8_t* inName )
 
 // Transform hierarchy and world space
 
-static void Eng_Transform_GetWorldPosition( EntityID inId, Vector3* outPosition )
+static void Eng_Transform_GetWorldPosition( EntityID inId, Vector3* outPosition ) noexcept
 {
     Transform* transform = TransformOf( inId );
     *outPosition = transform ? transform->GetWorldPosition() : Vector3();
 }
 
 
-static void Eng_Transform_SetWorldPosition( EntityID inId, const Vector3* inPosition )
+static void Eng_Transform_SetWorldPosition( EntityID inId, const Vector3* inPosition ) noexcept
 {
     if( Transform* transform = TransformOf( inId ) )
     {
@@ -165,28 +165,28 @@ static void Eng_Transform_SetWorldPosition( EntityID inId, const Vector3* inPosi
 }
 
 
-static void Eng_Transform_GetForward( EntityID inId, Vector3* outForward )
+static void Eng_Transform_GetForward( EntityID inId, Vector3* outForward ) noexcept
 {
     Transform* transform = TransformOf( inId );
     *outForward = transform ? transform->Front() : Vector3::Front;
 }
 
 
-static void Eng_Transform_GetRight( EntityID inId, Vector3* outRight )
+static void Eng_Transform_GetRight( EntityID inId, Vector3* outRight ) noexcept
 {
     Transform* transform = TransformOf( inId );
     *outRight = transform ? transform->Right() : Vector3::Right;
 }
 
 
-static void Eng_Transform_GetUp( EntityID inId, Vector3* outUp )
+static void Eng_Transform_GetUp( EntityID inId, Vector3* outUp ) noexcept
 {
     Transform* transform = TransformOf( inId );
     *outUp = transform ? transform->Up() : Vector3::Up;
 }
 
 
-static void Eng_Transform_LookAt( EntityID inId, const Vector3* inTarget )
+static void Eng_Transform_LookAt( EntityID inId, const Vector3* inTarget ) noexcept
 {
     if( Transform* transform = TransformOf( inId ) )
     {
@@ -195,7 +195,7 @@ static void Eng_Transform_LookAt( EntityID inId, const Vector3* inTarget )
 }
 
 
-static void Eng_Transform_GetParent( EntityID inId, EntityID* outParent )
+static void Eng_Transform_GetParent( EntityID inId, EntityID* outParent ) noexcept
 {
     *outParent = EntityID{};
     Transform* transform = TransformOf( inId );
@@ -207,7 +207,7 @@ static void Eng_Transform_GetParent( EntityID inId, EntityID* outParent )
 }
 
 
-static void Eng_Transform_SetParent( EntityID inId, EntityID inParent )
+static void Eng_Transform_SetParent( EntityID inId, EntityID inParent ) noexcept
 {
     Transform* transform = TransformOf( inId );
     if( !transform )
@@ -221,7 +221,7 @@ static void Eng_Transform_SetParent( EntityID inId, EntityID inParent )
 
 // World and scenes
 
-static void Eng_World_Instantiate( const uint8_t* inPrefab, EntityID inParent, EntityID* outId )
+static void Eng_World_Instantiate( const uint8_t* inPrefab, EntityID inParent, EntityID* outId ) noexcept
 {
     *outId = EntityID{};
     auto world = ScriptBindings::GetWorld().lock();
@@ -237,7 +237,7 @@ static void Eng_World_Instantiate( const uint8_t* inPrefab, EntityID inParent, E
 }
 
 
-static void Eng_World_LoadScene( const uint8_t* inScene )
+static void Eng_World_LoadScene( const uint8_t* inScene ) noexcept
 {
     // Queued: the current frame finishes on the scene the script lives in.
     LoadSceneEvent event;
@@ -247,19 +247,19 @@ static void Eng_World_LoadScene( const uint8_t* inScene )
 
 // Additive scenes
 
-static int Eng_World_LoadSceneAdditive( const uint8_t* inScene, bool inAsync )
+static int Eng_World_LoadSceneAdditive( const uint8_t* inScene, bool inAsync ) noexcept
 {
     return GetEngine().LoadSceneAdditive( Text( inScene ), inAsync );
 }
 
 
-static bool Eng_World_UnloadScene( int inScene )
+static bool Eng_World_UnloadScene( int inScene ) noexcept
 {
     return inScene > 0 && inScene <= UINT16_MAX && GetEngine().UnloadAdditiveScene( static_cast<uint16_t>( inScene ) );
 }
 
 
-static int Eng_World_GetSceneState( int inScene )
+static int Eng_World_GetSceneState( int inScene ) noexcept
 {
     if( inScene <= 0 || inScene > UINT16_MAX )
     {
@@ -270,79 +270,79 @@ static int Eng_World_GetSceneState( int inScene )
 
 // Input actions
 
-static float Eng_Input_GetActionValue( const uint8_t* inAction )
+static float Eng_Input_GetActionValue( const uint8_t* inAction ) noexcept
 {
     return GetEngine().GetInput().GetAction( Text( inAction ) ).GetValue();
 }
 
 
-static void Eng_Input_GetActionVector2( const uint8_t* inAction, Vector2* outValue )
+static void Eng_Input_GetActionVector2( const uint8_t* inAction, Vector2* outValue ) noexcept
 {
     *outValue = GetEngine().GetInput().GetAction( Text( inAction ) ).GetVector2();
 }
 
 
-static bool Eng_Input_IsActionPressed( const uint8_t* inAction )
+static bool Eng_Input_IsActionPressed( const uint8_t* inAction ) noexcept
 {
     return GetEngine().GetInput().GetAction( Text( inAction ) ).IsPressed();
 }
 
 
-static bool Eng_Input_WasActionPressed( const uint8_t* inAction )
+static bool Eng_Input_WasActionPressed( const uint8_t* inAction ) noexcept
 {
     return GetEngine().GetInput().GetAction( Text( inAction ) ).WasPressed();
 }
 
 
-static bool Eng_Input_WasActionReleased( const uint8_t* inAction )
+static bool Eng_Input_WasActionReleased( const uint8_t* inAction ) noexcept
 {
     return GetEngine().GetInput().GetAction( Text( inAction ) ).WasReleased();
 }
 
 
-static int Eng_Input_GetPlayerCount()
+static int Eng_Input_GetPlayerCount() noexcept
 {
     return GetEngine().GetInput().GetPlayers().GetPlayerCount();
 }
 
 
-static float Eng_Input_GetPlayerActionValue( int inPlayer, const uint8_t* inAction )
+static float Eng_Input_GetPlayerActionValue( int inPlayer, const uint8_t* inAction ) noexcept
 {
     return GetEngine().GetInput().GetAction( inPlayer, Text( inAction ) ).GetValue();
 }
 
 
-static void Eng_Input_GetPlayerActionVector2( int inPlayer, const uint8_t* inAction, Vector2* outValue )
+static void Eng_Input_GetPlayerActionVector2( int inPlayer, const uint8_t* inAction, Vector2* outValue ) noexcept
 {
     *outValue = GetEngine().GetInput().GetAction( inPlayer, Text( inAction ) ).GetVector2();
 }
 
 
-static bool Eng_Input_IsPlayerActionPressed( int inPlayer, const uint8_t* inAction )
+static bool Eng_Input_IsPlayerActionPressed( int inPlayer, const uint8_t* inAction ) noexcept
 {
     return GetEngine().GetInput().GetAction( inPlayer, Text( inAction ) ).IsPressed();
 }
 
 
-static bool Eng_Input_WasPlayerActionPressed( int inPlayer, const uint8_t* inAction )
+static bool Eng_Input_WasPlayerActionPressed( int inPlayer, const uint8_t* inAction ) noexcept
 {
     return GetEngine().GetInput().GetAction( inPlayer, Text( inAction ) ).WasPressed();
 }
 
 
-static bool Eng_Input_WasPlayerActionReleased( int inPlayer, const uint8_t* inAction )
+static bool Eng_Input_WasPlayerActionReleased( int inPlayer, const uint8_t* inAction ) noexcept
 {
     return GetEngine().GetInput().GetAction( inPlayer, Text( inAction ) ).WasReleased();
 }
 
 
-static int Eng_Input_GetPlayerGamepad( int inPlayer )
+static int Eng_Input_GetPlayerGamepad( int inPlayer ) noexcept
 {
     return GetEngine().GetInput().GetPlayers().GetGamepad( inPlayer );
 }
 
 
-static void Eng_Input_SetJoining( int inMaxPlayers )
+static void Eng_Input_SetJoining( int inMaxPlayers ) noexcept
 {
     InputPlayers& players = GetEngine().GetInput().GetPlayers();
     if( inMaxPlayers > 0 )
@@ -356,32 +356,32 @@ static void Eng_Input_SetJoining( int inMaxPlayers )
 }
 
 
-static bool Eng_Input_WasKeyPressed( int inKey )
+static bool Eng_Input_WasKeyPressed( int inKey ) noexcept
 {
     return GetEngine().GetInput().WasKeyPressed( static_cast<KeyCode>( inKey ) );
 }
 
 
-static void Eng_Input_GetMouseDelta( Vector2* outDelta )
+static void Eng_Input_GetMouseDelta( Vector2* outDelta ) noexcept
 {
     *outDelta = GetEngine().GetInput().GetDeviceState().MouseDelta;
 }
 
 
-static void Eng_Input_SetMouseCapture( bool inCapture )
+static void Eng_Input_SetMouseCapture( bool inCapture ) noexcept
 {
     GetEngine().GetInput().SetMouseCapture( inCapture );
 }
 
 
-static bool Eng_Input_IsMouseCaptured()
+static bool Eng_Input_IsMouseCaptured() noexcept
 {
     return GetEngine().GetInput().IsMouseCaptured();
 }
 
 // Audio
 
-static void Eng_Audio_PlayOneShot( const uint8_t* inClip, float inVolume )
+static void Eng_Audio_PlayOneShot( const uint8_t* inClip, float inVolume ) noexcept
 {
     if( AudioCore* audio = AudioCore::Get() )
     {
@@ -392,7 +392,7 @@ static void Eng_Audio_PlayOneShot( const uint8_t* inClip, float inVolume )
 }
 
 
-static void Eng_Audio_PlayOneShotAt( const uint8_t* inClip, const Vector3* inPosition, float inVolume )
+static void Eng_Audio_PlayOneShotAt( const uint8_t* inClip, const Vector3* inPosition, float inVolume ) noexcept
 {
     if( AudioCore* audio = AudioCore::Get() )
     {
@@ -407,7 +407,7 @@ static void Eng_Audio_PlayOneShotAt( const uint8_t* inClip, const Vector3* inPos
 // Physics
 
 static bool Eng_Physics_SetPortalPassage( EntityID inPortal, EntityID inHost, const Vector3* inCenter,
-    const Vector3* inRight, const Vector3* inUp, float inHalfWidth, float inHalfHeight, float inDepth )
+    const Vector3* inRight, const Vector3* inUp, float inHalfWidth, float inHalfHeight, float inDepth ) noexcept
 {
     PhysicsCore* physics = ScriptBindings::Physics();
     return physics && physics->SetPortalPassage( MakeHandle( inPortal ), MakeHandle( inHost ), *inCenter,
@@ -415,13 +415,13 @@ static bool Eng_Physics_SetPortalPassage( EntityID inPortal, EntityID inHost, co
 }
 
 
-static void Eng_Physics_ClearPortalPassage( EntityID inPortal )
+static void Eng_Physics_ClearPortalPassage( EntityID inPortal ) noexcept
 {
     if( PhysicsCore* physics = ScriptBindings::Physics() ) physics->ClearPortalPassage( MakeHandle( inPortal ) );
 }
 
 
-static bool Eng_Physics_Raycast( const Vector3* inOrigin, const Vector3* inDirection, float inMaxDistance, ScriptRaycastHit* outHit )
+static bool Eng_Physics_Raycast( const Vector3* inOrigin, const Vector3* inDirection, float inMaxDistance, ScriptRaycastHit* outHit ) noexcept
 {
     *outHit = ScriptRaycastHit();
     PhysicsCore* physics = ScriptBindings::Physics();
@@ -438,7 +438,7 @@ static bool Eng_Physics_Raycast( const Vector3* inOrigin, const Vector3* inDirec
 }
 
 
-static int Eng_Physics_OverlapSphere( const Vector3* inCenter, float inRadius, EntityID* outEntities, int inMaxEntities )
+static int Eng_Physics_OverlapSphere( const Vector3* inCenter, float inRadius, EntityID* outEntities, int inMaxEntities ) noexcept
 {
     PhysicsCore* physics = ScriptBindings::Physics();
     if( !physics )
@@ -455,7 +455,7 @@ static int Eng_Physics_OverlapSphere( const Vector3* inCenter, float inRadius, E
 }
 
 
-static void Eng_Rigidbody_AddForce( EntityID inId, const Vector3* inForce, int inMode )
+static void Eng_Rigidbody_AddForce( EntityID inId, const Vector3* inForce, int inMode ) noexcept
 {
     if( Rigidbody* body = RigidbodyOf( inId ) )
     {
@@ -464,14 +464,14 @@ static void Eng_Rigidbody_AddForce( EntityID inId, const Vector3* inForce, int i
 }
 
 
-static void Eng_Rigidbody_GetVelocity( EntityID inId, Vector3* outVelocity )
+static void Eng_Rigidbody_GetVelocity( EntityID inId, Vector3* outVelocity ) noexcept
 {
     Rigidbody* body = RigidbodyOf( inId );
     *outVelocity = body ? body->GetVelocity() : Vector3();
 }
 
 
-static void Eng_Rigidbody_SetVelocity( EntityID inId, const Vector3* inVelocity )
+static void Eng_Rigidbody_SetVelocity( EntityID inId, const Vector3* inVelocity ) noexcept
 {
     if( Rigidbody* body = RigidbodyOf( inId ) )
     {
@@ -481,13 +481,13 @@ static void Eng_Rigidbody_SetVelocity( EntityID inId, const Vector3* inVelocity 
 
 // Debug draw
 
-static void Eng_Debug_DrawLine( const Vector3* inFrom, const Vector3* inTo, const Vector3* inColor, float inDuration )
+static void Eng_Debug_DrawLine( const Vector3* inFrom, const Vector3* inTo, const Vector3* inColor, float inDuration ) noexcept
 {
     DebugDraw::Line( *inFrom, *inTo, Vector4( inColor->x, inColor->y, inColor->z, 1.f ), inDuration );
 }
 
 
-static void Eng_Debug_DrawSphere( const Vector3* inCenter, float inRadius, const Vector3* inColor, float inDuration )
+static void Eng_Debug_DrawSphere( const Vector3* inCenter, float inRadius, const Vector3* inColor, float inDuration ) noexcept
 {
     DebugDraw::Sphere( *inCenter, inRadius, Vector4( inColor->x, inColor->y, inColor->z, 1.f ), inDuration );
 }
@@ -520,80 +520,96 @@ namespace
 }
 
 
-static int Eng_Component_GetField( EntityID inId, const uint8_t* inComponent, const uint8_t* inPath, uint8_t* outJson, int inSize )
+static int Eng_Component_GetField( EntityID inId, const uint8_t* inComponent, const uint8_t* inPath, uint8_t* outJson, int inSize ) noexcept
 {
-    BaseComponent* component = ComponentOf( inId, inComponent );
-    if( !component )
+    try
     {
-        return -1;
-    }
-    const std::string path = Text( inPath );
-    json value;
-    if( const Reflection::TypeInfo* type = component->GetTypeInfo() )
-    {
-        value = Reflection::GetPathJson( *type, component->GetReflectedObject(), path );
-    }
-    if( value.is_null() )
-    {
-        // Hand-serialized components: read the field from their JSON.
-        json all;
-        component->Serialize( all );
-        const json::json_pointer pointer = ToPointer( path );
-        if( all.contains( pointer ) )
+        BaseComponent* component = ComponentOf( inId, inComponent );
+        if( !component )
         {
-            value = all[pointer];
+            return -1;
         }
+        const std::string path = Text( inPath );
+        json value;
+        if( const Reflection::TypeInfo* type = component->GetTypeInfo() )
+        {
+            value = Reflection::GetPathJson( *type, component->GetReflectedObject(), path );
+        }
+        if( value.is_null() )
+        {
+            // Hand-serialized components: read the field from their JSON.
+            json all;
+            component->Serialize( all );
+            const json::json_pointer pointer = ToPointer( path );
+            if( all.contains( pointer ) )
+            {
+                value = all[pointer];
+            }
+        }
+        if( value.is_null() )
+        {
+            return -1;
+        }
+        const std::string text = value.dump();
+        if( outJson && inSize > 0 )
+        {
+            const size_t count = std::min( text.size(), static_cast<size_t>( inSize - 1 ) );
+            std::memcpy( outJson, text.data(), count );
+            outJson[count] = 0;
+        }
+        return static_cast<int>( text.size() );
     }
-    if( value.is_null() )
+    catch( const std::exception& e )
     {
+        YIKES( std::string( "[Scripts] Component_GetField threw: " ) + e.what() );
         return -1;
     }
-    const std::string text = value.dump();
-    if( outJson && inSize > 0 )
-    {
-        const size_t count = std::min( text.size(), static_cast<size_t>( inSize - 1 ) );
-        std::memcpy( outJson, text.data(), count );
-        outJson[count] = 0;
-    }
-    return static_cast<int>( text.size() );
 }
 
 
-static bool Eng_Component_SetField( EntityID inId, const uint8_t* inComponent, const uint8_t* inPath, const uint8_t* inJson )
+static bool Eng_Component_SetField( EntityID inId, const uint8_t* inComponent, const uint8_t* inPath, const uint8_t* inJson ) noexcept
 {
-    BaseComponent* component = ComponentOf( inId, inComponent );
-    const json value = json::parse( Text( inJson ), nullptr, false );
-    if( !component || value.is_discarded() )
+    try
     {
-        return false;
-    }
-    const std::string path = Text( inPath );
-    const std::string field = path.substr( 0, path.find_first_of( ".[" ) );
-    bool written = false;
-    if( const Reflection::TypeInfo* type = component->GetTypeInfo() )
-    {
-        written = Reflection::SetPathJson( *type, component->GetReflectedObject(), path, value );
-    }
-    if( !written )
-    {
-        json all;
-        component->Serialize( all );
-        const json::json_pointer pointer = ToPointer( path );
-        if( !all.contains( pointer ) )
+        BaseComponent* component = ComponentOf( inId, inComponent );
+        const json value = json::parse( Text( inJson ), nullptr, false );
+        if( !component || value.is_discarded() )
         {
             return false;
         }
-        all[pointer] = value;
-        component->Deserialize( all );
+        const std::string path = Text( inPath );
+        const std::string field = path.substr( 0, path.find_first_of( ".[" ) );
+        bool written = false;
+        if( const Reflection::TypeInfo* type = component->GetTypeInfo() )
+        {
+            written = Reflection::SetPathJson( *type, component->GetReflectedObject(), path, value );
+        }
+        if( !written )
+        {
+            json all;
+            component->Serialize( all );
+            const json::json_pointer pointer = ToPointer( path );
+            if( !all.contains( pointer ) )
+            {
+                return false;
+            }
+            all[pointer] = value;
+            component->Deserialize( all );
+        }
+        component->OnPropertyChanged( field );
+        return true;
     }
-    component->OnPropertyChanged( field );
-    return true;
+    catch( const std::exception& e )
+    {
+        YIKES( std::string( "[Scripts] Component_SetField threw: " ) + e.what() );
+        return false;
+    }
 }
 
 
 // Character controller
 
-static void Eng_Character_SetMoveInput( EntityID inId, const Vector3* inDirection )
+static void Eng_Character_SetMoveInput( EntityID inId, const Vector3* inDirection ) noexcept
 {
     if( CharacterController* character = CharacterOf( inId ) )
     {
@@ -602,7 +618,7 @@ static void Eng_Character_SetMoveInput( EntityID inId, const Vector3* inDirectio
 }
 
 
-static void Eng_Character_Move( EntityID inId, const Vector3* inDisplacement )
+static void Eng_Character_Move( EntityID inId, const Vector3* inDisplacement ) noexcept
 {
     if( CharacterController* character = CharacterOf( inId ) )
     {
@@ -611,7 +627,7 @@ static void Eng_Character_Move( EntityID inId, const Vector3* inDisplacement )
 }
 
 
-static void Eng_Character_Jump( EntityID inId )
+static void Eng_Character_Jump( EntityID inId ) noexcept
 {
     if( CharacterController* character = CharacterOf( inId ) )
     {
@@ -620,28 +636,28 @@ static void Eng_Character_Jump( EntityID inId )
 }
 
 
-static bool Eng_Character_IsGrounded( EntityID inId )
+static bool Eng_Character_IsGrounded( EntityID inId ) noexcept
 {
     CharacterController* character = CharacterOf( inId );
     return character && character->IsOnGround();
 }
 
 
-static void Eng_Character_GetVelocity( EntityID inId, Vector3* outVelocity )
+static void Eng_Character_GetVelocity( EntityID inId, Vector3* outVelocity ) noexcept
 {
     CharacterController* character = CharacterOf( inId );
     *outVelocity = character ? character->GetVelocity() : Vector3();
 }
 
 
-static float Eng_Character_GetMaxSpeed( EntityID inId )
+static float Eng_Character_GetMaxSpeed( EntityID inId ) noexcept
 {
     CharacterController* character = CharacterOf( inId );
     return character ? character->MaxSpeed : 0.f;
 }
 
 
-static void Eng_Character_SetMaxSpeed( EntityID inId, float inSpeed )
+static void Eng_Character_SetMaxSpeed( EntityID inId, float inSpeed ) noexcept
 {
     if( CharacterController* character = CharacterOf( inId ) )
     {
@@ -650,7 +666,7 @@ static void Eng_Character_SetMaxSpeed( EntityID inId, float inSpeed )
 }
 
 
-static void Eng_Transform_LookDirection( EntityID inId, const Vector3* inForward, const Vector3* inUp )
+static void Eng_Transform_LookDirection( EntityID inId, const Vector3* inForward, const Vector3* inUp ) noexcept
 {
     if( Transform* transform = TransformOf( inId ) )
     {
@@ -659,7 +675,7 @@ static void Eng_Transform_LookDirection( EntityID inId, const Vector3* inForward
 }
 
 
-static void Eng_Character_SetVelocity( EntityID inId, const Vector3* inVelocity )
+static void Eng_Character_SetVelocity( EntityID inId, const Vector3* inVelocity ) noexcept
 {
     if( CharacterController* character = CharacterOf( inId ) )
     {
@@ -670,7 +686,7 @@ static void Eng_Character_SetVelocity( EntityID inId, const Vector3* inVelocity 
 
 // Through physics, so interpolation restarts at the new place instead of pulling the body back.
 // Characters stay upright: forward is flattened. Velocity is kept for rigidbodies, cleared for characters.
-static void Eng_Character_Teleport( EntityID inId, const Vector3* inPosition, const Vector3* inForward )
+static void Eng_Character_Teleport( EntityID inId, const Vector3* inPosition, const Vector3* inForward ) noexcept
 {
     if( CharacterController* character = CharacterOf( inId ) )
     {
@@ -681,7 +697,7 @@ static void Eng_Character_Teleport( EntityID inId, const Vector3* inPosition, co
 }
 
 
-static void Eng_Rigidbody_Teleport( EntityID inId, const Vector3* inPosition, const Vector3* inForward, const Vector3* inUp )
+static void Eng_Rigidbody_Teleport( EntityID inId, const Vector3* inPosition, const Vector3* inForward, const Vector3* inUp ) noexcept
 {
     if( Rigidbody* body = RigidbodyOf( inId ) )
     {
@@ -697,69 +713,69 @@ static Sequence* SequenceOf( EntityID InId )
 }
 
 
-static void Eng_Sequence_Play( EntityID InId, bool InRestart )
+static void Eng_Sequence_Play( EntityID InId, bool InRestart ) noexcept
 {
     if( Sequence* sequence = SequenceOf( InId ) ) sequence->Play( InRestart );
 }
 
 
-static void Eng_Sequence_Pause( EntityID InId )
+static void Eng_Sequence_Pause( EntityID InId ) noexcept
 {
     if( Sequence* sequence = SequenceOf( InId ) ) sequence->Pause();
 }
 
 
-static void Eng_Sequence_Stop( EntityID InId )
+static void Eng_Sequence_Stop( EntityID InId ) noexcept
 {
     if( Sequence* sequence = SequenceOf( InId ) ) sequence->Stop();
 }
 
 
-static void Eng_Sequence_Seek( EntityID InId, float InSeconds )
+static void Eng_Sequence_Seek( EntityID InId, float InSeconds ) noexcept
 {
     if( Sequence* sequence = SequenceOf( InId ) ) sequence->Seek( InSeconds );
 }
 
 
-static bool Eng_Sequence_IsPlaying( EntityID InId )
+static bool Eng_Sequence_IsPlaying( EntityID InId ) noexcept
 {
     Sequence* sequence = SequenceOf( InId );
     return sequence && sequence->IsPlaying();
 }
 
 
-static float Eng_Sequence_GetTime( EntityID InId )
+static float Eng_Sequence_GetTime( EntityID InId ) noexcept
 {
     Sequence* sequence = SequenceOf( InId );
     return sequence ? sequence->GetTime() : 0.f;
 }
 
 
-static float Eng_Sequence_GetDuration( EntityID InId )
+static float Eng_Sequence_GetDuration( EntityID InId ) noexcept
 {
     Sequence* sequence = SequenceOf( InId );
     return sequence ? sequence->GetDuration() : 0.f;
 }
 
-static bool Eng_Sequence_PlayClip( EntityID InId, const uint8_t* InName, bool InRestart )
+static bool Eng_Sequence_PlayClip( EntityID InId, const uint8_t* InName, bool InRestart ) noexcept
 {
     Sequence* sequence = SequenceOf( InId );
     return sequence && sequence->PlayClip( Text( InName ), InRestart );
 }
 
-static bool Eng_Sequence_PlayAsset( EntityID InId, const uint8_t* InPath, bool InRestart )
+static bool Eng_Sequence_PlayAsset( EntityID InId, const uint8_t* InPath, bool InRestart ) noexcept
 {
     Sequence* sequence = SequenceOf( InId );
     return sequence && sequence->PlayAsset( Text( InPath ), InRestart );
 }
 
-static bool Eng_Sequence_HasClip( EntityID InId, const uint8_t* InName )
+static bool Eng_Sequence_HasClip( EntityID InId, const uint8_t* InName ) noexcept
 {
     Sequence* sequence = SequenceOf( InId );
     return sequence && sequence->HasClip( Text( InName ) );
 }
 
-static void Eng_Sequence_Bind( EntityID InId, const uint8_t* InSlot, EntityID InTarget )
+static void Eng_Sequence_Bind( EntityID InId, const uint8_t* InSlot, EntityID InTarget ) noexcept
 {
     if( Sequence* sequence = SequenceOf( InId ); sequence && Text( InSlot )[0] )
         sequence->SetBinding( Text( InSlot ), MakeHandle( InTarget ) );

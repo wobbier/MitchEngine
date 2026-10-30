@@ -23,35 +23,35 @@ namespace
 }
 
 
-static int Eng_Net_GetRole()
+static int Eng_Net_GetRole() noexcept
 {
     NetCore* net = Net();
     return !net ? 0 : net->IsServer() ? 1 : 2;
 }
 
 
-static int Eng_Net_GetLocalClientId()
+static int Eng_Net_GetLocalClientId() noexcept
 {
     NetCore* net = Net();
     return net && net->GetClient() && net->GetClient()->GetState() == NetClient::State::Connected ? net->GetClient()->GetClientId() : 0;
 }
 
 
-static int Eng_Net_GetTick()
+static int Eng_Net_GetTick() noexcept
 {
     NetCore* net = Net();
     return net ? static_cast<int>( net->GetTick() ) : 0;
 }
 
 
-static bool Eng_Net_IsResimulating()
+static bool Eng_Net_IsResimulating() noexcept
 {
     NetCore* net = Net();
     return net && net->IsResimulating();
 }
 
 
-static int Eng_Net_GetClients( int* outIds, int max )
+static int Eng_Net_GetClients( int* outIds, int max ) noexcept
 {
     NetCore* net = Net();
     if( !net || !net->GetServer() )
@@ -74,7 +74,7 @@ static int Eng_Net_GetClients( int* outIds, int max )
 }
 
 
-static int Eng_Net_GetOwner( EntityID id )
+static int Eng_Net_GetOwner( EntityID id ) noexcept
 {
     NetCore* net = Net();
     EntityHandle entity = MakeHandle( id );
@@ -82,7 +82,7 @@ static int Eng_Net_GetOwner( EntityID id )
 }
 
 
-static void Eng_Net_SetOwner( EntityID id, int clientId )
+static void Eng_Net_SetOwner( EntityID id, int clientId ) noexcept
 {
     NetCore* net = Net();
     EntityHandle entity = MakeHandle( id );
@@ -93,7 +93,7 @@ static void Eng_Net_SetOwner( EntityID id, int clientId )
 }
 
 
-static bool Eng_Net_IsPredicted( EntityID id )
+static bool Eng_Net_IsPredicted( EntityID id ) noexcept
 {
     NetCore* net = Net();
     EntityHandle entity = MakeHandle( id );
@@ -101,7 +101,7 @@ static bool Eng_Net_IsPredicted( EntityID id )
 }
 
 
-static bool Eng_Net_GetCommand( EntityID id, int* outButtons, int* outPreviousButtons, float* outAxes, int* outTick )
+static bool Eng_Net_GetCommand( EntityID id, int* outButtons, int* outPreviousButtons, float* outAxes, int* outTick ) noexcept
 {
     NetCore* net = Net();
     EntityHandle entity = MakeHandle( id );
@@ -128,19 +128,19 @@ static bool Eng_Net_GetCommand( EntityID id, int* outButtons, int* outPreviousBu
 }
 
 
-static int Eng_Net_GetActionIndex( const uint8_t* action )
+static int Eng_Net_GetActionIndex( const uint8_t* action ) noexcept
 {
     return action ? GetEngine().GetNetLaunch().GetActionIndex( reinterpret_cast<const char*>( action ) ) : -1;
 }
 
 
-static void Eng_Net_SetActionOverride( int index, bool held )
+static void Eng_Net_SetActionOverride( int index, bool held ) noexcept
 {
     GetEngine().GetNetLaunch().SetActionOverride( index, held );
 }
 
 
-static void Eng_Net_SendRpc( EntityID id, int rpcId, int kind, uint8_t* data, int size )
+static void Eng_Net_SendRpc( EntityID id, int rpcId, int kind, uint8_t* data, int size ) noexcept
 {
     NetCore* net = Net();
     EntityHandle entity = MakeHandle( id );
@@ -151,7 +151,7 @@ static void Eng_Net_SendRpc( EntityID id, int rpcId, int kind, uint8_t* data, in
 }
 
 
-static int Eng_Net_GetNetId( EntityID id )
+static int Eng_Net_GetNetId( EntityID id ) noexcept
 {
     NetCore* net = Net();
     EntityHandle entity = MakeHandle( id );
@@ -160,7 +160,7 @@ static int Eng_Net_GetNetId( EntityID id )
 
 
 // Through an out parameter: EntityID returned by value isn't a plain struct on every ABI (MSVC x64).
-static void Eng_Net_FindEntity( int netId, EntityID* outId )
+static void Eng_Net_FindEntity( int netId, EntityID* outId ) noexcept
 {
     if( !outId )
     {
@@ -172,7 +172,7 @@ static void Eng_Net_FindEntity( int netId, EntityID* outId )
 }
 
 
-static void Eng_Net_GetPredictionStats( int* outCorrections, int* outMatches, int* outInitialSyncs )
+static void Eng_Net_GetPredictionStats( int* outCorrections, int* outMatches, int* outInitialSyncs ) noexcept
 {
     NetCore* net = Net();
     const NetPredictor* predictor = net ? net->GetPredictor() : nullptr;
