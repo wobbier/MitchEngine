@@ -238,6 +238,17 @@ public static partial class ScriptBridge
         try
         {
             int before = ScriptRegistry.ScriptTypes.Count;
+            // MOD-7: label it before it loads (it loads either way: mods are trusted).
+            var scan = ModScanner.Scan(System.IO.File.ReadAllBytes(path));
+            var file = System.IO.Path.GetFileName(path);
+            if (scan.Verified)
+            {
+                Engine.Log($"Mods: {file} verified (no native code, processes, code generation, raw file or network access)");
+            }
+            else
+            {
+                Debug.Warning($"Mods: {file} is unverified (it runs with full trust): {string.Join("; ", scan.Issues)}");
+            }
             var (alc, asm) = LoadIntoNewContext(path, _gameAssembly);
             _mods.Add((path, alc));
             ScriptRegistry.ScanMod(asm);

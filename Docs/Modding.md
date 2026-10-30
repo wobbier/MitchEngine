@@ -6,7 +6,9 @@
 
 A mod is a folder with a `mod.json`. Its files mount over the game's as a VFS layer, so a mod's `Assets/Textures/Sprites/Crate.png` replaces the game's for every logical path that names it. Nothing is copied or patched.
 
-**Mods are trusted.** They run with the same rights as the game, and MOD-2's assemblies get full .NET. Only install mods you trust. MOD-7 is an optional load-time scanner for Workshop builds.
+**Mods are trusted.** They run with the same rights as the game, and MOD-2's assemblies get full .NET, so only install mods you trust.
+- **What the scanner (MOD-7) does:** `ModScanner` reads each mod assembly's metadata before it loads, without running anything. It logs the assembly `verified`, or a `Mods: X.dll is unverified` warning listing what it reaches: P/Invoke methods, `Process`, `Reflection.Emit`, `NativeLibrary` / `Marshal`, direct file I/O (`File`, `Directory`, `FileStream`...) or sockets / HTTP.
+- **What it doesn't do:** it's a label, not a sandbox. Unverified mods still load, and reflection over strings can reach anything.
 
 ## Key Files
 
@@ -15,6 +17,7 @@ A mod is a folder with a `mod.json`. Its files mount over the game's as a VFS la
 | `Source/Mods/ModManifest.h` | `mod.json`, `SemVer`, `VersionRange` |
 | `Source/Mods/ModResolver.h` | `ModSettings` (the player's order and disabled list) and `ModResolver::Resolve` |
 | `Source/Mods/Mods.h` | `ModManager`: discovery, resolving, mounting (`Apply`) |
+| `Modules/ScriptCore/Source/Mods/ModScanner.cs` | MOD-7: the load-time metadata scan (`Generators.Tests/ModScannerTests.cs`) |
 | `Source/Engine/EngineVersion.h` | `kEngineVersion`, which a mod's `"engine"` range is checked against |
 | `Tests/Source/ModResolverTests.cpp` | Ranges, manifests, ordering, cycles, dependencies, VFS layering |
 | `Tests/Mods/BlueCrates/` | A texture-override test mod. RunChecks' "Mods" step captures Physics2D with it (`Tests/Mods/Reference/`) |
