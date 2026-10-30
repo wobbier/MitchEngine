@@ -135,6 +135,9 @@ namespace Moonlight
 
 #if USING( ME_TOOLS )
         virtual void OnEditorInspect();
+        // A texture chosen for a slot in the editor (picker, drag and drop, edscript). A normal slot
+        // also marks the texture as a normal map so it cooks as BC5 (ME-239).
+        void AssignTexture( TextureType InType, const Path& InPath );
 #endif
 
         //virtual void SetSamplers() = 0;

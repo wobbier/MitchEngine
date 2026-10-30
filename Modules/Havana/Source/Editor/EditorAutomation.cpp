@@ -38,6 +38,10 @@
 #include "Engine/PlayerSettings.h"
 #include "Engine/HardwareBudget.h"
 #include "Components/Graphics/Mesh.h"
+#include "Graphics/Material.h"
+#include "Graphics/Texture.h"
+#include <cstring>
+#include <fstream>
 #include "Graphics/SpriteAtlas.h"
 #include "Window/SDLWindow.h"
 #include "Editor/SpriteRectGizmo.h"
@@ -638,6 +642,81 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             const std::string name = ScriptNaming::UniqueName( entry->BaseName, []( const std::string& InName ) { return AssetBrowserWidget::IsScriptNameTaken( InName ); } );
             File( Path( folder + "/" + name + ".cs" ) ).Write( ScriptTemplates::Make( *entry, name, ScriptTemplates::ProjectNamespace( Project::GetName() ) ) );
             CLog::Log( CLog::LogType::Info, "[editor-exec] created " + folder + "/" + name + ".cs" );
+        }
+    }
+    else if( command == "copy-file" )
+    {
+        // copy-file Assets/Textures/A.png | Assets/Textures/Tests/B.png   (under the project; overwrites)
+        auto [from, to] = SplitArgs( args );
+        std::error_code error;
+        std::filesystem::create_directories( std::filesystem::path( Path( to ).FullPath ).parent_path(), error );
+        if( !std::filesystem::copy_file( Path( from ).FullPath, Path( to ).FullPath, std::filesystem::copy_options::overwrite_existing, error ) || error )
+        {
+            Fail( "copy-file: couldn't copy " + from + " to " + to );
+        }
+    }
+    else if( command == "write-file" )
+    {
+        // write-file Assets/Textures/Tests/X.png.meta | {"Format": "Auto"}   (under the project; overwrites)
+        auto [file, text] = SplitArgs( args );
+        std::error_code error;
+        std::filesystem::create_directories( std::filesystem::path( Path( file ).FullPath ).parent_path(), error );
+        File( Path( file ) ).Write( text );
+    }
+    else if( command == "material-texture" )
+    {
+        // material-texture Ground | Normal | Assets/Textures/X.png   (as the material inspector assigns it)
+        auto [name, rest] = SplitArgs( args );
+        auto [slot, file] = SplitArgs( rest );
+        EntityHandle entity = FindEntity( name );
+        Mesh* mesh = entity ? entity->TryGetComponent<Mesh>() : nullptr;
+        int type = -1;
+        for( int i = 0; i < Moonlight::TextureType::Count; ++i )
+        {
+            if( Moonlight::Texture::ToString( static_cast<Moonlight::TextureType>( i ) ) == slot )
+            {
+                type = i;
+            }
+        }
+        if( !mesh || !mesh->MeshMaterial )
+        {
+            Fail( "material-texture: " + name + " has no Mesh with a material" );
+        }
+        else if( type < 0 )
+        {
+            Fail( "material-texture: no texture slot named " + slot );
+        }
+        else
+        {
+            mesh->MeshMaterial->AssignTexture( static_cast<Moonlight::TextureType>( type ), Path( file ) );
+        }
+    }
+    else if( command == "assert-texture-format" )
+    {
+        // assert-texture-format Assets/Textures/X.png | BC5   (its cooked .dds: BC1, BC3, BC5, BC7,
+        // Uncompressed or other; !BC5 for anything but)
+        auto [file, expectedText] = SplitArgs( args );
+        const bool negate = !expectedText.empty() && expectedText[0] == '!';
+        const std::string expected = negate ? expectedText.substr( 1 ) : expectedText;
+        std::ifstream dds( Path( file ).FullPath + ".dds", std::ios::binary );
+        char header[148] = {};
+        dds.read( header, sizeof( header ) );
+        std::string format = "missing";
+        if( dds.gcount() >= 128 && std::memcmp( header, "DDS ", 4 ) == 0 )
+        {
+            const std::string fourCC( header + 84, 4 );
+            uint32_t dxgi = 0;
+            std::memcpy( &dxgi, header + 128, sizeof( dxgi ) );
+            if( fourCC == "DXT1" || ( fourCC == "DX10" && ( dxgi == 71 || dxgi == 72 ) ) ) format = "BC1";
+            else if( fourCC == "DXT5" || ( fourCC == "DX10" && ( dxgi == 77 || dxgi == 78 ) ) ) format = "BC3";
+            else if( fourCC == "ATI2" || fourCC == "BC5U" || ( fourCC == "DX10" && ( dxgi == 83 || dxgi == 84 ) ) ) format = "BC5";
+            else if( fourCC == "DX10" && ( dxgi == 98 || dxgi == 99 ) ) format = "BC7";
+            else if( fourCC == std::string( 4, '\0' ) || ( fourCC == "DX10" && ( dxgi == 28 || dxgi == 29 || dxgi == 87 || dxgi == 91 ) ) ) format = "Uncompressed";
+            else format = "other (" + fourCC + ( fourCC == "DX10" ? " " + std::to_string( dxgi ) : std::string() ) + ")";
+        }
+        if( ( format == expected ) == negate )
+        {
+            Fail( file + " is cooked as " + format + ", expected " + expectedText );
         }
     }
     else if( command == "delete-file" )

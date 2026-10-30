@@ -8,6 +8,7 @@
 #include <assert.h>
 #include "Texture.h"
 #include "CLog.h"
+#include "Resource/ResourceCache.h"
 #include "Utils/StringUtils.h"
 #include <bimg/bimg.h>
 #include "Utils/BGFXUtils.h"
@@ -712,6 +713,34 @@ bool TextureResourceMetadata::LooksLikeNormalMap( const std::string& InFileName 
     }
     return false;
 }
+
+
+#if USING( ME_TOOLS )
+bool TextureResourceMetadata::MarkAsNormalMap( const Path& InPath )
+{
+    SharedPtr<MetaBase> meta = ResourceCache::GetInstance().LoadMetadata( InPath );
+    TextureResourceMetadata* texture = dynamic_cast<TextureResourceMetadata*>( meta.get() );
+    if( !texture || texture->OutputType == OutputTextureType::NormalMap )
+    {
+        return false;
+    }
+    const bool wasCookedAsNormal = texture->IsNormalMap();
+    texture->OutputType = OutputTextureType::NormalMap;
+    texture->Save();
+    if( wasCookedAsNormal )
+    {
+        return true;    // its name already made it one: same cook
+    }
+    CLog::Log( CLog::LogType::Info, "Textures: " + InPath.GetLocalPathString() + " is in a normal map slot: marked as a normal map and recooked" );
+    if( !ResourceCache::GetInstance().GetCached( InPath ) )
+    {
+        texture->Export();
+    }
+    // Loaded: the file watcher reimports it from the saved .meta (recook, then reload in place),
+    // as it does for any edited import settings.
+    return true;
+}
+#endif
 
 
 TextureResourceMetadata::OutputTextureFormat TextureResourceMetadata::ChooseAutoFormat( bool InNormalMap, bool InHasAlpha, bool InHighDynamicRange )

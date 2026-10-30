@@ -141,6 +141,18 @@ namespace Moonlight
         AlphaBlendMode = mat->AlphaBlendMode;
     }
 
+#if USING( ME_TOOLS )
+    void Material::AssignTexture( TextureType InType, const Path& InPath )
+    {
+        if( InType == TextureType::Normal )
+        {
+            TextureResourceMetadata::MarkAsNormalMap( InPath );
+        }
+        SetTexture( InType, ResourceCache::GetInstance().Get<Moonlight::Texture>( InPath ) );
+    }
+#endif
+
+
     void Material::SetTexture( const TextureType& textureType, std::shared_ptr<Moonlight::Texture> loadedTexture )
     {
         Textures[textureType] = loadedTexture;
@@ -341,7 +353,7 @@ namespace Moonlight
                 {
                     RequestAssetSelectionEvent evt( [this, i]( Path selectedAsset )
                         {
-                            SetTexture( static_cast<Moonlight::TextureType>( i ), ResourceCache::GetInstance().Get<Moonlight::Texture>( selectedAsset ) );
+                            AssignTexture( static_cast<Moonlight::TextureType>( i ), selectedAsset );
                         }, AssetType::Texture );
                     evt.Fire();
                 }
@@ -356,7 +368,7 @@ namespace Moonlight
 
                         if( payload_n.Type == AssetType::Texture || payload_n.Type == AssetType::RenderTexture )
                         {
-                            SetTexture( static_cast<Moonlight::TextureType>( i ), ResourceCache::GetInstance().Get<Moonlight::Texture>( payload_n.FullPath ) );
+                            AssignTexture( static_cast<Moonlight::TextureType>( i ), Path( payload_n.FullPath ) );
                         }
                     }
                     ImGui::EndDragDropTarget();

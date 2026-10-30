@@ -219,6 +219,12 @@ struct TextureResourceMetadata
     bool IsNormalMap() const;
     static bool LooksLikeNormalMap( const std::string& InFileName );
     static OutputTextureFormat ChooseAutoFormat( bool InNormalMap, bool InHasAlpha, bool InHighDynamicRange );
+#if USING( ME_TOOLS )
+    // ME-239: a texture put in a normal-map slot is a normal map, whatever its name: sets its meta
+    // Type to NormalMap, recooks it (BC5) and reloads it if loaded. False when it already was one
+    // (or isn't a texture with import settings, like a render texture).
+    static bool MarkAsNormalMap( const Path& InPath );
+#endif
 
 #if USING( ME_EDITOR )
     virtual void OnEditorInspect() final;
