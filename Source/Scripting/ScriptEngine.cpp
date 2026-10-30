@@ -36,6 +36,7 @@
 #include "Bindings/Systems/Localization.bindings.h"
 #include "Bindings/Systems/Asset.bindings.h"
 #include "Bindings/Systems/Query.bindings.h"
+#include "Bindings/Systems/Net.bindings.h"
 
 namespace fs = std::filesystem;
 
@@ -120,6 +121,14 @@ struct ScriptAPI
     FnIsHandleAlive       IsHandleAlive = nullptr;
     FnGetHandleTypeName   GetHandleTypeName = nullptr;
     FnScriptOnCollision   ScriptOnCollision = nullptr;
+    // NET-6 (optional: an older ScriptCore without them leaves networking script-free).
+    int ( *NetGetFlags )( int ) = nullptr;
+    int ( *NetSavePredicted )( int, uint8_t*, int ) = nullptr;
+    void ( *NetRestorePredicted )( int, const uint8_t*, int ) = nullptr;
+    int ( *NetWriteReplicated )( int, uint8_t*, int ) = nullptr;
+    void ( *NetReadReplicated )( int, const uint8_t*, int, int ) = nullptr;
+    void ( *NetDispatchRpc )( int, int, const uint8_t*, int ) = nullptr;
+    void ( *NetSchemaHash )( uint64_t* ) = nullptr;
 
     bool IsValid() const
     {
@@ -159,6 +168,14 @@ static bool LoadAPI( ScriptHost& inHost, const std::string& inCoreDll, ScriptAPI
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "IsHandleAlive", (void**)&outApi.IsHandleAlive );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetHandleTypeName", (void**)&outApi.GetHandleTypeName );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptOnCollision", (void**)&outApi.ScriptOnCollision );
+    // NET-6: optional.
+    inHost.LoadFunction( inCoreDll, bridgeType, "NetGetFlags", (void**)&outApi.NetGetFlags );
+    inHost.LoadFunction( inCoreDll, bridgeType, "NetSavePredicted", (void**)&outApi.NetSavePredicted );
+    inHost.LoadFunction( inCoreDll, bridgeType, "NetRestorePredicted", (void**)&outApi.NetRestorePredicted );
+    inHost.LoadFunction( inCoreDll, bridgeType, "NetWriteReplicated", (void**)&outApi.NetWriteReplicated );
+    inHost.LoadFunction( inCoreDll, bridgeType, "NetReadReplicated", (void**)&outApi.NetReadReplicated );
+    inHost.LoadFunction( inCoreDll, bridgeType, "NetDispatchRpc", (void**)&outApi.NetDispatchRpc );
+    inHost.LoadFunction( inCoreDll, bridgeType, "NetSchemaHash", (void**)&outApi.NetSchemaHash );
     //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetFieldCount",       (void**)&outApi.GetFieldCount );
     //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetFieldInfo",        (void**)&outApi.GetFieldInfo );
     //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetFieldValue",       (void**)&outApi.GetFieldValue );
@@ -477,6 +494,7 @@ static int StartRuntime()
     Register_LocalizationBindings( engineApi );
     Register_AssetBindings( engineApi );
     Register_QueryBindings( engineApi );
+    Register_NetBindings( engineApi );
 
     // Every slot of the generated table must be filled, or a script call would jump to null.
     static_assert( sizeof( ScriptEngineAPI ) % sizeof( void* ) == 0, "ScriptEngineAPI holds only function pointers" );
@@ -820,6 +838,95 @@ void ScriptEngine::ScriptOnFixedUpdate( int inHandle, float inDt )
 void ScriptEngine::ScriptOnLateUpdate( int inHandle, float inDt )
 {
     gDotnetAPI.ScriptOnLateUpdate( inHandle, inDt );
+}
+
+
+uint32_t ScriptEngine::NetGetFlags( int inHandle )
+{
+    return inHandle >= 0 && gDotnetAPI.NetGetFlags ? static_cast<uint32_t>( std::max( 0, gDotnetAPI.NetGetFlags( inHandle ) ) ) : 0;
+}
+
+
+namespace
+{
+    // The script fills a fixed buffer (net state is small and fixed-size); it reports the size it
+    // needs, so a bigger one is a retry.
+    size_t CallNetWriter( int ( *InWrite )( int, uint8_t*, int ), int inHandle, std::vector<uint8_t>& outBytes )
+    {
+        if( inHandle < 0 || !InWrite )
+        {
+            return 0;
+        }
+        uint8_t buffer[1024];
+        int needed = InWrite( inHandle, buffer, static_cast<int>( sizeof( buffer ) ) );
+        if( needed <= 0 )
+        {
+            return 0;
+        }
+        if( needed <= static_cast<int>( sizeof( buffer ) ) )
+        {
+            outBytes.insert( outBytes.end(), buffer, buffer + needed );
+            return static_cast<size_t>( needed );
+        }
+        std::vector<uint8_t> bigger( static_cast<size_t>( needed ) );
+        needed = InWrite( inHandle, bigger.data(), static_cast<int>( bigger.size() ) );
+        if( needed <= 0 || needed > static_cast<int>( bigger.size() ) )
+        {
+            return 0;
+        }
+        outBytes.insert( outBytes.end(), bigger.begin(), bigger.begin() + needed );
+        return static_cast<size_t>( needed );
+    }
+}
+
+
+size_t ScriptEngine::NetSavePredicted( int inHandle, std::vector<uint8_t>& outBytes )
+{
+    return CallNetWriter( gDotnetAPI.NetSavePredicted, inHandle, outBytes );
+}
+
+
+void ScriptEngine::NetRestorePredicted( int inHandle, const std::vector<uint8_t>& inBytes )
+{
+    if( inHandle >= 0 && gDotnetAPI.NetRestorePredicted && !inBytes.empty() )
+    {
+        gDotnetAPI.NetRestorePredicted( inHandle, inBytes.data(), static_cast<int>( inBytes.size() ) );
+    }
+}
+
+
+size_t ScriptEngine::NetWriteReplicated( int inHandle, std::vector<uint8_t>& outBytes )
+{
+    return CallNetWriter( gDotnetAPI.NetWriteReplicated, inHandle, outBytes );
+}
+
+
+void ScriptEngine::NetReadReplicated( int inHandle, const std::vector<uint8_t>& inBytes, bool inSkipPredicted )
+{
+    if( inHandle >= 0 && gDotnetAPI.NetReadReplicated && !inBytes.empty() )
+    {
+        gDotnetAPI.NetReadReplicated( inHandle, inBytes.data(), static_cast<int>( inBytes.size() ), inSkipPredicted ? 1 : 0 );
+    }
+}
+
+
+void ScriptEngine::NetDispatchRpc( int inHandle, int inRpcId, const uint8_t* inData, size_t inSize )
+{
+    if( inHandle >= 0 && gDotnetAPI.NetDispatchRpc )
+    {
+        gDotnetAPI.NetDispatchRpc( inHandle, inRpcId, inData, static_cast<int>( inSize ) );
+    }
+}
+
+
+uint64_t ScriptEngine::NetSchemaHash()
+{
+    uint64_t hash = 0;
+    if( gDotnetAPI.NetSchemaHash )
+    {
+        gDotnetAPI.NetSchemaHash( &hash );
+    }
+    return hash;
 }
 
 

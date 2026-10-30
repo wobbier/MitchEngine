@@ -2,9 +2,12 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
+class Input;
 class IWindow;
 class NetCore;
+struct InputCommand;
 class UdpTransport;
 class ConditionedTransport;
 
@@ -40,6 +43,20 @@ public:
     // Before the engine shuts down: the report, goodbyes, the session ends.
     void Shutdown( NetCore& InNet, double InNow );
 
+    // Networked input actions (NET-6, InputAction::Networked), sorted by name: buttons take the
+    // command's bits in that order, Value / Vector2 actions its 4 axes. Built at Start.
+    void BuildCommandLayout( const Input& InInput );
+    // The local player's command for the coming tick, plus whatever scripts hold (Net.Press).
+    void SampleCommand( const Input& InInput, InputCommand& OutCommand ) const;
+    // An action's button bit, or -1 (not networked, or not a button).
+    int GetActionIndex( const std::string& InAction ) const;
+    void SetActionOverride( int InIndex, bool InHeld );
+    // Whether any action is networked: then the engine samples the local command every tick
+    // (otherwise a C++ game's own NetCore::SetLocalCommand stands).
+    bool HasCommandLayout() const { return !m_commandSlots.empty() || m_overrides != 0; }
+    // The layout as a hash, for the handshake.
+    uint64_t GetCommandSchema() const { return m_commandSchema; }
+
 private:
     void ShowRole( const std::string& InRole );
 
@@ -51,6 +68,16 @@ private:
     std::string m_error;
     bool m_requested = false;
     bool m_exitWhenEmpty = false;
+    struct CommandSlot
+    {
+        std::string Action;
+        int Index = 0;          // button bit, or first axis
+        bool IsButton = true;
+        int AxisCount = 0;      // 1 (Value) or 2 (Vector2)
+    };
+    std::vector<CommandSlot> m_commandSlots;
+    uint32_t m_overrides = 0;
+    uint64_t m_commandSchema = 0;
     // What was last logged, so changes log once.
     int m_lastState = -1;
     uint64_t m_lastAccepted = 0;

@@ -91,7 +91,7 @@ sequenceDiagram
 |------|-----------|
 | Scene load / spawn (`ScriptComponent::Init`) | `CreateScript(name, entity)` returns a handle; saved field JSON is applied. **No `OnStart` yet** |
 | Play / game start (`ScriptCore::OnStart`), and each later frame for newly spawned scripts | `PhysicsCore::SyncNow` + `Physics2DCore::SyncNow` (so bodies and colliders exist), then `OnStart` for every created, unstarted script on an active entity |
-| Each fixed step, before physics steps | `OnFixedUpdate(fixedDt)`. Input edges here (`Input.WasActionPressed`, `WasKeyPressed`) are per step, so each press is seen exactly once at any frame rate (`Docs/Input.md`) |
+| Each fixed step, before physics steps | `OnFixedUpdate(fixedDt)`. Input edges here (`Input.WasActionPressed`, `WasKeyPressed`) are per step, so each press is seen exactly once at any frame rate (`Docs/Input.md`). In a network session this is simulation: networked entities' scripts run it on the server and, on a client, only for its predicted pawn, also in resimulation (`Net.IsResimulating`; see Networking.md, NET-6) |
 | Each frame, after the scene cores | `OnUpdate(dt)` (scaled; zero while paused) |
 | Each frame, after navigation and animation, before audio and rendering | `OnLateUpdate(dt)`: follow cameras, IK targets, props on bones. A script started mid-frame gets its first one after its first `OnUpdate` |
 
@@ -276,6 +276,16 @@ Supported field kinds: `bool`, `int`, `float`, `double`, `string`, int-backed en
 
 Tests: `Modules/ScriptCore/Generators.Tests/` (xunit, run by RunChecks and CI with build artifacts under `.tmp/`) snapshots generated source, checks the diagnostics, compiles the output in-memory, and runs a live `[GenerateSchema]` probe against `ScriptSerializer` for shape parity. The game's `Assets/Scripts/Tests/ScriptProbe.cs` uses it in a real script build, asserted by `ScriptFlows.edscript`.
 
+### Networked scripts (`[Replicated]`, `[Predicted]`, RPCs; NET-6)
+
+A second generator, `NetGenerator`, picks up `partial` `Script` classes with `[Replicated]` / `[Predicted]` fields or `[ServerRpc]` / `[ClientRpc]` methods. It gives them `INetScript`:
+
+- fixed-size, allocation-free state serializers;
+- RPC send stubs and dispatch to `On{Name}` handlers;
+- a `__NetSchemaHash` the session handshake compares.
+
+It reports MEGEN004–010 for what it can't generate. The C# side is `Modules/ScriptCore/Source/Net/` (`Net`, the attributes, `NetWriter` / `NetReader`, `NetBridge.cs`). The full model is in [Networking.md](Networking.md) ("C# networking (NET-6)"). The game's `Assets/Scripts/Tests/NetProbe.cs` is the end-to-end probe (Tools/RunNetSmoke.py).
+
 ## Caveats & Fragility
 
 - **The ABI guard is `sizeof` plus the generator.** The struct is append-only. Never hand-edit the generated files; `--check` catches drift between the manifest and the outputs.
@@ -289,6 +299,7 @@ Tests: `Modules/ScriptCore/Generators.Tests/` (xunit, run by RunChecks and CI wi
 
 ## Related Docs
 
+- [Networking.md](Networking.md): `[Replicated]` / `[Predicted]` fields, RPCs and `Net` (NET-6).
 - `Docs/Build-System.md`: `DOTNET_*_Dir` detection, nethost linking, flake.nix
 - `Docs/Architecture.md`: where scripts sit in the frame
 - `Docs/Editor-Havana.md`: the inspector, `--editor-exec` (`wait-log`, `replace-in-file`)

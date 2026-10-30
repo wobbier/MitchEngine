@@ -15,7 +15,7 @@ Gamepads come from SDL's GameController API, with hotplug into four stable slots
 |---------|------|-------|
 | Action map | `InputActionMap` (`.inputactions` JSON, reflected) | Contexts, plus stick and trigger deadzones |
 | Context | `InputContext` | `Priority`, `EnabledByDefault`, `ConsumeInput`, a list of actions |
-| Action | `InputAction` | `Button`, `Value` or `Vector2`, a `PressThreshold`, a list of bindings |
+| Action | `InputAction` | `Button`, `Value` or `Vector2`, a `PressThreshold`, a list of bindings, and `Networked` (sent in every network command: `Net.Command(entity)` reads it; see Networking.md, NET-6) |
 | Binding | `InputBinding` | One control, an `Axis` composite (Negative / Positive) or a `Vector2` composite (Up / Down / Left / Right). Optional `Modifier`, `Scale`, `InvertY` |
 | Live state | `InputActionState` | `GetValue`, `GetVector2`, `IsPressed`, `WasPressed`, `WasReleased`, `HeldSeconds` |
 | Evaluator | `InputActionSystem` | Contexts on and off, overrides, interactive rebinding, prompt strings |

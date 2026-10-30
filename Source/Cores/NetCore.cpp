@@ -5,6 +5,7 @@
 #include "Cores/PhysicsCore.h"
 #include "Engine/ProjectSettings.h"
 #include "Engine/World.h"
+#include "Net/BitStream.h"
 #include "CLog.h"
 #include "JSON.h"
 #include <algorithm>
@@ -79,6 +80,13 @@ NetVersion NetCore::MakeVersion()
     NetVersion version;
     const ProjectSettings& settings = ProjectSettings::Get();
     version.Build = NetVersion::Hash( settings.ProductName + "\n" + settings.ProductVersion, NetVersion::Hash( kNetProtocolVersion, 0xCBF29CE484222325ull ) );
+    // The networked input actions (NET-6): both sides must read commands the same way.
+    uint64_t schema = NetVersion::Hash( m_commandSchema, NetVersion::Hash( "" ) );
+    if( m_glue.SchemaHash )
+    {
+        schema = NetVersion::Hash( m_glue.SchemaHash(), schema );
+    }
+    version.ScriptSchema = schema;
 #if USING( ME_SCRIPTING )
     std::vector<std::string> scripts;
     for( int i = 0; i < ScriptEngine::GetScriptCount(); ++i )
@@ -86,7 +94,6 @@ NetVersion NetCore::MakeVersion()
         scripts.push_back( ScriptEngine::GetScriptName( i ) );
     }
     std::sort( scripts.begin(), scripts.end() );
-    uint64_t schema = NetVersion::Hash( "" );
     for( const std::string& script : scripts )
     {
         schema = NetVersion::Hash( script + "\n", schema );
@@ -123,7 +130,14 @@ bool NetCore::Host( INetTransport& InTransport, uint16_t InTickRate )
     m_server->SetTimeout( m_timeout );
     m_lagCompensation.SetTickRate( InTickRate );
     m_replicationServer = std::make_unique<NetReplicationServer>( GetWorld(), *m_server );
+    m_replicationServer->Scripts = m_glue.State;
     m_replicationServer->AssignStaticIds();
+    m_replicationServer->OnOtherMessage = [this]( NetServer::Client& InClient, uint8_t InType, BitReader& InReader, bool InReliable ) {
+        if( InType == NetMessage::Rpc && InReliable )
+        {
+            OnRpc( InClient.Id, InReader );
+        }
+    };
     // Remember who went, before replication forgets them.
     m_server->OnClientRemoved = [this, forget = m_server->OnClientRemoved]( NetServer::Client& InClient ) {
         RecordDeparture( InClient, m_lastNow );
@@ -146,12 +160,20 @@ bool NetCore::Connect( INetTransport& InTransport, NetAddress InServer, const Ne
     m_client = std::make_unique<NetClient>( InTransport, InServer, MakeVersion(), InClock );
     m_client->SetTimeout( m_timeout );
     m_replicationClient = std::make_unique<NetReplicationClient>( GetWorld(), *m_client );
+    m_replicationClient->Scripts = m_glue.State;
     m_replicationClient->AssignStaticIds();
-    m_replicationClient->OnOwnerState = [this]( uint32_t InNetId, uint32_t InTick, const CharacterController::NetState& InState ) {
+    m_replicationClient->OnOwnerState = [this]( uint32_t InNetId, uint32_t InTick, const CharacterController::NetState& InState, const std::vector<uint8_t>& InScripts ) {
         if( m_predictor && m_replicationClient->FindEntity( InNetId ) == m_predictor->GetPawn() )
         {
             m_replicationClient->SetPredicted( InNetId );
-            m_predictor->Reconcile( InTick, InState );
+            m_predictor->Reconcile( InTick, InState, InScripts );
+        }
+    };
+    m_replicationClient->OnOwnerChanged = [this]( uint32_t InNetId, uint8_t InOwner ) { OnOwnerChanged( InNetId, InOwner ); };
+    m_replicationClient->OnOtherMessage = [this]( uint8_t InType, BitReader& InReader, bool InReliable ) {
+        if( InType == NetMessage::Rpc && InReliable )
+        {
+            OnRpc( 0, InReader );
         }
     };
     m_client->Connect();
@@ -167,11 +189,218 @@ void NetCore::Predict( EntityHandle InPawn )
         return;
     }
     const float tickSeconds = 1.f / static_cast<float>( std::max<uint16_t>( m_client->GetTickRate(), 1 ) );
+    // A pawn it predicted before goes back to following snapshots.
+    if( m_predictor && m_predictor->GetPawn() )
+    {
+        if( const NetIdentity* previous = m_predictor->GetPawn()->TryGetComponent<NetIdentity>() )
+        {
+            m_replicationClient->ClearPredicted( previous->GetNetId() );
+        }
+    }
     m_predictor = std::make_unique<NetPredictor>( *physics, InPawn, m_commandHandler, tickSeconds );
+    // Its C# [Predicted] state: recorded, compared, restored and re-run with the mover (NET-6).
+    if( m_glue.State.SavePredicted )
+    {
+        NetPredictor::ScriptHooks hooks;
+        hooks.Save = [this, InPawn]( std::vector<uint8_t>& OutBytes ) {
+            if( InPawn )
+            {
+                m_glue.State.SavePredicted( *InPawn.Get(), OutBytes );
+            }
+        };
+        hooks.Restore = [this, InPawn]( const std::vector<uint8_t>& InBytes ) {
+            if( InPawn && m_glue.RestorePredicted )
+            {
+                m_glue.RestorePredicted( *InPawn.Get(), InBytes );
+            }
+        };
+        hooks.Simulate = [this, InPawn]() {
+            if( InPawn && m_glue.SimulatePredicted )
+            {
+                m_glue.SimulatePredicted( *InPawn.Get() );
+            }
+        };
+        m_predictor->SetScriptHooks( std::move( hooks ) );
+    }
     if( const NetIdentity* identity = InPawn->TryGetComponent<NetIdentity>(); identity && identity->GetNetId() != 0 )
     {
         m_replicationClient->SetPredicted( identity->GetNetId() );
     }
+}
+
+
+void NetCore::OnOwnerChanged( uint32_t InNetId, uint8_t InOwner )
+{
+    if( !m_client )
+    {
+        return;
+    }
+    EntityHandle entity = m_replicationClient->FindEntity( InNetId );
+    if( InOwner == 0 || InOwner != m_client->GetClientId() )
+    {
+        // Lost it: stop predicting and follow the server's snapshots again.
+        if( m_predictor && entity && m_predictor->GetPawn() == entity )
+        {
+            m_predictor.reset();
+            m_replicationClient->ClearPredicted( InNetId );
+        }
+        return;
+    }
+    // This client got a character: it predicts it.
+    if( entity && entity->HasComponent<CharacterController>() && ( !m_predictor || m_predictor->GetPawn() != entity ) )
+    {
+        Predict( entity );
+    }
+}
+
+
+bool NetCore::GetCommand( Entity& InEntity, InputCommand& OutCommand, InputCommand& OutPrevious ) const
+{
+    if( m_server )
+    {
+        const NetIdentity* identity = InEntity.TryGetComponent<NetIdentity>();
+        const NetServer::Client* client = identity && identity->GetOwner() != 0 ? m_server->FindClient( identity->GetOwner() ) : nullptr;
+        if( !client )
+        {
+            return false;
+        }
+        OutCommand = client->Current;
+        OutPrevious = client->Previous;
+        return true;
+    }
+    if( m_predictor && m_predictor->GetPawn() && m_predictor->GetPawn()->GetId() == InEntity.GetId() )
+    {
+        OutCommand = m_predictor->GetCommand();
+        OutPrevious = m_predictor->GetPreviousCommand();
+        return true;
+    }
+    return false;
+}
+
+
+bool NetCore::SimulatesLocally( Entity& InEntity ) const
+{
+    // Not in the session (no NetIdentity, or a client-side copy that never got a NetId): local.
+    const NetIdentity* identity = InEntity.TryGetComponent<NetIdentity>();
+    if( !m_client || !identity || identity->GetNetId() == 0 )
+    {
+        return true;
+    }
+    return m_predictor && m_predictor->GetPawn() && m_predictor->GetPawn()->GetId() == InEntity.GetId();
+}
+
+
+uint8_t NetCore::GetOwner( Entity& InEntity ) const
+{
+    const NetIdentity* identity = InEntity.TryGetComponent<NetIdentity>();
+    return identity ? identity->GetOwner() : 0;
+}
+
+
+void NetCore::SetOwner( Entity& InEntity, uint8_t InClient )
+{
+    if( NetIdentity* identity = InEntity.TryGetComponent<NetIdentity>(); identity && m_server )
+    {
+        identity->SetOwner( InClient );
+    }
+}
+
+
+bool NetCore::IsPredicted( Entity& InEntity ) const
+{
+    return m_client && m_predictor && m_predictor->GetPawn() && m_predictor->GetPawn()->GetId() == InEntity.GetId();
+}
+
+
+uint32_t NetCore::GetNetId( Entity& InEntity ) const
+{
+    const NetIdentity* identity = InEntity.TryGetComponent<NetIdentity>();
+    return identity ? identity->GetNetId() : 0;
+}
+
+
+EntityHandle NetCore::FindEntity( uint32_t InNetId ) const
+{
+    if( m_server )
+    {
+        return m_replicationServer->FindEntity( InNetId );
+    }
+    return m_client ? m_replicationClient->FindEntity( InNetId ) : EntityHandle();
+}
+
+
+bool NetCore::SendRpc( Entity& InEntity, int InRpcId, RpcKind InKind, const uint8_t* InData, size_t InSize )
+{
+    const uint32_t netId = GetNetId( InEntity );
+    if( netId == 0 || InRpcId < 0 )
+    {
+        if( netId == 0 && InEntity.HasComponent<NetIdentity>() )
+        {
+            CLog::Log( CLog::LogType::Warning, "Net: RPC " + std::to_string( InRpcId ) + " on an entity without a NetId yet (spawned this tick?); dropped" );
+        }
+        return false;
+    }
+    BitWriter message;
+    message.WriteBits( NetMessage::Rpc, 8 );
+    message.WriteVarUInt( netId );
+    message.WriteVarUInt( static_cast<uint64_t>( InRpcId ) );
+    message.WriteVarUInt( InSize );
+    message.WriteBytes( InData, InSize );
+    if( message.GetByteCount() > NetConnection::kMaxMessageBytes )
+    {
+        CLog::Log( CLog::LogType::Warning, "Net: RPC " + std::to_string( InRpcId ) + " is " + std::to_string( message.GetByteCount() ) + " bytes, over the "
+            + std::to_string( NetConnection::kMaxMessageBytes ) + "-byte message limit; dropped" );
+        return false;
+    }
+    if( m_client && InKind == RpcKind::ToServer )
+    {
+        if( m_client->GetState() != NetClient::State::Connected )
+        {
+            return false;
+        }
+        m_client->Send( message, true );
+        return true;
+    }
+    if( !m_server || InKind == RpcKind::ToServer )
+    {
+        return false;
+    }
+    const uint8_t owner = GetOwner( InEntity );
+    bool sent = false;
+    for( const auto& client : m_server->GetClients() )
+    {
+        if( client->Accepted && ( InKind == RpcKind::ToAll || client->Id == owner ) )
+        {
+            m_server->Send( *client, message, true );
+            sent = true;
+        }
+    }
+    return sent;
+}
+
+
+void NetCore::OnRpc( uint8_t InFromClient, BitReader& InReader )
+{
+    const uint32_t netId = static_cast<uint32_t>( InReader.ReadVarUInt() );
+    const int rpcId = static_cast<int>( InReader.ReadVarUInt() );
+    const uint64_t size = InReader.ReadVarUInt();
+    if( InReader.IsOverflowed() || size > NetConnection::kMaxMessageBytes )
+    {
+        return;
+    }
+    std::vector<uint8_t> data( static_cast<size_t>( size ) );
+    InReader.ReadBytes( data.data(), data.size() );
+    EntityHandle entity = FindEntity( netId );
+    if( InReader.IsOverflowed() || !entity || !m_glue.DispatchRpc )
+    {
+        return;
+    }
+    // A client may only call RPCs on what it owns.
+    if( m_server && GetOwner( *entity.Get() ) != InFromClient )
+    {
+        return;
+    }
+    m_glue.DispatchRpc( *entity.Get(), rpcId, data.data(), data.size() );
 }
 
 

@@ -5,8 +5,13 @@
 #include "Cores/NetCore.h"
 #include "JSON.h"
 #include "Net/NetTransport.h"
+#include "Net/NetVersion.h"
 #include "Net/UdpTransport.h"
+#include "Engine/Input.h"
 #include "Window/IWindow.h"
+#if USING( ME_SCRIPTING )
+#include "Scripting/ScriptNet.h"
+#endif
 #include <algorithm>
 #include <cstdlib>
 #include <fstream>
@@ -80,6 +85,11 @@ bool NetLaunch::Start( NetCore& InNet, uint16_t InTickRate, IWindow* InWindow, c
     {
         InNet.SetTimeout( std::max( 0.1f, CommandLine::GetFloat( "--net-timeout", 10.f ) ) );
     }
+    // C# state, prediction and RPCs (NET-6), and the command layout both sides must share.
+    InNet.SetCommandSchema( m_commandSchema );
+#if USING( ME_SCRIPTING )
+    InNet.SetScriptGlue( MakeScriptNetGlue() );
+#endif
 
     NetAddress server = 0;
     uint16_t port = 0;
@@ -215,6 +225,99 @@ bool NetLaunch::Update( NetCore& InNet )
         }
     }
     return false;
+}
+
+
+void NetLaunch::BuildCommandLayout( const Input& InInput )
+{
+    m_commandSlots.clear();
+    m_overrides = 0;
+    std::vector<std::pair<std::string, InputActionType>> actions;
+    for( const InputContext& context : const_cast<Input&>( InInput ).GetActions().GetMap().Contexts )
+    {
+        for( const InputAction& action : context.Actions )
+        {
+            const bool known = std::any_of( actions.begin(), actions.end(), [&action]( const auto& InKnown ) { return InKnown.first == action.Name; } );
+            if( action.Networked && !known )
+            {
+                actions.emplace_back( action.Name, action.Type );
+            }
+        }
+    }
+    std::sort( actions.begin(), actions.end() );
+    int bit = 0;
+    int axis = 0;
+    uint64_t schema = NetVersion::Hash( "commands" );
+    for( const auto& [name, type] : actions )
+    {
+        CommandSlot slot;
+        slot.Action = name;
+        slot.IsButton = type == InputActionType::Button;
+        slot.AxisCount = type == InputActionType::Vector2 ? 2 : 1;
+        if( slot.IsButton ? bit >= 32 : axis + slot.AxisCount > 4 )
+        {
+            Say( CLog::LogType::Warning, "Net: no room in the command for the networked action " + name + " (32 buttons, 4 axes)" );
+            continue;
+        }
+        slot.Index = slot.IsButton ? bit++ : axis;
+        if( !slot.IsButton )
+        {
+            axis += slot.AxisCount;
+        }
+        schema = NetVersion::Hash( name + ( slot.IsButton ? ":b\n" : ":a" + std::to_string( slot.AxisCount ) + "\n" ), schema );
+        m_commandSlots.push_back( slot );
+    }
+    m_commandSchema = schema;
+}
+
+
+void NetLaunch::SampleCommand( const Input& InInput, InputCommand& OutCommand ) const
+{
+    OutCommand.Buttons = m_overrides;
+    OutCommand.Axes = {};
+    for( const CommandSlot& slot : m_commandSlots )
+    {
+        const InputActionState& state = InInput.GetAction( slot.Action );
+        if( slot.IsButton )
+        {
+            // Inside a fixed step WasPressed carries the edges since the last step: a tap shorter
+            // than a tick still holds the bit for one tick.
+            OutCommand.Buttons |= state.IsPressed() || state.WasPressed() ? ( 1u << slot.Index ) : 0u;
+        }
+        else if( slot.AxisCount == 2 )
+        {
+            OutCommand.Axes[slot.Index] = std::clamp( state.Value.x, -1.f, 1.f );
+            OutCommand.Axes[slot.Index + 1] = std::clamp( state.Value.y, -1.f, 1.f );
+        }
+        else
+        {
+            OutCommand.Axes[slot.Index] = std::clamp( state.Value.x, -1.f, 1.f );
+        }
+    }
+}
+
+
+int NetLaunch::GetActionIndex( const std::string& InAction ) const
+{
+    for( const CommandSlot& slot : m_commandSlots )
+    {
+        if( slot.Action == InAction && slot.IsButton )
+        {
+            return slot.Index;
+        }
+    }
+    return -1;
+}
+
+
+void NetLaunch::SetActionOverride( int InIndex, bool InHeld )
+{
+    if( InIndex < 0 || InIndex >= 32 )
+    {
+        return;
+    }
+    const uint32_t bit = 1u << InIndex;
+    m_overrides = InHeld ? ( m_overrides | bit ) : ( m_overrides & ~bit );
 }
 
 

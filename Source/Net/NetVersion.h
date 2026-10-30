@@ -8,7 +8,7 @@ class BitReader;
 class BitWriter;
 
 // Bumped whenever the wire format changes.
-constexpr uint32_t kNetProtocolVersion = 2;  // 2: Disconnect (NET-5)
+constexpr uint32_t kNetProtocolVersion = 3;  // 2: Disconnect (NET-5); 3: script state, owners, RPCs (NET-6)
 
 // What a client and a server must agree on before playing together (NET-2), sent in the
 // handshake. A server rejects a client whose version differs and says what differs.

@@ -8,7 +8,9 @@ for a fixed number of frames against it and captures the client's view. Passes w
   - the client received snapshots at the server's tick rate (within --rate-tolerance);
   - the client left cleanly (the server counts a Disconnect) and the server then exited on its own
     (--net-exit-when-empty);
-  - the client's capture matches its reference (as ScreenshotRegression compares them).
+  - the client's capture matches its reference (as ScreenshotRegression compares them);
+  - every --expect-server / --expect-client line shows up in that side's log, and not in the other's
+    (NET-6: NetProbe.cs logs "ServerRpc ok" on the server, "dash: 0 corrections" on the client).
 
   Engine/Tools/RunNetSmoke.py --server-game .build/Server_linux_Debug/Game_EntryPoint_x64 \\
       --client-game .build/Game_linux_Debug/Game_EntryPoint_x64 --wrapper Engine/Tools/Headless.sh \\
@@ -98,6 +100,8 @@ def main():
     parser.add_argument("--host-timeout", type=float, default=300.0, help="seconds to wait for the server to host (first runs build scripts)")
     parser.add_argument("--client-timeout", type=float, default=900.0, help="seconds the client may take before it counts as hung")
     parser.add_argument("--min-connected", type=float, default=0.8, help="share of the run's frames (at --max-fps) the client must stay connected")
+    parser.add_argument("--expect-server", action="append", default=[], help="text the server's log must contain (and the client's must not); repeatable")
+    parser.add_argument("--expect-client", action="append", default=[], help="text the client's log must contain (and the server's must not); repeatable")
     parser.add_argument("--out", default=".tmp/NetSmoke")
     parser.add_argument("--update", action="store_true", help="write the client's capture as the reference")
     args = parser.parse_args()
@@ -197,10 +201,19 @@ def main():
         if server_stats.get("Disconnects", 0) < 1 or not any(entry.get("Status") == "left" for entry in clients):
             failures.append("the client didn't leave cleanly (no Disconnect reached the server)")
 
+    logs = {"server": read_text(server_log_path), "client": read_text(client_log_path)}
     for label, log_path in (("server", server_log_path), ("client", client_log_path)):
-        log_text = read_text(log_path)
-        if "--- ASSERT ---" in log_text or "[bgfx] FATAL" in log_text:
+        if "--- ASSERT ---" in logs[label] or "[bgfx] FATAL" in logs[label]:
             failures.append(f"the {label} hit an assert (see {log_path})")
+    # Lines that belong to one side only (C# logs, e.g. NetProbe.cs).
+    for side, other, expected in (("server", "client", args.expect_server), ("client", "server", args.expect_client)):
+        for needle in expected:
+            if needle not in logs[side]:
+                failures.append(f"the {side} never logged {needle!r}")
+            elif needle in logs[other]:
+                failures.append(f"{needle!r} showed up in the {other}'s log too")
+            else:
+                print(f"      {side}: {needle}")
 
     if not os.path.exists(shot):
         failures.append(f"no client capture (see {client_log_path})")

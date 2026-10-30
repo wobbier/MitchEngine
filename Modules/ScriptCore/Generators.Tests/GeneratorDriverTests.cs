@@ -12,15 +12,18 @@ using Xunit;
 // does-the-generated-code-compile checks.
 public class GeneratorDriverTests
 {
-    private sealed class RunResult
+    internal sealed class RunResult
     {
         public ImmutableArray<Diagnostic> GeneratorDiagnostics;
         public ImmutableArray<Diagnostic> CompileDiagnostics;
+        // The first generated file (single-generator runs), and every file by hint name.
         public string Generated = "";
+        public Dictionary<string, string> Sources = new();
     }
 
 
-    private static RunResult Run(string source)
+    // Runs the given generators (the schema generator when none are given) over one source file.
+    internal static RunResult Run(string source, params IIncrementalGenerator[] generators)
     {
         var references = new List<MetadataReference>();
         var trusted = (string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!;
@@ -36,20 +39,34 @@ public class GeneratorDriverTests
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
-        GeneratorDriver driver = CSharpGeneratorDriver.Create(new SchemaGenerator());
+        if (generators.Length == 0)
+        {
+            generators = new IIncrementalGenerator[] { new SchemaGenerator() };
+        }
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(generators);
         driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out _);
 
-        var runResult = driver.GetRunResult().Results.Single();
-        return new RunResult
+        var result = new RunResult { CompileDiagnostics = outputCompilation.GetDiagnostics() };
+        var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
+        foreach (var runResult in driver.GetRunResult().Results)
         {
-            GeneratorDiagnostics = runResult.Diagnostics,
-            CompileDiagnostics = outputCompilation.GetDiagnostics(),
-            Generated = runResult.GeneratedSources.Length > 0 ? runResult.GeneratedSources[0].SourceText.ToString() : "",
-        };
+            diagnostics.AddRange(runResult.Diagnostics);
+            foreach (var generated in runResult.GeneratedSources)
+            {
+                var text = generated.SourceText.ToString();
+                result.Sources[generated.HintName] = text;
+                if (result.Generated.Length == 0)
+                {
+                    result.Generated = text;
+                }
+            }
+        }
+        result.GeneratorDiagnostics = diagnostics.ToImmutable();
+        return result;
     }
 
 
-    private static string Normalize(string text) => text.Replace("\r\n", "\n");
+    internal static string Normalize(string text) => text.Replace("\r\n", "\n");
 
 
     [Fact]

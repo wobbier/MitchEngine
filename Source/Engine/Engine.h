@@ -67,6 +67,8 @@ public:
     void Run();
     // What the process should exit with once Run returns (non-zero: a --server / --connect that couldn't start).
     int GetExitCode() const;
+    // The command line's networking: the networked input layout scripts read (NET-6).
+    NetLaunch& GetNetLaunch() { return m_netLaunch; }
     // Orderly teardown after the main loop: world, jobs, logging.
     void Shutdown();
 

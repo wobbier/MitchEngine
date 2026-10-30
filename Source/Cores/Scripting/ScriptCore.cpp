@@ -4,6 +4,7 @@
 #include "Components/Scripting/ScriptComponent.h"
 #include "Scripting/ScriptEngine.h"
 #include "Cores/NavigationCore.h"
+#include "Cores/NetCore.h"
 #include "Cores/Physics2DCore.h"
 #include "Cores/PhysicsCore.h"
 #include "Components/Transform.h"
@@ -234,8 +235,16 @@ void ScriptCore::FixedUpdate( const UpdateContext& inUpdateContext )
         return;
     }
     OPTICK_EVENT( "ScriptCore::FixedUpdate" );
+    // In a network session a client simulates only its predicted pawn's networked scripts; the
+    // server's state drives the rest (NET-6).
+    NetCore* net = GetWorld().GetCore<NetCore>();
+    const bool filter = net && net->IsClient();
     for( ScriptComponent* script : RunList( ScriptEngine::FixedUpdateCallback ) )
     {
+        if( filter && script->Parent && !net->SimulatesLocally( *script->Parent.Get() ) )
+        {
+            continue;
+        }
         ScriptEngine::ScriptOnFixedUpdate( script->m_dotnetHandle, inUpdateContext.GetDeltaTime() );
     }
 #endif

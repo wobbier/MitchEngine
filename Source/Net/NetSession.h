@@ -37,6 +37,8 @@ namespace NetMessage
         Snapshot = 18,
         SnapshotAck = 19,
         OwnerState = 20,
+        Rpc = 21,           // NET-6: a C# [ServerRpc] / [ClientRpc] call (reliable)
+        Owner = 22,         // NET-6: who owns a networked entity now (reliable)
     };
 }
 
@@ -51,6 +53,7 @@ public:
         std::unique_ptr<NetConnection> Connection;
         NetCommandBuffer Commands;
         InputCommand Current;       // this tick's command (BeginTick)
+        InputCommand Previous;      // the one before (button edges: pressed this tick)
         bool Accepted = false;
         bool Rejected = false;
         double RejectedAt = 0.0;    // set when the Reject is first sent

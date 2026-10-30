@@ -25,6 +25,7 @@ bool NetPredictor::Matches( const CharacterController::NetState& InA, const Char
 
 void NetPredictor::Apply( const InputCommand& InCommand )
 {
+    m_previous = m_pending;
     m_pending = InCommand;
     if( m_pawn && m_handler )
     {
@@ -46,6 +47,11 @@ void NetPredictor::Record( uint32_t InTick )
     frame.Command = m_pending;
     frame.Command.Tick = InTick;
     frame.State = controller->GetNetState();
+    frame.Scripts.clear();
+    if( m_scripts.Save )
+    {
+        m_scripts.Save( frame.Scripts );
+    }
     if( !m_hasNewest || InTick > m_newest )
     {
         m_newest = InTick;
@@ -54,7 +60,7 @@ void NetPredictor::Record( uint32_t InTick )
 }
 
 
-bool NetPredictor::Reconcile( uint32_t InTick, const CharacterController::NetState& InServer )
+bool NetPredictor::Reconcile( uint32_t InTick, const CharacterController::NetState& InServer, const std::vector<uint8_t>& InScripts )
 {
     CharacterController* controller = m_pawn ? m_pawn->TryGetComponent<CharacterController>() : nullptr;
     if( !controller || ( m_hasReconciled && InTick <= m_reconciled ) )
@@ -68,7 +74,9 @@ bool NetPredictor::Reconcile( uint32_t InTick, const CharacterController::NetSta
     }
     m_hasReconciled = true;
     m_reconciled = InTick;
-    if( Matches( frame.State, InServer, PositionTolerance, VelocityTolerance ) )
+    // Script state is exact (the same code ran on the same inputs); without hooks it isn't compared.
+    const bool scriptsMatch = !m_scripts.Save || frame.Scripts == InScripts;
+    if( scriptsMatch && Matches( frame.State, InServer, PositionTolerance, VelocityTolerance ) )
     {
         ++m_matches;
         return false;
@@ -79,7 +87,13 @@ bool NetPredictor::Reconcile( uint32_t InTick, const CharacterController::NetSta
     const Vector3 shownBefore = controller->GetNetState().Position + m_visualOffset;
     controller->SetNetState( InServer );
     frame.State = InServer;
+    if( m_scripts.Restore )
+    {
+        m_scripts.Restore( InScripts );
+        frame.Scripts = InScripts;
+    }
     int resimmed = 0;
+    m_resimulating = true;
     for( uint32_t tick = InTick + 1; tick <= m_newest; ++tick )
     {
         Frame& replay = m_history[tick % kHistory];
@@ -87,14 +101,28 @@ bool NetPredictor::Reconcile( uint32_t InTick, const CharacterController::NetSta
         {
             break;
         }
+        const Frame& before = m_history[( tick - 1 ) % kHistory];
+        m_resimCommand = replay.Command;
+        m_resimPrevious = before.Valid && before.Tick == tick - 1 ? before.Command : InputCommand();
         if( m_handler )
         {
             m_handler( *m_pawn.Get(), replay.Command );
         }
+        // The pawn's scripts, then its step: the order of a live tick (scripts, then physics).
+        if( m_scripts.Simulate )
+        {
+            m_scripts.Simulate();
+        }
         m_physics.StepCharacter( *m_pawn.Get(), *controller, m_tickSeconds );
         replay.State = controller->GetNetState();
+        if( m_scripts.Save )
+        {
+            replay.Scripts.clear();
+            m_scripts.Save( replay.Scripts );
+        }
         ++resimmed;
     }
+    m_resimulating = false;
     // The command the coming tick was given stays in force.
     if( m_handler )
     {

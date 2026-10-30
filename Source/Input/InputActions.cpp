@@ -29,6 +29,7 @@ ME_REFLECT_BEGIN( InputAction )
     ME_FIELD( Name );
     ME_FIELD( Type );
     ME_FIELD( PressThreshold ).Range( 0.01f, 1.f ).Tooltip( "Value at which the action counts as pressed" );
+    ME_FIELD( Networked ).Tooltip( "Sent to the server in every network command (Net.Command reads it)" );
     ME_FIELD( Bindings );
 ME_REFLECT_END()
 

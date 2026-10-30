@@ -275,6 +275,7 @@ void NetServer::BeginTick()
     {
         if( client->Accepted )
         {
+            client->Previous = client->Current;
             client->Current = client->Commands.Consume( m_tick );
         }
     }

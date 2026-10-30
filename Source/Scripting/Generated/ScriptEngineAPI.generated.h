@@ -377,4 +377,23 @@ struct ScriptEngineAPI
     // Portal passages: narrow openings in a stationary host collider; raycasts still hit the host
     bool ( *Physics_SetPortalPassage )( EntityID portal, EntityID host, const Vector3* center, const Vector3* right, const Vector3* up, float halfWidth, float halfHeight, float depth );
     void ( *Physics_ClearPortalPassage )( EntityID portal );
+
+    // Networking (NET-6): role 0 none / 1 server / 2 client; client ids 1-255 (0: the server, nobody)
+    int ( *Net_GetRole )();
+    int ( *Net_GetLocalClientId )();
+    int ( *Net_GetTick )();
+    bool ( *Net_IsResimulating )();
+    int ( *Net_GetClients )( int* outIds, int max );
+    int ( *Net_GetOwner )( EntityID id );
+    void ( *Net_SetOwner )( EntityID id, int clientId );
+    bool ( *Net_IsPredicted )( EntityID id );
+    bool ( *Net_GetCommand )( EntityID id, int* outButtons, int* outPreviousButtons, float* outAxes, int* outTick );
+    int ( *Net_GetActionIndex )( const uint8_t* action );
+    void ( *Net_SetActionOverride )( int index, bool held );
+
+    // RPC kind: 0 to the server, 1 to the entity's owner, 2 to every client
+    void ( *Net_SendRpc )( EntityID id, int rpcId, int kind, uint8_t* data, int size );
+    int ( *Net_GetNetId )( EntityID id );
+    void ( *Net_FindEntity )( int netId, EntityID* outId );
+    void ( *Net_GetPredictionStats )( int* outCorrections, int* outMatches, int* outInitialSyncs );
 };

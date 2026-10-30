@@ -365,4 +365,23 @@ public unsafe struct EngineAPIBindings
     // Portal passages: narrow openings in a stationary host collider; raycasts still hit the host
     public delegate* unmanaged<Entity, Entity, Vector3*, Vector3*, Vector3*, float, float, float, byte> Physics_SetPortalPassage;
     public delegate* unmanaged<Entity, void> Physics_ClearPortalPassage;
+
+    // Networking (NET-6): role 0 none / 1 server / 2 client; client ids 1-255 (0: the server, nobody)
+    public delegate* unmanaged<int> Net_GetRole;
+    public delegate* unmanaged<int> Net_GetLocalClientId;
+    public delegate* unmanaged<int> Net_GetTick;
+    public delegate* unmanaged<byte> Net_IsResimulating;
+    public delegate* unmanaged<int*, int, int> Net_GetClients;
+    public delegate* unmanaged<Entity, int> Net_GetOwner;
+    public delegate* unmanaged<Entity, int, void> Net_SetOwner;
+    public delegate* unmanaged<Entity, byte> Net_IsPredicted;
+    public delegate* unmanaged<Entity, int*, int*, float*, int*, byte> Net_GetCommand;
+    public delegate* unmanaged<byte*, int> Net_GetActionIndex;
+    public delegate* unmanaged<int, byte, void> Net_SetActionOverride;
+
+    // RPC kind: 0 to the server, 1 to the entity's owner, 2 to every client
+    public delegate* unmanaged<Entity, int, int, byte*, int, void> Net_SendRpc;
+    public delegate* unmanaged<Entity, int> Net_GetNetId;
+    public delegate* unmanaged<int, Entity*, void> Net_FindEntity;
+    public delegate* unmanaged<int*, int*, int*, void> Net_GetPredictionStats;
 }

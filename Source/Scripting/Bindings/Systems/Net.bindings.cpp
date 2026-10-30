@@ -1,0 +1,213 @@
+#include "PCH.h"
+#include "Net.bindings.h"
+
+#if USING( ME_SCRIPTING )
+
+#include "Cores/NetCore.h"
+#include "Engine/Engine.h"
+#include "Engine/World.h"
+#include "Scripting/Bindings/BindingContext.h"
+#include <algorithm>
+
+using ScriptBindings::MakeHandle;
+
+// C#'s Net (NET-6): the session of the script world's NetCore, commands, ownership and RPCs.
+namespace
+{
+    NetCore* Net()
+    {
+        SharedPtr<World> world = ScriptBindings::GetWorld().lock();
+        NetCore* net = world ? world->GetCore<NetCore>() : nullptr;
+        return net && net->IsActive() ? net : nullptr;
+    }
+}
+
+
+static int Eng_Net_GetRole()
+{
+    NetCore* net = Net();
+    return !net ? 0 : net->IsServer() ? 1 : 2;
+}
+
+
+static int Eng_Net_GetLocalClientId()
+{
+    NetCore* net = Net();
+    return net && net->GetClient() && net->GetClient()->GetState() == NetClient::State::Connected ? net->GetClient()->GetClientId() : 0;
+}
+
+
+static int Eng_Net_GetTick()
+{
+    NetCore* net = Net();
+    return net ? static_cast<int>( net->GetTick() ) : 0;
+}
+
+
+static bool Eng_Net_IsResimulating()
+{
+    NetCore* net = Net();
+    return net && net->IsResimulating();
+}
+
+
+static int Eng_Net_GetClients( int* outIds, int max )
+{
+    NetCore* net = Net();
+    if( !net || !net->GetServer() )
+    {
+        return 0;
+    }
+    int count = 0;
+    for( const auto& client : net->GetServer()->GetClients() )
+    {
+        if( client->Accepted )
+        {
+            if( outIds && count < max )
+            {
+                outIds[count] = client->Id;
+            }
+            ++count;
+        }
+    }
+    return count;
+}
+
+
+static int Eng_Net_GetOwner( EntityID id )
+{
+    NetCore* net = Net();
+    EntityHandle entity = MakeHandle( id );
+    return net && entity ? net->GetOwner( *entity.Get() ) : 0;
+}
+
+
+static void Eng_Net_SetOwner( EntityID id, int clientId )
+{
+    NetCore* net = Net();
+    EntityHandle entity = MakeHandle( id );
+    if( net && entity && clientId >= 0 && clientId <= 255 )
+    {
+        net->SetOwner( *entity.Get(), static_cast<uint8_t>( clientId ) );
+    }
+}
+
+
+static bool Eng_Net_IsPredicted( EntityID id )
+{
+    NetCore* net = Net();
+    EntityHandle entity = MakeHandle( id );
+    return net && entity && net->IsPredicted( *entity.Get() );
+}
+
+
+static bool Eng_Net_GetCommand( EntityID id, int* outButtons, int* outPreviousButtons, float* outAxes, int* outTick )
+{
+    NetCore* net = Net();
+    EntityHandle entity = MakeHandle( id );
+    InputCommand command;
+    InputCommand previous;
+    const bool found = net && entity && net->GetCommand( *entity.Get(), command, previous );
+    if( outButtons )
+    {
+        *outButtons = static_cast<int>( command.Buttons );
+    }
+    if( outPreviousButtons )
+    {
+        *outPreviousButtons = static_cast<int>( previous.Buttons );
+    }
+    if( outAxes )
+    {
+        std::copy( command.Axes.begin(), command.Axes.end(), outAxes );
+    }
+    if( outTick )
+    {
+        *outTick = static_cast<int>( command.Tick );
+    }
+    return found;
+}
+
+
+static int Eng_Net_GetActionIndex( const uint8_t* action )
+{
+    return action ? GetEngine().GetNetLaunch().GetActionIndex( reinterpret_cast<const char*>( action ) ) : -1;
+}
+
+
+static void Eng_Net_SetActionOverride( int index, bool held )
+{
+    GetEngine().GetNetLaunch().SetActionOverride( index, held );
+}
+
+
+static void Eng_Net_SendRpc( EntityID id, int rpcId, int kind, uint8_t* data, int size )
+{
+    NetCore* net = Net();
+    EntityHandle entity = MakeHandle( id );
+    if( net && entity && size >= 0 && kind >= 0 && kind <= 2 )
+    {
+        net->SendRpc( *entity.Get(), rpcId, static_cast<NetCore::RpcKind>( kind ), data, static_cast<size_t>( size ) );
+    }
+}
+
+
+static int Eng_Net_GetNetId( EntityID id )
+{
+    NetCore* net = Net();
+    EntityHandle entity = MakeHandle( id );
+    return net && entity ? static_cast<int>( net->GetNetId( *entity.Get() ) ) : 0;
+}
+
+
+// Through an out parameter: EntityID returned by value isn't a plain struct on every ABI (MSVC x64).
+static void Eng_Net_FindEntity( int netId, EntityID* outId )
+{
+    if( !outId )
+    {
+        return;
+    }
+    NetCore* net = Net();
+    EntityHandle entity = net && netId > 0 ? net->FindEntity( static_cast<uint32_t>( netId ) ) : EntityHandle();
+    *outId = entity ? entity->GetId() : EntityID();
+}
+
+
+static void Eng_Net_GetPredictionStats( int* outCorrections, int* outMatches, int* outInitialSyncs )
+{
+    NetCore* net = Net();
+    const NetPredictor* predictor = net ? net->GetPredictor() : nullptr;
+    if( outCorrections )
+    {
+        *outCorrections = predictor ? predictor->GetCorrectionCount() : 0;
+    }
+    if( outMatches )
+    {
+        *outMatches = predictor ? predictor->GetMatchCount() : 0;
+    }
+    if( outInitialSyncs )
+    {
+        *outInitialSyncs = predictor ? predictor->GetInitialSyncCount() : 0;
+    }
+}
+
+
+void Register_NetBindings( ScriptEngineAPI& inAPI )
+{
+    inAPI.Net_GetRole = &Eng_Net_GetRole;
+    inAPI.Net_GetLocalClientId = &Eng_Net_GetLocalClientId;
+    inAPI.Net_GetTick = &Eng_Net_GetTick;
+    inAPI.Net_IsResimulating = &Eng_Net_IsResimulating;
+    inAPI.Net_GetClients = &Eng_Net_GetClients;
+    inAPI.Net_GetOwner = &Eng_Net_GetOwner;
+    inAPI.Net_SetOwner = &Eng_Net_SetOwner;
+    inAPI.Net_IsPredicted = &Eng_Net_IsPredicted;
+    inAPI.Net_GetCommand = &Eng_Net_GetCommand;
+    inAPI.Net_GetActionIndex = &Eng_Net_GetActionIndex;
+    inAPI.Net_SetActionOverride = &Eng_Net_SetActionOverride;
+    inAPI.Net_SendRpc = &Eng_Net_SendRpc;
+    inAPI.Net_GetNetId = &Eng_Net_GetNetId;
+    inAPI.Net_FindEntity = &Eng_Net_FindEntity;
+    inAPI.Net_GetPredictionStats = &Eng_Net_GetPredictionStats;
+}
+
+#endif

@@ -590,6 +590,7 @@ void Engine::Run()
 
     // --server / --connect (NET-5): after the scene loads, since the handshake hashes its
     // networked entities. One tick per fixed step.
+    m_netLaunch.BuildCommandLayout( GetInput() );
     m_netLaunch.Start( *Net, static_cast<uint16_t>( std::lround( 1.0 / m_fixedTimeStep ) ), GameWindow, engineConfig.GetValue( "Title" ) );
 
     GameClock.Reset();
@@ -760,9 +761,17 @@ void Engine::Run()
                 while( m_fixedAccumulator >= m_fixedTimeStep && steps < m_maxFixedStepsPerFrame )
                 {
                     updateContext.IsFixedStepActive = true;
-                    Net->BeginTick();
                     // Gameplay in a step sees each press and release once, whatever the frame rate.
                     GetInput().BeginFixedStep();
+                    // The local player's networked actions (NET-6) into the tick's command, with
+                    // this step's edges (a tap between ticks still counts once).
+                    if( Net->IsClient() && m_netLaunch.HasCommandLayout() )
+                    {
+                        InputCommand command;
+                        m_netLaunch.SampleCommand( GetInput(), command );
+                        Net->SetLocalCommand( command );
+                    }
+                    Net->BeginTick();
                     GameWorld->FixedUpdateLoadedCores( updateContext );
                     if( Scripts )
                     {

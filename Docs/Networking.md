@@ -28,7 +28,15 @@ Multiplayer follows the Overwatch model: an authoritative server, client predict
   - `--server` / `--connect` / `--net-*` on the command line, with a JSON report;
   - `Tools/RunNetSmoke.py` in RunChecks.
 
-The C# API (NET-6) and the editor tooling (NET-7) come next.
+- **NET-6:** networking from C#:
+  - `[Replicated]` / `[Predicted]` script fields and `[ServerRpc]` / `[ClientRpc]` methods, generated allocation-free by the NetGenerator;
+  - the `Net` API: role, commands, ownership, prediction stats;
+  - networked input actions;
+  - script prediction with rollback and resim;
+  - ownership that reaches clients;
+  - the schema in the handshake.
+
+The editor tooling (NET-7) comes next.
 
 ## Key Files
 
@@ -54,6 +62,9 @@ The C# API (NET-6) and the editor tooling (NET-7) come next.
 | `Source/Window/NullWindow.h` | The headless build's window: a size and SDL's event loop (Ctrl+C / SIGTERM close it) |
 | `Tools/RunNetSmoke.py` | The two-process smoke test (below) |
 | `Tools/RunNetLocal.py` | A server plus N client windows on this machine, for playing and debugging (below) |
+| `Modules/ScriptCore/Source/Net/` | C#: the `[Replicated]` / `[Predicted]` / `[ServerRpc]` / `[ClientRpc]` attributes, `INetScript`, `NetWriter` / `NetReader`, `Net`, and `NetBridge.cs` (the entry points C++ calls) |
+| `Modules/ScriptCore/Generators/NetGenerator.cs` | The NET-6 generator |
+| `Source/Scripting/ScriptNet.h`, `Bindings/Systems/Net.bindings.cpp` | `NetCore::ScriptGlue` over C# scripts, and the `Net_*` slots C# calls |
 | `Tests/Source/NetTests.cpp`, `NetSessionTests.cpp`, `NetHarness.h` | The proofs (below). The harness runs a server world and a client world in one process at 1 ms resolution |
 
 ## How It Works
@@ -142,7 +153,7 @@ Messages are at most 1024 bytes (`kMaxMessageBytes`); there is no fragmentation 
 - **Adaptive delay:** it grows by 0.25 tick when a moving entity runs out of samples (up to 8), and shrinks slowly after 2 s without that (down to 1.5).
 - **Kinematic remotes:** a client's copy of a networked `Rigidbody` is made kinematic; only the server simulates.
 
-**`NetSchema` field types:** bool, ints and enums (VarUInt), float, double, Vector2/3/4, Quaternion (raw floats), and strings. Flag fields with `ME_FIELD( X ).Replicated()`. `.Predicted()` implies Replicated and is for NET-5.
+**`NetSchema` field types:** bool, ints and enums (VarUInt), float, double, Vector2/3/4, Quaternion (raw floats), and strings. Flag fields with `ME_FIELD( X ).Replicated()`. `.Predicted()` implies Replicated. Script fields ride separately, after the reflected ones (NET-6, below).
 
 ### Relevancy and bandwidth (NET-13)
 
@@ -173,7 +184,99 @@ The client predicts only what it owns. Remote entities are interpolated (above),
 
 **Not covered yet:**
 - The visual offset isn't applied to anything. A game draws the pawn's mesh at `Transform + GetVisualOffset()`. Moving the Transform itself would read as a teleport to the mover.
-- Prediction of `[Predicted]` script fields comes with NET-6.
+- Only the pawn's mover and its C# `[Predicted]` fields roll back (NET-6). Other components on it don't.
+
+### C# networking (NET-6)
+
+A networked script is a `partial` class deriving from `Script`:
+
+```csharp
+public partial class Dasher : Script
+{
+    [Predicted] public float DashCooldown;     // the owner predicts it; rolled back and resimulated
+    [Replicated] public int Health;            // server -> clients, in snapshots
+    [ServerRpc] partial void RequestUse(Entity door);           // client (owner) -> server: OnRequestUse runs there
+    [ClientRpc(NetTarget.Owner)] partial void HitMarker(Vector3 at);  // server -> owner (NetTarget.All: every client)
+
+    void OnRequestUse(Entity door) { /* server */ }
+    void OnHitMarker(Vector3 at) { /* client */ }
+
+    public override void OnFixedUpdate(float dt)        // simulation: server, owner, and resim
+    {
+        var command = Net.Command(Entity);
+        if (command.WasPressed("Dash") && DashCooldown <= 0) { DashCooldown = 2; /* ... */ }
+    }
+}
+```
+
+**The generator** (`Modules/ScriptCore/Generators/NetGenerator.cs`, beside CS-9's `SchemaGenerator`) gives the class `INetScript`:
+
+- **State:** fixed-size, allocation-free `Save` / `Restore` of the `[Predicted]` fields, and `Write` / `Read` of the replicated ones.
+  - The replicated block holds `[Replicated]` and `[Predicted]` fields, in declaration order, little-endian raw.
+  - Read can skip the predicted ones, for the owner.
+- **RPCs:** each send stub serializes its arguments into a stack buffer and calls `Net.SendRpc`. A dispatch switch calls `On{Name}`; RPC ids are the methods' ordinal name order.
+- **Schema hash:** `__NetSchemaHash`, FNV-1a over the class name, every net field (name, kind, R/P) and every RPC (name, argument kinds, side, target).
+- **Kinds:**
+  - State: bool, int, float, double, int enums, Vector2, Vector3, Quaternion.
+  - RPC arguments: those, plus string and `Entity`. An `Entity` is sent as its NetId.
+- **Diagnostics** (errors; nothing is generated):
+  - MEGEN004: not partial.
+  - MEGEN005: not a `Script`.
+  - MEGEN006: nested or generic.
+  - MEGEN007: an unsupported, static or readonly net field.
+  - MEGEN008: an RPC that isn't a bodiless `partial void`.
+  - MEGEN009: an unsupported RPC parameter.
+  - MEGEN010: a missing or mismatched `On{Name}`.
+  - MEGEN011: a net script deriving from another net script; keep the net members in one class.
+- **Dispatch only runs on the side an RPC is addressed to:** a ServerRpc on the server, a ClientRpc on a client, both offline. A client can't make the server run a ClientRpc handler.
+
+**`Net`** (`Modules/ScriptCore/Source/Net/Net.cs`, over the `## Networking` slots of `ScriptAPI.def`):
+
+- **Session:** `Role` / `IsServer` / `IsClient` / `IsActive`, `LocalClientId`, `Tick`, `IsResimulating`, `Clients`.
+- **Ownership:** `GetOwner` / `SetOwner` (server) / `IsOwner` / `IsPredicted`.
+- **Input and stats:** `Command(entity)`, `Press(action, held)`, `Corrections` / `Matches` / `InitialSyncs`, `GetNetId` / `FindEntity`.
+- **Without a session**, everything reads as offline, and RPCs run locally: offline play is both sides.
+
+**Engine side:**
+
+- **Networked actions:** `InputAction.Networked` (JSON `"Networked": true`) marks actions that travel in commands.
+  - `NetLaunch` sorts them by name: buttons take the command's bits in that order, Value / Vector2 actions its four axes.
+  - The client samples them at the start of each fixed step, before `Net->BeginTick`. A button counts as held, or as pressed since the last step, so a tap shorter than a tick still reaches one command.
+  - The engine samples only once something is networked. Otherwise a C++ game's own `NetCore::SetLocalCommand` stands.
+  - `WasPressed` compares with the previous tick's command, which also holds in resimulation.
+  - `Net.Press` holds a button from a script (tests, bots).
+  - The layout's hash is part of the handshake.
+- **`Net.Command(entity)`:**
+  - **Server:** the entity's owner's command for this tick (and the one before; `NetServer::Client::Previous`).
+  - **Owner's client:** its predicted pawn's live command, or the replayed one during a resim.
+  - **Otherwise:** `Valid = false`.
+- **Who simulates:** scripts on networked entities run `OnFixedUpdate` on the server, and on a client only on its predicted pawn (`NetCore::SimulatesLocally`; the rest follows snapshots). Non-networked scripts run everywhere. `OnUpdate` / `OnLateUpdate` are presentation and run everywhere.
+- **Ownership:**
+  - `Net.SetOwner` on the server goes out as an **Owner** message. Static entities' owners only travel that way, and late joiners get the current ones.
+  - A client that comes to own an entity with a `CharacterController` predicts it (`NetCore::Predict`).
+  - Losing it stops the prediction, and the entity follows snapshots again.
+  - When a client leaves, what it owned goes back to the server.
+- **State on the wire** (`NetCore::ScriptGlue`, filled by `Scripting/ScriptNet.cpp` through the `ScriptBridge` net entry points):
+  - **Snapshot fields:** `[u16 reflected size][NetSchema bytes][script bytes]`.
+    - Remote copies read all of it.
+    - The owner reads the replicated fields of its own pawn too, skipping `[Predicted]`.
+  - **OwnerState:** carries the pawn's `[Predicted]` bytes after the mover.
+- **Prediction:** `NetPredictor::ScriptHooks`.
+  - Each tick's record keeps the `[Predicted]` bytes, which `Reconcile` compares exactly.
+  - On a mismatch the server's bytes are restored with the mover. Every replayed tick then runs the pawn's `OnFixedUpdate` before its character step: a live tick's order.
+    - During the replay, `Net.IsResimulating` is true and `Net.Tick` is the replayed tick.
+    - Every replayed tick runs the pawn's script, whether or not it has `[Predicted]` state, since it may steer the mover from `Net.Command`.
+- **RPCs:** a reliable **Rpc** message `{NetId, rpc id, bytes}`, at most 1 KB (arguments up to `Net.MaxRpcArgsBytes`, 1008).
+  - An entity the server created this tick has no NetId until the tick ends: RPCs on it are dropped, with a warning. Send them a tick later, or use a `[Replicated]` field.
+  - The server runs a client's RPC only on an entity that client owns.
+  - `ClientRpc` goes to the owner or to every client.
+- **Handshake:** `ScriptSchema` folds in the networked action layout and every networked class's `__NetSchemaHash`, so a client with other script fields or RPCs is rejected (`"scripts"`). Protocol 3.
+
+**Rules of thumb:**
+
+- Don't log, play sounds or send RPCs from `OnFixedUpdate` without checking `Net.IsResimulating`: a resim runs it again.
+- Keep `[Predicted]` state deterministic: the same code on the same commands. It is compared byte for byte.
+- One `ScriptComponent` per networked entity carries its net state.
 
 ### Lag compensation (NET-8)
 
@@ -299,6 +402,19 @@ The session starts after the scene loads, because the handshake hashes the scene
   - A `NetServer` and `NetClient` connect over real UDP. Commands arrive, and the client's Disconnect removes it at once (1 disconnect, 0 timeouts).
   - A client drawing at 1000 fps against a 60 Hz server sends 60.3 packets/s, with a loss estimate of 0. Before the cap it sent one packet a frame; past the server's 33-packet ack window those read as 34% loss on a desktop run.
   - On loopback, a silent client times out on the server (`OnClientRemoved` fires once). A client gives up on a silent server and on one that never answers. A closing server tells its client (`"server closed"`), and a leaving client is counted as left, not timed out.
+- **Scripts, owners and RPCs (`NetScriptTests.cpp`, NET-6):** two worlds with a C++ stand-in for the C# glue, at 80 ms RTT.
+  - **Ownership:** handing the pawn to the client makes it predict it.
+  - **RPCs:** a client RPC on what it owns reaches the server, and one on what it doesn't is dropped. Owner and all-clients RPCs arrive, and oversized ones are refused.
+  - **Replicated state:** script bytes mirror, the owner reading its own pawn's as owned.
+  - **Prediction:** a "dash" counter (+1 a tick, +10 on each Dash press, edges from the previous command) predicts with **0 corrections** over 377 confirmed ticks. A server-only change is **exactly 1** correction at its tick, with the scripts resimulated.
+  - **Late joiners** learn the owner.
+- **The NET-6 done-when:**
+  - **Generator:** 37 tests (`Generators.Tests`): a golden snapshot of a minimal net type, hash stability and sensitivity, every MEGEN004–010, live round trips of a generated probe, dispatch, and zero allocation.
+  - **RunNetSmoke with `NetProbe.cs`** (NetTest.lvl's off-camera pawn):
+    - The server hands the pawn to the client.
+    - The client presses Dash through `Net.Press`, predicts the dash, and pings.
+    - The server logs **"ServerRpc ok"**. The client logs **"ClientRpc ok"**, **"Replicated ok"** and **"dash: 0 corrections"**, only once the server-confirmed `Dashes` is 1.
+    - It passes on a clean link and at 40 ms + 2% loss each way (RTT 115 ms).
 - **The NET-5 done-when (`RunNetSmoke.py`):** the Server build and a client on NetTest.lvl over localhost UDP for 900 client frames (about 15 s).
   - **Clean link:** connected, 0 timeouts, 0 resyncs, 60.06 snapshots/s at 60 Hz (±5% required). The client left cleanly and the server exited by itself. The capture matches its reference exactly (0.00%).
   - **Lossy link:** with `--net-lag 40 --net-jitter 5 --net-loss 2%` on both sides: RTT 111 ms, 59.08 snapshots/s, 0 timeouts, the same capture.
@@ -309,13 +425,17 @@ The session starts after the scene loads, because the handshake hashes the scene
 - **A real transport (Steam, NET-9):** implement `INetTransport` as `UdpTransport` does. `Update` can stay empty (`NetCore` calls it anyway), and `NetConnection` doesn't change. Map the transport's peer identities to stable `NetAddress`es: replies must come from the address the client connected to.
 - **Bigger messages:** need fragmentation (a reliable slice stream). Until then, keep replicated state under 1 KB a message. Snapshots defer entities past their 900-byte budget; NET-4 adds priorities.
 - **A replicated component field:** add `.Replicated()` to its `ME_FIELD`. Clients apply it from the snapshot at the render tick.
+- **A networked script:** mark fields `[Replicated]` / `[Predicted]` and methods `[ServerRpc]` / `[ClientRpc]` in a `partial` `Script`, write `On{Name}` handlers, read input with `Net.Command(Entity)`, and mark the actions it reads `"Networked": true` in the `.inputactions`.
+- **A new net field kind:** add it to `NetGenerator`'s kind mapping and to `NetWriter` / `NetReader` (fixed-size for state), then update the generator tests (the kind name is part of the schema hash).
 
 ## Caveats & Fragility
 
 - **Clock:** the connection trusts the clock it's given. Pass the same monotonic `now` to `SendPacket` and `ReceivePacket`.
 - **Reliable window:** a stalled link holds at most 1024 messages in flight. Messages queued beyond that wait in memory, unbounded, until acks free the window.
 - **No encryption or authentication:** the protocol id only filters strays.
-- **NetSchema is positional:** both sides must have the same components with the same replicated fields, in the same order. NET-3 doesn't hash that into the handshake yet; the build hash covers it for the same game.
+- **NetSchema is positional:** both sides must have the same components with the same replicated fields, in the same order. The C++ side isn't hashed into the handshake (the build hash covers it for the same game); C# net fields and RPCs are (NET-6).
+- **Script prediction is exact:** `[Predicted]` bytes compare bit for bit. Float code that differs across platforms (a Windows client on a Linux server) would read as corrections; quantize such state, or keep it in ints.
+- **Hot reload during a session** changes the schema hash for new joiners only, and drops the generated state of reloaded instances back to their saved public fields.
 - **Spawned prefabs:** clients create spawned entities from `NetIdentity::Prefab`, which must exist on the client.
 - **UDP is IPv4 only** (a `NetAddress` is 64 bits).
   - On a multi-homed server bound to every interface, a reply can leave from another address than the one the client dialled, and the client then ignores it. Bind one address, or connect to the address it answers from.

@@ -59,6 +59,9 @@ public:
     std::string Name;
     InputActionType Type = InputActionType::Button;
     float PressThreshold = 0.5f;
+    // Sampled into each tick's network command (NET-6): Net.Command(entity) on the server and in
+    // prediction reads it (buttons: a bit each; Value / Vector2: the command's axes).
+    bool Networked = false;
     std::vector<InputBinding> Bindings;
 };
 

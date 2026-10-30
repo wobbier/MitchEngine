@@ -85,12 +85,42 @@ namespace
         OutState.Rotation = low | ( high << 32 );
     }
 
-    NetEntityState Capture( Entity& InEntity )
+    // Snapshot fields: [u16 reflected size][NetSchema bytes][C# script bytes].
+    std::vector<uint8_t> PackFields( const std::vector<uint8_t>& InReflected, const std::vector<uint8_t>& InScript )
+    {
+        std::vector<uint8_t> packed;
+        packed.reserve( 2 + InReflected.size() + InScript.size() );
+        packed.push_back( static_cast<uint8_t>( InReflected.size() & 0xFF ) );
+        packed.push_back( static_cast<uint8_t>( ( InReflected.size() >> 8 ) & 0xFF ) );
+        packed.insert( packed.end(), InReflected.begin(), InReflected.end() );
+        packed.insert( packed.end(), InScript.begin(), InScript.end() );
+        return packed;
+    }
+
+    void UnpackFields( const std::vector<uint8_t>& InPacked, std::vector<uint8_t>& OutReflected, std::vector<uint8_t>& OutScript )
+    {
+        OutReflected.clear();
+        OutScript.clear();
+        if( InPacked.size() < 2 )
+        {
+            return;
+        }
+        const size_t reflected = std::min<size_t>( InPacked[0] | ( static_cast<size_t>( InPacked[1] ) << 8 ), InPacked.size() - 2 );
+        OutReflected.assign( InPacked.begin() + 2, InPacked.begin() + 2 + static_cast<std::ptrdiff_t>( reflected ) );
+        OutScript.assign( InPacked.begin() + 2 + static_cast<std::ptrdiff_t>( reflected ), InPacked.end() );
+    }
+
+    NetEntityState Capture( Entity& InEntity, const NetScriptState* InScripts = nullptr )
     {
         NetEntityState state;
         Transform& transform = InEntity.GetComponent<Transform>();
         state.SetPose( transform.GetWorldPosition(), transform.GetWorldRotation() );
-        state.Fields = NetSchema::Write( InEntity );
+        std::vector<uint8_t> script;
+        if( InScripts && InScripts->WriteReplicated )
+        {
+            InScripts->WriteReplicated( InEntity, script );
+        }
+        state.Fields = PackFields( NetSchema::Write( InEntity ), script );
         return state;
     }
 
@@ -113,10 +143,19 @@ NetReplicationServer::NetReplicationServer( World& InWorld, NetServer& InServer 
     m_server.OnClientAccepted = [this]( NetServer::Client& InClient ) { OnClientAccepted( InClient ); };
     // A client that left or timed out: nothing more goes to it.
     m_server.OnClientRemoved = [this]( NetServer::Client& InClient ) {
+        // What it owned goes back to the server (clients hear it as an Owner change): a later
+        // client given the same id mustn't inherit it.
+        for( auto& [id, handle] : m_entities )
+        {
+            if( handle && handle->GetComponent<NetIdentity>().m_owner == InClient.Id )
+            {
+                handle->GetComponent<NetIdentity>().m_owner = 0;
+            }
+        }
         m_clients.erase( InClient.Id );
         m_viewers.erase( InClient.Id );
     };
-    m_server.OnMessage = [this]( NetServer::Client& InClient, uint8_t InType, BitReader& InReader, bool ) {
+    m_server.OnMessage = [this]( NetServer::Client& InClient, uint8_t InType, BitReader& InReader, bool InReliable ) {
         if( InType == NetMessage::SnapshotAck )
         {
             ClientState& state = m_clients[InClient.Id];
@@ -126,6 +165,10 @@ NetReplicationServer::NetReplicationServer( World& InWorld, NetServer& InServer 
                 state.HasAck = true;
                 state.AckedTick = tick;
             }
+        }
+        else if( OnOtherMessage )
+        {
+            OnOtherMessage( InClient, InType, InReader, InReliable );
         }
     };
 }
@@ -148,6 +191,13 @@ uint32_t NetReplicationServer::GetNetId( Entity& InEntity ) const
 {
     const NetIdentity* identity = InEntity.TryGetComponent<NetIdentity>();
     return identity ? identity->m_netId : 0;
+}
+
+
+EntityHandle NetReplicationServer::FindEntity( uint32_t InNetId ) const
+{
+    auto it = m_entities.find( InNetId );
+    return it != m_entities.end() ? it->second : EntityHandle();
 }
 
 
@@ -205,12 +255,40 @@ void NetReplicationServer::CaptureTick( uint32_t InTick )
         }
     }
 
+    // Owners that changed since the clients were last told (static entities' owners only ever
+    // travel this way; spawns carry theirs).
+    for( auto& [id, handle] : m_entities )
+    {
+        const uint8_t owner = handle->GetComponent<NetIdentity>().m_owner;
+        auto sent = m_sentOwners.find( id );
+        const uint8_t told = sent != m_sentOwners.end() ? sent->second : ( id >= kFirstDynamicId ? owner : 0 );
+        if( owner != told )
+        {
+            BitWriter message;
+            message.WriteBits( NetMessage::Owner, 8 );
+            message.WriteVarUInt( id );
+            message.WriteBits( owner, 8 );
+            for( const auto& client : m_server.GetClients() )
+            {
+                if( client->Accepted )
+                {
+                    m_server.Send( *client, message, true );
+                }
+            }
+        }
+        m_sentOwners[id] = owner;
+    }
+    for( auto it = m_sentOwners.begin(); it != m_sentOwners.end(); )
+    {
+        it = m_entities.count( it->first ) ? std::next( it ) : m_sentOwners.erase( it );
+    }
+
     m_current.Tick = InTick;
     m_current.Entities.clear();
     m_meta.clear();
     for( auto& [id, handle] : m_entities )
     {
-        m_current.Entities.emplace( id, Capture( *handle.Get() ) );
+        m_current.Entities.emplace( id, Capture( *handle.Get(), &Scripts ) );
         const NetIdentity& identity = handle->GetComponent<NetIdentity>();
         m_meta[id] = EntityMeta{ identity.m_owner, identity.Priority, identity.AlwaysRelevant };
     }
@@ -428,7 +506,7 @@ void NetReplicationServer::OnClientAccepted( NetServer::Client& InClient )
             m_server.Send( InClient, despawn, true );
         }
     }
-    // ... and gets everything spawned so far.
+    // ... and gets everything spawned so far, and who owns what.
     for( auto& [id, handle] : m_entities )
     {
         if( id >= kFirstDynamicId )
@@ -436,6 +514,15 @@ void NetReplicationServer::OnClientAccepted( NetServer::Client& InClient )
             BitWriter spawn;
             WriteSpawn( spawn, id, *handle.Get() );
             m_server.Send( InClient, spawn, true );
+        }
+        auto owner = m_sentOwners.find( id );
+        if( id < kFirstDynamicId && owner != m_sentOwners.end() && owner->second != 0 )
+        {
+            BitWriter message;
+            message.WriteBits( NetMessage::Owner, 8 );
+            message.WriteVarUInt( id );
+            message.WriteBits( owner->second, 8 );
+            m_server.Send( InClient, message, true );
         }
     }
 }
@@ -464,6 +551,14 @@ void NetReplicationServer::OnPacket( NetServer::Client& InClient )
         WriteVector( owner, mover.GroundNormal );
         owner.WriteBool( mover.WantsJump );
         owner.WriteBool( mover.Grounded );
+        // Its [Predicted] script state after the same tick (NET-6).
+        std::vector<uint8_t> scripts;
+        if( Scripts.SavePredicted )
+        {
+            Scripts.SavePredicted( *handle.Get(), scripts );
+        }
+        owner.WriteVarUInt( scripts.size() );
+        owner.WriteBytes( scripts.data(), scripts.size() );
         m_server.Send( InClient, owner, false );
     }
 
@@ -542,10 +637,36 @@ void NetReplicationClient::OnMessage( uint8_t InType, BitReader& InReader, bool 
         state.GroundNormal = ReadVector( InReader );
         state.WantsJump = InReader.ReadBool();
         state.Grounded = InReader.ReadBool();
-        if( !InReader.IsOverflowed() && OnOwnerState )
+        const uint64_t scriptBytes = InReader.ReadVarUInt();
+        std::vector<uint8_t> scripts;
+        if( scriptBytes <= NetConnection::kMaxMessageBytes )
         {
-            OnOwnerState( id, tick, state );
+            scripts.resize( static_cast<size_t>( scriptBytes ) );
+            InReader.ReadBytes( scripts.data(), scripts.size() );
         }
+        if( !InReader.IsOverflowed() && scriptBytes <= NetConnection::kMaxMessageBytes && OnOwnerState )
+        {
+            OnOwnerState( id, tick, state, scripts );
+        }
+    }
+    else if( InType == NetMessage::Owner && InReliable )
+    {
+        const uint32_t id = static_cast<uint32_t>( InReader.ReadVarUInt() );
+        const uint8_t owner = static_cast<uint8_t>( InReader.ReadBits( 8 ) );
+        auto it = m_entities.find( id );
+        if( InReader.IsOverflowed() || it == m_entities.end() || !it->second )
+        {
+            return;
+        }
+        it->second->GetComponent<NetIdentity>().m_owner = owner;
+        if( OnOwnerChanged )
+        {
+            OnOwnerChanged( id, owner );
+        }
+    }
+    else if( OnOtherMessage )
+    {
+        OnOtherMessage( InType, InReader, InReliable );
     }
 }
 
@@ -575,6 +696,10 @@ void NetReplicationClient::OnSpawn( BitReader& InReader )
     identity.Prefab = prefab;
     identity.m_owner = owner;
     Apply( *entity.Get(), pose.GetPosition(), pose.GetRotation() );
+    if( owner != 0 && OnOwnerChanged )
+    {
+        OnOwnerChanged( id, owner );
+    }
 }
 
 
@@ -592,6 +717,7 @@ void NetReplicationClient::OnDespawn( BitReader& InReader )
     }
     m_entities.erase( it );
     m_samples.erase( id );
+    m_predicted.erase( id );
 }
 
 
@@ -681,11 +807,24 @@ void NetReplicationClient::Update( double InFrameSeconds )
 
     // Adaptive delay: running past the samples of something that moves means it's too short.
     bool starved = false;
+    std::vector<uint8_t> reflected;
+    std::vector<uint8_t> script;
     for( auto& [id, samples] : m_samples )
     {
         auto entity = m_entities.find( id );
-        if( samples.empty() || entity == m_entities.end() || !entity->second || m_predicted.count( id ) )
+        if( samples.empty() || entity == m_entities.end() || !entity->second )
         {
+            continue;
+        }
+        if( m_predicted.count( id ) )
+        {
+            // The pawn this client predicts: its pose is its own, but the server's [Replicated]
+            // script fields still apply (the newest; [Predicted] ones come with OwnerState).
+            UnpackFields( samples.back().State.Fields, reflected, script );
+            if( !script.empty() && Scripts.ReadReplicated )
+            {
+                Scripts.ReadReplicated( *entity->second.Get(), script, true );
+            }
             continue;
         }
         // The samples either side of the render tick.
@@ -716,7 +855,12 @@ void NetReplicationClient::Update( double InFrameSeconds )
             starved = true;
         }
         Apply( *entity->second.Get(), position, rotation );
-        NetSchema::Read( *entity->second.Get(), before->State.Fields );
+        UnpackFields( before->State.Fields, reflected, script );
+        NetSchema::Read( *entity->second.Get(), reflected );
+        if( !script.empty() && Scripts.ReadReplicated )
+        {
+            Scripts.ReadReplicated( *entity->second.Get(), script, false );
+        }
     }
     if( starved )
     {

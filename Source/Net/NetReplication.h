@@ -32,6 +32,21 @@ class World;
 // - Clients keep the decoded snapshots (deltas need them), interpolate each entity at
 //   "server tick - delay" (adaptive: it grows when samples run out) and make remote Rigidbodies
 //   kinematic: only the server simulates.
+// - Scripts (NET-6, NetScriptState): an entity's C# [Replicated] fields ride in its snapshot
+//   fields after the reflected ones; its owner also gets the [Predicted] ones in OwnerState.
+//   Ownership changes go out as Owner messages (late joiners get the current owners), and
+//   messages replication doesn't know (RPCs) go to OnOtherMessage.
+// C# script state riding with entities (NET-6); NetCore fills it in when scripting runs.
+struct NetScriptState
+{
+    // Appends the entity's [Replicated] (and [Predicted]) script bytes, if it has any.
+    std::function<void( Entity&, std::vector<uint8_t>& )> WriteReplicated;
+    // InOwned: the entity is this client's predicted pawn ([Predicted] fields come from OwnerState).
+    std::function<void( Entity&, const std::vector<uint8_t>&, bool InOwned )> ReadReplicated;
+    // Appends the entity's [Predicted] script bytes, if it has any.
+    std::function<void( Entity&, std::vector<uint8_t>& )> SavePredicted;
+};
+
 // How the server shares out each client's bandwidth (NET-13).
 struct NetReplicationSettings
 {
@@ -56,6 +71,8 @@ public:
     static constexpr uint32_t kKeepAliveTicks = 15;
     static constexpr size_t kSnapshotBudget = 900;
 
+    NetScriptState Scripts;
+
     NetReplicationServer( World& InWorld, NetServer& InServer );
 
     // Before the first tick: static ids for what's placed.
@@ -64,7 +81,10 @@ public:
     void CaptureTick( uint32_t InTick );
 
     uint32_t GetNetId( Entity& InEntity ) const;
+    EntityHandle FindEntity( uint32_t InNetId ) const;
     const NetSnapshot& GetCurrent() const { return m_current; }
+    // Messages from accepted clients that replication doesn't handle (RPCs).
+    std::function<void( NetServer::Client&, uint8_t InType, BitReader& InReader, bool InReliable )> OnOtherMessage;
 
     // Where a client's view is, for relevancy and priority (otherwise its first owned entity).
     void SetViewer( uint8_t InClient, const Vector3& InPosition ) { m_viewers[InClient] = InPosition; }
@@ -113,6 +133,7 @@ private:
     std::map<uint32_t, EntityMeta> m_meta;
     std::map<uint8_t, Vector3> m_viewers;
     std::map<uint32_t, EntityHandle> m_entities;
+    std::map<uint32_t, uint8_t> m_sentOwners;   // what clients were last told
     uint32_t m_nextDynamicId = kFirstDynamicId;
     uint32_t m_staticCount = 0;
     std::unordered_map<uint8_t, ClientState> m_clients;
@@ -124,6 +145,8 @@ private:
 class NetReplicationClient
 {
 public:
+    NetScriptState Scripts;
+
     NetReplicationClient( World& InWorld, NetClient& InClient );
 
     void AssignStaticIds();
@@ -140,10 +163,17 @@ public:
     uint32_t GetNewestSnapshotTick() const { return m_newest; }
     uint64_t GetSnapshotsReceived() const { return m_received; }
 
-    // The server's state of a character this client owns (NET-4): for its predictor.
-    std::function<void( uint32_t InNetId, uint32_t InTick, const CharacterController::NetState& InState )> OnOwnerState;
+    // The server's state of a character this client owns (NET-4), with its [Predicted] script
+    // bytes (NET-6): for its predictor.
+    std::function<void( uint32_t InNetId, uint32_t InTick, const CharacterController::NetState& InState, const std::vector<uint8_t>& InScripts )> OnOwnerState;
+    // An entity's owner changed (or arrived with its spawn).
+    std::function<void( uint32_t InNetId, uint8_t InOwner )> OnOwnerChanged;
+    // Messages from the server that replication doesn't handle (RPCs).
+    std::function<void( uint8_t InType, BitReader& InReader, bool InReliable )> OnOtherMessage;
     // Entities this client predicts aren't interpolated.
     void SetPredicted( uint32_t InNetId ) { m_predicted.insert( InNetId ); }
+    // Back to following the server's snapshots (ownership moved away).
+    void ClearPredicted( uint32_t InNetId ) { m_predicted.erase( InNetId ); }
 
 private:
     struct Sample

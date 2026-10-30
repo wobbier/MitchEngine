@@ -22,6 +22,12 @@
 // NetCore drives the transport's Update (Receive, EndTick, Flush), so conditioned links release
 // what's due. Close says goodbye before Shutdown; WriteReport sums the session up (--net-report).
 //
+// Scripts (NET-6): ScriptGlue (installed by the engine when C# runs; tests install their own)
+// carries C# [Replicated] / [Predicted] state with entities, re-runs the predicted pawn's scripts
+// in resimulation, and delivers RPCs. Ownership: SetOwner on the server reaches every client; a
+// client that gets a character predicts it. Scripts on networked entities simulate (fixed steps)
+// on the server and, on a client, only on its predicted pawn (SimulatesLocally).
+//
 // It never calls GetEngine(): tests run a server world and a client world side by side
 // (Tests/Source/NetHarness.h).
 class NetCore final
@@ -40,6 +46,44 @@ public:
     void Shutdown();
     // Seconds of silence before a peer counts as gone; applies to sessions started afterwards.
     void SetTimeout( double InSeconds ) { m_timeout = InSeconds; }
+
+    struct ScriptGlue
+    {
+        NetScriptState State;   // [Replicated] bytes in snapshots, [Predicted] bytes for the owner
+        std::function<void( Entity&, const std::vector<uint8_t>& )> RestorePredicted;
+        std::function<void( Entity& )> SimulatePredicted;   // one fixed step of the entity's scripts
+        // An RPC arrived for an entity (the server checked the sender owns it).
+        std::function<void( Entity&, int InRpcId, const uint8_t* InData, size_t InSize )> DispatchRpc;
+        // The networked script classes' schema, folded into the handshake.
+        std::function<uint64_t()> SchemaHash;
+    };
+    // Before Host / Connect.
+    void SetScriptGlue( ScriptGlue InGlue ) { m_glue = std::move( InGlue ); }
+    // The networked input actions' layout (names, order, kinds), folded into the handshake.
+    void SetCommandSchema( uint64_t InHash ) { m_commandSchema = InHash; }
+
+    // The command an entity runs with this tick, and the one before (button edges): on the server
+    // its owner's; on a client its predicted pawn's (a resimulated tick's while resimulating).
+    bool GetCommand( Entity& InEntity, InputCommand& OutCommand, InputCommand& OutPrevious ) const;
+    bool IsResimulating() const { return m_predictor && m_predictor->IsResimulating(); }
+    // Whether this side runs an entity's fixed-step scripts: anything not networked, everything on
+    // the server, and only the predicted pawn on a client (the rest follows the server).
+    bool SimulatesLocally( Entity& InEntity ) const;
+    // Ownership: 0 is the server. SetOwner only means something on the server.
+    uint8_t GetOwner( Entity& InEntity ) const;
+    void SetOwner( Entity& InEntity, uint8_t InClient );
+    bool IsPredicted( Entity& InEntity ) const;
+    uint32_t GetNetId( Entity& InEntity ) const;
+    EntityHandle FindEntity( uint32_t InNetId ) const;
+    // RPC kinds: to the server (from the owner), to the entity's owner, to every client. False
+    // when this side can't send that kind or the message is too big (1 KB).
+    enum class RpcKind : int
+    {
+        ToServer = 0,
+        ToOwner = 1,
+        ToAll = 2,
+    };
+    bool SendRpc( Entity& InEntity, int InRpcId, RpcKind InKind, const uint8_t* InData, size_t InSize );
 
     // The session so far as JSON (role, connection, timeouts, snapshot rates): true when written.
     bool WriteReport( const std::string& InPath, double InNow ) const;
@@ -85,7 +129,8 @@ public:
         const EntityHandle& InShooter = EntityHandle() );
     NetLagCompensation& GetLagCompensation() { return m_lagCompensation; }
     // The tick being simulated (BeginTick to EndTick): the server's, or the client's.
-    uint32_t GetTick() const { return m_tick; }
+    // (During a resimulation: the tick being replayed.)
+    uint32_t GetTick() const { return m_predictor && m_predictor->IsResimulating() ? m_predictor->GetCommand().Tick : m_tick; }
 
 #if USING( ME_EDITOR )
     void OnEditorInspect() final;
@@ -106,6 +151,8 @@ private:
         uint64_t LateCommands = 0;
     };
     void RecordDeparture( const NetServer::Client& InClient, double InNow );
+    void OnRpc( uint8_t InFromClient, BitReader& InReader );
+    void OnOwnerChanged( uint32_t InNetId, uint8_t InOwner );
 
     std::unique_ptr<NetServer> m_server;
     std::unique_ptr<NetClient> m_client;
@@ -118,6 +165,8 @@ private:
     NetLagCompensation m_lagCompensation;
     uint32_t m_tick = 0;
     INetTransport* m_transport = nullptr;
+    ScriptGlue m_glue;
+    uint64_t m_commandSchema = 0;
     double m_timeout = NetServer::kDefaultTimeout;
     double m_startedAt = -1.0;
     double m_lastNow = 0.0;

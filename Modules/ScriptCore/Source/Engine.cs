@@ -39,7 +39,7 @@ public static unsafe class Engine
     }
 }
 
-public static class ScriptBridge
+public static partial class ScriptBridge
 {
     private static GameScriptALC? _alc;
     // scaffolding for hot-reload: a weak ref to the collectible ALC so we can later confirm the old
@@ -178,6 +178,7 @@ public static class ScriptBridge
         EventBus.Clear();
         Scheduler.Clear();
         _schedules.Clear();
+        Net.ResetCaches();
         _alc?.Unload();
         _alc = newAlc;
         _alcRef = new WeakReference(newAlc);

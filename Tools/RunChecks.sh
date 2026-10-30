@@ -330,6 +330,8 @@ fi
 # Networking (NET-5): the dedicated server build (no window, bgfx Noop) hosts NetTest.lvl on a free
 # UDP port, a client joins it for 900 frames and leaves, and both report: connected, nobody timed
 # out, snapshots at the tick rate, a clean goodbye, then the client's capture against its reference.
+# NET-6: NetProbe.cs (the off-camera pawn) proves the C# side: an RPC each way, a replicated field,
+# and a networked Dash predicted with 0 corrections.
 if [[ -f Assets/Scenes/Tests/NetTest.lvl ]]; then
     step "Networking smoke"
     server=.build/Server_linux_Debug/Game_EntryPoint_x64
@@ -337,7 +339,9 @@ if [[ -f Assets/Scenes/Tests/NetTest.lvl ]]; then
         echo "No server build at $server (make -f MitchGame.make Game_EntryPoint config=server_linux_debug)"
         failed+=("networking smoke (no server build)")
     elif ! python3 "$here/RunNetSmoke.py" --server-game "$server" --client-game .build/Game_linux_Debug/Game_EntryPoint_x64 \
-            --wrapper "$here/Headless.sh" --scene Assets/Scenes/Tests/NetTest.lvl --reference Assets/Scenes/Tests/Reference; then
+            --wrapper "$here/Headless.sh" --scene Assets/Scenes/Tests/NetTest.lvl --reference Assets/Scenes/Tests/Reference \
+            --expect-server "NetProbe: ServerRpc ok" --expect-client "NetProbe: ClientRpc ok" \
+            --expect-client "NetProbe: Replicated ok" --expect-client "NetProbe: dash: 0 corrections"; then
         failed+=("networking smoke")
     fi
 fi
