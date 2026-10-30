@@ -1,0 +1,51 @@
+# The managed entry points the engine calls (ScriptCore's [UnmanagedCallersOnly] ScriptBridge
+# methods): the C++ -> C# half of the script ABI (ME-299). Same format and types as ScriptAPI.def.
+#
+# Engine/Tools/GenerateScriptAPI.py turns this into
+#   Source/Scripting/Generated/ScriptBridgeAPI.generated.h   (C++ struct ScriptBridgeAPI)
+#   Modules/ScriptCore/Source/Generated/ScriptBridgeAPI.g.cs  (C# struct + ScriptBridge.GetBridge)
+# GetBridge assigns each ScriptBridge method into a typed function pointer, so a method whose
+# signature drifts from this file doesn't compile, and C++ gets every pointer in one call.
+# Add a line here, write the [UnmanagedCallersOnly] method in ScriptCore, regenerate.
+
+## Assemblies and the engine API
+int LoadGameAssembly( cstr path )
+int ReloadGameAssembly( cstr path )
+int SetEngineAPI( EngineAPI* api, int size )
+void GetEngineAPIHash( ulong* outHash )
+
+## Script types and instances
+int GetScriptCount()
+void GetScriptName( int index, byte* outName, int size )
+int CreateScript( cstr typeName, Entity entity )
+int IsHandleAlive( int handle )
+void GetHandleTypeName( int handle, byte* outName, int size )
+
+## Lifecycle
+void ScriptOnStart( int handle )
+void ScriptOnUpdate( int handle, float dt )
+void ScriptOnFixedUpdate( int handle, float dt )
+void ScriptOnLateUpdate( int handle, float dt )
+int ScriptGetSchedule( int handle, int* outOrder )
+void ScriptOnDestroy( int handle )
+void ScriptOnCollision( int handle, int kind, Entity other, const Vector3* point, const Vector3* normal )
+void ScriptOnEditorInspect( int handle )
+void SchedulerTick( float dt, int reset )
+void DispatchEngineEvents( int unused, cstr json )
+int TakeScriptFault( Entity* outEntity )
+
+## Fields and data assets
+int GetFieldsJson( int handle, byte* outJson, int size )
+int GetSaveFieldsJson( int handle, byte* outJson, int size )
+void SetFieldsJson( int handle, cstr json )
+int GetDataAssetTypes( byte* outNames, int size )
+void InspectDataAsset( cstr path )
+
+## Networking (NET-6)
+int NetGetFlags( int handle )
+int NetSavePredicted( int handle, byte* buffer, int size )
+void NetRestorePredicted( int handle, cstr data, int size )
+int NetWriteReplicated( int handle, byte* buffer, int size )
+void NetReadReplicated( int handle, cstr data, int size, int skipPredicted )
+void NetDispatchRpc( int handle, int rpcId, cstr data, int size )
+void NetSchemaHash( ulong* outHash )

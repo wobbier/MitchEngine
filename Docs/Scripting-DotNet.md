@@ -74,7 +74,7 @@ sequenceDiagram
     SE->>SE: tools: NeedsBuild()? → dotnet build into the assembly dir
     SE->>H: Init(runtimeconfig) (found beside the assemblies)
     H-->>SE: load_assembly_and_get_function_pointer
-    SE->>CS: LoadFunction ×14 (LoadGameAssembly, ReloadGameAssembly,<br/>SetEngineAPI, CreateScript, ScriptOn*, Get/SetFieldsJson,<br/>IsHandleAlive, GetScriptCount/Name)
+    SE->>CS: LoadFunction(GetBridge), then GetBridge(&bridge, size, hash)<br/>fills all 32 entry points (ScriptBridge.def, ME-299)
     SE->>SE: fill ScriptEngineAPI (Register_*Bindings);<br/>a null slot aborts init
     SE->>CS: SetEngineAPI(&api, sizeof(api))
     Note over CS: size check — a mismatch aborts
@@ -302,6 +302,7 @@ It reports MEGEN004–010 for what it can't generate. The C# side is `Modules/Sc
 - **The ABI guard** (ME-298) has several layers:
   - **Hash:** the generator hashes every slot's signature in order. `kScriptEngineAPIHash` in C++ and `EngineAPIBindings.AbiHash` in C# are compared when scripting starts (`ScriptBridge.GetEngineAPIHash`), so a stale ScriptCore.dll is refused with both hashes named.
   - **Layout:** the sizes of the structs that cross (Entity, Vector2/3/4, RaycastHit and its field offsets) are `static_assert`ed in C++ and checked in C# (`ScriptAbiLayout`) when the API is bound.
+  - **The other direction (ME-299):** the managed entry points the engine calls are generated too, from `Source/Scripting/ScriptBridge.def`. C++ gets a `ScriptBridgeAPI` struct, and C# gets the same struct plus `ScriptBridge.GetBridge`, which assigns each `[UnmanagedCallersOnly]` method into its typed `delegate* unmanaged` field. So a C# entry point whose signature drifts from the manifest fails to compile (CS8757). C++ fetches every pointer in one call, refusing a ScriptCore built from another manifest (`kScriptBridgeAPIHash`). To add an entry point: append to ScriptBridge.def, write the method, regenerate.
   - **Append-only:** add slots at the end. Never hand-edit the generated files; `--check` catches drift between the manifest and the outputs.
 - **Bindings are `noexcept` (ME-301):** the generated slots are `noexcept` function pointers, so every `Eng_*` binding has to be declared `noexcept` or it won't compile. A C++ exception can then never unwind into the managed frames that called it, which is undefined behaviour in CoreCLR; it terminates at the throw with a native stack instead. The JSON-facing bindings (`Component_GetField` / `SetField`, `Settings_Get` / `Set`, `SaveGame_List`) catch `std::exception` themselves (malformed field paths, invalid UTF-8 in `dump()`), log it, and return failure.
 - **Structs never come back by value:** manifest return types are `void` / `bool` / `int` / `float` / `double` only, and the generator refuses anything else. MSVC x64 returns a type with a constructor (EntityID) through a hidden pointer, so results go through out pointers. Structs passed by value as arguments must be trivially copyable.

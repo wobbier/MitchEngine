@@ -125,4 +125,4 @@ Where we're weaker, roughly in order:
 
 ## Tracked
 
-Linear: ME-298 (ABI guard: hash, layout asserts, no struct returns, cleanup), ME-299 (generated C++→C# bridge), ME-300 (allocation-free strings), ME-301 (noexcept bindings), ME-302 (ALC unload check).
+Linear: ME-298 (ABI guard: hash, layout asserts, no struct returns, cleanup; done), ME-299 (generated C++→C# bridge; done: `ScriptBridge.def`), ME-300 (allocation-free strings), ME-301 (noexcept bindings), ME-302 (ALC unload check).

@@ -19,6 +19,7 @@
 #include "Engine/Project.h"
 #include "VFS/VFS.h"
 #include "Generated/ScriptEngineAPI.generated.h"
+#include "Generated/ScriptBridgeAPI.generated.h"
 
 // per-domain binding registrars
 #include "Bindings/BindingContext.h"
@@ -56,113 +57,28 @@ static float Eng_GetTime() noexcept
 }
 
 
-// script bindings
-using FnLoadGameAssembly = int  ( * )( const uint8_t* );
-using FnReloadGameAssembly = int  ( * )( const uint8_t* );
-using FnGetScriptCount = int  ( * )( );
-using FnGetScriptName = void ( * )( int, uint8_t*, int );
-using FnCreateScript = int  ( * )( const uint8_t*, EntityID );
-using FnScriptOnStart = void ( * )( int );
-using FnScriptOnUpdate = void ( * )( int, float );
-using FnScriptOnFixedUpdate = void ( * )( int, float );
-using FnScriptOnLateUpdate = void ( * )( int, float );
-using FnScriptGetSchedule = int ( * )( int, int* );
-using FnScriptOnDestroy = void ( * )( int );
-using FnSetEngineAPI = int  ( * )( const ScriptEngineAPI*, int );
-using FnOnEditorInspect = void  ( * )( int );
-using FnGetFieldsJson = int ( * )( int, uint8_t*, int );
-using FnIsHandleAlive = int ( * )( int );
-using FnGetHandleTypeName = void ( * )( int, uint8_t*, int );
-using FnSetFieldsJson = void ( * )( int, const uint8_t* );
-using FnScriptOnCollision = void ( * )( int, int, EntityID, const Vector3*, const Vector3* );
-
-struct ScriptAPI
-{
-    FnLoadGameAssembly    LoadGameAssembly = nullptr;
-    FnReloadGameAssembly  ReloadGameAssembly = nullptr;
-    FnGetScriptCount      GetScriptCount = nullptr;
-    FnGetScriptName       GetScriptName = nullptr;
-    FnCreateScript        CreateScript = nullptr;
-    FnScriptOnStart       ScriptOnStart = nullptr;
-    FnScriptOnUpdate      ScriptOnUpdate = nullptr;
-    FnScriptOnFixedUpdate ScriptOnFixedUpdate = nullptr;
-    FnScriptOnLateUpdate  ScriptOnLateUpdate = nullptr;
-    FnScriptGetSchedule   ScriptGetSchedule = nullptr;
-    FnScriptOnDestroy     ScriptOnDestroy = nullptr;
-    FnSetEngineAPI        SetEngineAPI = nullptr;
-    FnOnEditorInspect     ScriptOnEditorInspect = nullptr;
-    FnGetFieldsJson       GetFieldsJson = nullptr;
-    FnGetFieldsJson       GetSaveFieldsJson = nullptr;
-    FnSetFieldsJson       DispatchEngineEvents = nullptr;   // (unused handle, JSON array)
-    void ( *SchedulerTick )( float, int ) = nullptr;
-    int ( *GetDataAssetTypes )( uint8_t*, int ) = nullptr;
-    void ( *InspectDataAsset )( const uint8_t* ) = nullptr;
-    FnSetFieldsJson       SetFieldsJson = nullptr;
-    FnIsHandleAlive       IsHandleAlive = nullptr;
-    FnGetHandleTypeName   GetHandleTypeName = nullptr;
-    FnScriptOnCollision   ScriptOnCollision = nullptr;
-    // NET-6 (optional: an older ScriptCore without them leaves networking script-free).
-    int ( *NetGetFlags )( int ) = nullptr;
-    int ( *NetSavePredicted )( int, uint8_t*, int ) = nullptr;
-    void ( *NetRestorePredicted )( int, const uint8_t*, int ) = nullptr;
-    int ( *NetWriteReplicated )( int, uint8_t*, int ) = nullptr;
-    void ( *NetReadReplicated )( int, const uint8_t*, int, int ) = nullptr;
-    void ( *NetDispatchRpc )( int, int, const uint8_t*, int ) = nullptr;
-    void ( *NetSchemaHash )( uint64_t* ) = nullptr;
-    // The ABI hash C# was built against (ME-298; optional so an older ScriptCore still loads).
-    void ( *GetEngineAPIHash )( uint64_t* ) = nullptr;
-    // ME-234 (optional): the first script callback that threw since the last call.
-    int ( *TakeScriptFault )( EntityID* ) = nullptr;
-
-    bool IsValid() const
-    {
-        return LoadGameAssembly && SetEngineAPI
-            && GetScriptCount && GetScriptName
-            && CreateScript && ScriptOnStart && ScriptOnUpdate && ScriptOnDestroy;
-    }
-};
-
-static ScriptAPI gDotnetAPI;
+// The managed entry points: generated from ScriptBridge.def and filled in one call (ME-299).
+static ScriptBridgeAPI gDotnetAPI;
 static uint32_t gReloadGeneration = 0;
 
-static bool LoadAPI( ScriptHost& inHost, const std::string& inCoreDll, ScriptAPI& outApi )
+static bool LoadAPI( ScriptHost& inHost, const std::string& inCoreDll, ScriptBridgeAPI& outApi )
 {
-    const std::string bridgeType = "ScriptCore.ScriptBridge, ScriptCore";
-    bool ok = true;
-    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "LoadGameAssembly", (void**)&outApi.LoadGameAssembly );
-    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "SetEngineAPI", (void**)&outApi.SetEngineAPI );
-    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetScriptCount", (void**)&outApi.GetScriptCount );
-    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetScriptName", (void**)&outApi.GetScriptName );
-    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "CreateScript", (void**)&outApi.CreateScript );
-    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptOnStart", (void**)&outApi.ScriptOnStart );
-    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptOnUpdate", (void**)&outApi.ScriptOnUpdate );
-    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptOnFixedUpdate", (void**)&outApi.ScriptOnFixedUpdate );
-    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptOnLateUpdate", (void**)&outApi.ScriptOnLateUpdate );
-    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptGetSchedule", (void**)&outApi.ScriptGetSchedule );
-    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptOnDestroy", (void**)&outApi.ScriptOnDestroy );
-    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptOnEditorInspect", (void**)&outApi.ScriptOnEditorInspect );
-    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetFieldsJson", (void**)&outApi.GetFieldsJson );
-    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetSaveFieldsJson", (void**)&outApi.GetSaveFieldsJson );
-    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "DispatchEngineEvents", (void**)&outApi.DispatchEngineEvents );
-    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "SchedulerTick", (void**)&outApi.SchedulerTick );
-    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetDataAssetTypes", (void**)&outApi.GetDataAssetTypes );
-    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "InspectDataAsset", (void**)&outApi.InspectDataAsset );
-    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "SetFieldsJson", (void**)&outApi.SetFieldsJson );
-    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ReloadGameAssembly", (void**)&outApi.ReloadGameAssembly );
-    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "IsHandleAlive", (void**)&outApi.IsHandleAlive );
-    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetHandleTypeName", (void**)&outApi.GetHandleTypeName );
-    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptOnCollision", (void**)&outApi.ScriptOnCollision );
-    // NET-6: optional.
-    inHost.LoadFunction( inCoreDll, bridgeType, "NetGetFlags", (void**)&outApi.NetGetFlags );
-    inHost.LoadFunction( inCoreDll, bridgeType, "NetSavePredicted", (void**)&outApi.NetSavePredicted );
-    inHost.LoadFunction( inCoreDll, bridgeType, "NetRestorePredicted", (void**)&outApi.NetRestorePredicted );
-    inHost.LoadFunction( inCoreDll, bridgeType, "NetWriteReplicated", (void**)&outApi.NetWriteReplicated );
-    inHost.LoadFunction( inCoreDll, bridgeType, "NetReadReplicated", (void**)&outApi.NetReadReplicated );
-    inHost.LoadFunction( inCoreDll, bridgeType, "NetDispatchRpc", (void**)&outApi.NetDispatchRpc );
-    inHost.LoadFunction( inCoreDll, bridgeType, "NetSchemaHash", (void**)&outApi.NetSchemaHash );
-    inHost.LoadFunction( inCoreDll, bridgeType, "GetEngineAPIHash", (void**)&outApi.GetEngineAPIHash );
-    inHost.LoadFunction( inCoreDll, bridgeType, "TakeScriptFault", (void**)&outApi.TakeScriptFault );
-    return ok;
+    int ( *getBridge )( ScriptBridgeAPI*, int, uint64_t ) = nullptr;
+    if( !inHost.LoadFunction( inCoreDll, "ScriptCore.ScriptBridge, ScriptCore", "GetBridge", (void**)&getBridge ) || !getBridge )
+    {
+        YIKES( "ScriptCore.dll has no ScriptBridge.GetBridge (older than the engine?): rebuild ScriptCore" );
+        return false;
+    }
+    const int result = getBridge( &outApi, static_cast<int>( sizeof( ScriptBridgeAPI ) ), kScriptBridgeAPIHash );
+    if( result == -1 )
+    {
+        YIKES_NEW( "Script bridge mismatch: the engine was built against ScriptBridge.def {:016X} and ScriptCore.dll against another; rebuild ScriptCore (Engine/Tools/GenerateScriptAPI.py)", kScriptBridgeAPIHash );
+    }
+    else if( result != 0 )
+    {
+        YIKES( "ScriptCore.dll's ScriptBridgeAPI doesn't match the engine's (size): rebuild ScriptCore" );
+    }
+    return result == 0;
 }
 
 namespace
@@ -458,7 +374,7 @@ static int StartRuntime()
         return 1;
     }
 
-    if( !LoadAPI( gScriptHost, coreDll, gDotnetAPI ) || !gDotnetAPI.IsValid() )
+    if( !LoadAPI( gScriptHost, coreDll, gDotnetAPI ) )
     {
         YIKES( "failed to load ScriptBridge API" );
         return 1;
@@ -497,19 +413,12 @@ static int StartRuntime()
     }
     // Same manifest on both sides? A stale ScriptCore.dll beside a newer executable would otherwise
     // call slots with the wrong signatures (ME-298).
-    if( gDotnetAPI.GetEngineAPIHash )
+    uint64_t managedHash = 0;
+    gDotnetAPI.GetEngineAPIHash( &managedHash );
+    if( managedHash != kScriptEngineAPIHash )
     {
-        uint64_t managedHash = 0;
-        gDotnetAPI.GetEngineAPIHash( &managedHash );
-        if( managedHash != kScriptEngineAPIHash )
-        {
-            YIKES_NEW( "Script API mismatch: the engine was built against {:016X}, ScriptCore.dll against {:016X}; rebuild ScriptCore (Engine/Tools/GenerateScriptAPI.py)", kScriptEngineAPIHash, managedHash );
-            return 1;
-        }
-    }
-    else
-    {
-        BRUH( "ScriptCore.dll has no GetEngineAPIHash (older than the engine): the script ABI isn't checked" );
+        YIKES_NEW( "Script API mismatch: the engine was built against {:016X}, ScriptCore.dll against {:016X}; rebuild ScriptCore (Engine/Tools/GenerateScriptAPI.py)", kScriptEngineAPIHash, managedHash );
+        return 1;
     }
     if( gDotnetAPI.SetEngineAPI( &engineApi, sizeof( engineApi ) ) != 0 )
     {
@@ -753,7 +662,7 @@ int ScriptEngine::CreateScript( const std::string& inName, EntityID inEntity )
 
 std::string ScriptEngine::GetFieldsJson( int inHandle, bool InIncludeSaveFields )
 {
-    const FnGetFieldsJson getFields = InIncludeSaveFields ? gDotnetAPI.GetSaveFieldsJson : gDotnetAPI.GetFieldsJson;
+    const auto getFields = InIncludeSaveFields ? gDotnetAPI.GetSaveFieldsJson : gDotnetAPI.GetFieldsJson;
     if( inHandle < 0 || !getFields )
     {
         return {};
