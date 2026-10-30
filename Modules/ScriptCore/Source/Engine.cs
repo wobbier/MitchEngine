@@ -242,7 +242,12 @@ public static partial class ScriptBridge
             _gameAssembly = asm;
             ScriptRegistry.Scan(asm);
             DataAssets.Scan(asm);
-            Console.WriteLine($"[ScriptBridge] Loaded {ScriptRegistry.ScriptTypes.Count} type(s) from {System.IO.Path.GetFileName(path)}");
+            // The registry also lists ScriptCore's own scripts (the kit); the log counts the game's.
+            int gameTypes = 0;
+            foreach (var t in ScriptRegistry.ScriptTypes)
+                if (t.Assembly == asm)
+                    ++gameTypes;
+            Console.WriteLine($"[ScriptBridge] Loaded {gameTypes} type(s) from {System.IO.Path.GetFileName(path)} ({ScriptRegistry.ScriptTypes.Count} with the engine's)");
             return 0;
         }
         catch (Exception ex)
