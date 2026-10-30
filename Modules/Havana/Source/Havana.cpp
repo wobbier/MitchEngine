@@ -48,6 +48,8 @@
 #include "Widgets/OnboardingWidgets.h"
 #include "Widgets/UIDesigner/UIDesignerWidget.h"
 #include "Utils/PlatformUtils.h"
+#include "Core/WorkStatus.h"
+#include <ImGuiTheme.h>
 #include "Engine/Project.h"
 #include "Editor/Selection.h"
 #include "Widgets/SequenceWidget.h"
@@ -195,6 +197,7 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
     actions.Register( { "File.OpenProject", "Open Project...", "File", 0, 0, [this]() { ShowWidget( "Open Project" ); } } );
     actions.Register( { "File.ProjectHub", "Project Hub...", "File", 0, 0, [app]() { app->RequestProjectHub(); } } );
     actions.Register( { "View.Profiler", "Profiler", "View", 0, 0, [this]() { ShowWidget( "Profiler" ); } } );
+    actions.Register( { "View.ErrorList", "Error List", "View", 0, 0, [this]() { ShowWidget( "Error List" ); } } );
     ReflectionUI::RegisterDefaultDrawers();
     actions.Register( { "View.AssetSearch", "Quick Asset Search", "View", ImGuiMod_Shortcut | ImGuiKey_Space, 0, [this]() { AssetBrowser->RequestOverlay( nullptr ); } } );
     // ED-15: the command palette also finds entities, assets, settings and docs.
@@ -511,6 +514,7 @@ void Havana::NewFrame()
     ResourceMonitor->Render();
     History->Render();
     ErrorList->Render();
+    DrawToasts();
     LocalizationTables->Render();
     Tour->Render();
     WhatsNew->Render();
@@ -677,6 +681,46 @@ void Havana::LoadLayoutFile( const char* InPath )
     text << file.rdbuf();
     const std::string ini = SanitizeLayout( text.str() );
     ImGui::LoadIniSettingsFromMemory( ini.c_str(), ini.size() );
+}
+
+
+void Havana::DrawToasts()
+{
+    // ED-14: notices from background work (a failed script build...), bottom right for a few
+    // seconds, with the action that fixes or shows it.
+    const double now = ImGui::GetTime();
+    for( WorkStatus::Toast& toast : WorkStatus::Get().TakeToasts() )
+    {
+        m_toasts.push_back( { std::move( toast ), now } );
+    }
+    m_toasts.erase( std::remove_if( m_toasts.begin(), m_toasts.end(), [now]( const ShownToast& InToast ) { return now - InToast.ShownAt > 8.0; } ), m_toasts.end() );
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    float bottom = viewport->Pos.y + viewport->Size.y - ImGuiTheme::Em( 1.f );
+    for( size_t i = 0; i < m_toasts.size(); ++i )
+    {
+        const WorkStatus::Toast& toast = m_toasts[i].Notice;
+        ImGui::SetNextWindowPos( ImVec2( viewport->Pos.x + viewport->Size.x - ImGuiTheme::Em( 1.f ), bottom ), ImGuiCond_Always, ImVec2( 1.f, 1.f ) );
+        ImGui::SetNextWindowBgAlpha( 0.95f );
+        const std::string id = "##Toast" + std::to_string( i );
+        if( ImGui::Begin( id.c_str(), nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings
+            | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDocking ) )
+        {
+            const ImVec4 color = toast.Severity == WorkStatus::Level::Error ? ImGuiTheme::ErrorText()
+                : toast.Severity == WorkStatus::Level::Warning ? ImGuiTheme::WarningText() : ImGui::GetStyleColorVec4( ImGuiCol_Text );
+            ImGui::TextColored( color, "%s", toast.Message.c_str() );
+            if( !toast.ActionId.empty() )
+            {
+                ImGui::SameLine();
+                if( ImGui::SmallButton( ( ( toast.ActionLabel.empty() ? std::string( "Fix" ) : toast.ActionLabel ) + id ).c_str() ) )
+                {
+                    EditorActions::Get().Execute( toast.ActionId );
+                    m_toasts[i].ShownAt = -100.0;
+                }
+            }
+            bottom -= ImGui::GetWindowHeight() + ImGuiTheme::Em( 0.4f );
+        }
+        ImGui::End();
+    }
 }
 
 

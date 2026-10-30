@@ -21,6 +21,7 @@
 #include "Generated/ScriptEngineAPI.generated.h"
 #include "Generated/ScriptBridgeAPI.generated.h"
 #include "Mods/Mods.h"
+#include "Core/WorkStatus.h"
 
 // per-domain binding registrars
 #include "Bindings/BindingContext.h"
@@ -594,6 +595,8 @@ void ScriptEngine::RequestReload()
     gBuildRunning = true;
     gBuildDone = false;
     gBuildThread = std::thread( []() {
+        // ED-14: the editor's status shows the build while it runs.
+        WorkStatus::Scope status( "Building scripts" );
         std::string log;
         const bool succeeded = BuildScripts( &log );
         {
@@ -631,6 +634,9 @@ bool ScriptEngine::PollReload()
     if( !succeeded )
     {
         ReportBuildFailure( log, "build failed; the running scripts are unchanged" );
+        const size_t errors = GetBuildErrorCount();
+        WorkStatus::Get().Notify( WorkStatus::Level::Error, "The scripts don't build (" + std::to_string( errors ) + ( errors == 1 ? " error)" : " errors)" ),
+            "View.ErrorList", "Show errors" );
     }
     else
     {

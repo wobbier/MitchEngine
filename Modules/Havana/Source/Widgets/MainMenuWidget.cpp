@@ -22,6 +22,7 @@
 #include "Widgets/Tree/TreeWidget.h"
 #include <ImGuiTheme.h>
 #include "Scripting/ScriptEngine.h"
+#include "Core/WorkStatus.h"
 
 #if USING( ME_EDITOR )
 
@@ -350,6 +351,26 @@ void MainMenuWidget::Render()
             titleBarRight -= ImGui::CalcTextSize( errorBadge.c_str() ).x + ImGui::GetStyle().FramePadding.x * 2.f + spacing;
         }
 #endif
+        // ED-14: what's working in the background (script builds, imports, cooks, bakes).
+        const std::vector<WorkStatus::Task> work = WorkStatus::Get().GetTasks();
+        std::string workText;
+        float workLeft = titleBarRight;
+        if( !work.empty() )
+        {
+            static const char* kSpinner[] = { "|", "/", "-", "\\" };
+            const int frame = static_cast<int>( ImGui::GetTime() * 8.0 ) % 4;
+            workText = std::string( kSpinner[frame] ) + " " + work.front().Label;
+            if( work.front().Progress >= 0.f )
+            {
+                workText += " " + std::to_string( static_cast<int>( work.front().Progress * 100.f ) ) + "%";
+            }
+            if( work.size() > 1 )
+            {
+                workText += " +" + std::to_string( work.size() - 1 );
+            }
+            workLeft = titleBarRight - ImGui::CalcTextSize( workText.c_str() ).x - spacing * 2.f;
+            titleBarRight = workLeft;
+        }
         TitleBarDragPosition = Vector2( endOfMenu, 0.f );
         TitleBarDragSize = Vector2( std::max( 0.f, titleBarRight - endOfMenu ), MainMenuSize.y );
         const Vector2 pos = editorInput.GetMousePosition();
@@ -373,6 +394,29 @@ void MainMenuWidget::Render()
         }
 
         ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0, 0, 0, 0 ) );
+        if( !workText.empty() )
+        {
+            ImGui::SetCursorPosX( workLeft );
+            ImGui::SetCursorPosY( ( MainMenuSize.y - ImGui::GetTextLineHeight() ) * 0.5f );
+            ImGui::TextDisabled( "%s", workText.c_str() );
+            if( ImGui::IsItemHovered() )
+            {
+                ImGui::BeginTooltip();
+                for( const WorkStatus::Task& task : work )
+                {
+                    if( task.Progress >= 0.f )
+                    {
+                        ImGui::Text( "%s: %d%%", task.Label.c_str(), static_cast<int>( task.Progress * 100.f ) );
+                    }
+                    else
+                    {
+                        ImGui::TextUnformatted( task.Label.c_str() );
+                    }
+                }
+                ImGui::EndTooltip();
+            }
+            ImGui::SetCursorPosY( menuY );
+        }
         if( !errorBadge.empty() )
         {
             ImGui::SetCursorPosX( titleBarRight );

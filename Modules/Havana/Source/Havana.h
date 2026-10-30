@@ -1,4 +1,5 @@
 #pragma once
+#include "Core/WorkStatus.h"
 #include <map>
 #include <functional>
 #include "ECS/Entity.h"
@@ -109,6 +110,14 @@ private:
 	// have a DockId but no dock node lose it in the rebuild (and trip an ImGui assert), so their
 	// DockId is set aside and given back once the tree is rebuilt.
 	void RequestDockRebuild();
+	// ED-14: background work's notices, bottom right.
+	void DrawToasts();
+	struct ShownToast
+	{
+		WorkStatus::Toast Notice;
+		double ShownAt = 0.0;
+	};
+	std::vector<ShownToast> m_toasts;
 	std::vector<std::pair<unsigned int, unsigned int>> m_dockIdsToRestore;     // window ID, DockId
 	void ApplyLayoutReset();
 	// Loads an ImGui layout (.ini / imgui.cfg), re-pointing windows docked into split nodes (ME-272).

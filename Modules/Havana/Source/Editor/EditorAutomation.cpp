@@ -18,6 +18,7 @@
 #include "Utils/ScriptTemplates.h"
 #include "Mods/Mods.h"
 #include "Engine/DevConsole.h"
+#include "Core/WorkStatus.h"
 #include "Widgets/SequenceWidget.h"
 #include "Widgets/SceneViewWidget.h"
 #include "Widgets/SettingsWidgets.h"
@@ -734,6 +735,43 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         else if( std::filesystem::remove_all( target, error ) == 0 || error )
         {
             Fail( "delete-file: couldn't delete " + args );
+        }
+    }
+    else if( command == "work-begin" || command == "work-end" || command == "notify" )
+    {
+        // work-begin Cooking | 0.4   a stand-in background task (ED-14 captures); work-end ends it
+        // notify Something went wrong | View.ErrorList   a toast with that action
+        static uint64_t s_task = 0;
+        auto [text, extra] = SplitArgs( args );
+        if( command == "work-begin" )
+        {
+            s_task = WorkStatus::Get().Begin( text );
+            if( !extra.empty() )
+            {
+                WorkStatus::Get().SetProgress( s_task, static_cast<float>( std::atof( extra.c_str() ) ) );
+            }
+        }
+        else if( command == "work-end" )
+        {
+            WorkStatus::Get().End( s_task );
+        }
+        else
+        {
+            WorkStatus::Get().Notify( WorkStatus::Level::Warning, text, extra, extra.empty() ? std::string() : "Show" );
+        }
+    }
+    else if( command == "assert-work" )
+    {
+        // assert-work Building scripts | 1   (a background task with that label is running, or not)
+        auto [label, expectedText] = SplitArgs( args );
+        bool running = false;
+        for( const WorkStatus::Task& task : WorkStatus::Get().GetTasks() )
+        {
+            running |= task.Label.find( label ) != std::string::npos;
+        }
+        if( running != ( expectedText == "1" || expectedText == "true" ) )
+        {
+            Fail( std::string( "background task '" ) + label + ( running ? "' is running" : "' isn't running" ) );
         }
     }
     else if( command == "palette-search" || command == "palette-run" )

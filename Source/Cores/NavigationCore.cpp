@@ -1,4 +1,5 @@
 #include "PCH.h"
+#include "Core/WorkStatus.h"
 #include "NavigationCore.h"
 #include "Components/Graphics/Mesh.h"
 #include "Components/Graphics/Terrain.h"
@@ -818,6 +819,8 @@ bool NavigationCore::Bake( NavMeshSurface& InSurface, bool InAsync )
 #endif
     BakeJob* raw = job.get();
     auto run = [raw, settings]() {
+        // ED-14: the editor's status shows the bake (its progress is the tiles built).
+        WorkStatus::Scope status( "Baking navigation" );
         NavBuildOptions options;
         options.Cancel = &raw->Cancel;
         options.TilesDone = &raw->TilesDone;

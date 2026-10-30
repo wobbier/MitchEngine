@@ -1,4 +1,5 @@
 #include "PCH.h"
+#include "Core/WorkStatus.h"
 #include "Tools/Build/BuildGame.h"
 
 #include "CLog.h"
@@ -636,7 +637,10 @@ namespace BuildGame
                 {
                     Info( "Static cook (recording is off): assets only scripts load by name won't ship" );
                 }
-                const Cook::Report report = Cook::Run( cook );
+                const Cook::Report report = [&cook]() {
+                    WorkStatus::Scope status( "Cooking" );     // ED-14: the editor's status
+                    return Cook::Run( cook );
+                }();
                 for( const std::string& warning : report.Warnings )
                 {
                     Warn( "Cook: " + warning );

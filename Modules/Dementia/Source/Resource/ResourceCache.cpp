@@ -1,4 +1,6 @@
 #include <Resource/ResourceCache.h>
+#include "Core/WorkStatus.h"
+#include <filesystem>
 
 #include <Pointers.h>
 #include "MetaRegistry.h"
@@ -147,6 +149,8 @@ struct ResourceCache::Reimports
             lock.unlock();
             {
                 OPTICK_EVENT( "MetaBase::Export" );
+                // ED-14: shader compiles and other reimports show in the editor's status.
+                WorkStatus::Scope status( "Importing " + std::filesystem::path( job.Path ).filename().string() );
                 job.Meta->Export();
             }
             lock.lock();
