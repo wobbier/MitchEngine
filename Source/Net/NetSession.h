@@ -63,6 +63,9 @@ public:
     };
 
     static constexpr double kDefaultTimeout = 10.0;
+    // How long a client's last command keeps repeating while its next ones are missing, before
+    // the repeat lets go of buttons and axes (NetCommandBuffer): a quarter second of ticks.
+    static constexpr double kDefaultCommandRepeatSeconds = 0.25;
 
     NetServer( INetTransport& InTransport, const NetVersion& InVersion, uint16_t InTickRate = 60, size_t InMaxClients = 16 );
 
@@ -87,6 +90,11 @@ public:
     void Close( double InNow, const std::string& InReason = "server closed" );
     // Seconds of silence before an accepted client is dropped as timed out.
     void SetTimeout( double InSeconds ) { m_timeout = InSeconds; }
+    // Missed commands in a row that still repeat a client's last command whole; after that the
+    // repeat keeps its aim and ViewTick but is otherwise neutral, until a command arrives in time.
+    // Every client, now and later. Default: kDefaultCommandRepeatSeconds at the tick rate.
+    void SetMaxCommandRepeats( uint32_t InTicks );
+    uint32_t GetMaxCommandRepeats() const { return m_maxCommandRepeats; }
 
     uint32_t GetTick() const { return m_tick; }
     uint16_t GetTickRate() const { return m_tickRate; }
@@ -120,6 +128,7 @@ private:
     std::vector<std::unique_ptr<Client>> m_clients;
     std::string m_lastRejection;
     double m_timeout = kDefaultTimeout;
+    uint32_t m_maxCommandRepeats = NetCommandBuffer::kDefaultMaxRepeats;
     uint64_t m_acceptedCount = 0;
     uint64_t m_disconnectCount = 0;
     uint64_t m_timeoutCount = 0;

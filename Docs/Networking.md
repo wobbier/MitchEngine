@@ -47,7 +47,7 @@ The editor tooling (NET-7) comes next.
 | `Source/Net/NetTransport.h` | `INetTransport` (datagrams between `NetAddress`es). `LoopbackNetwork` + `LoopbackTransport` join worlds in one process. `ConditionedTransport` wraps any transport with `NetConditions` |
 | `Source/Net/NetConnection.h` | `NetConnection`, one end of a link, and `NetStats` |
 | `Source/Net/NetVersion.h` | What both sides must agree on: protocol, build (product name and version), C# script classes, mod set (the net-required mods, sent as `id@version` so a rejection lists the differences; MOD-3, protocol 5), placed entities (sorted GUIDs). FNV-1a hashes, the same on every platform |
-| `Source/Net/NetCommands.h` | `InputCommand` (tick, buttons, 4 axes at 16 bits, view tick, optional absolute aim: yaw and pitch at 16 bits each), delta-coded lists of up to 16, and `NetCommandBuffer`, the server's per-client queue |
+| `Source/Net/NetCommands.h` | `InputCommand` (tick, buttons, 4 axes at 16 bits, view tick, optional absolute aim: yaw and pitch at 16 bits each), delta-coded lists of up to 16, and `NetCommandBuffer`, the server's per-client queue (with capped repeats) |
 | `Source/Net/NetClock.h` | The client's command-frame clock: adaptive target slack (NET-14), dilation up to ±5%, a resync beyond 8 ticks |
 | `Source/Net/NetSession.h` | `NetServer` and `NetClient`: the handshake, commands up, and server reports down |
 | `Source/Components/Networking/NetIdentity.h` | Marks an entity networked: NetId, owner, the prefab clients spawn |
@@ -102,6 +102,8 @@ Messages are at most 1024 bytes (`kMaxMessageBytes`); there is no fragmentation 
 2. **Start tick:** on Welcome, the client starts its clock at `server tick + RTT in ticks + target slack`. The server is half a round trip past that tick by then; the client runs half a round trip further ahead, plus the slack.
 3. **Commands up:** each client tick stamps the local command (`NetCore::SetLocalCommand`, later the HK-5 sampler) with the clock's tick. Each client packet carries the newest unconfirmed commands, up to 16, delta-coded, so a lost packet's commands ride the next ones.
 4. **Server ticks:** each tick, the server takes every client's command for that tick from its `NetCommandBuffer`. A missing command repeats the previous one (a miss), and the server never stalls.
+   - **Capped repeats:** a quarter second of misses in a row (`NetServer::kDefaultCommandRepeatSeconds` at the tick rate: 15 ticks at 60 Hz, 8 at 30) repeats the last command whole. Past that, the repeat keeps its aim and view tick but lets go of every button and axis, so a client that froze, crashed, sat at a breakpoint or lost its link while holding move and fire stops moving and firing instead of running on until the timeout.
+   - **Resetting:** the next command that arrives in time ends the run. `NetServer::SetMaxCommandRepeats` changes the cap for every client, now and later (0: neutral from the first miss); `NetCommandBuffer::GetRepeatRun` and `GetNeutralCount` show it working.
 5. **Slack:** measured at each consume as `newest buffered tick − tick`, then smoothed (1/10, or taken at once after a jump of more than 4).
 6. **Reports down:** each server packet reports to each client the tick, the newest command it holds, that client's slack, and how many of its commands the server has had to repeat so far (protocol 4).
 7. **Clock control:** the client drops confirmed commands and feeds the slack to `NetClock`, which sets dilation to `−(slack − target) × 0.02`, clamped to ±5%. More than 8 ticks off, it jumps instead, then ignores reports for 30 ticks (they describe the old clock).
@@ -125,7 +127,7 @@ Messages are at most 1024 bytes (`kMaxMessageBytes`); there is no fragmentation 
 - **Turning it off:** `AdaptiveSlack = false` keeps the fixed 3-tick target.
 - **The debug report:** `NetCore`'s client report shows `TargetSlack`.
 
-**Late presses:** a command that arrives after its tick already ran on a repeat isn't simply dropped. Any button it pressed that the repeat didn't have is merged into the next simulated tick, for that tick only (`NetCommandBuffer::GetRecoveredPresses`). A tap arrives a tick or so late instead of never, and the client, which predicted it, sees at worst a small correction.
+**Late presses:** a command that arrives after its tick already ran on a repeat isn't simply dropped. Any button it pressed that the repeat didn't have is merged into the next simulated tick, for that tick only (`NetCommandBuffer::GetRecoveredPresses`). A tap arrives a tick or so late instead of never, and the client, which predicted it, sees at worst a small correction. A button the client held through the gap isn't a press, even where a capped repeat had let go of it.
 
 **Ending (NET-5, protocol 2):**
 
@@ -430,6 +432,12 @@ The session starts after the scene loads, because the handshake hashes the scene
 - **Quantization:** floats at 4, 10, 16 and 24 bits come back within half a step, vectors at 20 bits, and 500 random rotations at 12 bits (|dot| > 0.99999).
 - **Reliable under a bad link:** 600 messages one way and 150 the other, over 40 ms ± 15 ms with 20% loss, 10% duplicates and 10% reordering, arrive complete, in order and once. Unreliable messages arrive at most once (most of them). The loss estimate reads 10–32%.
 - **Commands (`NetSessionTests.cpp`):** delta-coded lists round-trip, including a resync's tick gap. The server buffer serves, repeats, and ignores late copies. Aim (NET-15) quantizes within 0.01° (yaw wraps, pitch clamps), round-trips through a turn, a hold and a dropped-then-resumed aim, and a held aim costs two bits a command plus its 32 bits once.
+- **Capped repeats (`NetSessionTests.cpp`):**
+  - **Short gap:** up to the cap (15 misses at 60 Hz), every miss is the last command exactly, its tick moved on. A command in time resets the run, and the next gap gets the whole allowance again.
+  - **Long gap:** 600 missed ticks (the 10 s timeout's worth) hold move and fire for 15, then all 585 after are neutral: no buttons, centred axes, the yaw, pitch and view tick kept. A cap of 0 is neutral from the first miss.
+  - **Recovery:** the client's late commands for the gap, still holding move and fire, recover only a real tap (1 press). The next tick is the client's command plus that tap, and a miss right after repeats it whole again.
+  - **The server's cap** follows its tick rate (15 at 60 Hz, 8 at 30, 32 at 128, at least 1). `SetMaxCommandRepeats` reaches a connected client and a later joiner.
+  - **Two worlds:** a client holding move and fire goes silent for 1.5 s. The server held them for 22 ticks (the 15-tick cap plus the few commands already buffered), then let go for 68, aim kept. The client's clock had resynced ahead while nothing arrived, so it took 13 resyncs to settle once the link came back, and every miss past the cap stayed neutral meanwhile. Then the server ran the client's held command again, with no recovered presses and no timeout.
 - **Clock:** dilates towards the target, caps at 5%, resyncs when 13 ticks off, and ignores the next stale report.
 - **Two worlds, the NET-2 done-when:** 60 s at 50 ± 10 ms each way (100 ± 20 ms RTT) with 5% loss. All 3600 commands arrived on time, ≥ 99.9% required. Worst slack error 0.82 tick (≤ 1), worst dilation 1.6% (≤ 5%), no resyncs. The server simulated exactly the client's commands. After the link slows by 60 ms each way, the slack is back within 1 tick in 10 s.
 - **Replication (`NetReplicationTests.cpp`):**

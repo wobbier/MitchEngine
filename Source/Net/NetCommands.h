@@ -54,12 +54,29 @@ namespace NetCommands
 // for the tick being simulated, or, when it hasn't arrived, repeats the last one (a miss). Slack
 // is how many ticks ahead of the simulation the newest command is when a tick is consumed,
 // smoothed; the client's clock steers it to a target.
+//
+// Repeats are capped: past MaxRepeats misses in a row, the repeat keeps its aim and ViewTick but
+// lets go of every button and axis, so a client that froze, crashed or lost its link while
+// holding move and fire stops moving and firing until its next command arrives (which resets
+// the run). Within the cap, a repeat is the last command exactly.
 class NetCommandBuffer
 {
 public:
+    // 0.25 s at 60 Hz. NetServer sets it from its own tick rate (SetMaxCommandRepeats).
+    static constexpr uint32_t kDefaultMaxRepeats = 15;
+
     // InNextTick: the next tick the server will simulate; older commands are too late.
     void Receive( const InputCommand& InCommand, uint32_t InNextTick );
     InputCommand Consume( uint32_t InTick );
+
+    // Misses in a row that still repeat the last command's buttons and axes; later ones are
+    // neutral (aim and ViewTick kept). 0: neutral from the first miss.
+    void SetMaxRepeats( uint32_t InTicks ) { m_maxRepeats = InTicks; }
+    uint32_t GetMaxRepeats() const { return m_maxRepeats; }
+    // Misses since the last command that arrived in time (0 while commands are on time).
+    uint32_t GetRepeatRun() const { return m_repeatRun; }
+    // Ticks that ran on a neutral repeat, past the cap.
+    uint64_t GetNeutralCount() const { return m_neutral; }
 
     bool HasReceived() const { return m_hasReceived; }
     uint32_t GetNewestTick() const { return m_newest; }
@@ -75,8 +92,10 @@ public:
 
 private:
     std::map<uint32_t, InputCommand> m_commands;
-    InputCommand m_last;
-    std::map<uint32_t, uint32_t> m_repeated;    // missed ticks -> the buttons the repeat used
+    InputCommand m_last;    // the last command that arrived in time (its Tick moved on by repeats)
+    // Missed ticks -> the buttons the client last sent (what the repeat used, or, past the cap,
+    // would have): a button held through a gap isn't a new press.
+    std::map<uint32_t, uint32_t> m_repeated;
     uint32_t m_pendingPresses = 0;
     uint64_t m_recoveredPresses = 0;
     bool m_hasReceived = false;
@@ -87,4 +106,7 @@ private:
     uint64_t m_onTime = 0;
     uint64_t m_missed = 0;
     uint64_t m_lateArrivals = 0;
+    uint32_t m_maxRepeats = kDefaultMaxRepeats;
+    uint32_t m_repeatRun = 0;
+    uint64_t m_neutral = 0;
 };

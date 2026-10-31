@@ -333,6 +333,237 @@ TEST_CASE( "Net: a press in a command that arrives after its tick ran on a repea
     CHECK( held.GetRecoveredPresses() == 0 );
 }
 
+TEST_CASE( "Net: a missing command repeats whole for a quarter second, then lets go of buttons and axes but keeps the aim" )
+{
+    // Move + fire held, looking somewhere, the view 3.5 ticks behind.
+    auto holding = []( uint32_t InTick, uint32_t InButtons = 0x5u ) {
+        InputCommand c;
+        c.Tick = InTick;
+        c.Buttons = InButtons;
+        c.Axes = { 0.f, 1.f, -0.5f, 0.25f };
+        c.ViewTick = InTick - 3.5;
+        c.HasAim = true;
+        c.Yaw = 123.f;
+        c.Pitch = -20.f;
+        return c;
+    };
+    // What a whole repeat of InLast at InTick is: the same command, only its tick moved on.
+    auto repeatOf = []( InputCommand InLast, uint32_t InTick ) {
+        InLast.Tick = InTick;
+        return InLast;
+    };
+    const std::array<float, 4> centred{};
+    NetCommandBuffer buffer;
+    REQUIRE( buffer.GetMaxRepeats() == NetCommandBuffer::kDefaultMaxRepeats );
+    const uint32_t cap = buffer.GetMaxRepeats();
+    buffer.Receive( holding( 10 ), 10 );
+    CHECK( buffer.Consume( 10 ) == holding( 10 ) );
+
+    SUBCASE( "a short gap repeats exactly as before" )
+    {
+        // Up to the cap, every miss is the last command whole.
+        for( uint32_t tick = 11; tick <= 10 + cap; ++tick )
+        {
+            CHECK( buffer.Consume( tick ) == repeatOf( holding( 10 ), tick ) );
+        }
+        CHECK( buffer.GetRepeatRun() == cap );
+        CHECK( buffer.GetMissedCount() == cap );
+        CHECK( buffer.GetNeutralCount() == 0 );
+        // A command in time ends the run, and the next gap gets the whole allowance again.
+        const uint32_t resume = 11 + cap;
+        buffer.Receive( holding( resume ), resume );
+        CHECK( buffer.Consume( resume ) == holding( resume ) );
+        CHECK( buffer.GetRepeatRun() == 0 );
+        for( uint32_t tick = resume + 1; tick <= resume + cap; ++tick )
+        {
+            CHECK( buffer.Consume( tick ) == repeatOf( holding( resume ), tick ) );
+        }
+        CHECK( buffer.GetNeutralCount() == 0 );
+    }
+
+    SUBCASE( "a long gap lets go after the cap, keeping aim and view" )
+    {
+        for( uint32_t tick = 11; tick <= 10 + cap; ++tick )
+        {
+            CHECK( buffer.Consume( tick ) == repeatOf( holding( 10 ), tick ) );
+        }
+        // A frozen client: ten seconds of nothing, the session timeout's worth.
+        bool neutral = true;
+        for( uint32_t tick = 11 + cap; tick < 610; ++tick )
+        {
+            InputCommand expected = repeatOf( holding( 10 ), tick );
+            expected.Buttons = 0;
+            expected.Axes = {};
+            neutral = neutral && buffer.Consume( tick ) == expected;
+        }
+        CHECK( neutral );
+        CHECK( buffer.GetNeutralCount() == 610 - 11 - cap );
+        CHECK( buffer.GetMissedCount() == 610 - 11 );
+        const InputCommand last = buffer.Consume( 610 );
+        CHECK( last.Buttons == 0 );
+        CHECK( last.Axes == centred );
+        CHECK( last.HasAim );
+        CHECK( last.Yaw == 123.f );
+        CHECK( last.Pitch == -20.f );
+        CHECK( last.ViewTick == holding( 10 ).ViewTick );     // what a lag-compensated shot would name
+    }
+
+    SUBCASE( "recovery after a long gap is clean" )
+    {
+        for( uint32_t tick = 11; tick <= 40; ++tick )
+        {
+            buffer.Consume( tick );
+        }
+        REQUIRE( buffer.GetNeutralCount() == 40 - 10 - cap );
+        // The client is back: its gap's commands arrive late, still holding move + fire, with a
+        // tap of bit 8 at tick 35; then tick 41's in time.
+        for( uint32_t tick = 30; tick <= 40; ++tick )
+        {
+            buffer.Receive( holding( tick, tick == 35 ? 0xDu : 0x5u ), 41 );
+        }
+        buffer.Receive( holding( 41 ), 41 );
+        // Holding through the gap isn't a press, even where the repeat had let go; the tap is.
+        CHECK( buffer.GetRecoveredPresses() == 1 );
+        InputCommand withTap = holding( 41 );
+        withTap.Buttons |= 0x8u;
+        CHECK( buffer.Consume( 41 ) == withTap );
+        CHECK( buffer.GetRepeatRun() == 0 );
+        // A miss straight after repeats tick 41 whole: no tap, and buttons and axes held again.
+        CHECK( buffer.Consume( 42 ) == repeatOf( holding( 41 ), 42 ) );
+        CHECK( buffer.GetNeutralCount() == 40 - 10 - cap );
+    }
+
+    SUBCASE( "a cap of 0 lets go from the first miss" )
+    {
+        buffer.SetMaxRepeats( 0 );
+        const InputCommand first = buffer.Consume( 11 );
+        CHECK( first.Buttons == 0 );
+        CHECK( first.Axes == centred );
+        CHECK( first.HasAim );
+        CHECK( first.Yaw == 123.f );
+    }
+}
+
+TEST_CASE( "Net: the server sets the repeat cap from its tick rate, for every client, now and later" )
+{
+    LoopbackNetwork network;
+    LoopbackTransport raw( network, kServer );
+    CHECK( NetServer( raw, NetVersion(), 60 ).GetMaxCommandRepeats() == 15 );
+    CHECK( NetServer( raw, NetVersion(), 30 ).GetMaxCommandRepeats() == 8 );
+    CHECK( NetServer( raw, NetVersion(), 128 ).GetMaxCommandRepeats() == 32 );
+    CHECK( NetServer( raw, NetVersion(), 2 ).GetMaxCommandRepeats() == 1 );
+
+    Harness net( Link( 20.f, 0.f, 0.f, 1 ), Link( 20.f, 0.f, 0.f, 2 ) );
+    net.Start();
+    net.Run( 1.0 );
+    NetServer& server = *net.ServerNet.GetServer();
+    REQUIRE( server.GetClientCount() == 1 );
+    CHECK( server.GetClients().front()->Commands.GetMaxRepeats() == 15 );
+    server.SetMaxCommandRepeats( 30 );
+    CHECK( server.GetMaxCommandRepeats() == 30 );
+    CHECK( server.GetClients().front()->Commands.GetMaxRepeats() == 30 );
+    Peer& late = net.AddClient( Link( 20.f, 0.f, 0.f, 3 ) );
+    net.Run( 1.0 );
+    REQUIRE( late.Net.GetClient()->GetState() == NetClient::State::Connected );
+    const NetServer::Client* lateRemote = server.FindClient( late.Net.GetClient()->GetClientId() );
+    REQUIRE( lateRemote != nullptr );
+    CHECK( lateRemote->Commands.GetMaxRepeats() == 30 );
+}
+
+TEST_CASE( "Net: a client that goes silent holding move and fire stops on the server after a quarter second, aim kept, and resumes cleanly" )
+{
+    Harness net( Link( 20.f, 2.f, 0.f, 21 ), Link( 20.f, 2.f, 0.f, 22 ) );
+    net.MakeCommand = []( uint32_t ) {
+        InputCommand c;
+        c.Buttons = 0x5u;
+        c.Axes[1] = 1.f;
+        c.HasAim = true;
+        c.Yaw = 45.f;
+        c.Pitch = 10.f;
+        return c;
+    };
+    struct Seen
+    {
+        InputCommand Command;
+        uint32_t RepeatRun = 0;
+    };
+    std::vector<Seen> seen;
+    net.OnServerTick = [&seen]( NetServer& InServer ) {
+        const NetServer::Client* c = InServer.FindClient( 1 );
+        if( c && c->Commands.HasReceived() )
+        {
+            seen.push_back( { c->Current, c->Commands.GetRepeatRun() } );
+        }
+    };
+    net.Start();
+    net.Run( 3.0 );
+    NetClient& client = *net.ClientNet.GetClient();
+    REQUIRE( client.GetState() == NetClient::State::Connected );
+    const NetServer::Client* remote = net.ServerNet.GetServer()->FindClient( client.GetClientId() );
+    REQUIRE( remote != nullptr );
+    const uint32_t cap = net.ServerNet.GetServer()->GetMaxCommandRepeats();
+    CHECK( remote->Commands.GetNeutralCount() == 0 );
+    REQUIRE( !seen.empty() );
+    CHECK( seen.back().Command.Buttons == 0x5u );
+
+    // The client freezes (nothing reaches the server) for a second and a half.
+    const size_t outageStart = seen.size();
+    net.ClientLink.SetConditions( Link( 20.f, 2.f, 1.f, 23 ) );
+    net.Run( 1.5 );
+    net.ClientLink.SetConditions( Link( 20.f, 2.f, 0.f, 24 ) );
+    const size_t outageEnd = seen.size();
+    // Until the cap a miss is the held command; past it, the pawn lets go, still aiming.
+    const float forward = NetCommands::QuantizeAxis( 1.f );
+    const std::array<float, 4> centred{};
+    auto check = [&]( size_t InFrom, size_t InTo, size_t& OutWhole, size_t& OutNeutral ) {
+        bool consistent = true;
+        OutWhole = OutNeutral = 0;
+        for( size_t i = InFrom; i < InTo; ++i )
+        {
+            const Seen& s = seen[i];
+            if( s.RepeatRun > cap )
+            {
+                ++OutNeutral;
+                consistent = consistent && s.Command.Buttons == 0 && s.Command.Axes == centred && s.Command.HasAim
+                    && std::abs( s.Command.Yaw - 45.f ) < 0.01f && std::abs( s.Command.Pitch - 10.f ) < 0.01f;
+            }
+            else
+            {
+                ++OutWhole;
+                consistent = consistent && s.Command.Buttons == 0x5u && s.Command.Axes[1] == forward;
+            }
+        }
+        return consistent;
+    };
+    size_t whole = 0;
+    size_t neutral = 0;
+    CHECK( check( outageStart, outageEnd, whole, neutral ) );
+    MESSAGE( "outage: " << whole << " ticks held, " << neutral << " neutral (cap " << cap << ")" );
+    // 90 ticks without a command, less the few buffered and in flight, less the cap.
+    CHECK( whole >= cap );
+    CHECK( neutral >= 90 - cap - 10 );
+    CHECK( neutral == remote->Commands.GetNeutralCount() );
+
+    // Back: the held command again, and holding through the gap recovered no presses. The clock
+    // needs a while: while nothing arrived the server's slack sank, the client resynced ahead,
+    // and the resyncs take seconds to settle after a gap this long. Throughout, a miss within the
+    // cap is still the held command and one past it neutral.
+    const int resyncsBefore = client.GetClock().GetResyncCount();
+    net.Run( 10.0 );
+    CHECK( client.GetState() == NetClient::State::Connected );
+    size_t wholeAfter = 0;
+    size_t neutralAfter = 0;
+    CHECK( check( outageEnd, seen.size(), wholeAfter, neutralAfter ) );
+    CHECK( remote->Commands.GetRepeatRun() == 0 );
+    CHECK( remote->Commands.GetRecoveredPresses() == 0 );
+    CHECK( seen.back().Command.Buttons == 0x5u );
+    CHECK( seen.back().Command.Axes[1] == forward );
+    MESSAGE( "after: " << wholeAfter << " ticks held, " << neutralAfter << " neutral, " << client.GetClock().GetResyncCount() - resyncsBefore
+        << " resyncs; in all neutral " << remote->Commands.GetNeutralCount() << ", missed " << remote->Commands.GetMissedCount() );
+    CHECK( neutral + neutralAfter == remote->Commands.GetNeutralCount() );
+    CHECK( net.ServerNet.GetServer()->GetTimeoutCount() == 0 );
+}
+
 TEST_CASE( "Net: on a clean link the adaptive buffer settles at one to one and a half ticks (NET-14)" )
 {
     Harness net( Link( 10.f, 0.f, 0.f, 7 ), Link( 10.f, 0.f, 0.f, 8 ) );

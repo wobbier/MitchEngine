@@ -48,6 +48,17 @@ NetServer::NetServer( INetTransport& InTransport, const NetVersion& InVersion, u
     , m_tickRate( InTickRate )
     , m_maxClients( InMaxClients )
 {
+    m_maxCommandRepeats = static_cast<uint32_t>( std::max( 1L, std::lround( kDefaultCommandRepeatSeconds * InTickRate ) ) );
+}
+
+
+void NetServer::SetMaxCommandRepeats( uint32_t InTicks )
+{
+    m_maxCommandRepeats = InTicks;
+    for( std::unique_ptr<Client>& client : m_clients )
+    {
+        client->Commands.SetMaxRepeats( InTicks );
+    }
 }
 
 
@@ -68,6 +79,7 @@ NetServer::Client* NetServer::FindOrAdd( NetAddress InAddress )
     auto client = std::make_unique<Client>();
     client->Address = InAddress;
     client->Connection = std::make_unique<NetConnection>( m_transport, InAddress );
+    client->Commands.SetMaxRepeats( m_maxCommandRepeats );
     m_clients.push_back( std::move( client ) );
     return m_clients.back().get();
 }

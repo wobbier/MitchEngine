@@ -217,13 +217,15 @@ InputCommand NetCommandBuffer::Consume( uint32_t InTick )
     if( it != m_commands.end() )
     {
         m_last = it->second;
+        m_repeatRun = 0;
         ++m_onTime;
     }
     else
     {
-        // Missing: keep doing what they were doing (never stall the server).
+        // Missing: keep doing what they were doing (never stall the server), for a while.
         m_last.Tick = InTick;
         ++m_missed;
+        ++m_repeatRun;
         m_repeated[InTick] = m_last.Buttons;
         if( m_repeated.size() > 64 )
         {
@@ -243,13 +245,19 @@ InputCommand NetCommandBuffer::Consume( uint32_t InTick )
     {
         m_slack += ( m_lastSample - m_slack ) * 0.1f;
     }
+    InputCommand command = m_last;
+    if( m_repeatRun > m_maxRepeats )
+    {
+        // Missing for too long (frozen, crashed, cut off): let go of everything, keep the aim.
+        command.Buttons = 0;
+        command.Axes = {};
+        ++m_neutral;
+    }
     if( m_pendingPresses != 0 )
     {
         // This tick only: the merged press isn't repeated if the next command goes missing too.
-        InputCommand merged = m_last;
-        merged.Buttons |= m_pendingPresses;
+        command.Buttons |= m_pendingPresses;
         m_pendingPresses = 0;
-        return merged;
     }
-    return m_last;
+    return command;
 }
