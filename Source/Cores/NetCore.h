@@ -1,16 +1,53 @@
 #pragma once
 #include "ECS/Core.h"
+#include "Events/Event.h"
 #include "Net/NetLagCompensation.h"
 #include "Net/NetPrediction.h"
 #include "Net/NetReplication.h"
 #include "Net/NetSession.h"
 #include <memory>
 #include <optional>
+#include <string>
+#include <vector>
+
+class World;
+
+// Who came and went in a network session, for gameplay: every listener hears every event
+// (Listen<NetSessionEvent>, checking Source against its world). ScriptCore hands its world's to
+// C#'s EventBus: NetClientJoined / NetClientLeft on the server, NetConnected / NetDisconnected on a
+// client. Fired on the main thread by the NetCore whose session it is, once its Receive or Close
+// has finished (never from inside the session's own loops); Engine::Run's Receive comes before
+// the frame's fixed steps and scripts.
+// - The server: a client was accepted (its Welcome is on the way), or left ("left", "timed out",
+//   or "closed" by Close).
+// - A client: it was welcomed, or its session ended ("left" by Close, what the server said when
+//   it closed, "timed out", "rejected: <why>"). The server's words are valid UTF-8 whatever it
+//   sent.
+// Engine::Run closes the session after its loop ends: C++ listeners still alive hear "closed" and
+// a client's own "left", scripts never do.
+class NetSessionEvent
+    : public Event<NetSessionEvent>
+{
+public:
+    enum class Kind : uint8_t
+    {
+        ClientJoined,
+        ClientLeft,
+        Connected,
+        Disconnected,
+    };
+    Kind Type = Kind::ClientJoined;
+    uint8_t ClientId = 0;   // a client's own id with Connected; 0 with Disconnected
+    std::string Reason;     // ClientLeft and Disconnected
+    // The world whose NetCore it is (NET-0: several worlds can hold sessions in one process).
+    const World* Source = nullptr;
+};
 
 // Networking's engine-owned core (NET-2). It runs nothing until Host or Connect starts a session
 // over a transport; then the engine's frame drives it:
 //
-// - Receive( now ) after the frame's events: packets, the handshake, commands, server reports.
+// - Receive( now ) after the frame's events: packets, the handshake, commands, server reports,
+//   then the NetSessionEvents they caused.
 // - BeginTick / EndTick around each fixed step: the server takes each client's command for the
 //   tick, then reports; the client stamps the local command with its tick.
 // - WriteInterpolated( frame seconds ) after the frame's physics poses: the client poses what the
@@ -124,12 +161,13 @@ public:
     NetPredictor* GetPredictor() { return m_predictor.get(); }
 
     // Server (NET-8): a ray against the hitboxes as InCommand's player saw them (its ViewTick),
-    // blocked by colliders in the present. InShooter is ignored.
+    // blocked by colliders in the present. InShooter and everything under it (a pawn's head
+    // hitbox) are ignored.
     LagCompensatedHit LagCompensatedRaycast( const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, const InputCommand& InCommand,
         const EntityHandle& InShooter = EntityHandle() );
     // The same ray against the hitboxes where they are now (a client's own view, for impact FX it
     // predicts; offline play), with no rewind: what NET-15's Net.LagCompensatedRaycast does off
-    // the server. InShooter is ignored.
+    // the server. InShooter and everything under it are ignored.
     LagCompensatedHit PresentRaycast( const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, const EntityHandle& InShooter = EntityHandle() );
     NetLagCompensation& GetLagCompensation() { return m_lagCompensation; }
     // Smoothed round trip in ms: a client's to its server, or the server's to one client (0
@@ -158,6 +196,12 @@ private:
         uint64_t LateCommands = 0;
     };
     void RecordDeparture( const NetServer::Client& InClient, double InNow );
+    // Session events wait here until the public call that raised them (Receive, Close) is done,
+    // then FireSessionEvents sends them as NetSessionEvents.
+    void PushSessionEvent( NetSessionEvent::Kind InType, uint8_t InClientId, std::string InReason = {} );
+    void FireSessionEvents();
+    // A client: the state change since it last looked, as a session event.
+    void NoteClientState();
     void OnRpc( uint8_t InFromClient, BitReader& InReader );
     void OnOwnerChanged( uint32_t InNetId, uint8_t InOwner );
 
@@ -179,6 +223,9 @@ private:
     double m_lastNow = 0.0;
     bool m_closing = false;
     std::vector<Departure> m_departures;
+    std::vector<NetSessionEvent> m_sessionEvents;
+    bool m_firingSessionEvents = false;
+    NetClient::State m_reportedClientState = NetClient::State::Disconnected;
     // When snapshots first and most recently arrived (client), for the snapshot rate.
     double m_firstSnapshotAt = -1.0;
     double m_lastSnapshotAt = -1.0;

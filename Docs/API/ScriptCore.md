@@ -445,6 +445,7 @@ The capsule character moved by the physics mover (Engine/Docs/Physics.md).
 - `Jump` (method): Jumps when grounded (the controller's jump speed).
 - `MaxSpeed` (property): The top walking speed in metres per second.
 - `Move(Vector3)` (method): A displacement added on the next physics step.
+- `Position` (property): Where the simulation has it: the capsule centre (plus Center) after the last physics step, a Teleport or a network correction, the same in OnFixedUpdate on every peer and in resimulations. The Transform is the interpolated pose drawn between steps: read this in simulation code (aiming, spawning shots), the Transform for presentation.
 - `SetMoveInput(Vector3)` (method): Desired horizontal direction in world space; length <= 1 scales the speed. Kept until changed.
 - `Teleport(Vector3,Vector3)` (method): Moves the character instantly, turned to face forward (flattened: characters stay upright). Clears its velocity; set Velocity afterwards to keep moving.
 - `Velocity` (property): The character's velocity in metres per second.
@@ -474,6 +475,15 @@ A contact reported to OnCollisionEnter / OnCollisionExit.
 - `Normal` (field): From this entity towards the other
 - `Other` (field): The entity whose collider was touched
 - `Point` (field): Contact point (enter events of 3D contacts)
+
+## CommandLine
+
+The command line the game started with: flags as "--name value". A name works with or without its dashes ("--bots" and "bots" are the same flag). Numbers read in the invariant culture.
+
+- `Get(System.String,System.String)` (method): The value after the flag; fallback when the flag isn't there or another flag follows it.
+- `GetFloat(System.String,System.Single)` (method): The value after the flag as a number ("0.5"); fallback when it's missing or isn't one.
+- `GetInt(System.String,System.Int32)` (method): The value after the flag as a whole number; fallback when it's missing or isn't one.
+- `Has(System.String)` (method): Whether the flag is on the command line.
 
 ## Component
 
@@ -975,6 +985,7 @@ Keys, the mouse and the project's input actions (Engine/Docs/Input.md).
 - `GetAction(System.String)` (method): Actions from the project's .inputactions map (Engine/Docs/Input.md).
 - `GetActionVector2(System.String)` (method): A Vector2 action's value (sticks, WASD composites).
 - `IsActionPressed(System.String)` (method): Whether an action is held.
+- `IsContextEnabled(System.String)` (method): Whether a context is on (a context the map doesn't have counts as on).
 - `IsKeyDown(ScriptCore.KeyCode)` (method): Whether a key is held (the real keyboard; simulated keys reach actions only).
 - `MouseCaptured` (property): Locks and hides the cursor so the mouse only reports motion (FPS-style look).
 - `MouseDelta` (property): Mouse motion this frame in pixels (+Y up).
@@ -982,6 +993,7 @@ Keys, the mouse and the project's input actions (Engine/Docs/Input.md).
 - `Player(System.Int32)` (method): A local player's input by index (0 = the default player).
 - `PlayerCount` (property): Local multiplayer: player 0 is the default player (the methods above). Other players have their own pads; SetJoining lets unpaired pads join by pressing South (A / Cross).
 - `ReleaseSimulated` (method): Releases every key Simulate held.
+- `SetContextEnabled(System.String,System.Boolean)` (method): Turns a context of the action map on or off: its actions read zero (not pressed) while it's off, e.g. "Gameplay" while a menu has the mouse. The default player's; each local player has its own (Input.Player(i).SetContextEnabled). Kept across hot reloads of the map.
 - `SetJoining(System.Int32)` (method): Lets unpaired pads join as new players, up to maxPlayers (0 stops joining).
 - `Simulate(ScriptCore.KeyCode,System.Boolean)` (method): Holds a key as if pressed, on top of the real devices, until it's released (play-mode tests and input replays; Testing/SimulatedInput.cs times them). Actions read it, focus or not; IsKeyDown / WasKeyPressed read the devices and don't. [GameTest]s release every simulated key when they end.
 - `WasActionPressed(System.String)` (method): Whether an action went down this frame (this step, inside OnFixedUpdate).
@@ -1419,6 +1431,8 @@ Walks the navmesh (Engine/Docs/Navigation.md). Paths are computed by the engine'
 
 NET-6: the session from scripts. Without a session (offline play, the editor) Role is 0 and RPCs run locally, so the same script works on both sides. See Engine/Docs/Networking.md.
 
+- `AxisIndex(System.String)` (method): A networked Value / Vector2 action's first axis in the command (Axis0..Axis3; a Vector2 takes two in a row), or -1 when it isn't one. The layout is the same on every peer.
+- `ButtonIndex(System.String)` (method): A networked Button action's bit in NetCommand.Buttons (-1 when it isn't one): build commands (bots, tests) with Buttons |= 1 << Net.ButtonIndex("Fire"). The layout is the same on every peer.
 - `ClearAim` (method): Stops sending an aim.
 - `Clients` (property): Allocates; GetClients(Span) doesn't.
 - `Command(ScriptCore.Entity)` (method): The owner's command for the tick being simulated (server: as received; client: its own).
@@ -1436,6 +1450,7 @@ NET-6: the session from scripts. Without a session (offline play, the editor) Ro
 - `IsServer` (property): Whether this peer is the server.
 - `LagCompensatedRaycast(ScriptCore.Entity,Vector3,Vector3,System.Single)` (method): NET-15: a shot judged the way its shooter saw it. On the server the hitboxes (NetHitbox) are rewound to the view the shooter's command was sent from (Command.ViewTick, capped at the rewind window: Clamped), and present-day colliders and rewound occluders still block it. On a client (or offline) it tests the hitboxes as they are now: the predicted hit, for impact FX; only the server's result counts. Shooter: the entity firing (ignored by the ray).
 - `LocalClientId` (property): This client's id (1-255); 0 on the server and offline.
+- `LocalCommand` (property): The local player's command for this fixed step: what a pawn simulates with when there's no session (offline play, the editor's Play) through the same code as online. Offline it's sampled every fixed step from the networked input actions (with Net.Press and the aim from Net.SetAim), axes as the server would read them, Tick counting the steps; Valid while any action is networked (or Press / SetAim holds something), and WasPressed compares with the step before. The editor's Stop releases Press holds and the aim. On a client: its predicted pawn's command (a replayed tick's while resimulating), or before it has one, the command it sends. On the server: Valid is false (it has no local player).
 - `Matches` (property): Predicted ticks that matched the server.
 - `MaxRpcArgsBytes` (field): An RPC's arguments must fit one message (1024 bytes) with its header.
 - `PredictedEvent(ScriptCore.Script,System.Int32,System.Int32)` (method): ME-291: a cosmetic event (FX, a sound, a log line) raised from simulation (OnFixedUpdate) that must show once, not in every resimulation of its tick. Offline: script.OnNetEvent(eventId, value) now. The server: now, and to every client. The predicting owner: now, once per (entity, tick, event); resims and the server's copy skip it. Other clients: when the server's copy arrives. Needs a networked script on a NetIdentity.
@@ -1453,7 +1468,23 @@ NET-6: the session from scripts. Without a session (offline play, the editor) Ro
 - `SetAim(System.Single,System.Single)` (method): The local player's absolute aim (NET-15), sent with every command until cleared: degrees, yaw about +Y (0 down +Z, 90 down +X), pitch up from level. Set it from where the view looks each frame; the pawn's script reads Net.Command(Entity).Yaw / Pitch / AimDirection in OnFixedUpdate on both sides, so a predicted shot and the server's aim the same way.
 - `SetOwner(ScriptCore.Entity,System.Int32)` (method): Server: hands an entity to a client, which then predicts it (0: back to the server).
 - `Tick` (property): The simulation tick being run (a past one while resimulating).
+- `VisualOffset(ScriptCore.Entity)` (method): A client's predicted pawn: where to draw it relative to its simulated pose (Transform), the rest of a correction being smoothed out (gone in about 100 ms). Draw its meshes, or put the camera, at the Transform plus this. Corrections over 2 m (a teleport, a respawn) snap, so it's zero then. Zero for anything else, on the server and offline.
 - `WarnRpcTooLarge(System.String)` (method): Generated RPC stubs with string arguments: the arguments didn't fit the RPC buffer.
+
+## NetClientJoined
+
+EventBus, on the server: a client was accepted into the session (its Welcome is on the way). Spawn what it plays with and hand it over with Net.SetOwner.
+
+- `(constructor)(System.Int32)` (method): EventBus, on the server: a client was accepted into the session (its Welcome is on the way). Spawn what it plays with and hand it over with Net.SetOwner.
+- `ClientId` (property): The client's id (1-255).
+
+## NetClientLeft
+
+EventBus, on the server: a client left the session. Its entities stay (owned by the server again): destroy what was its.
+
+- `(constructor)(System.Int32,System.String)` (method): EventBus, on the server: a client left the session. Its entities stay (owned by the server again): destroy what was its.
+- `ClientId` (property): The client's id (free for a later client).
+- `Reason` (property): "left" (it said goodbye) or "timed out". Not raised when this server shuts down: scripts have stopped by then.
 
 ## NetCommand
 
@@ -1472,10 +1503,26 @@ The owner's input for one simulation tick (Net.Command): networked buttons as bi
 - `PreviousButtons` (field): The previous command's buttons (for WasPressed / WasReleased).
 - `Tick` (field): The simulation tick this command is for.
 - `Valid` (field): False when there's no command for the entity this tick (not owned, or none arrived yet).
+- `Value(System.String)` (method): A networked Value action's axis: zero when it isn't in the command layout.
+- `Vector2(System.String)` (method): A networked Vector2 action's two axes (Move): zero when it isn't in the command layout.
 - `ViewTick` (field): The (fractional) server tick the owner's view showed when it sent this command (NET-8); Net.LagCompensatedRaycast rewinds to it. -1 without one.
 - `WasPressed(System.String)` (method): Whether it went down this tick.
 - `WasReleased(System.String)` (method): Whether it went up this tick.
 - `Yaw` (field): The aim in degrees (see HasAim).
+
+## NetConnected
+
+EventBus, on a client: the server welcomed this client (Net.LocalClientId is set from now on).
+
+- `(constructor)(System.Int32)` (method): EventBus, on a client: the server welcomed this client (Net.LocalClientId is set from now on).
+- `ClientId` (property): This client's id (1-255).
+
+## NetDisconnected
+
+EventBus, on a client: the session ended, or never started.
+
+- `(constructor)(System.String)` (method): EventBus, on a client: the session ended, or never started.
+- `Reason` (property): What the server said when it closed ("server closed", "timed out"), "timed out" (the server went quiet), or "rejected: " and the server's reason (anything that isn't text comes through as U+FFFD). Not raised when this client quits: scripts have stopped by then.
 
 ## NetEventLedger
 
@@ -1590,6 +1637,8 @@ One local player's actions.
 - `GetActionVector2(System.String)` (method): A Vector2 action's value for this player.
 - `Index` (field): The player's index.
 - `IsActionPressed(System.String)` (method): Whether the action is held by this player.
+- `IsContextEnabled(System.String)` (method): Whether one of this player's contexts is on.
+- `SetContextEnabled(System.String,System.Boolean)` (method): Turns one of this player's contexts on or off (Input.SetContextEnabled).
 - `WasActionPressed(System.String)` (method): Whether the action went down this frame for this player.
 - `WasActionReleased(System.String)` (method): Whether the action went up this frame for this player.
 

@@ -407,6 +407,7 @@ std::string InputActionSystem::OverrideKey( const std::string& InContext, const 
 void InputActionSystem::SetMap( const InputActionMap& InMap )
 {
     m_map = InMap;
+    ++m_mapVersion;
     for( const InputContext& context : m_map.Contexts )
     {
         // Keep the game's enable/disable choices across hot reloads.
@@ -669,6 +670,16 @@ bool InputActionSystem::IsContextEnabled( const std::string& InContext ) const
 {
     auto found = m_contextEnabled.find( InContext );
     return found == m_contextEnabled.end() || found->second;
+}
+
+
+void InputActionSystem::ResetContexts()
+{
+    m_contextEnabled.clear();
+    for( const InputContext& context : m_map.Contexts )
+    {
+        m_contextEnabled.emplace( context.Name, context.EnabledByDefault );
+    }
 }
 
 

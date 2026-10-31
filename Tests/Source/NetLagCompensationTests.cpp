@@ -501,3 +501,81 @@ TEST_CASE( "Net: at 150 ms a client aiming with its command's yaw and pitch hits
     CHECK( hits * 100 >= shots * 95 );
     CHECK( sameAim == shots );
 }
+
+
+TEST_CASE( "Net: a shooter's own hitboxes and colliders, its children's too, never stop its shots, rewound or present" )
+{
+    // Cores before the world: they must outlive it.
+    PhysicsCore physics;
+    NetCore net;
+    std::shared_ptr<World> world = std::make_shared<World>();
+    world->IsLoading = false;
+    world->AddCore( physics );
+    world->AddCore( net );
+    // A pawn: its body hitbox on the root, a head hitbox on a child, and a gun collider (a child)
+    // poking out in front of its eye.
+    EntityHandle pawn = world->CreateEntity( "Pawn" );
+    Transform& pawnTransform = pawn->AddComponent<Transform>();
+    pawnTransform.SetPosition( Vector3( 0.f, 1.f, 0.f ) );
+    NetHitbox& body = pawn->AddComponent<NetHitbox>();
+    body.Radius = 0.4f;
+    body.Height = 1.4f;
+    EntityHandle head = world->CreateEntity( "Head" );
+    head->AddComponent<Transform>().SetParent( pawnTransform );
+    head->GetComponent<Transform>().SetPosition( Vector3( 0.f, 0.65f, 0.f ) );
+    NetHitbox& headBox = head->AddComponent<NetHitbox>();
+    headBox.Radius = 0.25f;
+    headBox.Height = 0.5f;
+    EntityHandle gun = world->CreateEntity( "Gun" );
+    gun->AddComponent<Transform>().SetParent( head->GetComponent<Transform>() );
+    gun->GetComponent<Transform>().SetPosition( Vector3( 0.f, 0.05f, 0.6f ) );
+    gun->AddComponent<BoxCollider>().Size = Vector3( 0.2f, 0.2f, 0.4f );
+    // Someone else's, in front of it.
+    EntityHandle target = world->CreateEntity( "Target" );
+    target->AddComponent<Transform>().SetPosition( Vector3( 0.f, 1.f, 10.f ) );
+    NetHitbox& targetBox = target->AddComponent<NetHitbox>();
+    targetBox.Radius = 0.4f;
+    targetBox.Height = 1.8f;
+    world->Simulate();
+    world->Start();
+    TestContext context;
+    context.FixedDeltaTime = 1.f / 60.f;
+    context.InterpolationAlpha = 1.f;
+    context.IsFixedStepActive = true;
+    physics.FixedUpdate( context );
+    context.IsFixedStepActive = false;
+    physics.Update( context );
+    REQUIRE( head->GetComponent<Transform>().GetWorldPosition().y == doctest::Approx( 1.65f ) );
+    REQUIRE( gun->GetComponent<Transform>().GetWorldPosition().z == doctest::Approx( 0.6f ) );
+
+    // From the eye (inside the head capsule), forward through the gun.
+    const Vector3 eye( 0.f, 1.7f, 0.f );
+    const Vector3 forward( 0.f, 0.f, 1.f );
+    // Anyone else's shot from there stops at the head.
+    const LagCompensatedHit stranger = net.PresentRaycast( eye, forward, 100.f );
+    CHECK( stranger.Hit );
+    CHECK( stranger.Entity == head );
+
+    // Present (a client's predicted hit, offline play): the target.
+    const LagCompensatedHit present = net.PresentRaycast( eye, forward, 100.f, pawn );
+    CHECK( present.Hit );
+    CHECK_FALSE( present.Occluded );
+    CHECK( present.Entity == target );
+    CHECK( present.Distance > 9.f );
+
+    // Rewound (the server judging the shooter's view): the target too.
+    net.GetLagCompensation().Record( *world, 1 );
+    net.GetLagCompensation().Record( *world, 2 );
+    InputCommand command;
+    command.ViewTick = 1.5;
+    const LagCompensatedHit rewound = net.LagCompensatedRaycast( eye, forward, 100.f, command, pawn );
+    CHECK( rewound.Hit );
+    CHECK_FALSE( rewound.Occluded );
+    CHECK_FALSE( rewound.Rejected );
+    CHECK( rewound.Entity == target );
+    // The gun still blocks everyone else's shots.
+    const LagCompensatedHit blocked = net.LagCompensatedRaycast( Vector3( 0.f, 1.7f, 0.3f ), forward, 100.f, command );
+    CHECK( blocked.Entity == target );
+    CHECK( blocked.Occluded );
+    CHECK_FALSE( blocked.Hit );
+}

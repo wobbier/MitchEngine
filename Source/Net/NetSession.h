@@ -162,6 +162,7 @@ public:
     void Send( const BitWriter& InMessage, bool InReliable );
 
     State GetState() const { return m_state; }
+    // The server's words are valid UTF-8 whatever it sent (BitReader::ReadText).
     const std::string& GetRejectReason() const { return m_rejectReason; }
     // Why a connected session ended: "left" (Disconnect), or what the server said when it closed.
     const std::string& GetDisconnectReason() const { return m_disconnectReason; }

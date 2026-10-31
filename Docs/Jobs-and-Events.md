@@ -83,6 +83,7 @@ Event inventory:
 | `Source/Engine/Input.h`, `Source/Input/Gamepads.h`, `Source/Input/InputPlayers.h` | `KeyPressEvent`, `MouseScrollEvent`, `GamepadConnectionEvent`, `InputPlayerEvent` |
 | `Source/Physics/PhysicsTypes.h` | `CollisionEvent` (3D and 2D contacts and triggers) |
 | `Source/Components/Animation/Animator.h` | `AnimationEvent` |
+| `Source/Cores/NetCore.h` | `NetSessionEvent` (who joined and left a network session; `Source` = the world) |
 | `Source/Events/HavanaEvents.h` (editor) | `InspectEvent`, `ClearInspectEvent`, `ModelHierarchyEvent` |
 | `Modules/Dementia/Source/Events/EditorEvents.h` (editor) | `PickingEvent`, `PreviewResourceEvent`, `RequestAssetSelectionEvent`, `AssetsChangedEvent` |
 | `Modules/Havana/Source/Editor/Selection.h` (editor) | `SelectionChangedEvent` |

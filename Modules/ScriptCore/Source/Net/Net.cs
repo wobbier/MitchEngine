@@ -52,6 +52,20 @@ public struct NetCommand
     /// <summary>An axis by index (0..3).</summary>
     public float Axis(int i) => i switch { 0 => Axis0, 1 => Axis1, 2 => Axis2, 3 => Axis3, _ => 0f };
 
+    /// <summary>A networked Vector2 action's two axes (Move): zero when it isn't in the command layout.</summary>
+    public Vector2 Vector2(string action)
+    {
+        int index = Net.AxisIndex(action, out int count);
+        return index < 0 ? default : new Vector2(Axis(index), count > 1 ? Axis(index + 1) : 0f);
+    }
+
+    /// <summary>A networked Value action's axis: zero when it isn't in the command layout.</summary>
+    public float Value(string action)
+    {
+        int index = Net.AxisIndex(action);
+        return index < 0 ? 0f : Axis(index);
+    }
+
     private static bool Bit(int buttons, string action)
     {
         int index = Net.ActionIndex(action);
@@ -65,6 +79,34 @@ public struct NetCommand
 /// Rejected: the shooter's view was in the future. Rewound: judged at the shooter's view (server).
 /// </summary>
 public readonly record struct NetHit(bool Hit, Entity Entity, Vector3 Point, bool Occluded, bool Rejected, bool Clamped, bool Rewound);
+
+
+/// <summary>
+/// EventBus, on the server: a client was accepted into the session (its Welcome is on the way).
+/// Spawn what it plays with and hand it over with Net.SetOwner.
+/// </summary>
+/// <param name="ClientId">The client's id (1-255).</param>
+public readonly record struct NetClientJoined(int ClientId);
+/// <summary>
+/// EventBus, on the server: a client left the session. Its entities stay (owned by the server
+/// again): destroy what was its.
+/// </summary>
+/// <param name="ClientId">The client's id (free for a later client).</param>
+/// <param name="Reason">"left" (it said goodbye) or "timed out". Not raised when this server shuts down: scripts
+/// have stopped by then.</param>
+public readonly record struct NetClientLeft(int ClientId, string Reason);
+/// <summary>
+/// EventBus, on a client: the server welcomed this client (Net.LocalClientId is set from now on).
+/// </summary>
+/// <param name="ClientId">This client's id (1-255).</param>
+public readonly record struct NetConnected(int ClientId);
+/// <summary>
+/// EventBus, on a client: the session ended, or never started.
+/// </summary>
+/// <param name="Reason">What the server said when it closed ("server closed", "timed out"), "timed out" (the
+/// server went quiet), or "rejected: " and the server's reason (anything that isn't text comes through as
+/// U+FFFD). Not raised when this client quits: scripts have stopped by then.</param>
+public readonly record struct NetDisconnected(string Reason);
 
 
 /// <summary>
@@ -176,6 +218,69 @@ public static unsafe class Net
         }
         return command;
     }
+
+    /// <summary>
+    /// The local player's command for this fixed step: what a pawn simulates with when there's no
+    /// session (offline play, the editor's Play) through the same code as online. Offline it's
+    /// sampled every fixed step from the networked input actions (with Net.Press and the aim from
+    /// Net.SetAim), axes as the server would read them, Tick counting the steps; Valid while any
+    /// action is networked (or Press / SetAim holds something), and WasPressed compares with the
+    /// step before. The editor's Stop releases Press holds and the aim. On a client: its
+    /// predicted pawn's command (a replayed tick's while resimulating), or before it has one, the
+    /// command it sends. On the server: Valid is false (it has no local player).
+    /// </summary>
+    public static NetCommand LocalCommand
+    {
+        get
+        {
+            var command = new NetCommand { ViewTick = -1.0 };
+            if (Engine._api.Net_GetLocalCommand == null) return command;
+            int buttons, previous, tick;
+            double viewTick;
+            float* axes = stackalloc float[4];
+            float* aim = stackalloc float[2];
+            int flags = Engine._api.Net_GetLocalCommand(&buttons, &previous, axes, aim, &viewTick, &tick);
+            command.Valid = (flags & 1) != 0;
+            if (!command.Valid) return command;
+            command.Tick = tick;
+            command.Buttons = buttons;
+            command.PreviousButtons = previous;
+            command.Axis0 = axes[0];
+            command.Axis1 = axes[1];
+            command.Axis2 = axes[2];
+            command.Axis3 = axes[3];
+            command.ViewTick = viewTick;
+            command.HasAim = (flags & 2) != 0;
+            command.Yaw = aim[0];
+            command.Pitch = aim[1];
+            return command;
+        }
+    }
+
+    /// <summary>
+    /// A client's predicted pawn: where to draw it relative to its simulated pose (Transform), the
+    /// rest of a correction being smoothed out (gone in about 100 ms). Draw its meshes, or put the
+    /// camera, at the Transform plus this. Corrections over 2 m (a teleport, a respawn) snap, so
+    /// it's zero then. Zero for anything else, on the server and offline.
+    /// </summary>
+    public static Vector3 VisualOffset(Entity pawn)
+    {
+        Vector3 offset = default;
+        if (Engine._api.Net_GetVisualOffset != null) Engine._api.Net_GetVisualOffset(pawn, &offset);
+        return offset;
+    }
+
+    /// <summary>
+    /// A networked Button action's bit in NetCommand.Buttons (-1 when it isn't one): build commands
+    /// (bots, tests) with Buttons |= 1 &lt;&lt; Net.ButtonIndex("Fire"). The layout is the same on every peer.
+    /// </summary>
+    public static int ButtonIndex(string action) => ActionIndex(action);
+
+    /// <summary>
+    /// A networked Value / Vector2 action's first axis in the command (Axis0..Axis3; a Vector2 takes
+    /// two in a row), or -1 when it isn't one. The layout is the same on every peer.
+    /// </summary>
+    public static int AxisIndex(string action) => AxisIndex(action, out _);
 
     /// <summary>
     /// Holds (or releases) a networked action as if its input were down: bots and tests.
@@ -349,25 +454,54 @@ public static unsafe class Net
     /// </summary>
     public static void WarnRpcTooLarge(string rpc) => WarnOnce($"{rpc}: the arguments are too large for an RPC; dropped");
 
-    // Action name -> networked button bit, -1 when it isn't one. Cached (only a miss allocates);
-    // looked up again when the role changes (the session owns the button map).
+    // Action name -> networked button bit, -1 when it isn't one, and -> first axis and axis count.
+    // Cached (only a miss allocates); looked up again when the role changes (the session owns the
+    // button map) or the layout is rebuilt (offline, after the action map reloads).
     private static readonly Dictionary<string, int> _actionIndices = new();
+    private static readonly Dictionary<string, (int Index, int Count)> _axisIndices = new();
     private static int _actionIndicesRole = -1;
+    private static int _actionIndicesLayout = -1;
     private static readonly HashSet<string> _warned = new();
+
+    private static void CheckLayout()
+    {
+        int role = Role;
+        int layout = Engine._api.Net_GetLayoutVersion != null ? Engine._api.Net_GetLayoutVersion() : 0;
+        if (role != _actionIndicesRole || layout != _actionIndicesLayout)
+        {
+            _actionIndices.Clear();
+            _axisIndices.Clear();
+            _actionIndicesRole = role;
+            _actionIndicesLayout = layout;
+        }
+    }
 
     internal static int ActionIndex(string action)
     {
         if (action is null) return -1;
-        int role = Role;
-        if (role != _actionIndicesRole)
-        {
-            _actionIndices.Clear();
-            _actionIndicesRole = role;
-        }
+        CheckLayout();
         if (_actionIndices.TryGetValue(action, out int index)) return index;
         if (Engine._api.Net_GetActionIndex == null) return -1;
         fixed (byte* p = Engine.Utf8(action, stackalloc byte[Engine.Utf8StackSize])) index = Engine._api.Net_GetActionIndex(p);
         _actionIndices[action] = index;
+        return index;
+    }
+
+    internal static int AxisIndex(string action, out int count)
+    {
+        count = 0;
+        if (action is null) return -1;
+        CheckLayout();
+        if (_axisIndices.TryGetValue(action, out var known))
+        {
+            count = known.Count;
+            return known.Index;
+        }
+        if (Engine._api.Net_GetAxisIndex == null) return -1;
+        int index, axes;
+        fixed (byte* p = Engine.Utf8(action, stackalloc byte[Engine.Utf8StackSize])) index = Engine._api.Net_GetAxisIndex(p, &axes);
+        _axisIndices[action] = (index, axes);
+        count = axes;
         return index;
     }
 
@@ -383,7 +517,9 @@ public static unsafe class Net
     {
         Events.Clear();
         _actionIndices.Clear();
+        _axisIndices.Clear();
         _actionIndicesRole = -1;
+        _actionIndicesLayout = -1;
         _warned.Clear();
     }
 }

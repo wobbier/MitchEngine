@@ -36,6 +36,17 @@ public class CharacterController : Component
         unsafe { Engine._api.Character_Jump(Entity); }
     }
 
+    /// <summary>
+    /// Where the simulation has it: the capsule centre (plus Center) after the last physics step,
+    /// a Teleport or a network correction, the same in OnFixedUpdate on every peer and in
+    /// resimulations. The Transform is the interpolated pose drawn between steps: read this in
+    /// simulation code (aiming, spawning shots), the Transform for presentation.
+    /// </summary>
+    public Vector3 Position
+    {
+        get { unsafe { Vector3 p; Engine._api.Character_GetPosition(Entity, &p); return p; } }
+    }
+
     /// <summary>Whether the character stands on something.</summary>
     public bool IsGrounded { get { unsafe { return Engine._api.Character_IsGrounded(Entity) != 0; } } }
 

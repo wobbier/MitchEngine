@@ -432,7 +432,7 @@ void NetClient::HandleReliable( const std::vector<uint8_t>& InMessage, double In
     }
     if( type == NetMessage::Reject )
     {
-        m_rejectReason = reader.ReadString( 256 );
+        m_rejectReason = reader.ReadText( 256 );
         m_state = State::Rejected;
     }
     else if( type == NetMessage::Welcome )
@@ -464,7 +464,7 @@ void NetClient::HandleUnreliable( const std::vector<uint8_t>& InMessage )
     }
     if( type == NetMessage::Disconnect )
     {
-        m_disconnectReason = reader.ReadString( 256 );
+        m_disconnectReason = reader.ReadText( 256 );
         m_state = State::Disconnected;
         m_endedAt = m_lastHeard;
         return;

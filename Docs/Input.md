@@ -114,7 +114,7 @@ Gamepad shaping:
 ### Loading and editing maps
 
 - **Startup.** `Engine::InitGame` loads `ProjectSettings::InputActions` (default `Assets/Config/Input.inputactions`) into the game `Input` before `Game::OnInitialize`. A game can call `GetInput().LoadActions( path )` for another map.
-- **Hot reload.** The file is an `InputActionsResource`, so edits on disk hot reload (tools builds). Context enable states and overrides are kept across the reload.
+- **Hot reload.** The file is an `InputActionsResource`, so edits on disk hot reload (tools builds). Context enable states and overrides are kept across the reload. Without a network session the networked actions' command layout (`NetLaunch`, `Docs/Networking.md`) follows the reload (`InputActionSystem::GetMapVersion`); a session's layout stays as it started.
 - **Asset browser.** Selecting a `.inputactions` file shows its contents, drawn by the reflection inspector, with a **Save** button. This is the generic data-asset path: `MetaBase::GetEditableType` / `GetEditableData` / `SaveEditableData`. **Create > Input Actions** makes a starter map with Move / Look / Jump.
 - **Project Settings > Input.** Shows the map path, connected pads, and a live table of every action's value and bindings, useful for checking a pad or a binding. Note that the game `Input` reads nothing while the editor has keyboard focus.
 
@@ -129,7 +129,7 @@ The scene-loaded fly camera reads the `Move` action when the map has one, and WA
 ## How to Extend
 
 - **Read an action:** `GetEngine().GetInput().GetAction( "Jump" ).WasPressed()`, or `.GetVector2()` for movement. Missing actions read zero, so code works before the map defines them.
-- **Game states:** `GetInput().GetActions().SetContextEnabled( "Menu", true )`. Give menus a higher priority and `ConsumeInput` so Escape and the d-pad stop reaching gameplay.
+- **Game states:** `GetInput().GetActions().SetContextEnabled( "Menu", true )`, or from C# `Input.SetContextEnabled( "Gameplay", false )` / `Input.IsContextEnabled( name )` (the default player; `Input.Player( n ).SetContextEnabled` for another). Give menus a higher priority and `ConsumeInput` so Escape and the d-pad stop reaching gameplay. A context turned off reads zero, networked actions in it too: a menu over a networked game sends empty commands. The editor's Stop puts every player's contexts back to the map's `EnabledByDefault` (`InputActionSystem::ResetContexts`), so the next Play starts fresh.
 - **A new control kind:** extend `InputActionSystem::Parse` (the path), `Read` (the value), `FindActuatedControl` (rebind capture) and `GetControlDisplay`, then add a test with an injected `InputDeviceState`.
 
 ## Caveats & Fragility

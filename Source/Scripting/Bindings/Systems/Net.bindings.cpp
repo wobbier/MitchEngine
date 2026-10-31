@@ -290,6 +290,106 @@ static bool Eng_Net_GetCommandAim( EntityID id, float* outYaw, float* outPitch )
 }
 
 
+static int Eng_Net_GetAxisIndex( const uint8_t* action, int* outCount ) noexcept
+{
+    int count = 0;
+    const int index = action ? GetEngine().GetNetLaunch().GetAxisIndex( reinterpret_cast<const char*>( action ), &count ) : -1;
+    if( outCount )
+    {
+        *outCount = count;
+    }
+    return index;
+}
+
+
+static int Eng_Net_GetLayoutVersion() noexcept
+{
+    return static_cast<int>( GetEngine().GetNetLaunch().GetLayoutVersion() );
+}
+
+
+// C#'s Net.LocalCommand. Offline: the command the engine sampled for this fixed step. A client:
+// its predicted pawn's (a replayed tick's while resimulating), or before it has one, the command
+// it sends. The server has no local player. Flags: 1 valid, 2 has an aim.
+static int Eng_Net_GetLocalCommand( int* outButtons, int* outPreviousButtons, float* outAxes, float* outAim, double* outViewTick, int* outTick ) noexcept
+{
+    NetCore* net = Net();
+    const NetLaunch& launch = GetEngine().GetNetLaunch();
+    InputCommand command;
+    InputCommand previous;
+    bool valid = false;
+    if( !net )
+    {
+        valid = launch.HasLocalCommand();
+        command = launch.GetLocalCommand();
+        previous = launch.GetPreviousLocalCommand();
+        command.ViewTick = -1.0;
+    }
+    else if( net->IsClient() )
+    {
+        const NetPredictor* predictor = net->GetPredictor();
+        if( predictor && predictor->GetPawn() )
+        {
+            valid = true;
+            command = predictor->GetCommand();
+            previous = predictor->GetPreviousCommand();
+        }
+        else if( launch.HasLocalCommand() )
+        {
+            valid = true;
+            command = launch.GetLocalCommand();
+            previous = launch.GetPreviousLocalCommand();
+            command.Tick = net->GetTick();
+        }
+    }
+    if( !valid )
+    {
+        command = InputCommand();
+        previous = InputCommand();
+    }
+    if( outButtons )
+    {
+        *outButtons = static_cast<int>( command.Buttons );
+    }
+    if( outPreviousButtons )
+    {
+        *outPreviousButtons = static_cast<int>( previous.Buttons );
+    }
+    if( outAxes )
+    {
+        std::copy( command.Axes.begin(), command.Axes.end(), outAxes );
+    }
+    if( outAim )
+    {
+        outAim[0] = command.HasAim ? command.Yaw : 0.f;
+        outAim[1] = command.HasAim ? command.Pitch : 0.f;
+    }
+    if( outViewTick )
+    {
+        *outViewTick = command.ViewTick;
+    }
+    if( outTick )
+    {
+        *outTick = static_cast<int>( command.Tick );
+    }
+    return valid ? ( 1 | ( command.HasAim ? 2 : 0 ) ) : 0;
+}
+
+
+// The predicted pawn's correction still being smoothed out (zero for anything else).
+static void Eng_Net_GetVisualOffset( EntityID id, Vector3* outOffset ) noexcept
+{
+    if( !outOffset )
+    {
+        return;
+    }
+    NetCore* net = Net();
+    EntityHandle entity = MakeHandle( id );
+    const NetPredictor* predictor = net && net->IsClient() ? net->GetPredictor() : nullptr;
+    *outOffset = predictor && entity && predictor->GetPawn() == entity ? predictor->GetVisualOffset() : Vector3();
+}
+
+
 void Register_NetBindings( ScriptEngineAPI& inAPI )
 {
     inAPI.Net_GetRole = &Eng_Net_GetRole;
@@ -312,6 +412,10 @@ void Register_NetBindings( ScriptEngineAPI& inAPI )
     inAPI.Net_GetRoundTripMs = &Eng_Net_GetRoundTripMs;
     inAPI.Net_SetAim = &Eng_Net_SetAim;
     inAPI.Net_GetCommandAim = &Eng_Net_GetCommandAim;
+    inAPI.Net_GetAxisIndex = &Eng_Net_GetAxisIndex;
+    inAPI.Net_GetLayoutVersion = &Eng_Net_GetLayoutVersion;
+    inAPI.Net_GetLocalCommand = &Eng_Net_GetLocalCommand;
+    inAPI.Net_GetVisualOffset = &Eng_Net_GetVisualOffset;
 }
 
 #endif

@@ -11,6 +11,7 @@
 #include "JSON.h"
 #include <algorithm>
 #include <fstream>
+#include <utility>
 
 #if USING( ME_SCRIPTING )
 #include "Scripting/ScriptEngine.h"
@@ -141,9 +142,18 @@ bool NetCore::Host( INetTransport& InTransport, uint16_t InTickRate )
             OnRpc( InClient.Id, InReader );
         }
     };
+    // Gameplay hears of a new client once replication has sent it the world.
+    m_server->OnClientAccepted = [this, welcome = m_server->OnClientAccepted]( NetServer::Client& InClient ) {
+        if( welcome )
+        {
+            welcome( InClient );
+        }
+        PushSessionEvent( NetSessionEvent::Kind::ClientJoined, InClient.Id );
+    };
     // Remember who went, before replication forgets them.
     m_server->OnClientRemoved = [this, forget = m_server->OnClientRemoved]( NetServer::Client& InClient ) {
         RecordDeparture( InClient, m_lastNow );
+        PushSessionEvent( NetSessionEvent::Kind::ClientLeft, InClient.Id, m_departures.back().Reason );
         if( forget )
         {
             forget( InClient );
@@ -180,7 +190,73 @@ bool NetCore::Connect( INetTransport& InTransport, NetAddress InServer, const Ne
         }
     };
     m_client->Connect();
+    m_reportedClientState = m_client->GetState();
     return true;
+}
+
+
+void NetCore::PushSessionEvent( NetSessionEvent::Kind InType, uint8_t InClientId, std::string InReason )
+{
+    NetSessionEvent& event = m_sessionEvents.emplace_back();
+    event.Type = InType;
+    event.ClientId = InClientId;
+    event.Reason = std::move( InReason );
+    event.Source = GameWorld;
+}
+
+
+void NetCore::FireSessionEvents()
+{
+    // A listener may Close (more events) or Shutdown: the outermost call delivers them all, in order.
+    if( m_firingSessionEvents )
+    {
+        return;
+    }
+    m_firingSessionEvents = true;
+    while( !m_sessionEvents.empty() )
+    {
+        for( NetSessionEvent& event : std::exchange( m_sessionEvents, {} ) )
+        {
+            event.Fire();
+        }
+    }
+    m_firingSessionEvents = false;
+}
+
+
+void NetCore::NoteClientState()
+{
+    if( !m_client || m_client->GetState() == m_reportedClientState )
+    {
+        return;
+    }
+    const NetClient::State was = m_reportedClientState;
+    m_reportedClientState = m_client->GetState();
+    // Welcomed and gone between two looks: it was connected all the same.
+    if( was == NetClient::State::Connecting && m_reportedClientState != NetClient::State::Connected && m_client->GetConnectedAt() >= 0.0 )
+    {
+        PushSessionEvent( NetSessionEvent::Kind::Connected, m_client->GetClientId() );
+    }
+    switch( m_reportedClientState )
+    {
+    case NetClient::State::Connected:
+        PushSessionEvent( NetSessionEvent::Kind::Connected, m_client->GetClientId() );
+        break;
+    case NetClient::State::Rejected:
+        PushSessionEvent( NetSessionEvent::Kind::Disconnected, 0, "rejected: " + m_client->GetRejectReason() );
+        break;
+    case NetClient::State::TimedOut:
+        PushSessionEvent( NetSessionEvent::Kind::Disconnected, 0, "timed out" );
+        break;
+    case NetClient::State::Disconnected:
+        if( was == NetClient::State::Connecting || was == NetClient::State::Connected )
+        {
+            PushSessionEvent( NetSessionEvent::Kind::Disconnected, 0, m_client->GetDisconnectReason() );
+        }
+        break;
+    default:
+        break;
+    }
 }
 
 
@@ -445,12 +521,14 @@ void NetCore::Close( double InNow )
     if( m_client )
     {
         m_client->Disconnect( InNow );
+        NoteClientState();
     }
     if( m_transport )
     {
         m_transport->Update( InNow + kReleaseEverything );
     }
     m_closing = false;
+    FireSessionEvents();
 }
 
 
@@ -587,6 +665,8 @@ void NetCore::Shutdown()
     m_client.reset();
     m_transport = nullptr;
     m_departures.clear();
+    m_sessionEvents.clear();
+    m_reportedClientState = NetClient::State::Disconnected;
     m_startedAt = -1.0;
     m_firstSnapshotAt = -1.0;
     m_lastSnapshotAt = -1.0;
@@ -614,6 +694,7 @@ void NetCore::Receive( double InNow )
     if( m_client )
     {
         m_client->Receive( InNow );
+        NoteClientState();
         const uint64_t received = m_replicationClient->GetSnapshotsReceived();
         if( received > m_lastSnapshotCount )
         {
@@ -626,6 +707,7 @@ void NetCore::Receive( double InNow )
             m_lastSnapshotCount = received;
         }
     }
+    FireSessionEvents();
 }
 
 

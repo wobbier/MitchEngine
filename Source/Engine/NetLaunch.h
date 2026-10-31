@@ -1,4 +1,5 @@
 #pragma once
+#include "Net/NetCommands.h"
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -7,7 +8,6 @@
 class Input;
 class IWindow;
 class NetCore;
-struct InputCommand;
 class UdpTransport;
 class ConditionedTransport;
 
@@ -44,17 +44,39 @@ public:
     void Shutdown( NetCore& InNet, double InNow );
 
     // Networked input actions (NET-6, InputAction::Networked), sorted by name: buttons take the
-    // command's bits in that order, Value / Vector2 actions its 4 axes. Built at Start.
+    // command's bits in that order, Value / Vector2 actions its 4 axes. Built before Start.
     void BuildCommandLayout( const Input& InInput );
+    // Without a session: builds the layout again if the action map changed since (a hot reload,
+    // the editor loading another map). A session's layout is fixed (the handshake hashes it).
+    void RefreshCommandLayout( const Input& InInput );
+    // Changes whenever the layout is built (scripts cache action indices against it).
+    uint32_t GetLayoutVersion() const { return m_layoutVersion; }
     // The local player's command for the coming tick, plus whatever scripts hold (Net.Press).
     void SampleCommand( const Input& InInput, InputCommand& OutCommand ) const;
     // An action's button bit, or -1 (not networked, or not a button).
     int GetActionIndex( const std::string& InAction ) const;
+    // A networked Value / Vector2 action's first axis, or -1 (not networked, or a button);
+    // OutCount: its axes (1 or 2).
+    int GetAxisIndex( const std::string& InAction, int* OutCount = nullptr ) const;
+    // The local player's command for the fixed step being simulated, as the engine sampled it
+    // (C#'s Net.LocalCommand): recorded every step while HasCommandLayout(), offline and on a
+    // client, with its axes as the server would read them. Offline, Tick counts the steps.
+    void RecordLocalCommand( const InputCommand& InCommand );
+    // A step that samples nothing (no layout, or the server): Net.LocalCommand reads invalid, not
+    // the last command recorded.
+    void ClearLocalCommand();
+    bool HasLocalCommand() const { return m_hasLocalCommand; }
+    const InputCommand& GetLocalCommand() const { return m_localCommand; }
+    const InputCommand& GetPreviousLocalCommand() const { return m_previousLocalCommand; }
     void SetActionOverride( int InIndex, bool InHeld );
     // The local player's absolute aim (NET-15, C#'s Net.SetAim), sent with every command until
     // cleared: degrees, InputCommand's convention.
     void SetAim( float InYaw, float InPitch );
     void ClearAim() { m_hasAim = false; }
+    // The editor's Stop: what scripts held (Net.Press) and aimed (Net.SetAim), and the recorded
+    // local commands, go with the play session, so the next Play starts with none. The layout
+    // stays (scripts' cached indices are keyed on its version).
+    void ResetLocalInput();
     // Whether any action is networked: then the engine samples the local command every tick
     // (otherwise a C++ game's own NetCore::SetLocalCommand stands).
     bool HasCommandLayout() const { return !m_commandSlots.empty() || m_overrides != 0 || m_hasAim; }
@@ -80,6 +102,12 @@ private:
         int AxisCount = 0;      // 1 (Value) or 2 (Vector2)
     };
     std::vector<CommandSlot> m_commandSlots;
+    uint32_t m_layoutVersion = 0;
+    uint32_t m_layoutMapVersion = 0;    // the action map's version it was built from
+    InputCommand m_localCommand;
+    InputCommand m_previousLocalCommand;
+    uint32_t m_localTick = 0;
+    bool m_hasLocalCommand = false;
     uint32_t m_overrides = 0;
     bool m_hasAim = false;
     float m_yaw = 0.f;

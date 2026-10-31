@@ -17,8 +17,9 @@ class PhysicsCore;
 // that tick (millimetre tolerances, so float noise across platforms doesn't count). On a
 // mismatch it restores the server's state at that tick and re-runs every later tick with the
 // recorded commands (PhysicsCore::StepCharacter, the rest of the world left in the present),
-// and the jump this makes on screen is smoothed out over SmoothingSeconds. Mismatches before the
-// first match are the initial sync (GetInitialSyncCount), not corrections.
+// and the jump this makes on screen is smoothed out over SmoothingSeconds (a jump longer than
+// MaxSmoothDistance snaps). Mismatches before the first match are the initial sync
+// (GetInitialSyncCount), not corrections.
 //
 // Scripts (NET-6): with ScriptHooks set, the pawn's C# [Predicted] state is part of each tick's
 // record and of the comparison (byte for byte), restored with the mover on a mismatch, and the
@@ -38,6 +39,9 @@ public:
     float PositionTolerance = 0.001f;   // m
     float VelocityTolerance = 0.01f;    // m/s
     float SmoothingSeconds = 0.1f;
+    // A correction that would draw the pawn further than this from its corrected pose (a
+    // teleport, a respawn) snaps instead of gliding across the level.
+    float MaxSmoothDistance = 2.f;      // m
 
     NetPredictor( PhysicsCore& InPhysics, EntityHandle InPawn, CommandHandler InHandler, float InTickSeconds );
 

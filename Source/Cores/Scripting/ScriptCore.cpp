@@ -79,6 +79,30 @@ ScriptCore::ScriptCore()
     Listen<WindowResizedEvent>( [this]( const WindowResizedEvent& InEvent ) {
         QueueEngineEvent( { { "Type", "WindowResized" }, { "Size", { InEvent.NewSize.x, InEvent.NewSize.y } } } );
     } );
+    // Who joined and left this world's network session (NetClientJoined / NetClientLeft on the
+    // server, NetConnected / NetDisconnected on a client). NetCore raises them in its Receive,
+    // before the frame's scripts.
+    Listen<NetSessionEvent>( [this]( const NetSessionEvent& InEvent ) {
+        if( InEvent.Source != GameWorld )
+        {
+            return;
+        }
+        switch( InEvent.Type )
+        {
+        case NetSessionEvent::Kind::ClientJoined:
+            QueueEngineEvent( { { "Type", "NetClientJoined" }, { "ClientId", InEvent.ClientId } } );
+            break;
+        case NetSessionEvent::Kind::ClientLeft:
+            QueueEngineEvent( { { "Type", "NetClientLeft" }, { "ClientId", InEvent.ClientId }, { "Reason", InEvent.Reason } } );
+            break;
+        case NetSessionEvent::Kind::Connected:
+            QueueEngineEvent( { { "Type", "NetConnected" }, { "ClientId", InEvent.ClientId } } );
+            break;
+        case NetSessionEvent::Kind::Disconnected:
+            QueueEngineEvent( { { "Type", "NetDisconnected" }, { "Reason", InEvent.Reason } } );
+            break;
+        }
+    } );
 #endif
 }
 
@@ -281,8 +305,10 @@ void ScriptCore::Update( const UpdateContext& inUpdateContext )
     if( !m_engineEvents.empty() )
     {
         // Moved out first: a handler that loads a scene queues new events for the next frame.
+        // Text that isn't UTF-8 (a peer's disconnect reason, a device name) becomes U+FFFD rather
+        // than throwing.
         const json events = json( std::exchange( m_engineEvents, {} ) );
-        ScriptEngine::DispatchEngineEvents( events.dump() );
+        ScriptEngine::DispatchEngineEvents( events.dump( -1, ' ', false, json::error_handler_t::replace ) );
     }
     // Awaits, coroutines, timers and tweens advance by game time before OnUpdate.
     ScriptEngine::SchedulerTick( inUpdateContext.GetDeltaTime() );

@@ -15,6 +15,7 @@
 #include "Components/Graphics/Tilemap.h"
 #include "Components/Graphics/TextRenderer.h"
 #include "Components/Transform.h"
+#include "Core/CommandLine.h"
 #include "Components/Physics/Rigidbody2D.h"
 #include "Cores/Physics2DCore.h"
 #include "Cores/PhysicsCore.h"
@@ -29,6 +30,11 @@
 #include "World/SceneSerializer.h"
 
 #include <cstring>
+#include <string>
+
+#if USING( ME_PLATFORM_WINDOWS )
+#include <Windows.h>
+#endif
 
 // Entity queries, application calls, audio sources, particles and masked physics queries for
 // scripts, 3D and 2D, and camera projection (CS-5 areas a, b, c, e, f, g, h and j).
@@ -775,6 +781,81 @@ static void Eng_Text_SetColor( EntityID inId, Vector4* inColor ) noexcept
 }
 
 
+#if USING( ME_PLATFORM_WINDOWS )
+// inText from code page inFrom to inTo, through UTF-16 (unchanged if Windows can't convert it).
+static std::string RecodeArgument( const std::string& inText, UINT inFrom, UINT inTo )
+{
+    if( inText.empty() )
+    {
+        return inText;
+    }
+    const int textLength = static_cast<int>( inText.size() );
+    const int wideLength = MultiByteToWideChar( inFrom, 0, inText.data(), textLength, nullptr, 0 );
+    if( wideLength <= 0 )
+    {
+        return inText;
+    }
+    std::wstring wide( static_cast<size_t>( wideLength ), L'\0' );
+    MultiByteToWideChar( inFrom, 0, inText.data(), textLength, wide.data(), wideLength );
+    const int length = WideCharToMultiByte( inTo, 0, wide.data(), wideLength, nullptr, 0, nullptr, nullptr );
+    if( length <= 0 )
+    {
+        return inText;
+    }
+    std::string converted( static_cast<size_t>( length ), '\0' );
+    WideCharToMultiByte( inTo, 0, wide.data(), wideLength, converted.data(), length, nullptr, nullptr );
+    return converted;
+}
+#endif
+
+
+// Windows hands main() its arguments in the ANSI code page; scripts speak UTF-8. Elsewhere
+// they're UTF-8 already.
+static std::string CommandLineToUtf8( const std::string& inArgument )
+{
+#if USING( ME_PLATFORM_WINDOWS )
+    return RecodeArgument( inArgument, CP_ACP, CP_UTF8 );
+#else
+    return inArgument;
+#endif
+}
+
+
+static std::string CommandLineFromUtf8( const std::string& inText )
+{
+#if USING( ME_PLATFORM_WINDOWS )
+    return RecodeArgument( inText, CP_UTF8, CP_ACP );
+#else
+    return inText;
+#endif
+}
+
+
+// C#'s CommandLine ("--name value"): the value's length, -1 when the flag isn't there or nothing
+// (another flag) follows it.
+static bool Eng_CommandLine_Has( const uint8_t* inName ) noexcept
+{
+    return inName && CommandLine::Has( CommandLineFromUtf8( Text( inName ) ) );
+}
+
+
+static int Eng_CommandLine_Get( const uint8_t* inName, uint8_t* outValue, int inSize ) noexcept
+{
+    const std::string value = inName ? CommandLineToUtf8( CommandLine::GetString( CommandLineFromUtf8( Text( inName ) ) ) ) : std::string();
+    if( value.empty() )
+    {
+        return -1;
+    }
+    if( outValue && inSize > 0 )
+    {
+        const size_t length = std::min( value.size(), static_cast<size_t>( inSize - 1 ) );
+        std::memcpy( outValue, value.data(), length );
+        outValue[length] = 0;
+    }
+    return static_cast<int>( value.size() );
+}
+
+
 void Register_QueryBindings( ScriptEngineAPI& inAPI )
 {
     inAPI.Camera_ScreenToRay = Eng_Camera_ScreenToRay;
@@ -848,6 +929,8 @@ void Register_QueryBindings( ScriptEngineAPI& inAPI )
     inAPI.Window_GetSize = Eng_Window_GetSize;
     inAPI.Window_GetMode = Eng_Window_GetMode;
     inAPI.Window_SetMode = Eng_Window_SetMode;
+    inAPI.CommandLine_Has = Eng_CommandLine_Has;
+    inAPI.CommandLine_Get = Eng_CommandLine_Get;
 }
 
 #endif

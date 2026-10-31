@@ -139,6 +139,11 @@ public:
     {
         return !m_map.Contexts.empty();
     }
+    // Counts SetMap calls (hot reloads included), so what's built from the map knows to rebuild.
+    uint32_t GetMapVersion() const
+    {
+        return m_mapVersion;
+    }
 
     // Reads every action from this frame's device state.
     void Update( const InputDeviceState& InDevices, float InDeltaSeconds );
@@ -163,6 +168,8 @@ public:
 
     void SetContextEnabled( const std::string& InContext, bool InEnabled );
     bool IsContextEnabled( const std::string& InContext ) const;
+    // Every context back to its EnabledByDefault (the editor's Stop: the next Play starts fresh).
+    void ResetContexts();
 
     // Which gamepad slot "Gamepad/..." controls read: -1 = any (the strongest), else that slot.
     void SetGamepadFilter( int InSlot )
@@ -287,6 +294,7 @@ private:
     std::vector<LatchedEdges> m_latched;   // parallel to m_states
     std::unordered_map<std::string, std::vector<size_t>> m_statesByName;   // in context priority order
     std::map<std::string, bool> m_contextEnabled;
+    uint32_t m_mapVersion = 0;
     std::map<std::string, std::string> m_overrides;
     InputDeviceState m_previous;
     bool m_keyboardMouse = true;

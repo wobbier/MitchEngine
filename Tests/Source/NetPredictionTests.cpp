@@ -206,3 +206,48 @@ TEST_CASE( "Net: at 150 ms RTT a walk/jump course predicts with 0 corrections; a
     const CharacterController::NetState server = serverPawn->GetComponent<CharacterController>().GetNetState();
     CHECK( ( server.Position - Vector3( 0.f, 0.9f, 0.f ) ).Length() > 0.f );
 }
+
+
+TEST_CASE( "Net: a correction too far to glide (the server teleported the pawn) snaps instead: no visual offset" )
+{
+    PhysicsCore physics;
+    auto world = std::make_shared<World>();
+    world->IsLoading = false;
+    world->AddCore( physics );
+    BuildCourse( *world );
+    EntityHandle pawn = world->CreateEntity( "Pawn" );
+    pawn->AddComponent<Transform>().SetPosition( Vector3( 0.f, 0.9f, 0.f ) );
+    CharacterController& controller = pawn->AddComponent<CharacterController>();
+    world->Simulate();
+    world->Start();
+
+    NetPredictor predictor( physics, pawn, DrivePawn, 1.f / 60.f );
+    REQUIRE( predictor.MaxSmoothDistance == 2.f );
+    std::vector<CharacterController::NetState> straight;
+    for( uint32_t tick = 0; tick < 40; ++tick )
+    {
+        predictor.Apply( CourseCommand( tick ) );
+        Step( physics, *world );
+        predictor.Record( tick );
+        straight.push_back( controller.GetNetState() );
+    }
+    CHECK_FALSE( predictor.Reconcile( 5, straight[5] ) );
+
+    // Pushed 20 cm: it glides.
+    CharacterController::NetState pushed = straight[10];
+    pushed.Position.x += 0.2f;
+    CHECK( predictor.Reconcile( 10, pushed ) );
+    CHECK( predictor.GetVisualOffset().Length() > 0.1f );
+    CHECK( predictor.GetVisualOffset().Length() < predictor.MaxSmoothDistance );
+
+    // Teleported 25 m (a respawn): drawn where it is at once, nothing to smooth.
+    CharacterController::NetState teleported = straight[20];
+    teleported.Position = Vector3( -25.f, 0.9f, 0.f );
+    teleported.Velocity = Vector3();
+    CHECK( predictor.Reconcile( 20, teleported ) );
+    CHECK( predictor.GetCorrectionCount() == 2 );
+    CHECK( controller.GetNetState().Position.x < -20.f );
+    CHECK( predictor.GetVisualOffset().Length() == 0.f );
+    predictor.UpdateSmoothing( 1.0 / 60.0 );
+    CHECK( predictor.GetVisualOffset().Length() == 0.f );
+}

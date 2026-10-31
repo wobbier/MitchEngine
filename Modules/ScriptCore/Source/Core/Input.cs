@@ -575,6 +575,16 @@ public static unsafe class Input
     }
 
     /// <summary>
+    /// Turns a context of the action map on or off: its actions read zero (not pressed) while it's
+    /// off, e.g. "Gameplay" while a menu has the mouse. The default player's; each local player has
+    /// its own (Input.Player(i).SetContextEnabled). Kept across hot reloads of the map.
+    /// </summary>
+    public static void SetContextEnabled(string context, bool enabled) => Player(0).SetContextEnabled(context, enabled);
+
+    /// <summary>Whether a context is on (a context the map doesn't have counts as on).</summary>
+    public static bool IsContextEnabled(string context) => Player(0).IsContextEnabled(context);
+
+    /// <summary>
     /// Local multiplayer: player 0 is the default player (the methods above). Other players have
     /// their own pads; SetJoining lets unpaired pads join by pressing South (A / Cross).
     /// </summary>
@@ -631,5 +641,19 @@ public readonly unsafe struct PlayerInput
     public bool WasActionReleased(string action)
     {
         fixed (byte* p = Engine.Utf8(action, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Input_WasPlayerActionReleased(Index, p) != 0;
+    }
+
+    /// <summary>Turns one of this player's contexts on or off (Input.SetContextEnabled).</summary>
+    public void SetContextEnabled(string context, bool enabled)
+    {
+        if (context is null || Engine._api.Input_SetContextEnabled == null) return;
+        fixed (byte* p = Engine.Utf8(context, stackalloc byte[Engine.Utf8StackSize])) Engine._api.Input_SetContextEnabled(Index, p, (byte)(enabled ? 1 : 0));
+    }
+
+    /// <summary>Whether one of this player's contexts is on.</summary>
+    public bool IsContextEnabled(string context)
+    {
+        if (context is null || Engine._api.Input_IsContextEnabled == null) return true;
+        fixed (byte* p = Engine.Utf8(context, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Input_IsContextEnabled(Index, p) != 0;
     }
 }

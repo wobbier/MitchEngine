@@ -393,3 +393,23 @@ bool Net_GetCommandAim( Entity id, float* outYaw, float* outPitch )
 
 ## Beat clock (NEXT-8): the AudioSource voice position in seconds, sample-accurate; -1 not playing, -2 no audio engine
 double AudioSource_GetPlaybackSeconds( Entity id )
+
+## Command line (C#'s CommandLine): flags as "--name value"; Get writes the value and returns its
+## length (-1: no such flag, or nothing follows it)
+bool CommandLine_Has( cstr name )
+int CommandLine_Get( cstr name, byte* outValue, int size )
+
+## The networked command layout and the local command: a Value / Vector2 action's first axis (-1:
+## none; outCount 1 or 2), the layout's version (changes when it's rebuilt), the local player's
+## command (flags 1 valid, 2 has aim; outAim: yaw, pitch) and the predicted pawn's visual offset
+int Net_GetAxisIndex( cstr action, int* outCount )
+int Net_GetLayoutVersion()
+int Net_GetLocalCommand( int* outButtons, int* outPreviousButtons, float* outAxes, float* outAim, double* outViewTick, int* outTick )
+void Net_GetVisualOffset( Entity id, Vector3* outOffset )
+
+## Character controller: the simulated position (the step's, not the interpolated Transform)
+void Character_GetPosition( Entity id, Vector3* outPosition )
+
+## Input contexts on and off, per local player (0: the default player)
+void Input_SetContextEnabled( int player, cstr context, bool enabled )
+bool Input_IsContextEnabled( int player, cstr context )

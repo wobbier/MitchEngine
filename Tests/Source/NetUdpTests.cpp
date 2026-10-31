@@ -3,8 +3,13 @@
 #include "Net/NetSession.h"
 #include "Net/UdpTransport.h"
 #include "NetHarness.h"
+#include "Events/EventReceiver.h"
+#include "JSON.h"
 #include <chrono>
+#include <memory>
 #include <thread>
+#include <utility>
+#include <vector>
 
 using namespace NetHarness;
 
@@ -37,6 +42,28 @@ namespace NetUdpTest
         conditions.Seed = InSeed;
         return conditions;
     }
+
+    // The NetSessionEvents one world's NetCore raises (every world in the process shares the
+    // event bus), as a listener such as ScriptCore or a C++ game hears them.
+    struct SessionLog
+    {
+        explicit SessionLog( const World& InWorld )
+            : Subscription( EventSubscription::Create<NetSessionEvent>( [this, world = &InWorld]( const NetSessionEvent& InEvent ) {
+                if( InEvent.Source == world )
+                {
+                    Events.push_back( InEvent );
+                }
+            } ) )
+        {
+        }
+        SessionLog( const SessionLog& ) = delete;
+        SessionLog& operator=( const SessionLog& ) = delete;
+
+        std::vector<NetSessionEvent> Take() { return std::exchange( Events, {} ); }
+
+        std::vector<NetSessionEvent> Events;
+        std::unique_ptr<EventSubscription> Subscription;
+    };
 }
 
 TEST_CASE( "Net: UDP addresses resolve, print and reject nonsense" )
@@ -329,4 +356,136 @@ TEST_CASE( "Net: a client drawing far faster than the tick rate sends about one 
     CHECK( perSecond > 50.0 );
     CHECK( stats.PacketLoss < 0.05f );
     CHECK( client.GetState() == NetClient::State::Connected );
+}
+
+
+TEST_CASE( "Net: gameplay hears who joined and left and why, on the server and on each client" )
+{
+    using Kind = NetSessionEvent::Kind;
+    using NetUdpTest::SessionLog;
+    Harness net( NetUdpTest::Clean( 21 ), NetUdpTest::Clean( 22 ) );
+    SessionLog serverLog( *net.ServerWorld );
+    SessionLog clientLog( *net.ClientWorld );
+    // Every listener hears every event: nobody takes them from the others (ScriptCore included).
+    SessionLog serverGameplay( *net.ServerWorld );
+    net.Start();
+    net.Run( 1.0 );
+    REQUIRE( net.ClientNet.GetClient()->GetState() == NetClient::State::Connected );
+    const uint8_t first = net.ClientNet.GetClient()->GetClientId();
+    std::vector<NetSessionEvent> server = serverLog.Take();
+    REQUIRE( server.size() == 1 );
+    CHECK( server[0].Type == Kind::ClientJoined );
+    CHECK( server[0].ClientId == first );
+    CHECK( server[0].Source == net.ServerWorld.get() );
+    const std::vector<NetSessionEvent> gameplay = serverGameplay.Take();
+    REQUIRE( gameplay.size() == 1 );
+    CHECK( gameplay[0].Type == Kind::ClientJoined );
+    CHECK( gameplay[0].ClientId == first );
+    std::vector<NetSessionEvent> client = clientLog.Take();
+    REQUIRE( client.size() == 1 );
+    CHECK( client[0].Type == Kind::Connected );
+    CHECK( client[0].ClientId == first );
+    CHECK( client[0].Source == net.ClientWorld.get() );
+    net.Run( 0.5 );
+    CHECK( serverLog.Take().empty() );     // each event once
+    CHECK( clientLog.Take().empty() );
+
+    // A second client joins; the first says goodbye.
+    Peer& second = net.AddClient( NetUdpTest::Clean( 23 ) );
+    SessionLog secondLog( *second.GameWorld );
+    net.Run( 1.0 );
+    REQUIRE( second.Net.GetClient()->GetState() == NetClient::State::Connected );
+    const uint8_t secondId = second.Net.GetClient()->GetClientId();
+    CHECK( secondId != first );
+    server = serverLog.Take();
+    REQUIRE( server.size() == 1 );
+    CHECK( server[0].Type == Kind::ClientJoined );
+    CHECK( server[0].ClientId == secondId );
+    CHECK( clientLog.Take().empty() );     // another world's session
+    net.ClientNet.Close( net.Now() );
+    client = clientLog.Take();
+    REQUIRE( client.size() == 1 );
+    CHECK( client[0].Type == Kind::Disconnected );
+    CHECK( client[0].Reason == "left" );
+    net.Run( 0.5 );
+    server = serverLog.Take();
+    REQUIRE( server.size() == 1 );
+    CHECK( server[0].Type == Kind::ClientLeft );
+    CHECK( server[0].ClientId == first );
+    CHECK( server[0].Reason == "left" );
+
+    // The server shuts down: its last client is "closed", and hears why.
+    net.ServerNet.Close( net.Now() );
+    server = serverLog.Take();
+    REQUIRE( server.size() == 1 );
+    CHECK( server[0].Type == Kind::ClientLeft );
+    CHECK( server[0].ClientId == secondId );
+    CHECK( server[0].Reason == "closed" );
+    second.Net.Receive( net.Now() + 0.001 );
+    client = secondLog.Take();
+    REQUIRE( client.size() == 2 );
+    CHECK( client[0].Type == Kind::Connected );
+    CHECK( client[1].Type == Kind::Disconnected );
+    CHECK( client[1].Reason == "server closed" );
+
+    // A client that goes mute times out on the server; it hears the server's verdict.
+    Harness mute( NetUdpTest::Clean( 24 ), NetUdpTest::Clean( 25 ) );
+    SessionLog muteServer( *mute.ServerWorld );
+    SessionLog muteClient( *mute.ClientWorld );
+    mute.ServerNet.SetTimeout( 1.0 );
+    mute.Start();
+    mute.Run( 1.0 );
+    REQUIRE( mute.ClientNet.GetClient()->GetState() == NetClient::State::Connected );
+    muteServer.Take();
+    muteClient.Take();
+    for( int ms = 0; ms < 1500; ++ms )
+    {
+        const double now = ( ++mute.Milliseconds ) / 1000.0;
+        mute.ServerLink.Update( now );
+        mute.ServerNet.Receive( now );
+        mute.ServerNet.BeginTick();
+        mute.ServerNet.EndTick( now );
+        mute.ClientNet.Receive( now );
+    }
+    server = muteServer.Take();
+    REQUIRE( server.size() == 1 );
+    CHECK( server[0].Type == Kind::ClientLeft );
+    CHECK( server[0].Reason == "timed out" );
+    client = muteClient.Take();
+    REQUIRE( client.size() == 1 );
+    CHECK( client[0].Type == Kind::Disconnected );
+    CHECK( client[0].Reason == "timed out" );
+
+    // Turned away: the session ends before it started.
+    Harness rejected( NetUdpTest::Clean( 26 ), NetUdpTest::Clean( 27 ) );
+    SessionLog rejectedServer( *rejected.ServerWorld );
+    SessionLog rejectedClient( *rejected.ClientWorld );
+    NetVersion other = rejected.ClientNet.MakeVersion();
+    other.Build ^= 1;
+    rejected.ClientNet.SetVersionOverride( other );
+    rejected.Start();
+    rejected.Run( 1.0 );
+    CHECK( rejectedServer.Take().empty() );
+    client = rejectedClient.Take();
+    REQUIRE( client.size() == 1 );
+    CHECK( client[0].Type == Kind::Disconnected );
+    CHECK( client[0].Reason == "rejected: version mismatch: build" );
+
+    // A server whose goodbye isn't UTF-8: the reason arrives as text (U+FFFD for each bad byte),
+    // so it can't break the JSON that carries it to scripts.
+    Harness rude( NetUdpTest::Clean( 28 ), NetUdpTest::Clean( 29 ) );
+    SessionLog rudeClient( *rude.ClientWorld );
+    rude.Start();
+    rude.Run( 1.0 );
+    REQUIRE( rude.ClientNet.GetClient()->GetState() == NetClient::State::Connected );
+    rudeClient.Take();
+    rude.ServerNet.GetServer()->Close( rude.Now(), "bye \xFF\xC0\xAF!" );
+    rude.ServerLink.Update( rude.Now() + 1.0 );
+    rude.ClientNet.Receive( rude.Now() + 1.0 );
+    client = rudeClient.Take();
+    REQUIRE( client.size() == 1 );
+    CHECK( client[0].Type == Kind::Disconnected );
+    CHECK( client[0].Reason == "bye \xEF\xBF\xBD\xEF\xBF\xBD\xEF\xBF\xBD!" );
+    CHECK( rude.ClientNet.GetClient()->GetDisconnectReason() == client[0].Reason );
+    CHECK_NOTHROW( json( { { "Type", "NetDisconnected" }, { "Reason", client[0].Reason } } ).dump() );
 }

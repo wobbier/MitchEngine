@@ -4,6 +4,7 @@
 #include "Net/NetConnection.h"
 #include "Net/NetQuantize.h"
 #include "Net/NetTransport.h"
+#include "JSON.h"
 #include <cmath>
 #include <string>
 #include <vector>
@@ -126,6 +127,39 @@ TEST_CASE( "Net: BitStream round-trips bits, varints, floats, bytes and strings,
     BitReader hostileReader( hostile.GetBytes() );
     CHECK( hostileReader.ReadString().empty() );
     CHECK( hostileReader.IsOverflowed() );
+}
+
+TEST_CASE( "Net: text read off the wire is valid UTF-8 whatever the peer sent" )
+{
+    // Well-formed text, the edges of each sequence length included, comes back unchanged.
+    for( const std::string& good : { std::string( "plain" ), std::string( "h\xC3\xA9llo" ), std::string( "\xE2\x82\xAC 1" ), std::string( "\xF0\x9F\x8E\xAE" ),
+             std::string( "\xED\x9F\xBF" ), std::string( "\xEE\x80\x80" ), std::string( "\xF4\x8F\xBF\xBF" ), std::string( "nul\0in", 6 ) } )
+    {
+        CHECK( ToValidUtf8( good ) == good );
+    }
+    const std::string bad = "\xEF\xBF\xBD";
+    CHECK( ToValidUtf8( "\xFF" ) == bad );                                 // never a lead byte
+    CHECK( ToValidUtf8( "a\x80z" ) == "a" + bad + "z" );                  // a stray continuation byte
+    CHECK( ToValidUtf8( "\xC0\xAF" ) == bad + bad );                       // an overlong '/'
+    CHECK( ToValidUtf8( "\xE0\x80\xAF" ) == bad + bad + bad );             // overlong, three bytes
+    CHECK( ToValidUtf8( "\xED\xA0\x80" ) == bad + bad + bad );             // a surrogate
+    CHECK( ToValidUtf8( "\xF4\x90\x80\x80" ) == bad + bad + bad + bad );   // past U+10FFFF
+    CHECK( ToValidUtf8( "\xE2\x82" ) == bad );                             // cut short: one for the run
+    CHECK( ToValidUtf8( "\xE2\x82x" ) == bad + "x" );
+    CHECK( ToValidUtf8( "\xF0\x9F\x8E" "a" ) == bad + "a" );
+    // nlohmann's dump throws on the raw bytes (what crashed a scripted client), not on the result.
+    CHECK_THROWS( json( std::string( "\xFF" ) ).dump() );
+    CHECK_NOTHROW( json( ToValidUtf8( "\xFF" ) ).dump() );
+
+    // ReadText: the same over the wire, with ReadString's guards.
+    BitWriter writer;
+    writer.WriteString( "bye \xFF!" );
+    writer.WriteVarUInt( 1u << 30 );
+    BitReader reader( writer.GetBytes() );
+    CHECK( reader.ReadText() == "bye " + bad + "!" );
+    CHECK_FALSE( reader.IsOverflowed() );
+    CHECK( reader.ReadText().empty() );
+    CHECK( reader.IsOverflowed() );
 }
 
 TEST_CASE( "Net: quantized floats, vectors and rotations round-trip within half a step" )

@@ -138,10 +138,15 @@ bool NetPredictor::Reconcile( uint32_t InTick, const CharacterController::NetSta
     }
     ++m_corrections;
     m_lastCorrectionTick = InTick;
-    // Draw it where it was, then glide to the corrected pose.
+    // Draw it where it was, then glide to the corrected pose; a jump too far to glide (the server
+    // teleported it) snaps.
     m_visualOffset = shownBefore - controller->GetNetState().Position;
+    if( m_visualOffset.LengthSquared() > MaxSmoothDistance * MaxSmoothDistance )
+    {
+        m_visualOffset = Vector3();
+    }
     m_offsetAtCorrection = m_visualOffset;
-    m_smoothingLeft = SmoothingSeconds;
+    m_smoothingLeft = m_visualOffset.IsZero() ? 0.0 : SmoothingSeconds;
     return true;
 }
 

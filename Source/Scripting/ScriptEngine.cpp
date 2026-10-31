@@ -169,6 +169,19 @@ namespace
     }
 
 
+    // A headless (dedicated server) build shares its executable's name with the game build, and
+    // both run at once on one machine (a server and its clients): it builds into folders of its
+    // own, so neither dotnet build writes over the other's.
+    const char* BuildFlavour()
+    {
+#if USING( ME_HEADLESS )
+        return "-Server";
+#else
+        return "";
+#endif
+    }
+
+
     // A shared executable's script folder records the engine it built against, so a project opened
     // by another checkout's editor rebuilds instead of loading a ScriptCore it can't talk to.
     constexpr const char* kEngineStamp = "Engine.stamp";
@@ -230,8 +243,9 @@ std::string ScriptEngine::GetAssemblyDirectory()
     if( fs::exists( kScriptProject, error ) && !Project::IsExecutableInProject() )
     {
         // A folder per executable and configuration, since the editor and the Player can run the
-        // project at once (as a project's own builds do from their .build/<config>/ folders).
-        return Project::GetRoot() + "/.tmp/Scripts/" + ExecutableStem() + "-" + BuildConfiguration() + "/";
+        // project at once (as a project's own builds do from their .build/<config>/ folders), and
+        // the dedicated server's own (<Exe>-Server-<Config>).
+        return Project::GetRoot() + "/.tmp/Scripts/" + ExecutableStem() + BuildFlavour() + "-" + BuildConfiguration() + "/";
     }
 #endif
     return Project::GetExecutableDirectory();
@@ -286,9 +300,10 @@ bool ScriptEngine::BuildScripts( std::string* OutLog )
         props << "<Project>\n  <!-- Written by the engine: the engine this project builds its scripts against. -->\n"
               << "  <PropertyGroup>\n    <MitchEngineDir>" << engineDir << "</MitchEngineDir>\n  </PropertyGroup>\n</Project>\n";
     }
-    // --artifacts-path keeps bin/obj out of the source tree.
+    // --artifacts-path keeps bin/obj out of the source tree (a headless build's apart: it may
+    // build while a client does).
     const std::string command = std::string( "dotnet build \"" ) + kScriptProject + "\" -c " + BuildConfiguration() + " -o \"" + outputDir + "\" -p:MitchEngineDir=\"" + engineDir
-        + "\" --artifacts-path .tmp/dotnet --nologo -v q -clp:NoSummary 2>&1";
+        + "\" --artifacts-path .tmp/dotnet" + BuildFlavour() + " --nologo -v q -clp:NoSummary 2>&1";
     std::string output;
 #if USING( ME_PLATFORM_WINDOWS )
     FILE* pipe = _popen( command.c_str(), "r" );

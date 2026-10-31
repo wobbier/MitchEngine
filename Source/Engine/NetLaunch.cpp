@@ -234,6 +234,8 @@ void NetLaunch::BuildCommandLayout( const Input& InInput )
 {
     m_commandSlots.clear();
     m_overrides = 0;
+    ++m_layoutVersion;
+    m_layoutMapVersion = const_cast<Input&>( InInput ).GetActions().GetMapVersion();
     std::vector<std::pair<std::string, InputActionType>> actions;
     for( const InputContext& context : const_cast<Input&>( InInput ).GetActions().GetMap().Contexts )
     {
@@ -270,6 +272,15 @@ void NetLaunch::BuildCommandLayout( const Input& InInput )
         m_commandSlots.push_back( slot );
     }
     m_commandSchema = schema;
+}
+
+
+void NetLaunch::RefreshCommandLayout( const Input& InInput )
+{
+    if( const_cast<Input&>( InInput ).GetActions().GetMapVersion() != m_layoutMapVersion )
+    {
+        BuildCommandLayout( InInput );
+    }
 }
 
 
@@ -313,6 +324,60 @@ int NetLaunch::GetActionIndex( const std::string& InAction ) const
         }
     }
     return -1;
+}
+
+
+int NetLaunch::GetAxisIndex( const std::string& InAction, int* OutCount ) const
+{
+    for( const CommandSlot& slot : m_commandSlots )
+    {
+        if( slot.Action == InAction && !slot.IsButton )
+        {
+            if( OutCount )
+            {
+                *OutCount = slot.AxisCount;
+            }
+            return slot.Index;
+        }
+    }
+    if( OutCount )
+    {
+        *OutCount = 0;
+    }
+    return -1;
+}
+
+
+void NetLaunch::RecordLocalCommand( const InputCommand& InCommand )
+{
+    m_previousLocalCommand = m_localCommand;
+    m_localCommand = InCommand;
+    m_localCommand.Tick = m_localTick++;
+    // As the server would read it: offline play behaves like a session.
+    for( float& axis : m_localCommand.Axes )
+    {
+        axis = NetCommands::QuantizeAxis( axis );
+    }
+    m_hasLocalCommand = true;
+}
+
+
+void NetLaunch::ClearLocalCommand()
+{
+    m_localCommand = InputCommand();
+    m_previousLocalCommand = InputCommand();
+    m_hasLocalCommand = false;
+}
+
+
+void NetLaunch::ResetLocalInput()
+{
+    m_overrides = 0;
+    m_hasAim = false;
+    m_yaw = 0.f;
+    m_pitch = 0.f;
+    ClearLocalCommand();
+    m_localTick = 0;
 }
 
 

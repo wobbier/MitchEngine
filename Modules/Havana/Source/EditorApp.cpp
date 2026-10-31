@@ -556,6 +556,16 @@ void EditorApp::StopGame()
         buffer->FogFrame = 0;
     }
 
+    // Input contexts the game turned off or on (a menu open when Play stopped) start fresh too.
+    InputPlayers& players = GetEngine().GetInput().GetPlayers();
+    for( int player = 0; player < players.GetPlayerCount(); ++player )
+    {
+        players.GetActions( player ).ResetContexts();
+    }
+    // So do the networked actions scripts held (Net.Press) and the aim they set (Net.SetAim):
+    // offline they feed Net.LocalCommand, and their scripts are gone.
+    GetEngine().GetNetLaunch().ResetLocalInput();
+
     UndoStack::Get().SetSuspended( false );
     if( m_wasDirtyBeforePlay )
     {

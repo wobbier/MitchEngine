@@ -38,7 +38,10 @@ public:
     void Jump();
     void Teleport( const Vector3& InPosition, const Quaternion& InRotation );
 
+    // Where the last step (or a Teleport / SetNetState) left it: the capsule centre plus Center,
+    // not interpolated (the Transform between steps is). False before its first step.
     Vector3 GetPosition() const;
+    bool HasSimulatedPosition() const { return m_hasPosition; }
     Vector3 GetVelocity() const { return m_velocity; }
     // Replaces the current velocity (e.g. turned to match a portal's exit).
     void SetVelocity( const Vector3& InVelocity ) { m_velocity = InVelocity; }

@@ -120,6 +120,10 @@ public static class EventBus
                     Publish(new WindowResized(new Vector2(size[0].GetSingle(), size[1].GetSingle())));
                     break;
                 }
+                case "NetClientJoined": Publish(new NetClientJoined(Int(e, "ClientId"))); break;
+                case "NetClientLeft": Publish(new NetClientLeft(Int(e, "ClientId"), Text(e, "Reason"))); break;
+                case "NetConnected": Publish(new NetConnected(Int(e, "ClientId"))); break;
+                case "NetDisconnected": Publish(new NetDisconnected(Text(e, "Reason"))); break;
             }
         }
     }

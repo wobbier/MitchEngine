@@ -10,6 +10,29 @@
 
 namespace
 {
+    // The shooter, or something under it (a pawn's own head hitbox, its gun's collider): never in
+    // the way of its own shots.
+    bool IsShooterOrPart( const EntityHandle& InEntity, const EntityHandle& InShooter )
+    {
+        if( !InShooter || !InEntity )
+        {
+            return false;
+        }
+        if( InEntity == InShooter )
+        {
+            return true;
+        }
+        const Transform* transform = InEntity->TryGetComponent<Transform>();
+        for( const Transform* parent = transform ? transform->GetParentTransform() : nullptr; parent; parent = parent->GetParentTransform() )
+        {
+            if( parent->Parent == InShooter )
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // Ray vs sphere: nearest t >= 0, or -1.
     float RaySphere( const Vector3& InOrigin, const Vector3& InDirection, const Vector3& InCenter, float InRadius )
     {
@@ -306,7 +329,7 @@ LagCompensatedHit NetLagCompensation::Raycast( PhysicsCore* InPhysics, const Vec
     float occluder = -1.f;
     for( const HitboxPose& pose : poses )
     {
-        if( InIgnore && pose.Entity == InIgnore )
+        if( IsShooterOrPart( pose.Entity, InIgnore ) )
         {
             continue;
         }
@@ -328,12 +351,12 @@ LagCompensatedHit NetLagCompensation::Raycast( PhysicsCore* InPhysics, const Vec
     }
 
     // The present world's colliders block it too (hitbox owners' own bodies, occluders' included,
-    // are where they are now, not where they were: they don't count).
+    // are where they are now, not where they were: they don't count; nor do the shooter's own).
     if( InPhysics )
     {
         for( const RaycastHit& hit : InPhysics->RaycastAll( InOrigin, direction, InMaxDistance ) )
         {
-            if( hit.Entity && ( hit.Entity->HasComponent<NetHitbox>() || ( InIgnore && hit.Entity == InIgnore ) ) )
+            if( hit.Entity && ( hit.Entity->HasComponent<NetHitbox>() || IsShooterOrPart( hit.Entity, InIgnore ) ) )
             {
                 continue;
             }

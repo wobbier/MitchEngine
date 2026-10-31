@@ -356,6 +356,29 @@ static void Eng_Input_SetJoining( int inMaxPlayers ) noexcept
 }
 
 
+// A player's own copy of the map has its own contexts (player 0: the game's input). Players that
+// don't exist: nothing, and enabled.
+static void Eng_Input_SetContextEnabled( int inPlayer, const uint8_t* inContext, bool inEnabled ) noexcept
+{
+    InputPlayers& players = GetEngine().GetInput().GetPlayers();
+    if( inContext && inPlayer >= 0 && inPlayer < players.GetPlayerCount() )
+    {
+        players.GetActions( inPlayer ).SetContextEnabled( Text( inContext ), inEnabled );
+    }
+}
+
+
+static bool Eng_Input_IsContextEnabled( int inPlayer, const uint8_t* inContext ) noexcept
+{
+    const InputPlayers& players = GetEngine().GetInput().GetPlayers();
+    if( !inContext || inPlayer < 0 || inPlayer >= players.GetPlayerCount() )
+    {
+        return true;
+    }
+    return players.GetActions( inPlayer ).IsContextEnabled( Text( inContext ) );
+}
+
+
 static bool Eng_Input_WasKeyPressed( int inKey ) noexcept
 {
     return GetEngine().GetInput().WasKeyPressed( static_cast<KeyCode>( inKey ) );
@@ -710,6 +733,25 @@ static void Eng_Character_Teleport( EntityID inId, const Vector3* inPosition, co
 }
 
 
+// The step's position, not the interpolated Transform: what fixed steps and resimulations see
+// (before the character's first step: its Transform's).
+static void Eng_Character_GetPosition( EntityID inId, Vector3* outPosition ) noexcept
+{
+    if( !outPosition )
+    {
+        return;
+    }
+    CharacterController* character = CharacterOf( inId );
+    if( character && character->HasSimulatedPosition() )
+    {
+        *outPosition = character->GetPosition();
+        return;
+    }
+    Transform* transform = character ? TransformOf( inId ) : nullptr;
+    *outPosition = transform ? transform->GetWorldPosition() : Vector3();
+}
+
+
 static void Eng_Rigidbody_Teleport( EntityID inId, const Vector3* inPosition, const Vector3* inForward, const Vector3* inUp ) noexcept
 {
     if( Rigidbody* body = RigidbodyOf( inId ) )
@@ -879,6 +921,9 @@ void Register_GameplayBindings( ScriptEngineAPI& inAPI )
     inAPI.Character_SetVelocity = Eng_Character_SetVelocity;
     inAPI.Character_Teleport = Eng_Character_Teleport;
     inAPI.Rigidbody_Teleport = Eng_Rigidbody_Teleport;
+    inAPI.Character_GetPosition = Eng_Character_GetPosition;
+    inAPI.Input_SetContextEnabled = Eng_Input_SetContextEnabled;
+    inAPI.Input_IsContextEnabled = Eng_Input_IsContextEnabled;
 }
 
 #endif

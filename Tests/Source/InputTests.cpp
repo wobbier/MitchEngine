@@ -6,6 +6,7 @@
 #include <cstdlib>
 #endif
 #include "Events/EventReceiver.h"
+#include "Engine/NetLaunch.h"
 #include "Input/InputActions.h"
 #include <SDL_keyboard.h>
 #include <SDL_mouse.h>
@@ -552,3 +553,162 @@ TEST_CASE( "Input: slow OS mouse motion reaches a captured Game View in all dire
     SDL_QuitSubSystem( SDL_INIT_VIDEO );
 }
 #endif
+
+
+TEST_CASE( "Net: networked actions lay out the command by name; the local command samples them each step, with edges, and zero while their context is off" )
+{
+    auto networked = []( InputAction InAction ) {
+        InAction.Networked = true;
+        return InAction;
+    };
+    InputContext gameplay;
+    gameplay.Name = "Gameplay";
+    gameplay.Actions = {
+        networked( Action( "Jump", InputActionType::Button, { Bind( "Keyboard/Space" ) } ) ),
+        networked( Action( "Move", InputActionType::Vector2, { Wasd() } ) ),
+        networked( Action( "Fire", InputActionType::Button, { Bind( "Mouse/Left" ) } ) ),
+        networked( Action( "Throttle", InputActionType::Value, { Bind( "Gamepad/RightTrigger" ) } ) ),
+        networked( Action( "Ability", InputActionType::Button, { Bind( "Keyboard/Left Shift" ) } ) ),
+        Action( "Look", InputActionType::Vector2, { Bind( "Mouse/Delta" ) } ),
+    };
+    InputActionMap map;
+    map.Contexts = { gameplay };
+    Input input;
+    input.GetActions().SetMap( map );
+
+    NetLaunch launch;
+    launch.BuildCommandLayout( input );
+    // Buttons by name: Ability, Fire, Jump; then the axes: Move (two), Throttle.
+    CHECK( launch.GetActionIndex( "Ability" ) == 0 );
+    CHECK( launch.GetActionIndex( "Fire" ) == 1 );
+    CHECK( launch.GetActionIndex( "Jump" ) == 2 );
+    CHECK( launch.GetActionIndex( "Move" ) == -1 );
+    CHECK( launch.GetActionIndex( "Look" ) == -1 );
+    int count = -1;
+    CHECK( launch.GetAxisIndex( "Move", &count ) == 0 );
+    CHECK( count == 2 );
+    CHECK( launch.GetAxisIndex( "Throttle", &count ) == 2 );
+    CHECK( count == 1 );
+    CHECK( launch.GetAxisIndex( "Jump", &count ) == -1 );
+    CHECK( count == 0 );
+    CHECK( launch.GetAxisIndex( "Look" ) == -1 );
+    CHECK( launch.HasCommandLayout() );
+    CHECK_FALSE( launch.HasLocalCommand() );
+
+    // Two steps of Space and D held: the jump goes down on the first, then is held.
+    InputDeviceState devices;
+    Key( devices, "Space", true );
+    Key( devices, "D", true );
+    auto step = [&]() {
+        input.GetActions().Update( devices, 1.f / 60.f );
+        InputCommand command;
+        launch.SampleCommand( input, command );
+        launch.RecordLocalCommand( command );
+    };
+    step();
+    REQUIRE( launch.HasLocalCommand() );
+    CHECK( launch.GetLocalCommand().Buttons == ( 1u << 2 ) );
+    CHECK( launch.GetPreviousLocalCommand().Buttons == 0u );
+    CHECK( launch.GetLocalCommand().Axes[0] == doctest::Approx( 1.f ) );
+    // Axes as the server would read them (16 bits: rest is half a step off zero).
+    CHECK( launch.GetLocalCommand().Axes[1] == NetCommands::QuantizeAxis( 0.f ) );
+    CHECK( launch.GetLocalCommand().Axes[1] == doctest::Approx( 0.f ).epsilon( 0.0001 ) );
+    CHECK( launch.GetLocalCommand().Axes[0] == NetCommands::QuantizeAxis( launch.GetLocalCommand().Axes[0] ) );
+    const uint32_t firstTick = launch.GetLocalCommand().Tick;
+    step();
+    CHECK( launch.GetLocalCommand().Buttons == ( 1u << 2 ) );
+    CHECK( launch.GetPreviousLocalCommand().Buttons == ( 1u << 2 ) );
+    CHECK( launch.GetLocalCommand().Tick == firstTick + 1 );
+    // The aim (Net.SetAim) rides along, quantized like a client's.
+    launch.SetAim( 90.f, 10.f );
+    step();
+    CHECK( launch.GetLocalCommand().HasAim );
+    CHECK( launch.GetLocalCommand().Yaw == NetCommands::QuantizeYaw( 90.f ) );
+    CHECK( launch.GetLocalCommand().Pitch == NetCommands::QuantizePitch( 10.f ) );
+
+    // A menu turns Gameplay off: nothing gets through.
+    input.GetActions().SetContextEnabled( "Gameplay", false );
+    step();
+    CHECK( launch.GetLocalCommand().Buttons == 0u );
+    CHECK( launch.GetLocalCommand().Axes[0] == NetCommands::QuantizeAxis( 0.f ) );
+    input.GetActions().SetContextEnabled( "Gameplay", true );
+    step();
+    CHECK( launch.GetLocalCommand().Buttons == ( 1u << 2 ) );
+    // The editor's Stop puts every context back the way the map has it.
+    input.GetActions().SetContextEnabled( "Gameplay", false );
+    input.GetActions().ResetContexts();
+    CHECK( input.GetActions().IsContextEnabled( "Gameplay" ) );
+
+    // The layout follows the map until a session fixes it: unchanged, nothing happens; reloaded
+    // without Ability networked, Fire moves to bit 0.
+    const uint32_t version = launch.GetLayoutVersion();
+    launch.RefreshCommandLayout( input );
+    CHECK( launch.GetLayoutVersion() == version );
+    map.Contexts[0].Actions[4].Networked = false;
+    input.GetActions().SetMap( map );
+    launch.RefreshCommandLayout( input );
+    CHECK( launch.GetLayoutVersion() != version );
+    CHECK( launch.GetActionIndex( "Ability" ) == -1 );
+    CHECK( launch.GetActionIndex( "Fire" ) == 0 );
+    CHECK( launch.GetActionIndex( "Jump" ) == 1 );
+}
+
+
+TEST_CASE( "Net: the editor's Stop drops what scripts held and aimed, and a step that samples nothing leaves no local command" )
+{
+    InputAction fire = Action( "Fire", InputActionType::Button, { Bind( "Mouse/Left" ) } );
+    fire.Networked = true;
+    InputContext gameplay;
+    gameplay.Name = "Gameplay";
+    gameplay.Actions = { fire };
+    InputActionMap map;
+    map.Contexts = { gameplay };
+    Input input;
+    input.GetActions().SetMap( map );
+    NetLaunch launch;
+    launch.BuildCommandLayout( input );
+    auto step = [&launch]( const Input& InInput ) {
+        InputCommand command;
+        launch.SampleCommand( InInput, command );
+        launch.RecordLocalCommand( command );
+    };
+
+    // A bot holds Fire (Net.Press) and aims (Net.SetAim); then Play stops.
+    launch.SetActionOverride( launch.GetActionIndex( "Fire" ), true );
+    launch.SetAim( 45.f, 5.f );
+    step( input );
+    step( input );
+    REQUIRE( launch.HasLocalCommand() );
+    CHECK( launch.GetLocalCommand().Buttons == 1u );
+    CHECK( launch.GetLocalCommand().HasAim );
+    const uint32_t version = launch.GetLayoutVersion();
+    launch.ResetLocalInput();
+    CHECK_FALSE( launch.HasLocalCommand() );
+    // The layout stays (scripts' index caches are keyed on its version).
+    CHECK( launch.GetLayoutVersion() == version );
+    CHECK( launch.GetActionIndex( "Fire" ) == 0 );
+    // The next Play's first step: nothing held, no aim, counting from 0.
+    step( input );
+    CHECK( launch.GetLocalCommand().Buttons == 0u );
+    CHECK_FALSE( launch.GetLocalCommand().HasAim );
+    CHECK( launch.GetLocalCommand().Tick == 0u );
+    CHECK( launch.GetPreviousLocalCommand().Buttons == 0u );
+
+    // Nothing networked, only an aim: once Net.ClearAim stops it, the engine samples nothing and
+    // clears what it had (Engine::Run), so Net.LocalCommand isn't left valid with the old aim.
+    Input none;
+    NetLaunch aimOnly;
+    aimOnly.BuildCommandLayout( none );
+    CHECK_FALSE( aimOnly.HasCommandLayout() );
+    aimOnly.SetAim( 10.f, 0.f );
+    REQUIRE( aimOnly.HasCommandLayout() );
+    InputCommand command;
+    aimOnly.SampleCommand( none, command );
+    aimOnly.RecordLocalCommand( command );
+    CHECK( aimOnly.HasLocalCommand() );
+    aimOnly.ClearAim();
+    CHECK_FALSE( aimOnly.HasCommandLayout() );
+    aimOnly.ClearLocalCommand();
+    CHECK_FALSE( aimOnly.HasLocalCommand() );
+    CHECK_FALSE( aimOnly.GetLocalCommand().HasAim );
+}

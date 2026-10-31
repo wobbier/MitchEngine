@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
 
 // Bit-packed network serialization (NET-1). Values are written least significant bit first into
@@ -46,6 +47,9 @@ public:
     bool ReadBytes( void* OutData, size_t InSize );
     // InMaxLength guards against a hostile length.
     std::string ReadString( size_t InMaxLength = 4096 );
+    // Text for people (a disconnect reason): ReadString with whatever isn't UTF-8 replaced
+    // (ToValidUtf8), so a peer's bytes are safe to log, write as JSON or hand to scripts.
+    std::string ReadText( size_t InMaxLength = 4096 );
 
     bool IsOverflowed() const { return m_overflowed; }
     size_t GetBitsRemaining() const { return m_overflowed ? 0 : m_bitCount - m_bit; }
@@ -56,3 +60,9 @@ private:
     size_t m_bit = 0;
     bool m_overflowed = false;
 };
+
+
+// InBytes with what isn't well-formed UTF-8 (stray continuation bytes, overlong or truncated
+// sequences, surrogates, code points past U+10FFFF) replaced by U+FFFD, one for each maximal
+// ill-formed subpart as decoders do. Valid text comes back unchanged.
+std::string ToValidUtf8( std::string_view InBytes );

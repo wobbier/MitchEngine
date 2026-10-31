@@ -48,7 +48,8 @@ public:
     void Record( World& InWorld, uint32_t InTick );
     void SetTickRate( uint16_t InTickRate ) { m_tickRate = InTickRate; }
 
-    // InViewTick < 0: no rewind (the present). InIgnore: the shooter.
+    // InViewTick < 0: no rewind (the present). InIgnore: the shooter; its hitboxes and colliders,
+    // and those of everything under it (a pawn's head), are never hit and never block.
     LagCompensatedHit Raycast( PhysicsCore* InPhysics, const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, double InViewTick,
         const EntityHandle& InIgnore = EntityHandle() ) const;
 

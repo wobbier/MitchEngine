@@ -9,7 +9,7 @@ namespace ScriptCore;
 public unsafe struct EngineAPIBindings
 {
     // The ABI both sides were generated from (C++: kScriptEngineAPIHash).
-    public const ulong AbiHash = 0x1E4AD123BFF4836DUL;
+    public const ulong AbiHash = 0xF676E4EBE023EB39UL;
 
     // Core
     public delegate* unmanaged<byte*, void> Log;
@@ -406,6 +406,29 @@ public unsafe struct EngineAPIBindings
 
     // Beat clock (NEXT-8): the AudioSource voice position in seconds, sample-accurate; -1 not playing, -2 no audio engine
     public delegate* unmanaged<Entity, double> AudioSource_GetPlaybackSeconds;
+
+    // Command line (C#'s CommandLine): flags as "--name value"; Get writes the value and returns its
+
+    // length (-1: no such flag, or nothing follows it)
+    public delegate* unmanaged<byte*, byte> CommandLine_Has;
+    public delegate* unmanaged<byte*, byte*, int, int> CommandLine_Get;
+
+    // The networked command layout and the local command: a Value / Vector2 action's first axis (-1:
+
+    // none; outCount 1 or 2), the layout's version (changes when it's rebuilt), the local player's
+
+    // command (flags 1 valid, 2 has aim; outAim: yaw, pitch) and the predicted pawn's visual offset
+    public delegate* unmanaged<byte*, int*, int> Net_GetAxisIndex;
+    public delegate* unmanaged<int> Net_GetLayoutVersion;
+    public delegate* unmanaged<int*, int*, float*, float*, double*, int*, int> Net_GetLocalCommand;
+    public delegate* unmanaged<Entity, Vector3*, void> Net_GetVisualOffset;
+
+    // Character controller: the simulated position (the step's, not the interpolated Transform)
+    public delegate* unmanaged<Entity, Vector3*, void> Character_GetPosition;
+
+    // Input contexts on and off, per local player (0: the default player)
+    public delegate* unmanaged<int, byte*, byte, void> Input_SetContextEnabled;
+    public delegate* unmanaged<int, byte*, byte> Input_IsContextEnabled;
 }
 
 // The sizes C++ static_asserts for the structs that cross (checked when the API is bound).

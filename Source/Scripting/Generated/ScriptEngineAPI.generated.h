@@ -19,7 +19,7 @@ struct ScriptRaycastHit
 };
 
 // The ABI both sides were generated from (C# checks it: ScriptBridge.GetEngineAPIHash).
-constexpr uint64_t kScriptEngineAPIHash = 0x1E4AD123BFF4836DULL;
+constexpr uint64_t kScriptEngineAPIHash = 0xF676E4EBE023EB39ULL;
 
 // Structs that cross: their layout is part of the ABI (C# checks the same sizes).
 static_assert( sizeof( EntityID ) == 8, "EntityID crosses into C#: its size is part of the script ABI" );
@@ -427,4 +427,27 @@ struct ScriptEngineAPI
 
     // Beat clock (NEXT-8): the AudioSource voice position in seconds, sample-accurate; -1 not playing, -2 no audio engine
     double ( *AudioSource_GetPlaybackSeconds )( EntityID id ) noexcept;
+
+    // Command line (C#'s CommandLine): flags as "--name value"; Get writes the value and returns its
+
+    // length (-1: no such flag, or nothing follows it)
+    bool ( *CommandLine_Has )( const uint8_t* name ) noexcept;
+    int ( *CommandLine_Get )( const uint8_t* name, uint8_t* outValue, int size ) noexcept;
+
+    // The networked command layout and the local command: a Value / Vector2 action's first axis (-1:
+
+    // none; outCount 1 or 2), the layout's version (changes when it's rebuilt), the local player's
+
+    // command (flags 1 valid, 2 has aim; outAim: yaw, pitch) and the predicted pawn's visual offset
+    int ( *Net_GetAxisIndex )( const uint8_t* action, int* outCount ) noexcept;
+    int ( *Net_GetLayoutVersion )() noexcept;
+    int ( *Net_GetLocalCommand )( int* outButtons, int* outPreviousButtons, float* outAxes, float* outAim, double* outViewTick, int* outTick ) noexcept;
+    void ( *Net_GetVisualOffset )( EntityID id, Vector3* outOffset ) noexcept;
+
+    // Character controller: the simulated position (the step's, not the interpolated Transform)
+    void ( *Character_GetPosition )( EntityID id, Vector3* outPosition ) noexcept;
+
+    // Input contexts on and off, per local player (0: the default player)
+    void ( *Input_SetContextEnabled )( int player, const uint8_t* context, bool enabled ) noexcept;
+    bool ( *Input_IsContextEnabled )( int player, const uint8_t* context ) noexcept;
 };

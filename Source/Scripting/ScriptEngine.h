@@ -24,7 +24,8 @@ public:
     static int Init();
     // Where the script assemblies live, with a trailing slash: next to the executable (shipped
     // builds, and a project's own builds in <project>/.build/<config>/), or for a shared editor or
-    // Player running a project with a script project, <project>/.tmp/Scripts/<Executable>-<Debug|Release>/.
+    // Player running a project with a script project, <project>/.tmp/Scripts/<Executable>-<Debug|Release>/
+    // (<Executable>-Server-<Debug|Release>/ for a headless build: a dedicated server beside its clients).
     static std::string GetAssemblyDirectory();
     // Runs the start on a worker thread, so .NET comes up while the window and renderer are created.
     static void StartInitAsync();

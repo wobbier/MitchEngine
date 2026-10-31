@@ -172,3 +172,67 @@ std::string BitReader::ReadString( size_t InMaxLength )
     ReadBytes( value.data(), value.size() );
     return value;
 }
+
+
+std::string BitReader::ReadText( size_t InMaxLength )
+{
+    return ToValidUtf8( ReadString( InMaxLength ) );
+}
+
+
+std::string ToValidUtf8( std::string_view InBytes )
+{
+    std::string out;
+    out.reserve( InBytes.size() );
+    size_t i = 0;
+    while( i < InBytes.size() )
+    {
+        const uint8_t lead = static_cast<uint8_t>( InBytes[i] );
+        // The sequence's length, and the range its second byte must fall in (Unicode table 3-7:
+        // no overlong forms, no surrogates, nothing past U+10FFFF).
+        size_t length = 0;
+        uint8_t low = 0x80;
+        uint8_t high = 0xBF;
+        if( lead < 0x80 )
+        {
+            length = 1;
+        }
+        else if( lead >= 0xC2 && lead <= 0xDF )
+        {
+            length = 2;
+        }
+        else if( lead >= 0xE0 && lead <= 0xEF )
+        {
+            length = 3;
+            low = lead == 0xE0 ? 0xA0 : 0x80;
+            high = lead == 0xED ? 0x9F : 0xBF;
+        }
+        else if( lead >= 0xF0 && lead <= 0xF4 )
+        {
+            length = 4;
+            low = lead == 0xF0 ? 0x90 : 0x80;
+            high = lead == 0xF4 ? 0x8F : 0xBF;
+        }
+        size_t valid = length > 0 ? 1 : 0;
+        while( valid > 0 && valid < length && i + valid < InBytes.size() )
+        {
+            const uint8_t next = static_cast<uint8_t>( InBytes[i + valid] );
+            if( next < ( valid == 1 ? low : 0x80 ) || next > ( valid == 1 ? high : 0xBF ) )
+            {
+                break;
+            }
+            ++valid;
+        }
+        if( length > 0 && valid == length )
+        {
+            out.append( InBytes.substr( i, length ) );
+            i += length;
+        }
+        else
+        {
+            out += "\xEF\xBF\xBD";
+            i += std::max<size_t>( valid, 1 );
+        }
+    }
+    return out;
+}

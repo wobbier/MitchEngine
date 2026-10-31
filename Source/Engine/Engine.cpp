@@ -803,12 +803,28 @@ void Engine::Run()
                     // Gameplay in a step sees each press and release once, whatever the frame rate.
                     GetInput().BeginFixedStep();
                     // The local player's networked actions (NET-6) into the tick's command, with
-                    // this step's edges (a tap between ticks still counts once).
-                    if( Net->IsClient() && m_netLaunch.HasCommandLayout() )
+                    // this step's edges (a tap between ticks still counts once). A client sends
+                    // it; offline it's C#'s Net.LocalCommand (the layout follows the map's hot
+                    // reloads until a session fixes it). A server has no local player.
+                    if( !Net->IsActive() )
+                    {
+                        m_netLaunch.RefreshCommandLayout( GetInput() );
+                    }
+                    if( m_netLaunch.HasCommandLayout() && !Net->IsServer() )
                     {
                         InputCommand command;
                         m_netLaunch.SampleCommand( GetInput(), command );
-                        Net->SetLocalCommand( command );
+                        m_netLaunch.RecordLocalCommand( command );
+                        if( Net->IsClient() )
+                        {
+                            Net->SetLocalCommand( command );
+                        }
+                    }
+                    else
+                    {
+                        // Nothing sampled (nothing networked any more, or the server): Net.LocalCommand
+                        // reads invalid rather than the last command.
+                        m_netLaunch.ClearLocalCommand();
                     }
                     Net->BeginTick();
                     GameWorld->FixedUpdateLoadedCores( updateContext );

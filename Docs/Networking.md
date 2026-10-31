@@ -136,6 +136,12 @@ Messages are at most 1024 bytes (`kMaxMessageBytes`); there is no fragmentation 
   - A client stops at `State::TimedOut`, counted from its Hello first going out, including while still connecting to a server that never answers.
 - **One session per `NetClient`:** `Connect` works once; reconnecting needs a new client. Client ids (1–255) are reused only once no accepted client holds them.
 - **`OnClientRemoved`:** fires for either, before the client goes. Replication forgets that client's state there, and `NetCore` keeps a summary for its report.
+- **Session events for gameplay:** `NetCore` fires a typed `NetSessionEvent` (`Source/Cores/NetCore.h`) for who came and went, so every listener hears every event: `Listen<NetSessionEvent>` in an `EventReceiver`, or `EventSubscription::Create<NetSessionEvent>`, and check `Source` against your world (several worlds can hold sessions in one process). `ScriptCore` is one such listener and hands its world's to C# (below).
+  - **When:** on the main thread, once the `NetCore::Receive` or `Close` that noticed them has finished (never from inside the session's loops, so a listener may even `Close`). `Engine::Run` calls `Receive` before the frame's fixed steps and scripts.
+  - **The server:** `ClientJoined` once replication has sent the new client the world, `ClientLeft` with `"left"`, `"timed out"` or `"closed"` (its own `Close`).
+  - **A client:** `Connected` with its id, then `Disconnected` with `"left"` (its own `Close`), what the server said (`"server closed"`, `"timed out"`), `"timed out"` (the server went quiet) or `"rejected: <why>"`.
+  - **Reasons from the other side** are read with `BitReader::ReadText`: anything that isn't UTF-8 arrives as U+FFFD, so a hostile server's goodbye can't break the JSON that carries it to scripts (whose dump also replaces rather than throws).
+  - `Engine::Run` closes the session only after its loop ends, so `"closed"` and a client's own `"left"` reach C++ listeners still alive then, never scripts.
 
 ### Replication (NET-3)
 
@@ -186,12 +192,12 @@ The client predicts only what it owns. Remote entities are interpolated (above),
 - **OwnerState:** each server packet carries, for each character the client owns, its full-precision mover state after the tick.
 - **Reconcile:** compares that state with the prediction for the same tick: position within 1 mm, velocity within 1 cm/s, grounded equal.
   - **On a mismatch:** restore the server's state, then for every later recorded tick apply its command and run `PhysicsCore::StepCharacter`. Only the pawn re-runs; the rest of the world stays in the present.
-  - **The visual jump** (where it was drawn minus where it now is) becomes `GetVisualOffset()`, which shrinks linearly to zero over 100 ms.
+  - **The visual jump** (where it was drawn minus where it now is) becomes `GetVisualOffset()`, which shrinks linearly to zero over 100 ms. A jump longer than `MaxSmoothDistance` (2 m: the server teleported the pawn, a respawn) snaps instead: the offset stays zero, so the pawn doesn't glide across the level.
   - **Before the first match**, a mismatch is the initial sync, not a correction: the server simulated idle ticks before the client's first command arrived.
 - **Interpolation:** the predicted pawn is excluded from snapshot interpolation.
 
 **Not covered yet:**
-- The visual offset isn't applied to anything. A game draws the pawn's mesh at `Transform + GetVisualOffset()`. Moving the Transform itself would read as a teleport to the mover.
+- The visual offset isn't applied to anything. A game draws the pawn's mesh (and its first-person camera) at `Transform + GetVisualOffset()`; C# reads it as `Net.VisualOffset( pawn )`. Moving the Transform itself would read as a teleport to the mover.
 - Only the pawn's mover and its C# `[Predicted]` fields roll back (NET-6). Other components on it don't.
 
 ### C# networking (NET-6)
@@ -248,7 +254,14 @@ public partial class Dasher : Script
 
 - **Session:** `Role` / `IsServer` / `IsClient` / `IsActive`, `LocalClientId`, `Tick`, `IsResimulating`, `Clients`.
 - **Ownership:** `GetOwner` / `SetOwner` (server) / `IsOwner` / `IsPredicted`.
-- **Input and stats:** `Command(entity)`, `Press(action, held)`, `Corrections` / `Matches` / `InitialSyncs`, `GetNetId` / `FindEntity`.
+- **Input and stats:** `Command(entity)`, `LocalCommand`, `Press(action, held)`, `ButtonIndex(action)` / `AxisIndex(action)`, `Corrections` / `Matches` / `InitialSyncs`, `GetNetId` / `FindEntity`, `VisualOffset(pawn)`.
+  - **`NetCommand`** reads buttons by name (`IsDown` / `WasPressed` / `WasReleased`) and axes by name (`Vector2("Move")`, `Value("Throttle")`; zero for an action not in the layout), or by index (`Axis(i)`).
+  - **Building commands** (bots, tests): `Buttons |= 1 << Net.ButtonIndex("Fire")`, `Axis0`.. from `Net.AxisIndex("Move")` (a Vector2 takes two axes in a row), `PreviousButtons` = the last tick's, `Valid` and `HasAim` + `Yaw` / `Pitch`. The layout is the same on every peer, offline too.
+- **`Net.LocalCommand`:** offline (no session; the Player, the editor's Play), the engine samples the networked actions into it every fixed step, before the scripts' `OnFixedUpdate`, exactly as a client samples its commands: `Net.Press` and the `Net.SetAim` aim included, axes quantized as the server would read them, `Tick` counting the steps. `PreviousButtons` is the step before, so `WasPressed` is an edge. `Valid` while any action is networked (or `Press` / `SetAim` holds something); a step that samples nothing clears it, so it never reads stale. The editor's Stop releases `Press` holds and the aim (`NetLaunch::ResetLocalInput`), so the next Play starts with none. So a pawn simulates from one command type online and offline: `var c = Net.IsActive ? Net.Command(Entity) : Net.LocalCommand;`.
+  - **On a client:** its predicted pawn's command (a replayed tick's during a resim), or before it has one, the command it sends.
+  - **On the server:** `Valid = false`; it has no local player.
+- **Session events (EventBus):** `NetClientJoined(ClientId)` and `NetClientLeft(ClientId, Reason)` on the server, `NetConnected(ClientId)` and `NetDisconnected(Reason)` on a client (`ScriptCore` listens to `NetSessionEvent` for its world and queues them with the other engine events, delivered before the frame's `OnUpdate`). The server's own shutdown (`"closed"`) and a client's own quit (`"left"`) raise none: scripts have stopped by then. Subscribe with `On<NetClientJoined>(e => ...)` in a `Script`. A server spawns what a new client plays with there and hands it over with `SetOwner`; a leaver's entities stay (owned by the server again) until the game destroys them.
+- **`CharacterController.Position`:** the simulated capsule (`NetState`'s position plus `Center`) after the last step, a `Teleport` or a correction. Read it in `OnFixedUpdate` (eyes, muzzles, distances): it's the same on the server, the owner and in resims, while the Transform is the pose interpolated between steps.
 - **Without a session**, everything reads as offline, and RPCs run locally: offline play is both sides.
 
 **Engine side:**
@@ -257,8 +270,9 @@ public partial class Dasher : Script
   - `NetLaunch` sorts them by name: buttons take the command's bits in that order, Value / Vector2 actions its four axes.
   - The client samples them at the start of each fixed step, before `Net->BeginTick`. A button counts as held, or as pressed since the last step, so a tap shorter than a tick still reaches one command.
   - The engine samples only once something is networked. Otherwise a C++ game's own `NetCore::SetLocalCommand` stands.
+  - Offline it samples the same way into `NetLaunch::RecordLocalCommand` (C#'s `Net.LocalCommand`; a client records its commands there too). Without a session the layout follows the action map's hot reloads (`NetLaunch::RefreshCommandLayout`, against `InputActionSystem::GetMapVersion`); `Net.ButtonIndex` / `AxisIndex` caches follow `NetLaunch::GetLayoutVersion`. A session's layout is fixed.
   - `WasPressed` compares with the previous tick's command, which also holds in resimulation.
-  - `Net.Press` holds a button from a script (tests, bots).
+  - `Net.Press` holds a button from a script (tests, bots), until it's released or the editor's Play stops.
   - The layout's hash is part of the handshake.
 - **`Net.Command(entity)`:**
   - **Server:** the entity's owner's command for this tick (and the one before; `NetServer::Client::Previous`).
@@ -310,8 +324,8 @@ public partial class Dasher : Script
 - **Recording:** after each server tick, `NetLagCompensation::Record` stores every `NetHitbox`'s world pose: a capsule along local Y (Height, Radius) or a box (HalfExtents), around a local Center.
 - **The shot:** a server command handler calls `NetCore::LagCompensatedRaycast( origin, direction, range, command, shooter )`.
   1. The hitboxes are interpolated to the command's view tick.
-  2. The ray is tested analytically against each, skipping the shooter. Nothing in the physics world moves.
-  3. A present-day `RaycastAll` finds occluders, ignoring entities with hitboxes, whose bodies are in the present.
+  2. The ray is tested analytically against each, skipping the shooter and everything under it (a pawn's own head hitbox). Nothing in the physics world moves.
+  3. A present-day `RaycastAll` finds occluders, ignoring entities with hitboxes, whose bodies are in the present, and the shooter's own colliders and its children's (its gun).
   4. A hit behind an occluder comes back `Occluded`.
 - **The cap (NET-15 high ping):** a view older than `MaxRewindSeconds` (0.4 s, about 300 ms RTT plus the view's delay and slack) is judged at the cap (`Clamped`) rather than refused. A target isn't pulled back behind cover further than that, and a shot that misses there simply misses. Only a view tick in the future is `Rejected`.
   - **The client side:** NetCore tells the replication client the oldest render tick the server will still accept (`SetMinRenderTick`: the next command's tick less the cap, less two ticks).
@@ -323,6 +337,7 @@ public partial class Dasher : Script
 - **From C# (NET-15):** `Net.LagCompensatedRaycast( shooter, origin, direction, range )` returns a `NetHit` (`Hit`, `Entity`, `Point`, `Occluded`, `Rejected`, `Clamped`, `Rewound`).
   - **On the server:** it is `LagCompensatedRaycast` with the shooter's current command, so `Rewound` is set. A shooter without a command is judged at the newest recorded tick.
   - **On a client, or offline:** it is `NetCore::PresentRaycast`, the hitboxes where that peer shows them now. That is the predicted hit, for impact FX; only the server's counts.
+  - **The shooter's own parts** never stop its shots on any of these paths: a hitbox or collider on the shooter or any entity under it is skipped, so a pawn's child "Head" hitbox doesn't block a shot from its eye.
   - **Also exposed:** `Net.Command(e).ViewTick`, `Net.RoundTripMs` (a client's) and `Net.RoundTripMsTo(clientId)` (the server's, per client).
 - **Overlays:** with `DrawOverlays`, each shot draws the ray (green on a hit, red otherwise), the rewound hitboxes in yellow and the present ones in gray, for 2 s.
 
@@ -342,6 +357,7 @@ public partial class Dasher : Script
 **The Server build** (`CommonTarget.Mode.Server` → `server_<platform>_<optimization>`, e.g. `make -f MitchGame.make Game_EntryPoint config=server_linux_debug` → `.build/Server_linux_Debug/`):
 
 - **Defines:** `DEFINE_ME_HEADLESS`. Debug and Release keep `ME_TOOLS`, so scripts still build beside the exe, while `ME_IMGUI` and `ME_GAME_TOOLS` are off when headless.
+- **Scripts of a shared executable:** the headless Player running a C#-only project builds its scripts into `<project>/.tmp/Scripts/Player-Server-<Config>/` (and `--artifacts-path .tmp/dotnet-Server`), apart from the client Players' `Player-<Config>/`, so a server and its clients on one machine never `dotnet build` into the same folder.
 - **Window:** `Engine::Init` creates a `NullWindow` instead of an SDL window.
 - **Renderer:** runs bgfx's **Noop** backend (`RendererCreationSettings::Type`). Noop loads the platform's own shader binaries (`GetPlatformString`: spirv / metal / dx11) and draws nothing.
   - Frames only advance bgfx: no mesh/sprite command prep, particles, culling or passes (ME-286). LostTemple averages 6.0 ms a frame instead of 9.9, Playground 0.26 instead of 0.76.
@@ -377,9 +393,17 @@ The session starts after the scene loads, because the handshake hashes the scene
   - Each window's title says which client it is (`[client #2]`; `NetLaunch` sets it).
   - The server quits once the last window closes. Ctrl+C stops everything.
   - At the end it prints each side's report: joined / left / timed out, RTT, loss, snapshots per second, kbps.
+  - The clients start one at a time: each waits until the one before it is on the network, so they never build the scripts they share at once.
 - **Running it:**
   - `Engine/Tools/RunNetLocal.py [--scene X.lvl] [--clients N] [--port 7777|0] [--net-args "--net-lag 50 --net-loss 2%"] [--build]`.
+  - `--server-args` go to the server only. `--client-args` go to every client, with `{i}` replaced by the client's number from 1 (e.g. `--client-args "--name P{i}"`).
+  - `--wrapper Engine/Tools/Headless.sh` runs the clients on virtual displays, each on its own `HEADLESS_DISPLAY` (`:99`, `:100`, …).
   - Outside the dev shell it re-runs itself through `Tools/NixEnv.sh`. Logs and reports land in `.tmp/NetLocal/`.
+- **C#-only projects** (`Project/Game.meproj` and no C++; see `Docs/Projects.md`):
+  - Run it with `--project <folder>`, or from the project's folder. Server and clients get `--project <folder>`.
+  - They run on the Players of the engine checkout the script belongs to: `.build/Server_linux_Debug/Player` (the headless server) and `.build/Game_linux_Debug/Player`. That checkout is the game around the engine, or a standalone engine clone itself: the nearest folder with a `Player` target in its makefile.
+  - The scene defaults to the project's `StartupScene`. `--build` builds `Player server_linux_debug` and `Player game_linux_debug` with `Tools/BuildProject.sh --project <checkout>`.
+  - Logs and reports land in the project's `.tmp/NetLocal/`.
 - **VS Code** (the game's and the project template's `.vscode`):
   - Tasks "Net: server + 2 clients" and "Net: server + 2 clients (50 ms, 2% loss)" build both configurations first (`build-net-debug`) and ask for the scene.
   - Run and Debug has the same thing: "Net: server + 2 clients (no debugger)" runs `RunNetLocal.py` in a terminal.
@@ -419,6 +443,7 @@ The session starts after the scene loads, because the handshake hashes the scene
   - **Resim:** a predictor corrected at tick 19 resims 20 ticks in 0.056 ms (< 1 ms, Debug). Its visual offset is the jump, and it's gone after 100 ms. Resimming from the straight run's own state reproduces that run bit for bit.
   - **Course:** two worlds at 150 ms RTT (75 ± 3 ms each way) run a walk/strafe/jump course with a step and a wall: 697 ticks confirmed, **0 corrections**, after 1 initial sync.
   - **Knockback:** a server-only knockback gives **exactly 1 correction**, at the knockback tick. The visual offset is zero by the 10th frame after it, and no further corrections follow.
+  - **Teleports:** a 20 cm correction glides (an offset under 2 m); one that moves the pawn 25 m (a respawn) snaps: offset zero at once and after the next frame.
 - **Relevancy (`NetRelevancyTests.cpp`), the NET-13 done-when:** a 20 s soak of 200 bots wandering a 200 m square, with 4 clients at its corners, a 50 m radius, 12 KB/s each, and 2% loss.
   - **Budget:** every client got exactly 12288 B/s of snapshots, within its budget.
   - **Starvation:** a relevant bot waited at most 3 ticks for an update.
@@ -435,6 +460,7 @@ The session starts after the scene loads, because the handshake hashes the scene
     - all 60 forged views 30 ticks further back were rejected (NET-15: now judged at the cap instead).
   - **Aim in the command (NET-15), at 150 ms RTT:** the client turns its view onto the strafing target where it shows it, sending absolute yaw and pitch. The server shoots along each command's aim: 60 of 60 shots hit, with the server's aim equal to the client's to the bit.
   - **Present view (NET-15):** a client's `PresentRaycast` hits its hitbox where it shows it, with no rewind, and misses 2 m to the side. At 50 ms each way, both ends' `GetRoundTripMs` read about 117 ms.
+  - **The shooter's own parts:** a pawn with a body hitbox, a child head hitbox and a grandchild gun collider shoots from inside its head, through its gun: `PresentRaycast` and the rewound `LagCompensatedRaycast` both hit the target 10 m ahead, unoccluded. Anyone else's ray from there stops at the head, and the gun still blocks other shots.
 - **Handshake:** another build is rejected (`"version mismatch: build"`) and the server lets it go; so is another scene (`"version mismatch: scene"`); a match connects.
 - **UDP and session endings (`NetUdpTests.cpp`):**
   - Addresses resolve (`localhost` too) and print, and malformed ones are refused.
@@ -442,6 +468,8 @@ The session starts after the scene loads, because the handshake hashes the scene
   - A `NetServer` and `NetClient` connect over real UDP. Commands arrive, and the client's Disconnect removes it at once (1 disconnect, 0 timeouts).
   - A client drawing at 1000 fps against a 60 Hz server sends 60.3 packets/s, with a loss estimate of 0. Before the cap it sent one packet a frame; past the server's 33-packet ack window those read as 34% loss on a desktop run.
   - On loopback, a silent client times out on the server (`OnClientRemoved` fires once). A client gives up on a silent server and on one that never answers. A closing server tells its client (`"server closed"`), and a leaving client is counted as left, not timed out.
+  - **Session events** (`NetSessionEvent` listeners, one per world, plus a second on the server's to show both hear each event once): the server hears `ClientJoined` for each of two clients, `ClientLeft` `"left"` when one says goodbye and `"closed"` for the other when it shuts down; a mute client is `"timed out"`. Clients hear `Connected` with their id, then `Disconnected` `"left"`, `"server closed"` or `"timed out"`, and a turned-away one only `Disconnected` `"rejected: version mismatch: build"`. A listener on one world never hears another's. A server whose goodbye has bytes that aren't UTF-8 (`"bye \xFF\xC0\xAF!"`) reaches the client as `"bye ���!"`, which dumps as JSON (`NetTests.cpp` checks `ToValidUtf8` on overlong, surrogate, out-of-range and cut-short sequences).
+- **Command layout and the local command (`InputTests.cpp`):** networked buttons take bits by name (Ability 0, Fire 1, Jump 2) and Value / Vector2 actions axes after (Move 0-1, Throttle 2); non-networked actions have none. Sampled each step, Jump is pressed then held (`PreviousButtons`), the axes are quantized as the server reads them, the aim rides along, and a disabled context sends nothing. The layout is rebuilt only when the map changes. `ResetLocalInput` (the editor's Stop) drops a held `Press`, the aim and the recorded command but keeps the layout, and `ClearLocalCommand` leaves an aim-only command invalid once the aim is cleared. C# (`Generators.Tests/NetSessionEventTests.cs`): the four session events dispatch typed from the engine's JSON, and without an engine `LocalCommand`, `ButtonIndex` / `AxisIndex`, `NetCommand.Vector2` / `Value`, `VisualOffset` and `CommandLine` read empty.
 - **Scripts, owners and RPCs (`NetScriptTests.cpp`, NET-6):** two worlds with a C++ stand-in for the C# glue, at 80 ms RTT.
   - **Ownership:** handing the pawn to the client makes it predict it.
   - **RPCs:** a client RPC on what it owns reaches the server, and one on what it doesn't is dropped. Owner and all-clients RPCs arrive, and oversized ones are refused.
@@ -456,6 +484,7 @@ The session starts after the scene loads, because the handshake hashes the scene
     - The server logs **"ServerRpc ok"**. The client logs **"ClientRpc ok"**, **"Replicated ok"** and **"dash: 0 corrections"**, only once the server-confirmed `Dashes` is 1.
     - It passes on a clean link and at 40 ms + 2% loss each way (RTT 115 ms).
     - **NET-15:** the dash also fires a shot at "NetProbe Target", a `NetHitbox` 3 m off to the side, along the aim the owner sends with `Net.SetAim`. The server logs **"lag-compensated hit (aim yaw 26.565"** (judged about 10 ticks back at the owner's view). The owner logs **"predicted hit (aim yaw 26.565"** from its present-view ray, with its RTT and **"predict impacts True"**.
+- **The Player as a dedicated server:** RunNetSmoke with `--server-game .build/Server_linux_Debug/Player --client-game .build/Game_linux_Debug/Player` passes the same NetTest expectations as the game's own builds (every NetProbe line, 60.0 snapshots/s, the same capture), so a C#-only project needs no game executable to host. A C#-only project run as a headless server Player and two client Players logged `NetClientJoined` 1 and 2 and `NetClientLeft 1 (left)` on the server, `NetConnected` on each client and `NetDisconnected (server closed)` on the one still connected when the server quit, with the server's scripts in `Player-Server-Debug/`.
 - **The NET-5 done-when (`RunNetSmoke.py`):** the Server build and a client on NetTest.lvl over localhost UDP for 900 client frames (about 15 s).
   - **Clean link:** connected, 0 timeouts, 0 resyncs, 60.06 snapshots/s at 60 Hz (±5% required). The client left cleanly and the server exited by itself. The capture matches its reference exactly (0.00%).
   - **Lossy link:** with `--net-lag 40 --net-jitter 5 --net-loss 2%` on both sides: RTT 111 ms, 59.08 snapshots/s, 0 timeouts, the same capture.
