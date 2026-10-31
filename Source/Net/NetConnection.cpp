@@ -12,6 +12,13 @@ namespace
     constexpr size_t kHeaderBytes = ( 16 + 16 + 1 + 16 + 32 + 16 + 7 ) / 8;
     // Per message: more, reliable, id, the length (VarUInt up to 2 bytes for <= 1024).
     constexpr size_t kMessageOverheadBytes = 6;
+    // A packet handled long after this end last sent waited on it (a hitch, a breakpoint): when it
+    // really arrived is unknown, so it says nothing about the round trip. Long: past this, or three
+    // of this end's usual gaps between packets (a slow end sends seldom, and must still sample).
+    constexpr double kMaxRoundTripWait = 0.1;
+    constexpr double kRoundTripWaitGaps = 3.0;
+    // A gap between packets counts this much at most towards the usual one (a hitch's is no guide).
+    constexpr double kMaxSendGapSample = 0.5;
 }
 
 
@@ -69,6 +76,11 @@ void NetConnection::SendPacket( double InNow )
     record.Sequence = sequence;
     record.Valid = true;
     record.SentAt = InNow;
+    if( m_lastSentAt >= 0.0 )
+    {
+        m_sendGap += ( std::clamp( InNow - m_lastSentAt, 0.0, kMaxSendGapSample ) - m_sendGap ) * 0.1;
+    }
+    m_lastSentAt = InNow;
 
     BitWriter writer;
     writer.WriteBits( kProtocolId, 16 );
@@ -140,12 +152,14 @@ void NetConnection::SendPacket( double InNow )
 
 bool NetConnection::RecordReceived( uint16_t InSequence, double InNow )
 {
+    m_lastPacketNewest = false;
     if( !m_hasReceived )
     {
         m_hasReceived = true;
         m_remoteSequence = InSequence;
         m_receivedBits = 0;
         m_remoteSequenceAt = InNow;
+        m_lastPacketNewest = true;
         return true;
     }
     if( NetSequenceGreater( InSequence, m_remoteSequence ) )
@@ -156,6 +170,7 @@ bool NetConnection::RecordReceived( uint16_t InSequence, double InNow )
         m_receivedBits = static_cast<uint32_t>( bits );
         m_remoteSequence = InSequence;
         m_remoteSequenceAt = InNow;
+        m_lastPacketNewest = true;
         return true;
     }
     const uint32_t age = static_cast<uint16_t>( m_remoteSequence - InSequence );
@@ -197,14 +212,15 @@ void NetConnection::ProcessAcks( uint16_t InAck, uint32_t InAckBits, double InAc
     };
     if( SentPacket* latest = find( InAck ); latest && !latest->Acked )
     {
-        // The round trip of the newest packet acked, minus the time it waited on the far side.
+        // The round trip of the newest packet acked, minus the time it waited on the far side. Not
+        // from a packet that sat unread here while this end stalled: that wait isn't the link's.
         const double sample = std::max( 0.0, InNow - latest->SentAt - InAckDelay ) * 1000.0;
         if( m_stats.RoundTripMs <= 0.f )
         {
             m_stats.RoundTripMs = static_cast<float>( sample );
             m_stats.RoundTripDeviationMs = static_cast<float>( sample * 0.5 );
         }
-        else
+        else if( InNow - m_lastSentAt <= std::max( kMaxRoundTripWait, kRoundTripWaitGaps * m_sendGap ) )
         {
             const double error = sample - m_stats.RoundTripMs;
             m_stats.RoundTripDeviationMs += static_cast<float>( ( std::abs( error ) - m_stats.RoundTripDeviationMs ) * 0.25 );
@@ -320,6 +336,8 @@ bool NetConnection::ReceivePacket( const uint8_t* InData, size_t InSize, double 
     }
     ++m_stats.PacketsReceived;
     m_stats.BytesReceived += InSize;
+    m_lastPacketHasAck = hasAck;
+    m_lastPacketAck = ack;
     if( hasAck )
     {
         ProcessAcks( ack, ackBits, ackDelay, InNow );

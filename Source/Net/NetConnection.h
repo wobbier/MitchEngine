@@ -60,6 +60,20 @@ public:
 
     bool ReceiveReliable( std::vector<uint8_t>& OutMessage );
     bool ReceiveUnreliable( std::vector<uint8_t>& OutMessage );
+    // About the packet ReceivePacket last accepted (drained right after that call, the messages
+    // above are its). Newest: no packet the remote sent later had arrived before it (it moved the
+    // received sequence on; a reordered older one didn't). Wrap-safe however long the link idles,
+    // since every packet, keep-alives too, moves the sequence on.
+    bool WasLastPacketNewest() const { return m_lastPacketNewest; }
+    // The newest of this end's packets the remote had received when it sent that packet (false
+    // when it had none yet): what the remote knew of this end when it wrote the messages.
+    bool GetLastPacketAck( uint16_t& OutAck ) const
+    {
+        OutAck = m_lastPacketAck;
+        return m_lastPacketHasAck;
+    }
+    // The sequence the next SendPacket will carry.
+    uint16_t GetNextSequence() const { return m_sequence; }
 
     // Reliable messages not yet acked.
     size_t GetPendingReliableCount() const { return m_outgoing.size(); }
@@ -93,6 +107,8 @@ private:
 
     // Sending.
     uint16_t m_sequence = 0;
+    double m_lastSentAt = -1.0;
+    double m_sendGap = 0.0;             // smoothed seconds between packets sent
     std::array<SentPacket, 1024> m_sent;
     uint16_t m_finalized = 0xFFFF;      // sent packets up to here are counted acked or lost
     bool m_hasAck = false;
@@ -104,6 +120,9 @@ private:
     // Receiving.
     bool m_hasReceived = false;
     uint16_t m_remoteSequence = 0;
+    bool m_lastPacketNewest = false;
+    bool m_lastPacketHasAck = false;
+    uint16_t m_lastPacketAck = 0;
     uint32_t m_receivedBits = 0;
     double m_remoteSequenceAt = 0.0;
     uint16_t m_nextDeliverId = 0;

@@ -16,6 +16,7 @@ struct NetClockSettings
     float Gain = 0.02f;             // dilation per tick of slack error
     float ResyncTicks = 8.f;        // further off than this: jump instead of dilating
     uint32_t ResyncCooldownTicks = 30;  // reports in flight during a jump describe the old clock
+    uint32_t QuietTicks = 10;       // no usable slack report for this long: stop dilating and shrinking (the last one is getting old)
 };
 
 
@@ -38,6 +39,11 @@ public:
 
     // The server's smoothed slack for this client.
     void OnSlackReport( float InSlack );
+    // The server has stopped hearing this client's commands (the uplink is down or slow, or the
+    // client itself stalled), so its slack is about the silence, not the clock: hold the clock as
+    // it is (no dilation, no resync). Whether the gap's misses grow the target is NetClient's call
+    // (OnMisses): a gap a deeper buffer covers, yes; an outage, no.
+    void OnStall();
     // Commands the server had to repeat since its last report (adaptive: grows the target).
     void OnMisses( uint32_t InMisses );
     // The link's jitter (round-trip deviation, seconds): the target's floor is twice it in ticks.
@@ -50,6 +56,8 @@ public:
     double GetScale() const { return 1.0 + m_dilation; }
     int GetResyncCount() const { return m_resyncs; }
     const NetClockSettings& GetSettings() const { return m_settings; }
+    // The server's tick length (its Welcome says).
+    void SetTickSeconds( double InSeconds ) { m_settings.TickSeconds = InSeconds; }
 
 private:
     NetClockSettings m_settings;
@@ -62,4 +70,6 @@ private:
     float m_target = 3.f;
     float m_floor = 1.f;
     uint32_t m_cleanTicks = 0;
+    bool m_heard = false;
+    uint32_t m_quietTicks = 0;
 };

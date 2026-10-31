@@ -340,3 +340,91 @@ TEST_CASE( "Net: the round-trip estimate is within 10% of the link's, and stray 
     std::vector<uint8_t> huge( NetConnection::kMaxMessageBytes + 1 );
     CHECK_FALSE( connection.SendReliable( huge ) );
 }
+
+
+TEST_CASE( "Net: a packet is the newest by its sequence however long the link idled, and a reordered one isn't" )
+{
+    // Every packet, a keep-alive too, moves the received sequence on, so "newest" never wraps:
+    // after 40000 packets (past half the 16-bit range; 22 minutes of a paused client's keep-alives)
+    // the next one is still the newest.
+    LoopbackNetwork network;
+    LoopbackTransport rawA( network, 1 );
+    LoopbackTransport rawB( network, 2 );
+    NetConnection a( rawA, 2 );
+    NetConnection b( rawB, 1 );
+    double now = 0.0;
+    size_t notNewest = 0;
+    NetPacket packet;
+    for( int i = 0; i < 40000; ++i )
+    {
+        a.SendPacket( now );
+        now += 1.0 / 30.0;
+        while( rawB.Receive( packet ) )
+        {
+            REQUIRE( b.ReceivePacket( packet.Data.data(), packet.Data.size(), now ) );
+            notNewest += b.WasLastPacketNewest() ? 0 : 1;
+        }
+    }
+    CHECK( notNewest == 0 );
+    // Two packets, the later one first: the earlier is not the newest.
+    a.SendPacket( now );
+    NetPacket first;
+    REQUIRE( rawB.Receive( first ) );
+    a.SendPacket( now );
+    REQUIRE( rawB.Receive( packet ) );
+    REQUIRE( b.ReceivePacket( packet.Data.data(), packet.Data.size(), now ) );
+    CHECK( b.WasLastPacketNewest() );
+    REQUIRE( b.ReceivePacket( first.Data.data(), first.Data.size(), now ) );
+    CHECK_FALSE( b.WasLastPacketNewest() );
+    // The ack it carried: what the far end had of this end's packets.
+    uint16_t ack = 0;
+    CHECK_FALSE( b.GetLastPacketAck( ack ) );
+    b.SendPacket( now );
+    REQUIRE( rawA.Receive( packet ) );
+    REQUIRE( a.ReceivePacket( packet.Data.data(), packet.Data.size(), now ) );
+    REQUIRE( a.GetLastPacketAck( ack ) );
+    CHECK( ack == static_cast<uint16_t>( a.GetNextSequence() - 1 ) );
+}
+
+
+TEST_CASE( "Net: an end that sends seldom (5 fps) keeps sampling the round trip, so its deviation settles" )
+{
+    // A packet read long after this end last sent waited on it (a hitch), so it gives no sample;
+    // "long" is three of this end's usual gaps, at least 100 ms. With a fixed 100 ms an end at
+    // 5 fps never sampled again after its first, which set the deviation to half the round trip.
+    NetConditions link;
+    link.LatencyMs = 50.f;
+    NetTest::Link pair( link, link );
+    for( int tick = 0; tick < 60 * 20; ++tick )
+    {
+        // B sends every tick (Step sends both; A's packet only goes out every 12th tick).
+        constexpr int kSubSteps = 16;
+        const double start = pair.Now;
+        for( int i = 1; i <= kSubSteps; ++i )
+        {
+            pair.Now = start + NetTest::kTick * i / kSubSteps;
+            pair.A.Update( pair.Now );
+            pair.B.Update( pair.Now );
+            NetPacket packet;
+            while( pair.B.Receive( packet ) )
+            {
+                pair.ToA.ReceivePacket( packet.Data.data(), packet.Data.size(), pair.Now );
+            }
+        }
+        // A is a 5 fps client: it reads and sends once a frame.
+        if( tick % 12 == 0 )
+        {
+            NetPacket packet;
+            while( pair.A.Receive( packet ) )
+            {
+                pair.ToB.ReceivePacket( packet.Data.data(), packet.Data.size(), pair.Now );
+            }
+            pair.ToB.SendPacket( pair.Now );
+        }
+        pair.ToA.SendPacket( pair.Now );
+    }
+    const NetStats& slow = pair.ToB.GetStats();
+    MESSAGE( "5 fps end: round trip " << slow.RoundTripMs << " ms, deviation " << slow.RoundTripDeviationMs << " ms" );
+    CHECK( slow.RoundTripMs > 90.f );
+    CHECK( slow.RoundTripDeviationMs < 0.2f * slow.RoundTripMs );
+}

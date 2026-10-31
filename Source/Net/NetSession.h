@@ -18,7 +18,8 @@ class BitWriter;
 // Handshake (reliable): the client sends Hello with its NetVersion; the server answers Welcome
 // (client id, tick rate, its tick) or Reject (what differs). Then, unreliably, every client packet
 // carries the commands the server hasn't confirmed (NetCommands), and every server packet the
-// tick it simulated, the newest command it has from that client and that client's slack.
+// tick it simulated, the newest command it has from that client, that client's slack, its misses
+// so far and how long since its last packet of commands arrived (protocol 7).
 //
 // Ending (NET-5): either side says Disconnect (unreliable, sent a few times) when it leaves; a peer
 // that goes quiet for the timeout (10 s by default) is dropped instead and counted as timed out.
@@ -60,19 +61,30 @@ public:
         double LastHeard = 0.0;
         double AcceptedAt = 0.0;
         bool Left = false;          // said Disconnect: removed on the next Receive
+        // When a packet with a new command (one ending on another tick than the last) last arrived
+        // (< 0: none yet), and the tick it ended on.
+        double CommandsAt = -1.0;
+        uint32_t CommandsEnd = 0;
     };
 
     static constexpr double kDefaultTimeout = 10.0;
     // How long a client's last command keeps repeating while its next ones are missing, before
     // the repeat lets go of buttons and axes (NetCommandBuffer): a quarter second of ticks.
     static constexpr double kDefaultCommandRepeatSeconds = 0.25;
+    // The most a server catches up on after a hitch (Engine::Run keeps a server's backlog up to
+    // this, and drops the rest; BeginTick's ticks owed are capped to it). Past it the ticks are
+    // lost: each client reads its clock as that far ahead and resyncs once. (A server whose steps
+    // can't keep up with real time keeps no backlog at all.)
+    static constexpr double kMaxCatchUpSeconds = 0.5;
 
     NetServer( INetTransport& InTransport, const NetVersion& InVersion, uint16_t InTickRate = 60, size_t InMaxClients = 16 );
 
     // Packets in: new addresses get a connection; handshakes and commands are handled.
     void Receive( double InNow );
-    // The tick about to be simulated: each client's command for it.
-    void BeginTick();
+    // The tick about to be simulated: each client's command for it. InTicksOwed: ticks still due
+    // after it (catching up after a hitch): the slack is measured against where the server will be.
+    // Capped at kMaxCatchUpSeconds of ticks.
+    void BeginTick( uint32_t InTicksOwed = 0 );
     // The tick was simulated: state to every client, one packet each.
     void EndTick( double InNow );
 
@@ -98,6 +110,8 @@ public:
 
     uint32_t GetTick() const { return m_tick; }
     uint16_t GetTickRate() const { return m_tickRate; }
+    // The most ticks owed BeginTick takes into account: kMaxCatchUpSeconds at the tick rate.
+    uint32_t GetMaxTicksOwed() const;
     const NetVersion& GetVersion() const { return m_version; }
     // Accepted clients.
     size_t GetClientCount() const;
@@ -117,13 +131,14 @@ private:
     // A client id no accepted client holds (1-255, moving on so a freed id isn't reused at once); 0 when none is free.
     uint8_t AllocateId();
     void HandleReliable( Client& InClient, const std::vector<uint8_t>& InMessage );
-    void HandleUnreliable( Client& InClient, const std::vector<uint8_t>& InMessage );
+    void HandleUnreliable( Client& InClient, const std::vector<uint8_t>& InMessage, double InNow );
 
     INetTransport& m_transport;
     NetVersion m_version;
     uint16_t m_tickRate = 60;
     size_t m_maxClients = 16;
     uint32_t m_tick = 0;
+    uint32_t m_ticksOwed = 0;   // at the last BeginTick (a Welcome starts a client's clock past them)
     uint8_t m_nextId = 1;
     std::vector<std::unique_ptr<Client>> m_clients;
     std::string m_lastRejection;
@@ -188,10 +203,41 @@ public:
     float GetServerSlack() const { return m_serverSlack; }
     uint32_t GetServerTick() const { return m_serverTick; }
     size_t GetUnconfirmedCommands() const { return m_commands.size(); }
+    // Stalls: stretches when the server wasn't hearing this client's commands (the uplink was
+    // down or slow, or this client hitched), and the reports sent meanwhile. They don't steer the
+    // clock.
+    uint64_t GetStallCount() const { return m_stalls; }
+    uint64_t GetStalledReports() const { return m_stalledReports; }
+    // Outages: gaps in what the server heard too long for any buffer to cover (past MaxSlack and
+    // the usual wait), whose misses therefore didn't grow the slack target. Shorter gaps' misses
+    // do (NET-14).
+    uint64_t GetOutageCount() const { return m_outages; }
 
 private:
+    struct Report
+    {
+        uint32_t ServerTick = 0;
+        bool HasCommands = false;
+        uint32_t Newest = 0;
+        float Slack = 0.f;
+        uint64_t Misses = 0;
+        double Waited = 0.0;    // seconds since the server last heard this client's commands
+        // The packet's ack: whether the server had this client's packets up to there.
+        bool HasAck = false;
+        uint16_t Ack = 0;
+    };
+
     void HandleReliable( const std::vector<uint8_t>& InMessage, double InNow );
     void HandleUnreliable( const std::vector<uint8_t>& InMessage );
+    // Every report, in order: confirmations, and its misses sorted into a gap's (held until the
+    // gap ends: covered by a deeper buffer or an outage).
+    void NoteReport( const Report& InReport );
+    // The newest report of a Receive: the clock, and the misses due to grow the target.
+    void Steer( const Report& InReport );
+    // Whether the server had stopped hearing this client when it sent InReport.
+    bool IsStalled( const Report& InReport ) const;
+    // How long the server normally waits between this client's commands, at most (seconds).
+    double GetUsualWait() const;
 
     INetTransport& m_transport;
     NetConnection m_connection;
@@ -210,9 +256,37 @@ private:
     uint8_t m_clientId = 0;
     uint16_t m_tickRate = 60;
     std::deque<InputCommand> m_commands;
+    InputCommand m_lastCommand;
+    bool m_hasLastCommand = false;
+    double m_lastCommandSentAt = -1.0;
+    double m_sendInterval = 0.0;    // smoothed seconds between packets with new commands
+    // The link's round-trip deviation before this Receive's packets: a burst of late packets (a
+    // latency spike) inflates it, and must not loosen the stall check on the very reports it held.
+    double m_jitterBefore = 0.0;
     bool m_hasReport = false;
+    bool m_hasNewReport = false;
+    Report m_report;
     bool m_hasMissReport = false;
     uint64_t m_lastMisses = 0;
     uint32_t m_serverTick = 0;
     float m_serverSlack = 0.f;
+    // While the server waits for this client's next command (a gap), the misses wait in
+    // m_gapMisses until it hears it (a gap a deeper buffer covers: they move to m_dueMisses, to
+    // grow the target) or the gap outlasts any buffer (an outage: they go). The newest command the
+    // server held at the last report: when it moves with a short wait, the server heard the client.
+    bool m_hasNewest = false;
+    uint32_t m_lastNewest = 0;
+    uint64_t m_gapMisses = 0;
+    uint64_t m_dueMisses = 0;
+    bool m_inOutage = false;
+    uint64_t m_outages = 0;
+    bool m_stalled = false;
+    uint64_t m_stalls = 0;
+    uint64_t m_stalledReports = 0;
+    // After a resync, reports describe the old clock until one comes in a packet that acks the
+    // first packet with a command made since (m_resyncSequence, set when it goes out).
+    bool m_awaitingResync = false;
+    bool m_resyncCommandMade = false;
+    bool m_hasResyncSequence = false;
+    uint16_t m_resyncSequence = 0;
 };

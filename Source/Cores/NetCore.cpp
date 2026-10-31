@@ -628,6 +628,8 @@ bool NetCore::WriteReport( const std::string& InPath, double InNow ) const
         report["TargetSlack"] = m_client->GetClock().GetTargetSlack();
         report["Dilation"] = m_client->GetClock().GetDilation();
         report["Resyncs"] = m_client->GetClock().GetResyncCount();
+        report["Stalls"] = m_client->GetStallCount();
+        report["Outages"] = m_client->GetOutageCount();
         report["Connection"] = StatsJson( m_client->GetConnection().GetStats(), connectedSeconds );
         report["SnapshotsReceived"] = m_replicationClient->GetSnapshotsReceived();
         const double span = m_lastSnapshotAt - m_firstSnapshotAt;
@@ -711,12 +713,12 @@ void NetCore::Receive( double InNow )
 }
 
 
-void NetCore::BeginTick()
+void NetCore::BeginTick( uint32_t InTicksOwed )
 {
     if( m_server )
     {
         m_tick = m_server->GetTick();
-        m_server->BeginTick();
+        m_server->BeginTick( InTicksOwed );
         // Each client's command drives what it owns.
         if( m_commandHandler )
         {
@@ -827,7 +829,9 @@ void NetCore::OnEditorInspect()
     {
         const NetStats& stats = m_client->GetConnection().GetStats();
         ImGui::Text( "Client #%u: tick %u, %.0f ms, %.1f%% loss", m_client->GetClientId(), m_client->GetClock().GetTick(), stats.RoundTripMs, stats.PacketLoss * 100.f );
-        ImGui::Text( "Slack %.2f, dilation %+.1f%%, %d resyncs", m_client->GetServerSlack(), m_client->GetClock().GetDilation() * 100.f, m_client->GetClock().GetResyncCount() );
+        ImGui::Text( "Slack %.2f (target %.2f), dilation %+.1f%%, %d resyncs, %llu stalls, %llu outages", m_client->GetServerSlack(), m_client->GetClock().GetTargetSlack(),
+            m_client->GetClock().GetDilation() * 100.f, m_client->GetClock().GetResyncCount(), static_cast<unsigned long long>( m_client->GetStallCount() ),
+            static_cast<unsigned long long>( m_client->GetOutageCount() ) );
         ImGui::Text( "%zu mirrored, render tick %.1f (delay %.2f)", m_replicationClient->GetEntityCount(), m_replicationClient->GetRenderTick(), m_replicationClient->GetDelayTicks() );
         if( m_predictor )
         {

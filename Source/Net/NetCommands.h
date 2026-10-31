@@ -53,7 +53,13 @@ namespace NetCommands
 // A client's commands on the server (NET-2), waiting for their tick. Consume hands out the one
 // for the tick being simulated, or, when it hasn't arrived, repeats the last one (a miss). Slack
 // is how many ticks ahead of the simulation the newest command is when a tick is consumed,
-// smoothed; the client's clock steers it to a target.
+// smoothed; the client's clock steers it to a target. The newest command counts whether it came
+// in time or not: a client whose clock is behind reads as behind (negative slack), not as silent.
+//
+// A client's clock can go back (a resync). Its next packet then ends on a tick older than the
+// newest buffered; ReceivePacket drops what's buffered past it (a timeline the client left), and
+// the commands it makes for those ticks again replace the old ones, so the server never runs a
+// command the client has taken back.
 //
 // Repeats are capped: past MaxRepeats misses in a row, the repeat keeps its aim and ViewTick but
 // lets go of every button and axis, so a client that froze, crashed or lost its link while
@@ -65,9 +71,19 @@ public:
     // 0.25 s at 60 Hz. NetServer sets it from its own tick rate (SetMaxCommandRepeats).
     static constexpr uint32_t kDefaultMaxRepeats = 15;
 
-    // InNextTick: the next tick the server will simulate; older commands are too late.
+    // InNextTick: the next tick the server will simulate; older commands are too late. A copy of
+    // a tick already buffered is ignored.
     void Receive( const InputCommand& InCommand, uint32_t InNextTick );
-    InputCommand Consume( uint32_t InTick );
+    // One packet's commands, oldest first. InLatest: no packet sent after it has been seen (it's
+    // the client's latest word): its commands replace buffered copies, and if it ends on an older
+    // tick than the newest buffered, the client's clock went back and what's past it is dropped.
+    // An older packet (reordered) only fills gaps up to the newest tick.
+    void ReceivePacket( const InputCommand* InCommands, size_t InCount, uint32_t InNextTick, bool InLatest );
+    // Before the first command arrives, and for ticks before the first one's (the client's clock
+    // starts ahead), an idle command that isn't a miss. InTicksOwed: ticks the server will run
+    // straight after this one (catching up after a hitch): the slack is measured against the
+    // last of them, since the client's clock kept time while the server didn't.
+    InputCommand Consume( uint32_t InTick, uint32_t InTicksOwed = 0 );
 
     // Misses in a row that still repeat the last command's buttons and axes; later ones are
     // neutral (aim and ViewTick kept). 0: neutral from the first miss.
@@ -88,9 +104,13 @@ public:
     // Presses that came in a command after its tick had been repeated, merged into a later tick
     // instead of being lost (NET-14).
     uint64_t GetRecoveredPresses() const { return m_recoveredPresses; }
+    // Times the client's clock went back and the commands past its new newest were dropped.
+    uint64_t GetRewindCount() const { return m_rewinds; }
     size_t GetBuffered() const { return m_commands.size(); }
 
 private:
+    void Accept( const InputCommand& InCommand, uint32_t InNextTick, bool InReplace );
+
     std::map<uint32_t, InputCommand> m_commands;
     InputCommand m_last;    // the last command that arrived in time (its Tick moved on by repeats)
     // Missed ticks -> the buttons the client last sent (what the repeat used, or, past the cap,
@@ -100,7 +120,9 @@ private:
     uint64_t m_recoveredPresses = 0;
     bool m_hasReceived = false;
     bool m_hasSlack = false;
+    uint32_t m_first = 0;   // the earliest tick received: the client's clock started there
     uint32_t m_newest = 0;
+    uint64_t m_rewinds = 0;
     float m_slack = 0.f;
     float m_lastSample = 0.f;
     uint64_t m_onTime = 0;

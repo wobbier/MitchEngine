@@ -7,8 +7,8 @@
 class BitReader;
 class BitWriter;
 
-// Bumped whenever the wire format changes.
-constexpr uint32_t kNetProtocolVersion = 6;  // 2: Disconnect (NET-5); 3: script state, owners, RPCs (NET-6); 4: misses in reports (NET-14); 5: the mod list (MOD-3); 6: aim in commands (NET-15)
+// Bumped whenever the wire format, or what its fields mean, changes.
+constexpr uint32_t kNetProtocolVersion = 7;  // 2: Disconnect (NET-5); 3: script state, owners, RPCs (NET-6); 4: misses in reports (NET-14); 5: the mod list (MOD-3); 6: aim in commands (NET-15); 7: newest counts late commands, slack against the caught-up tick, rewinds, Welcome past the ticks owed (the clock fix)
 
 // What a client and a server must agree on before playing together (NET-2), sent in the
 // handshake. A server rejects a client whose version differs and says what differs.

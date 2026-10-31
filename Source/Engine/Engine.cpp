@@ -684,6 +684,10 @@ void Engine::Run()
         // catch up on seconds of backlog, then apply pause / time scale.
         float frameSeconds = 0.f;
         float scaledSeconds = 0.f;
+        // What the fixed steps get: the frame's time, except that a server catches up on a hitch past
+        // the clamp (up to NetServer::kMaxCatchUpSeconds). Its clients' commands for those ticks are
+        // waiting, and ticks it lost would read to them as their clocks running ahead (a resync each).
+        double fixedSeconds = 0.0;
         {
             OPTICK_EVENT( "Clock" );
             GameClock.Update();
@@ -703,6 +707,11 @@ void Engine::Run()
             else
             {
                 scaledSeconds = frameSeconds * m_timeScale;
+            }
+            fixedSeconds = scaledSeconds;
+            if( Net->KeepsBacklog() && m_fixedFrameDelta <= 0.f && !m_isPaused && frameSeconds > 0.f )
+            {
+                fixedSeconds = std::min( GameClock.GetDeltaSecondsPrecise(), NetServer::kMaxCatchUpSeconds ) * m_timeScale;
             }
             DeltaTime = scaledSeconds;
             UnscaledDeltaTime = frameSeconds;
@@ -795,8 +804,15 @@ void Engine::Run()
                 ME_STAT_SCOPE( "Fixed Update" );
                 // A networked client time-dilates (NET-2): ticks keep their length but come up to 5%
                 // faster or slower, holding its commands just ahead of the server.
-                m_fixedAccumulator += scaledSeconds * Net->GetClockScale();
+                m_fixedAccumulator += fixedSeconds * Net->GetClockScale();
+                if( Net->KeepsBacklog() && m_fixedAccumulator > NetServer::kMaxCatchUpSeconds )
+                {
+                    // A server keeps at most kMaxCatchUpSeconds of backlog (it can't keep up, or a hitch
+                    // ran past it): the rest is lost, in whole steps.
+                    m_fixedAccumulator -= std::ceil( ( m_fixedAccumulator - NetServer::kMaxCatchUpSeconds ) / m_fixedTimeStep ) * m_fixedTimeStep;
+                }
                 int steps = 0;
+                const auto stepsStartTime = std::chrono::steady_clock::now();
                 while( m_fixedAccumulator >= m_fixedTimeStep && steps < m_maxFixedStepsPerFrame )
                 {
                     updateContext.IsFixedStepActive = true;
@@ -826,7 +842,9 @@ void Engine::Run()
                         // reads invalid rather than the last command.
                         m_netLaunch.ClearLocalCommand();
                     }
-                    Net->BeginTick();
+                    // A server catching up after a hitch measures its clients' slack against where
+                    // it will be, not against this step (NetServer caps it at kMaxCatchUpSeconds).
+                    Net->BeginTick( static_cast<uint32_t>( m_fixedAccumulator / m_fixedTimeStep ) - 1u );
                     GameWorld->FixedUpdateLoadedCores( updateContext );
                     if( Scripts )
                     {
@@ -848,11 +866,17 @@ void Engine::Run()
                     // Paused: presses made now shouldn't fire once the simulation resumes.
                     GetInput().DiscardFixedStepEdges();
                 }
-                if( steps == m_maxFixedStepsPerFrame && m_fixedAccumulator >= m_fixedTimeStep && !Net->KeepsBacklog() )
+                if( steps == m_maxFixedStepsPerFrame && m_fixedAccumulator >= m_fixedTimeStep )
                 {
-                    // Too far behind: drop the backlog rather than spiral (a server catches up instead:
-                    // every client's commands need simulating).
-                    m_fixedAccumulator = std::fmod( m_fixedAccumulator, static_cast<double>( m_fixedTimeStep ) );
+                    // Too far behind: drop the backlog rather than spiral. A server catches up instead
+                    // (after a hitch, every client's commands are waiting), but only while its steps run
+                    // faster than the time they cover: one that can't keep up would only hold its
+                    // clients' clocks ahead of what it simulates (their input latency) by the backlog.
+                    const double stepsSeconds = std::chrono::duration<double>( std::chrono::steady_clock::now() - stepsStartTime ).count();
+                    if( !Net->KeepsBacklog() || ( m_fixedFrameDelta <= 0.f && stepsSeconds > steps * static_cast<double>( m_fixedTimeStep ) ) )
+                    {
+                        m_fixedAccumulator = std::fmod( m_fixedAccumulator, static_cast<double>( m_fixedTimeStep ) );
+                    }
                 }
                 updateContext.InterpolationAlpha = static_cast<float>( m_fixedAccumulator / m_fixedTimeStep );
 

@@ -25,7 +25,10 @@ namespace
     {
         return NetQuantize::Quantize( std::clamp( InDegrees, -90.f, 90.f ), -90.f, 90.f, kAimBits );
     }
-    // A buffered command this far past the newest one is from a client that lost its mind.
+    // A command this far past the server's next tick is from a client that lost its mind (an honest
+    // one runs half a round trip, its slack and a catch-up ahead). Measured from the server's clock,
+    // not the newest command it holds: after a long outage the client's next commands are rightly far
+    // past the last it heard.
     constexpr uint32_t kMaxAhead = 256;
 }
 
@@ -169,11 +172,57 @@ bool NetCommands::Read( BitReader& InReader, std::vector<InputCommand>& OutComma
 
 void NetCommandBuffer::Receive( const InputCommand& InCommand, uint32_t InNextTick )
 {
+    Accept( InCommand, InNextTick, false );
+}
+
+
+void NetCommandBuffer::ReceivePacket( const InputCommand* InCommands, size_t InCount, uint32_t InNextTick, bool InLatest )
+{
+    if( InCount == 0 )
+    {
+        return;
+    }
+    const uint32_t last = InCommands[InCount - 1].Tick;
+    if( InLatest && m_hasReceived && last < m_newest )
+    {
+        // The client's clock went back: what it made past here belongs to a timeline it left.
+        m_commands.erase( m_commands.upper_bound( last ), m_commands.end() );
+        m_newest = last;
+        ++m_rewinds;
+    }
+    for( size_t i = 0; i < InCount; ++i )
+    {
+        // An older packet's commands past the newest were made before the clock went back.
+        if( InLatest || !m_hasReceived || InCommands[i].Tick <= m_newest )
+        {
+            Accept( InCommands[i], InNextTick, InLatest );
+        }
+    }
+}
+
+
+void NetCommandBuffer::Accept( const InputCommand& InCommand, uint32_t InNextTick, bool InReplace )
+{
+    if( InCommand.Tick > InNextTick + kMaxAhead )
+    {
+        return;
+    }
+    // The newest tick counts late commands too: a client running behind reads as behind.
+    const bool newest = !m_hasReceived || InCommand.Tick > m_newest;
+    if( !m_hasReceived || InCommand.Tick < m_first )
+    {
+        m_first = InCommand.Tick;
+    }
+    if( newest )
+    {
+        m_newest = InCommand.Tick;
+    }
+    m_hasReceived = true;
     if( InCommand.Tick < InNextTick )
     {
         // Redundant copies of commands already simulated are expected; a first copy this late
         // means a miss already happened.
-        if( !m_hasReceived || InCommand.Tick > m_newest )
+        if( newest )
         {
             ++m_lateArrivals;
         }
@@ -192,20 +241,18 @@ void NetCommandBuffer::Receive( const InputCommand& InCommand, uint32_t InNextTi
         }
         return;
     }
-    if( m_hasReceived && InCommand.Tick > m_newest + kMaxAhead )
+    if( InReplace )
     {
-        return;
+        m_commands.insert_or_assign( InCommand.Tick, InCommand );
     }
-    m_commands.emplace( InCommand.Tick, InCommand );
-    if( !m_hasReceived || InCommand.Tick > m_newest )
+    else
     {
-        m_newest = InCommand.Tick;
+        m_commands.emplace( InCommand.Tick, InCommand );
     }
-    m_hasReceived = true;
 }
 
 
-InputCommand NetCommandBuffer::Consume( uint32_t InTick )
+InputCommand NetCommandBuffer::Consume( uint32_t InTick, uint32_t InTicksOwed )
 {
     if( !m_hasReceived )
     {
@@ -213,6 +260,8 @@ InputCommand NetCommandBuffer::Consume( uint32_t InTick )
         idle.Tick = InTick;
         return idle;
     }
+    // Ticks before the client's first command: its clock starts a few ticks ahead.
+    const bool started = InTick >= m_first;
     auto it = m_commands.find( InTick );
     if( it != m_commands.end() )
     {
@@ -220,7 +269,7 @@ InputCommand NetCommandBuffer::Consume( uint32_t InTick )
         m_repeatRun = 0;
         ++m_onTime;
     }
-    else
+    else if( started )
     {
         // Missing: keep doing what they were doing (never stall the server), for a while.
         m_last.Tick = InTick;
@@ -234,7 +283,7 @@ InputCommand NetCommandBuffer::Consume( uint32_t InTick )
     }
     m_commands.erase( m_commands.begin(), m_commands.upper_bound( InTick ) );
 
-    m_lastSample = static_cast<float>( static_cast<int64_t>( m_newest ) - static_cast<int64_t>( InTick ) );
+    m_lastSample = static_cast<float>( static_cast<int64_t>( m_newest ) - static_cast<int64_t>( InTick ) - static_cast<int64_t>( InTicksOwed ) );
     // Smoothed; a jump (the client resynced) is taken at once.
     if( !m_hasSlack || std::abs( m_lastSample - m_slack ) > 4.f )
     {
@@ -244,6 +293,12 @@ InputCommand NetCommandBuffer::Consume( uint32_t InTick )
     else
     {
         m_slack += ( m_lastSample - m_slack ) * 0.1f;
+    }
+    if( !started )
+    {
+        InputCommand idle;
+        idle.Tick = InTick;
+        return idle;
     }
     InputCommand command = m_last;
     if( m_repeatRun > m_maxRepeats )

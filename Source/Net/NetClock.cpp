@@ -14,7 +14,14 @@ NetClock::NetClock( const NetClockSettings& InSettings )
 
 uint32_t NetClock::TakeTick()
 {
-    if( m_settings.AdaptiveSlack )
+    // No usable report for a while (the downlink is out, the uplink is stalled, a resync's
+    // cooldown): stop steering on the last one, and don't count the time as clean.
+    const bool quiet = m_heard && ++m_quietTicks > m_settings.QuietTicks;
+    if( quiet )
+    {
+        m_dilation = 0.f;
+    }
+    if( m_settings.AdaptiveSlack && !quiet )
     {
         // A clean run eases the target down: a quarter tick a second after ShrinkAfterSeconds.
         const uint32_t perSecond = static_cast<uint32_t>( std::max( 1.0, std::round( 1.0 / m_settings.TickSeconds ) ) );
@@ -57,6 +64,7 @@ void NetClock::Start( uint32_t InTick )
     m_accumulator = 0.0;
     m_dilation = 0.f;
     m_hasResynced = false;
+    m_quietTicks = 0;
 }
 
 
@@ -69,12 +77,20 @@ int NetClock::Advance( double InRealSeconds )
 }
 
 
+void NetClock::OnStall()
+{
+    m_dilation = 0.f;
+}
+
+
 void NetClock::OnSlackReport( float InSlack )
 {
     if( m_hasResynced && m_tick - m_resyncedAt < m_settings.ResyncCooldownTicks )
     {
         return;
     }
+    m_heard = true;
+    m_quietTicks = 0;
     const float error = InSlack - m_target;
     if( std::abs( error ) > m_settings.ResyncTicks )
     {

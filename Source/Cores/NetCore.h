@@ -139,9 +139,11 @@ public:
     // Pins the version instead (tests; a mismatched build).
     void SetVersionOverride( const NetVersion& InVersion ) { m_versionOverride = InVersion; }
 
-    // Frame hooks.
+    // Frame hooks. BeginTick's InTicksOwed: the fixed steps still due after this one (a server
+    // catching up after a hitch runs them back to back); a server measures its clients' slack
+    // against where it will be once caught up, so its lag doesn't read as their clocks being ahead.
     void Receive( double InNow );
-    void BeginTick();
+    void BeginTick( uint32_t InTicksOwed = 0 );
     void EndTick( double InNow );
     void Flush( double InNow );
     // After the frame's physics poses: the client shows mirrored entities interpolated (NET-3).
