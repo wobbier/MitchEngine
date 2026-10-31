@@ -18,8 +18,9 @@ class BitWriter;
 // Handshake (reliable): the client sends Hello with its NetVersion; the server answers Welcome
 // (client id, tick rate, its tick) or Reject (what differs). Then, unreliably, every client packet
 // carries the commands the server hasn't confirmed (NetCommands), and every server packet the
-// tick it simulated, the newest command it has from that client, that client's slack, its misses
-// so far and how long since its last packet of commands arrived (protocol 7).
+// tick it simulated, the newest command it has from that client, that client's slack (in whole
+// ticks past +/-64), its misses so far and how long since its last packet of commands arrived
+// (protocol 7).
 //
 // Ending (NET-5): either side says Disconnect (unreliable, sent a few times) when it leaves; a peer
 // that goes quiet for the timeout (10 s by default) is dropped instead and counted as timed out.

@@ -330,7 +330,20 @@ void NetServer::EndTick( double InNow )
             state.WriteBits( m_tick, 32 );
             state.WriteBool( client->Commands.HasReceived() );
             state.WriteBits( client->Commands.GetNewestTick(), 32 );
-            NetQuantize::WriteFloat( state, client->Commands.GetSlack(), -kSlackRange, kSlackRange, kSlackBits );
+            // The slack, quantized within +/-kSlackRange; further off (a client paused for minutes,
+            // a server that lost seconds to a hitch), in whole ticks, in full.
+            const float slack = client->Commands.GetSlack();
+            const bool quantized = std::abs( slack ) < kSlackRange;
+            state.WriteBool( quantized );
+            if( quantized )
+            {
+                NetQuantize::WriteFloat( state, slack, -kSlackRange, kSlackRange, kSlackBits );
+            }
+            else
+            {
+                const double ticks = std::clamp( std::round( static_cast<double>( slack ) ), -2147483647.0, 2147483647.0 );
+                state.WriteBits( static_cast<uint32_t>( static_cast<int32_t>( ticks ) ), 32 );
+            }
             state.WriteVarUInt( client->Commands.GetMissedCount() );
             // How long it has waited for this client's commands: the client's slack sinks with a
             // wait it can't see from its side (an uplink spike, its own hitch), and mustn't steer on it.
@@ -522,7 +535,7 @@ void NetClient::HandleUnreliable( const std::vector<uint8_t>& InMessage )
     report.ServerTick = reader.ReadBits( 32 );
     report.HasCommands = reader.ReadBool();
     report.Newest = reader.ReadBits( 32 );
-    report.Slack = NetQuantize::ReadFloat( reader, -kSlackRange, kSlackRange, kSlackBits );
+    report.Slack = reader.ReadBool() ? NetQuantize::ReadFloat( reader, -kSlackRange, kSlackRange, kSlackBits ) : static_cast<float>( static_cast<int32_t>( reader.ReadBits( 32 ) ) );
     report.Misses = reader.ReadVarUInt();
     report.Waited = static_cast<double>( reader.ReadVarUInt() ) / 1000.0;
     report.HasAck = m_connection.GetLastPacketAck( report.Ack );
@@ -645,19 +658,19 @@ void NetClient::Steer( const Report& InReport )
         return;
     }
     m_stalled = false;
-    // The slack goes on the wire within +/-kSlackRange. Further off (a client paused for minutes,
-    // say), the newest command and the tick, both in full, say how far.
-    float slack = InReport.Slack;
-    if( std::abs( slack ) >= kSlackRange - 0.5f )
-    {
-        slack = static_cast<float>( static_cast<int64_t>( InReport.Newest ) - static_cast<int64_t>( InReport.ServerTick ) );
-    }
+    // The slack the newest command arrived with: against the report's tick, plus the ticks the
+    // server has waited since. Unsmoothed, and steady through a gap's first ticks, before the
+    // report counts as stalled (the slack sinks meanwhile). It leaves out a catching-up server's
+    // ticks owed, so it can read ahead of the slack, never behind it.
+    const double tickRate = static_cast<double>( std::max<uint16_t>( m_tickRate, 1 ) );
+    const float arrived = static_cast<float>( static_cast<double>( static_cast<int64_t>( InReport.Newest ) - static_cast<int64_t>( InReport.ServerTick ) ) + InReport.Waited * tickRate );
     const int resyncs = m_clock.GetResyncCount();
-    m_clock.OnSlackReport( slack );
+    m_clock.OnSlackReport( InReport.Slack, arrived );
     if( m_clock.GetResyncCount() != resyncs )
     {
         // The clock was off (its commands late or far early): the jump fixes that, a deeper
-        // buffer wouldn't. The reports describe the old clock until the server hears the new.
+        // buffer wouldn't. The reports describe the old clock until the server hears the new (and
+        // the clock ignores their misses until it can steer again: NetClock::OnMisses).
         m_awaitingResync = true;
         m_resyncCommandMade = false;
         m_hasResyncSequence = false;

@@ -198,6 +198,7 @@ namespace
         float TargetBefore = 0.f;
         float TargetAfter = 0.f;
         float MaxTarget = 0.f;          // the deepest the target got from the cut to the end
+        float MaxTargetFirstSecond = 0.f;   // ... from the cut to a second after the first commands back could arrive
         uint64_t BaselineMisses = 0;    // in the 10 s before the cut
         uint64_t ExtraMissesFirstSecond = 0;
         uint64_t Stalls = 0;
@@ -298,6 +299,7 @@ namespace
         report.WorstStaleMs = probe.WorstStaleMs( cutAt, net.Now() + 1.0 );
         report.BaselineStaleMs = probe.WorstStaleMs( cutAt - 5.0, cutAt );
         report.MaxTarget = probe.MaxTarget( cutAt, net.Now() + 1.0 );
+        report.MaxTargetFirstSecond = probe.MaxTarget( cutAt, freshAt + 1.0 );
         report.BaselineMisses = probe.Misses( cutAt - 10.0, cutAt );
         report.ExtraMissesFirstSecond = probe.Misses( freshAt, freshAt + 1.0 );
         if( peerClient && peerRemote )
@@ -314,7 +316,8 @@ namespace
         std::ostringstream text;
         text << InReport.Resyncs << " resyncs, " << InReport.Stalls << " stalls, " << InReport.Outages << " outages, settled " << InReport.SettleSeconds
              << " s after the return, misses " << InReport.OwnMisses << " own + " << InReport.ExtraMisses << " extra, worst stale " << InReport.WorstStaleMs
-             << " ms (before " << InReport.BaselineStaleMs << "), target " << InReport.TargetBefore << " -> " << InReport.TargetAfter << " (deepest " << InReport.MaxTarget << ")";
+             << " ms (before " << InReport.BaselineStaleMs << "), target " << InReport.TargetBefore << " -> " << InReport.TargetAfter << " (deepest " << InReport.MaxTarget
+             << ", " << InReport.MaxTargetFirstSecond << " in the first second back)";
         return text.str();
     }
 }
@@ -489,6 +492,44 @@ TEST_CASE( "Net: a stalled report holds the clock, and a quiet clock stops steer
         quiet.TakeTick();
     }
     CHECK( quiet.GetTargetSlack() == doctest::Approx( quiet.GetSettings().TargetSlack ) );
+}
+
+
+TEST_CASE( "Net: a clock behind jumps to the target at once, and a resync's cooldown neither steers nor grows the target" )
+{
+    // Behind by more than BehindTicks, every command arrives late: dilating back at 5% would take
+    // 20 ticks a tick. Both the smoothed slack and the slack the newest command arrived with must
+    // say so (the smoothed one lags a gap's end), and the jump goes by the lesser of the two.
+    NetClock clock;
+    clock.Start( 100 );
+    REQUIRE( clock.GetTargetSlack() == doctest::Approx( 3.f ) );
+    clock.OnSlackReport( -2.f, 0.f );   // the newest command arrived on time: dilate
+    CHECK( clock.GetResyncCount() == 0 );
+    CHECK( clock.GetDilation() == doctest::Approx( 0.05f ) );
+    clock.OnSlackReport( -3.f, -2.f );  // both: 2 behind, 5 short of the target
+    CHECK( clock.GetResyncCount() == 1 );
+    CHECK( clock.GetTick() == 105 );
+
+    // The cooldown: reports are ignored, and so are misses (the jump's, not the buffer's).
+    CHECK( clock.InCooldown() );
+    clock.OnMisses( 4 );
+    CHECK( clock.GetTargetSlack() == doctest::Approx( 3.f ) );
+    clock.OnSlackReport( -5.f, -5.f );
+    CHECK( clock.GetResyncCount() == 1 );
+    for( uint32_t i = 0; i < clock.GetSettings().ResyncCooldownTicks; ++i )
+    {
+        clock.TakeTick();
+    }
+    CHECK_FALSE( clock.InCooldown() );
+    clock.OnMisses( 2 );
+    CHECK( clock.GetTargetSlack() == doctest::Approx( 5.f ) );
+
+    // Ahead never counts as behind, however the two differ.
+    NetClock ahead;
+    ahead.Start( 100 );
+    ahead.OnSlackReport( 4.f, -3.f );
+    CHECK( ahead.GetResyncCount() == 0 );
+    CHECK( ahead.GetDilation() < 0.f );
 }
 
 
@@ -1088,17 +1129,19 @@ TEST_CASE( "Net: outages hold the clock at 20 and 30 fps and at 128 Hz, and a se
             {
                 // At 20 or 30 fps, or 128 Hz, a lossy link misses now and then anyway (a lost packet is
                 // a gap of a few ticks): none in the first second back, and about as many as before
-                // the cut after that.
+                // the cut after that. The outage doesn't deepen the target; those later misses do, as
+                // they would have without it (NET-14), so the target is checked up to then.
                 CHECK( report.ExtraMissesFirstSecond == 0 );
                 CHECK( report.ExtraMisses <= report.BaselineMisses + 2 );
+                CHECK( report.MaxTargetFirstSecond <= report.TargetBefore );
             }
             else
             {
                 CHECK( report.SettleSeconds <= 0.25 );
                 CHECK( report.ExtraMisses == 0 );
+                CHECK( report.MaxTarget <= report.TargetBefore );
             }
             CHECK( report.WorstStaleMs <= report.BaselineStaleMs + frame );
-            CHECK( report.MaxTarget <= report.TargetBefore );
             if( c.Outage.WithPeer )
             {
                 // Nothing of the first client's outage reaches the second.
@@ -1116,48 +1159,64 @@ TEST_CASE( "Net: a client that hitches comes back without a resync when it catch
 {
     // The engine runs at most 8 steps a frame and drops the rest: after a long hitch the clock is
     // behind, its commands late. The newest command the server reports counts late ones, so the
-    // client reads how far behind it is and jumps once, filling the ticks it skips.
-    for( int catchUp : { 1000, 8 } )
+    // client reads how far behind it is and jumps once, filling the ticks it skips. A 0.18-0.25 s
+    // hitch comes back 3 to 7 ticks behind, inside ResyncTicks: dilating that back at 5% took
+    // a second or more of late commands, each a miss that grew the target, until it was deep
+    // enough to resync anyway (to 7 ticks after 0.18 s, easing back over 20 s). Behind by more
+    // than BehindTicks, it jumps at once.
+    struct Case
     {
-        for( double hitch : { 0.3, 1.0 } )
-        {
-            CAPTURE( catchUp );
-            CAPTURE( hitch );
-            Harness net( Link( 20.f, 2.f, 0.f, 61 ), Link( 20.f, 2.f, 0.f, 62 ) );
-            ClockProbe probe;
-            probe.Attach( net );
-            net.Start();
-            net.Run( 12.0 );
-            NetClient& client = *net.ClientNet.GetClient();
-            REQUIRE( client.GetState() == NetClient::State::Connected );
-            const int resyncsBefore = client.GetClock().GetResyncCount();
-            const float targetBefore = client.GetClock().GetTargetSlack();
-            const double hitchAt = net.Now();
-            net.ClientCatchUpTicks = catchUp;
-            net.ClientHitchUntil = hitchAt + hitch;
-            net.Run( hitch );
-            const double backAt = net.Now();
-            net.Run( 10.0 );
-            const int resyncs = client.GetClock().GetResyncCount() - resyncsBefore;
-            // Its own misses: until the first commands after the hitch (behind: after the jump)
-            // could arrive.
-            const double settled = probe.SettledAfter( backAt );
-            const uint64_t after = probe.Misses( backAt + 0.1, net.Now() + 1.0 );
-            const double stale = probe.WorstStaleMs( hitchAt, net.Now() + 1.0 );
-            const double staleBefore = probe.WorstStaleMs( hitchAt - 5.0, hitchAt );
-            MESSAGE( "hitch " << hitch << " s, catch-up " << catchUp << " ticks: " << resyncs << " resyncs, " << client.GetStallCount() << " stalls, settled "
-                << settled << " s after, misses " << probe.Misses( hitchAt, backAt + 0.1 ) << " own + " << after << " after, worst stale " << stale << " ms (before "
-                << staleBefore << "), target " << targetBefore << " -> " << client.GetClock().GetTargetSlack() );
-            CHECK( client.GetState() == NetClient::State::Connected );
-            CHECK( resyncs == ( catchUp > 100 ? 0 : 1 ) );
-            CHECK( client.GetStallCount() == 1 );
-            CHECK( client.GetOutageCount() == 1 );
-            CHECK( settled <= 0.25 );
-            CHECK( after == 0 );
-            CHECK( stale <= staleBefore + 1000.0 / 60.0 );
-            CHECK( probe.MaxTarget( hitchAt, net.Now() + 1.0 ) <= targetBefore );
-            CHECK( client.GetClock().GetTargetSlack() <= targetBefore );
-        }
+        int CatchUp;
+        double Hitch;
+    };
+    for( const Case c : { Case{ 1000, 0.3 }, Case{ 1000, 1.0 }, Case{ 8, 0.18 }, Case{ 8, 0.2 }, Case{ 8, 0.25 }, Case{ 8, 0.3 }, Case{ 8, 1.0 } } )
+    {
+        const int catchUp = c.CatchUp;
+        const double hitch = c.Hitch;
+        CAPTURE( catchUp );
+        CAPTURE( hitch );
+        Harness net( Link( 20.f, 2.f, 0.f, 61 ), Link( 20.f, 2.f, 0.f, 62 ) );
+        ClockProbe probe;
+        probe.Attach( net );
+        net.Start();
+        net.Run( 12.0 );
+        NetClient& client = *net.ClientNet.GetClient();
+        REQUIRE( client.GetState() == NetClient::State::Connected );
+        const int resyncsBefore = client.GetClock().GetResyncCount();
+        const float targetBefore = client.GetClock().GetTargetSlack();
+        const double hitchAt = net.Now();
+        net.ClientCatchUpTicks = catchUp;
+        net.ClientHitchUntil = hitchAt + hitch;
+        net.Run( hitch );
+        const double backAt = net.Now();
+        net.Run( 10.0 );
+        const int resyncs = client.GetClock().GetResyncCount() - resyncsBefore;
+        // Its own misses: until the first commands after the hitch could arrive (a frame, the
+        // latency and its jitter, and a tick). Late ones after that are the clock's.
+        const double freshAt = backAt + 1.0 / 60.0 + 0.022 + 1.0 / 60.0;
+        const double settled = probe.SettledAfter( backAt );
+        const uint64_t late = probe.Misses( freshAt, net.Now() + 1.0 );
+        const uint64_t after = probe.Misses( backAt + 0.1, net.Now() + 1.0 );
+        const double stale = probe.WorstStaleMs( hitchAt, net.Now() + 1.0 );
+        const double staleBefore = probe.WorstStaleMs( hitchAt - 5.0, hitchAt );
+        const float deepest = probe.MaxTarget( hitchAt, net.Now() + 1.0 );
+        MESSAGE( "hitch " << hitch << " s, catch-up " << catchUp << " ticks: " << resyncs << " resyncs, " << client.GetStallCount() << " stalls, "
+            << client.GetOutageCount() << " outages, settled " << settled << " s after, misses " << probe.Misses( hitchAt, freshAt ) << " own + " << late
+            << " late (" << after << " after 0.1 s), worst stale " << stale << " ms (before " << staleBefore << "), target " << targetBefore << " -> "
+            << client.GetClock().GetTargetSlack() << " (deepest " << deepest << ")" );
+        CHECK( client.GetState() == NetClient::State::Connected );
+        CHECK( resyncs == ( catchUp > 100 ? 0 : 1 ) );
+        CHECK( client.GetStallCount() == 1 );
+        CHECK( client.GetOutageCount() == 1 );
+        // A jump of 4 ticks or less the server's smoothed slack follows over 10 ticks or so (it
+        // takes a bigger one at once).
+        CHECK( settled <= ( catchUp < 100 && hitch < 0.25 ? 0.35 : 0.25 ) );
+        // Late commands, past the hitch's own misses: the one tick before the jump lands.
+        CHECK( late <= 2 );
+        CHECK( after == 0 );
+        CHECK( stale <= staleBefore + 1000.0 / 60.0 );
+        CHECK( deepest <= targetBefore );
+        CHECK( client.GetClock().GetTargetSlack() <= targetBefore );
     }
 }
 
@@ -1171,47 +1230,56 @@ TEST_CASE( "Net: a server that hitches and catches up leaves its clients' clocks
     // 44 misses.) It catches up on half a second at most, as Engine::Run does: past that the
     // ticks are lost, which its clients read as their clocks that far ahead (one resync back
     // each, the server dropping what they had made past it, and nothing run they took back).
-    for( int64_t cost : { int64_t( 0 ), int64_t( 3 ), int64_t( 8 ) } )
+    // Engine::Run runs 8 steps a frame, a frame a tick: the reports the client steers by then
+    // still have ticks owed after them, so past the +/-64 ticks the slack's quantized range
+    // holds (a hitch of 1.5 s or more) the slack goes in full, measured the same way.
+    for( int stepsPerFrame : { 0, 8 } )
     {
-        for( double hitch : { 0.15, 0.3, 0.5, 1.0 } )
+        for( int64_t cost : { int64_t( 0 ), int64_t( 3 ), int64_t( 8 ) } )
         {
-            CAPTURE( cost );
-            CAPTURE( hitch );
-            Harness net( Link( 5.f, 1.f, 0.f, 101 ), Link( 5.f, 1.f, 0.f, 102 ) );
-            ClockProbe probe;
-            probe.Attach( net );
-            net.Start();
-            net.Run( 12.0 );
-            NetClient& client = *net.ClientNet.GetClient();
-            REQUIRE( client.GetState() == NetClient::State::Connected );
-            const NetServer::Client* remote = net.ServerNet.GetServer()->FindClient( client.GetClientId() );
-            REQUIRE( remote != nullptr );
-            const int resyncsBefore = client.GetClock().GetResyncCount();
-            const uint64_t missedBefore = remote->Commands.GetMissedCount();
-            const float targetBefore = client.GetClock().GetTargetSlack();
-            const double hitchAt = net.Now();
-            net.ServerCatchUpMs = cost;
-            net.ServerHitchUntil = hitchAt + hitch;
-            net.Run( 10.0 );
-            const int resyncs = client.GetClock().GetResyncCount() - resyncsBefore;
-            const uint64_t misses = remote->Commands.GetMissedCount() - missedBefore;
-            // Past the resync threshold: the clients jump back.
-            const bool lost = static_cast<float>( net.GetServerTicksLost() ) > client.GetClock().GetSettings().ResyncTicks;
-            MESSAGE( "server hitch " << hitch << " s, " << cost << " ms a tick catching up: " << net.GetServerTicksLost() << " ticks lost, " << resyncs << " resyncs, "
-                << misses << " misses, " << remote->Commands.GetRewindCount() << " rewinds, " << probe.Superseded() << " taken back, settled "
-                << probe.SettledAfter( hitchAt + hitch ) << " s after, target " << targetBefore << " -> " << client.GetClock().GetTargetSlack() << " (deepest "
-                << probe.MaxTarget( hitchAt, net.Now() + 1.0 ) << ")" );
-            CHECK( lost == ( hitch > NetServer::kMaxCatchUpSeconds + 0.01 ) );
-            if( hitch <= NetServer::kMaxCatchUpSeconds )
+            for( double hitch : { 0.15, 0.3, 0.5, 1.0, 1.5, 3.0 } )
             {
-                CHECK( net.GetServerTicksLost() <= 1u );     // the phase of the tick it stopped on
+                CAPTURE( stepsPerFrame );
+                CAPTURE( cost );
+                CAPTURE( hitch );
+                Harness net( Link( 5.f, 1.f, 0.f, 101 ), Link( 5.f, 1.f, 0.f, 102 ) );
+                ClockProbe probe;
+                probe.Attach( net );
+                net.Start();
+                net.Run( 12.0 );
+                NetClient& client = *net.ClientNet.GetClient();
+                REQUIRE( client.GetState() == NetClient::State::Connected );
+                const NetServer::Client* remote = net.ServerNet.GetServer()->FindClient( client.GetClientId() );
+                REQUIRE( remote != nullptr );
+                const int resyncsBefore = client.GetClock().GetResyncCount();
+                const uint64_t missedBefore = remote->Commands.GetMissedCount();
+                const float targetBefore = client.GetClock().GetTargetSlack();
+                const double hitchAt = net.Now();
+                net.ServerCatchUpMs = cost;
+                net.ServerStepsPerFrame = stepsPerFrame;
+                net.ServerHitchUntil = hitchAt + hitch;
+                net.Run( 10.0 );
+                const int resyncs = client.GetClock().GetResyncCount() - resyncsBefore;
+                const uint64_t misses = remote->Commands.GetMissedCount() - missedBefore;
+                // Past the resync threshold: the clients jump back.
+                const bool lost = static_cast<float>( net.GetServerTicksLost() ) > client.GetClock().GetSettings().ResyncTicks;
+                MESSAGE( "server hitch " << hitch << " s, " << cost << " ms a tick catching up, " << ( stepsPerFrame ? std::to_string( stepsPerFrame ) : std::string( "all" ) )
+                    << " steps a frame: " << net.GetServerTicksLost() << " ticks lost, " << resyncs << " resyncs, " << misses << " misses, " << remote->Commands.GetRewindCount()
+                    << " rewinds, " << probe.Superseded() << " taken back, settled " << probe.SettledAfter( hitchAt + hitch ) << " s after, target " << targetBefore << " -> "
+                    << client.GetClock().GetTargetSlack() << " (deepest " << probe.MaxTarget( hitchAt, net.Now() + 1.0 ) << ")" );
+                CHECK( lost == ( hitch > NetServer::kMaxCatchUpSeconds + 0.01 ) );
+                if( hitch <= NetServer::kMaxCatchUpSeconds )
+                {
+                    CHECK( net.GetServerTicksLost() <= 1u );     // the phase of the tick it stopped on
+                }
+                // One resync, back (the server rewinds), and no second one forward.
+                CHECK( resyncs == ( lost ? 1 : 0 ) );
+                CHECK( misses == 0 );
+                CHECK( remote->Commands.GetRewindCount() == ( lost ? 1u : 0u ) );
+                CHECK( probe.Superseded() == 0 );
+                CHECK( probe.SettledAfter( hitchAt + hitch ) <= ( lost ? 1.0 : 0.25 ) );
+                CHECK( probe.MaxTarget( hitchAt, net.Now() + 1.0 ) <= targetBefore );
             }
-            CHECK( resyncs == ( lost ? 1 : 0 ) );
-            CHECK( misses == 0 );
-            CHECK( remote->Commands.GetRewindCount() == ( lost ? 1u : 0u ) );
-            CHECK( probe.Superseded() == 0 );
-            CHECK( probe.SettledAfter( hitchAt + hitch ) <= ( lost ? 1.0 : 0.25 ) );
-            CHECK( probe.MaxTarget( hitchAt, net.Now() + 1.0 ) <= targetBefore );
         }
     }
 }
@@ -1382,8 +1450,7 @@ TEST_CASE( "Net: a client paused on keep-alives for 30 minutes is heard at once 
     // Paused (time scale 0, or the editor's pause), a client makes no ticks and sends a keep-alive
     // every third frame (two ticks' time at 60 fps): 36000 in 30 minutes, past half the 16-bit
     // sequence range. Its first commands after are still the latest packet's, and the report's
-    // slack, beyond what the wire carries (+/-64 ticks), is read from the newest command and the
-    // tick in full.
+    // slack, beyond the +/-64 ticks it's quantized within, goes in whole ticks.
     Harness net( Link( 20.f, 2.f, 0.f, 201 ), Link( 20.f, 2.f, 0.f, 202 ) );
     net.MakeCommand = CommandFor;
     net.Start();

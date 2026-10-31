@@ -15,6 +15,9 @@ struct NetClockSettings
     float MaxDilation = 0.05f;      // +/- fraction the client's simulation speeds up or slows down
     float Gain = 0.02f;             // dilation per tick of slack error
     float ResyncTicks = 8.f;        // further off than this: jump instead of dilating
+    // Behind by more than this (the slack below -BehindTicks: every command arrives after its
+    // tick, each one a miss): jump to the target too. Dilating back at 5% takes 20 ticks a tick.
+    float BehindTicks = 1.f;
     uint32_t ResyncCooldownTicks = 30;  // reports in flight during a jump describe the old clock
     uint32_t QuietTicks = 10;       // no usable slack report for this long: stop dilating and shrinking (the last one is getting old)
 };
@@ -37,15 +40,23 @@ public:
     // The tick to stamp the next command with (and, adaptive, a tick of the clean-run count).
     uint32_t TakeTick();
 
-    // The server's smoothed slack for this client.
-    void OnSlackReport( float InSlack );
+    // The server's smoothed slack for this client, and the slack its newest command arrived with
+    // (unsmoothed). The clock is behind only when both say so: the smoothed slack lags a gap's
+    // end, and sinks through its first ticks, before the server's wait says it's a stall.
+    void OnSlackReport( float InSlack, float InArrived );
+    void OnSlackReport( float InSlack ) { OnSlackReport( InSlack, InSlack ); }
     // The server has stopped hearing this client's commands (the uplink is down or slow, or the
     // client itself stalled), so its slack is about the silence, not the clock: hold the clock as
     // it is (no dilation, no resync). Whether the gap's misses grow the target is NetClient's call
     // (OnMisses): a gap a deeper buffer covers, yes; an outage, no.
     void OnStall();
     // Commands the server had to repeat since its last report (adaptive: grows the target).
+    // Not during a resync's cooldown: those are the jump's (the clock was off, or still is until
+    // it can steer again), not the buffer's.
     void OnMisses( uint32_t InMisses );
+    // Within ResyncCooldownTicks of a jump: reports and misses are ignored (those in flight
+    // describe the old clock).
+    bool InCooldown() const;
     // The link's jitter (round-trip deviation, seconds): the target's floor is twice it in ticks.
     void SetJitter( double InSeconds );
     float GetTargetSlack() const { return m_target; }

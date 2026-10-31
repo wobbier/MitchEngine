@@ -73,6 +73,10 @@ namespace NetHarness
         // over a tick is a server that slow all the time).
         double ServerHitchUntil = -1.0;
         int64_t ServerCatchUpMs = 0;
+        // Catching up, at most this many ticks a frame, a frame a tick (0: no limit, every tick due
+        // at once). Engine::Run runs 8 fixed steps a frame and a headless server draws a frame a
+        // tick, so its reports for the ticks owed go out in bursts of 8, a tick apart.
+        int ServerStepsPerFrame = 0;
         // Every tick takes this long (a server that slow all the time; over a tick, it can't keep up).
         int64_t ServerTickMs = 0;
         // Called at the start of each simulated millisecond (change link conditions mid-run).
@@ -157,6 +161,10 @@ namespace NetHarness
                 }
                 while( now >= ServerHitchUntil && Milliseconds >= m_serverBusyUntil && server->GetTick() * tickSeconds <= now - ServerStart )
                 {
+                    if( m_frameSteps == 0 )
+                    {
+                        m_frameStartMs = Milliseconds;
+                    }
                     ServerNet.Receive( now );
                     // The ticks due after this one (a catch-up after a hitch).
                     const int64_t owed = static_cast<int64_t>( std::floor( ( now - ServerStart ) / tickSeconds ) ) - static_cast<int64_t>( server->GetTick() );
@@ -179,6 +187,16 @@ namespace NetHarness
                             ServerSecondsLost += std::max( 0.0, start - ServerStart );
                             ServerStart = std::max( ServerStart, start );
                         }
+                    }
+                    if( !behind )
+                    {
+                        m_frameSteps = 0;
+                    }
+                    else if( ServerStepsPerFrame > 0 && ++m_frameSteps >= ServerStepsPerFrame )
+                    {
+                        // The frame's steps are done: the rest wait for the next frame, a tick on.
+                        m_serverBusyUntil = std::max( m_serverBusyUntil, m_frameStartMs + static_cast<int64_t>( std::lround( tickSeconds * 1000.0 ) ) );
+                        m_frameSteps = 0;
                     }
                 }
 
@@ -252,5 +270,7 @@ namespace NetHarness
         double m_lastClientStep = 0.0;
         double m_hitchFrom = -1.0;
         int64_t m_serverBusyUntil = 0;
+        int m_frameSteps = 0;
+        int64_t m_frameStartMs = 0;
     };
 }

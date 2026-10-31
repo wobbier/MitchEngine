@@ -37,7 +37,7 @@ uint32_t NetClock::TakeTick()
 
 void NetClock::OnMisses( uint32_t InMisses )
 {
-    if( !m_settings.AdaptiveSlack || InMisses == 0 )
+    if( !m_settings.AdaptiveSlack || InMisses == 0 || InCooldown() )
     {
         return;
     }
@@ -83,16 +83,30 @@ void NetClock::OnStall()
 }
 
 
-void NetClock::OnSlackReport( float InSlack )
+bool NetClock::InCooldown() const
 {
-    if( m_hasResynced && m_tick - m_resyncedAt < m_settings.ResyncCooldownTicks )
+    return m_hasResynced && m_tick - m_resyncedAt < m_settings.ResyncCooldownTicks;
+}
+
+
+void NetClock::OnSlackReport( float InSlack, float InArrived )
+{
+    if( InCooldown() )
     {
         return;
     }
     m_heard = true;
     m_quietTicks = 0;
-    const float error = InSlack - m_target;
-    if( std::abs( error ) > m_settings.ResyncTicks )
+    float error = InSlack - m_target;
+    // Behind: every command arrives after its tick. The smoothed slack and the slack the newest
+    // command arrived with must both say so (the smoothed one lags a gap's end); the jump goes by
+    // the lesser.
+    const float behind = -std::max( InSlack, InArrived );
+    if( behind > m_settings.BehindTicks )
+    {
+        error = -behind - m_target;
+    }
+    if( std::abs( error ) > m_settings.ResyncTicks || behind > m_settings.BehindTicks )
     {
         // Too far ahead: step back (the commands for those ticks get sent again); too far behind:
         // skip ahead.
