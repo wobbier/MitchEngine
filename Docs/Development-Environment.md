@@ -5,6 +5,27 @@ The game selects an engine revision and can optionally add dependencies in its
 own `devshell.nix`. New games need no Nix files or engine-repository changes.
 The current Linux SDK and its prebuilt libraries target x86_64.
 
+## The engine checkout on its own
+
+A MitchEngine clone builds the editor, the Player and the tests without any game
+around it ([Projects: the engine's own solution](Projects.md#the-engines-own-solution)).
+Run `./GenerateSolution.sh` from the clone's root, which enters the SDK environment
+by itself, then open the folder in VS Code. Its `.vscode/` builds through
+`Tools/BuildProject.sh` like a game's: F5 on "Havana: Project Hub" builds and
+debugs the editor, "Havana: open a project" and "Player: run a project" ask for a
+project folder, and "Unit tests" runs `MitchEngine_Tests` from the clone's root.
+From a shell:
+
+```bash
+./GenerateSolution.sh
+Tools/BuildProject.sh Havana editor_debug
+Tools/NixEnv.sh ./.build/Editor_Debug/Havana                     # the Project Hub
+Tools/NixEnv.sh ./.build/Editor_Debug/Havana --project ~/Projects/MyGame
+```
+
+With no game around the clone, `DevShell.sh` and `NixEnv.sh` use the clone itself
+as their root, and `BuildProject.sh` builds `MitchEngine.make`.
+
 ## VS Code and command line
 
 Install Nix and VS Code's C/C++ extension (`ms-vscode.cpptools`), initialize the
@@ -29,7 +50,8 @@ C#-only projects (`Havana --project <folder>` and `Player --project <folder>` op
 see [Projects](Projects.md)).
 
 `BuildProject.sh` takes a target, configuration, and optional extra make
-arguments. It reads the generated solution name from `Project/Game.meproj`.
+arguments. It reads the generated solution name from `Project/Game.meproj`
+(`Tools/SolutionName.sh`; `MitchEngine` in an engine checkout).
 `MITCH_BUILD_JOBS` overrides the default `nproc` job count.
 `Tools/GenerateProject.sh` generates without building; `--compile-commands`
 retains the bear-based editor build used to generate `compile_commands.json`.
@@ -45,9 +67,9 @@ outside the game repository:
 /opt/MitchEngine/Tools/NixEnv.sh --project "$PWD" make -f MyGame.make
 ```
 
-The environment launchers support a separate SDK installation. The existing
-Sharpmake project templates still expect an `Engine/` directory; changing that
-build-system convention is separate work. The SDK's Nix support files can ship
+The environment launchers support a separate SDK installation. The C++ project
+templates still expect an `Engine/` directory; C#-only projects don't (they run on
+the engine checkout's own builds). The SDK's Nix support files can ship
 with a binary SDK and do not require access to its C++ source repository.
 
 ### Build speed: mold and ccache

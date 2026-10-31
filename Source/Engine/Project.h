@@ -13,7 +13,7 @@
 //      or an install that ships Engine/ beside its binaries). The VFS then serves "Engine/..."
 //      from there, so a C#-only project needs no copy of the engine.
 // A folder without a .meproj (a cooked tree, a shipped build) never borrows engine files from
-// wherever its executable happens to sit.
+// wherever its executable happens to sit. An engine checkout's own root is its own engine.
 class Project
 {
 public:
@@ -44,6 +44,9 @@ public:
     static std::string FindProjectRoot( const std::string& InFolderOrFile );
     // An engine folder (holds the engine's own Assets/Config/HardwareProfiles.json).
     static bool IsEngineDirectory( const std::string& InDirectory );
+    // An engine source checkout (an engine folder with Engine.sharpmake.cs), as opposed to the
+    // engine files a cooked tree or an install carries.
+    static bool IsEngineCheckout( const std::string& InDirectory );
     // The nearest engine at or above the executable's folder; empty when there is none.
     static std::string FindExecutableEngine();
 };

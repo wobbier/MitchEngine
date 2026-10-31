@@ -28,6 +28,13 @@ public class EngineTests : BaseProject
         conf.TargetPath = Globals.RootDir + "/.build/[target.Name]/";
         conf.VcxprojUserFile.LocalDebuggerWorkingDirectory = Globals.RootDir;
 
-        conf.AddPublicDependency<SharpGameProject>(target, DependencySetting.Default);
+        if (Globals.HasGameModule)
+        {
+            conf.AddPublicDependency(target, Globals.GameProjectType, DependencySetting.Default);
+        }
+        else
+        {
+            conf.AddPublicDependency<Engine>(target, DependencySetting.Default);
+        }
     }
 }

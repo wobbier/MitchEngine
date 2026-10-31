@@ -62,7 +62,13 @@ bool Project::InitFromCommandLine()
     }
 
     std::string engine = root + "/Engine";
-    if( !IsEngineDirectory( engine ) && fs::is_regular_file( root + "/" + kProjectFile, error ) )
+    if( !IsEngineDirectory( engine ) && IsEngineCheckout( root ) )
+    {
+        // Started in an engine checkout's own root (its unit tests, a debugger's default working
+        // directory): the checkout is its own engine.
+        engine = root;
+    }
+    else if( !IsEngineDirectory( engine ) && fs::is_regular_file( root + "/" + kProjectFile, error ) )
     {
         const std::string found = FindExecutableEngine();
         if( !found.empty() )
@@ -171,6 +177,13 @@ bool Project::IsEngineDirectory( const std::string& InDirectory )
 {
     std::error_code error;
     return !InDirectory.empty() && fs::is_regular_file( fs::path( InDirectory ) / kEngineMarker, error );
+}
+
+
+bool Project::IsEngineCheckout( const std::string& InDirectory )
+{
+    std::error_code error;
+    return IsEngineDirectory( InDirectory ) && fs::is_regular_file( fs::path( InDirectory ) / "Engine.sharpmake.cs", error );
 }
 
 

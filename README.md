@@ -31,7 +31,18 @@ Main Features
 How to make a Mitch game
 -----------------------
 
-1. Run the project setup script from `Tools/` (`NewProjectSetup.bat`, `.command` or `.sh`) in an empty folder or your git repo, or start from the [MitchGame][13] example project.
+**C# game (no C++):**
+
+1. Clone this repo with its submodules (`git clone --recurse-submodules https://github.com/wobbier/MitchEngine`).
+2. Run `GenerateSolution.bat` (Windows), `GenerateSolution.command` (macOS) or `GenerateSolution.sh` (Linux) from its root.
+3. Open `MitchEngine.sln` in Visual Studio (Linux: open the folder in VS Code; macOS: `MitchEngine.xcworkspace` in Xcode), pick `Editor_Debug` and press F5. Havana opens the Project Hub: make a new project from a template anywhere you like.
+4. Write C# under the project's `Assets/`; File > Build Game ships it. See [Docs/Projects.md](Docs/Projects.md#the-engines-own-solution).
+
+C# scripting runs on Windows and Linux for now: macOS builds have no .NET host yet ([Docs/Scripting-DotNet.md](Docs/Scripting-DotNet.md)), so the editor opens there but a project's scripts don't run.
+
+**C++ game:**
+
+1. Run the project setup script from `Tools/` (`NewProjectSetup.bat`, `.command` or `.sh`) in an empty folder or your git repo, or start from the [MitchGame][13] example project. The engine becomes its `Engine/` submodule and the game builds its own editor.
 2. Think of an awesome game idea.
 3. ????
 4. Profit

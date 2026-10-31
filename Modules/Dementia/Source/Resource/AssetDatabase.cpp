@@ -3,6 +3,7 @@
 #include "JSON.h"
 #include "CLog.h"
 #include "Path.h"
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -57,11 +58,19 @@ void AssetDatabase::Refresh( const std::vector<std::string>& InRoots )
         }
         Register( InPath, InGUID );
     };
+    std::vector<fs::path> scannedRoots;
     for( const std::string& root : InRoots )
     {
         // Scan the folder the root resolves to (an engine outside the project for "Engine/Assets"),
         // registering paths in the root's own spelling.
         const fs::path physicalRoot = fs::path( Path( root, true ).FullPath );
+        // Once per folder: run from an engine checkout, "Assets" and "Engine/Assets" are one.
+        std::error_code sameError;
+        if( std::any_of( scannedRoots.begin(), scannedRoots.end(), [&]( const fs::path& InScanned ) { return fs::equivalent( InScanned, physicalRoot, sameError ); } ) )
+        {
+            continue;
+        }
+        scannedRoots.push_back( physicalRoot );
         auto logicalPath = [&root, &physicalRoot]( const fs::path& InPhysical ) {
             std::error_code relativeError;
             const fs::path relative = fs::relative( InPhysical, physicalRoot, relativeError );

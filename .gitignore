@@ -246,3 +246,10 @@ Modules/ScriptCore/**/obj/
 *.spriteatlas.png.*
 *.spriteatlas.spritesheet
 *.spriteatlas.spritesheet.meta
+
+# The engine's own solution (GenerateSolution.* in the root; Docs/Projects.md)
+/MitchEngine.make
+/Makefile
+/compile_commands.json
+/ScriptCore.runtimeconfig.json
+*.xcworkspace

@@ -109,7 +109,7 @@ public abstract class BaseProject : Project
                 if (target.SubPlatform == SubPlatformType.Win64 || target.SubPlatform == SubPlatformType.UWP)
                 {
                     var copyDirBuildStep = new Configuration.BuildStepCopy(
-                        Path.Combine(Globals.RootDir, $"Engine/ThirdParty/Lib/Optick/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"),
+                        Path.Combine(Globals.EngineDir, $"ThirdParty/Lib/Optick/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"),
                         Globals.RootDir + "/.build/[target.Name]");
                     copyDirBuildStep.IsFileCopy = false;
                     copyDirBuildStep.CopyPattern = "OptickCore.dll";

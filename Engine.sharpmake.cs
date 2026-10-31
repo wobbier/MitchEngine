@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Sharpmake;
 
 [module: Sharpmake.Include("Modules/Dementia/Dementia.sharpmake.cs")]
@@ -70,7 +71,7 @@ public class EntryPointGameProject : BaseProject
             conf.ConsumeWinRTExtensions.Add("main.cpp");
         }
 
-        conf.AddPublicDependency<SharpGameProject>(target);
+        conf.AddPublicDependency(target, Globals.GameProjectType);
     }
 
     public override void ConfigureWin64(Configuration conf, CommonTarget target)
@@ -179,7 +180,10 @@ public class Engine : BaseProject
         if (target.Platform == Platform.win64 && Directory.Exists(Globals.DOTNET_Win64_Dir))
         {
             conf.AddPublicDependency<ScriptCore>(target);
-            conf.AddPublicDependency<UserGameScript>(target);
+            if (Globals.GameScriptType != null)
+            {
+                conf.AddPublicDependency(target, Globals.GameScriptType);
+            }
         }
     }
 
@@ -257,7 +261,7 @@ public class Engine : BaseProject
             // hostfxr loads this relative to the working dir (root), so copy it out of source
             {
                 var copyRuntimeConfig = new Configuration.BuildStepCopy(
-                    Path.Combine(Globals.RootDir, "Engine/Source/Scripting/ScriptCore.runtimeconfig.json"),
+                    Path.Combine(Globals.EngineDir, "Source/Scripting/ScriptCore.runtimeconfig.json"),
                     Path.Combine(Globals.RootDir, "ScriptCore.runtimeconfig.json"));
                 copyRuntimeConfig.IsFileCopy = true;
                 conf.EventPostBuildExe.Add(copyRuntimeConfig);
@@ -319,9 +323,9 @@ public class Engine : BaseProject
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Assimp/macOS/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
 
         // Build Machine
-        if (!Directory.Exists(Globals.FMOD_macOS_Dir) && Directory.Exists(Path.Combine(Globals.RootDir, $"Engine/ThirdParty/FMOD")))
+        if (!Directory.Exists(Globals.FMOD_macOS_Dir) && Directory.Exists(Path.Combine(Globals.EngineDir, "ThirdParty/FMOD")))
         {
-            Globals.FMOD_macOS_Dir = Path.Combine(Globals.RootDir, $"Engine/ThirdParty/FMOD");
+            Globals.FMOD_macOS_Dir = Path.Combine(Globals.EngineDir, "ThirdParty/FMOD");
         }
 
 
@@ -376,7 +380,7 @@ public class Engine : BaseProject
 
             // hostfxr_initialize_for_runtime_config expects this in the CWD at runtime
             var copyRuntimeConfig = new Configuration.BuildStepCopy(
-                Path.Combine(Globals.RootDir, "Engine/Source/Scripting/ScriptCore.runtimeconfig.json"),
+                Path.Combine(Globals.EngineDir, "Source/Scripting/ScriptCore.runtimeconfig.json"),
                 Path.Combine(Globals.RootDir, "ScriptCore.runtimeconfig.json"));
             copyRuntimeConfig.IsFileCopy = true;
             conf.EventPostBuildExe.Add(copyRuntimeConfig);
@@ -422,23 +426,7 @@ public class BaseGameSolution : Solution
         conf.SolutionPath = @"[solution.SharpmakeCsPath]";
         conf.SolutionFileName = "[solution.Name]";
         Globals.RootDir = Path.GetFullPath("../");
-
-        // Build Machine
-        if (!Directory.Exists(Globals.FMOD_Win64_Dir) && Directory.Exists(Path.Combine(Globals.RootDir, $"Engine/ThirdParty/FMOD")))
-        {
-            Globals.FMOD_Win64_Dir = Path.Combine(Globals.RootDir, $"Engine/ThirdParty/FMOD");
-        }
-        if (!Directory.Exists(Globals.FMOD_Linux_Dir) && Directory.Exists(Path.Combine(Globals.RootDir, "Engine/ThirdParty/FMOD")))
-            Globals.FMOD_Linux_Dir = Path.Combine(Globals.RootDir, "Engine/ThirdParty/FMOD");
-        if (!Directory.Exists(Globals.FMOD_Linux_Dir) && Directory.Exists(Path.Combine(Globals.RootDir, "Engine/ThirdParty/fmod")))
-            Globals.FMOD_Linux_Dir = Path.Combine(Globals.RootDir, "Engine/ThirdParty/fmod");
-
-        {
-            string dotnetNativeEnv = System.Environment.GetEnvironmentVariable("DOTNET_LINUX_NATIVE_DIR") ?? string.Empty;
-            if (!string.IsNullOrEmpty(dotnetNativeEnv) && Directory.Exists(dotnetNativeEnv))
-                Globals.DOTNET_Linux_Dir = dotnetNativeEnv;
-        }
-        ReportFeatures();
+        Globals.DetectSdks();
 
         conf.AddProject<Dementia>(target);
         conf.AddProject<ImGui>(target);
@@ -467,10 +455,10 @@ public class BaseGameSolution : Solution
 
         if (target.Platform == Platform.win64)
         {
-            conf.AddProject<UserSharpmakeProject>(target);
+            conf.AddProject(Globals.GameSharpmakeProjectType, target);
         }
 
-        conf.AddProject<SharpGameProject>(target);
+        conf.AddProject(Globals.GameProjectType, target);
         if (target.SubPlatform != CommonTarget.SubPlatformType.UWP)
         {
             conf.AddProject<EngineTests>(target);
@@ -500,33 +488,53 @@ public class BaseGameSolution : Solution
         bool empty = text.Substring(open + 1).Trim().StartsWith("}");
         File.WriteAllText(path, match.Success ? entry.Replace(text, nameEntry, 1) : text.Insert(open + 1, nameEntry + (empty ? "" : ",")));
     }
+}
 
-    private static bool s_reportedFeatures = false;
-
-    // Optional features follow which SDKs exist at generation time and silently compile out when one
-    // is missing, so say what this generation found (once).
-    private static void ReportFeatures()
+// The engine checkout's own solution (Docs/Projects.md, "The engine's own solution"): Havana, the
+// Player and the tests with no game module, generated by GenerateSolution.{bat,command,sh} in the
+// engine root into MitchEngine.sln / MitchEngine.make there. Havana opens the Project Hub and the
+// C#-only projects it makes live anywhere. A game checkout generates its Game.sharpmake.cs
+// (SharpGameSolution, a BaseGameSolution) instead, and never this.
+[Generate]
+public class EngineSolution : Solution
+{
+    public EngineSolution()
+        : base(typeof(CommonTarget))
     {
-        if (s_reportedFeatures)
+        Name = "MitchEngine";
+
+        // UWP ships from a game's own entry point: the engine's solution has nothing to run there.
+        AddTargets(CommonTarget.GetDefaultTargets().Where(t => t.SubPlatform != CommonTarget.SubPlatformType.UWP).ToArray());
+
+        IsFileNameToLower = false;
+    }
+
+    [Configure]
+    public virtual void ConfigureAll(Solution.Configuration conf, CommonTarget target)
+    {
+        conf.SolutionPath = @"[solution.SharpmakeCsPath]";
+        conf.SolutionFileName = "[solution.Name]";
+        Globals.RootDir = Globals.OnDiskSpelling(SharpmakeCsPath).TrimEnd('/', '\\') + Path.DirectorySeparatorChar;
+        Globals.DetectSdks();
+
+        conf.AddProject<Dementia>(target);
+        conf.AddProject<ImGui>(target);
+        conf.AddProject<Moonlight>(target);
+        conf.AddProject<Engine>(target);
+
+        // One startup project per .sln (Sharpmake's Visual Studio generator refuses two): Havana,
+        // which Visual Studio then also runs in the game configurations' F5 until you pick the Player.
+        if (target.SelectedMode == CommonTarget.Mode.Editor)
         {
-            return;
+            conf.AddProject<Havana>(target);
+            conf.SetStartupProject<Havana>();
         }
-        s_reportedFeatures = true;
-        bool windows = System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows);
-        bool mac = System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX);
-        string fmodDir = windows ? Globals.FMOD_Win64_Dir : (mac ? Globals.FMOD_macOS_Dir : Globals.FMOD_Linux_Dir);
-        string dotnetDir = windows ? Globals.DOTNET_Win64_Dir : (mac ? string.Empty : Globals.DOTNET_Linux_Dir);
-        bool fmod = Directory.Exists(fmodDir);
-        bool dotnet = Directory.Exists(dotnetDir);
-        string Line(string name, bool on, string detail) => $"  {name,-16} {(on ? "on " : "OFF")}  {detail}";
-        System.Console.WriteLine("MitchEngine features for this generation (optional SDKs are detected by directory):");
-        System.Console.WriteLine(Line("FMOD audio", fmod, fmod ? fmodDir : "no SDK found (Engine/ThirdParty/FMOD or Globals.FMOD_*_Dir); audio compiles to no-ops"));
-        System.Console.WriteLine(Line(".NET scripting", dotnet, dotnet ? dotnetDir
-            : (mac ? "no macOS host yet" : (windows ? "set Globals.DOTNET_Win64_Dir to the Microsoft.NETCore.App.Host.win-x64 native folder" : "DOTNET_LINUX_NATIVE_DIR not set or missing: generate inside `nix develop`"))));
-        System.Console.WriteLine(Line("RmlUi game UI", true, "RmlUi + FreeType are built from source"));
-        System.Console.WriteLine(Line("Optick", windows, windows ? "Win64 builds (not Retail)" : "Win64 only"));
-        System.Console.WriteLine(Line("RenderDoc", windows && File.Exists("C:/Program Files/RenderDoc/renderdoc.dll"), windows ? "C:/Program Files/RenderDoc" : "Windows only"));
-        System.Console.WriteLine(Line("Physics, navmesh", true, "Box3D, Box2D and Recast/Detour are built from source"));
+        else
+        {
+            conf.AddProject<PlayerProject>(target);
+        }
+
+        conf.AddProject<EngineTests>(target);
     }
 }
 
@@ -554,7 +562,25 @@ public class BaseScriptSolution : Solution
 
 public class Globals
 {
+    // The checkout being generated: a game's root, or the engine's own (EngineSolution). Builds go
+    // to RootDir/.build/.
     public static string RootDir = string.Empty;
+
+    // Where the engine is: the game's Engine/ submodule, or the checkout itself.
+    public static string EngineDir => HasGameModule ? Path.Combine(RootDir, "Engine") : RootDir;
+
+    // The game's own types, declared by its Game.sharpmake.cs. Null when the engine generates its
+    // own solution, which has no game module (and Havana then links none).
+    public static System.Type GameProjectType => FindGameType("SharpGameProject");
+    public static System.Type GameScriptType => FindGameType("UserGameScript");
+    public static System.Type GameSolutionType => FindGameType("SharpGameSolution");
+    public static System.Type GameSharpmakeProjectType => FindGameType("UserSharpmakeProject");
+    public static bool HasGameModule => GameProjectType != null;
+
+    private static System.Type FindGameType(string name)
+    {
+        return typeof(Globals).Assembly.GetType(name);
+    }
     public static string FMOD_Win64_Dir = string.Empty;
     public static string FMOD_UWP_Dir = string.Empty;
     public static string FMOD_macOS_Dir = string.Empty;
@@ -575,6 +601,101 @@ public class Globals
 
     public static bool IsUWPEnabled = true;
     public static bool IsPhysicsEnabled3D = true;
+
+    // Optional SDKs a game's Game.sharpmake.cs didn't name (or that aren't where it says): the
+    // engine's ThirdParty/FMOD on build machines, .NET from the dev shell on Linux, and for the
+    // engine's own solution on Windows, FMOD's default install and the newest .NET 8 host pack.
+    public static void DetectSdks()
+    {
+        if (!Directory.Exists(FMOD_Win64_Dir) && Directory.Exists(Path.Combine(EngineDir, "ThirdParty/FMOD")))
+            FMOD_Win64_Dir = Path.Combine(EngineDir, "ThirdParty/FMOD");
+        if (!Directory.Exists(FMOD_Linux_Dir) && Directory.Exists(Path.Combine(EngineDir, "ThirdParty/FMOD")))
+            FMOD_Linux_Dir = Path.Combine(EngineDir, "ThirdParty/FMOD");
+        if (!Directory.Exists(FMOD_Linux_Dir) && Directory.Exists(Path.Combine(EngineDir, "ThirdParty/fmod")))
+            FMOD_Linux_Dir = Path.Combine(EngineDir, "ThirdParty/fmod");
+        // Only for the engine's own solution: a game's Game.sharpmake.cs names its SDKs, and its UWP
+        // configurations have no .NET host to build against.
+        if (Util.GetExecutingPlatform() == Platform.win64 && !HasGameModule)
+        {
+            string fmodInstall = "C:/Program Files (x86)/FMOD SoundSystem/";
+            if (!Directory.Exists(FMOD_Win64_Dir) && Directory.Exists(fmodInstall + "FMOD Studio API Windows"))
+                FMOD_Win64_Dir = fmodInstall + "FMOD Studio API Windows/";
+            if (!Directory.Exists(FMOD_UWP_Dir) && Directory.Exists(fmodInstall + "FMOD Studio API Universal Windows Platform"))
+                FMOD_UWP_Dir = fmodInstall + "FMOD Studio API Universal Windows Platform/";
+            if (!Directory.Exists(DOTNET_Win64_Dir))
+                DOTNET_Win64_Dir = FindDotnetHostPack() ?? DOTNET_Win64_Dir;
+        }
+
+        string dotnetNativeEnv = System.Environment.GetEnvironmentVariable("DOTNET_LINUX_NATIVE_DIR") ?? string.Empty;
+        if (!string.IsNullOrEmpty(dotnetNativeEnv) && Directory.Exists(dotnetNativeEnv))
+            DOTNET_Linux_Dir = dotnetNativeEnv;
+
+        ReportFeatures();
+    }
+
+    // The generate scripts run Sharpmake from the engine root: prefer the working directory's
+    // spelling of it (Sharpmake may hand paths back in another case on Windows).
+    public static string OnDiskSpelling(string path)
+    {
+        string current = Directory.GetCurrentDirectory();
+        bool same = string.Equals(Path.GetFullPath(current).TrimEnd('/', '\\'), Path.GetFullPath(path).TrimEnd('/', '\\'), System.StringComparison.OrdinalIgnoreCase);
+        return same ? current : path;
+    }
+
+    // <dotnet>/packs/Microsoft.NETCore.App.Host.win-x64/<newest 8.x>/runtimes/win-x64/native: nethost
+    // for ScriptCore, which targets net8.0.
+    private static string FindDotnetHostPack()
+    {
+        string dotnetRoot = System.Environment.GetEnvironmentVariable("DOTNET_ROOT");
+        if (string.IsNullOrEmpty(dotnetRoot))
+            dotnetRoot = Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.ProgramFiles), "dotnet");
+        string packs = Path.Combine(dotnetRoot, "packs", "Microsoft.NETCore.App.Host.win-x64");
+        if (!Directory.Exists(packs))
+            return null;
+        string best = null;
+        System.Version bestVersion = null;
+        foreach (string pack in Directory.GetDirectories(packs))
+        {
+            System.Version version;
+            if (!System.Version.TryParse(Path.GetFileName(pack), out version) || version.Major != 8)
+                continue;
+            string native = Path.Combine(pack, "runtimes", "win-x64", "native");
+            if (Directory.Exists(native) && (bestVersion == null || version > bestVersion))
+            {
+                best = native;
+                bestVersion = version;
+            }
+        }
+        return best;
+    }
+
+    private static bool s_reportedFeatures = false;
+
+    // Optional features follow which SDKs exist at generation time and silently compile out when one
+    // is missing, so say what this generation found (once).
+    private static void ReportFeatures()
+    {
+        if (s_reportedFeatures)
+        {
+            return;
+        }
+        s_reportedFeatures = true;
+        bool windows = System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows);
+        bool mac = System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX);
+        string fmodDir = windows ? Globals.FMOD_Win64_Dir : (mac ? Globals.FMOD_macOS_Dir : Globals.FMOD_Linux_Dir);
+        string dotnetDir = windows ? Globals.DOTNET_Win64_Dir : (mac ? string.Empty : Globals.DOTNET_Linux_Dir);
+        bool fmod = Directory.Exists(fmodDir);
+        bool dotnet = Directory.Exists(dotnetDir);
+        string Line(string name, bool on, string detail) => $"  {name,-16} {(on ? "on " : "OFF")}  {detail}";
+        System.Console.WriteLine("MitchEngine features for this generation (optional SDKs are detected by directory):");
+        System.Console.WriteLine(Line("FMOD audio", fmod, fmod ? fmodDir : "no SDK found (Engine/ThirdParty/FMOD or Globals.FMOD_*_Dir); audio compiles to no-ops"));
+        System.Console.WriteLine(Line(".NET scripting", dotnet, dotnet ? dotnetDir
+            : (mac ? "no macOS host yet" : (windows ? "install the .NET 8 SDK, or set Globals.DOTNET_Win64_Dir to its Microsoft.NETCore.App.Host.win-x64 native folder" : "DOTNET_LINUX_NATIVE_DIR not set or missing: generate inside `nix develop`"))));
+        System.Console.WriteLine(Line("RmlUi game UI", true, "RmlUi + FreeType are built from source"));
+        System.Console.WriteLine(Line("Optick", windows, windows ? "Win64 builds (not Retail)" : "Win64 only"));
+        System.Console.WriteLine(Line("RenderDoc", windows && File.Exists("C:/Program Files/RenderDoc/renderdoc.dll"), windows ? "C:/Program Files/RenderDoc" : "Windows only"));
+        System.Console.WriteLine(Line("Physics, navmesh", true, "Box3D, Box2D and Recast/Detour are built from source"));
+    }
 }
 
 
@@ -596,7 +717,16 @@ public static class Main
 
         KitsRootPaths.SetUseKitsRootForDevEnv(DevEnv.vs2022, KitsRootEnum.KitsRoot10, Options.Vc.General.WindowsTargetPlatformVersion.v10_0_19041_0);
 
-        arguments.Generate<SharpGameSolution>();
-        arguments.Generate<BaseScriptSolution>();
+        // A game checkout's Game.sharpmake.cs declares its solution; the engine's own checkout
+        // (GenerateSolution.* in its root, which compiles only this file) has none.
+        if (Globals.GameSolutionType != null)
+        {
+            arguments.Generate(Globals.GameSolutionType);
+            arguments.Generate<BaseScriptSolution>();
+        }
+        else
+        {
+            arguments.Generate<EngineSolution>();
+        }
     }
 }

@@ -9,7 +9,11 @@
 #include "Editor/UndoStack.h"
 
 // I don't like this
+// A game checkout's editor pulls its game's components and cores in through here (resolved
+// against the engine's Source/ include path: <game>/Game/Source).
+#if USING( ME_GAME_MODULE )
 #include "../../Game/Source/ComponentRegistry.h"
+#endif
 class Engine;
 
 #if USING( ME_EDITOR )

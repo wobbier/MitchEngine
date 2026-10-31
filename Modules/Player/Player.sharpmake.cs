@@ -24,6 +24,12 @@ public class PlayerProject : BaseProject
         conf.IncludePaths.Add("[project.SourceRootPath]");
         conf.TargetPath = Globals.RootDir + "/.build/[target.Name]/";
         conf.VcxprojUserFile.LocalDebuggerWorkingDirectory = Globals.RootDir;
+        // The engine's own solution has no project at its root: run the sample until you point
+        // it at yours (Debugging > Command Arguments).
+        if (!Globals.HasGameModule)
+        {
+            conf.VcxprojUserFile.LocalDebuggerCommandArguments = "--project Samples/ScriptOnly";
+        }
 
         conf.AddPublicDependency<Engine>(target);
     }

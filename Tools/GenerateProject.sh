@@ -18,12 +18,17 @@ cd -- "${MITCH_PROJECT_ROOT:?Run through the engine environment launcher}"
 if [[ ! -f "$MITCH_ENGINE_ROOT/ThirdParty/Assimp/include/assimp/config.h" ]]; then
     bash "$MITCH_ENGINE_ROOT/ThirdParty/GenerateSolutions.sh"
 fi
-(
-    cd Project
-    dotnet "$MITCH_ENGINE_ROOT/Tools/Sharpmake/Sharpmake.Application.dll" "/sources('../Game.sharpmake.cs')"
-)
+if [[ "$MITCH_PROJECT_ROOT" -ef "$MITCH_ENGINE_ROOT" ]]; then
+    # The engine's own solution (EngineSolution): MitchEngine.make in the engine root.
+    dotnet "$MITCH_ENGINE_ROOT/Tools/Sharpmake/Sharpmake.Application.dll" "/sources('Engine.sharpmake.cs')"
+else
+    (
+        cd Project
+        dotnet "$MITCH_ENGINE_ROOT/Tools/Sharpmake/Sharpmake.Application.dll" "/sources('../Game.sharpmake.cs')"
+    )
+fi
 
 if [[ "$compile_commands" == 1 ]]; then
-    project_name="$(python3 -c 'import json; print(json.load(open("Project/Game.meproj"))["ProjectName"])')"
+    project_name="$(bash "$here/SolutionName.sh")"
     bear --output compile_commands.json -- make -f "$project_name.make" Havana config=editor_debug -j"${MITCH_BUILD_JOBS:-$(nproc)}"
 fi

@@ -1,0 +1,77 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Havana: Project Hub (Editor_Debug, Linux)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/.build/Editor_Debug/Havana",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "${workspaceFolder}/Tools/NixGdb.sh",
+      "miDebuggerArgs": "--project \"${workspaceFolder}\"",
+      "setupCommands": [
+        { "text": "-enable-pretty-printing", "ignoreFailures": true }
+      ],
+      "preLaunchTask": "build-havana-editor-debug"
+    },
+    {
+      "name": "Havana: open a project (Editor_Debug, Linux)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/.build/Editor_Debug/Havana",
+      "args": ["--project", "${input:projectFolder}"],
+      "cwd": "${workspaceFolder}",
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "${workspaceFolder}/Tools/NixGdb.sh",
+      "miDebuggerArgs": "--project \"${workspaceFolder}\"",
+      "setupCommands": [
+        { "text": "-enable-pretty-printing", "ignoreFailures": true }
+      ],
+      "preLaunchTask": "build-havana-editor-debug"
+    },
+    {
+      "name": "Player: run a project (Debug, Linux)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/.build/Game_linux_Debug/Player",
+      "args": ["--project", "${input:projectFolder}"],
+      "cwd": "${workspaceFolder}",
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "${workspaceFolder}/Tools/NixGdb.sh",
+      "miDebuggerArgs": "--project \"${workspaceFolder}\"",
+      "setupCommands": [
+        { "text": "-enable-pretty-printing", "ignoreFailures": true }
+      ],
+      "preLaunchTask": "build-player-game-debug"
+    },
+    {
+      "name": "Unit tests (Debug, Linux)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/.build/Game_linux_Debug/MitchEngine_Tests",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "${workspaceFolder}/Tools/NixGdb.sh",
+      "miDebuggerArgs": "--project \"${workspaceFolder}\"",
+      "setupCommands": [
+        { "text": "-enable-pretty-printing", "ignoreFailures": true }
+      ],
+      "preLaunchTask": "build-tests-game-debug"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "projectFolder",
+      "type": "promptString",
+      "description": "Project folder (holds Project/Game.meproj)",
+      "default": "${workspaceFolder}/Samples/ScriptOnly"
+    }
+  ]
+}

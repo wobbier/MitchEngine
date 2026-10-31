@@ -80,11 +80,17 @@ TEST_CASE( "Project: a project is a folder with Project/Game.meproj, named by th
 
 TEST_CASE( "Project: the running executable's engine is found above it" )
 {
-    // The tests run from a checkout (or the CI's EmptyProject) whose Engine/ sits above .build/.
+    // The tests run from a game checkout (or the CI's EmptyProject) whose Engine/ sits above
+    // .build/, or from an engine checkout, which is its own builds' engine.
     const std::string engine = Project::FindExecutableEngine();
     REQUIRE( !engine.empty() );
     CHECK( Project::IsEngineDirectory( engine ) );
-    CHECK( std::filesystem::path( engine ).filename() == "Engine" );
+    const std::string root = std::filesystem::current_path().generic_string();
+    auto same = []( const std::string& InA, const std::string& InB ) {
+        std::error_code error;
+        return std::filesystem::equivalent( InA, InB, error );
+    };
+    CHECK( ( same( engine, root + "/Engine" ) || ( same( engine, root ) && Project::IsEngineCheckout( root ) ) ) );
 
     ProjectTest::TempDir dir( ".tmp/Tests/ProjectNotEngine" );
     ProjectTest::WriteTextFile( dir.Absolute + "/Assets/Config/Engine.cfg", "{}" );

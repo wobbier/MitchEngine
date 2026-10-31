@@ -165,6 +165,14 @@ Class& operator=(Class&&) = delete;
 #define ME_RMLUI NOT_IN_USE
 #endif
 
+// A game checkout's C++ game module (Game/Source) is linked into Havana. The engine's own solution
+// builds Havana without one, for C#-only projects (Docs/Projects.md).
+#if defined( DEFINE_ME_GAME_MODULE )
+#define ME_GAME_MODULE IN_USE
+#else
+#define ME_GAME_MODULE NOT_IN_USE
+#endif
+
 #define ME_PLATFORM_WINDOWS USE_IF( USING( ME_PLATFORM_WIN64 ) || USING( ME_PLATFORM_UWP ) )
 #define ME_EDITOR_WIN64     USE_IF( USING( ME_EDITOR ) && USING( ME_PLATFORM_WIN64 ) )
 #define ME_EDITOR_MACOS     USE_IF( USING( ME_EDITOR ) && USING( ME_PLATFORM_MACOS ) )

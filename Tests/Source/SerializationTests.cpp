@@ -82,7 +82,8 @@ TEST_CASE( "Serialization: every scene and prefab in the repo migrates to v2" )
 {
     namespace fs = std::filesystem;
     size_t files = 0;
-    for( const char* root : { "Assets", "Engine/Assets" } )
+    // Samples/ and Templates/ are there when the tests run from an engine checkout.
+    for( const char* root : { "Assets", "Engine/Assets", "Samples", "Templates" } )
     {
         std::error_code ec;
         if( !fs::exists( root, ec ) )

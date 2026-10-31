@@ -129,6 +129,58 @@ With `--editor-exec <script>` the Hub runs the script's `hub-*` lines (and `wait
 editor skips `hub-*` lines), passes its output through and returns its exit code. A script whose
 editor lines come before any project fails in the Hub. See `Docs/Editor-Havana.md` for the commands.
 
+## The engine's own solution
+
+A MitchEngine checkout builds on its own: Havana, the Player and the unit tests, with no game
+module. That is the way in for C#-only projects. Clone the engine with its submodules, run the
+generate script for your platform from its root, and open what it makes:
+
+| Platform | Run | Opens |
+|---|---|---|
+| Windows | `GenerateSolution.bat` | `MitchEngine.sln` in Visual Studio: pick `Editor_Debug`, press F5 |
+| macOS | `GenerateSolution.command` | `MitchEngine.xcworkspace` in Xcode (no C# scripting on macOS yet: [Scripting-DotNet.md](Scripting-DotNet.md)) |
+| Linux | `GenerateSolution.sh` (enters the Nix dev shell itself) | `MitchEngine.make`; or open the folder in VS Code and press F5 (`.vscode/`) |
+
+```bash
+git clone --recurse-submodules https://github.com/wobbier/MitchEngine
+cd MitchEngine && ./GenerateSolution.sh
+make -f MitchEngine.make Havana config=editor_debug -j$(nproc)   # or Tools/BuildProject.sh Havana editor_debug
+./.build/Editor_Debug/Havana                                     # the Project Hub
+```
+
+The first run of a generate script also configures the third-party headers
+(`ThirdParty/GenerateSolutions.*`) when they're missing. The solution is `EngineSolution` in
+`Engine.sharpmake.cs`: the engine modules, Havana and `MitchEngine_Tests` in the editor
+configurations, the Player and the tests in the game and server ones (no UWP: that ships from a
+game's own entry point). Havana is the solution's startup project (Sharpmake's Visual Studio
+generator allows one), so in the game configurations pick the Player before F5. Havana links no game module there (`ME_GAME_MODULE` is off, so
+`EditorApp.h` skips the game's `ComponentRegistry.h`). Builds land in the checkout's
+`.build/<config>/`, and their engine is the checkout itself ([Which engine](#which-engine)).
+On Windows, the engine's solution finds the newest .NET 8 host pack (`<dotnet>/packs/Microsoft.NETCore.App.Host.win-x64`)
+and FMOD's default install on its own (a game's `Game.sharpmake.cs` still names its own); the
+feature report generation prints says what it found.
+
+**Running and debugging.** Havana with no arguments opens the [Project Hub](#the-project-hub),
+where you create or pick a project. To go straight to one, give the debugger
+`--project <folder>`: Visual Studio's Debugging > Command Arguments, or the VS Code configuration
+"Havana: open a project", which asks for the folder. The working directory doesn't matter, since
+`--project` changes into the project first, and you don't run anything from the project's folder.
+The VS Code build tasks pass `--project ${workspaceFolder}` to `Tools/BuildProject.sh`, so even an
+engine that is a game's `Engine/` submodule, opened as a folder of its own, builds the engine's
+solution.
+The Player takes the same argument; its Visual Studio arguments start as
+`--project Samples/ScriptOnly`. Each project's scripts build into its own `.tmp/Scripts/`, so
+nothing is written into the engine checkout.
+
+A game checkout (C++ game code, the engine as its `Engine/` submodule) still generates its own
+solution from `Project/GenerateSolution.*` and its `Game.sharpmake.cs`, unchanged. Sharpmake
+compiles the engine's files together with the game's, and `Engine.sharpmake.cs` looks the game's
+types up by name (`Globals.GameProjectType` and friends): when they exist it generates the game's
+solution, otherwise the engine's. `Globals.EngineDir` is `<root>/Engine` in a game and the root
+itself in the engine. The Linux launchers do the same: `Tools/DevShell.sh` uses the engine
+checkout as its root when no game surrounds it, and `Tools/SolutionName.sh` names the solution
+(the game's `Project/Game.meproj`, or `MitchEngine`).
+
 ## Which engine
 
 `Project::InitFromCommandLine` picks the engine and hands both roots to
@@ -140,7 +192,7 @@ editor lines come before any project fails in the Hub. See `Docs/Editor-Havana.m
 2. Otherwise, if the folder has a `Project/Game.meproj`, the **running executable's engine**
    (`Project::FindExecutableEngine`): the nearest `Engine/` at or above the executable's folder, so
    `<checkout>/.build/Editor_Debug/Havana` uses `<checkout>/Engine`. An engine checkout's own
-   builds find the checkout itself.
+   builds ([The engine's own solution](#the-engines-own-solution)) find the checkout itself.
 
 Folders without a `.meproj` (a cooked tree, a shipped build, an empty directory with `--pak`)
 never take the second rule, so they never pick up engine files from wherever the executable sits.

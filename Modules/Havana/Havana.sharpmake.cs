@@ -28,7 +28,17 @@ public class Havana : BaseProject
         //conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/Lib/Optick/Win64/[target.Optimization]"));
         //conf.LibraryFiles.Add("OptickCore.lib");
 
-        conf.AddPublicDependency<SharpGameProject>(target, DependencySetting.Default);
+        // A game checkout's editor links its game module (components and cores register as it
+        // loads); the engine's own solution (EngineSolution) has none and edits C#-only projects.
+        if (Globals.HasGameModule)
+        {
+            conf.AddPublicDependency(target, Globals.GameProjectType, DependencySetting.Default);
+            conf.Defines.Add("DEFINE_ME_GAME_MODULE");
+        }
+        else
+        {
+            conf.AddPublicDependency<Engine>(target, DependencySetting.Default);
+        }
     }
 
     public override void ConfigureWin64(Configuration conf, CommonTarget target)

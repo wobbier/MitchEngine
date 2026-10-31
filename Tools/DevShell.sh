@@ -24,9 +24,10 @@ if [[ -z "$project_root" ]]; then
         project_root="$(cd -- "$engine_root/.." && pwd -P)"
     fi
 fi
+# No game around the engine: the engine checkout is its own root (its own solution, its own
+# .build/ and .tmp/; Docs/Projects.md).
 if [[ -z "$project_root" ]]; then
-    echo "DevShell.sh: cannot find a game project; pass --project DIR" >&2
-    exit 2
+    project_root="$engine_root"
 fi
 
 command -v nix >/dev/null || {

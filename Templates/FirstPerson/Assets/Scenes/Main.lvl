@@ -3,6 +3,43 @@
     "Cores": [],
     "Entities": [
         {
+            "GUID": "92e5dfe8cb1855fe",
+            "Name": "Player",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0.0,
+                        1.0,
+                        -6.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.0,
+                        1.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Type": "CharacterController",
+                    "Radius": 0.4,
+                    "Height": 1.8,
+                    "MaxSpeed": 5.0,
+                    "JumpHeight": 1.2
+                },
+                {
+                    "Type": "ScriptComponent",
+                    "ScriptName": "FirstPersonController",
+                    "ScriptFields": "{\"CameraName\": \"Main Camera\", \"Sensitivity\": 1.0, \"InvertY\": false, \"WalkSpeed\": 5.0, \"SprintSpeed\": 9.0}"
+                }
+            ]
+        },
+        {
             "GUID": "14a03569d26b9496",
             "Name": "Main Camera",
             "DestroyOnLoad": true,
@@ -56,43 +93,6 @@
                 }
             ],
             "Parent": "92e5dfe8cb1855fe"
-        },
-        {
-            "GUID": "92e5dfe8cb1855fe",
-            "Name": "Player",
-            "DestroyOnLoad": true,
-            "Components": [
-                {
-                    "Type": "Transform",
-                    "Position": [
-                        0.0,
-                        1.0,
-                        -6.0
-                    ],
-                    "Rotation": [
-                        0.0,
-                        0.0,
-                        0.0
-                    ],
-                    "Scale": [
-                        1.0,
-                        1.0,
-                        1.0
-                    ]
-                },
-                {
-                    "Type": "CharacterController",
-                    "Radius": 0.4,
-                    "Height": 1.8,
-                    "MaxSpeed": 5.0,
-                    "JumpHeight": 1.2
-                },
-                {
-                    "Type": "ScriptComponent",
-                    "ScriptName": "FirstPersonController",
-                    "ScriptFields": "{\"CameraName\": \"Main Camera\", \"Sensitivity\": 1.0, \"InvertY\": false, \"WalkSpeed\": 5.0, \"SprintSpeed\": 9.0}"
-                }
-            ]
         },
         {
             "GUID": "c320a4737c2b3abe",
