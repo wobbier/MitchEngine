@@ -35,6 +35,11 @@ namespace SceneTools
     // Projects a world point to viewport pixels. False when behind the camera.
     bool WorldToScreen( const Vector3& InPoint, const Vector2& InViewportSize, const Matrix4& InViewProjection, Vector2& OutPixel );
 
+    // ED-8, vertex snap: the mesh vertex (world space) whose projection lies nearest InPixel, within
+    // InMaxPixels. Meshes whose screen rectangle is farther away are skipped; InIgnore skips
+    // entities (the ones being moved).
+    bool NearestVertex( const Vector2& InPixel, const Vector2& InViewportSize, const Matrix4& InViewProjection, float InMaxPixels, Vector3& OutVertex, const std::function<bool( Entity& )>& InIgnore = {} );
+
     struct OverlaySettings
     {
         bool ShowGrid = true;

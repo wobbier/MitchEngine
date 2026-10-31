@@ -64,6 +64,9 @@ public:
 	bool SetViewOption(const std::string& InId, bool InValue);
 	// Automation (ED-8): the selection onto the surface at a fraction of the view, as Shift-drag does.
 	bool PlaceSelectionOnSurface(const Vector2& InViewportFraction);
+	// Automation (ED-8): the selection's pivot onto the mesh vertex nearest InNear's projection, as
+	// V-dragging the move gizmo does; false when no vertex is close.
+	bool SnapSelectionToVertex(const Vector3& InNear);
 	// Automation (ED-8): measures between two points of the view (fractions) as the Measure tool
 	// does, and returns the distance in metres.
 	float Measure(const Vector2& InFrom, const Vector2& InTo);
@@ -162,6 +165,9 @@ private:
 		json Before;
 	};
 	std::vector<DraggedEntity> m_dragged;
+	// ED-8, vertex snap: moves InRoots rigidly so the first one's pivot sits on the vertex nearest
+	// InPixel (none of InRoots' own meshes).
+	bool SnapToVertex(const std::vector<Entity*>& InRoots, const Vector2& InPixel);
 
 	// Click / marquee
 	bool m_pressed = false;

@@ -648,6 +648,74 @@ namespace SceneTools
     }
 
 
+    bool NearestVertex( const Vector2& InPixel, const Vector2& InViewportSize, const Matrix4& InViewProjection, float InMaxPixels, Vector3& OutVertex, const std::function<bool( Entity& )>& InIgnore )
+    {
+        float best = InMaxPixels * InMaxPixels;
+        bool found = false;
+        auto search = [&]( const Moonlight::MeshData& InData, const Mesh& InMesh, const Matrix4& InWorld ) {
+            if( InData.CollisionPositions.empty() )
+            {
+                return;
+            }
+            // Cheap reject: the cursor is nowhere near the projected bounds (unless they cross
+            // behind the camera, where the rectangle means nothing).
+            const AABB bounds = InMesh.GetWorldBounds( InWorld );
+            if( bounds.IsValid() )
+            {
+                Vector2 low( FLT_MAX, FLT_MAX ), high( -FLT_MAX, -FLT_MAX );
+                bool behind = false;
+                for( int corner = 0; corner < 8 && !behind; ++corner )
+                {
+                    const Vector3 point( corner & 1 ? bounds.Max.x : bounds.Min.x, corner & 2 ? bounds.Max.y : bounds.Min.y, corner & 4 ? bounds.Max.z : bounds.Min.z );
+                    Vector2 pixel;
+                    behind = !WorldToScreen( point, InViewportSize, InViewProjection, pixel );
+                    low = Vector2( std::min( low.x, pixel.x ), std::min( low.y, pixel.y ) );
+                    high = Vector2( std::max( high.x, pixel.x ), std::max( high.y, pixel.y ) );
+                }
+                if( !behind && ( InPixel.x < low.x - InMaxPixels || InPixel.x > high.x + InMaxPixels || InPixel.y < low.y - InMaxPixels || InPixel.y > high.y + InMaxPixels ) )
+                {
+                    return;
+                }
+            }
+            for( const Vector3& position : InData.CollisionPositions )
+            {
+                const Vector3 world = InWorld.TransformPoint( position );
+                Vector2 pixel;
+                if( !WorldToScreen( world, InViewportSize, InViewProjection, pixel ) )
+                {
+                    continue;
+                }
+                const Vector2 offset = pixel - InPixel;
+                const float distance = offset.x * offset.x + offset.y * offset.y;
+                if( distance < best )
+                {
+                    best = distance;
+                    OutVertex = world;
+                    found = true;
+                }
+            }
+        };
+        World& world = EditorOps::GetWorld();
+        world.Each<Transform, Mesh>( [&]( Entity& entity, Transform& transform, Mesh& mesh ) {
+            if( mesh.MeshReferece && entity.IsActiveInHierarchy() && !( InIgnore && InIgnore( entity ) ) )
+            {
+                search( *mesh.MeshReferece, mesh, transform.GetLocalToWorldMatrix() );
+            }
+        } );
+        world.Each<Model>( [&]( Entity& modelEntity, Model& model ) {
+            if( !model.IsCompact() || ( InIgnore && InIgnore( modelEntity ) ) ) return;
+            for( const auto& part : model.GetRenderParts() )
+            {
+                if( model.IsPartExternal( part ) || !part.Renderer || !part.Renderer->MeshReferece ) continue;
+                EntityHandle owner = model.GetNodeEntity( part.NodeIndex );
+                if( owner && !owner->IsActiveInHierarchy() ) continue;
+                search( *part.Renderer->MeshReferece, *part.Renderer, model.GetPartWorld( part ) );
+            }
+        } );
+        return found;
+    }
+
+
     void DrawOverlays( const Vector3& InCameraPosition, const OverlaySettings& InSettings )
     {
         if( InSettings.ShowGrid )

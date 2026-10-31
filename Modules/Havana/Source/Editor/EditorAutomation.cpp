@@ -1362,6 +1362,28 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             EditorOps::RecordComponentEdits( edits, "Place on Surface" );
         }
     }
+    else if( command == "vertex-snap" )
+    {
+        // vertex-snap [x, y, z]   (ED-8: the selection's pivot onto the mesh vertex nearest that point
+        // on screen, as V-dragging the move gizmo does; one undo step)
+        const json near = json::parse( args, nullptr, false );
+        SceneViewWidget* view = InApp.Editor ? InApp.Editor->GetSceneView() : nullptr;
+        std::vector<Entity*> roots = Selection::Get().GetRootEntities();
+        std::vector<EditorOps::ComponentEdit> edits;
+        for( Entity* root : roots ) edits.push_back( { root->GetGUID(), "Transform", EditorOps::CaptureComponent( *root, "Transform" ), json() } );
+        if( !near.is_array() || near.size() != 3 || !view || roots.empty() || !view->SnapSelectionToVertex( Vector3( near[0].get<float>(), near[1].get<float>(), near[2].get<float>() ) ) )
+        {
+            Fail( "vertex-snap: nothing selected, or no vertex near " + args );
+        }
+        else
+        {
+            for( EditorOps::ComponentEdit& edit : edits )
+            {
+                if( EntityHandle entity = EditorOps::GetWorld().FindEntityByGUID( edit.GUID ) ) edit.After = EditorOps::CaptureComponent( *entity.Get(), "Transform" );
+            }
+            EditorOps::RecordComponentEdits( edits, "Snap to Vertex" );
+        }
+    }
     else if( command == "measure" )
     {
         // measure 0.3 0.5 | 0.7 0.5   (ED-8: the Measure tool between two points of the World View;

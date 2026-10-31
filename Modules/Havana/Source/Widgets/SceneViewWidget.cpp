@@ -509,6 +509,60 @@ bool SceneViewWidget::PlaceSelectionOnSurface(const Vector2& InViewportFraction)
 }
 
 
+bool SceneViewWidget::SnapToVertex(const std::vector<Entity*>& InRoots, const Vector2& InPixel)
+{
+	if (!MainCamera || InRoots.empty())
+	{
+		return false;
+	}
+	// The moved entities' own vertices don't count.
+	auto moved = [&InRoots](Entity& InEntity) {
+		for (Transform* transform = InEntity.TryGetComponent<Transform>(); transform; transform = transform->GetParentTransform())
+		{
+			Entity* owner = transform->Parent.Get();
+			if (std::find(InRoots.begin(), InRoots.end(), owner) != InRoots.end())
+			{
+				return true;
+			}
+		}
+		return false;
+	};
+	const Matrix4 viewProjection(GetProjection().GetInternalMatrix() * MainCamera->View.GetInternalMatrix());
+	Vector3 vertex;
+	if (!SceneTools::NearestVertex(InPixel, SceneViewRenderSize, viewProjection, 30.f, vertex, moved))
+	{
+		return false;
+	}
+	Transform* pivot = InRoots.front()->TryGetComponent<Transform>();
+	if (!pivot)
+	{
+		return false;
+	}
+	const Vector3 offset = vertex - pivot->GetWorldPosition();
+	for (Entity* root : InRoots)
+	{
+		if (Transform* transform = root->TryGetComponent<Transform>())
+		{
+			transform->SetWorldPosition(transform->GetWorldPosition() + offset);
+		}
+	}
+	DebugDraw::Sphere(vertex, 0.06f, Vector4(1.f, 0.85f, 0.2f, 1.f), 0.f, DebugDraw::EditorOnly | DebugDraw::NoDepthTest, 12);
+	return true;
+}
+
+
+bool SceneViewWidget::SnapSelectionToVertex(const Vector3& InNear)
+{
+	if (!MainCamera)
+	{
+		return false;
+	}
+	const Matrix4 viewProjection(GetProjection().GetInternalMatrix() * MainCamera->View.GetInternalMatrix());
+	Vector2 pixel;
+	return SceneTools::WorldToScreen(InNear, SceneViewRenderSize, viewProjection, pixel) && SnapToVertex(Selection::Get().GetRootEntities(), pixel);
+}
+
+
 bool SceneViewWidget::SetViewOption(const std::string& InId, bool InValue)
 {
 	for (const ViewOption& option : kViewOptions)
@@ -1081,8 +1135,10 @@ void SceneViewWidget::DrawManipulator()
 			transform->SetWorldMatrix(Matrix4(delta * dragged.StartWorld.GetInternalMatrix()));
 		}
 	}
-	// ED-8, surface snap: Shift while moving slides the selection over the surface under the cursor.
-	if (m_dragging && m_operation == GizmoOperation::Translate && ImGui::GetIO().KeyShift)
+	// ED-8, snapping while moving: V puts the pivot on the vertex nearest the cursor; Shift slides
+	// the selection over the surface under the cursor.
+	const bool vertexSnap = ImGui::IsKeyDown(ImGuiKey_V) && !ImGui::GetIO().KeyCtrl;
+	if (m_dragging && m_operation == GizmoOperation::Translate && (vertexSnap || ImGui::GetIO().KeyShift))
 	{
 		std::vector<Entity*> roots;
 		World& world = EditorOps::GetWorld();
@@ -1093,7 +1149,14 @@ void SceneViewWidget::DrawManipulator()
 				roots.push_back(entity.Get());
 			}
 		}
-		EditorOps::PlaceOnSurface(roots, SceneTools::ScreenRay(ViewportMousePosition, SceneViewRenderSize, MainCamera->View, GetProjection()));
+		if (vertexSnap)
+		{
+			SnapToVertex(roots, ViewportMousePosition);
+		}
+		else
+		{
+			EditorOps::PlaceOnSurface(roots, SceneTools::ScreenRay(ViewportMousePosition, SceneViewRenderSize, MainCamera->View, GetProjection()));
+		}
 	}
 	if (!using_ && m_dragging)
 	{
