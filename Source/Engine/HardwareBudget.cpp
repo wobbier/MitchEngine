@@ -13,12 +13,12 @@
 #include "Resource/ResourceCache.h"
 #include "Resources/SoundResource.h"
 #include "Utils/PlatformUtils.h"
+#include "VFS/VFS.h"
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
-#include <fstream>
 #include <iterator>
 
 namespace
@@ -513,14 +513,14 @@ namespace
     // the DDS header names the stored size.
     uint64_t TextureBytes( const Moonlight::Texture& InTexture )
     {
-        const std::string compiled = InTexture.GetPath().FullPath + ".dds";
-        const uint64_t fileBytes = FileBytes( compiled );
         const uint64_t texels = static_cast<uint64_t>( std::max( InTexture.mWidth, 1 ) ) * static_cast<uint64_t>( std::max( InTexture.mHeight, 1 ) );
-        if( fileBytes > 128 )
+        // Through the VFS, so a cooked build's pak entry answers like a loose file.
+        VfsFileStream stream;
+        if( stream.Open( Path( InTexture.GetPath().FullPath + ".dds" ) ) && stream.Size() > 128 )
         {
-            std::ifstream stream( compiled, std::ios::binary );
+            const uint64_t fileBytes = stream.Size();
             uint32_t header[5] = {};
-            if( stream.read( reinterpret_cast<char*>( header ), sizeof( header ) ) && header[0] == 0x20534444u && header[3] > 0 && header[4] > 0 )
+            if( stream.Read( header, sizeof( header ) ) == sizeof( header ) && header[0] == 0x20534444u && header[3] > 0 && header[4] > 0 )
             {
                 const uint64_t stored = static_cast<uint64_t>( header[3] ) * header[4];
                 return stored > texels ? fileBytes * texels / stored : fileBytes;
