@@ -1906,6 +1906,18 @@ void AssetBrowserWidget::DrawEntryContextMenu( Entry& InEntry )
     {
         DuplicateSelection();
     }
+    if( InEntry.Type == AssetType::Prefab && ImGui::MenuItem( "Create Variant" ) )
+    {
+        // ED-6: a prefab that stores only its differences from this one.
+        const fs::path source( InEntry.FullPath );
+        const std::string path = UniquePath( source.parent_path().generic_string(), source.stem().string() + " Variant", ".prefab" );
+        if( PrefabTools::CreateVariant( ProjectRelative( InEntry.FullPath ), ProjectRelative( path ) ) )
+        {
+            Refresh();
+            RebuildEntries();
+            BeginRename( ToGeneric( fs::path( path ) ) );
+        }
+    }
     if( !InEntry.IsDirectory && ImGui::MenuItem( "Reimport" ) )
     {
         if( SharedPtr<MetaBase> meta = ResourceCache::GetInstance().LoadMetadata( Path( InEntry.FullPath ) ) )

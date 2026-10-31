@@ -177,6 +177,22 @@ namespace PrefabTools
         {
             // Stable asset GUID + reference table, so links to and from the prefab survive moves.
             json data = InData;
+            // A variant keeps only its differences from its base.
+            const std::string base = SceneSerializer::GetPrefabBase( InAsset );
+            if( !base.empty() && !SceneSerializer::IsPrefabVariant( InData ) )
+            {
+                std::shared_ptr<const json> baseData = SceneSerializer::LoadPrefabData( base );
+                if( !baseData )
+                {
+                    YIKES( "Prefab variant " + InAsset + ": its base " + base + " didn't load; not saved" );
+                    return false;
+                }
+                data = SceneSerializer::MakePrefabVariant( *baseData, InData, base );
+                if( InData.contains( "AssetGUID" ) )
+                {
+                    data["AssetGUID"] = InData["AssetGUID"];
+                }
+            }
             SceneSerializer::PrepareForSave( data, InAsset, true );
             File file{ Path( InAsset ) };
             file.Write( data.dump( 4 ) );
@@ -188,17 +204,40 @@ namespace PrefabTools
         // Pushes prefab changes (old -> new file contents) into every instance in the world: values
         // still equal to the old prefab take the new value; components the prefab gained are added.
         // InSkip: entities left alone (the instance an apply came from keeps its values on undo).
-        void PropagateToInstances( const std::string& InAsset, const json& InOld, const json& InNew, const std::unordered_set<uint64_t>* InSkip = nullptr )
+        // Instances of variants built on the prefab take the change too, where the variant doesn't
+        // override it (InVariants: false while doing that, the fan-out already covers every level).
+        void PropagateToInstances( const std::string& InAsset, const json& InOld, const json& InNew, const std::unordered_set<uint64_t>* InSkip = nullptr, bool InVariants = true )
         {
             World& world = EditorOps::GetWorld();
             std::vector<Entity*> linked;
+            std::unordered_set<std::string> otherAssets;
             world.ForEachEntity( [&]( Entity& entity ) {
                 World::EntityRecord* record = Record( entity );
                 if( record && record->PrefabAsset == InAsset && !( InSkip && InSkip->count( entity.GetGUID() ) ) )
                 {
                     linked.push_back( &entity );
                 }
+                else if( record && !record->PrefabAsset.empty() && record->PrefabAsset != InAsset )
+                {
+                    otherAssets.insert( record->PrefabAsset );
+                }
             } );
+            if( InVariants )
+            {
+                for( const std::string& variant : otherAssets )
+                {
+                    if( !SceneSerializer::PrefabDerivesFrom( variant, InAsset ) )
+                    {
+                        continue;
+                    }
+                    const json oldVariant = SceneSerializer::ResolvePrefab( variant, InAsset, InOld );
+                    const json newVariant = SceneSerializer::ResolvePrefab( variant, InAsset, InNew );
+                    if( !oldVariant.is_null() && !newVariant.is_null() && oldVariant != newVariant )
+                    {
+                        PropagateToInstances( variant, oldVariant, newVariant, InSkip, false );
+                    }
+                }
+            }
 
             for( Entity* entity : linked )
             {
@@ -681,6 +720,30 @@ namespace PrefabTools
     {
         std::string s_prefabModeAsset;
         std::function<bool()> s_prefabModeSave;
+    }
+
+
+    bool CreateVariant( const std::string& InBase, const std::string& InPath )
+    {
+        const std::string base = SceneSerializer::NormalizePrefabPath( InBase );
+        const std::string asset = SceneSerializer::NormalizePrefabPath( InPath );
+        if( !SceneSerializer::LoadPrefabData( base ) )
+        {
+            YIKES( "Create Variant: " + base + " isn't a prefab" );
+            return false;
+        }
+        if( SceneSerializer::PrefabDerivesFrom( base, asset ) )
+        {
+            YIKES( "Create Variant: " + asset + " is already a base of " + base );
+            return false;
+        }
+        json data = { { "Version", SceneSerializer::kVersion }, { "Base", base } };
+        SceneSerializer::PrepareForSave( data, asset, true );
+        File file{ Path( asset ) };
+        file.Write( data.dump( 4 ) );
+        SceneSerializer::ClearPrefabCache();
+        CLog::Log( CLog::LogType::Info, "Created prefab variant " + asset + " of " + base );
+        return true;
     }
 
 

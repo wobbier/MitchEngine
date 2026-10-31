@@ -42,6 +42,11 @@ namespace PrefabTools
     void RevertAll( Entity& InEntity );
     void Unpack( Entity& InEntity );
 
+    // ED-6, variants: writes InPath as a variant of InBase (no differences yet). Saving a variant
+    // (Apply, prefab mode) writes only its differences; edits to a base reach its variants'
+    // instances in the world wherever the variant doesn't override them.
+    bool CreateVariant( const std::string& InBase, const std::string& InPath );
+
     // ED-6, prefab mode. Rewrites the prefab from an instance (as Apply All does, without touching
     // other instances or the undo history); OutBefore / OutAfter are the file's contents.
     bool SavePrefabFromInstance( Entity& InRoot, json& OutBefore, json& OutAfter );

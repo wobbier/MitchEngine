@@ -168,6 +168,12 @@ Instances carry a link: `EntityRecord::PrefabAsset` (project-local path) and `Pr
   - **Back to Scene** restores the scene and history, then pushes the saved changes into its instances like an Apply: values still equal to the old prefab take the new ones, and overrides stay. That's one undo step ("Edit Prefab"). Unsaved changes prompt for Save or Discard.
   - **Restrictions:** Play and autosave are off while a prefab is open.
   - **Automation:** `prefab-open`, `prefab-save`, `prefab-close [save]` and `assert-prefab-mode <path or 0>`. PrefabModeFlows covers them.
+- **Variants** (ED-6): right-click a prefab in the asset browser > **Create Variant** (`PrefabTools::CreateVariant`). A variant file names its `Base` and stores only its differences: `Overrides` (per base entity GUID: changed entity fields, and per component the changed top-level fields, a whole component the base lacks, or `null` for one it removed), `Added` entities and `Removed` base entities (with their children). See `SceneSerializer.h`.
+  - **Loading:** `SceneSerializer::LoadPrefabData` resolves a variant over its base's resolved data, so variants of variants work and instancing is unchanged. A loop of bases fails to load with an error.
+  - **Editing:** open it in prefab mode (the bar says "Variant of ..."), or Apply from an instance. Saving writes the diff against the current base (`MakePrefabVariant`), never a full copy.
+  - **Base edits:** saving or applying a base pushes the change into the scene's instances of its variants too, wherever the variant doesn't override the field (same undo step).
+  - **Limits:** like plain prefabs, existing instances take value and component changes, not entities a save added or removed; new instances get the full structure. Override components are keyed by type, so an entity with two components of one type can't override the second.
+  - **Automation:** `prefab-variant <base> | <path>` and `assert-prefab-base <path> | <base or none>`. PrefabVariantFlows covers them.
 
 ### Asset browser
 

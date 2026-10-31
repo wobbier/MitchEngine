@@ -83,6 +83,31 @@ namespace SceneSerializer
     // OutInstanceToSource receives instance GUID -> GUID in the prefab file for every entity.
     json SerializePrefab( World& InWorld, Entity& InRoot, const std::string& InPrefabPath, std::unordered_map<uint64_t, uint64_t>* OutInstanceToSource = nullptr );
 
+    // Prefab variants (ED-6). A variant file stores only how it differs from its base prefab:
+    //
+    // { "Version": 2, "AssetGUID": "...", "Base": "Assets/Door.prefab",
+    //   "Overrides": { "<base entity GUID>": { "Name": "Red Door",
+    //                    "Components": { "Mesh": { "Material": "..." }, "Light": null } } },
+    //   "Added":   [ <entities, as in a prefab; Parent may be a base entity> ],
+    //   "Removed": [ "<base entity GUID>" ] }
+    //
+    // Override components patch the base component's top-level fields (a component the base lacks
+    // is added whole; null removes it). Entities keep the base's GUIDs, so instance links stay
+    // valid as the base changes, and base edits reach a variant wherever it doesn't override them.
+    // LoadPrefabData returns the resolved (effective) data of a variant, variants of variants too.
+    bool IsPrefabVariant( const json& InData );
+    // The base a variant names ("" when InPrefabPath isn't a variant).
+    std::string GetPrefabBase( const std::string& InPrefabPath );
+    // Effective data of a variant over its base's effective data.
+    json ApplyPrefabVariant( const json& InBase, const json& InVariant );
+    // The variant file contents (Base + diff) that resolve to InEffective over InBase.
+    json MakePrefabVariant( const json& InBase, const json& InEffective, const std::string& InBasePath );
+    // Resolves InPrefabPath uncached, with InReplaceAsset's data replaced by InReplaceData wherever
+    // the chain reaches it (what a variant looked like before / after an edit to its base).
+    json ResolvePrefab( const std::string& InPrefabPath, const std::string& InReplaceAsset, const json& InReplaceData );
+    // True when InPrefabPath is InBasePath or a variant whose chain of bases includes it.
+    bool PrefabDerivesFrom( const std::string& InPrefabPath, const std::string& InBasePath );
+
     // Canonical form of a prefab path for links and cache keys (project-local, forward slashes).
     std::string NormalizePrefabPath( const std::string& InPath );
 

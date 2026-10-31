@@ -101,6 +101,12 @@ TEST_CASE( "Serialization: every scene and prefab in the repo migrates to v2" )
             DOCTEST_INFO( entry.path().string() );
             REQUIRE_FALSE( original.is_discarded() );
             ++files;
+            if( SceneSerializer::IsPrefabVariant( original ) )
+            {
+                // A variant is a diff over its base; what has to hold is that it resolves.
+                CHECK( SceneSerializer::LoadPrefabData( entry.path().generic_string() ) != nullptr );
+                continue;
+            }
 
             const json migrated = SceneSerializer::MigrateToLatest( original );
             CHECK( migrated["Version"] == SceneSerializer::kVersion );
@@ -218,6 +224,100 @@ TEST_CASE( "Serialization: instancing twice remaps GUIDs and internal references
     Entity* partB = b->GetComponent<Transform>().GetChildren()[0]->Parent.Get();
     CHECK( partA->GetComponent<Link>().Target == a );
     CHECK( partB->GetComponent<Link>().Target == b );
+}
+
+
+TEST_CASE( "Serialization: prefab variants store their differences and follow their base" )
+{
+    const json base = json::parse( R"({
+        "Version": 2,
+        "Entities": [
+            { "GUID": "00000000000000b1", "Name": "Door",
+              "Components": [ { "Type": "Transform", "Position": [ 1, 0, 0 ], "Scale": [ 1, 1, 1 ] },
+                              { "Type": "Mesh", "MeshType": "Cube", "Tint": [ 1, 1, 1 ] } ] },
+            { "GUID": "00000000000000b2", "Name": "Handle", "Parent": "00000000000000b1",
+              "Components": [ { "Type": "Transform", "Position": [ 0, 1, 0 ] } ] },
+            { "GUID": "00000000000000b3", "Name": "Knob", "Parent": "00000000000000b2",
+              "Components": [ { "Type": "Transform" } ] },
+            { "GUID": "00000000000000b4", "Name": "Hinge", "Parent": "00000000000000b1",
+              "Components": [ { "Type": "Transform" }, { "Type": "Light", "Intensity": 2 } ] }
+        ] })" );
+
+    // The variant: red tint, renamed root, no handle (nor its knob), a light-less hinge, a sign.
+    json effective = base;
+    effective["Entities"][0]["Name"] = "Red Door";
+    effective["Entities"][0]["Components"][1]["Tint"] = { 1, 0, 0 };
+    effective["Entities"][0]["Components"][0]["Position"] = { 1.00001, 0, 0 };   // float noise only
+    effective["Entities"][3]["Components"].erase( 1 );
+    effective["Entities"].erase( effective["Entities"].begin() + 1, effective["Entities"].begin() + 3 );
+    effective["Entities"].push_back( json::parse( R"({ "GUID": "00000000000000c1", "Name": "Sign", "Parent": "00000000000000b1",
+        "Components": [ { "Type": "Transform" } ] })" ) );
+
+    const json variant = SceneSerializer::MakePrefabVariant( base, effective, "Assets/Door.prefab" );
+    CHECK( SceneSerializer::IsPrefabVariant( variant ) );
+    CHECK( variant["Base"] == "Assets/Door.prefab" );
+    REQUIRE( variant["Overrides"].size() == 2 );
+    const json& door = variant["Overrides"]["00000000000000b1"];
+    CHECK( door["Name"] == "Red Door" );
+    CHECK( door["Components"].size() == 1 );
+    CHECK( door["Components"]["Mesh"] == json::parse( R"({ "Tint": [ 1, 0, 0 ] })" ) );
+    CHECK( variant["Overrides"]["00000000000000b4"]["Components"]["Light"].is_null() );
+    CHECK( variant["Removed"] == json::parse( R"([ "00000000000000b2", "00000000000000b3" ])" ) );
+    REQUIRE( variant["Added"].size() == 1 );
+    CHECK( variant["Added"][0]["Name"] == "Sign" );
+
+    const json resolved = SceneSerializer::ApplyPrefabVariant( base, variant );
+    REQUIRE( resolved["Entities"].size() == 3 );
+    CHECK( resolved["Entities"][0]["Name"] == "Red Door" );
+    CHECK( resolved["Entities"][0]["Components"][1]["Tint"] == json::parse( "[ 1, 0, 0 ]" ) );
+    CHECK( resolved["Entities"][0]["Components"][1]["MeshType"] == "Cube" );
+    CHECK( resolved["Entities"][1]["Components"].size() == 1 );
+    CHECK( resolved["Entities"][2]["Name"] == "Sign" );
+    CHECK_FALSE( SceneSerializer::IsPrefabVariant( resolved ) );
+    // A variant of an unchanged base saves to the same diff.
+    CHECK( SceneSerializer::MakePrefabVariant( base, resolved, "Assets/Door.prefab" ) == variant );
+
+    // The base changes: what the variant doesn't override follows; what it does stays; a child
+    // the base adds under a removed entity stays removed.
+    json newBase = base;
+    newBase["Entities"][0]["Components"][1]["MeshType"] = "Sphere";
+    newBase["Entities"][0]["Components"][1]["Tint"] = { 0, 0, 1 };
+    newBase["Entities"].push_back( json::parse( R"({ "GUID": "00000000000000b5", "Name": "Plate", "Parent": "00000000000000b2",
+        "Components": [ { "Type": "Transform" } ] })" ) );
+    const json followed = SceneSerializer::ApplyPrefabVariant( newBase, variant );
+    REQUIRE( followed["Entities"].size() == 3 );
+    CHECK( followed["Entities"][0]["Components"][1]["MeshType"] == "Sphere" );
+    CHECK( followed["Entities"][0]["Components"][1]["Tint"] == json::parse( "[ 1, 0, 0 ]" ) );
+
+    // On disk: LoadPrefabData resolves a variant of a variant; a loop resolves to nothing.
+    namespace fs = std::filesystem;
+    const std::string root = ".tmp/Tests/PrefabVariants";
+    fs::remove_all( root );
+    fs::create_directories( root );
+    std::ofstream( root + "/Door.prefab" ) << base.dump( 4 );
+    json redFile = SceneSerializer::MakePrefabVariant( base, effective, root + "/Door.prefab" );
+    std::ofstream( root + "/Red Door.prefab" ) << redFile.dump( 4 );
+    json bigEffective = resolved;
+    bigEffective["Entities"][0]["Components"][0]["Scale"] = { 2, 2, 2 };
+    std::ofstream( root + "/Big Red Door.prefab" ) << SceneSerializer::MakePrefabVariant( resolved, bigEffective, root + "/Red Door.prefab" ).dump( 4 );
+    SceneSerializer::ClearPrefabCache();
+    std::shared_ptr<const json> big = SceneSerializer::LoadPrefabData( root + "/Big Red Door.prefab" );
+    REQUIRE( big );
+    CHECK( ( *big )["Entities"].size() == 3 );
+    CHECK( ( *big )["Entities"][0]["Name"] == "Red Door" );
+    CHECK( ( *big )["Entities"][0]["Components"][0]["Scale"] == json::parse( "[ 2, 2, 2 ]" ) );
+    CHECK( SceneSerializer::GetPrefabBase( root + "/Big Red Door.prefab" ) == SceneSerializer::NormalizePrefabPath( root + "/Red Door.prefab" ) );
+    CHECK( SceneSerializer::PrefabDerivesFrom( root + "/Big Red Door.prefab", root + "/Door.prefab" ) );
+    CHECK_FALSE( SceneSerializer::PrefabDerivesFrom( root + "/Door.prefab", root + "/Red Door.prefab" ) );
+    // What Big Red Door would be if Door had changed, without touching the files.
+    const json whatIf = SceneSerializer::ResolvePrefab( root + "/Big Red Door.prefab", root + "/Door.prefab", newBase );
+    CHECK( whatIf["Entities"][0]["Components"][1]["MeshType"] == "Sphere" );
+    CHECK( whatIf["Entities"][0]["Components"][0]["Scale"] == json::parse( "[ 2, 2, 2 ]" ) );
+
+    std::ofstream( root + "/Loop A.prefab" ) << json{ { "Version", 2 }, { "Base", root + "/Loop B.prefab" } }.dump();
+    std::ofstream( root + "/Loop B.prefab" ) << json{ { "Version", 2 }, { "Base", root + "/Loop A.prefab" } }.dump();
+    CHECK_FALSE( SceneSerializer::LoadPrefabData( root + "/Loop A.prefab" ) );
+    SceneSerializer::ClearPrefabCache();
 }
 
 

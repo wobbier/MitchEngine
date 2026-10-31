@@ -1438,6 +1438,20 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         if( !InApp.IsEditingPrefab() ) Fail( "prefab-close: no prefab open" );
         else InApp.ClosePrefab( args == "save" );
     }
+    else if( command == "prefab-variant" )
+    {
+        // prefab-variant Assets/Crate.prefab | Assets/Red Crate.prefab   (ED-6: a variant of the first)
+        auto [base, path] = SplitArgs( args );
+        if( !PrefabTools::CreateVariant( base, path ) ) Fail( "prefab-variant: couldn't make " + path + " from " + base );
+    }
+    else if( command == "assert-prefab-base" )
+    {
+        // assert-prefab-base Assets/Red Crate.prefab | Assets/Crate.prefab   (or none: not a variant)
+        auto [asset, base] = SplitArgs( args );
+        const std::string actual = SceneSerializer::GetPrefabBase( asset );
+        const std::string expected = base == "none" ? std::string() : SceneSerializer::NormalizePrefabPath( base );
+        if( actual != expected ) Fail( "assert-prefab-base: " + asset + " is based on '" + actual + "', expected '" + expected + "'" );
+    }
     else if( command == "assert-prefab-mode" )
     {
         // assert-prefab-mode Assets/Crate.prefab   (or 0: not in prefab mode)

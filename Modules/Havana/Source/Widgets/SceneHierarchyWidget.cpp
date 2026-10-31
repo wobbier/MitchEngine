@@ -199,6 +199,17 @@ void SceneHierarchyWidget::Render()
 		ImGuiTheme::SectionGap();
 		ImGui::Indent(inset);
 		ImGui::TextColored(ImGuiTheme::AccentText(), "Prefab: %s%s", app->GetEditingPrefab().c_str(), UndoStack::Get().IsDirty() ? " *" : "");
+		// A variant saves only its differences from its base: say which base.
+		static std::string s_variantAsset, s_variantBase;
+		if (s_variantAsset != app->GetEditingPrefab())
+		{
+			s_variantAsset = app->GetEditingPrefab();
+			s_variantBase = SceneSerializer::GetPrefabBase(s_variantAsset);
+		}
+		if (!s_variantBase.empty())
+		{
+			ImGui::TextDisabled("Variant of %s", s_variantBase.c_str());
+		}
 		if (ImGui::Button("Save"))
 		{
 			app->SavePrefab();

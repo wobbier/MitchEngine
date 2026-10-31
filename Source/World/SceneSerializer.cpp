@@ -10,6 +10,7 @@
 #include "optick.h"
 #include "Resource/AssetDatabase.h"
 #include "Utils/GUID.h"
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <mutex>
@@ -546,6 +547,417 @@ namespace SceneSerializer
     }
 
 
+    namespace
+    {
+        // The prefab file as written (moved asset paths remapped); null when missing or invalid.
+        json ReadPrefabFile( const std::string& InKey )
+        {
+            File file{ Path( InKey ) };
+            std::string contents = file.Read();
+            if( contents.empty() )
+            {
+                // Moved in the editor this session: links to the old path still resolve.
+                const std::string moved = AssetDatabase::Get().FindMovedPath( InKey );
+                if( !moved.empty() )
+                {
+                    File movedFile{ Path( moved ) };
+                    contents = movedFile.Read();
+                }
+            }
+            if( contents.empty() )
+            {
+                YIKES( "Prefab not found or empty: " + InKey );
+                return {};
+            }
+            json parsed = json::parse( contents, nullptr, false );
+            if( parsed.is_discarded() )
+            {
+                YIKES( "Prefab is not valid JSON: " + InKey );
+                return {};
+            }
+            RemapAssetReferences( parsed, InKey );
+            return parsed;
+        }
+
+
+        // Equal up to float noise, so a variant only records real differences.
+        bool SameValue( const json& InA, const json& InB )
+        {
+            if( InA.is_number() && InB.is_number() )
+            {
+                const double a = InA.get<double>();
+                const double b = InB.get<double>();
+                return std::fabs( a - b ) <= 1e-4 * std::max( 1.0, std::max( std::fabs( a ), std::fabs( b ) ) );
+            }
+            if( ( InA.is_array() && InB.is_array() ) || ( InA.is_object() && InB.is_object() ) )
+            {
+                if( InA.size() != InB.size() )
+                {
+                    return false;
+                }
+                if( InA.is_array() )
+                {
+                    for( size_t i = 0; i < InA.size(); ++i )
+                    {
+                        if( !SameValue( InA[i], InB[i] ) )
+                        {
+                            return false;
+                        }
+                    }
+                    return true;
+                }
+                for( auto it = InA.begin(); it != InA.end(); ++it )
+                {
+                    auto other = InB.find( it.key() );
+                    if( other == InB.end() || !SameValue( it.value(), *other ) )
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            return InA == InB;
+        }
+
+
+        const json* FindComponent( const json& InEntity, const std::string& InType )
+        {
+            auto components = InEntity.find( "Components" );
+            if( components == InEntity.end() || !components->is_array() )
+            {
+                return nullptr;
+            }
+            for( const json& component : *components )
+            {
+                if( component.is_object() && component.value( "Type", std::string() ) == InType )
+                {
+                    return &component;
+                }
+            }
+            return nullptr;
+        }
+
+
+        json* FindComponent( json& InEntity, const std::string& InType )
+        {
+            return const_cast<json*>( FindComponent( static_cast<const json&>( InEntity ), InType ) );
+        }
+
+
+        json ResolveChain( const std::string& InKey, const std::string& InReplaceAsset, const json* InReplaceData, std::vector<std::string>& InOutChain )
+        {
+            if( InReplaceData && InKey == InReplaceAsset )
+            {
+                return *InReplaceData;
+            }
+            if( std::find( InOutChain.begin(), InOutChain.end(), InKey ) != InOutChain.end() )
+            {
+                YIKES( "Prefab variant loop: " + InKey + " is its own base" );
+                return {};
+            }
+            json raw = ReadPrefabFile( InKey );
+            if( raw.is_null() || !IsPrefabVariant( raw ) )
+            {
+                return raw.is_null() ? raw : MigrateToLatest( raw );
+            }
+            InOutChain.push_back( InKey );
+            const std::string basePath = NormalizePrefabPath( raw["Base"].get<std::string>() );
+            json base = ResolveChain( basePath, InReplaceAsset, InReplaceData, InOutChain );
+            InOutChain.pop_back();
+            if( base.is_null() )
+            {
+                YIKES( "Prefab variant " + InKey + ": its base " + basePath + " didn't load" );
+                return {};
+            }
+            return ApplyPrefabVariant( base, raw );
+        }
+    }
+
+
+    bool IsPrefabVariant( const json& InData )
+    {
+        return InData.is_object() && InData.contains( "Base" ) && InData["Base"].is_string();
+    }
+
+
+    std::string GetPrefabBase( const std::string& InPrefabPath )
+    {
+        const std::string key = NormalizePrefabPath( InPrefabPath );
+        if( key.empty() )
+        {
+            return {};
+        }
+        File file{ Path( key ) };
+        json raw = json::parse( file.Read(), nullptr, false );
+        if( raw.is_discarded() || !IsPrefabVariant( raw ) )
+        {
+            return {};
+        }
+        RemapAssetReferences( raw, key );
+        return NormalizePrefabPath( raw["Base"].get<std::string>() );
+    }
+
+
+    json ApplyPrefabVariant( const json& InBase, const json& InVariant )
+    {
+        json out = InBase;
+        for( const char* key : { "Base", "Overrides", "Added", "Removed", "AssetReferences", "AssetGUID" } )
+        {
+            out.erase( key );
+        }
+        if( InVariant.contains( "AssetGUID" ) )
+        {
+            out["AssetGUID"] = InVariant["AssetGUID"];
+        }
+
+        std::unordered_set<uint64_t> removed;
+        if( InVariant.contains( "Removed" ) && InVariant["Removed"].is_array() )
+        {
+            for( const json& guid : InVariant["Removed"] )
+            {
+                removed.insert( GUIDFromJson( guid ) );
+            }
+        }
+        std::unordered_map<uint64_t, const json*> overrides;
+        if( InVariant.contains( "Overrides" ) && InVariant["Overrides"].is_object() )
+        {
+            for( auto it = InVariant["Overrides"].begin(); it != InVariant["Overrides"].end(); ++it )
+            {
+                overrides[GUIDFromJson( json( it.key() ) )] = &it.value();
+            }
+        }
+
+        json entities = json::array();
+        if( out.contains( "Entities" ) && out["Entities"].is_array() )
+        {
+            // Parents come before children, so a removed entity's subtree goes with it.
+            for( json& entity : out["Entities"] )
+            {
+                const uint64_t guid = GUIDFromJson( entity.value( "GUID", json() ) );
+                const uint64_t parent = GUIDFromJson( entity.value( "Parent", json() ) );
+                if( removed.count( guid ) || ( parent != 0 && removed.count( parent ) ) )
+                {
+                    removed.insert( guid );
+                    continue;
+                }
+                auto found = overrides.find( guid );
+                if( found != overrides.end() && found->second->is_object() )
+                {
+                    for( auto it = found->second->begin(); it != found->second->end(); ++it )
+                    {
+                        if( it.key() == "GUID" )
+                        {
+                            continue;
+                        }
+                        if( it.key() != "Components" )
+                        {
+                            if( it.value().is_null() )
+                            {
+                                entity.erase( it.key() );
+                            }
+                            else
+                            {
+                                entity[it.key()] = it.value();
+                            }
+                            continue;
+                        }
+                        if( !it.value().is_object() )
+                        {
+                            continue;
+                        }
+                        if( !entity.contains( "Components" ) || !entity["Components"].is_array() )
+                        {
+                            entity["Components"] = json::array();
+                        }
+                        for( auto patch = it.value().begin(); patch != it.value().end(); ++patch )
+                        {
+                            json* component = FindComponent( entity, patch.key() );
+                            if( patch.value().is_null() )
+                            {
+                                if( component )
+                                {
+                                    json& components = entity["Components"];
+                                    components.erase( components.begin() + ( component - &components[0] ) );
+                                }
+                                continue;
+                            }
+                            if( !component )
+                            {
+                                json added = patch.value();
+                                added["Type"] = patch.key();
+                                entity["Components"].push_back( std::move( added ) );
+                                continue;
+                            }
+                            for( auto field = patch.value().begin(); field != patch.value().end(); ++field )
+                            {
+                                if( field.key() != "Type" )
+                                {
+                                    ( *component )[field.key()] = field.value();
+                                }
+                            }
+                        }
+                    }
+                }
+                entities.push_back( std::move( entity ) );
+            }
+        }
+        if( InVariant.contains( "Added" ) && InVariant["Added"].is_array() )
+        {
+            for( const json& entity : InVariant["Added"] )
+            {
+                const uint64_t parent = GUIDFromJson( entity.value( "Parent", json() ) );
+                if( parent == 0 || !removed.count( parent ) )
+                {
+                    entities.push_back( entity );
+                }
+            }
+        }
+        out["Entities"] = std::move( entities );
+        return out;
+    }
+
+
+    json MakePrefabVariant( const json& InBase, const json& InEffective, const std::string& InBasePath )
+    {
+        json out;
+        out["Version"] = kVersion;
+        out["Base"] = NormalizePrefabPath( InBasePath );
+
+        std::unordered_map<uint64_t, const json*> baseEntities;
+        if( InBase.contains( "Entities" ) && InBase["Entities"].is_array() )
+        {
+            for( const json& entity : InBase["Entities"] )
+            {
+                baseEntities[GUIDFromJson( entity.value( "GUID", json() ) )] = &entity;
+            }
+        }
+
+        json overrides = json::object();
+        json added = json::array();
+        std::unordered_set<uint64_t> kept;
+        if( InEffective.contains( "Entities" ) && InEffective["Entities"].is_array() )
+        {
+            for( const json& entity : InEffective["Entities"] )
+            {
+                const uint64_t guid = GUIDFromJson( entity.value( "GUID", json() ) );
+                auto found = baseEntities.find( guid );
+                if( found == baseEntities.end() )
+                {
+                    added.push_back( entity );
+                    continue;
+                }
+                kept.insert( guid );
+                const json& base = *found->second;
+                json entityOverride = json::object();
+                for( auto it = entity.begin(); it != entity.end(); ++it )
+                {
+                    if( it.key() != "GUID" && it.key() != "Components" && ( !base.contains( it.key() ) || !SameValue( base[it.key()], it.value() ) ) )
+                    {
+                        entityOverride[it.key()] = it.value();
+                    }
+                }
+                for( auto it = base.begin(); it != base.end(); ++it )
+                {
+                    if( it.key() != "GUID" && it.key() != "Components" && !entity.contains( it.key() ) )
+                    {
+                        entityOverride[it.key()] = nullptr;
+                    }
+                }
+
+                json components = json::object();
+                if( entity.contains( "Components" ) && entity["Components"].is_array() )
+                {
+                    for( const json& component : entity["Components"] )
+                    {
+                        const std::string type = component.value( "Type", std::string() );
+                        const json* baseComponent = FindComponent( base, type );
+                        json patch = json::object();
+                        for( auto field = component.begin(); field != component.end(); ++field )
+                        {
+                            if( field.key() != "Type" && ( !baseComponent || !baseComponent->contains( field.key() ) || !SameValue( ( *baseComponent )[field.key()], field.value() ) ) )
+                            {
+                                patch[field.key()] = field.value();
+                            }
+                        }
+                        if( !baseComponent || !patch.empty() )
+                        {
+                            components[type] = std::move( patch );
+                        }
+                    }
+                }
+                if( base.contains( "Components" ) && base["Components"].is_array() )
+                {
+                    for( const json& component : base["Components"] )
+                    {
+                        const std::string type = component.value( "Type", std::string() );
+                        if( !FindComponent( entity, type ) )
+                        {
+                            components[type] = nullptr;
+                        }
+                    }
+                }
+                if( !components.empty() )
+                {
+                    entityOverride["Components"] = std::move( components );
+                }
+                if( !entityOverride.empty() )
+                {
+                    overrides[GUIDToString( guid )] = std::move( entityOverride );
+                }
+            }
+        }
+
+        json removed = json::array();
+        if( InBase.contains( "Entities" ) && InBase["Entities"].is_array() )
+        {
+            for( const json& entity : InBase["Entities"] )
+            {
+                const uint64_t guid = GUIDFromJson( entity.value( "GUID", json() ) );
+                if( !kept.count( guid ) )
+                {
+                    removed.push_back( GUIDToString( guid ) );
+                }
+            }
+        }
+        if( !overrides.empty() )
+        {
+            out["Overrides"] = std::move( overrides );
+        }
+        if( !added.empty() )
+        {
+            out["Added"] = std::move( added );
+        }
+        if( !removed.empty() )
+        {
+            out["Removed"] = std::move( removed );
+        }
+        return out;
+    }
+
+
+    json ResolvePrefab( const std::string& InPrefabPath, const std::string& InReplaceAsset, const json& InReplaceData )
+    {
+        std::vector<std::string> chain;
+        return ResolveChain( NormalizePrefabPath( InPrefabPath ), NormalizePrefabPath( InReplaceAsset ), &InReplaceData, chain );
+    }
+
+
+    bool PrefabDerivesFrom( const std::string& InPrefabPath, const std::string& InBasePath )
+    {
+        const std::string base = NormalizePrefabPath( InBasePath );
+        std::string current = NormalizePrefabPath( InPrefabPath );
+        for( int depth = 0; depth < 32 && !current.empty(); ++depth )
+        {
+            if( current == base )
+            {
+                return true;
+            }
+            current = GetPrefabBase( current );
+        }
+        return false;
+    }
+
+
     std::shared_ptr<const json> LoadPrefabData( const std::string& InPrefabPath )
     {
         const std::string key = NormalizePrefabPath( InPrefabPath );
@@ -559,31 +971,13 @@ namespace SceneSerializer
             }
         }
 
-        File file{ Path( key ) };
-        std::string contents = file.Read();
-        if( contents.empty() )
+        std::vector<std::string> chain;
+        json resolved = ResolveChain( key, std::string(), nullptr, chain );
+        if( resolved.is_null() )
         {
-            // Moved in the editor this session: links to the old path still resolve.
-            const std::string moved = AssetDatabase::Get().FindMovedPath( key );
-            if( !moved.empty() )
-            {
-                File movedFile{ Path( moved ) };
-                contents = movedFile.Read();
-            }
-        }
-        if( contents.empty() )
-        {
-            YIKES( "Prefab not found or empty: " + key );
             return {};
         }
-        json parsed = json::parse( contents, nullptr, false );
-        if( parsed.is_discarded() )
-        {
-            YIKES( "Prefab is not valid JSON: " + key );
-            return {};
-        }
-        RemapAssetReferences( parsed, key );
-        std::shared_ptr<const json> data = std::make_shared<const json>( MigrateToLatest( parsed ) );
+        std::shared_ptr<const json> data = std::make_shared<const json>( std::move( resolved ) );
 
         PrefabCacheData& cache = GetPrefabCache();
         std::lock_guard<std::mutex> lock( cache.Mutex );
