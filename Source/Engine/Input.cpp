@@ -6,6 +6,7 @@
 
 #include "Engine/Input.h"
 #include "CLog.h"
+#include "Core/CommandLine.h"
 #include <string>
 #include <iostream>
 #include "SDL.h"
@@ -74,6 +75,12 @@ void Input::Update()
         int relativeMouse[2] = { 0, 0 };
         SDL_GetRelativeMouseState( &relativeMouse[0], &relativeMouse[1] );
         RelativeMousePosition = Vector2( relativeMouse[0], relativeMouse[1] );
+        // --log-mouse: every captured frame's motion, to see a look that cancels itself out.
+        static const bool s_logMouse = CommandLine::Has( "--log-mouse" );
+        if( s_logMouse && m_relativeMode && ( relativeMouse[0] != 0 || relativeMouse[1] != 0 ) )
+        {
+            CLog::Log( CLog::LogType::Info, "Mouse delta " + std::to_string( relativeMouse[0] ) + ", " + std::to_string( relativeMouse[1] ) + " at " + std::to_string( mouseX ) + ", " + std::to_string( mouseY ) );
+        }
 
         // Captured look always uses SDL's relative motion, including an embedded Game View.
         // Absolute position + a per-frame warp loses motion at window edges and can include
@@ -507,19 +514,21 @@ void Input::UpdateCursor()
         {
             SDL_SetWindowInputFocus( m_cursorWindow );
         }
-#if USING( ME_PLATFORM_LINUX )
-        // Hyprland/XWayland's XInput raw stream can include reverse motion that cancels
-        // captured look. SDL's warp-relative implementation filters its own recenter events.
-        // Keep this in SDL rather than deriving deltas from absolute positions each frame.
-        const char* driver = SDL_GetCurrentVideoDriver();
-        const char* hyprland = SDL_getenv( "HYPRLAND_INSTANCE_SIGNATURE" );
-        if( relative && driver && SDL_strcmp( driver, "x11" ) == 0 && hyprland && *hyprland )
-        {
-            SDL_SetHint( SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1" );
-        }
-#endif
+        // SDL's default relative mode: XInput2 raw motion on X11 (under XWayland, the
+        // compositor's relative-pointer events), with no pointer warps at all. Don't force
+        // SDL_HINT_MOUSE_RELATIVE_MODE_WARP: it recentres the pointer after every move and only
+        // recognises its own warp when it lands exactly on the centre, which XWayland under
+        // Hyprland doesn't guarantee, so a stray warp reads as motion back to the centre and the
+        // look "snaps back" (2026-10-30). The reverse motion the raw stream used to carry came
+        // from this class's old per-frame recentring warp, which is gone. SDL still reads
+        // SDL_MOUSE_RELATIVE_MODE_WARP=1 from the environment to try warp mode on a machine.
         SDL_SetRelativeMouseMode( relative ? SDL_TRUE : SDL_FALSE );
         m_relativeMode = SDL_GetRelativeMouseMode() == SDL_TRUE;
+        if( CommandLine::Has( "--log-mouse" ) )
+        {
+            const char* warp = SDL_GetHint( SDL_HINT_MOUSE_RELATIVE_MODE_WARP );
+            CLog::Log( CLog::LogType::Info, std::string( "Mouse: relative mode " ) + ( m_relativeMode ? "on" : "off" ) + " (driver " + ( SDL_GetCurrentVideoDriver() ? SDL_GetCurrentVideoDriver() : "?" ) + ", warp " + ( warp ? warp : "default" ) + ")" );
+        }
     }
 
     // Relative mode owns captured motion; an uncaptured cursor stays inside the view region.
