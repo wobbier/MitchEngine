@@ -1362,6 +1362,15 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             EditorOps::RecordComponentEdits( edits, "Place on Surface" );
         }
     }
+    else if( command == "asset-costs" )
+    {
+        // asset-costs .tmp/costs.json [| 20]   (NEXT-11: what the loaded assets cost, biggest first)
+        auto [path, topText] = SplitArgs( args );
+        const size_t top = topText.empty() ? SIZE_MAX : static_cast<size_t>( std::atoi( topText.c_str() ) );
+        const json report = HardwareBudget::AssetCostsToJson( HardwareBudget::CollectAssetCosts(), top );
+        File( Path( path ) ).Write( report.dump( 4 ) );
+        CLog::Log( CLog::LogType::Info, "[editor-exec] asset-costs: " + std::to_string( report["Assets"].size() ) + " assets, " + HardwareBudget::FormatBytes( report["Total"].get<uint64_t>() ) + " -> " + path );
+    }
     else if( command == "vertex-snap" )
     {
         // vertex-snap [x, y, z]   (ED-8: the selection's pivot onto the mesh vertex nearest that point

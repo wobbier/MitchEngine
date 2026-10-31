@@ -54,6 +54,7 @@
 #include <filesystem>
 #include <algorithm>
 #include "Core/CommandLine.h"
+#include "Engine/HardwareBudget.h"
 #include "Scripting/ScriptEngine.h"
 #include "File.h"
 #include "CLog.h"
@@ -302,6 +303,11 @@ void EditorApp::OnInitialize()
             EditorConfig::GetInstance().ReadOnly = AutomationRunner::IsUnattendedRun();
             EditorConfig::GetInstance().Init();
             EditorConfig::GetInstance().Load();
+        }
+        // NEXT-11: this machine's speed against the hardware target (--host-speed wins).
+        if( !CommandLine::Has( "--host-speed" ) )
+        {
+            HardwareBudget::Get().SetHostSpeedFactor( EditorConfig::GetInstance().GetPreference<float>( "Budgets.HostSpeedFactor", 1.f ) );
         }
         // The Project Hub lists every project the editor opens (interactive runs only: unattended ones
         // never touch the user's list).

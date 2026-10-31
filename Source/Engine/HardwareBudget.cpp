@@ -5,15 +5,20 @@
 #include "Cores/AudioCore.h"
 #include "Engine/ProjectSettings.h"
 #include "File.h"
+#include "Graphics/ModelResource.h"
 #include "Graphics/Texture.h"
 #include "Path.h"
 #include "Profiling/FrameStats.h"
 #include "Renderer.h"
 #include "Resource/ResourceCache.h"
+#include "Resources/SoundResource.h"
 #include "Utils/PlatformUtils.h"
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <iterator>
 
 namespace
@@ -205,6 +210,10 @@ void HardwareBudget::Init( BGFXRenderer& InRenderer )
     // (Tools/ScreenshotRegression.py), so a local ProjectSettings edit can't cap what they render.
     const bool enforcementOff = CommandLine::Has( "--no-profile-enforcement" );
     m_enforced = !enforcementOff && ( CommandLine::Has( "--enforce-profile" ) || settings.EnforceHardwareProfile );
+    if( CommandLine::Has( "--host-speed" ) )
+    {
+        SetHostSpeedFactor( static_cast<float>( std::atof( CommandLine::GetString( "--host-speed" ).c_str() ) ) );
+    }
     ReloadProfiles();
     // Always one line, so a run's log says which caps it rendered under.
     if( m_activeName.empty() )
@@ -473,6 +482,169 @@ void HardwareBudget::ApplyCaps()
 }
 
 
+void HardwareBudget::SetHostSpeedFactor( float InFactor )
+{
+    m_hostSpeedFactor = InFactor > 0.f ? std::clamp( InFactor, 0.05f, 100.f ) : 1.f;
+}
+
+
+namespace
+{
+    std::string WithCommas( uint64_t InValue )
+    {
+        std::string digits = std::to_string( InValue );
+        for( int i = static_cast<int>( digits.size() ) - 3; i > 0; i -= 3 )
+        {
+            digits.insert( static_cast<size_t>( i ), "," );
+        }
+        return digits;
+    }
+
+
+    uint64_t FileBytes( const std::string& InFullPath )
+    {
+        std::error_code error;
+        const uintmax_t size = std::filesystem::file_size( InFullPath, error );
+        return error ? 0 : static_cast<uint64_t>( size );
+    }
+
+
+    // The compiled image scaled to the size it uploaded at (a hardware profile may have capped it):
+    // the DDS header names the stored size.
+    uint64_t TextureBytes( const Moonlight::Texture& InTexture )
+    {
+        const std::string compiled = InTexture.GetPath().FullPath + ".dds";
+        const uint64_t fileBytes = FileBytes( compiled );
+        const uint64_t texels = static_cast<uint64_t>( std::max( InTexture.mWidth, 1 ) ) * static_cast<uint64_t>( std::max( InTexture.mHeight, 1 ) );
+        if( fileBytes > 128 )
+        {
+            std::ifstream stream( compiled, std::ios::binary );
+            uint32_t header[5] = {};
+            if( stream.read( reinterpret_cast<char*>( header ), sizeof( header ) ) && header[0] == 0x20534444u && header[3] > 0 && header[4] > 0 )
+            {
+                const uint64_t stored = static_cast<uint64_t>( header[3] ) * header[4];
+                return stored > texels ? fileBytes * texels / stored : fileBytes;
+            }
+            return fileBytes;
+        }
+        // Generated in memory: assume RGBA8 and a full mip chain when it has mips.
+        return texels * 4 * ( InTexture.m_mips > 1 ? 4 : 3 ) / 3;
+    }
+}
+
+
+std::vector<AssetCost> HardwareBudget::CollectAssetCosts()
+{
+    std::vector<AssetCost> costs;
+    for( const auto& entry : ResourceCache::GetInstance().GetResouceStack() )
+    {
+        const SharedPtr<Resource>& resource = entry.second;
+        if( !resource || resource->IsLoading() )
+        {
+            continue;
+        }
+        AssetCost cost;
+        cost.Path = resource->GetPath().GetLocalPathString();
+        cost.References = static_cast<long>( resource.use_count() ) - 1;
+        if( auto texture = std::dynamic_pointer_cast<Moonlight::Texture>( resource ) )
+        {
+            if( texture->IsRenderTarget() )
+            {
+                const Moonlight::RenderTextureSettings& settings = texture->GetRenderTextureSettings();
+                cost.Kind = "Render Texture";
+                const uint64_t texels = static_cast<uint64_t>( settings.Width ) * settings.Height;
+                cost.Bytes = texels * 4 * ( settings.Mips ? 4 : 3 ) / 3;
+                cost.Detail = std::to_string( settings.Width ) + "x" + std::to_string( settings.Height ) + ( settings.Mips ? ", mips" : "" );
+            }
+            else
+            {
+                cost.Kind = "Texture";
+                cost.Bytes = TextureBytes( *texture );
+                cost.Detail = std::to_string( texture->mWidth ) + "x" + std::to_string( texture->mHeight ) + ( texture->m_mips > 1 ? ", " + std::to_string( texture->m_mips ) + " mips" : "" );
+            }
+        }
+        else if( auto model = std::dynamic_pointer_cast<ModelResource>( resource ) )
+        {
+            cost.Kind = "Model";
+            uint64_t vertices = 0;
+            uint64_t indices = 0;
+            for( const Moonlight::MeshData* mesh : model->GetAllMeshes() )
+            {
+                if( mesh )
+                {
+                    vertices += mesh->GetVertexCount();
+                    indices += mesh->GetIndexCount();
+                }
+            }
+            cost.Bytes = vertices * sizeof( Moonlight::PosNormTexTanBiVertex ) + indices * sizeof( uint32_t );
+            cost.Detail = WithCommas( vertices ) + " vertices, " + WithCommas( indices / 3 ) + " triangles";
+        }
+        else if( std::dynamic_pointer_cast<Sound>( resource ) )
+        {
+            cost.Kind = "Sound";
+            cost.Bytes = FileBytes( resource->GetPath().FullPath );
+            cost.Detail = "file size";
+        }
+        else
+        {
+            cost.Kind = "Other";
+        }
+        costs.push_back( std::move( cost ) );
+    }
+    std::stable_sort( costs.begin(), costs.end(), []( const AssetCost& InA, const AssetCost& InB ) {
+        return InA.Bytes != InB.Bytes ? InA.Bytes > InB.Bytes : InA.Path < InB.Path;
+    } );
+    return costs;
+}
+
+
+json HardwareBudget::AssetCostsToJson( const std::vector<AssetCost>& InCosts, size_t InTop )
+{
+    json out;
+    json kinds = json::object();
+    uint64_t total = 0;
+    json assets = json::array();
+    for( const AssetCost& cost : InCosts )
+    {
+        total += cost.Bytes;
+        json& kind = kinds[cost.Kind];
+        if( kind.is_null() )
+        {
+            kind = { { "Bytes", uint64_t( 0 ) }, { "Count", 0 } };
+        }
+        kind["Bytes"] = kind["Bytes"].get<uint64_t>() + cost.Bytes;
+        kind["Count"] = kind["Count"].get<int>() + 1;
+        if( assets.size() < InTop )
+        {
+            assets.push_back( { { "Path", cost.Path }, { "Kind", cost.Kind }, { "Bytes", cost.Bytes }, { "Detail", cost.Detail }, { "References", cost.References } } );
+        }
+    }
+    out["Total"] = total;
+    out["Kinds"] = std::move( kinds );
+    out["Assets"] = std::move( assets );
+    return out;
+}
+
+
+std::string HardwareBudget::FormatBytes( uint64_t InBytes )
+{
+    char text[32];
+    if( InBytes >= 1024ull * 1024ull )
+    {
+        std::snprintf( text, sizeof( text ), "%.1f MiB", InBytes / ( 1024.0 * 1024.0 ) );
+    }
+    else if( InBytes >= 1024ull )
+    {
+        std::snprintf( text, sizeof( text ), "%.0f KiB", InBytes / 1024.0 );
+    }
+    else
+    {
+        std::snprintf( text, sizeof( text ), "%llu B", static_cast<unsigned long long>( InBytes ) );
+    }
+    return text;
+}
+
+
 void HardwareBudget::ReloadTextures()
 {
     // File textures with a compiled image; render targets and generated textures have none.
@@ -582,10 +754,10 @@ void HardwareBudget::Update()
         switch( line.Id )
         {
         case Budget::Cpu:
-            line.Used = stats.GetSmoothedFrameMilliseconds();
+            line.Used = stats.GetSmoothedFrameMilliseconds() * m_hostSpeedFactor;
             break;
         case Budget::Gpu:
-            line.Used = m_smoothedGpu;
+            line.Used = m_smoothedGpu * m_hostSpeedFactor;
             break;
         case Budget::DrawCalls:
             line.Used = render.SceneDrawCalls;

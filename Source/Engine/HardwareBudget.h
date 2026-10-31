@@ -2,6 +2,7 @@
 #include "Dementia.h"
 #include "JSON.h"
 #include <cstdint>
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -82,6 +83,19 @@ struct QualityPreset
     std::string Name;
     std::string Description;
     HardwareProfile::FeatureCaps Caps;
+};
+
+
+// NEXT-11: what one loaded asset costs. Bytes estimate what it holds in memory: a texture's
+// compiled image at the size it uploaded (a render texture: its colour target), a model's vertex
+// and index buffers, a sound's file. Other resources (materials, shaders, data) count 0.
+struct AssetCost
+{
+    std::string Path;
+    std::string Kind;           // "Texture", "Render Texture", "Model", "Sound" or "Other"
+    uint64_t Bytes = 0;
+    std::string Detail;         // "2048x2048, 12 mips", "84,120 vertices, 120,000 triangles"
+    long References = 0;        // holders besides the resource cache
 };
 
 
@@ -186,6 +200,20 @@ public:
     // The profile, whether it's enforced, and every line's used / peak / limit / status.
     json ToJson() const;
 
+    // NEXT-11: how many times faster this machine is than the target. The measured CPU and GPU
+    // frame times are multiplied by it before they meet the budget, so a fast dev machine reads
+    // like the target (1 = as measured; --host-speed <factor>, the editor's Hardware tab).
+    void SetHostSpeedFactor( float InFactor );
+    float GetHostSpeedFactor() const { return m_hostSpeedFactor; }
+
+    // NEXT-11: every loaded asset's estimated cost, most expensive first.
+    static std::vector<AssetCost> CollectAssetCosts();
+    // { "Total": bytes, "Kinds": { "Texture": { "Bytes", "Count" }, ... }, "Assets": [ the first
+    // InTop costs ] }
+    static json AssetCostsToJson( const std::vector<AssetCost>& InCosts, size_t InTop = SIZE_MAX );
+    // "1.5 MiB", "820 KiB", "312 B".
+    static std::string FormatBytes( uint64_t InBytes );
+
     // "12.4 ms", "245.0 MiB", "1,520" (pixel counts read "0.92 MP").
     static std::string FormatValue( const Line& InLine, double InValue );
     // The line's used value and limit; resolutions read "1280x720".
@@ -218,6 +246,7 @@ private:
     std::vector<HardwareProfile> m_profiles;
     std::string m_activeName;
     bool m_enforced = false;
+    float m_hostSpeedFactor = 1.f;
     std::vector<QualityPreset> m_qualityPresets;
     std::string m_qualityName;
     HardwareProfile::FeatureCaps m_lookCaps;

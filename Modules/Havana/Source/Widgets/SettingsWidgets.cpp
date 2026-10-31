@@ -323,6 +323,16 @@ namespace
 			settings.Save();
 		}
 		ImGui::SetItemTooltip("Turn off the effects the target lacks and cap texture and shadow sizes, so the game shows the target's look. Off, the caps are only reported. Textures reload when the size cap changes.");
+		// NEXT-11: per machine (an editor preference), not per project.
+		float hostSpeed = budget.GetHostSpeedFactor();
+		HavanaUtils::Label("This machine is");
+		ImGui::SetNextItemWidth(120.f);
+		if (ImGui::DragFloat("##HostSpeed", &hostSpeed, 0.05f, 0.05f, 100.f, "%.2fx faster"))
+		{
+			budget.SetHostSpeedFactor(hostSpeed);
+			EditorConfig::GetInstance().SetPreference("Budgets.HostSpeedFactor", budget.GetHostSpeedFactor());
+		}
+		ImGui::SetItemTooltip("How many times faster this machine is than the target. The CPU and GPU frame times are multiplied by it before they meet the budget, so 4x reads a 5 ms frame as 20 ms. Kept for this machine only (also --host-speed).");
 		if (!profile)
 		{
 			ImGui::TextWrapped(active.empty()

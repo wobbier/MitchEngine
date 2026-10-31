@@ -189,6 +189,55 @@ TEST_CASE( "Hardware budgets: lines follow the frame's numbers, near at 90% and 
 }
 
 
+TEST_CASE( "Hardware budgets: the host speed factor scales measured frame times" )
+{
+    HardwareBudgetTests::Restore restore;
+    HardwareBudget& budget = HardwareBudget::Get();
+    REQUIRE( budget.AddProfiles( json::parse( R"({ "Profiles": [ { "Name": "Slow", "TargetFps": 30 } ] })" ), "test" ) );
+    budget.SetActiveProfile( "Slow" );
+    const HardwareBudget::Line* cpu = HardwareBudgetTests::FindLine( HardwareBudget::Budget::Cpu );
+    REQUIRE( cpu != nullptr );
+    budget.SetHostSpeedFactor( 1.f );
+    budget.Update();
+    const double measured = cpu->Used;
+    budget.SetHostSpeedFactor( 3.f );
+    budget.Update();
+    CHECK( cpu->Used == doctest::Approx( measured * 3.0 ) );
+    budget.SetHostSpeedFactor( 0.f );       // nonsense reads as "as measured"
+    CHECK( budget.GetHostSpeedFactor() == 1.f );
+    budget.SetHostSpeedFactor( 1000.f );
+    CHECK( budget.GetHostSpeedFactor() == 100.f );
+    budget.SetHostSpeedFactor( 1.f );
+}
+
+
+TEST_CASE( "Asset costs: the report totals by kind and lists the most expensive first" )
+{
+    std::vector<AssetCost> costs = {
+        { "Assets/Big.png", "Texture", 4u * 1024 * 1024, "2048x2048", 3 },
+        { "Assets/Car.fbx", "Model", 600u * 1024, "1,000 vertices, 500 triangles", 1 },
+        { "Assets/Small.png", "Texture", 1000, "16x16", 0 },
+        { "Assets/Door.mat", "Other", 0, "", 2 },
+    };
+    const json report = HardwareBudget::AssetCostsToJson( costs, 2 );
+    CHECK( report["Total"].get<uint64_t>() == 4u * 1024 * 1024 + 600u * 1024 + 1000 );
+    CHECK( report["Kinds"]["Texture"]["Count"] == 2 );
+    CHECK( report["Kinds"]["Texture"]["Bytes"].get<uint64_t>() == 4u * 1024 * 1024 + 1000 );
+    CHECK( report["Kinds"]["Other"]["Bytes"].get<uint64_t>() == 0 );
+    REQUIRE( report["Assets"].size() == 2 );
+    CHECK( report["Assets"][0]["Path"] == "Assets/Big.png" );
+    CHECK( report["Assets"][1]["References"] == 1 );
+    CHECK( HardwareBudget::FormatBytes( 4u * 1024 * 1024 ) == "4.0 MiB" );
+    CHECK( HardwareBudget::FormatBytes( 600u * 1024 ) == "600 KiB" );
+    CHECK( HardwareBudget::FormatBytes( 312 ) == "312 B" );
+    // Nothing loaded in the test runner needs a GPU to be costed.
+    for( const AssetCost& cost : HardwareBudget::CollectAssetCosts() )
+    {
+        CHECK_FALSE( cost.Kind.empty() );
+    }
+}
+
+
 TEST_CASE( "Hardware budgets: values read in their units" )
 {
     HardwareBudget::Line line;

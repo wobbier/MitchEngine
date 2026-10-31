@@ -19,6 +19,7 @@
 - Play options: Simulate (play without scripts), keep a component's values after Stop, play from the scene camera, and Build & Run.
 - Prefabs: double-click one to edit it alone (prefab mode), and variants that keep only their differences from a base prefab and follow its changes.
 - World view: Drop to Surface (End), Shift-drag to slide objects over surfaces, V-drag to snap to vertices, a Measure tool, camera bookmarks, and grid plane, size and offset.
+- Budgets: the Resource Monitor shows what each loaded asset costs in memory, biggest first, against the target hardware; and a host speed factor so a fast dev machine reads like the target.
 - Rhythm games: a beat clock that follows the music's real playback position (C# BeatClock).
 - Every public C# API member is documented, with a reference page (Docs/API/ScriptCore.md) and IDE tooltips.
 - Editor: inspector search and lock, lock picking in the hierarchy; the command palette finds entities, assets, settings and docs; a status indicator for builds, imports and bakes, with toasts that link to the fix; undo for asset renames, moves and deletes (with a Trash), Project Settings and Prefab Apply.
