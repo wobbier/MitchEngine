@@ -487,6 +487,16 @@ void PropertiesWidget::DrawEntityHeader(Entity& entity)
 		}
 		const std::string asset = PrefabTools::GetPrefabAsset(*root);
 		ImGui::TextColored(ImGuiTheme::AccentText(), "Prefab%s: %s", m_prefabHasOverrides ? " (modified)" : "", asset.c_str());
+		// ED-6: a variant names its base (read once per asset, not every frame).
+		if (m_prefabBaseAsset != asset)
+		{
+			m_prefabBaseAsset = asset;
+			m_prefabBase = SceneSerializer::GetPrefabBase(asset);
+		}
+		if (!m_prefabBase.empty())
+		{
+			ImGui::TextDisabled("Variant of %s", m_prefabBase.c_str());
+		}
 		if (root != &entity && ImGui::Button("Select Root"))
 		{
 			Selection::Get().Set(root->GetHandle());

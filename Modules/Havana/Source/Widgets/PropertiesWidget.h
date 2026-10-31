@@ -72,6 +72,8 @@ private:
 	std::vector<std::string> m_drawn;
 	double m_prefabCheckTime = 0.0;
 	uint64_t m_prefabCheckRoot = 0;
+	std::string m_prefabBaseAsset;
+	std::string m_prefabBase;
 	bool m_prefabHasOverrides = false;
 };
 
