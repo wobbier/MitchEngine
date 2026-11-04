@@ -1,0 +1,21 @@
+ID,Title,Status,Description
+1,Implement terrain generation algorithm,To Do,Create a new algorithm for procedural terrain generation based on Perlin noise.
+2,Fix terrain rendering bugs,In Progress,Resolve issues with texture tiling on large terrain meshes.
+3,Optimize terrain LOD system,To Do,Improve performance by reducing draw calls for terrain LOD.
+4,Fix editor lighting issues,In Progress,Resolve flickering in the editor's lighting preview when rotating the camera.
+5,Implement particle system,To Do,Create a new particle system with customizable shaders and emitter types.
+6,Optimize asset memory,To Do,Reduce memory usage by 20% for commonly used assets like textures and models.
+7,Add ECS unit tests,In Progress,Write tests for core ECS components and systems to ensure stability.
+8,Refactor camera system,To Do,Improve camera movement logic for better player control and smooth transitions.
+9,Add multiplayer networking,Backlog,Implement basic multiplayer functionality using the existing Net module.
+10,Update documentation,To Do,Complete the Architecture.md file with detailed diagrams and explanations.
+11,Fix Dementia module memory leaks,In Progress,Address memory leaks in the Dementia module's entity management system.
+12,Improve Havana editor UI responsiveness,To Do,Optimize the editor's UI to reduce lag during scene editing.
+13,Add new ImGUI widgets for tooling,To Do,Create custom widgets for common editor tasks like texture adjustment.
+14,Optimize ScriptCore scripting performance,In Progress,Reduce script execution time by 15% through caching.
+15,Enhance Player module networking,To Do,Add support for more reliable client-server synchronization.
+16,Write comprehensive tests for terrain module,To Do,Create unit tests covering all terrain generation and rendering cases.
+17,Fix editor crash on scene load,In Progress,Resolve segmentation fault when loading large scenes in Havana editor.
+18,Implement skybox system,To Do,Create a dynamic skybox system with day/night cycles and weather effects.
+19,Optimize collision detection,To Do,Reduce physics calculation time by 25% for complex object interactions.
+20,Add visual scripting support,Backlog,Integrate a node-based visual scripting system for non-programmers.
