@@ -65,7 +65,9 @@ void TerrainMaterial::Use()
     bgfx::setUniform( u_surface, params );
     bgfx::setUniform( u_mapping, Mapping.data(), 4 );
     const bool textured = LayersEnabled && m_layerTextures && m_layerTextures->IsReady();
-    const float textureParams[4] = { textured ? 1.f : 0.f, 512.f, 7.f, 0.f };
+    const float cellSize = m_layerTextures ? static_cast<float>( m_layerTextures->GetCellSize() ) : 512.f;
+    const float lastMip = m_layerTextures ? static_cast<float>( m_layerTextures->GetAtlasMaxMip() ) : 7.f;
+    const float textureParams[4] = { textured ? 1.f : 0.f, cellSize, lastMip, 0.f };
     const float origin[4] = { TerrainTranslation.x, TerrainTranslation.y, 0, 0 };
     bgfx::setUniform( u_textures, textureParams ); bgfx::setUniform( u_origin, origin );
     for( unsigned i = 0; i < 3; ++i )
