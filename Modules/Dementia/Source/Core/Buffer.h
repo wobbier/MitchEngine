@@ -4,59 +4,52 @@
 #include <memory>
 #include <assert.h>
 
+// An owned byte array. Move-only: a copy of the old raw-pointer version shared its allocation and
+// the pair would double free (or neither would free) on Release.
 class Buffer
 {
 public:
-    uint8_t* Data = nullptr;
     uint64_t Size = 0;
 
     Buffer() = default;
-    Buffer( const Buffer& buffer ) = default;
-
-    Buffer( uint64_t size )
-        : Size( size )
+    explicit Buffer( uint64_t size )
     {
-        Allocate( Size );
+        Allocate( size );
     }
+    Buffer( const Buffer& ) = delete;
+    Buffer& operator=( const Buffer& ) = delete;
+    Buffer( Buffer&& ) noexcept = default;
+    Buffer& operator=( Buffer&& ) noexcept = default;
+    ~Buffer() = default;
 
     void Allocate( uint64_t size )
     {
-        assert( !Data );
-        Data = new uint8_t[size];
+        assert( !m_data );
+        m_data = std::make_unique<uint8_t[]>( size );
         Size = size;
     }
 
     void Release()
     {
-        delete[] Data;
-        Data = nullptr;
+        m_data.reset();
         Size = 0;
     }
 
-    operator bool()
+    uint8_t* Data()
     {
-        return Size > 0;
-    }
-};
-
-
-class ScopedBuffer
-{
-    Buffer Buf;
-
-    ScopedBuffer() = delete;
-    ScopedBuffer( uint64_t size )
-        : Buf( size )
-    {
+        return m_data.get();
     }
 
-    ScopedBuffer( const Buffer& buffer )
-        : Buf( buffer )
+    const uint8_t* Data() const
     {
+        return m_data.get();
     }
 
-    ~ScopedBuffer()
+    explicit operator bool() const
     {
-        Buf.Release();
+        return Size > 0 && m_data != nullptr;
     }
+
+private:
+    std::unique_ptr<uint8_t[]> m_data;
 };
