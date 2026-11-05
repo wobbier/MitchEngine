@@ -135,20 +135,23 @@ uint16_t SceneStreaming::LoadAsync( const std::string& InPath )
 std::vector<uint16_t> SceneStreaming::Pump( World& InWorld )
 {
     std::vector<uint16_t> loaded;
-    for( Entry& entry : m_scenes )
+    // By index, re-reading the size: a component initialised by Instantiate can request another
+    // additive load, and that push_back would move an Entry& held across the call.
+    for( size_t i = 0; i < m_scenes.size(); ++i )
     {
-        if( entry.Status != State::Loading )
+        if( m_scenes[i].Status != State::Loading )
         {
             continue;
         }
-        if( entry.Pending.wait_for( std::chrono::seconds( 0 ) ) != std::future_status::ready )
+        if( m_scenes[i].Pending.wait_for( std::chrono::seconds( 0 ) ) != std::future_status::ready )
         {
             break;   // keep request order: later scenes wait for this one
         }
-        Instantiate( InWorld, entry, entry.Pending.get() );
-        if( entry.Status == State::Loaded )
+        auto scene = m_scenes[i].Pending.get();
+        Instantiate( InWorld, m_scenes[i], std::move( scene ) );
+        if( m_scenes[i].Status == State::Loaded )
         {
-            loaded.push_back( entry.Id );
+            loaded.push_back( m_scenes[i].Id );
         }
     }
     return loaded;
