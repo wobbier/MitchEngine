@@ -1465,13 +1465,19 @@ void PhysicsCore::ProcessEvents()
         }
     }
 
-    // Deliver after reading everything, so handlers can freely change the world.
-    std::vector<CollisionEvent> events;
-    events.swap( m_pendingEvents );
-    for( CollisionEvent& event : events )
+    // Deliver after reading everything, so handlers can freely change the world. The delivery
+    // buffer is a member swapped back afterwards, so neither vector reallocates every step.
+    m_deliveringEvents.clear();
+    m_deliveringEvents.swap( m_pendingEvents );
+    for( CollisionEvent& event : m_deliveringEvents )
     {
         event.Source = &GetWorld();
         event.Fire();
+    }
+    m_deliveringEvents.clear();
+    if( m_pendingEvents.capacity() < m_deliveringEvents.capacity() )
+    {
+        m_pendingEvents.swap( m_deliveringEvents );
     }
 }
 
