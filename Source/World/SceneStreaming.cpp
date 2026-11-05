@@ -173,8 +173,8 @@ std::vector<uint16_t> SceneStreaming::Wait( World& InWorld )
 
 bool SceneStreaming::Unload( World& InWorld, uint16_t InId )
 {
-    Entry* entry = Find( InId );
-    if( !entry )
+    auto entry = std::find_if( m_scenes.begin(), m_scenes.end(), [InId]( const Entry& InEntry ) { return InEntry.Id == InId; } );
+    if( entry == m_scenes.end() )
     {
         return false;
     }
@@ -184,7 +184,7 @@ bool SceneStreaming::Unload( World& InWorld, uint16_t InId )
         CLog::Log( CLog::LogType::Info, "Additive scene unloaded: " + entry->Path + " (" + std::to_string( destroyed ) + " entities)" );
     }
     // A pending read finishes (the future's destructor waits) and is discarded.
-    m_scenes.erase( m_scenes.begin() + ( entry - m_scenes.data() ) );
+    m_scenes.erase( entry );
     return true;
 }
 
