@@ -396,7 +396,7 @@ The entity's Camera: projection, clipping, render scaling and screen rays.
 - `ClearColor` (property): The background color when the camera clears to a color (linear RGB).
 - `DynamicResolution` (property): Lowers RenderScale automatically when frames run long, and raises it back when there's headroom.
 - `Far` (property): The far clipping distance in metres.
-- `FieldOfView` (property): CS-5 e: projection. FieldOfView is the vertical angle in degrees (the engine's Zoom field).
+- `FieldOfView` (property): CS-5 e: projection. FieldOfView is the vertical angle in degrees: the engine's reflected "FieldOfView" field, the one the projection is built from (the hidden legacy "Zoom" field is read by nothing).
 - `Near` (property): The near clipping distance in metres.
 - `OrthographicSize` (property): Half the view height in metres, for an orthographic camera.
 - `OutputSize` (property): The pixels it renders (its output size times its viewport rect).
