@@ -93,10 +93,13 @@ void MetaBase::Save()
     File metaFile = File( metaPath );
     json j;
     Serialize( j );
-    const std::string contents = j.dump( 4 );
+    const std::string contents = j.dump( 4 ) + "\n";
     // Rewriting an unchanged .meta would look like an edit to the file watcher and reimport the
-    // asset again (an endless reload loop for hot reloaded shaders).
-    if( !metaPath.Exists || metaFile.Read() != contents )
+    // asset again (an endless reload loop for hot reloaded shaders), and dirties checkouts: a file
+    // that only differs by its final newline counts as unchanged.
+    const std::string existing = metaPath.Exists ? metaFile.Read() : std::string();
+    const bool unchanged = metaPath.Exists && ( existing == contents || existing + "\n" == contents );
+    if( !unchanged )
     {
         metaFile.Write( contents );
     }
