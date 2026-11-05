@@ -1,5 +1,5 @@
 #pragma once
-#include <vector>
+#include <deque>
 #include <queue>
 #include <mutex>
 
@@ -13,7 +13,9 @@ struct CommandCache
 
     T* Get( unsigned int Id );
 
-    std::vector<T> Commands;
+    // A deque: Get() hands out pointers that callers keep (CameraData*, MeshCommand*), and a deque's
+    // push_back never moves the existing elements the way a growing vector does.
+    std::deque<T> Commands;
     std::queue<unsigned int> FreeIndicies;
     std::mutex CommandMutex;
 };

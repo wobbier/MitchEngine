@@ -1023,7 +1023,7 @@ void RmlUiCore::Update( const UpdateContext& inUpdateContext )
 
     m_context->Update();
 
-    Moonlight::CameraData* cameraData = GetEngine().GetRenderer().GetCameraCache().Get( Camera::CurrentCamera->GetCameraId() );
+    Moonlight::CameraData* cameraData = Camera::CurrentCamera ? GetEngine().GetRenderer().GetCameraCache().Get( Camera::CurrentCamera->GetCameraId() ) : nullptr;
     if( anyVisible )
     {
         const uint16_t width = static_cast<uint16_t>( outputSize.x );

@@ -80,9 +80,15 @@ Camera::Camera()
 
 Camera::~Camera()
 {
+    if( FallbackCamera == this )
+    {
+        FallbackCamera = nullptr;
+    }
     if( CurrentCamera == this )
     {
-        CurrentCamera = nullptr;
+        // Deleting the main camera (its entity, an additive scene, a failed load) must not leave
+        // every CurrentCamera reader on a dangling pointer until the next scene load.
+        CurrentCamera = FallbackCamera;
     }
     if( EditorCamera == this )
     {
