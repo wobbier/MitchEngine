@@ -82,7 +82,7 @@ The editor tooling (NET-7) comes next.
 Each `SendPacket( now )` sends exactly one packet. It carries:
 
 - **Header:** protocol id `0x4D45`, a 16-bit sequence, and the latest sequence received plus 32 bits for the ones before it, so each packet acks 33. It also carries the **ack delay**: how long that latest packet waited before this ack, in 0.1 ms units.
-- **Reliable messages:** new ones, plus any unacked for a little over a round trip (`1.25 × RTT + 2 × deviation`, at least 20 ms; 100 ms before the first estimate). They go oldest first, within a 1024-message window and the 1200-byte packet budget.
+- **Reliable messages:** new ones, plus any unacked for a little over a round trip (`1.25 × RTT + 2 × deviation`, at least 20 ms; 100 ms before the first estimate). They go oldest first, within a 1024-message window and the 1200-byte packet budget, and, after the first of them in a packet, they leave room for the largest unreliable message queued that tick (a snapshot, owner state), so a late joiner's burst of Spawns never starves the state that goes in this packet or not at all, while the head of the reliable stream still goes out every packet.
 - **Unreliable messages:** the ones queued since the last packet. Each goes in this packet or is dropped.
 
 On receive, the connection works through these steps:
@@ -94,7 +94,7 @@ On receive, the connection works through these steps:
 5. **Loss:** a packet that leaves the 33-packet window unacked counts as lost (`PacketsLost`, a smoothed `PacketLoss`).
 6. **Reliable delivery:** messages are delivered in id order exactly once. Early ones wait for the gap to fill.
 
-Messages are at most 1024 bytes (`kMaxMessageBytes`); there is no fragmentation yet. Sequences and message ids wrap at 16 bits (`NetSequenceGreater`). For the session above it, the connection says of the packet it just took whether it was the newest (`WasLastPacketNewest`: no later one had arrived; every packet, a keep-alive too, moves that on, so it never wraps however long a link idles) and what of this end's packets it acked (`GetLastPacketAck`).
+Messages are at most 1024 bytes (`kMaxMessageBytes`); there is no fragmentation yet, and a session logs (once a second) any message it had to drop for being larger, instead of silently never sending it. Sequences and message ids wrap at 16 bits (`NetSequenceGreater`). For the session above it, the connection says of the packet it just took whether it was the newest (`WasLastPacketNewest`: no later one had arrived; every packet, a keep-alive too, moves that on, so it never wraps however long a link idles) and what of this end's packets it acked (`GetLastPacketAck`).
 
 ### Sessions (NET-2)
 
@@ -176,19 +176,19 @@ Messages are at most 1024 bytes (`kMaxMessageBytes`); there is no fragmentation 
 **Ids:**
 
 - **Static:** placed `NetIdentity` entities get NetIds 1..N on both sides, in GUID order. The handshake's scene hash covers exactly these entities, so the orders match.
-- **Dynamic:** entities the server gives a `NetIdentity` during the session get ids from `0x10000`. A reliable **Spawn** `{NetId, owner, prefab, pose}` goes to every client; the client creates it from `Prefab`, or as a bare entity with a Transform.
+- **Dynamic:** entities the server gives a `NetIdentity` during the session get ids from `0x10000`. A reliable **Spawn** `{NetId, owner, prefab, pose}` goes to every client; the client creates it from `Prefab`, or as a bare entity with a Transform. A `NetIdentity` without a `Prefab` of its own takes the asset the entity was instanced from (`World.Instantiate` / `CreateFromPrefab`), so a prefab spawned from C# replicates as that prefab. `NetIdentity` is a registered script component (`entity.AddComponent("NetIdentity")`).
 - **Despawn:** destroying a networked entity sends a reliable Despawn.
 - **Late joiners:** they get Spawns for every dynamic entity, and Despawns for the static ones already destroyed.
 
 **Snapshots:**
 
 1. **Capture:** after each server tick, `CaptureTick` records every networked entity's `NetEntityState` (quantized world pose plus `NetSchema` bytes).
-2. **Delta:** each client's packet carries a delta against the newest snapshot that client acked (`SnapshotAck`, sent every client packet), or the full state with no baseline. The server keeps the last 32 sent per client. Changed entities write only the parts that changed, gone ones are listed, and the 900-byte budget defers the rest; the "sent" copy records what the client will really have.
+2. **Delta:** each client's packet carries a delta against the newest snapshot that client acked (`SnapshotAck`, sent every client packet), or the full state with no baseline. The server keeps the last 128 sent per client (`kSentHistory`, ~2 s at 60 Hz: the baseline a delta uses is acked half a round trip after it was sent, so a baseline older than the history means full state every tick for that client, as for a fresh join). Changed entities write only the parts that changed, gone ones are listed, and the 900-byte budget defers the rest; the "sent" copy records what the client will really have.
 3. **Skip when idle:** a snapshot identical to the last one sent is skipped, with a keep-alive every 15 ticks. The next snapshot names the previous one sent, so a client that has it knows entities held still in between (it adds a hold sample) rather than gliding from an old pose.
 
 **Clients:**
 
-- **Baselines:** decoded snapshots are kept (the last 32) as delta baselines.
+- **Baselines:** decoded snapshots are kept (the last 128, `kReceivedHistory`, matching the server's `kSentHistory`) as delta baselines: the server's delta against the tick the client last acked arrives about a round trip after that tick, so both histories have to outlast a round trip (~2 s at 60 Hz; the old 32 covered ~530 ms, past which every snapshot was full state).
 - **Samples:** each entity gets a sample buffer.
 - **Render tick:** `WriteInterpolated` (after physics poses) shows each entity at render tick = `newest server tick − delay`. It's steered gently and snaps when more than 6 ticks off.
 - **Interpolation:** linear for position, slerp for rotation, holding past the last sample. Replicated fields apply from the sample at or before the render tick.

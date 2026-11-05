@@ -107,7 +107,15 @@ void NetConnection::SendPacket( double InNow )
         budget -= InData.size() + kMessageOverheadBytes;
     };
 
-    // Reliable messages that are new or overdue, oldest first, inside the window.
+    // Reliable messages that are new or overdue, oldest first, inside the window. They leave room for
+    // the largest unreliable message queued this tick: a late joiner's burst of Spawns used to fill
+    // packets for several ticks and starve snapshots and owner state, which go in this packet or not at all.
+    size_t reserved = 0;
+    for( const std::vector<uint8_t>& message : m_unreliable )
+    {
+        reserved = std::max( reserved, message.size() + kMessageOverheadBytes );
+    }
+    reserved = std::min( reserved, budget );
     const double resendDelay = ResendDelay();
     const uint16_t windowStart = m_outgoing.empty() ? 0 : m_outgoing.front().Id;
     for( OutgoingReliable& message : m_outgoing )
@@ -120,7 +128,10 @@ void NetConnection::SendPacket( double InNow )
         {
             continue;
         }
-        if( message.Data.size() + kMessageOverheadBytes > budget )
+        // The first reliable message of a packet ignores the reservation: a big unreliable message
+        // every tick must never hold the head of the reliable stream (and everything behind it) forever.
+        const size_t floor = record.Reliable.empty() ? 0 : reserved;
+        if( message.Data.size() + kMessageOverheadBytes + floor > budget )
         {
             break;
         }
