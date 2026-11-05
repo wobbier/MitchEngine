@@ -793,7 +793,10 @@ namespace Moonlight
             key = Mix( Mix( Mix( key, Quantize( direction->x, 120.f ) ), Quantize( direction->y, 120.f ) ), Quantize( direction->z, 120.f ) );
         }
         key = Mix( Mix( key, Quantize( std::sqrt( Luminance( m_moonIlluminance ) ), 200.f ) ), Quantize( m_aerosol, 50.f ) );
-        key = Mix( key, Quantize( m_cameraKm.y, 100.f ) );
+        // Coarse camera terms: the probe lights the scene, where a kilometre of altitude or a few
+        // kilometres of travel barely change the sky, and the editor and main cameras (different
+        // positions) share one procedural probe, so finer steps made them re-capture it in turns.
+        key = Mix( key, Quantize( m_cameraKm.y, 1.f ) );
         // Eclipse contacts move much faster than the usual quantised sky directions.
         key = Mix( key, Quantize( m_directionalLights.SunVisibility, 1000.f ) );
         key = Mix( Mix( key, Quantize( m_eclipse.SunRadius, 100000.f ) ), Quantize( m_eclipse.MoonRadius, 100000.f ) );
@@ -801,7 +804,7 @@ namespace Moonlight
         {
             key = Mix( Mix( Mix( key, Quantize( m_settings.CloudCoverage, 100.f ) ), Quantize( m_settings.CloudDensity, 50.f ) ), Quantize( m_settings.CloudAltitude, 0.01f ) );
             key = Mix( Mix( Mix( key, Quantize( m_settings.CloudThickness, 0.01f ) ), Quantize( m_windOffset[0], 4.f ) ), Quantize( m_windOffset[1], 4.f ) );
-            key = Mix( Mix( key, Quantize( m_cameraKm.x, 4.f ) ), Quantize( m_cameraKm.z, 4.f ) );
+            key = Mix( Mix( key, Quantize( m_cameraKm.x, 0.25f ) ), Quantize( m_cameraKm.z, 0.25f ) );
         }
         m_environmentKey = key;
     }

@@ -254,7 +254,7 @@ A probe holds:
 
 A shared split-sum BRDF table is rendered once.
 
-- **Refresh**: probes refresh only when their source key changes (`DynamicSky::GetEnvironmentKey`: the sun and moon moving about half a degree, the moonlight, the haze, the cloud settings and every 250 m the wind carries the clouds; the panorama texture; or the clear colour). A refresh is split over two frames, one step per frame engine-wide, after checking frame-buffer headroom.
+- **Refresh**: probes refresh only when their source key changes (`DynamicSky::GetEnvironmentKey`: the sun and moon moving about half a degree, the moonlight, the haze, the cloud settings, every 250 m the wind carries the clouds, and only coarse camera terms, a kilometre of altitude or four of travel, because all procedural cameras share one probe and the editor and main cameras would otherwise recapture it in turns; the panorama texture; or the clear colour). A refresh is split over two frames, one step per frame engine-wide, after checking frame-buffer headroom.
 - **Face addressing**: faces are addressed through `gl_FragCoord`, which maps to the same face texel on every backend.
 - **Shading**:
   - Split-sum specular with Fdez-Agüera multiple-scattering compensation.
