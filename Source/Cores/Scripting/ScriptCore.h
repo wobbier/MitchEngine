@@ -45,6 +45,11 @@ private:
     uint64_t m_nextStartSequence = 0;
     // The scripts running a callback this tick, in update order (RunList).
     std::vector<ScriptComponent*> m_runList;
+    // Every script of the core in update order ([ExecutionOrder], then start order), sorted again only
+    // when a script joins, leaves or starts, or the scripts reload; RunList filters it per phase.
+    std::vector<ScriptComponent*> m_orderedScripts;
+    bool m_orderDirty = true;
+    uint32_t m_orderGeneration = 0;
 
     void StartScript( ScriptComponent& InScript );
     void StartPendingScripts();
