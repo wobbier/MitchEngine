@@ -312,3 +312,94 @@ TEST_CASE( "Net: 50 falling boxes mirror within 1 cm at the render tick under lo
         CHECK( mirror->GetEntityCount() == serverIds.size() );
     }
 }
+
+
+TEST_CASE( "Net: a 500 KB blob at 150 ms RTT and 5% loss leaves the snapshot rate within 5%, commands and the clock alone, and the link within budget" )
+{
+    // ME-323 (the killcam's channel): live traffic keeps its budget while a big blob streams.
+    Harness net( Link( 75.f, 5.f, 0.05f, 41 ), Link( 75.f, 5.f, 0.05f, 42 ) );
+    net.Start();
+    // 20 movers, so every tick has a snapshot to send.
+    std::vector<EntityHandle> movers;
+    for( int i = 0; i < 20; ++i )
+    {
+        EntityHandle mover = net.ServerWorld->CreateEntity();
+        mover->AddComponent<Transform>();
+        mover->AddComponent<NetIdentity>();
+        movers.push_back( mover );
+    }
+    net.OnServerTick = [&]( NetServer& InServer ) {
+        const float t = static_cast<float>( InServer.GetTick() ) / 60.f;
+        for( size_t i = 0; i < movers.size(); ++i )
+        {
+            const float phase = t + static_cast<float>( i );
+            movers[i]->GetComponent<Transform>().SetPosition( Vector3( std::sin( phase ) * 5.f, 0.f, std::cos( phase ) * 5.f + static_cast<float>( i ) ) );
+        }
+    };
+    net.Run( 3.0 );
+    NetClient& client = *net.ClientNet.GetClient();
+    REQUIRE( client.GetState() == NetClient::State::Connected );
+    NetServer::Client& onServer = *net.ServerNet.GetServer()->GetClients().front();
+    REQUIRE( onServer.Accepted );
+    std::vector<uint8_t> received;
+    double receivedAt = -1.0;
+    client.OnBlob = [&]( uint32_t, std::vector<uint8_t>& InData ) {
+        received = std::move( InData );
+        receivedAt = net.Now();
+    };
+
+    struct Counts
+    {
+        uint64_t Snapshots = 0;
+        uint64_t Misses = 0;
+        int Resyncs = 0;
+        uint64_t BytesDown = 0;
+        double At = 0.0;
+    };
+    auto count = [&]() {
+        Counts counts;
+        counts.Snapshots = net.ClientNet.GetReplicationClient()->GetSnapshotsReceived();
+        counts.Misses = onServer.Commands.GetMissedCount();
+        counts.Resyncs = client.GetClock().GetResyncCount();
+        counts.BytesDown = onServer.Connection->GetStats().BytesSent;
+        counts.At = net.Now();
+        return counts;
+    };
+
+    // Without a blob.
+    const Counts before = count();
+    net.Run( 5.0 );
+    const Counts baseline = count();
+    const double baselineRate = static_cast<double>( baseline.Snapshots - before.Snapshots ) / ( baseline.At - before.At );
+
+    // With one: from the send until the client has it whole.
+    std::vector<uint8_t> blob( 500 * 1024 );
+    for( size_t i = 0; i < blob.size(); ++i )
+    {
+        blob[i] = static_cast<uint8_t>( ( i * 131 ) ^ ( i >> 11 ) );
+    }
+    REQUIRE( net.ServerNet.GetServer()->SendBlob( onServer, blob ) != 0 );
+    for( int i = 0; i < 300 && receivedAt < 0.0; ++i )
+    {
+        net.Run( 0.1 );
+    }
+    REQUIRE( receivedAt > 0.0 );
+    const Counts during = count();
+    CHECK( received == blob );
+    const double seconds = during.At - baseline.At;
+    const double duringRate = static_cast<double>( during.Snapshots - baseline.Snapshots ) / seconds;
+    const double linkRate = static_cast<double>( during.BytesDown - baseline.BytesDown ) / seconds;
+    const NetStats& stats = onServer.Connection->GetStats();
+    MESSAGE( "snapshots " << baselineRate << "/s without, " << duringRate << "/s during the " << seconds << " s transfer; link " << linkRate << " B/s; "
+                          << stats.BlobSlicesResent << " slices resent; misses " << baseline.Misses - before.Misses << " then " << during.Misses - baseline.Misses );
+    CHECK( baselineRate > 50.0 );
+    CHECK( std::abs( duringRate - baselineRate ) <= baselineRate * 0.05 );
+    // Commands: no more misses than without (per second), and the clock never jumped.
+    CHECK( static_cast<double>( during.Misses - baseline.Misses ) / seconds <= static_cast<double>( baseline.Misses - before.Misses ) / 5.0 + 0.2 );
+    CHECK( during.Resyncs == baseline.Resyncs );
+    // Within the link's budget, and the blob really did use it (not a trickle).
+    const double budget = onServer.Connection->GetBlobSettings().LinkBytesPerSecond;
+    CHECK( linkRate <= budget * 1.03 );
+    CHECK( seconds < 8.0 );
+    CHECK( stats.BlobSlicesResent > 0 );
+}

@@ -98,6 +98,11 @@ public:
     // Each accepted client's packet is about to go (EndTick): add what belongs in it.
     std::function<void( Client& )> OnPacket;
     void Send( Client& InClient, const BitWriter& InMessage, bool InReliable );
+    // Blobs (ME-323): a large message to an accepted client, over its connection's blob channel
+    // (NetConnection::SendBlob: its id, or 0 when refused). Cancel or watch it on the connection.
+    uint32_t SendBlob( Client& InClient, const std::vector<uint8_t>& InData );
+    // A blob an accepted client sent, whole (InId: the client's id for it). Drained in Receive.
+    std::function<void( Client&, uint32_t InId, std::vector<uint8_t>& InData )> OnBlob;
 
     // Tells every client the server is going (Disconnect, a few packets' worth) and drops them.
     void Close( double InNow, const std::string& InReason = "server closed" );
@@ -185,6 +190,9 @@ public:
     // Messages beyond the session's own (replication): InReader is past the type byte.
     std::function<void( uint8_t InType, BitReader& InReader, bool InReliable )> OnMessage;
     void Send( const BitWriter& InMessage, bool InReliable );
+    // Blobs (ME-323), as NetServer's: 0 when refused or not connected. OnBlob: one from the server, whole.
+    uint32_t SendBlob( const std::vector<uint8_t>& InData );
+    std::function<void( uint32_t InId, std::vector<uint8_t>& InData )> OnBlob;
 
     State GetState() const { return m_state; }
     // The server's words are valid UTF-8 whatever it sent (BitReader::ReadText).
@@ -200,6 +208,8 @@ public:
     NetClock& GetClock() { return m_clock; }
     const NetClock& GetClock() const { return m_clock; }
     const NetConnection& GetConnection() const { return m_connection; }
+    // For the blob channel (cancel, progress, settings); the session drives the rest.
+    NetConnection& GetConnection() { return m_connection; }
     // The server's latest report.
     float GetServerSlack() const { return m_serverSlack; }
     uint32_t GetServerTick() const { return m_serverTick; }

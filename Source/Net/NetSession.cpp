@@ -115,6 +115,14 @@ void NetServer::Receive( double InNow )
         {
             HandleUnreliable( *client, message, InNow );
         }
+        uint32_t blobId = 0;
+        while( client->Connection->ReceiveBlob( blobId, message ) )
+        {
+            if( client->Accepted && OnBlob )
+            {
+                OnBlob( *client, blobId, message );
+            }
+        }
     }
     // Players who left or went quiet: told to whatever tracks them, then dropped.
     for( std::unique_ptr<Client>& client : m_clients )
@@ -244,6 +252,12 @@ uint8_t NetServer::AllocateId()
 void NetServer::Send( Client& InClient, const BitWriter& InMessage, bool InReliable )
 {
     SendOn( *InClient.Connection, InMessage, InReliable );
+}
+
+
+uint32_t NetServer::SendBlob( Client& InClient, const std::vector<uint8_t>& InData )
+{
+    return InClient.Accepted ? InClient.Connection->SendBlob( InData ) : 0;
 }
 
 
@@ -439,6 +453,14 @@ void NetClient::Receive( double InNow )
         {
             HandleUnreliable( message );
         }
+        uint32_t blobId = 0;
+        while( m_connection.ReceiveBlob( blobId, message ) )
+        {
+            if( m_state == State::Connected && OnBlob )
+            {
+                OnBlob( blobId, message );
+            }
+        }
     }
     // Every report was noted as it came; only the newest of the batch steers (the ones before it
     // are older news).
@@ -474,6 +496,12 @@ void NetClient::Send( const BitWriter& InMessage, bool InReliable )
     {
         SendOn( m_connection, InMessage, InReliable );
     }
+}
+
+
+uint32_t NetClient::SendBlob( const std::vector<uint8_t>& InData )
+{
+    return m_state == State::Connected ? m_connection.SendBlob( InData ) : 0;
 }
 
 

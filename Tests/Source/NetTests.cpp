@@ -428,3 +428,378 @@ TEST_CASE( "Net: an end that sends seldom (5 fps) keeps sampling the round trip,
     CHECK( slow.RoundTripMs > 90.f );
     CHECK( slow.RoundTripDeviationMs < 0.2f * slow.RoundTripMs );
 }
+
+
+// Blobs (ME-323) ---------------------------------------------------------------------------------
+
+namespace NetTest
+{
+    // InSize bytes with the seed folded in at every position, so a misplaced slice shows.
+    std::vector<uint8_t> BlobFor( size_t InSize, uint32_t InSeed )
+    {
+        std::vector<uint8_t> blob( InSize );
+        uint32_t state = InSeed * 2654435761u + 1;
+        for( size_t i = 0; i < InSize; ++i )
+        {
+            state = state * 1664525u + 1013904223u;
+            blob[i] = static_cast<uint8_t>( ( state >> 24 ) ^ ( i >> 10 ) );
+        }
+        return blob;
+    }
+
+    struct BlobInbox
+    {
+        std::vector<std::pair<uint32_t, std::vector<uint8_t>>> Blobs;
+
+        void Drain( NetConnection& InConnection )
+        {
+            uint32_t id = 0;
+            std::vector<uint8_t> data;
+            while( InConnection.ReceiveBlob( id, data ) )
+            {
+                Blobs.emplace_back( id, std::move( data ) );
+            }
+        }
+        const std::vector<uint8_t>* Find( uint32_t InId ) const
+        {
+            for( const auto& [id, data] : Blobs )
+            {
+                if( id == InId )
+                {
+                    return &data;
+                }
+            }
+            return nullptr;
+        }
+    };
+
+    const NetBlobProgress* FindProgress( const std::vector<NetBlobProgress>& InList, uint32_t InId, bool InOutgoing )
+    {
+        for( const NetBlobProgress& progress : InList )
+        {
+            if( progress.Id == InId && progress.Outgoing == InOutgoing )
+            {
+                return &progress;
+            }
+        }
+        return nullptr;
+    }
+}
+
+
+TEST_CASE( "Net: blobs arrive whole and in order on a clean link, four at a time; empty and past-4 MB ones are refused" )
+{
+    NetTest::Link link( NetConditions{}, NetConditions{} );
+    NetBlobSettings fast;
+    fast.LinkBytesPerSecond = 1024 * 1024;
+    link.ToB.SetBlobSettings( fast );
+
+    // The size cap: nothing queued past it, nor for nothing at all.
+    CHECK( link.ToB.SendBlob( nullptr, 0 ) == 0 );
+    std::vector<uint8_t> tooBig( NetConnection::kMaxBlobBytes + 1, 7 );
+    CHECK( link.ToB.SendBlob( tooBig ) == 0 );
+    CHECK( link.ToB.GetStats().BlobsRefused == 2 );
+    CHECK( link.ToB.GetPendingBlobCount() == 0 );
+    tooBig.clear();
+
+    // Slice edges (one byte, exactly one slice, one past it), a few hundred KB, and the cap itself.
+    const std::vector<size_t> sizes = { 1, NetConnection::kBlobSliceBytes, NetConnection::kBlobSliceBytes + 1, 3000, 200 * 1024 + 7, NetConnection::kMaxBlobBytes };
+    std::vector<uint32_t> ids;
+    for( size_t i = 0; i < sizes.size(); ++i )
+    {
+        const uint32_t id = link.ToB.SendBlob( NetTest::BlobFor( sizes[i], static_cast<uint32_t>( i ) ) );
+        REQUIRE( id != 0 );
+        ids.push_back( id );
+    }
+    // Four go at once; the rest queue.
+    std::vector<NetBlobProgress> progress = link.ToB.GetBlobProgress();
+    REQUIRE( progress.size() == sizes.size() );
+    CHECK( progress[3].Started );
+    CHECK_FALSE( progress[4].Started );
+
+    NetTest::BlobInbox inbox;
+    bool sawPartial = false;
+    for( int tick = 0; tick < 60 * 20 && inbox.Blobs.size() < sizes.size(); ++tick )
+    {
+        link.Step();
+        inbox.Drain( link.ToA );
+        // Partway: the receiver shows what it has, from the start without a gap on a clean link.
+        const std::vector<NetBlobProgress> arriving = link.ToA.GetBlobProgress();
+        if( const NetBlobProgress* incoming = NetTest::FindProgress( arriving, ids.back(), false ) )
+        {
+            if( incoming->DoneBytes > 0 && incoming->DoneBytes < incoming->Size )
+            {
+                sawPartial = true;
+                CHECK( incoming->ContiguousBytes == incoming->DoneBytes );
+                CHECK( incoming->Size == NetConnection::kMaxBlobBytes );
+            }
+        }
+    }
+    REQUIRE( inbox.Blobs.size() == sizes.size() );
+    CHECK( sawPartial );
+    for( size_t i = 0; i < sizes.size(); ++i )
+    {
+        const std::vector<uint8_t>* data = inbox.Find( ids[i] );
+        REQUIRE( data );
+        CHECK( *data == NetTest::BlobFor( sizes[i], static_cast<uint32_t>( i ) ) );
+    }
+    // Small ones aren't held behind big ones.
+    CHECK( inbox.Blobs.back().first == ids.back() );
+    for( int tick = 0; tick < 30; ++tick )
+    {
+        link.Step();
+    }
+    CHECK( link.ToB.GetPendingBlobCount() == 0 );
+    CHECK( link.ToB.GetBlobProgress().empty() );
+    CHECK( link.ToA.GetBlobProgress().empty() );
+    const NetStats& sent = link.ToB.GetStats();
+    CHECK( sent.BlobsSent == sizes.size() );
+    CHECK( sent.BlobsAcked == sizes.size() );
+    CHECK( link.ToA.GetStats().BlobsReceived == sizes.size() );
+    CHECK( sent.BlobSlicesResent == 0 );
+    CHECK( sent.BlobPacketsSent > 0 );
+}
+
+
+TEST_CASE( "Net: two concurrent blobs each way reassemble under 20% loss, reordering and duplicates, beside the reliable stream" )
+{
+    NetConditions bad;
+    bad.LatencyMs = 40.f;
+    bad.JitterMs = 15.f;
+    bad.Loss = 0.2f;
+    bad.Duplicate = 0.1f;
+    bad.Reorder = 0.1f;
+    bad.ReorderMs = 50.f;
+    NetConditions back = bad;
+    bad.Seed = 31;
+    back.Seed = 37;
+    NetTest::Link link( bad, back );
+
+    const std::vector<uint8_t> big = NetTest::BlobFor( 300 * 1024 + 11, 1 );
+    const std::vector<uint8_t> small = NetTest::BlobFor( 77 * 1024, 2 );
+    const std::vector<uint8_t> up1 = NetTest::BlobFor( 50 * 1024 + 3, 3 );
+    const std::vector<uint8_t> up2 = NetTest::BlobFor( 9000, 4 );
+    const uint32_t bigId = link.ToB.SendBlob( big );
+    const uint32_t smallId = link.ToB.SendBlob( small );
+    const uint32_t up1Id = link.ToA.SendBlob( up1 );
+    const uint32_t up2Id = link.ToA.SendBlob( up2 );
+    REQUIRE( ( bigId && smallId && up1Id && up2Id ) );
+
+    NetTest::BlobInbox atA;
+    NetTest::BlobInbox atB;
+    std::vector<std::vector<uint8_t>> reliable;
+    uint32_t queued = 0;
+    size_t unreliableSent = 0;
+    size_t unreliableReceived = 0;
+    size_t bigDoneWhenSmallArrived = 0;
+    for( int tick = 0; tick < 60 * 60; ++tick )
+    {
+        if( tick % 3 == 0 && queued < 200 )
+        {
+            REQUIRE( link.ToB.SendReliable( MessageFor( queued++ ) ) );
+        }
+        const uint8_t snapshot[400] = { static_cast<uint8_t>( tick ) };
+        link.ToB.SendUnreliable( snapshot, sizeof( snapshot ) );
+        ++unreliableSent;
+        link.Step();
+        const size_t before = atA.Blobs.size();
+        atA.Drain( link.ToA );
+        atB.Drain( link.ToB );
+        if( before == 0 && atA.Find( smallId ) )
+        {
+            const std::vector<NetBlobProgress> arriving = link.ToA.GetBlobProgress();
+            const NetBlobProgress* progress = NetTest::FindProgress( arriving, bigId, false );
+            bigDoneWhenSmallArrived = progress ? progress->DoneBytes : 0;
+        }
+        std::vector<uint8_t> message;
+        while( link.ToA.ReceiveReliable( message ) )
+        {
+            reliable.push_back( message );
+        }
+        while( link.ToA.ReceiveUnreliable( message ) )
+        {
+            ++unreliableReceived;
+        }
+        if( atA.Blobs.size() == 2 && atB.Blobs.size() == 2 && reliable.size() == 200 && link.ToB.GetPendingBlobCount() == 0 && link.ToA.GetPendingBlobCount() == 0 )
+        {
+            break;
+        }
+    }
+
+    REQUIRE( atA.Blobs.size() == 2 );
+    REQUIRE( atB.Blobs.size() == 2 );
+    CHECK( *atA.Find( bigId ) == big );
+    CHECK( *atA.Find( smallId ) == small );
+    CHECK( *atB.Find( up1Id ) == up1 );
+    CHECK( *atB.Find( up2Id ) == up2 );
+    // Concurrent, taking turns: the big one was well under way when the small one completed.
+    CHECK( bigDoneWhenSmallArrived > 50 * 1024 );
+    // The reliable stream beside them: still exactly once and in order.
+    REQUIRE( reliable.size() == 200 );
+    for( uint32_t i = 0; i < 200; ++i )
+    {
+        REQUIRE( reliable[i] == MessageFor( i ) );
+    }
+    CHECK( link.ToB.GetPendingBlobCount() == 0 );
+    CHECK( link.ToA.GetPendingBlobCount() == 0 );
+    // The link really was that bad, and the channel coped.
+    const NetStats& down = link.ToB.GetStats();
+    CHECK( down.BlobSlicesResent > 0 );
+    CHECK( link.ToA.GetStats().BlobSlicesDuplicate > 0 );
+    CHECK( link.A.GetDuplicatedCount() > 0 );
+    CHECK( down.BlobsAcked == 2 );
+    CHECK( link.ToA.GetStats().BlobsAcked == 2 );
+    CHECK( unreliableReceived > unreliableSent * 6 / 10 );
+    MESSAGE( "down: " << down.BlobSlicesSent << " slices sent, " << down.BlobSlicesResent << " resent, " << down.BlobPacketsSent << " slice packets" );
+}
+
+
+TEST_CASE( "Net: a blob cancelled by its sender, or refused by its receiver, stops; the next one still arrives" )
+{
+    NetConditions lossy;
+    lossy.LatencyMs = 30.f;
+    lossy.Loss = 0.1f;
+    NetConditions back = lossy;
+    lossy.Seed = 5;
+    back.Seed = 6;
+    NetTest::Link link( lossy, back );
+
+    // The sender cancels partway.
+    const uint32_t dropped = link.ToB.SendBlob( NetTest::BlobFor( 400 * 1024, 10 ) );
+    const uint32_t next = link.ToB.SendBlob( NetTest::BlobFor( 20 * 1024, 11 ) );
+    NetTest::BlobInbox inbox;
+    for( int tick = 0; tick < 600; ++tick )
+    {
+        link.Step();
+        inbox.Drain( link.ToA );
+        const std::vector<NetBlobProgress> arriving = link.ToA.GetBlobProgress();
+        const NetBlobProgress* progress = NetTest::FindProgress( arriving, dropped, false );
+        if( progress && progress->DoneBytes > 100 * 1024 )
+        {
+            break;
+        }
+    }
+    REQUIRE( NetTest::FindProgress( link.ToA.GetBlobProgress(), dropped, false ) );
+    CHECK( link.ToB.CancelBlob( dropped ) );
+    CHECK_FALSE( link.ToB.CancelBlob( dropped ) );
+    for( int tick = 0; tick < 60 * 5; ++tick )
+    {
+        link.Step();
+        inbox.Drain( link.ToA );
+    }
+    CHECK( inbox.Find( dropped ) == nullptr );
+    REQUIRE( inbox.Find( next ) );
+    CHECK( *inbox.Find( next ) == NetTest::BlobFor( 20 * 1024, 11 ) );
+    CHECK( link.ToA.GetBlobProgress().empty() );
+    CHECK( link.ToB.GetPendingBlobCount() == 0 );
+    CHECK( link.ToB.GetStats().BlobsCancelled == 1 );
+    CHECK( link.ToA.GetStats().BlobsCancelledByRemote == 1 );
+    CHECK( link.ToA.GetStats().BlobsReceived == 1 );
+
+    // The receiver refuses one partway (a skipped killcam): the sender stops sending it.
+    const uint32_t refused = link.ToB.SendBlob( NetTest::BlobFor( 600 * 1024, 12 ) );
+    for( int tick = 0; tick < 600; ++tick )
+    {
+        link.Step();
+        const std::vector<NetBlobProgress> arriving = link.ToA.GetBlobProgress();
+        const NetBlobProgress* progress = NetTest::FindProgress( arriving, refused, false );
+        if( progress && progress->DoneBytes > 50 * 1024 )
+        {
+            break;
+        }
+    }
+    CHECK( link.ToA.CancelIncomingBlob( refused ) );
+    CHECK_FALSE( link.ToA.CancelIncomingBlob( refused ) );
+    for( int tick = 0; tick < 60; ++tick )
+    {
+        link.Step();
+        inbox.Drain( link.ToA );
+    }
+    CHECK( link.ToB.GetPendingBlobCount() == 0 );
+    CHECK( link.ToB.GetStats().BlobsCancelledByRemote == 1 );
+    const uint64_t slicesThen = link.ToB.GetStats().BlobSlicesSent;
+    for( int tick = 0; tick < 60 * 2; ++tick )
+    {
+        link.Step();
+        inbox.Drain( link.ToA );
+    }
+    CHECK( link.ToB.GetStats().BlobSlicesSent == slicesThen );
+    CHECK( inbox.Find( refused ) == nullptr );
+    CHECK( link.ToA.GetBlobProgress().empty() );
+    CHECK( link.ToA.GetStats().BlobsCancelled == 1 );
+
+    // And the channel still works after both.
+    const uint32_t after = link.ToB.SendBlob( NetTest::BlobFor( 5000, 13 ) );
+    for( int tick = 0; tick < 120 && !inbox.Find( after ); ++tick )
+    {
+        link.Step();
+        inbox.Drain( link.ToA );
+    }
+    REQUIRE( inbox.Find( after ) );
+    CHECK( *inbox.Find( after ) == NetTest::BlobFor( 5000, 13 ) );
+}
+
+
+TEST_CASE( "Net: blobs get what live traffic leaves of the link, and at least their minimum share; live messages are never displaced" )
+{
+    auto measure = [&]( size_t InLiveBytes, const NetBlobSettings& InSettings, double& OutBlobRate, double& OutLinkRate, size_t& OutLiveSent, size_t& OutLiveReceived ) {
+        NetTest::Link link( NetConditions{}, NetConditions{} );
+        link.ToB.SetBlobSettings( InSettings );
+        REQUIRE( link.ToB.SendBlob( NetTest::BlobFor( 2 * 1024 * 1024, 20 ) ) );
+        std::vector<uint8_t> live( InLiveBytes, 0x5A );
+        OutLiveSent = 0;
+        OutLiveReceived = 0;
+        uint64_t blobBytes0 = 0;
+        uint64_t linkBytes0 = 0;
+        for( int tick = 0; tick < 60 * 4; ++tick )
+        {
+            if( tick == 60 )
+            {
+                blobBytes0 = link.ToA.GetStats().BlobBytesReceived;
+                linkBytes0 = link.ToB.GetStats().BytesSent;
+            }
+            REQUIRE( link.ToB.SendUnreliable( live ) );
+            ++OutLiveSent;
+            link.Step();
+            std::vector<uint8_t> message;
+            while( link.ToA.ReceiveUnreliable( message ) )
+            {
+                OutLiveReceived += message.size() == InLiveBytes ? 1 : 0;
+            }
+        }
+        OutBlobRate = static_cast<double>( link.ToA.GetStats().BlobBytesReceived - blobBytes0 ) / 3.0;
+        OutLinkRate = static_cast<double>( link.ToB.GetStats().BytesSent - linkBytes0 ) / 3.0;
+        // The last tick's packet arrives in the next step.
+        link.Step();
+        std::vector<uint8_t> message;
+        while( link.ToA.ReceiveUnreliable( message ) )
+        {
+            OutLiveReceived += message.size() == InLiveBytes ? 1 : 0;
+        }
+        REQUIRE( link.ToB.GetPendingBlobCount() == 1 );     // still going: the whole window measured it
+    };
+
+    NetBlobSettings settings;
+    settings.LinkBytesPerSecond = 64 * 1024;
+    settings.MinBytesPerSecond = 8 * 1024;
+    double blobRate = 0.0;
+    double linkRate = 0.0;
+    size_t liveSent = 0;
+    size_t liveReceived = 0;
+
+    // Light live traffic (about 13 KB/s): blobs fill the link up to its budget, not past it.
+    measure( 200, settings, blobRate, linkRate, liveSent, liveReceived );
+    MESSAGE( "light: blobs " << blobRate << " B/s, link " << linkRate << " B/s" );
+    CHECK( liveReceived == liveSent );
+    CHECK( linkRate <= settings.LinkBytesPerSecond * 1.03 );
+    CHECK( linkRate >= settings.LinkBytesPerSecond * 0.9 );
+    CHECK( blobRate > settings.LinkBytesPerSecond * 0.7 );
+
+    // Live traffic over the whole budget (about 61 KB/s against 32): blobs still get their minimum share, and live loses nothing.
+    settings.LinkBytesPerSecond = 32 * 1024;
+    measure( 1000, settings, blobRate, linkRate, liveSent, liveReceived );
+    MESSAGE( "heavy: blobs " << blobRate << " B/s, link " << linkRate << " B/s" );
+    CHECK( liveReceived == liveSent );
+    CHECK( blobRate >= settings.MinBytesPerSecond * 0.85 );
+    CHECK( blobRate <= settings.MinBytesPerSecond * 1.25 );
+}

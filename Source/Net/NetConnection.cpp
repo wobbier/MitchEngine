@@ -21,6 +21,18 @@ namespace
     constexpr double kReadWaitGaps = 2.0;
     // A gap between packets counts this much at most towards the usual one (a hitch's is no guide).
     constexpr double kMaxSendGapSample = 0.5;
+
+    // Blobs (ME-323). The trailer after the messages: its flag, extra-packet bit and the two lists' ends.
+    constexpr size_t kTrailerBytes = 1;
+    // Per cancel: more, id (VarUInt, up to 5 bytes), theirs.
+    constexpr size_t kCancelBytes = 7;
+    // Per slice: more, id (up to 5 bytes), size (up to 4 for 4 MB), index (up to 2 for 4096 slices).
+    constexpr size_t kSliceOverheadBytes = 12;
+    // The buckets hold this many seconds of their rate (at least a packet or two), and owe at most
+    // as much: a burst of slice packets is a couple of ticks' worth at 60 Hz.
+    constexpr double kBlobBurstSeconds = 0.035;
+    // Ids further than this past the oldest one not done are ignored (a hostile peer's).
+    constexpr uint32_t kMaxBlobIdAhead = 1u << 20;
 }
 
 
@@ -84,6 +96,7 @@ void NetConnection::BeginRead( double InNow )
 
 void NetConnection::SendPacket( double InNow )
 {
+    RefillBlobTokens( InNow );
     const uint16_t sequence = m_sequence++;
     SentPacket& record = m_sent[sequence % m_sent.size()];
     record = SentPacket();
@@ -97,16 +110,7 @@ void NetConnection::SendPacket( double InNow )
     m_lastSentAt = InNow;
 
     BitWriter writer;
-    writer.WriteBits( kProtocolId, 16 );
-    writer.WriteBits( sequence, 16 );
-    writer.WriteBool( m_hasReceived );
-    if( m_hasReceived )
-    {
-        writer.WriteBits( m_remoteSequence, 16 );
-        writer.WriteBits( m_receivedBits, 32 );
-        const double delay = std::clamp( ( InNow - m_remoteSequenceAt ) / kAckDelayUnit, 0.0, 65535.0 );
-        writer.WriteBits( static_cast<uint32_t>( std::lround( delay ) ), 16 );
-    }
+    WriteHeader( writer, sequence, InNow );
 
     size_t budget = kMaxPacketBytes - kHeaderBytes;
     auto writeMessage = [&]( bool InReliable, uint16_t InId, const std::vector<uint8_t>& InData ) {
@@ -168,23 +172,76 @@ void NetConnection::SendPacket( double InNow )
     m_unreliable.clear();
     writer.WriteBool( false );
 
+    // Blobs: cancels due, and slices in the room left (after everything live, which they never displace).
+    budget = budget > kTrailerBytes ? budget - kTrailerBytes : 0;
+    WriteBlobTrailer( writer, false, budget, InNow, record );
+
     const std::vector<uint8_t>& bytes = writer.GetBytes();
     m_transport.Send( m_remote, bytes.data(), bytes.size() );
     ++m_stats.PacketsSent;
     m_stats.BytesSent += bytes.size();
+    m_blobLinkTokens -= static_cast<double>( bytes.size() );
+
+    // Then packets of slices alone, while the share allows.
+    for( int i = 0; i < kMaxBlobPacketsPerSend && HasBlobAllowance() && HasSliceDue( InNow, resendDelay ) && SendBlobPacket( InNow ); ++i )
+    {
+    }
+    const double linkFloor = -std::max( 2.0 * kMaxPacketBytes, m_blobSettings.LinkBytesPerSecond * kBlobBurstSeconds );
+    m_blobLinkTokens = std::max( m_blobLinkTokens, linkFloor );
+}
+
+
+void NetConnection::WriteHeader( BitWriter& InWriter, uint16_t InSequence, double InNow ) const
+{
+    InWriter.WriteBits( kProtocolId, 16 );
+    InWriter.WriteBits( InSequence, 16 );
+    InWriter.WriteBool( m_hasReceived );
+    if( m_hasReceived )
+    {
+        InWriter.WriteBits( m_remoteSequence, 16 );
+        InWriter.WriteBits( m_receivedBits, 32 );
+        const double delay = std::clamp( ( InNow - m_remoteSequenceAt ) / kAckDelayUnit, 0.0, 65535.0 );
+        InWriter.WriteBits( static_cast<uint32_t>( std::lround( delay ) ), 16 );
+    }
+}
+
+
+bool NetConnection::SendBlobPacket( double InNow )
+{
+    // Built aside first: a packet the share or the room leaves without a slice isn't sent at all.
+    SentPacket record;
+    record.Sequence = m_sequence;
+    record.Valid = true;
+    record.SentAt = InNow;
+    BitWriter writer;
+    WriteHeader( writer, record.Sequence, InNow );
+    writer.WriteBool( false );  // no messages
+    size_t budget = kMaxPacketBytes - kHeaderBytes - kTrailerBytes;
+    if( !WriteBlobTrailer( writer, true, budget, InNow, record ) )
+    {
+        return false;
+    }
+    ++m_sequence;
+    m_sent[record.Sequence % m_sent.size()] = std::move( record );
+
+    const std::vector<uint8_t>& bytes = writer.GetBytes();
+    m_transport.Send( m_remote, bytes.data(), bytes.size() );
+    ++m_stats.PacketsSent;
+    ++m_stats.BlobPacketsSent;
+    m_stats.BytesSent += bytes.size();
+    m_blobLinkTokens -= static_cast<double>( bytes.size() );
+    return true;
 }
 
 
 bool NetConnection::RecordReceived( uint16_t InSequence, double InNow )
 {
-    m_lastPacketNewest = false;
     if( !m_hasReceived )
     {
         m_hasReceived = true;
         m_remoteSequence = InSequence;
         m_receivedBits = 0;
         m_remoteSequenceAt = InNow;
-        m_lastPacketNewest = true;
         return true;
     }
     if( NetSequenceGreater( InSequence, m_remoteSequence ) )
@@ -195,7 +252,6 @@ bool NetConnection::RecordReceived( uint16_t InSequence, double InNow )
         m_receivedBits = static_cast<uint32_t>( bits );
         m_remoteSequence = InSequence;
         m_remoteSequenceAt = InNow;
-        m_lastPacketNewest = true;
         return true;
     }
     const uint32_t age = static_cast<uint16_t>( m_remoteSequence - InSequence );
@@ -225,6 +281,16 @@ void NetConnection::OnAcked( SentPacket& InPacket )
         {
             m_outgoing.erase( it );
         }
+    }
+    for( const BlobSliceRef& slice : InPacket.Slices )
+    {
+        OnSliceAcked( slice );
+    }
+    for( const BlobCancel& cancel : InPacket.Cancels )
+    {
+        m_blobCancels.erase( std::remove_if( m_blobCancels.begin(), m_blobCancels.end(),
+                                 [&cancel]( const BlobCancel& InCancel ) { return InCancel.Id == cancel.Id && InCancel.Theirs == cancel.Theirs; } ),
+            m_blobCancels.end() );
     }
 }
 
@@ -335,6 +401,7 @@ bool NetConnection::ReceivePacket( const uint8_t* InData, size_t InSize, double 
         std::vector<uint8_t> Data;
     };
     std::vector<Message> messages;
+    bool malformed = false;
     while( reader.ReadBool() )
     {
         Message message;
@@ -346,13 +413,47 @@ bool NetConnection::ReceivePacket( const uint8_t* InData, size_t InSize, double 
         const uint64_t size = reader.ReadVarUInt();
         if( reader.IsOverflowed() || size > kMaxMessageBytes )
         {
+            malformed = true;
             break;
         }
         message.Data.resize( static_cast<size_t>( size ) );
         reader.ReadBytes( message.Data.data(), message.Data.size() );
         messages.push_back( std::move( message ) );
     }
-    if( reader.IsOverflowed() )
+    // The blob trailer (ME-323), when there's one: an older peer's packet ends in zero padding.
+    bool extra = false;
+    std::vector<std::pair<uint32_t, bool>> cancels;
+    std::vector<ReceivedSlice> slices;
+    if( !malformed && reader.GetBitsRemaining() > 0 && reader.ReadBool() )
+    {
+        extra = reader.ReadBool();
+        while( !malformed && reader.ReadBool() )
+        {
+            const uint64_t id = reader.ReadVarUInt();
+            const bool theirs = reader.ReadBool();
+            malformed = id == 0 || id > 0xFFFFFFFFull;
+            cancels.emplace_back( static_cast<uint32_t>( id ), theirs );
+        }
+        while( !malformed && reader.ReadBool() )
+        {
+            ReceivedSlice slice;
+            const uint64_t id = reader.ReadVarUInt();
+            const uint64_t size = reader.ReadVarUInt();
+            const uint64_t index = reader.ReadVarUInt();
+            if( reader.IsOverflowed() || id == 0 || id > 0xFFFFFFFFull || size == 0 || size > kMaxBlobBytes || index >= SliceCount( static_cast<size_t>( size ) ) )
+            {
+                malformed = true;
+                break;
+            }
+            slice.Blob = static_cast<uint32_t>( id );
+            slice.Size = static_cast<uint32_t>( size );
+            slice.Index = static_cast<uint32_t>( index );
+            slice.Data.resize( SliceBytes( slice.Size, slice.Index ) );
+            reader.ReadBytes( slice.Data.data(), slice.Data.size() );
+            slices.push_back( std::move( slice ) );
+        }
+    }
+    if( malformed || reader.IsOverflowed() )
     {
         ++m_stats.PacketsRejected;
         return false;
@@ -361,6 +462,14 @@ bool NetConnection::ReceivePacket( const uint8_t* InData, size_t InSize, double 
     {
         ++m_stats.DuplicatesDropped;
         return false;
+    }
+    // Newest among the packets SendPacket always sends: slice packets carry no messages, and one
+    // sent after a packet and arriving before it mustn't make that packet's messages old news.
+    m_lastPacketNewest = !extra && ( !m_hasMainReceived || NetSequenceGreater( sequence, m_mainSequence ) );
+    if( m_lastPacketNewest )
+    {
+        m_hasMainReceived = true;
+        m_mainSequence = sequence;
     }
     ++m_stats.PacketsReceived;
     m_stats.BytesReceived += InSize;
@@ -380,6 +489,14 @@ bool NetConnection::ReceivePacket( const uint8_t* InData, size_t InSize, double 
         {
             m_unreliableIn.push_back( std::move( message.Data ) );
         }
+    }
+    for( const auto& [id, theirs] : cancels )
+    {
+        AcceptBlobCancel( id, theirs );
+    }
+    for( ReceivedSlice& slice : slices )
+    {
+        AcceptSlice( std::move( slice ), InNow );
     }
     return true;
 }
@@ -406,4 +523,380 @@ bool NetConnection::ReceiveUnreliable( std::vector<uint8_t>& OutMessage )
     OutMessage = std::move( m_unreliableIn.front() );
     m_unreliableIn.pop_front();
     return true;
+}
+
+
+
+// Blobs (ME-323) ---------------------------------------------------------------------------------
+
+uint32_t NetConnection::SendBlob( const void* InData, size_t InSize )
+{
+    if( InSize == 0 || InSize > kMaxBlobBytes )
+    {
+        ++m_stats.BlobsRefused;
+        return 0;
+    }
+    OutgoingBlob blob;
+    blob.Id = m_nextBlobId++;
+    if( m_nextBlobId == 0 )
+    {
+        m_nextBlobId = 1;
+    }
+    const uint8_t* bytes = static_cast<const uint8_t*>( InData );
+    blob.Data.assign( bytes, bytes + InSize );
+    blob.SliceCount = SliceCount( InSize );
+    blob.SliceSentAt.assign( blob.SliceCount, -1.0 );
+    blob.SliceAcked.assign( blob.SliceCount, false );
+    m_blobsOut.push_back( std::move( blob ) );
+    ++m_stats.BlobsSent;
+    return m_blobsOut.back().Id;
+}
+
+
+bool NetConnection::CancelBlob( uint32_t InId )
+{
+    auto it = std::find_if( m_blobsOut.begin(), m_blobsOut.end(), [InId]( const OutgoingBlob& InBlob ) { return InBlob.Id == InId; } );
+    if( it == m_blobsOut.end() )
+    {
+        return false;
+    }
+    m_blobsOut.erase( it );
+    // Told even when nothing of it went yet: the remote counts every id as done before it moves on.
+    BlobCancel cancel;
+    cancel.Id = InId;
+    m_blobCancels.push_back( cancel );
+    ++m_stats.BlobsCancelled;
+    return true;
+}
+
+
+bool NetConnection::CancelIncomingBlob( uint32_t InId )
+{
+    auto it = std::find_if( m_blobsIn.begin(), m_blobsIn.end(), [InId]( const IncomingBlob& InBlob ) { return InBlob.Id == InId; } );
+    if( it == m_blobsIn.end() )
+    {
+        return false;
+    }
+    m_blobsIn.erase( it );
+    MarkIncomingFinished( InId );
+    BlobCancel cancel;
+    cancel.Id = InId;
+    cancel.Theirs = true;
+    m_blobCancels.push_back( cancel );
+    ++m_stats.BlobsCancelled;
+    return true;
+}
+
+
+bool NetConnection::ReceiveBlob( uint32_t& OutId, std::vector<uint8_t>& OutData )
+{
+    if( m_blobsDelivered.empty() )
+    {
+        return false;
+    }
+    OutId = m_blobsDelivered.front().first;
+    OutData = std::move( m_blobsDelivered.front().second );
+    m_blobsDelivered.pop_front();
+    return true;
+}
+
+
+std::vector<NetBlobProgress> NetConnection::GetBlobProgress() const
+{
+    auto bytesOf = []( size_t InSize, uint32_t InCount, bool InHasLast ) {
+        // Every slice is full but the last.
+        const size_t full = static_cast<size_t>( InCount ) * kBlobSliceBytes;
+        return InHasLast ? full - ( kBlobSliceBytes - SliceBytes( InSize, SliceCount( InSize ) - 1 ) ) : full;
+    };
+    std::vector<NetBlobProgress> out;
+    const size_t slots = GetActiveBlobSlots();
+    for( size_t i = 0; i < m_blobsOut.size(); ++i )
+    {
+        const OutgoingBlob& blob = m_blobsOut[i];
+        NetBlobProgress progress;
+        progress.Id = blob.Id;
+        progress.Outgoing = true;
+        progress.Started = i < slots;
+        progress.Size = blob.Data.size();
+        progress.DoneBytes = bytesOf( blob.Data.size(), blob.AckedCount, blob.SliceAcked.back() );
+        progress.StartedAt = blob.StartedAt;
+        out.push_back( progress );
+    }
+    for( const IncomingBlob& blob : m_blobsIn )
+    {
+        NetBlobProgress progress;
+        progress.Id = blob.Id;
+        progress.Outgoing = false;
+        progress.Size = blob.Data.size();
+        progress.DoneBytes = bytesOf( blob.Data.size(), blob.HaveCount, blob.Have.back() );
+        progress.ContiguousBytes = std::min( blob.Data.size(), static_cast<size_t>( blob.Contiguous ) * kBlobSliceBytes );
+        progress.StartedAt = blob.StartedAt;
+        out.push_back( progress );
+    }
+    return out;
+}
+
+
+void NetConnection::RefillBlobTokens( double InNow )
+{
+    const double linkRate = m_blobSettings.LinkBytesPerSecond;
+    const double minRate = m_blobSettings.MinBytesPerSecond;
+    const double seconds = m_blobRefilledAt < 0.0 ? 0.0 : std::clamp( InNow - m_blobRefilledAt, 0.0, 0.25 );
+    m_blobRefilledAt = InNow;
+    m_blobLinkTokens = std::min( m_blobLinkTokens + linkRate * seconds, std::max( 2.0 * kMaxPacketBytes, linkRate * kBlobBurstSeconds ) );
+    m_blobMinTokens = std::min( m_blobMinTokens + minRate * seconds, std::max( static_cast<double>( kMaxPacketBytes ), minRate * kBlobBurstSeconds ) );
+}
+
+
+size_t NetConnection::GetActiveBlobSlots() const
+{
+    // A blob this end cancelled holds its slot until the remote has heard: then the remote never
+    // holds more than kMaxActiveBlobs of this end's at once.
+    const size_t cancelling = static_cast<size_t>( std::count_if( m_blobCancels.begin(), m_blobCancels.end(), []( const BlobCancel& InCancel ) { return !InCancel.Theirs; } ) );
+    return std::min( m_blobsOut.size(), kMaxActiveBlobs > cancelling ? kMaxActiveBlobs - cancelling : 0 );
+}
+
+
+bool NetConnection::HasSliceDue( double InNow, double InResendDelay ) const
+{
+    const size_t slots = GetActiveBlobSlots();
+    for( size_t i = 0; i < slots; ++i )
+    {
+        const OutgoingBlob& blob = m_blobsOut[i];
+        if( blob.NextNew < blob.SliceCount )
+        {
+            return true;
+        }
+        for( const uint32_t slice : blob.InFlight )
+        {
+            if( !blob.SliceAcked[slice] )
+            {
+                if( InNow - blob.SliceSentAt[slice] >= InResendDelay )
+                {
+                    return true;
+                }
+                break;  // the oldest send not acked isn't due: none after it is
+            }
+        }
+    }
+    return false;
+}
+
+
+bool NetConnection::TakeSlice( double InNow, double InResendDelay, size_t InRoom, BlobSliceRef& OutSlice )
+{
+    const size_t slots = GetActiveBlobSlots();
+    for( size_t k = 0; k < slots; ++k )
+    {
+        const size_t i = ( m_blobTurn + k ) % slots;
+        OutgoingBlob& blob = m_blobsOut[i];
+        while( !blob.InFlight.empty() && blob.SliceAcked[blob.InFlight.front()] )
+        {
+            blob.InFlight.pop_front();
+        }
+        // An overdue resend first (the receiver can't finish without it), else the next new slice.
+        const bool resend = !blob.InFlight.empty() && InNow - blob.SliceSentAt[blob.InFlight.front()] >= InResendDelay;
+        if( !resend && blob.NextNew >= blob.SliceCount )
+        {
+            continue;
+        }
+        const uint32_t slice = resend ? blob.InFlight.front() : blob.NextNew;
+        if( SliceBytes( blob.Data.size(), slice ) > InRoom )
+        {
+            continue;
+        }
+        if( resend )
+        {
+            blob.InFlight.pop_front();
+            ++m_stats.BlobSlicesResent;
+        }
+        else
+        {
+            ++blob.NextNew;
+        }
+        if( blob.StartedAt < 0.0 )
+        {
+            blob.StartedAt = InNow;
+        }
+        blob.SliceSentAt[slice] = InNow;
+        blob.InFlight.push_back( slice );
+        m_blobTurn = i + 1;
+        OutSlice.Blob = blob.Id;
+        OutSlice.Index = slice;
+        return true;
+    }
+    return false;
+}
+
+
+bool NetConnection::WriteBlobTrailer( BitWriter& InWriter, bool InExtra, size_t& InBudget, double InNow, SentPacket& InRecord )
+{
+    const double resendDelay = ResendDelay();
+    // Cancels due: new ones, and any not acked for a little over a round trip. Tiny, outside the
+    // share, and in the packet SendPacket always sends (a packet of slices alone carries slices only).
+    for( BlobCancel& cancel : m_blobCancels )
+    {
+        if( !InExtra && ( cancel.LastSent < 0.0 || InNow - cancel.LastSent >= resendDelay ) && InBudget >= kCancelBytes )
+        {
+            cancel.LastSent = InNow;
+            InRecord.Cancels.push_back( cancel );
+            InBudget -= kCancelBytes;
+        }
+    }
+    // Slices while they fit and the share allows (the link bucket owes this packet's bytes so far).
+    double link = m_blobLinkTokens - static_cast<double>( InWriter.GetByteCount() );
+    BlobSliceRef slice;
+    while( InBudget > kSliceOverheadBytes && ( link > 0.0 || m_blobMinTokens > 0.0 ) && TakeSlice( InNow, resendDelay, InBudget - kSliceOverheadBytes, slice ) )
+    {
+        const OutgoingBlob& blob = *std::find_if( m_blobsOut.begin(), m_blobsOut.end(), [&slice]( const OutgoingBlob& InBlob ) { return InBlob.Id == slice.Blob; } );
+        const size_t bytes = SliceBytes( blob.Data.size(), slice.Index );
+        InBudget -= bytes + kSliceOverheadBytes;
+        link -= static_cast<double>( bytes + kSliceOverheadBytes );
+        m_blobMinTokens -= static_cast<double>( bytes + kSliceOverheadBytes );
+        InRecord.Slices.push_back( slice );
+    }
+    m_blobMinTokens = std::max( m_blobMinTokens, -std::max( static_cast<double>( kMaxPacketBytes ), m_blobSettings.MinBytesPerSecond * kBlobBurstSeconds ) );
+    if( InRecord.Cancels.empty() && InRecord.Slices.empty() )
+    {
+        return false;
+    }
+
+    InWriter.WriteBool( true );
+    InWriter.WriteBool( InExtra );
+    for( const BlobCancel& cancel : InRecord.Cancels )
+    {
+        InWriter.WriteBool( true );
+        InWriter.WriteVarUInt( cancel.Id );
+        InWriter.WriteBool( cancel.Theirs );
+    }
+    InWriter.WriteBool( false );
+    for( const BlobSliceRef& ref : InRecord.Slices )
+    {
+        const OutgoingBlob& blob = *std::find_if( m_blobsOut.begin(), m_blobsOut.end(), [&ref]( const OutgoingBlob& InBlob ) { return InBlob.Id == ref.Blob; } );
+        const size_t bytes = SliceBytes( blob.Data.size(), ref.Index );
+        InWriter.WriteBool( true );
+        InWriter.WriteVarUInt( blob.Id );
+        InWriter.WriteVarUInt( blob.Data.size() );
+        InWriter.WriteVarUInt( ref.Index );
+        InWriter.WriteBytes( blob.Data.data() + static_cast<size_t>( ref.Index ) * kBlobSliceBytes, bytes );
+        ++m_stats.BlobSlicesSent;
+        m_stats.BlobBytesSent += bytes;
+    }
+    InWriter.WriteBool( false );
+    return true;
+}
+
+
+void NetConnection::OnSliceAcked( const BlobSliceRef& InSlice )
+{
+    auto it = std::find_if( m_blobsOut.begin(), m_blobsOut.end(), [&InSlice]( const OutgoingBlob& InBlob ) { return InBlob.Id == InSlice.Blob; } );
+    if( it == m_blobsOut.end() || it->SliceAcked[InSlice.Index] )
+    {
+        return;
+    }
+    it->SliceAcked[InSlice.Index] = true;
+    if( ++it->AckedCount == it->SliceCount )
+    {
+        // The remote has it all (and delivered it).
+        m_blobsOut.erase( it );
+        ++m_stats.BlobsAcked;
+    }
+}
+
+
+void NetConnection::MarkIncomingFinished( uint32_t InId )
+{
+    if( IsIncomingFinished( InId ) )
+    {
+        return;
+    }
+    m_blobInFinished.insert( InId );
+    while( !m_blobInFinished.empty() && *m_blobInFinished.begin() == m_blobInFloor )
+    {
+        m_blobInFinished.erase( m_blobInFinished.begin() );
+        ++m_blobInFloor;
+    }
+}
+
+
+void NetConnection::AcceptSlice( ReceivedSlice&& InSlice, double InNow )
+{
+    if( IsIncomingFinished( InSlice.Blob ) )
+    {
+        ++m_stats.BlobSlicesDuplicate;
+        return;
+    }
+    if( InSlice.Blob - m_blobInFloor >= kMaxBlobIdAhead )
+    {
+        return;
+    }
+    auto it = std::find_if( m_blobsIn.begin(), m_blobsIn.end(), [&InSlice]( const IncomingBlob& InBlob ) { return InBlob.Id == InSlice.Blob; } );
+    if( it == m_blobsIn.end() )
+    {
+        if( m_blobsIn.size() >= kMaxIncomingBlobs )
+        {
+            return;
+        }
+        IncomingBlob blob;
+        blob.Id = InSlice.Blob;
+        blob.Data.resize( InSlice.Size );
+        blob.Have.assign( SliceCount( InSlice.Size ), false );
+        blob.StartedAt = InNow;
+        m_blobsIn.push_back( std::move( blob ) );
+        it = m_blobsIn.end() - 1;
+    }
+    IncomingBlob& blob = *it;
+    if( blob.Data.size() != InSlice.Size )
+    {
+        return;     // not what its first slice said: not an honest peer's
+    }
+    if( blob.Have[InSlice.Index] )
+    {
+        ++m_stats.BlobSlicesDuplicate;
+        return;
+    }
+    std::copy( InSlice.Data.begin(), InSlice.Data.end(), blob.Data.begin() + static_cast<std::ptrdiff_t>( static_cast<size_t>( InSlice.Index ) * kBlobSliceBytes ) );
+    blob.Have[InSlice.Index] = true;
+    ++blob.HaveCount;
+    m_stats.BlobBytesReceived += InSlice.Data.size();
+    while( blob.Contiguous < blob.Have.size() && blob.Have[blob.Contiguous] )
+    {
+        ++blob.Contiguous;
+    }
+    if( blob.HaveCount == blob.Have.size() )
+    {
+        const uint32_t id = blob.Id;
+        m_blobsDelivered.emplace_back( id, std::move( blob.Data ) );
+        m_blobsIn.erase( it );
+        MarkIncomingFinished( id );
+        ++m_stats.BlobsReceived;
+    }
+}
+
+
+void NetConnection::AcceptBlobCancel( uint32_t InId, bool InTheirs )
+{
+    if( InTheirs )
+    {
+        // The remote refused one of this end's.
+        auto it = std::find_if( m_blobsOut.begin(), m_blobsOut.end(), [InId]( const OutgoingBlob& InBlob ) { return InBlob.Id == InId; } );
+        if( it != m_blobsOut.end() )
+        {
+            m_blobsOut.erase( it );
+            ++m_stats.BlobsCancelledByRemote;
+        }
+        return;
+    }
+    // The remote stopped one of its own.
+    if( IsIncomingFinished( InId ) || InId - m_blobInFloor >= kMaxBlobIdAhead )
+    {
+        return;
+    }
+    auto it = std::find_if( m_blobsIn.begin(), m_blobsIn.end(), [InId]( const IncomingBlob& InBlob ) { return InBlob.Id == InId; } );
+    if( it != m_blobsIn.end() )
+    {
+        m_blobsIn.erase( it );
+    }
+    MarkIncomingFinished( InId );
+    ++m_stats.BlobsCancelledByRemote;
 }

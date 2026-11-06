@@ -8,7 +8,7 @@ class BitReader;
 class BitWriter;
 
 // Bumped whenever the wire format, or what its fields mean, changes.
-constexpr uint32_t kNetProtocolVersion = 7;  // 2: Disconnect (NET-5); 3: script state, owners, RPCs (NET-6); 4: misses in reports (NET-14); 5: the mod list (MOD-3); 6: aim in commands (NET-15); 7 (the clock fix): ServerState gains a bit before the slack (clear: past +/-64 ticks, 32 bits of whole ticks instead of the 14 quantized) and the server's wait for new commands after the misses (VarUInt ms); newest counts late commands, slack against the caught-up tick, rewinds, Welcome past the ticks owed
+constexpr uint32_t kNetProtocolVersion = 8;  // 2: Disconnect (NET-5); 3: script state, owners, RPCs (NET-6); 4: misses in reports (NET-14); 5: the mod list (MOD-3); 6: aim in commands (NET-15); 7 (the clock fix): ServerState gains a bit before the slack (clear: past +/-64 ticks, 32 bits of whole ticks instead of the 14 quantized) and the server's wait for new commands after the misses (VarUInt ms); newest counts late commands, slack against the caught-up tick, rewinds, Welcome past the ticks owed; 8: the blob channel (ME-323): a trailer after a packet's messages (cancels, slices of up to 4 MB blobs) and packets of slices alone, which don't count as the newest
 
 // What a client and a server must agree on before playing together (NET-2), sent in the
 // handshake. A server rejects a client whose version differs and says what differs.
