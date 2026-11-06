@@ -49,7 +49,14 @@ std::string NetMispredictRecord::Describe() const
     }
     for( const auto& [begin, end] : ScriptDiffs )
     {
-        std::snprintf( line, sizeof( line ), "%sscript bytes %u-%u", out.empty() ? "" : ", ", begin, end - 1 );
+        if( end - begin == 1 )
+        {
+            std::snprintf( line, sizeof( line ), "%sscript byte %u", out.empty() ? "" : ", ", begin );
+        }
+        else
+        {
+            std::snprintf( line, sizeof( line ), "%sscript bytes %u-%u", out.empty() ? "" : ", ", begin, end - 1 );
+        }
         out += line;
     }
     return out.empty() ? std::string( "no difference" ) : out;

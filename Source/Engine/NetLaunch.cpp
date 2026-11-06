@@ -27,7 +27,9 @@
 #include <imgui.h>
 #endif
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <ctime>
 #include <filesystem>
@@ -218,6 +220,8 @@ bool NetLaunch::Start( NetCore& InNet, uint16_t InTickRate, IWindow* InWindow, c
     m_requested = IsRequested();
     m_reportPath = CommandLine::GetString( "--net-report" );
     m_exitWhenEmpty = CommandLine::Has( "--net-exit-when-empty" );
+    m_netDebugger.Open = CommandLine::Has( "--net-debugger" );
+    RegisterNetCommands( InNet );
     if( !m_requested )
     {
         return true;
@@ -997,6 +1001,312 @@ void NetLaunch::RegisterReplayCommands( NetCore& InNet )
             }
             return Status( *playback );
         } );
+}
+
+
+namespace
+{
+    // The client's link and prediction in one line (the console's "net").
+    std::string NetStatus( NetCore& InNet )
+    {
+        NetClient* client = InNet.GetClient();
+        if( !client || client->GetState() != NetClient::State::Connected )
+        {
+            return "no connected client session";
+        }
+        const NetStats& stats = client->GetConnection().GetStats();
+        char line[512];
+        std::snprintf( line, sizeof( line ), "client #%u tick %u: %.1f ms RTT, %.1f%% loss, slack %.2f (target %.2f), dilation %+.2f%%", client->GetClientId(),
+            client->GetClock().GetTick(), stats.RoundTripMs, stats.PacketLoss * 100.f, client->GetServerSlack(), client->GetClock().GetTargetSlack(),
+            client->GetClock().GetDilation() * 100.f );
+        std::string out = line;
+        if( const NetPredictor* predictor = InNet.GetPredictor() )
+        {
+            std::snprintf( line, sizeof( line ), "; prediction: %d corrections, %d matches, %d initial sync, %zu mismatches on the timeline", predictor->GetCorrectionCount(),
+                predictor->GetMatchCount(), predictor->GetInitialSyncCount(), predictor->GetMispredicts().size() );
+            out += line;
+        }
+        return out;
+    }
+
+    // Where the Net Debugger and the console export mispredictions.
+    std::string MispredictFolder()
+    {
+        const std::string root = Project::GetRoot();
+        return ( root.empty() ? std::string( "." ) : root ) + "/.tmp/Net";
+    }
+
+    // InTick's record (0: the newest), written on the background lane: its path, or why not.
+    std::string ExportMispredict( NetCore& InNet, uint32_t InTick, bool& OutExported )
+    {
+        OutExported = false;
+        const NetPredictor* predictor = InNet.GetPredictor();
+        if( !predictor || predictor->GetMispredicts().empty() )
+        {
+            return "no mispredictions on the timeline";
+        }
+        const NetMispredictRecord* record = InTick == 0 ? &predictor->GetMispredicts().back() : predictor->FindMispredict( InTick );
+        if( !record )
+        {
+            return "no misprediction at tick " + std::to_string( InTick ) + " (net mispredicts lists them)";
+        }
+        const std::string path = NetMispredict::DefaultPath( MispredictFolder(), record->Tick );
+        NetMispredict::Export( *record, path );     // logged if it fails
+        OutExported = true;
+        return path;
+    }
+}
+
+
+void NetLaunch::RegisterNetCommands( NetCore& InNet )
+{
+    static bool registered = false;
+    if( registered )
+    {
+        return;
+    }
+    registered = true;
+    NetCore* net = &InNet;
+    NetLaunch* self = this;
+    DevConsole::Get().Register( "net",
+        "the client session (NET-7): net [status|debugger [on|off]|mispredicts|export [tick]] (export: the newest misprediction, or the tick's, to .tmp/Net/Mispredict_<tick>.json)",
+        [net, self]( const std::vector<std::string>& InArgs ) -> std::string {
+            const std::string verb = InArgs.empty() ? std::string( "status" ) : InArgs[0];
+            if( verb == "status" )
+            {
+                return NetStatus( *net );
+            }
+            if( verb == "debugger" )
+            {
+                self->m_netDebugger.Open = InArgs.size() > 1 ? InArgs[1] != "off" : !self->m_netDebugger.Open;
+                return std::string( "Net Debugger " ) + ( self->m_netDebugger.Open ? "open" : "closed" );
+            }
+            if( verb == "mispredicts" )
+            {
+                const NetPredictor* predictor = net->GetPredictor();
+                if( !predictor )
+                {
+                    return "nothing predicted";
+                }
+                std::string out = std::to_string( predictor->GetMispredicts().size() ) + " mismatch(es) in the last " + std::to_string( static_cast<int>( NetPredictor::kTimelineSeconds ) )
+                    + " s (" + std::to_string( predictor->GetCorrectionCount() ) + " corrections, " + std::to_string( predictor->GetMatchCount() ) + " matches in all)";
+                for( const NetMispredictRecord& record : predictor->GetMispredicts() )
+                {
+                    out += "\n  tick " + std::to_string( record.Tick ) + ( record.InitialSync ? " (initial sync)" : "" ) + ": " + record.Describe() + "; "
+                        + std::to_string( record.Resimulated.size() ) + " ticks resimulated";
+                }
+                return out;
+            }
+            if( verb == "export" )
+            {
+                bool exported = false;
+                const std::string out = ExportMispredict( *net, InArgs.size() > 1 ? static_cast<uint32_t>( std::strtoul( InArgs[1].c_str(), nullptr, 10 ) ) : 0u, exported );
+                return exported ? "writing " + out : out;
+            }
+            return "unknown: net " + verb + " (help net)";
+        } );
+}
+
+
+void NetLaunch::DrawNetDebugger( NetCore& InNet )
+{
+#if USING( ME_IMGUI ) && !USING( ME_EDITOR )
+    NetClient* client = InNet.GetClient();
+    if( !m_netDebugger.Open || !client )
+    {
+        return;
+    }
+    // The link's rate over the last second, from the connection's byte counts.
+    const NetStats& stats = client->GetConnection().GetStats();
+    const double now = std::chrono::duration<double>( std::chrono::steady_clock::now().time_since_epoch() ).count();
+    if( m_netDebugger.RateAt < 0.0 || stats.BytesReceived < m_netDebugger.BytesIn )
+    {
+        m_netDebugger.RateAt = now;
+        m_netDebugger.BytesIn = stats.BytesReceived;
+        m_netDebugger.BytesOut = stats.BytesSent;
+    }
+    else if( now - m_netDebugger.RateAt >= 1.0 )
+    {
+        const double seconds = now - m_netDebugger.RateAt;
+        m_netDebugger.KbpsIn = static_cast<double>( stats.BytesReceived - m_netDebugger.BytesIn ) * 8.0 / 1000.0 / seconds;
+        m_netDebugger.KbpsOut = static_cast<double>( stats.BytesSent - m_netDebugger.BytesOut ) * 8.0 / 1000.0 / seconds;
+        m_netDebugger.RateAt = now;
+        m_netDebugger.BytesIn = stats.BytesReceived;
+        m_netDebugger.BytesOut = stats.BytesSent;
+    }
+
+    ImGui::SetNextWindowSize( ImVec2( 640.f, 420.f ), ImGuiCond_FirstUseEver );
+    if( !ImGui::Begin( "Net Debugger", &m_netDebugger.Open ) )
+    {
+        ImGui::End();
+        return;
+    }
+    ImGui::Text( "Client #%u, tick %u (%s)", client->GetClientId(), client->GetClock().GetTick(), client->GetState() == NetClient::State::Connected ? "connected" : "not connected" );
+    ImGui::Text( "RTT %.1f ms (+-%.1f), loss %.1f%%, in %.1f kbps, out %.1f kbps", stats.RoundTripMs, stats.RoundTripDeviationMs, stats.PacketLoss * 100.f, m_netDebugger.KbpsIn,
+        m_netDebugger.KbpsOut );
+    ImGui::Text( "Slack %.2f (target %.2f), dilation %+.2f%%, %d resyncs, %llu hitches", client->GetServerSlack(), client->GetClock().GetTargetSlack(),
+        client->GetClock().GetDilation() * 100.f, client->GetClock().GetResyncCount(), static_cast<unsigned long long>( client->GetHitchCount() ) );
+    const NetPredictor* predictor = InNet.GetPredictor();
+    if( !predictor )
+    {
+        ImGui::TextUnformatted( "Nothing predicted (no pawn owned)." );
+        ImGui::End();
+        return;
+    }
+    const Vector3 offset = predictor->GetVisualOffset();
+    ImGui::Text( "Prediction: %d corrections, %d matches, %d initial sync; last resim %d ticks in %.3f ms; visual offset %.1f mm", predictor->GetCorrectionCount(),
+        predictor->GetMatchCount(), predictor->GetInitialSyncCount(), predictor->GetLastResimTicks(), predictor->GetLastResimMilliseconds(), offset.Length() * 1000.f );
+
+    // The timeline: the last 10 s of reconciled ticks, one column each (green match, red correction,
+    // grey initial sync, dark not reconciled). Hover for the tick; click a mark to inspect it.
+    uint32_t newest = 0;
+    if( predictor->GetNewestReconciled( newest ) )
+    {
+        const uint32_t span = predictor->GetTimelineTicks();
+        const uint32_t first = newest + 1 >= span ? newest + 1 - span : 0;
+        const float width = std::max( 100.f, ImGui::GetContentRegionAvail().x );
+        const float height = 28.f;
+        const ImVec2 origin = ImGui::GetCursorScreenPos();
+        ImGui::InvisibleButton( "##MispredictTimeline", ImVec2( width, height ) );
+        const bool hovered = ImGui::IsItemHovered();
+        const bool clicked = ImGui::IsItemClicked();
+        ImDrawList* draw = ImGui::GetWindowDrawList();
+        draw->AddRectFilled( origin, ImVec2( origin.x + width, origin.y + height ), IM_COL32( 25, 25, 30, 255 ) );
+        const float perTick = width / static_cast<float>( span );
+        auto xOf = [&]( uint32_t InTick ) { return origin.x + static_cast<float>( InTick - first ) * perTick; };
+        for( uint32_t tick = first; tick <= newest; ++tick )
+        {
+            const NetPredictOutcome outcome = predictor->GetOutcome( tick );
+            if( outcome == NetPredictOutcome::Match )
+            {
+                draw->AddRectFilled( ImVec2( xOf( tick ), origin.y + height * 0.55f ), ImVec2( xOf( tick ) + std::max( perTick, 1.f ), origin.y + height ), IM_COL32( 60, 170, 80, 255 ) );
+            }
+        }
+        // The mismatches on top, wide enough to see and click.
+        for( const NetMispredictRecord& record : predictor->GetMispredicts() )
+        {
+            if( record.Tick < first )
+            {
+                continue;
+            }
+            const bool selected = m_netDebugger.HasSelected && m_netDebugger.Selected == record.Tick;
+            const ImU32 color = record.InitialSync ? IM_COL32( 150, 150, 150, 255 ) : selected ? IM_COL32( 255, 220, 60, 255 ) : IM_COL32( 230, 60, 50, 255 );
+            draw->AddRectFilled( ImVec2( xOf( record.Tick ) - 1.f, origin.y ), ImVec2( xOf( record.Tick ) + std::max( perTick, 2.f ), origin.y + height ), color );
+        }
+        if( hovered )
+        {
+            const float mouse = ImGui::GetIO().MousePos.x;
+            const uint32_t tick = first + static_cast<uint32_t>( std::clamp( ( mouse - origin.x ) / perTick, 0.f, static_cast<float>( span - 1 ) ) );
+            // The nearest mismatch within 4 px.
+            const NetMispredictRecord* closest = nullptr;
+            for( const NetMispredictRecord& record : predictor->GetMispredicts() )
+            {
+                if( record.Tick >= first && std::abs( xOf( record.Tick ) - mouse ) <= 4.f && ( !closest || std::abs( xOf( record.Tick ) - mouse ) < std::abs( xOf( closest->Tick ) - mouse ) ) )
+                {
+                    closest = &record;
+                }
+            }
+            static const char* names[] = { "not reconciled", "match", "correction", "initial sync" };
+            ImGui::BeginTooltip();
+            if( closest )
+            {
+                ImGui::Text( "tick %u: %s", closest->Tick, closest->InitialSync ? "initial sync" : "correction" );
+                ImGui::TextUnformatted( closest->Describe().c_str() );
+            }
+            else
+            {
+                ImGui::Text( "tick %u: %s", tick, names[static_cast<int>( predictor->GetOutcome( tick ) )] );
+            }
+            ImGui::EndTooltip();
+            if( clicked && closest )
+            {
+                m_netDebugger.HasSelected = true;
+                m_netDebugger.Selected = closest->Tick;
+            }
+        }
+        ImGui::Text( "ticks %u..%u (%.0f s)", first, newest, NetPredictor::kTimelineSeconds );
+    }
+    else
+    {
+        ImGui::TextUnformatted( "No tick reconciled yet." );
+    }
+
+    // The mark picked (else the newest mismatch): what differed, the commands, export.
+    const NetMispredictRecord* record = m_netDebugger.HasSelected ? predictor->FindMispredict( m_netDebugger.Selected ) : nullptr;
+    if( !record && !predictor->GetMispredicts().empty() )
+    {
+        record = &predictor->GetMispredicts().back();
+    }
+    ImGui::Separator();
+    if( !record )
+    {
+        ImGui::TextUnformatted( "No mispredictions in the last 10 s." );
+        ImGui::End();
+        return;
+    }
+    ImGui::Text( "Tick %u%s: %s", record->Tick, record->InitialSync ? " (initial sync)" : "", record->Describe().c_str() );
+    if( ImGui::BeginTable( "##MispredictFields", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_SizingStretchProp ) )
+    {
+        ImGui::TableSetupColumn( "" );
+        ImGui::TableSetupColumn( "predicted" );
+        ImGui::TableSetupColumn( "server" );
+        ImGui::TableSetupColumn( "delta" );
+        ImGui::TableHeadersRow();
+        auto row = [&]( const char* InName, const Vector3& InPredicted, const Vector3& InServer, float InScale, const char* InUnit ) {
+            const Vector3 delta = InServer - InPredicted;
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted( InName );
+            ImGui::TableNextColumn();
+            ImGui::Text( "%.4f, %.4f, %.4f", InPredicted.x, InPredicted.y, InPredicted.z );
+            ImGui::TableNextColumn();
+            ImGui::Text( "%.4f, %.4f, %.4f", InServer.x, InServer.y, InServer.z );
+            ImGui::TableNextColumn();
+            ImGui::Text( "%.1f %s", delta.Length() * InScale, InUnit );
+        };
+        row( "position", record->Predicted.Position, record->Authoritative.Position, 1000.f, "mm" );
+        row( "velocity", record->Predicted.Velocity, record->Authoritative.Velocity, 1.f, "m/s" );
+        row( "ground normal", record->Predicted.GroundNormal, record->Authoritative.GroundNormal, 1.f, "" );
+        ImGui::TableNextRow();
+        ImGui::TableNextColumn();
+        ImGui::TextUnformatted( "grounded" );
+        ImGui::TableNextColumn();
+        ImGui::TextUnformatted( record->Predicted.Grounded ? "yes" : "no" );
+        ImGui::TableNextColumn();
+        ImGui::TextUnformatted( record->Authoritative.Grounded ? "yes" : "no" );
+        ImGui::TableNextColumn();
+        ImGui::TextUnformatted( record->Predicted.Grounded == record->Authoritative.Grounded ? "" : "differs" );
+        ImGui::EndTable();
+    }
+    for( const auto& [begin, end] : record->ScriptDiffs )
+    {
+        ImGui::Text( "[Predicted] script bytes %u-%u differ", begin, end - 1 );
+    }
+    ImGui::Text( "%zu ticks resimulated in %.3f ms; the present moved %.1f mm (the visual offset hides it)", record->Resimulated.size(), record->ResimMilliseconds,
+        record->PresentJump.Length() * 1000.f );
+    if( ImGui::Button( "Export" ) )
+    {
+        bool exported = false;
+        m_netDebugger.LastExport = ExportMispredict( InNet, record->Tick, exported );
+    }
+    if( !m_netDebugger.LastExport.empty() )
+    {
+        ImGui::SameLine();
+        ImGui::TextUnformatted( m_netDebugger.LastExport.c_str() );
+    }
+    if( ImGui::TreeNode( "Commands", "Commands (%zu, from tick %u)", record->Commands.size(), record->Tick ) )
+    {
+        for( const InputCommand& command : record->Commands )
+        {
+            ImGui::Text( "%u: buttons %08x, axes %.3f %.3f %.3f %.3f%s", command.Tick, command.Buttons, command.Axes[0], command.Axes[1], command.Axes[2], command.Axes[3],
+                command.HasAim ? "" : " (no aim)" );
+        }
+        ImGui::TreePop();
+    }
+    ImGui::End();
+#else
+    (void)InNet;
+#endif
 }
 
 

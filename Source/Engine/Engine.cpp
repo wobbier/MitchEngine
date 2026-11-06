@@ -1063,6 +1063,8 @@ void Engine::Run()
                 DevConsole::Get().UpdateAndDraw( GetInput().WasKeyPressed( KeyCode::Tilde ) );
                 // ME-316: the replay viewer's windows while Player --replay plays.
                 m_netLaunch.DrawReplayControls( *Net );
+                // NET-7: the Net Debugger (--net-debugger, console "net debugger") for a client session.
+                m_netLaunch.DrawNetDebugger( *Net );
                 if( CommandLine::Has( "--budget-hud" ) )
                 {
                     // Top right. ImGui positions are in screen space (multi-viewport), so offset from the window.

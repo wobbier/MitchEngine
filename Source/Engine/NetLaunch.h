@@ -81,6 +81,9 @@ public:
     void DrawReplayControls( NetCore& InNet );
     // Before the cameras update: the replay viewer's free / follow / POV camera.
     void UpdateReplayCamera( NetCore& InNet, float InDeltaSeconds );
+    // Game-tools builds with ImGui: the Net Debugger window (NET-7) for a client session, opened by
+    // --net-debugger or the console's "net debugger".
+    void DrawNetDebugger( NetCore& InNet );
 
     // Networked input actions (NET-6, InputAction::Networked), sorted by name: buttons take the
     // command's bits in that order, Value / Vector2 actions its 4 axes. Built before Start.
@@ -136,6 +139,22 @@ private:
     bool StartReplay( NetCore& InNet );
     // The console's "replay" command (registered once).
     void RegisterReplayCommands( NetCore& InNet );
+    // The console's "net" command (registered once): status, debugger, mispredicts, export.
+    void RegisterNetCommands( NetCore& InNet );
+    // The Net Debugger's state: open, the mark picked on its timeline, the link's rate over the
+    // last second (sampled from the connection's byte counts).
+    struct NetDebuggerState
+    {
+        bool Open = false;
+        bool HasSelected = false;
+        uint32_t Selected = 0;
+        std::string LastExport;
+        double RateAt = -1.0;
+        uint64_t BytesIn = 0;
+        uint64_t BytesOut = 0;
+        double KbpsIn = 0.0;
+        double KbpsOut = 0.0;
+    } m_netDebugger;
     // --replay-check, once the playhead rests where it was asked to: false when the world differs.
     bool RunReplayCheck( NetCore& InNet );
     // The viewer's tools (ME-316 phase 3), while a replay plays.

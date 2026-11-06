@@ -1174,6 +1174,14 @@ bool NetCore::WriteReport( const std::string& InPath, double InNow ) const
         if( m_predictor )
         {
             report["Corrections"] = m_predictor->GetCorrectionCount();
+            // NET-7: the misprediction timeline's mismatches (the last 10 s), what each found.
+            json mispredicts = json::array();
+            for( const NetMispredictRecord& record : m_predictor->GetMispredicts() )
+            {
+                mispredicts.push_back( json{ { "Tick", record.Tick }, { "InitialSync", record.InitialSync }, { "PositionDeltaMm", record.PositionDelta().Length() * 1000.0 },
+                    { "ScriptRanges", record.ScriptDiffs.size() }, { "Resimulated", record.Resimulated.size() }, { "Describe", record.Describe() } } );
+            }
+            report["Mispredicts"] = mispredicts;
         }
     }
     else
