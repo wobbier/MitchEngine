@@ -103,13 +103,13 @@ public class VirtualCamera : Script
     public override void OnUpdate(float deltaTime)
     {
         Vector3 position = transform.WorldPosition;
-        Vector3? lookAt = _lookAt ? _lookAt.Transform.WorldPosition : null;
+        Vector3? lookAt = _lookAt ? Drawn(_lookAt) : null;
         switch (Mode)
         {
             case CameraRigMode.Follow:
                 if (_target)
                 {
-                    position = Damp(position, _target.Transform.WorldPosition + Offset, deltaTime);
+                    position = Damp(position, Drawn(_target) + Offset, deltaTime);
                 }
                 break;
             case CameraRigMode.Orbit:
@@ -122,7 +122,7 @@ public class VirtualCamera : Script
                         Pitch = Mathf.Clamp(Pitch - look.y * Sensitivity, MinPitch, MaxPitch);
                     }
                     Vector3 forward = CameraRigMath.OrbitForward(Yaw, Pitch);
-                    Vector3 pivot = _target.Transform.WorldPosition + Vector3.Up * Height;
+                    Vector3 pivot = Drawn(_target) + Vector3.Up * Height;
                     float distance = Distance;
                     if (AvoidWalls && Physics.Raycast(pivot, -forward, Distance, out var hit) && hit.Entity != _target)
                     {
@@ -135,7 +135,7 @@ public class VirtualCamera : Script
             case CameraRigMode.Platformer2D:
                 if (_target)
                 {
-                    var t = _target.Transform.WorldPosition + Offset;
+                    var t = Drawn(_target) + Offset;
                     var desired = new Vector3(CameraRigMath.DeadZone(position.x, t.x, DeadZone.x), CameraRigMath.DeadZone(position.y, t.y, DeadZone.y), t.z - Distance);
                     position = Damp(position, desired, deltaTime);
                     lookAt = null;
@@ -154,6 +154,12 @@ public class VirtualCamera : Script
         }
         Pose = new CameraPose(position, transform.Forward, transform.Up, FieldOfView);
     }
+
+    // Where an entity is drawn: a client's predicted pawn is shown at its correction-smoothing
+    // offset (the engine moves it after the late update, which is too late for a rig), so the rig
+    // follows the drawn pawn and a correction glides instead of snapping the camera. Zero offset
+    // for anything else, on the server and offline.
+    private static Vector3 Drawn(Entity entity) => entity.Transform.WorldPosition + Net.VisualOffset(entity);
 
     private Vector3 Damp(Vector3 from, Vector3 to, float deltaTime)
     {

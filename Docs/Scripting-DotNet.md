@@ -373,7 +373,7 @@ The *world* pieces are scripts. They find those objects on whatever touches them
 | `Damageable` | Health for props with no script of their own; destroyed on death |
 
 | `Conversation : Interactable` | runs a `.dialogue` file through the stock dialogue box (GAME-8, below) |
-| `VirtualCamera` | GAME-1 camera rig. Modes: Fixed, Follow, Orbit (Look turns it; pulls in at walls) and Platformer2D (dead zone). It has a Priority, an optional confiner box and field of view, and the BlendSeconds used to take over. |
+| `VirtualCamera` | GAME-1 camera rig. Modes: Fixed, Follow, Orbit (Look turns it; pulls in at walls) and Platformer2D (dead zone). It has a Priority, an optional confiner box and field of view, and the BlendSeconds used to take over. It follows where its target is drawn (`Net.VisualOffset` added: a client's predicted pawn glides through a correction, so the camera does too). |
 | `GuardBrain` | GAME-3 sample AI on a NavMeshAgent. It patrols `Waypoints`, chases `Target` on sight, catches it, then searches the last known spot. `State` shows what it's doing, and every change is logged. |
 | `CameraBrain` | goes on the entity with the Camera. It shows the highest-priority live rig and blends (smoothstep) when that changes. `CameraImpulse.Shake(strength, seconds)` adds shake. |
 
