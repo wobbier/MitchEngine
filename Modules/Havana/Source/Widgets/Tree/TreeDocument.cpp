@@ -1,4 +1,5 @@
 #include "TreeDocument.h"
+#include "Jobs/BackgroundLane.h"
 
 #if USING( ME_EDITOR )
 #include "TreePreview.h"
@@ -378,7 +379,8 @@ void TreeDocument::StartJob()
         if( key == m_textureKeys.end() || key->second != TextureKey( m_recipe, channel ) ) channels.push_back( channel );
     }
     MitchTree::TreeRecipe recipe = m_recipe;
-    m_job = std::async( std::launch::async, [recipe, channels]() {
+    // The background lane (ME-319); the job owns copies of what it reads.
+    m_job = Jobs::BackgroundLane::Get().Submit( "MitchTree Generate", [recipe, channels]() {
         JobResult result;
         result.Recipe = recipe;
         result.Mesh = MitchTree::Generate( recipe );

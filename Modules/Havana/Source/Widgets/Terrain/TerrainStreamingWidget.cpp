@@ -1,4 +1,5 @@
 #include "TerrainWidget.h"
+#include "Jobs/BackgroundLane.h"
 #if USING( ME_EDITOR )
 #include "Editor/Selection.h"
 #include "Components/Graphics/Terrain.h"
@@ -23,12 +24,13 @@ bool TerrainWidget::StartStreamCook( const std::string& path, uint8_t base, bool
     m_cookMessage = "Cooking " + output.generic_string();
     try
     {
-        m_cook = std::async( std::launch::async, [field = std::move( field ), guid, output, base, paged, compressed, hierarchical]() {
+        // Low on the background lane (ME-319): a long cook never holds up scene reads or writes.
+        m_cook = Jobs::BackgroundLane::Get().Submit( "Terrain Stream Cook", [field = std::move( field ), guid, output, base, paged, compressed, hierarchical]() {
             std::string error; if( !( hierarchical ? TerrainData::CookHierarchicalStreamArchive( output, field, guid, base, error ) :
                 ( compressed ? TerrainData::CookCompressedStreamArchive( output, field, guid, base, error ) :
                 ( paged ? TerrainData::CookPagedStreamArchive( output, field, guid, base, error ) : TerrainData::CookStreamArchive( output, field, guid, base, error ) ) ) ) ) return error;
             return std::string();
-        } );
+        }, Jobs::BackgroundPriority::Low );
     }
     catch( const std::exception& e ) { m_cookMessage = e.what(); return false; }
     return true;

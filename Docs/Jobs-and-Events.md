@@ -2,7 +2,7 @@
 
 The engine's two cross-cutting runtime services: `Jobs::JobSystem`, a work-stealing job system with counters and `ParallelFor`, and `EventManager`, a typed publish/subscribe bus with immediate and queued delivery. This doc is the **threading rulebook** — what may run on a job and what must stay on the main thread.
 
-> Verified against engine commit dab803a2, 2026-10-08; the "What's threaded today" map against d2c1e6b2, 2026-11-06; the physics task bridge against bdfedae8, 2026-10-09; typed `Listen` receivers against 07595696 plus the typed-events change, 2026-10-16.
+> Verified against engine commit dab803a2, 2026-10-08; the "What's threaded today" map against d2c1e6b2, 2026-11-06; the background lane and thread inventory against ME-319's commits, 2026-11-06; the physics task bridge against bdfedae8, 2026-10-09; typed `Listen` receivers against 07595696 plus the typed-events change, 2026-10-16.
 
 ## Overview
 
@@ -83,7 +83,7 @@ Every thread the engine starts shows as a named lane in every capture, even whil
 - **The rule:** the first line of a thread function (or a `std::async` lambda) is `ME_PROFILE_THREAD( "Name" )` (`Modules/Dementia/Source/Profiling/ThreadName.h`). It registers the profiler lane for the thread's lifetime (`OPTICK_THREAD` is a scoped object, so it must sit in the thread function's own scope, never in a helper) and names the OS thread for gdb and `top -H` (Linux keeps 15 characters). Wrap the thread's work in an `OPTICK_EVENT` too. New threads, pools and `std::async` calls get both in the same change.
 - **Jobs:** `JobSystem::Execute` puts a zone around every job, named by `ParallelFor( "Name", count, minBatch, fn )`, `Run( counter, fn, "Name" )` or `Submit( ..., "Name" )` (string literals: kept by pointer). An idle worker's wait is a `Worker Sleep` zone.
 - **Linux captures** (`ThirdParty/ChromeTrace/optick.h`, Chrome trace JSON for Perfetto / `chrome://tracing`): registered threads get `thread_name` / `thread_sort_index` metadata and a `Capture` marker at the capture's start, so idle lanes still appear. Order: Main Thread, then lanes in registration order, with numbered names ("Job Worker 1".."N") in numeric order. Threads that exited before the capture started are left out.
-- **Registered today:** Main Thread (`Engine::Init`), Job Worker N, Background N (ME-319), Resource Loader N, Reimport N, File Watcher, Script Runtime Init, Script Build, Sky Noise (and its Sky Noise N helpers). Scene reads, save writes, terrain preview / page / stream / cook work and navmesh bakes and carves are zones on the Background lanes (`Scene Read`, `Save Write`, `Terrain Preview`, `Terrain Page`, `Terrain Stream`, `Terrain Cook`, `Nav Bake`, `Nav Carve`, `NavMesh Tiles`), not threads of their own. Threads started by FMOD, .NET and the GPU driver aren't the engine's and don't appear.
+- **Registered today:** Main Thread (`Engine::Init`), Job Worker N, Background N (ME-319), Resource Loader N, Reimport N, File Watcher, Script Runtime Init, Script Build (see *Thread inventory*). Background work is zones on the Background lanes, not threads of its own. Threads started by FMOD, .NET and the GPU driver aren't the engine's and don't appear.
 
 ### Worker utilization (ME-320)
 
@@ -115,7 +115,24 @@ Every place frame work goes to the job workers (`grep -rn "ParallelFor\|\.Submit
 | `BGFXRenderer::CullShadowCasters` (`Modules/Moonlight/Source/Renderer.cpp:2021`) | `Cull Shadow Casters` | Caster vs. cascade/light frustums per chunk | 1 chunk | runs inline (one chunk) |
 | `NetReplication` (`Source/Net/NetReplication.cpp:333`) | `Net Snapshot Encode` | One snapshot per client from the shared capture (`Settings.UseJobs`, 2+ clients) | 1 client | server only |
 
-A `ParallelFor` with a single batch runs inline on the caller and creates no job. Outside the job system, `DynamicSky` bakes its cloud noise once when the sky is created: the constructor starts a `Sky Noise` thread, and its three slice passes (`ParallelFor` in `DynamicSky.cpp`, not the job system's) each start up to 31 `Sky Noise N` helper threads (hardware threads - 1, next to the job workers), all named lanes with zones. That one-off burst overlaps loading and isn't per frame; it could move onto the job system or the ME-319 background lane. Other background work (resource loads, scene reads, saves, terrain pages, nav builds, script builds) runs on its own named threads (see *Profiling threads and jobs*; ME-319 moves them onto one background lane).
+A `ParallelFor` with a single batch runs inline on the caller and creates no job. Work longer than a frame never goes to the workers: it runs on the background lane (see *The background lane* and the *Thread inventory* below).
+
+### Thread inventory (ME-319)
+
+Every thread the engine starts. `Engine::Init` logs the bound, e.g. `Threads: main 1, job workers 31, background 4, resource loaders 4, reimport 4, file watcher 1 = 45 at most (32 hardware threads)` (a Debug HeroShooter client; Release builds have no reimport pool or file watcher):
+
+| Thread(s) | Count | Lifetime | What runs there |
+|-----------|-------|----------|-----------------|
+| Main Thread | 1 | process | the frame, World, scripts, UI, bgfx submission |
+| Job Worker 1..N | hardware threads - 1 | process | frame jobs (`ParallelFor`, `Run`, physics tasks; see *What's threaded today*) |
+| Background 1..N | hardware threads / 4, 2..4 | `Engine::Init` to `Engine::Shutdown` | lane tasks, each a zone: `Scene Read` (`SceneStreaming::LoadAsync`, `LoadingScreen`), `Save Write`, `Terrain Preview` / `Page` / `Stream` / `Cook`, `Nav Bake` / `Nav Carve` / `NavMesh Tiles` (Low), `Sky Noise` + `DynamicSky::NoiseSlices`, `Terrain Texture Pack` (a Low `SerialQueue`), and in the editor `Shader Graph Preview`, `MitchTree Generate`, `Terrain Stream Cook` (Low) |
+| Resource Loader 1..N | hardware threads / 4, 1..4 | first async load to exit | `ResourceCache` async loads (the IO pool, kept: its queue orders loads and finalizes them on the main thread) |
+| Reimport 1..N | hardware threads / 4, 1..4 | tools builds, first reimport to exit | asset re-exports (shader compiles, model imports) |
+| File Watcher | 1 | tools builds | blocks on inotify / `ReadDirectoryChangesW` for asset hot reload |
+| Script Runtime Init | 1 | startup only | starts .NET (`ScriptEngine::StartInitAsync`); a dedicated thread, since the CLR attaches to it |
+| Script Build | 1 | tools builds, during a hot-reload build | waits on the `dotnet build` child process for seconds; dedicated so it never holds a lane thread |
+
+Offline tools keep their own threads: the cooker's workers (`Cooker.cpp`, `Havana --cook`), Build Game (`BuildGame.cpp`, `BuildGameWidget`) and Havana's cook cancel watcher. FMOD, .NET and the GPU driver start threads of their own that aren't the engine's. Before ME-319 each scene read, save, terrain page/cook, nav bake/carve and editor preview started an OS thread per request, a navmesh build started hardware threads - 1 more tile threads, the sky noise up to 31 more, and texture packing had an unnamed thread.
 
 Stays on the main thread every frame:
 

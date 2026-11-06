@@ -1,4 +1,5 @@
 #include "ShaderGraphPreview.h"
+#include "Jobs/BackgroundLane.h"
 
 #if USING( ME_EDITOR )
 #include <chrono>
@@ -240,7 +241,8 @@ void ShaderGraphPreview::StartCompile()
     const std::string fragment = m_compiling.Fragment;
     const std::string vertex = m_compiling.Vertex;
     const std::string varyings = m_compiling.Varyings;
-    m_job = std::async( std::launch::async, [directory, fragment, vertex, varyings]() {
+    // The background lane (ME-319); the destructor waits for it.
+    m_job = Jobs::BackgroundLane::Get().Submit( "Shader Graph Preview", [directory, fragment, vertex, varyings]() {
         JobResult result;
         std::error_code error;
         std::filesystem::create_directories( directory, error );
