@@ -138,8 +138,10 @@ public:
     void Save( const char* path )
     {
         std::string out( path ? path : "trace" );
-        auto dot = out.rfind( '.' );
-        if( dot != std::string::npos ) out = out.substr( 0, dot );
+        // Strip the file's extension only: a dot in a folder name (".tmp") isn't one.
+        const auto dot = out.rfind( '.' );
+        const auto slash = out.find_last_of( "/\\" );
+        if( dot != std::string::npos && ( slash == std::string::npos || dot > slash ) ) out = out.substr( 0, dot );
         out += ".json";
 
         std::lock_guard<std::mutex> lock( m_mutex );
