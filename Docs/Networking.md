@@ -626,7 +626,7 @@ The session starts after the scene loads, because the handshake hashes the scene
 
 `NetReplayTests.cpp` (ME-316):
 
-- **Round trip:** 240 match-like ticks (link stats back at their resolution) (movers, a pickup that comes and goes, a client joining mid-chunk, held and changing commands, exact and inexact view ticks, shots with hitboxes, events) come back field for field, raw and deflated. A flipped byte fails the checksum; a short chunk or header is refused.
+- **Round trip:** 240 match-like ticks (movers, a pickup that comes and goes, a client joining mid-chunk, held and changing commands, exact and inexact view ticks, shots with hitboxes, events) come back field for field, raw and deflated, the link stats at their resolution. A flipped byte fails the checksum; a short chunk or header is refused.
 - **Recorder and seeking:** 637 ticks recorded at a 60-tick keyframe interval write 11 chunks on the background lane and an index; every tick, read in a shuffled order, equals what was recorded, each chunk's first tick names every live dynamic NetId, a range comes back in order, and the same chunks read from memory match. The ring holds the newest `RingSeconds`.
 - **A dead server's file:** without its index and with half its last chunk, a replay reads up to its last whole chunk.
 - **ReplayDump:** a 400-tick replay prints its map, tick count, event and shot counts, a hit with its part and point and the rewound hitboxes, a kill event's payload, and a held command only when it changes (not again at a chunk's start); `--ticks 150:199` keeps that range (with names from the chunk's start), `--entity` one entity's states, `--json` parses with the header, summary and only the ticks that have shots; bad options are refused.
