@@ -166,7 +166,15 @@ namespace Jobs
             std::lock_guard<std::mutex> lock( m_queueLock );
             if( m_running.load( std::memory_order_acquire ) && !m_stopping )
             {
-                ( InTask.Priority == BackgroundPriority::Low ? m_low : m_normal ).push_back( std::move( InTask ) );
+                if( InTask.Priority == BackgroundPriority::Low )
+                {
+                    m_low.push_back( std::move( InTask ) );
+                }
+                else
+                {
+                    m_normal.push_back( std::move( InTask ) );
+                    m_normalWaiting.store( static_cast<uint32_t>( m_normal.size() ), std::memory_order_release );
+                }
             }
         }
         if( InTask.Body )
@@ -182,6 +190,13 @@ namespace Jobs
     bool BackgroundLane::CanRun( BackgroundPriority InPriority ) const
     {
         return InPriority == BackgroundPriority::Normal ? !m_normal.empty() : !m_low.empty() && m_runningLow < m_maxLow;
+    }
+
+
+    bool BackgroundLane::CanRunHelper() const
+    {
+        // Behind Normal work; no Low slot: a helper only speeds up a loop whose caller already runs.
+        return !m_helpers.empty() && m_normal.empty();
     }
 
 
@@ -234,28 +249,43 @@ namespace Jobs
         for( ;; )
         {
             m_wake.wait( lock, [this]() {
-                return CanRun( BackgroundPriority::Normal ) || CanRun( BackgroundPriority::Low ) || ( m_stopping && m_normal.empty() && m_low.empty() );
+                return CanRun( BackgroundPriority::Normal ) || CanRunHelper() || CanRun( BackgroundPriority::Low )
+                    || ( m_stopping && m_normal.empty() && m_low.empty() && m_helpers.empty() );
             } );
             Task task;
+            bool lowSlot = false;
             if( CanRun( BackgroundPriority::Normal ) )
             {
                 task = std::move( m_normal.front() );
                 m_normal.pop_front();
+                m_normalWaiting.store( static_cast<uint32_t>( m_normal.size() ), std::memory_order_release );
+            }
+            else if( CanRunHelper() )
+            {
+                // Before new Low work: it finishes a loop that is already running.
+                task = std::move( m_helpers.front() );
+                m_helpers.pop_front();
             }
             else if( CanRun( BackgroundPriority::Low ) )
             {
                 task = std::move( m_low.front() );
                 m_low.pop_front();
                 ++m_runningLow;
+                lowSlot = true;
             }
             else
             {
                 return;   // stopping, and everything queued has run
             }
+            // Taking a Normal task can make queued helpers runnable: pass the wake on.
+            if( CanRun( BackgroundPriority::Normal ) || CanRunHelper() || CanRun( BackgroundPriority::Low ) )
+            {
+                m_wake.notify_one();
+            }
             lock.unlock();
             RunTask( task );
             lock.lock();
-            if( task.Priority == BackgroundPriority::Low )
+            if( lowSlot )
             {
                 --m_runningLow;
                 // A Low task that was held back can take this slot.
@@ -266,6 +296,56 @@ namespace Jobs
             }
         }
     }
+
+
+    // A ParallelFor's loop, shared with its helpers: one that starts after the work is gone finds no
+    // index left and never touches the caller's callable, which is only alive until every index is done.
+    struct BackgroundLane::ParallelState
+    {
+        std::atomic<uint32_t> Next{ 0 };
+        std::atomic<uint32_t> Done{ 0 };
+        uint32_t Count = 0;
+        void ( *Fn )( void*, uint32_t ) = nullptr;
+        void* Context = nullptr;
+        std::mutex Lock;
+        std::condition_variable Finished;
+        std::exception_ptr Error;
+
+        // Runs indices until none are left. With InYieldWhen (a helper), stops early while it is
+        // non-zero (Normal work waiting) and returns true if indices were left.
+        bool Drain( const std::atomic<uint32_t>* InYieldWhen )
+        {
+            for( ;; )
+            {
+                if( InYieldWhen && InYieldWhen->load( std::memory_order_acquire ) > 0 )
+                {
+                    return Next.load( std::memory_order_acquire ) < Count;
+                }
+                const uint32_t index = Next.fetch_add( 1 );
+                if( index >= Count )
+                {
+                    return false;
+                }
+                try
+                {
+                    Fn( Context, index );
+                }
+                catch( ... )
+                {
+                    std::lock_guard<std::mutex> lock( Lock );
+                    if( !Error )
+                    {
+                        Error = std::current_exception();
+                    }
+                }
+                if( Done.fetch_add( 1, std::memory_order_acq_rel ) + 1 == Count )
+                {
+                    std::lock_guard<std::mutex> lock( Lock );
+                    Finished.notify_all();
+                }
+            }
+        }
+    };
 
 
     void BackgroundLane::ParallelForImpl( const char* InName, uint32_t InCount, void ( *InFn )( void*, uint32_t ), void* InContext, uint32_t InMaxHelpers )
@@ -289,44 +369,7 @@ namespace Jobs
             return;
         }
 
-        // Shared with the helpers: one that starts after the work is gone finds no index left and
-        // never touches the caller's callable, which is only alive until every index is done.
-        struct State
-        {
-            std::atomic<uint32_t> Next{ 0 };
-            std::atomic<uint32_t> Done{ 0 };
-            uint32_t Count = 0;
-            void ( *Fn )( void*, uint32_t ) = nullptr;
-            void* Context = nullptr;
-            std::mutex Lock;
-            std::condition_variable Finished;
-            std::exception_ptr Error;
-
-            void Drain()
-            {
-                for( uint32_t index = Next.fetch_add( 1 ); index < Count; index = Next.fetch_add( 1 ) )
-                {
-                    try
-                    {
-                        Fn( Context, index );
-                    }
-                    catch( ... )
-                    {
-                        std::lock_guard<std::mutex> lock( Lock );
-                        if( !Error )
-                        {
-                            Error = std::current_exception();
-                        }
-                    }
-                    if( Done.fetch_add( 1, std::memory_order_acq_rel ) + 1 == Count )
-                    {
-                        std::lock_guard<std::mutex> lock( Lock );
-                        Finished.notify_all();
-                    }
-                }
-            }
-        };
-        auto state = std::make_shared<State>();
+        auto state = std::make_shared<ParallelState>();
         state->Count = InCount;
         state->Fn = InFn;
         state->Context = InContext;
@@ -334,15 +377,62 @@ namespace Jobs
         const BackgroundPriority priority = s_laneIndex > 0 ? s_priority : BackgroundPriority::Normal;
         for( uint32_t i = 0; i < helpers; ++i )
         {
-            Post( InName, [state]() { state->Drain(); }, priority );
+            PostHelper( InName, state, priority );
         }
-        state->Drain();
-        std::unique_lock<std::mutex> lock( state->Lock );
-        state->Finished.wait( lock, [&state]() { return state->Done.load( std::memory_order_acquire ) == state->Count; } );
+        state->Drain( nullptr );
+        {
+            std::unique_lock<std::mutex> lock( state->Lock );
+            state->Finished.wait( lock, [&state]() { return state->Done.load( std::memory_order_acquire ) == state->Count; } );
+        }
+        // Helpers that never started have nothing left to do: drop them so they don't sit in the
+        // queue (they'd only find the loop finished).
+        std::vector<Task> unstarted;
+        {
+            std::lock_guard<std::mutex> lock( m_queueLock );
+            for( auto it = m_helpers.begin(); it != m_helpers.end(); )
+            {
+                if( it->Group == state.get() )
+                {
+                    unstarted.push_back( std::move( *it ) );
+                    it = m_helpers.erase( it );
+                }
+                else
+                {
+                    ++it;
+                }
+            }
+        }
+        unstarted.clear();
         if( state->Error )
         {
             std::rethrow_exception( state->Error );
         }
+    }
+
+
+    void BackgroundLane::PostHelper( const char* InName, const std::shared_ptr<ParallelState>& InState, BackgroundPriority InPriority )
+    {
+        auto help = [this, InName, state = InState, InPriority]() {
+            // Stepped aside for Normal work with indices left: queue again behind it.
+            if( state->Drain( &m_normalWaiting ) )
+            {
+                PostHelper( InName, state, InPriority );
+            }
+        };
+        Task task;
+        task.Body = std::make_unique<TaskOf<decltype( help )>>( std::move( help ) );
+        task.Name = InName;
+        task.Priority = InPriority;
+        task.Group = InState.get();
+        {
+            std::lock_guard<std::mutex> lock( m_queueLock );
+            if( !m_running.load( std::memory_order_acquire ) || m_stopping )
+            {
+                return;   // the caller finishes the loop itself
+            }
+            m_helpers.push_back( std::move( task ) );
+        }
+        m_wake.notify_one();
     }
 
 

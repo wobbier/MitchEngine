@@ -673,15 +673,16 @@ namespace Moonlight
         m_blackTexture = bgfx::createTexture2D( 1, 1, false, 1, bgfx::TextureFormat::RGBA8, BGFX_SAMPLER_NONE, bgfx::copy( &black, sizeof( black ) ) );
         m_blackVolume = bgfx::createTexture3D( 1, 1, 1, false, bgfx::TextureFormat::R8, BGFX_SAMPLER_NONE, bgfx::copy( &black, 1 ) );
 
-        // The noise takes a moment; it runs while the scene loads and is waited for on first use.
-        // Normal priority: the first frame with clouds waits for it.
+        // The noise takes a moment; it runs while the scene loads. Low priority: the sky draws
+        // without clouds until it's ready (only --frame-time runs wait for it), so it must not hold
+        // up the scene read or a terrain page queued behind it (ME-319).
         m_noiseTask = Jobs::BackgroundLane::Get().Submit( "Sky Noise", [this]() {
             OPTICK_EVENT( "DynamicSky::GenerateNoise" );
             const auto start = std::chrono::steady_clock::now();
             GenerateNoise( m_noise );
             const double ms = std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - start ).count();
             CLog::Log( CLog::LogType::Debug, "DynamicSky: cloud noise generated in " + std::to_string( static_cast<int>( ms ) ) + " ms" );
-        } );
+        }, Jobs::BackgroundPriority::Low );
     }
 
 

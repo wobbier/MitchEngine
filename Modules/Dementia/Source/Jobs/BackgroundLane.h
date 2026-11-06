@@ -20,9 +20,11 @@ namespace Jobs
     // Which of the background lane's queues a task goes to (ME-319).
     enum class BackgroundPriority : uint8_t
     {
-        // Latency matters: scene reads, save and replay writes, terrain pages. Always has a thread.
+        // Latency matters: scene reads, save and replay writes, terrain pages and collision cooks.
+        // Always gets a thread: Low work takes at most (threads - 1), and ParallelFor helpers step
+        // aside between indices while Normal work is waiting.
         Normal,
-        // Long CPU work: navmesh builds, terrain collision cooks, texture packing. At most
+        // Long CPU work: navmesh builds and carves, cloud noise, texture packing. At most
         // (threads - 1) run at once, so a navmesh rebuild never holds up a scene read or a write.
         Low,
     };
@@ -56,7 +58,7 @@ namespace Jobs
 
         bool IsRunning() const { return m_running.load( std::memory_order_acquire ); }
         uint32_t GetThreadCount() const { return static_cast<uint32_t>( m_threads.size() ); }
-        // Tasks waiting for a thread (not the running ones).
+        // Tasks waiting for a thread (not the running ones, nor ParallelFor helpers).
         uint32_t GetQueuedCount() const;
         // 1..N on a lane thread, 0 elsewhere.
         static uint32_t GetCurrentThreadIndex();
@@ -74,7 +76,10 @@ namespace Jobs
         // Calls fn( index ) for [0, InCount): the calling thread works through the indices and up to
         // InMaxHelpers lane threads (0 = all of them) help while they're free. Never deadlocks, even
         // from a lane task with every lane thread busy: the caller then does it all itself. Helpers
-        // queue at the calling task's priority (Normal off the lane). Rethrows the first exception.
+        // only help a loop that is already running, so they take no Low slot (a Low navmesh bake on a
+        // 2-thread lane still gets a helper), but they never hold a thread Normal work is waiting
+        // for: a helper steps aside after its current index and queues again behind it. A helper
+        // runs fn at the calling task's priority (Normal off the lane). Rethrows the first exception.
         template<typename Fn>
         void ParallelFor( const char* InName, uint32_t InCount, Fn&& fn, uint32_t InMaxHelpers = 0 );
 
@@ -103,7 +108,10 @@ namespace Jobs
             std::unique_ptr<TaskBody> Body;
             const char* Name = "Background Task";
             BackgroundPriority Priority = BackgroundPriority::Normal;
+            const void* Group = nullptr;   // a ParallelFor helper (m_helpers): its loop's state
         };
+
+        struct ParallelState;
 
         // Busy time per thread, under a lock: tasks are coarse, and a task still running when the
         // frame's numbers are taken counts up to then.
@@ -119,6 +127,10 @@ namespace Jobs
         void RunTask( Task& InTask );
         void ThreadMain( uint32_t InIndex );
         bool CanRun( BackgroundPriority InPriority ) const;
+        bool CanRunHelper() const;
+        // Queues a helper for a running ParallelFor; dropped while the lane isn't running (the
+        // caller finishes the loop itself).
+        void PostHelper( const char* InName, const std::shared_ptr<ParallelState>& InState, BackgroundPriority InPriority );
         void EnsureStarted();
         void ParallelForImpl( const char* InName, uint32_t InCount, void ( *InFn )( void*, uint32_t ), void* InContext, uint32_t InMaxHelpers );
 
@@ -131,6 +143,9 @@ namespace Jobs
         std::condition_variable m_wake;
         std::deque<Task> m_normal;
         std::deque<Task> m_low;
+        std::deque<Task> m_helpers;
+        // m_normal.size(), readable without the lock: a helper checks it between indices.
+        std::atomic<uint32_t> m_normalWaiting{ 0 };
         uint32_t m_runningLow = 0;
         uint32_t m_maxLow = 1;
         bool m_stopping = false;

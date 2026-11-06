@@ -10,6 +10,13 @@
 #include <thread>
 #include <vector>
 
+#if defined( __linux__ )
+#include <pthread.h>
+#include <sys/resource.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+#endif
+
 // ME-319: the background lane (Jobs::BackgroundLane) and its serial queues.
 
 namespace
@@ -140,6 +147,94 @@ TEST_CASE( "BackgroundLane: ParallelFor covers every index once, even from a lan
     CHECK( tried.load() == 64 );
     lane.Shutdown();
 }
+
+
+TEST_CASE( "BackgroundLane: a Low task's ParallelFor gets helpers, and they step aside for Normal work (ME-319)" )
+{
+    // Two threads: one Low slot, which the loop's own task holds. Its helper takes no Low slot (a
+    // navmesh bake on a 2-thread lane still builds on both), yet a Normal task queued mid-loop runs
+    // while the loop is still going: the helper steps aside after its current index.
+    Jobs::BackgroundLane lane;
+    lane.Init( 2 );
+    constexpr uint32_t kCount = 2000;
+    std::vector<std::atomic<int>> hits( kCount );
+    std::atomic<bool> release{ false };
+    std::atomic<bool> loopDone{ false };
+    std::atomic<uint32_t> threadsSeen{ 0 };
+    std::future<void> low = lane.Submit( "Test Low Loop", [&]() {
+        lane.ParallelFor( "Test Low Helpers", kCount, [&]( uint32_t i ) {
+            hits[i].fetch_add( 1 );
+            threadsSeen.fetch_or( 1u << Jobs::BackgroundLane::GetCurrentThreadIndex() );
+            if( !release.load() ) std::this_thread::sleep_for( std::chrono::milliseconds( 1 ) );
+        } );
+        loopDone.store( true );
+    }, Jobs::BackgroundPriority::Low );
+    REQUIRE( WaitUntil( [&]() { return threadsSeen.load() == ( ( 1u << 1 ) | ( 1u << 2 ) ); } ) );
+
+    std::future<bool> normal = lane.Submit( "Test Normal", [&]() { return loopDone.load(); } );
+    REQUIRE( normal.wait_for( std::chrono::seconds( 10 ) ) == std::future_status::ready );
+    CHECK_FALSE( normal.get() );
+
+    release.store( true );
+    REQUIRE( low.wait_for( std::chrono::seconds( 10 ) ) == std::future_status::ready );
+    bool allOnce = true;
+    for( auto& hit : hits ) allOnce = allOnce && hit.load() == 1;
+    CHECK( allOnce );
+    lane.Shutdown();
+}
+
+
+TEST_CASE( "BackgroundLane: a ParallelFor from outside the lane never holds every thread from Normal work (ME-319)" )
+{
+    // A replay write (Normal, on a SerialQueue) must not wait for someone's fan-out to finish.
+    Jobs::BackgroundLane lane;
+    lane.Init( 2 );
+    constexpr uint32_t kCount = 2000;
+    std::atomic<bool> release{ false };
+    std::atomic<bool> loopDone{ false };
+    std::atomic<uint32_t> threadsSeen{ 0 };
+    std::thread caller( [&]() {
+        lane.ParallelFor( "Test Fan Out", kCount, [&]( uint32_t ) {
+            threadsSeen.fetch_or( 1u << Jobs::BackgroundLane::GetCurrentThreadIndex() );
+            if( !release.load() ) std::this_thread::sleep_for( std::chrono::milliseconds( 1 ) );
+        } );
+        loopDone.store( true );
+    } );
+    // Both lane threads are helping (bit 0 is the caller).
+    const bool helping = WaitUntil( [&]() { return ( threadsSeen.load() & 0b110u ) == 0b110u; } );
+    CHECK( helping );
+
+    Jobs::SerialQueue writes( "Test Writes" );
+    std::future<bool> write = writes.Submit( [&]() { return loopDone.load(); } );
+    const bool ready = write.wait_for( std::chrono::seconds( 10 ) ) == std::future_status::ready;
+    CHECK( ready );
+    if( ready )
+    {
+        CHECK_FALSE( write.get() );
+    }
+    release.store( true );
+    caller.join();
+    writes.Flush();
+    lane.Shutdown();
+}
+
+
+#if defined( __linux__ )
+TEST_CASE( "BackgroundLane: threads are named Background N and run below the main thread's priority (ME-319)" )
+{
+    Jobs::BackgroundLane& lane = Jobs::BackgroundLane::Get();
+    const int mainNice = getpriority( PRIO_PROCESS, static_cast<id_t>( syscall( SYS_gettid ) ) );
+    std::future<std::pair<std::string, int>> probe = lane.Submit( "Test Thread Probe", []() {
+        char name[16] = {};
+        pthread_getname_np( pthread_self(), name, sizeof( name ) );
+        return std::make_pair( std::string( name ), getpriority( PRIO_PROCESS, static_cast<id_t>( syscall( SYS_gettid ) ) ) );
+    } );
+    REQUIRE( probe.wait_for( std::chrono::seconds( 10 ) ) == std::future_status::ready );
+    const auto [name, nice] = probe.get();
+    CHECK( name.rfind( "Background ", 0 ) == 0 );
+    CHECK( ( nice > mainNice || mainNice == 19 ) );
+}
+#endif
 
 
 TEST_CASE( "BackgroundLane: Shutdown runs what is queued; afterwards tasks run inline (ME-319)" )

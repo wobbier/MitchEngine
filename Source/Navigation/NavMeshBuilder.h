@@ -82,7 +82,7 @@ struct NavBuildResult
 
 struct NavBuildOptions
 {
-    unsigned int ThreadCount = 0;           // threads on it, the caller included; 0 = the caller plus every background-lane thread (ME-319)
+    unsigned int ThreadCount = 0;           // threads on it, the caller included; 0 = the caller plus every free background-lane thread (helpers step aside for Normal lane work, ME-319)
     std::atomic<bool>* Cancel = nullptr;    // set to abandon the bake
     std::atomic<int>* TilesDone = nullptr;  // progress
     std::atomic<int>* TilesTotal = nullptr;
