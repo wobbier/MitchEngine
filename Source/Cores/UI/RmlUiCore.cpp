@@ -699,21 +699,29 @@ void RmlUiCore::ModelEnsure( const std::string& InModel )
 }
 
 
+// Scripts set every value every frame (a HUD's FillHud); only a changed one is dirtied, so RmlUi
+// re-evaluates (and lays out) only the bindings whose values changed (ME-318).
 void RmlUiCore::ModelSetNumber( const std::string& InModel, const std::string& InKey, double InValue )
 {
     ModelValue& value = m_models[InModel].Values[InKey];
-    value.Number = InValue;
-    value.IsString = false;
-    value.Dirty = true;
+    if( value.IsString || value.Number != InValue )
+    {
+        value.Number = InValue;
+        value.IsString = false;
+        value.Dirty = true;
+    }
 }
 
 
 void RmlUiCore::ModelSetString( const std::string& InModel, const std::string& InKey, const std::string& InValue )
 {
     ModelValue& value = m_models[InModel].Values[InKey];
-    value.String = InValue;
-    value.IsString = true;
-    value.Dirty = true;
+    if( !value.IsString || value.String != InValue )
+    {
+        value.String = InValue;
+        value.IsString = true;
+        value.Dirty = true;
+    }
 }
 
 
