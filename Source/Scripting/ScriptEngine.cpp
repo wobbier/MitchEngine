@@ -7,6 +7,7 @@
 #if USING( ME_SCRIPTING )
 
 #include <atomic>
+#include <cerrno>
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
@@ -24,6 +25,11 @@
 #include "Generated/ScriptBridgeAPI.generated.h"
 #include "Mods/Mods.h"
 #include "Core/WorkStatus.h"
+#if !USING( ME_PLATFORM_WINDOWS )
+#include <fcntl.h>
+#include <sys/file.h>
+#include <unistd.h>
+#endif
 
 // per-domain binding registrars
 #include "Bindings/BindingContext.h"
@@ -188,6 +194,96 @@ namespace
     }
 
 
+    // One script build at a time per project, across processes (ME-311). Every tools process of a
+    // project writes .tmp/MitchEngine.props and a shared dotnet artifacts folder, and sibling
+    // clients one output folder: peers building at once (clients whose session ended together,
+    // clients started together) collide. Held for the whole dotnet build; released on exit or crash.
+    class ScriptBuildLock
+    {
+    public:
+        explicit ScriptBuildLock( const std::string& InPath )
+        {
+#if USING( ME_PLATFORM_WINDOWS )
+            // Not inherited (no SECURITY_ATTRIBUTES), so dotnet's lingering build servers don't hold it.
+            m_handle = CreateFileA( InPath.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr );
+            if( m_handle == INVALID_HANDLE_VALUE )
+            {
+                return;
+            }
+            OVERLAPPED overlapped{};
+            if( LockFileEx( m_handle, LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY, 0, 1, 0, &overlapped ) )
+            {
+                m_locked = true;
+                return;
+            }
+            m_contended = true;
+            CLog::Log( CLog::LogType::Info, "Scripts: waiting for another process's script build" );
+            OVERLAPPED wait{};
+            m_locked = LockFileEx( m_handle, LOCKFILE_EXCLUSIVE_LOCK, 0, 1, 0, &wait ) != 0;
+#else
+            // O_CLOEXEC: dotnet (popen) and its lingering build servers mustn't inherit the lock.
+            m_fd = open( InPath.c_str(), O_RDWR | O_CREAT | O_CLOEXEC, 0644 );
+            if( m_fd < 0 )
+            {
+                return;
+            }
+            if( flock( m_fd, LOCK_EX | LOCK_NB ) == 0 )
+            {
+                m_locked = true;
+                return;
+            }
+            m_contended = true;
+            CLog::Log( CLog::LogType::Info, "Scripts: waiting for another process's script build" );
+            int result = 0;
+            do
+            {
+                result = flock( m_fd, LOCK_EX );
+            } while( result != 0 && errno == EINTR );
+            m_locked = result == 0;
+#endif
+        }
+
+        ~ScriptBuildLock()
+        {
+#if USING( ME_PLATFORM_WINDOWS )
+            if( m_handle != INVALID_HANDLE_VALUE )
+            {
+                if( m_locked )
+                {
+                    OVERLAPPED overlapped{};
+                    UnlockFileEx( m_handle, 0, 1, 0, &overlapped );
+                }
+                CloseHandle( m_handle );
+            }
+#else
+            if( m_fd >= 0 )
+            {
+                if( m_locked )
+                {
+                    flock( m_fd, LOCK_UN );
+                }
+                close( m_fd );
+            }
+#endif
+        }
+
+        ScriptBuildLock( const ScriptBuildLock& ) = delete;
+        ScriptBuildLock& operator=( const ScriptBuildLock& ) = delete;
+
+        // Another process held it when this one asked (and this one waited for it).
+        bool WasContended() const { return m_contended; }
+
+    private:
+#if USING( ME_PLATFORM_WINDOWS )
+        HANDLE m_handle = INVALID_HANDLE_VALUE;
+#else
+        int m_fd = -1;
+#endif
+        bool m_locked = false;
+        bool m_contended = false;
+    };
+
+
     // A shared executable's script folder records the engine it built against, so a project opened
     // by another checkout's editor rebuilds instead of loading a ScriptCore it can't talk to.
     constexpr const char* kEngineStamp = "Engine.stamp";
@@ -290,6 +386,19 @@ bool ScriptEngine::BuildScripts( std::string* OutLog )
     if( !fs::exists( kScriptProject, error ) )
     {
         return false;
+    }
+    // ME-311: take turns with the project's other processes. One that waited and finds its own
+    // output already newer than the sources (a sibling client built the same folder) loads that.
+    fs::create_directories( ".tmp", error );
+    ScriptBuildLock buildLock( ".tmp/ScriptBuild.lock" );
+    if( buildLock.WasContended() && !NeedsBuild() )
+    {
+        CLog::Log( CLog::LogType::Info, "Scripts: another process built them meanwhile; not building again" );
+        if( OutLog )
+        {
+            OutLog->clear();
+        }
+        return true;
     }
     std::string outputDir = GetAssemblyDirectory();
     if( !outputDir.empty() && ( outputDir.back() == '/' || outputDir.back() == '\\' ) )
