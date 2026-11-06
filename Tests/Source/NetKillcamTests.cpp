@@ -846,15 +846,16 @@ TEST_CASE( "Net: a bot's killcams: a newer one cancels the older, waiting or str
     victim->GetComponent<NetIdentity>().SetOwner( 1 );
     net.ServerNet.GetReplicationServer()->Settings.RelevantRadius = 20.f;
     REQUIRE( net.ServerNet.StartRecording( "" ) );
-    // A second of ring before anything happens: the kills come about 1.7-2.4 s after the arrow goes (the
-    // encodes before them take wall-clock time on the lane), and a 3 s killcam's first tick must be in
-    // the ring, or its range is cut short to the ring's start (it was, at 2.98 s, a run in five). The
-    // killer is there from the ring's start, so it's in every tick a killcam can cover.
+    // Three seconds of ring before the kills (1.5 s, the arrow's second, half a second): the last killcam
+    // is cut 1.2-1.9 s after the kills start (the encodes before it take wall-clock time on the lane), and
+    // a 3 s killcam's first tick must be in the ring, or its range is cut short to the ring's start (it
+    // was, at 2.98 s, a run in five). The killer is there from the ring's start, so it's in every tick a
+    // killcam can cover.
     EntityHandle killer = net.ServerWorld->CreateEntity();
     killer->SetName( "Bot" );
     killer->AddComponent<Transform>();
     killer->AddComponent<NetIdentity>();
-    net.Run( 1.0 );
+    net.Run( 1.5 );
     arrow = net.ServerWorld->CreateEntity();
     arrow->AddComponent<Transform>().SetPosition( Vector3( 300.f, 2.f, 0.f ) );
     arrow->AddComponent<NetIdentity>().AlwaysRelevant = true;
@@ -864,8 +865,9 @@ TEST_CASE( "Net: a bot's killcams: a newer one cancels the older, waiting or str
     net.ServerWorld->DestroyEntity( arrow );
     arrow = EntityHandle();
     // Half a second on: the last killcam is cut 1.7-2.4 s after this (the encodes before it take
-    // wall-clock time on the lane), so its 3 s still hold most of the arrow's second. A second here
-    // left as few as 27 of its ticks in, a run in six under load.
+    // wall-clock time on the lane), so its 3 s usually hold all of the arrow's second. How much of it
+    // they hold is the run's timing: the checks below ask for every tick it lived in the window, not a
+    // count.
     net.Run( 0.5 );
     REQUIRE_FALSE( net.ServerNet.FindEntity( arrowId ) );
 
@@ -924,6 +926,19 @@ TEST_CASE( "Net: a bot's killcams: a newer one cancels the older, waiting or str
     uint32_t compared = 0;
     uint32_t arrowTicks = 0;
     uint32_t postMoved = 0;
+    // The arrow's life in the ring, and in the killcam's window.
+    uint32_t arrowFirstInRing = 0;
+    uint32_t arrowLastInRing = 0;
+    uint32_t arrowFirst = 0;
+    uint32_t arrowLast = 0;
+    for( const auto& pointer : ring )
+    {
+        if( pointer->State.Entities.count( arrowId ) )
+        {
+            arrowFirstInRing = arrowFirstInRing ? arrowFirstInRing : pointer->Tick;
+            arrowLastInRing = pointer->Tick;
+        }
+    }
     for( const auto& pointer : ring )
     {
         const NetReplayTick& original = *pointer;
@@ -953,16 +968,26 @@ TEST_CASE( "Net: a bot's killcams: a newer one cancels the older, waiting or str
         if( original.State.Entities.count( arrowId ) )
         {
             CHECK( decoded.State.Entities.at( arrowId ) == original.State.Entities.at( arrowId ) );
+            arrowFirst = arrowFirst ? arrowFirst : original.Tick;
+            arrowLast = original.Tick;
             ++arrowTicks;
         }
         ++compared;
     }
     MESSAGE( compared << " ticks of the bot's killcam (" << killcam.GetFirstTick() << "-" << killcam.GetDeathTick() << ", the ring from " << ring.front()->Tick
-                       << "); the arrow in " << arrowTicks << ", the post held through " << postMoved << " moves" );
+                       << "); the arrow in " << arrowTicks << " (it lived " << arrowFirstInRing << "-" << arrowLastInRing << "), the post held through "
+                       << postMoved << " moves" );
     // The whole 3 s, every tick of it in the ring and the stream.
     CHECK( killcam.GetDeathTick() - killcam.GetFirstTick() + 1 == 180 );
     CHECK( compared == 180 );
-    CHECK( arrowTicks > 30 );
+    // The arrow in every tick it lived inside the window, out of view at 300 m (AlwaysRelevant), up to its
+    // destruction before the cut: however much of its life the run's timing puts in the window.
+    REQUIRE( arrowLastInRing != 0 );
+    CHECK( arrowLastInRing < killcam.GetDeathTick() );
+    CHECK( arrowTicks > 0 );
+    CHECK( arrowFirst == std::max<uint32_t>( arrowFirstInRing, killcam.GetFirstTick() ) );
+    CHECK( arrowLast == arrowLastInRing );
+    CHECK( arrowTicks == arrowLast - arrowFirst + 1 );
     CHECK( postMoved > 100 );
 
     // Played into a world of its own (phase 3's way): the post and the killer are the same entities
