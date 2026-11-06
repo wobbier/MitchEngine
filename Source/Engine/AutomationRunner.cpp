@@ -146,6 +146,9 @@ void AutomationRunner::AccumulateJobStats( const FrameStats::JobStats& InStats, 
     m_jobTotals.MainBusyMilliseconds += InStats.MainBusyMilliseconds;
     m_jobTotals.MainJobs += InStats.MainJobs;
     m_jobTotals.WaitMilliseconds += InStats.WaitMilliseconds;
+    m_jobTotals.BackgroundJobs += InStats.BackgroundJobs;
+    m_jobTotals.BackgroundBusyMilliseconds += InStats.BackgroundBusyMilliseconds;
+    m_jobTotals.BackgroundQueued += InStats.BackgroundQueued;
     m_jobFrameMilliseconds += InFrameMilliseconds;
     ++m_jobFrames;
 }
@@ -211,6 +214,9 @@ void AutomationRunner::WritePerfReport() const
         average.WorkerBusyMilliseconds /= frames;
         average.MainBusyMilliseconds /= frames;
         average.WaitMilliseconds /= frames;
+        average.BackgroundJobs = static_cast<uint32_t>( average.BackgroundJobs / frames + 0.5 );
+        average.BackgroundBusyMilliseconds /= frames;
+        average.BackgroundQueued = static_cast<uint32_t>( average.BackgroundQueued / frames + 0.5 );
         report["Workers"] = FrameStats::ToJson( average, m_jobFrameMilliseconds / frames );
     }
     // The hardware profile's budgets: last frame's values, and peaks over the measured frames.

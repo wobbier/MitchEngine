@@ -341,7 +341,9 @@ TEST_CASE( "FrameStats: EndFrame reports the job workers (ME-320)" )
 
     const FrameStats::JobStats& jobStats = stats.GetJobStats();
     CHECK( jobStats.WorkerCount == jobs.GetWorkerCount() );
-    REQUIRE( jobStats.Lanes.size() == jobs.GetThreadCount() );
+    // Main and the workers first; the background lane's threads may follow (ME-319).
+    REQUIRE( jobStats.Lanes.size() >= jobs.GetThreadCount() );
+    CHECK( jobStats.Lanes[jobs.GetWorkerCount()].Kind == Jobs::LaneKind::Worker );
     CHECK( jobStats.Lanes[0].Name == "Main" );
     CHECK( jobStats.Jobs > 1 );
     CHECK( jobStats.WorkerBusyMilliseconds > 0.0 );

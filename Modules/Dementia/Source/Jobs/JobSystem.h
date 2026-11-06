@@ -26,12 +26,13 @@ namespace Jobs
 
     // Who ran jobs in a frame (ME-320). Lane 0 is the main thread (and any other thread that isn't a
     // worker: they share it), running ParallelFor's first batch and jobs it picks up while waiting;
-    // lanes 1..N are Job Worker 1..N. A lane kind per entry so another pool (the ME-319 background
-    // lane) can report its own lanes next to these.
+    // lanes 1..N are Job Worker 1..N. A lane kind per entry so another pool reports its own lanes
+    // next to these: BackgroundLane::AppendUtilization adds Background 1..N (ME-319).
     enum class LaneKind : uint8_t
     {
         Main,
         Worker,
+        Background,
     };
 
     struct LaneUtilization

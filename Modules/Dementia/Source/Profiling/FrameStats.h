@@ -77,14 +77,21 @@ public:
     // The job system over the last frame (EndFrame to EndFrame).
     struct JobStats
     {
-        // Main first, then Job Worker 1..N (another pool's lanes would follow, by kind).
+        // Main first, then Job Worker 1..N, then Background 1..N (the ME-319 background lane).
         std::vector<JobLane> Lanes;
         uint32_t WorkerCount = 0;
-        uint32_t Jobs = 0;                     // every lane
+        uint32_t Jobs = 0;                     // the frame lanes (Main and the workers)
         double WorkerBusyMilliseconds = 0.0;   // summed over the workers
         double MainBusyMilliseconds = 0.0;     // jobs the main thread ran itself
         uint32_t MainJobs = 0;
         double WaitMilliseconds = 0.0;         // main thread in Wait/ParallelFor with nothing to run
+        // The background lane (Jobs::BackgroundLane): its threads, the tasks they finished and their
+        // summed task time this frame (a long task counts in every frame it runs through), and the
+        // tasks waiting for a thread at the end of the frame.
+        uint32_t BackgroundCount = 0;
+        uint32_t BackgroundJobs = 0;
+        double BackgroundBusyMilliseconds = 0.0;
+        uint32_t BackgroundQueued = 0;
         // Exponential moving averages, for readable displays.
         double SmoothedWorkerBusy = 0.0;
         double SmoothedWait = 0.0;
@@ -110,8 +117,10 @@ public:
 
     const JobStats& GetJobStats() const { return m_jobs; }
     // The "Workers" block of profile and perf-report JSON:
-    //   { Count, BusyMs: [per worker], Jobs, WaitMs, MainBusyMs, MainJobs, JobsPerWorker: [...], Utilization }
-    // Utilization = worker busy / (workers * InFrameMilliseconds), 0..1 (0 when no frame time is given).
+    //   { Count, BusyMs: [per worker], Jobs, WaitMs, MainBusyMs, MainJobs, JobsPerWorker: [...], Utilization,
+    //     Background: { Count, BusyMs: [per thread], Jobs, Queued, Utilization } }
+    // Utilization = worker busy / (workers * InFrameMilliseconds), 0..1 (0 when no frame time is given);
+    // Background's is the same over its threads.
     static nlohmann::json ToJson( const JobStats& InStats, double InFrameMilliseconds );
 
     RenderStats& GetRenderStats() { return m_render; }

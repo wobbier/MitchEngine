@@ -66,6 +66,7 @@
 #include "Tools/Cook/CookDependencies.h"
 #include "Resource/CookedAssets.h"
 #include "Profiling/FrameStats.h"
+#include "Jobs/BackgroundLane.h"
 #include "Events/PlatformEvents.h"
 #include "Scripting/ScriptEngine.h"
 #include "Core/Assert.h"
@@ -568,6 +569,7 @@ void Engine::Init( Game* game )
         systemRegistry.RegisterSystem( &Jobs::JobSystem::Get() );
     }
     updateContext.m_SystemRegistry = &systemRegistry;
+    LogThreadInventory();
 
     m_isInitialized = true;
 }
@@ -1267,8 +1269,32 @@ void Engine::Shutdown()
         NewRenderer->Destroy();
     }
 
+    // Background work still queued (a save or replay write) lands before the process goes.
+    Jobs::BackgroundLane::GetUnstarted().Shutdown();
     Jobs::JobSystem::Get().Shutdown();
     CLog::GetInstance().Flush();
+}
+
+
+void Engine::LogThreadInventory()
+{
+    // ME-319: every thread the engine starts, bounded: the job workers (hardware threads - 1), the
+    // background lane and the resource loaders (hardware threads / 4 each, at most 4), and in tools
+    // builds the reimport pool and the file watcher. Script Runtime Init (startup) and Script Build
+    // (tools, hot reload) come and go; FMOD, .NET and driver threads aren't the engine's.
+    const uint32_t workers = Jobs::JobSystem::Get().GetWorkerCount();
+    const uint32_t background = Jobs::BackgroundLane::Get().GetThreadCount();
+    const uint32_t loaders = ResourceCache::GetPoolThreadCount();
+    uint32_t total = 1 + workers + background + loaders;
+    std::string line = "Threads: main 1, job workers " + std::to_string( workers ) + ", background " + std::to_string( background )
+        + ", resource loaders " + std::to_string( loaders );
+#if USING( ME_TOOLS )
+    const uint32_t reimport = ResourceCache::GetPoolThreadCount();
+    total += reimport + 1;
+    line += ", reimport " + std::to_string( reimport ) + ", file watcher 1";
+#endif
+    line += " = " + std::to_string( total ) + " at most (" + std::to_string( std::thread::hardware_concurrency() ) + " hardware threads)";
+    CLog::Log( CLog::LogType::Info, line );
 }
 
 double Engine::NetSeconds() const

@@ -94,6 +94,9 @@ public:
     std::vector<std::string> WaitForReimports();
     // Background re-exports queued or running.
     std::size_t GetPendingReimportCount() const;
+    // Threads the async-load pool (Resource Loader N) and, in tools builds, the reimport pool
+    // (Reimport N) each start on first use: hardware threads / 4, clamped to 1..4.
+    static uint32_t GetPoolThreadCount();
 
     SharedPtr<MetaBase> LoadMetadata( const Path& filePath );
     // Tools builds: cooks the asset (Export, then saves its metadata and records the cook) when

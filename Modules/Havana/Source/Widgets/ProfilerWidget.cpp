@@ -88,6 +88,12 @@ void ProfilerWidget::Render()
 	{
 		ImGui::Text("%u workers | %.0f jobs | busy %.2f ms | main ran %u (%.2f ms) | main waited %.2f ms", jobs.WorkerCount, jobs.SmoothedJobs,
 			jobs.SmoothedWorkerBusy, jobs.MainJobs, jobs.MainBusyMilliseconds, jobs.SmoothedWait);
+		// ME-319: the background lane (IO, nav builds, cooks), its lanes listed after the workers.
+		if (jobs.BackgroundCount > 0)
+		{
+			ImGui::Text("background: %u threads | %u tasks | busy %.2f ms | %u queued", jobs.BackgroundCount, jobs.BackgroundJobs,
+				jobs.BackgroundBusyMilliseconds, jobs.BackgroundQueued);
+		}
 		if (!jobs.Lanes.empty() && ImGui::BeginTable("##JobLanes", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_ScrollY,
 			ImVec2(0.f, ImGuiTheme::Em(12.f))))
 		{

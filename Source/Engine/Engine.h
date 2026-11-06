@@ -143,6 +143,8 @@ private:
     // A monotonic clock for the network layer, in seconds.
     double NetSeconds() const;
     void LimitFrameRate( std::chrono::steady_clock::time_point frameStart );
+    // Logs the threads the engine starts and their bound (ME-319).
+    void LogThreadInventory();
     void LoadSceneInternal( const std::string& SceneFile, const json* InData );
 
     double m_fixedAccumulator = 0.0;

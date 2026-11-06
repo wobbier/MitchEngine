@@ -1,4 +1,5 @@
 #include "FrameStats.h"
+#include "Jobs/BackgroundLane.h"
 #include "Jobs/JobSystem.h"
 #include "JSON.h"
 #include <algorithm>
@@ -82,12 +83,18 @@ void FrameStats::EndFrame( double InFrameMilliseconds )
     // The job workers over the same frame. Reads and zeroes the counters: one reader, here.
     static Jobs::Utilization utilization;
     Jobs::JobSystem::GetUnstarted().TakeUtilization( utilization );
+    Jobs::BackgroundLane& background = Jobs::BackgroundLane::GetUnstarted();
+    background.AppendUtilization( utilization );
     m_jobs.Lanes.resize( utilization.Lanes.size() );
     m_jobs.WorkerCount = 0;
     m_jobs.Jobs = 0;
     m_jobs.WorkerBusyMilliseconds = 0.0;
     m_jobs.MainBusyMilliseconds = 0.0;
     m_jobs.MainJobs = 0;
+    m_jobs.BackgroundCount = 0;
+    m_jobs.BackgroundJobs = 0;
+    m_jobs.BackgroundBusyMilliseconds = 0.0;
+    m_jobs.BackgroundQueued = background.IsRunning() ? background.GetQueuedCount() : 0;
     for( size_t i = 0; i < utilization.Lanes.size(); ++i )
     {
         const Jobs::LaneUtilization& source = utilization.Lanes[i];
@@ -100,16 +107,23 @@ void FrameStats::EndFrame( double InFrameMilliseconds )
         lane.BusyMilliseconds = ToMilliseconds( source.BusyNanoseconds );
         lane.Smoothed = Smooth( lane.Smoothed, lane.BusyMilliseconds );
         lane.Jobs = source.Jobs;
-        m_jobs.Jobs += source.Jobs;
         if( source.Kind == Jobs::LaneKind::Worker )
         {
             ++m_jobs.WorkerCount;
             m_jobs.WorkerBusyMilliseconds += lane.BusyMilliseconds;
+            m_jobs.Jobs += source.Jobs;
         }
         else if( source.Kind == Jobs::LaneKind::Main )
         {
             m_jobs.MainBusyMilliseconds += lane.BusyMilliseconds;
             m_jobs.MainJobs += source.Jobs;
+            m_jobs.Jobs += source.Jobs;
+        }
+        else if( source.Kind == Jobs::LaneKind::Background )
+        {
+            ++m_jobs.BackgroundCount;
+            m_jobs.BackgroundBusyMilliseconds += lane.BusyMilliseconds;
+            m_jobs.BackgroundJobs += source.Jobs;
         }
     }
     m_jobs.WaitMilliseconds = ToMilliseconds( utilization.WaitNanoseconds );
@@ -129,6 +143,7 @@ json FrameStats::ToJson( const JobStats& InStats, double InFrameMilliseconds )
 {
     json busy = json::array();
     json jobsPerWorker = json::array();
+    json backgroundBusy = json::array();
     for( const JobLane& lane : InStats.Lanes )
     {
         if( lane.Kind == Jobs::LaneKind::Worker )
@@ -136,9 +151,17 @@ json FrameStats::ToJson( const JobStats& InStats, double InFrameMilliseconds )
             busy.push_back( lane.BusyMilliseconds );
             jobsPerWorker.push_back( lane.Jobs );
         }
+        else if( lane.Kind == Jobs::LaneKind::Background )
+        {
+            backgroundBusy.push_back( lane.BusyMilliseconds );
+        }
     }
     const double capacity = static_cast<double>( InStats.WorkerCount ) * InFrameMilliseconds;
+    const double backgroundCapacity = static_cast<double>( InStats.BackgroundCount ) * InFrameMilliseconds;
+    const json background = { { "Count", InStats.BackgroundCount }, { "BusyMs", backgroundBusy }, { "Jobs", InStats.BackgroundJobs },
+        { "Queued", InStats.BackgroundQueued },
+        { "Utilization", backgroundCapacity > 0.0 ? InStats.BackgroundBusyMilliseconds / backgroundCapacity : 0.0 } };
     return { { "Count", InStats.WorkerCount }, { "BusyMs", busy }, { "Jobs", InStats.Jobs }, { "WaitMs", InStats.WaitMilliseconds },
         { "MainBusyMs", InStats.MainBusyMilliseconds }, { "MainJobs", InStats.MainJobs }, { "JobsPerWorker", jobsPerWorker },
-        { "Utilization", capacity > 0.0 ? InStats.WorkerBusyMilliseconds / capacity : 0.0 } };
+        { "Utilization", capacity > 0.0 ? InStats.WorkerBusyMilliseconds / capacity : 0.0 }, { "Background", background } };
 }

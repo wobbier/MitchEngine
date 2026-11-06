@@ -312,6 +312,12 @@ void ResourceCache::SetKeepAliveSeconds( float InSeconds )
 }
 
 
+uint32_t ResourceCache::GetPoolThreadCount()
+{
+    return std::clamp( std::thread::hardware_concurrency() / 4u, 1u, 4u );
+}
+
+
 void ResourceCache::QueueAsyncLoad( const SharedPtr<Resource>& InResource )
 {
     {
@@ -320,7 +326,7 @@ void ResourceCache::QueueAsyncLoad( const SharedPtr<Resource>& InResource )
         {
             // IO and decoding: a few threads, separate from the job workers so frame jobs never
             // wait behind a file read.
-            const int count = static_cast<int>( std::clamp( std::thread::hardware_concurrency() / 4u, 1u, 4u ) );
+            const int count = static_cast<int>( GetPoolThreadCount() );
             for( int i = 0; i < count; ++i )
             {
                 m_async->Threads.emplace_back( [this, i] { m_async->Run( i ); } );
@@ -645,7 +651,7 @@ void ResourceCache::QueueReimport( const std::string& InPath, const SharedPtr<Re
         }
         if( m_reimports->Threads.empty() )
         {
-            const int count = static_cast<int>( std::clamp( std::thread::hardware_concurrency() / 4u, 1u, 4u ) );
+            const int count = static_cast<int>( GetPoolThreadCount() );
             for( int i = 0; i < count; ++i )
             {
                 m_reimports->Threads.emplace_back( [this, i] { m_reimports->Run( i ); } );

@@ -7,6 +7,7 @@ The engine's two cross-cutting runtime services: `Jobs::JobSystem`, a work-steal
 ## Overview
 
 - `Jobs::JobSystem::Get()` starts `hardware_concurrency - 1` workers on first use. Every thread that isn't a worker shares queue 0; workers pop their own queue newest-first and steal oldest-first from the others, then sleep when idle.
+- Longer-than-a-frame work (IO, nav builds, terrain cooks) runs on `Jobs::BackgroundLane`, a few low-priority threads of its own with futures, a cooperative `ParallelFor` and in-order `SerialQueue`s (ME-319).
 - Waiting on a `Jobs::Counter` *helps* — the waiting thread executes queued jobs — so nested parallelism (waiting inside a job) cannot deadlock.
 - Events: `Fire()` dispatches immediately on the main thread; `Queue()` copies the event and delivers it at the start of the next frame and is safe from any thread.
 
@@ -15,6 +16,7 @@ The engine's two cross-cutting runtime services: `Jobs::JobSystem`, a work-steal
 | Path | Role |
 |------|------|
 | `Modules/Dementia/Source/Jobs/JobSystem.h` / `Modules/Dementia/Source/Jobs/JobSystem.cpp` | `Jobs::JobSystem`, `Jobs::Counter`, `ParallelFor`, `Submit` |
+| `Modules/Dementia/Source/Jobs/BackgroundLane.h` / `Modules/Dementia/Source/Jobs/BackgroundLane.cpp` | `Jobs::BackgroundLane` (the background lane: `Submit`, `Post`, `ParallelFor`), `Jobs::SerialQueue` (ME-319) |
 | `Modules/Dementia/Source/Profiling/ThreadName.h` | `ME_PROFILE_THREAD`: a thread's profiler lane and OS name |
 | `Source/Cores/PhysicsCore.cpp` | `PhysicsCore::EnqueueTask` / `FinishTask`: Box3D's solver tasks run as jobs (`Docs/Physics.md`) |
 | `Modules/Dementia/Source/Events/Event.h` | `Event<T>` CRTP: `GetEventId`, `Fire`, `Queue` |
@@ -46,6 +48,34 @@ jobs.Wait( counter );   // runs other jobs while waiting
 - `Submit( counter, fn, context, begin, end )` enqueues a raw range job (for C-style task callbacks).
 - `Engine::GetJobSystem()` returns the same instance; `Engine::Shutdown` stops the workers.
 
+### The background lane (ME-319)
+
+Work that takes longer than a frame (file reads and writes, navmesh builds, terrain pages and collision cooks) goes to `Jobs::BackgroundLane` (`Modules/Dementia/Source/Jobs/BackgroundLane.h`), never to the job workers and never to a thread of its own:
+
+```cpp
+Jobs::BackgroundLane& lane = Jobs::BackgroundLane::Get();
+std::future<json> scene = lane.Submit( "Scene Read", [path] { return ReadScene( path ); } );
+lane.Submit( "NavMesh Bake", [job] { Build( *job ); }, Jobs::BackgroundPriority::Low );
+lane.Post( "Thing", [] { /* fire and forget; an escaping exception is logged */ } );
+lane.ParallelFor( "NavMesh Tiles", tileCount, [&]( uint32_t tile ) { BuildTile( tile ); } );
+
+Jobs::SerialQueue writes( "Replay Write" );                  // one at a time, in order, on the lane
+writes.Submit( [buffer = std::move( tickBuffer )] { Compress( buffer ); Append( buffer ); } );
+writes.Flush();                                               // or let the destructor flush
+```
+
+- **Threads:** `Background 1..N`, N = hardware threads / 4 clamped to 2..4, started by `Engine::Init` (or the first `Get()`), named lanes (`ME_PROFILE_THREAD`) running below normal OS priority (Linux nice +5, Windows `BELOW_NORMAL`, macOS utility QoS): when every core is busy the main thread and the job workers win. Every task is a zone named by its `InName` (a string literal).
+- **Separate from the frame:** `JobSystem::Wait`/`ParallelFor` never run lane tasks and lane threads never run frame jobs, so a long task can't stretch a frame and a frame can't stall behind a file read. Lane tasks must not use `JobSystem::ParallelFor` for long work (it would land in the frame's queues): use the lane's own `ParallelFor`.
+- **Priorities:** `Normal` (default; latency matters: scene reads, saves, terrain pages, replay writes) and `Low` (long CPU work: nav bakes and carves, terrain cooks, texture packing). At most N - 1 Low tasks run at once, so there is always a thread for Normal work: a navmesh rebuild never holds up a scene read.
+- **Futures:** `Submit` returns a `std::future` carrying the result or the exception. Unlike `std::async`'s, its destructor doesn't wait: an owner whose task touches it (a raw pointer, `this`) waits in its own destructor (`future.wait()`); tasks that capture by value can be left to finish.
+- **Cancellation** is cooperative: the task checks the caller's token (`NavBuildOptions::Cancel`, the terrain caches' epochs and generations, `TerrainPreview`'s cancel flag) and returns early. `SerialQueue::Clear` drops queued tasks that haven't started (their futures report `broken_promise`).
+- **`ParallelFor( name, count, fn( index ), maxHelpers )`:** the caller works through the indices itself while up to `maxHelpers` (0 = all) lane threads help, at the calling task's priority. It never deadlocks, even from a lane task with every lane thread busy (the caller then does all of it); helpers that start after the work is gone return without touching the callable. Rethrows the first exception once every index has run.
+- **`SerialQueue`** (a strand: no thread of its own) runs its tasks one at a time in submission order, in turns of up to 16 tasks so a busy stream doesn't hold a lane thread forever. `Flush()` waits for everything submitted; when no turn is running (one may be queued behind busy threads) it runs the tasks on the calling thread instead, so flushing from a lane task can't deadlock. `GetPending()` (queued plus running) is a writer's back-pressure signal. This is the hand-off the match-replay recorder (ME-316) uses: the server tick builds a buffer and submits it; compression and the file write happen in tick order without blocking the tick.
+- **Shutdown:** `Engine::Shutdown` calls `BackgroundLane::Shutdown`, which runs everything still queued (a save or a replay's last write lands) and joins. Afterwards `Get()` doesn't restart it and tasks run inline on the caller, so late callers never hang.
+- **Rules:** never block a lane task on another lane task's future (use `ParallelFor` or a `SerialQueue`); never touch the World, bgfx or scripts from a lane task (the rulebook below applies); hand results back through the future or a queued event and apply them on the main thread.
+- **Utilization:** each lane thread counts its tasks and task time; `AppendUtilization` adds `LaneKind::Background` lanes (a task still running counts up to the read, so a 2 s nav bake spreads over the frames it ran through instead of landing in one). See *Worker utilization*.
+- **Proof:** `Tests/Source/BackgroundLaneTests.cpp` (`*ME-319*`): results and exceptions through the future, Low never taking the last thread, `ParallelFor` from a lane task with every thread busy, shutdown draining the queue, per-thread utilization, `SerialQueue` order/one-at-a-time/flush-from-a-lane-task/clear, and the FrameStats `Background` block.
+
 ### Profiling threads and jobs (ME-321)
 
 Every thread the engine starts shows as a named lane in every capture, even while idle:
@@ -66,7 +96,7 @@ The job system counts who ran jobs, so a frame shows how much of it ran on the w
 - **Reading:** `JobSystem::TakeUtilization( Jobs::Utilization& )` copies the counters and zeroes them. `FrameStats::EndFrame` calls it once a frame, so `FrameStats::GetJobStats()` covers exactly one frame: per-lane `BusyMilliseconds`/`Jobs` (and a smoothed value), `WorkerBusyMilliseconds`, `MainBusyMilliseconds`, `MainJobs`, `WaitMilliseconds`, `Jobs`. Other callers of `TakeUtilization` would steal the frame's numbers.
 - **JSON:** `FrameStats::ToJson( stats, frameMs )` is the `Workers` block in the edscript `profile-stop` frames and the `--perf-report`: `{ Count, BusyMs: [per worker], Jobs, WaitMs, MainBusyMs, MainJobs, JobsPerWorker: [...], Utilization }`, where `Utilization` is worker busy / (workers x frame ms).
 - **Editor:** the World/Game View stats overlay adds `Jobs N  Workers X ms  Wait Y ms` (smoothed), and the Profiler panel's "Job workers" section lists every lane's jobs, ms and share of the frame.
-- **Other pools:** every lane carries a `Jobs::LaneKind` (`Main`, `Worker`). A pool with its own threads (the ME-319 background lane) adds a kind and appends its lanes; `Count`/`BusyMs` stay the frame workers.
+- **Background lane (ME-319):** every lane carries a `Jobs::LaneKind` (`Main`, `Worker`, `Background`). `FrameStats::EndFrame` appends the background lane's threads after the workers (`BackgroundLane::AppendUtilization`) and sums them into `BackgroundCount`, `BackgroundJobs`, `BackgroundBusyMilliseconds`, plus `BackgroundQueued` (tasks waiting at the end of the frame). `Jobs`, `Count` and `BusyMs` stay the frame lanes; the JSON gets a `Background: { Count, BusyMs: [per thread], Jobs, Queued, Utilization }` block, and the Profiler panel lists the Background lanes under the workers.
 
 ### What's threaded today (ME-320)
 
