@@ -845,6 +845,10 @@ TEST_CASE( "Net: a bot's killcams: a newer one cancels the older, waiting or str
     victim->GetComponent<NetIdentity>().SetOwner( 1 );
     net.ServerNet.GetReplicationServer()->Settings.RelevantRadius = 20.f;
     REQUIRE( net.ServerNet.StartRecording( "" ) );
+    // A second of ring before anything happens: the kills come about 2.2-2.4 s on (the encodes before
+    // them take wall-clock time on the lane), and a 3 s killcam's first tick must be in the ring, or
+    // its range is cut short to the ring's start (it was, at 2.98 s, a run in five).
+    net.Run( 1.0 );
     EntityHandle killer = net.ServerWorld->CreateEntity();
     killer->SetName( "Bot" );
     killer->AddComponent<Transform>();
@@ -948,7 +952,10 @@ TEST_CASE( "Net: a bot's killcams: a newer one cancels the older, waiting or str
         }
         ++compared;
     }
-    MESSAGE( compared << " ticks of the bot's killcam; the arrow in " << arrowTicks << ", the post held through " << postMoved << " moves" );
+    MESSAGE( compared << " ticks of the bot's killcam (" << killcam.GetFirstTick() << "-" << killcam.GetDeathTick() << ", the ring from " << ring.front()->Tick
+                       << "); the arrow in " << arrowTicks << ", the post held through " << postMoved << " moves" );
+    // The whole 3 s, every tick of it in the ring and the stream.
+    CHECK( killcam.GetDeathTick() - killcam.GetFirstTick() + 1 == 180 );
     CHECK( compared == 180 );
     CHECK( arrowTicks > 30 );
     CHECK( postMoved > 100 );
