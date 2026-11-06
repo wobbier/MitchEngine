@@ -58,6 +58,7 @@ public:
     // Destroys every entity of an additive scene (deferred like DestroyEntity). Returns how many.
     std::size_t DestroyScene( uint16_t InSceneId );
 
+    // Live entities, not counting the singletons' hidden holder.
     std::size_t GetEntityCount() const;
     EntityHandle GetEntity( const EntityID& id );
     Entity* GetEntityRaw( const EntityID& id );
@@ -68,7 +69,7 @@ public:
     const bool EntityExists( const EntityID& InEntity ) const;
     bool IsActive( Entity& InEntity );
 
-    // Calls fn( Entity& ) for every live entity.
+    // Calls fn( Entity& ) for every live entity (not the singletons' hidden holder).
     template<typename Fn>
     void ForEachEntity( Fn&& fn );
 
@@ -91,7 +92,10 @@ public:
 
     // ------------------------------------------------------------------ Singletons (NET-16)
     // One T per world, on a hidden entity (scene kSingletonScene: never saved with a scene, not
-    // listed in the hierarchy), created on first use. State a core shares with the rest of its
+    // listed in the hierarchy, counted or visited by ForEachEntity, kept through scene loads),
+    // the component created on first use. The holder is made with the world, so a first use from
+    // inside a callback (a component's Init, a core's OnEntityAdded, a script's OnCreate) never
+    // creates an entity under a caller holding an Entity&. State a core shares with the rest of its
     // world (the sampled input, the session, the main camera) lives here instead of in a core
     // that others reach through GetEngine(), so a second world (killcam, replay, a test) has its
     // own. See Docs/ECS.md (rules of engagement).
@@ -329,7 +333,7 @@ void World::ForEachEntity( Fn&& fn )
     ++m_iterationDepth;
     for( EntityRecord& record : m_records )
     {
-        if( record.Alive )
+        if( record.Alive && !( m_hasSingletonEntity && record.Facade.GetId() == m_singletonEntity ) )
         {
             fn( record.Facade );
         }

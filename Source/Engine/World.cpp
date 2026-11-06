@@ -39,6 +39,9 @@ namespace
 World::World()
 {
     m_pools.resize( kMaxComponentTypes );
+    // The singletons' holder exists from the start (ME-297): Singleton<T>() then only adds a
+    // component, so its first use can't grow the entity records under a caller's Entity&.
+    GetSingletonHolder( true );
 }
 
 
@@ -241,7 +244,8 @@ std::size_t World::DestroyScene( uint16_t InSceneId )
 
 std::size_t World::GetEntityCount() const
 {
-    return m_aliveCount;
+    const bool holder = m_hasSingletonEntity && EntityExists( m_singletonEntity );
+    return m_aliveCount - ( holder ? 1 : 0 );
 }
 
 

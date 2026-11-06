@@ -146,7 +146,7 @@ ME_REGISTER_CORE( RegenCore )
 ### Rules of engagement (NET-16, from the Overwatch GDC 2017 talk)
 
 1. **Components hold data**; cores (systems) hold no gameplay state of their own.
-2. **State shared across cores lives in world singletons:** `World::Singleton<T>()` / `FindSingleton<T>()`, components on a hidden per-world entity, made on first use, never saved with the scene or listed in the hierarchy, and kept through scene loads (`World::Unload` leaves the holder; it goes with the world). Examples are the sampled input, the session, the main camera, and queued events. A second world (killcam, replay, a test) then gets its own copy.
+2. **State shared across cores lives in world singletons:** `World::Singleton<T>()` / `FindSingleton<T>()`, components on a hidden per-world entity, made on first use, never saved with the scene or listed in the hierarchy, and kept through scene loads (`World::Unload` leaves the holder; it goes with the world). The holder is made with the world and hidden from `ForEachEntity` and `GetEntityCount`, so a first `Singleton<T>()` from inside a callback (a component's `Init`, a core's `OnEntityAdded`, a script's `OnCreate`) only adds a component and never grows the entity records under a caller's `Entity&`. Examples are the sampled input, the session, the main camera, and queued events. A second world (killcam, replay, a test) then gets its own copy.
 3. **Cores don't call each other**, and gameplay cores don't reach per-world state through `GetEngine()`. They read and write singletons.
 4. **Shared logic goes in pure utilities** with few reads and few side effects.
 5. **Big side effects are queued** in a singleton component and resolved at one call site (deferred FX, spawns, and the like).

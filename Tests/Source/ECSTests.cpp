@@ -659,18 +659,23 @@ TEST_CASE( "ECS: World singletons are per world, made on first use, never saved 
     CHECK( b->FindSingleton<SingletonClock>()->Ticks == 9 );
     CHECK( &a->Singleton<SingletonClock>() == a->FindSingleton<SingletonClock>() );
 
-    // On a hidden entity of its own scene: a saved scene doesn't carry it.
+    // On a hidden entity of its own scene: a saved scene doesn't carry it, ForEachEntity doesn't
+    // visit it and GetEntityCount doesn't count it.
+    const EntityID holder = a->FindSingleton<SingletonClock>()->Parent.GetID();
+    CHECK( a->IsSingletonEntity( holder ) );
+    CHECK( a->GetEntityScene( holder ) == World::kSingletonScene );
+    CHECK( a->GetEntityCount() == 0 );
     a->CreateEntity( "Visible" );
     a->Simulate();
+    CHECK( a->GetEntityCount() == 1 );
     int holders = 0;
+    int visited = 0;
     a->ForEachEntity( [&]( Entity& InEntity ) {
-        if( a->IsSingletonEntity( InEntity.GetId() ) )
-        {
-            ++holders;
-            CHECK( a->GetEntityScene( InEntity.GetId() ) == World::kSingletonScene );
-        }
+        ++visited;
+        holders += a->IsSingletonEntity( InEntity.GetId() ) ? 1 : 0;
     } );
-    CHECK( holders == 1 );
+    CHECK( holders == 0 );
+    CHECK( visited == 1 );
     const json saved = SceneSerializer::SerializeWorld( *a, nullptr );
     const std::string text = saved.dump();
     CHECK( text.find( "Visible" ) != std::string::npos );
@@ -680,7 +685,6 @@ TEST_CASE( "ECS: World singletons are per world, made on first use, never saved 
     a->Unload();
     REQUIRE( a->FindSingleton<SingletonClock>() != nullptr );
     CHECK( a->FindSingleton<SingletonClock>()->Ticks == 6 );
-    int visible = 0;
-    a->ForEachEntity( [&]( Entity& InEntity ) { visible += a->IsSingletonEntity( InEntity.GetId() ) ? 0 : 1; } );
-    CHECK( visible == 0 );
+    CHECK( a->GetEntityCount() == 0 );
+    CHECK( a->IsSingletonEntity( holder ) );
 }
