@@ -233,6 +233,15 @@ The client predicts only what it owns. Remote entities are interpolated (above),
   - **Before the first match**, a mismatch is the initial sync, not a correction: the server simulated idle ticks before the client's first command arrived.
 - **Interpolation:** the predicted pawn is excluded from snapshot interpolation.
 
+**The misprediction timeline (NET-7):** the predictor keeps the last 10 s of reconciled ticks (`kTimelineSeconds`, 600 at 60 Hz) and what each mismatch found, for the debugger.
+
+- **Outcomes:** `GetOutcome( tick )` is `Match`, `Correction`, `InitialSync`, or `None` (not reconciled, or older than the timeline). `GetNewestReconciled` is where the timeline ends.
+- **Records:** each mismatch on the timeline keeps a `NetMispredictRecord` (`GetMispredicts`, oldest first, at most 64; `FindMispredict( tick )`):
+  - `Predicted` against `Authoritative` (the full mover state), `PositionDelta` / `VelocityDelta`, and `Describe()`: "position off 130.1 mm (0.0998, 0.0833, 0.0005), velocity off 7.803 m/s (...)", plus grounded, ground normal and script byte ranges when they differ.
+  - The pawn's `[Predicted]` script bytes both ways and the `[begin, end)` ranges that differ (`ScriptDiffs`, from `NetPredictor::DiffBytes`).
+  - What it takes to run it again: `Start` (the prediction after the tick before, with its script bytes and `PreviousCommand`; `HasStart` is false when that tick had left the history), `Commands` (the tick's own, then each later one the correction resimulated, up to `NewestTick`), and `Resimulated` (the state after each of those).
+  - `PresentJump`: how far the correction moved the pawn's newest state (what the visual offset hides), and `ResimMilliseconds`.
+
 **Not covered yet:**
 - The visual offset isn't applied to anything. A game draws the pawn's mesh (and its first-person camera) at `Transform + GetVisualOffset()`; C# reads it as `Net.VisualOffset( pawn )`. Moving the Transform itself would read as a teleport to the mover.
 - Only the pawn's mover and its C# `[Predicted]` fields roll back (NET-6). Other components on it don't.
@@ -632,7 +641,8 @@ The session starts after the scene loads, because the handshake hashes the scene
 - **Prediction (`NetPredictionTests.cpp`), the NET-4 done-when:**
   - **Resim:** a predictor corrected at tick 19 resims 20 ticks in 0.056 ms (< 1 ms, Debug). Its visual offset is the jump, and it's gone after 100 ms. Resimming from the straight run's own state reproduces that run bit for bit.
   - **Course:** two worlds at 150 ms RTT (75 ± 3 ms each way) run a walk/strafe/jump course with a step and a wall: 697 ticks confirmed, **0 corrections**, after 1 initial sync.
-  - **Knockback:** a server-only knockback gives **exactly 1 correction**, at the knockback tick. The visual offset is zero by the 10th frame after it, and no further corrections follow.
+  - **Knockback:** a server-only knockback gives **exactly 1 correction**, at the knockback tick. The visual offset is zero by the 10th frame after it, and no further corrections follow. On the timeline that tick is a correction and the ticks either side matches; its one record (the initial sync, 16 s earlier, is off the timeline) reads "position off 130.1 mm (0.0998, 0.0833, 0.0005), velocity off 7.803 m/s (5.991, 5.000, 0.028)", with 15 ticks resimulated.
+  - **Records:** the tick-19 correction above is a `Correction` (tick 5 a `Match`, tick 6 `None`), its record holds the prediction, the server's state, tick 18's state as its start, the commands for 19..39 and the 20 resimulated states, the last of them the pawn's state now. `DiffBytes` finds differing script bytes as ranges, a length difference included.
   - **Teleports:** a 20 cm correction glides (an offset under 2 m); one that moves the pawn 25 m (a respawn) snaps: offset zero at once and after the next frame.
 - **Relevancy (`NetRelevancyTests.cpp`), the NET-13 done-when:** a 20 s soak of 200 bots wandering a 200 m square, with 4 clients at its corners, a 50 m radius, 12 KB/s each, and 2% loss.
   - **Budget:** every client got exactly 12288 B/s of snapshots, within its budget.

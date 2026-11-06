@@ -4,10 +4,56 @@
 #include "Net/NetCommands.h"
 #include <array>
 #include <cstdint>
+#include <deque>
 #include <functional>
+#include <string>
+#include <utility>
 #include <vector>
 
 class PhysicsCore;
+
+// How the server's word on one predicted tick went (NET-7, the misprediction timeline).
+enum class NetPredictOutcome : uint8_t
+{
+    None,           // not reconciled (no word, or not in the timeline any more)
+    Match,          // the prediction was right
+    Correction,     // a misprediction: restored and resimulated
+    InitialSync,    // a mismatch before the first match: joining, not a miss
+};
+
+// What one mismatch found (NET-7, the Overwatch misprediction debugger): the client's prediction
+// for Tick against the server's state, the [Predicted] script bytes that differed, and what it
+// takes to run the tick again offline (NetMispredict::Repro): the prediction's state after the
+// tick before, Tick's command and every later one it resimulated, and where the resim took it.
+struct NetMispredictRecord
+{
+    uint32_t Tick = 0;
+    bool InitialSync = false;
+    CharacterController::NetState Predicted;        // the client's state after Tick
+    CharacterController::NetState Authoritative;    // the server's
+    std::vector<uint8_t> PredictedScripts;          // [Predicted] script bytes (empty without hooks)
+    std::vector<uint8_t> AuthoritativeScripts;
+    std::vector<std::pair<uint32_t, uint32_t>> ScriptDiffs;   // [begin, end) byte ranges that differ
+    // The prediction after Tick - 1, which Commands[0] stepped into Predicted. HasStart is false when
+    // that tick had left the history (or was never predicted: the first tick).
+    bool HasStart = false;
+    CharacterController::NetState Start;
+    std::vector<uint8_t> StartScripts;
+    InputCommand PreviousCommand;                   // Tick - 1's (button edges)
+    // Tick's command, then each later one the correction resimulated, up to NewestTick.
+    std::vector<InputCommand> Commands;
+    // After each resimulated tick (Tick + 1 .. NewestTick): one per Commands[1..].
+    std::vector<CharacterController::NetState> Resimulated;
+    uint32_t NewestTick = 0;
+    // How far the correction moved the pawn's present (newest) state: what the visual offset hides.
+    Vector3 PresentJump;
+    double ResimMilliseconds = 0.0;
+
+    Vector3 PositionDelta() const { return Authoritative.Position - Predicted.Position; }
+    Vector3 VelocityDelta() const { return Authoritative.Velocity - Predicted.Velocity; }
+    // "position off 512.0 mm (0.5120, 0, 0), velocity off ..., grounded, ground normal, scripts" (what differs).
+    std::string Describe() const;
+};
 
 // Client-side prediction of the local player's character (NET-4, the Overwatch model).
 //
@@ -24,6 +70,10 @@ class PhysicsCore;
 // Scripts (NET-6): with ScriptHooks set, the pawn's C# [Predicted] state is part of each tick's
 // record and of the comparison (byte for byte), restored with the mover on a mismatch, and the
 // pawn's predicted scripts re-run (OnFixedUpdate) in every resimulated tick, before its step.
+//
+// Debugging (NET-7): every reconciled tick's outcome stays on a timeline for TimelineSeconds, and
+// each mismatch's NetMispredictRecord (what differed, and how to run it again offline) for as long
+// (at most kMaxMispredicts of them).
 class NetPredictor
 {
 public:
@@ -36,6 +86,8 @@ public:
     };
 
     static constexpr size_t kHistory = 128;
+    static constexpr double kTimelineSeconds = 10.0;
+    static constexpr size_t kMaxMispredicts = 64;
     float PositionTolerance = 0.001f;   // m
     float VelocityTolerance = 0.01f;    // m/s
     float SmoothingSeconds = 0.1f;
@@ -75,6 +127,18 @@ public:
     double GetLastResimMilliseconds() const { return m_lastResimMs; }
 
     static bool Matches( const CharacterController::NetState& InA, const CharacterController::NetState& InB, float InPositionTolerance, float InVelocityTolerance );
+    // The [begin, end) byte ranges where two script states differ (a length difference is one).
+    static std::vector<std::pair<uint32_t, uint32_t>> DiffBytes( const std::vector<uint8_t>& InA, const std::vector<uint8_t>& InB );
+
+    // The misprediction timeline (NET-7): the last kTimelineSeconds of ticks reconciled.
+    uint32_t GetTimelineTicks() const { return static_cast<uint32_t>( m_timeline.size() ); }
+    // The newest tick the server has had its say on (false before the first).
+    bool GetNewestReconciled( uint32_t& OutTick ) const { OutTick = m_reconciled; return m_hasReconciled; }
+    // InTick's outcome, None once it's older than the timeline.
+    NetPredictOutcome GetOutcome( uint32_t InTick ) const;
+    // Every mismatch on the timeline (oldest first), initial syncs included.
+    const std::deque<NetMispredictRecord>& GetMispredicts() const { return m_mispredicts; }
+    const NetMispredictRecord* FindMispredict( uint32_t InTick ) const;
 
 private:
     struct Frame
@@ -85,6 +149,13 @@ private:
         CharacterController::NetState State;
         std::vector<uint8_t> Scripts;
     };
+
+    struct TimelineEntry
+    {
+        uint32_t Tick = 0;
+        NetPredictOutcome Outcome = NetPredictOutcome::None;
+    };
+    void NoteOutcome( uint32_t InTick, NetPredictOutcome InOutcome );
 
     PhysicsCore& m_physics;
     EntityHandle m_pawn;
@@ -110,4 +181,6 @@ private:
     Vector3 m_visualOffset;
     Vector3 m_offsetAtCorrection;
     double m_smoothingLeft = 0.0;
+    std::vector<TimelineEntry> m_timeline;          // by tick % size
+    std::deque<NetMispredictRecord> m_mispredicts;
 };

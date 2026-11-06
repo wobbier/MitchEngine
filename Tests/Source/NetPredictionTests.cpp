@@ -120,6 +120,33 @@ TEST_CASE( "Net: a prediction replays from a corrected tick exactly as a straigh
     CHECK( predictor.GetLastResimMilliseconds() < 1.0 );
     CHECK( controller.GetNetState().Position.x > straight[39].Position.x + 0.4f );
     CHECK( ( predictor.GetVisualOffset() - ( straight[39].Position - controller.GetNetState().Position ) ).Length() < 1e-4f );
+    // The misprediction timeline (NET-7): 5 matched, 19 was corrected, nothing else was reconciled.
+    CHECK( predictor.GetOutcome( 5 ) == NetPredictOutcome::Match );
+    CHECK( predictor.GetOutcome( 19 ) == NetPredictOutcome::Correction );
+    CHECK( predictor.GetOutcome( 6 ) == NetPredictOutcome::None );
+    CHECK( predictor.GetTimelineTicks() == 600 );
+    REQUIRE( predictor.GetMispredicts().size() == 1 );
+    {
+        const NetMispredictRecord& record = predictor.GetMispredicts().front();
+        CHECK( predictor.FindMispredict( 19 ) == &record );
+        CHECK_FALSE( record.InitialSync );
+        CHECK( record.Predicted == straight[19] );
+        CHECK( record.Authoritative == pushed );
+        CHECK( record.PositionDelta().x == doctest::Approx( 0.5f ) );
+        CHECK( record.VelocityDelta().x == doctest::Approx( 2.f ) );
+        CHECK( record.HasStart );
+        CHECK( record.Start == straight[18] );
+        CHECK( record.Commands.size() == 21 );     // 19's, then 20..39's
+        CHECK( record.Commands.front().Tick == 19 );
+        CHECK( record.Commands.back().Tick == 39 );
+        CHECK( record.PreviousCommand.Tick == 18 );
+        REQUIRE( record.Resimulated.size() == 20 );
+        CHECK( record.Resimulated.back() == controller.GetNetState() );
+        CHECK( record.NewestTick == 39 );
+        CHECK( ( record.PresentJump - ( controller.GetNetState().Position - straight[39].Position ) ).Length() < 1e-6f );
+        MESSAGE( "tick 19: " << record.Describe() );
+        CHECK( record.Describe().find( "position off 500.0 mm" ) == 0 );
+    }
     // The offset is gone after the smoothing time.
     predictor.UpdateSmoothing( 0.05 );
     CHECK( predictor.GetVisualOffset().Length() > 0.f );
@@ -202,9 +229,33 @@ TEST_CASE( "Net: at 150 ms RTT a walk/jump course predicts with 0 corrections; a
     REQUIRE( offsetsAfter.size() > 10 );
     CHECK( offsetsAfter.front() > 0.01f );
     CHECK( offsetsAfter[9] == 0.f );    // smoothed away within 10 ticks
+    // On the timeline: the knockback tick red, the ticks either side of it green, one record.
+    CHECK( predictor.GetOutcome( static_cast<uint32_t>( knockbackTick ) ) == NetPredictOutcome::Correction );
+    CHECK( predictor.GetOutcome( static_cast<uint32_t>( knockbackTick - 1 ) ) == NetPredictOutcome::Match );
+    CHECK( predictor.GetOutcome( static_cast<uint32_t>( knockbackTick + 1 ) ) == NetPredictOutcome::Match );
+    REQUIRE( predictor.GetMispredicts().size() == 1 );     // the initial sync was 16 s ago: off the timeline
+    const NetMispredictRecord& knocked = predictor.GetMispredicts().front();
+    CHECK( knocked.Tick == static_cast<uint32_t>( knockbackTick ) );
+    CHECK_FALSE( knocked.InitialSync );
+    CHECK( knocked.PositionDelta().Length() > 0.f );
+    CHECK( knocked.VelocityDelta().x == doctest::Approx( 6.f ).epsilon( 0.2 ) );
+    CHECK( knocked.HasStart );
+    CHECK( knocked.Commands.size() == knocked.Resimulated.size() + 1 );
+    CHECK( knocked.Resimulated.size() > 5 );   // a round trip of ticks at 150 ms
+    MESSAGE( "knockback at tick " << knocked.Tick << ": " << knocked.Describe() << "; " << knocked.Resimulated.size() << " ticks resimulated" );
     // Converged: the rest of the run predicts right.
     const CharacterController::NetState server = serverPawn->GetComponent<CharacterController>().GetNetState();
     CHECK( ( server.Position - Vector3( 0.f, 0.9f, 0.f ) ).Length() > 0.f );
+}
+
+
+TEST_CASE( "Net: a misprediction's differing script bytes are found as ranges" )
+{
+    using Ranges = std::vector<std::pair<uint32_t, uint32_t>>;
+    CHECK( NetPredictor::DiffBytes( { 1, 2, 3 }, { 1, 2, 3 } ).empty() );
+    CHECK( NetPredictor::DiffBytes( { 1, 2, 3, 4, 5 }, { 1, 9, 9, 4, 6 } ) == Ranges{ { 1, 3 }, { 4, 5 } } );
+    CHECK( NetPredictor::DiffBytes( { 1, 2 }, { 1, 2, 3, 4 } ) == Ranges{ { 2, 4 } } );
+    CHECK( NetPredictor::DiffBytes( { 1, 2, 3 }, { 1, 5 } ) == Ranges{ { 1, 3 } } );
 }
 
 
