@@ -284,8 +284,8 @@ InputCommand NetCommandBuffer::Consume( uint32_t InTick, uint32_t InTicksOwed )
     m_commands.erase( m_commands.begin(), m_commands.upper_bound( InTick ) );
 
     m_lastSample = static_cast<float>( static_cast<int64_t>( m_newest ) - static_cast<int64_t>( InTick ) - static_cast<int64_t>( InTicksOwed ) );
-    // Smoothed; a jump (the client resynced) is taken at once.
-    if( !m_hasSlack || std::abs( m_lastSample - m_slack ) > 4.f )
+    // Smoothed; a jump (the client resynced) is taken at once, from 4 ticks.
+    if( !m_hasSlack || std::abs( m_lastSample - m_slack ) >= 4.f )
     {
         m_slack = m_lastSample;
         m_hasSlack = true;

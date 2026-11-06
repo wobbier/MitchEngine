@@ -1246,9 +1246,9 @@ TEST_CASE( "Net: a client that hitches comes back without a resync when it catch
         {
             CHECK( client.GetHitchMisses() == probe.Misses( hitchAt, net.Now() + 1.0 ) );
         }
-        // A jump of 4 ticks or less the server's smoothed slack follows over 10 ticks or so (it
+        // A jump of under 4 ticks the server's smoothed slack follows over 10 ticks or so (it
         // takes a bigger one at once).
-        CHECK( settled <= ( catchUp < 100 && hitch < 0.25 ? 0.35 : 0.25 ) );
+        CHECK( settled <= 0.25 );
         // Late commands, past the hitch's own misses: the one tick before the jump lands.
         CHECK( late <= 2 );
         CHECK( after == 0 );
