@@ -3,6 +3,7 @@
 #include "CLog.h"
 #include "Components/Camera.h"
 #include "Components/Graphics/Mesh.h"
+#include "Components/Graphics/Model.h"
 #include "Components/Graphics/TextRenderer.h"
 #include "Components/Networking/SingletonKillcam.h"
 #include "Components/Physics/CharacterController.h"
@@ -143,6 +144,13 @@ void KillcamPlayer::Update( World& InLive, double InFrameSeconds )
     if( m_replay && ( !live || !live->IsSessionLive() ) )
     {
         End( "stopped" );
+    }
+    // Killcam ids are a server's own (each server process counts from 1, and the receiver starts over at 0
+    // on Connect): with no session, or a receiver that has started over, whatever id comes next is new.
+    // A session never comes back live without a Connect, so the killcam looked at can't play again.
+    if( !killcam || killcam->GetId() == 0 || !live->IsSessionLive() )
+    {
+        m_lastSeen = 0;
     }
     // A newer killcam, readable: it plays now (replacing one playing).
     if( killcam && killcam->GetId() != 0 && killcam->GetId() != m_lastSeen && killcam->HasHeader() && killcam->GetChunksReady() > 0 && m_settings.AutoPlay
@@ -377,7 +385,6 @@ void KillcamPlayer::PlaceView()
     const CharacterController* controller = killer->TryGetComponent<CharacterController>();
     const float eyeHeight = m_settings.EyeHeight >= 0.f ? m_settings.EyeHeight : controller ? controller->Height * 0.5f - 0.15f : 1.6f;
     const Vector3 eye = body->GetWorldPosition() + Vector3( 0.f, eyeHeight, 0.f );
-    m_status.HasView = true;
     m_status.Eye = eye;
     m_status.Yaw = yaw;
     m_status.Pitch = pitch;
@@ -395,6 +402,11 @@ void KillcamPlayer::PlaceView()
                 if( Mesh* mesh = entity->TryGetComponent<Mesh>(); mesh && mesh->IsEnabled() )
                 {
                     mesh->SetEnabled( false );
+                }
+                // A compact model draws its parts from the Model itself, not from Mesh entities.
+                if( Model* model = entity->TryGetComponent<Model>(); model && model->IsEnabled() )
+                {
+                    model->SetEnabled( false );
                 }
                 if( TextRenderer* text = entity->TryGetComponent<TextRenderer>(); text && text->IsEnabled() )
                 {
@@ -416,4 +428,6 @@ void KillcamPlayer::PlaceView()
     }
     camera->SetWorldPosition( eye );
     camera->LookAt( eye + AimDirection( yaw, pitch ) );
+    // Only now is the view the killer's: a world without a camera of its own shows something else.
+    m_status.HasView = true;
 }

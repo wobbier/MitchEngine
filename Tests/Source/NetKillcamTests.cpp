@@ -5,6 +5,7 @@
 #include "Components/Physics/CharacterController.h"
 #include "Components/Physics/Colliders.h"
 #include "Components/Camera.h"
+#include "Components/Graphics/Model.h"
 #include "Components/Networking/SingletonKillcam.h"
 #include "Core/UpdateContext.h"
 #include "Cores/PhysicsCore.h"
@@ -1139,9 +1140,19 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
     KillcamPlayer player;
     player.GetSettings().HoldSeconds = 0.5;
     int populated = 0;
+    // The killer's body: a compact Model on a child of its pawn (it draws from the Model, not Meshes).
+    auto addBody = [&]( World& InWorld ) {
+        EntityHandle body = InWorld.CreateEntity( "Killer Body" );
+        body->AddComponent<Transform>().SetParent( find( InWorld, kKillerGuid )->GetComponent<Transform>() );
+        body->AddComponent<Model>();
+        return body;
+    };
+    EntityHandle liveBody = addBody( *net.ClientWorld );
+    EntityHandle replayBody;
     player.SetPopulate( [&]( KillcamPlayer::ReplayWorld& InReplay, std::string& ) {
         ++populated;
         placePawns( *InReplay.Instance, false );
+        replayBody = addBody( *InReplay.Instance );
         EntityHandle camera = InReplay.Instance->CreateEntity( "Killcam Camera" );
         camera->AddComponent<Transform>();
         camera->AddComponent<Camera>().SetCurrent();
@@ -1167,8 +1178,10 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
             const NetReplayPlayback& playback = *player.GetNet()->GetPlayback();
             shownOnlyRose = shownOnlyRose && ( playback.IsPaused() || player.GetStatus().Tick >= lastShown );
             lastShown = player.GetStatus().Tick;
-            // Never past what had arrived.
-            beyondArrived = beyondArrived || playback.GetTick() > net.ClientNet.GetKillcam().GetSource()->GetChunkCount() * 60 + player.GetStatus().FirstTick;
+            // Never past what had arrived: the last tick of the chunks in when it moved (OnMillisecond runs
+            // before this millisecond's packets, so the source is as the playback last saw it).
+            const NetReplayMemorySource& source = *net.ClientNet.GetKillcam().GetSource();
+            beyondArrived = beyondArrived || source.GetChunkCount() == 0 || playback.GetTick() > source.GetChunkInfo( source.GetChunkCount() - 1 ).LastTick;
         }
     };
 
@@ -1338,6 +1351,20 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
     CHECK( ( view->Parent->GetComponent<Transform>().GetWorldPosition() - status.Eye ).Length() < 1e-4f );
     CHECK( Camera::GetMain( net.ClientWorld.get() ) != view );
     {
+        // Looking along the aim it reports.
+        const float yaw = status.Yaw * 3.14159265f / 180.f;
+        const float pitch = status.Pitch * 3.14159265f / 180.f;
+        const Vector3 aim( std::sin( yaw ) * std::cos( pitch ), std::sin( pitch ), std::cos( yaw ) * std::cos( pitch ) );
+        const Vector3 front = view->Parent->GetComponent<Transform>().Front().Normalized();
+        INFO( "front " << front.x << ", " << front.y << ", " << front.z << "; aim " << aim.x << ", " << aim.y << ", " << aim.z );
+        CHECK( ( front - aim ).Length() < 1e-3f );
+    }
+    // Its own body hidden in the replay world (a compact Model too), the live world's left alone.
+    REQUIRE( replayBody );
+    CHECK( replayBody.GetWorld() == &replay );
+    CHECK_FALSE( replayBody->GetComponent<Model>().IsEnabled() );
+    CHECK( liveBody->GetComponent<Model>().IsEnabled() );
+    {
         const NetReplayTick* record = replayNet.GetPlayback()->GetRecord();
         REQUIRE( record );
         REQUIRE( record->Clients.size() == 1 );
@@ -1486,4 +1513,179 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
     net.Run( 1.0 );
     CHECK_FALSE( player.IsPlaying() );
     CHECK( player.GetStats().Started == 3 );
+}
+
+
+TEST_CASE( "Net: a killcam that outruns its stream holds on the last tick in, still playing, and goes on when the next chunk lands; one whose stream stops ends (failed) after MaxStallSeconds; a session's end starts the killcam ids over (ME-323 phase 3)" )
+{
+    // A bot kills client 1's pawn. Killcams of 3 s in chunks of 10 ticks: the first goes alone, the rest
+    // once it's acked, so cutting the server -> client link as the victim starts playing leaves it 10
+    // ticks to play before it runs out of stream.
+    Harness net( Link( 50.f, 0.f, 0.f, 3241 ), Link( 50.f, 0.f, 0.f, 3242 ) );
+    constexpr uint64_t kVictimGuid = 0x7A3E21;
+    net.Place( kVictimGuid );
+    EntityHandle victim;
+    net.ServerWorld->ForEachEntity( [&]( Entity& InEntity ) {
+        if( InEntity.GetGUID() == kVictimGuid )
+        {
+            victim = net.ServerWorld->GetEntity( InEntity.GetId() );
+        }
+    } );
+    REQUIRE( victim );
+    victim->GetComponent<Transform>().SetPosition( Vector3( 5.f, 0.f, 0.f ) );
+    for( World* world : { net.ServerWorld.get(), net.ClientWorld.get() } )
+    {
+        world->Simulate();
+        world->Start();
+    }
+    EntityHandle killer;
+    net.OnServerTick = [&]( NetServer& InServer ) {
+        if( killer )
+        {
+            const float t = static_cast<float>( InServer.GetTick() ) / 60.f;
+            killer->GetComponent<Transform>().SetPosition( Vector3( std::sin( t ) * 3.f, 0.f, std::cos( t ) * 3.f ) );
+        }
+        net.ServerWorld->Simulate();
+    };
+    NetCore::KillcamSettings chunking;
+    chunking.ChunkTicks = 10;
+    net.ServerNet.SetKillcamSettings( chunking );
+    net.Start();
+    net.Run( 1.0 );
+    REQUIRE( net.ClientNet.GetClient()->GetState() == NetClient::State::Connected );
+    victim->GetComponent<NetIdentity>().SetOwner( 1 );
+    REQUIRE( net.ServerNet.StartRecording( "" ) );
+    killer = net.ServerWorld->CreateEntity();
+    killer->SetName( "Bot" );
+    killer->AddComponent<Transform>();
+    killer->AddComponent<NetIdentity>();
+    net.Run( 4.0 );
+
+    KillcamPlayer player;
+    player.GetSettings().HoldSeconds = 0.25;
+    player.SetPopulate( [&]( KillcamPlayer::ReplayWorld& InReplay, std::string& ) {
+        EntityHandle placed = InReplay.Instance->CreateEntityWithGUID( kVictimGuid );
+        placed->AddComponent<Transform>();
+        placed->AddComponent<NetIdentity>();
+        return true;
+    } );
+    std::vector<KillcamEvent> events;
+    auto listening = EventSubscription::Create<KillcamEvent>( [&]( const KillcamEvent& InEvent ) { events.push_back( InEvent ); } );
+    const NetConditions open = Link( 50.f, 0.f, 0.f, 3243 );
+    const NetConditions cut = Link( 50.f, 0.f, 1.f, 3244 );
+    bool cutOnStart = false;
+    double cutAt = -1.0;
+    // While it plays, each frame: never past the last tick in; and each frame it waited on a chunk, held
+    // on exactly that tick, still playing (not paused), the replay world the recording's there.
+    uint64_t stalledSeen = 0;
+    int heldFrames = 0;
+    bool heldRight = true;
+    bool beyondArrived = false;
+    size_t heldMatched = 0;
+    std::vector<std::string> heldProblems;
+    uint32_t heldAt = 0;
+    double shownAfterHeld = 0.0;
+    net.OnMillisecond = [&]( double InNow ) {
+        if( static_cast<int64_t>( InNow * 60.0 ) == static_cast<int64_t>( ( InNow - 0.001 ) * 60.0 ) )
+        {
+            return;
+        }
+        player.Update( *net.ClientWorld, 1.0 / 60.0 );
+        if( !player.IsPlaying() )
+        {
+            return;
+        }
+        if( cutOnStart && cutAt < 0.0 )
+        {
+            net.ServerLink.SetConditions( cut );
+            cutAt = InNow;
+        }
+        NetReplayPlayback& playback = *player.GetNet()->GetPlayback();
+        const NetReplayMemorySource& source = *net.ClientNet.GetKillcam().GetSource();
+        const uint32_t readable = source.GetChunkInfo( source.GetChunkCount() - 1 ).LastTick;
+        beyondArrived = beyondArrived || playback.GetTick() > readable;
+        if( player.GetStats().StalledFrames > stalledSeen )
+        {
+            stalledSeen = player.GetStats().StalledFrames;
+            ++heldFrames;
+            heldAt = readable;
+            heldRight = heldRight && !playback.IsPaused() && playback.IsStreaming() && playback.GetTick() == readable && playback.GetLastTick() == readable
+                && player.GetStatus().Tick == static_cast<double>( readable ) && readable < player.GetStatus().DeathTick;
+            const NetReplayPlayback::Check check = player.GetNet()->CheckPlayback();
+            heldMatched += check.Matched;
+            heldProblems.insert( heldProblems.end(), check.Problems.begin(), check.Problems.end() );
+        }
+        else if( heldAt != 0 )
+        {
+            shownAfterHeld = std::max( shownAfterHeld, player.GetStatus().Tick );
+        }
+    };
+    auto runUntil = [&]( const std::function<bool()>& InDone, double InSeconds ) {
+        for( int i = 0; i < static_cast<int>( InSeconds * 100.0 ) && !InDone(); ++i )
+        {
+            net.Run( 0.01 );
+        }
+        return InDone();
+    };
+
+    // 1. Cut as it starts: it plays its first chunk's 10 ticks, then holds there, playing.
+    cutOnStart = true;
+    REQUIRE( net.ServerNet.SendKillcam( victim, killer, 3.0 ) );
+    REQUIRE( runUntil( [&]() { return player.IsPlaying(); }, 2.0 ) );
+    CHECK( player.GetStatus().Id == 1 );
+    REQUIRE( runUntil( [&]() { return heldFrames >= 30; }, 2.0 ) );
+    CHECK( player.IsPlaying() );
+    CHECK( heldRight );
+    CHECK_FALSE( beyondArrived );
+    CHECK( heldAt == player.GetStatus().FirstTick + 9 );
+    for( const std::string& problem : heldProblems )
+    {
+        FAIL_CHECK( problem );
+    }
+    CHECK( heldMatched >= 30 );     // the victim and the bot at least, each frame held
+    CHECK_FALSE( net.ClientNet.GetKillcam().IsComplete() );
+    // The link back: the chunks land, it goes on from where it held, to the death tick, and ends played.
+    net.ServerLink.SetConditions( open );
+    REQUIRE( runUntil( [&]() { return !player.IsPlaying(); }, 6.0 ) );
+    REQUIRE( events.size() == 2 );
+    CHECK( events[1].Reason == "played" );
+    CHECK( shownAfterHeld >= static_cast<double>( player.GetStatus().DeathTick ) );
+    CHECK( heldRight );
+    CHECK_FALSE( beyondArrived );
+    const uint64_t stalledFirst = player.GetStats().StalledFrames;
+    MESSAGE( "held " << heldFrames << " frames on tick " << heldAt << " (" << heldMatched << " entity states checked there), then played on to " << shownAfterHeld );
+    CHECK( stalledFirst >= 30 );
+
+    // 2. Cut again, and it never comes back in time: it ends, failed, once it has waited MaxStallSeconds.
+    player.GetSettings().MaxStallSeconds = 0.5;
+    cutAt = -1.0;
+    heldAt = 0;
+    REQUIRE( net.ServerNet.SendKillcam( victim, killer, 3.0 ) );
+    REQUIRE( runUntil( [&]() { return player.IsPlaying(); }, 2.0 ) );
+    CHECK( player.GetStatus().Id == 2 );
+    const double startedAt = net.Now();
+    REQUIRE( runUntil( [&]() { return !player.IsPlaying(); }, 3.0 ) );
+    REQUIRE( events.size() == 4 );
+    CHECK( events[3].Id == 2 );
+    CHECK( events[3].Reason.rfind( "failed: the stream stalled at tick ", 0 ) == 0 );
+    CHECK( player.GetStats().Failed == 1 );
+    // 10 ticks of stream, then half a second's wait (and a frame).
+    CHECK( net.Now() - startedAt >= 10.0 / 60.0 + 0.5 - 0.02 );
+    CHECK( net.Now() - startedAt < 10.0 / 60.0 + 0.5 + 0.1 );
+    CHECK( player.GetStats().StalledFrames > stalledFirst );
+    // Its stream comes in after all: it isn't played again.
+    net.ServerLink.SetConditions( open );
+    REQUIRE( runUntil( [&]() { return net.ClientNet.GetKillcam().IsComplete(); }, 4.0 ) );
+    net.Run( 0.5 );
+    CHECK_FALSE( player.IsPlaying() );
+    CHECK( player.GetStats().Started == 2 );
+    CHECK( player.GetLastSeenId() == 2 );
+
+    // 3. The session ends: the ids it saw were its server's, so the next session's are all new.
+    net.ClientNet.GetClient()->Disconnect( net.Now() );
+    net.Run( 0.1 );
+    CHECK_FALSE( net.ClientNet.IsSessionLive() );
+    CHECK( player.GetLastSeenId() == 0 );
+    CHECK( player.GetStats().Started == 2 );
+    net.OnMillisecond = nullptr;
 }

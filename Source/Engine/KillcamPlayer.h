@@ -74,7 +74,7 @@ public:
         bool KillerView = true;
         // The eye above the killer's origin; < 0: its CharacterController's top less 0.15 m (1.6 m without one).
         float EyeHeight = -1.f;
-        // The killer's own meshes and text hidden in the killer's view.
+        // The killer's own meshes, models and text hidden in the killer's view.
         bool HideKiller = true;
     };
 
@@ -132,7 +132,9 @@ public:
         double Elapsed = 0.0;       // seconds since it started
         double Duration = 0.0;      // seconds it plays: first tick to the death at its tick rate, then the hold
         bool Complete = false;      // every chunk is in
-        // The killer's view this frame (KillerView), for logs and captures.
+        // The replay world's main camera was put at the killer's eye this frame (KillerView, and the world
+        // has a camera entity to move), for logs and captures. Eye / Yaw / Pitch: the killer's view,
+        // placed or not.
         bool HasView = false;
         Vector3 Eye;
         float Yaw = 0.f;
@@ -151,6 +153,8 @@ public:
         uint64_t StalledFrames = 0;     // frames spent waiting on a chunk, all killcams
     };
     const Stats& GetStats() const { return m_stats; }
+    // The newest killcam id looked at this session (0: none; it starts over when the session does).
+    uint32_t GetLastSeenId() const { return m_lastSeen; }
 
 private:
     void Start( World& InLive, const NetKillcamReceiver& InKillcam );
@@ -163,7 +167,7 @@ private:
     Populate m_populate;
     std::unique_ptr<ReplayWorld> m_replay;
     WeakPtr<World> m_live;
-    uint32_t m_lastSeen = 0;        // the newest killcam id looked at (started, or failed)
+    uint32_t m_lastSeen = 0;        // the newest killcam id looked at (started, or failed), this session
     Status m_status;
     Stats m_stats;
     double m_held = 0.0;            // seconds on the death tick, complete
