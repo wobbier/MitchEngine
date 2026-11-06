@@ -1012,7 +1012,8 @@ bool SequenceWidget::ExecuteAutomation( const std::string& command, const std::s
         // seq-assert-cut-camera name: the camera the Game View renders now.
         if( command == "seq-assert-cut-camera" )
         {
-            const std::string current = Camera::CurrentCamera && Camera::CurrentCamera->Parent ? Camera::CurrentCamera->Parent->GetName() : std::string( "<none>" );
+            const Camera* mainCamera = Camera::GetMain( &EditorOps::GetWorld() );
+            const std::string current = mainCamera && mainCamera->Parent ? mainCamera->Parent->GetName() : std::string( "<none>" );
             if( current != args ) { error = "The current camera is " + current; return false; }
             return true;
         }

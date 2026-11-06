@@ -5,6 +5,7 @@
 #include "Math/Frustrum.h"
 #include "Resource/ResourceCache.h"
 #include "Utils/HavanaUtils.h"
+#include "Engine/World.h"
 #include "ImGuiTheme.h"
 #include <Graphics/Material.h>
 #include <cmath>
@@ -80,16 +81,8 @@ Camera::Camera()
 
 Camera::~Camera()
 {
-    if( FallbackCamera == this )
-    {
-        FallbackCamera = nullptr;
-    }
-    if( CurrentCamera == this )
-    {
-        // Deleting the main camera (its entity, an additive scene, a failed load) must not leave
-        // every CurrentCamera reader on a dangling pointer until the next scene load.
-        CurrentCamera = FallbackCamera;
-    }
+    // A world's main camera is held through its entity (SingletonCamera), so deleting it (its
+    // entity, an additive scene, a failed load) hands the screen back without anything to clear.
     if( EditorCamera == this )
     {
         EditorCamera = nullptr;
@@ -99,10 +92,62 @@ Camera::~Camera()
 
 void Camera::Init()
 {
-    // A render texture camera never takes over the screen by itself.
-    if( !CurrentCamera && !HasTargetTexture() )
+    // The first camera of a world without a main camera takes it. A render texture camera never
+    // takes over the screen by itself.
+    World* world = Parent.GetWorld();
+    if( world && !HasTargetTexture() )
     {
-        CurrentCamera = this;
+        SingletonCamera& main = world->Singleton<SingletonCamera>();
+        if( !main.GetMain() )
+        {
+            main.SetMain( *this );
+        }
+    }
+}
+
+
+Camera* Camera::GetMain( World* InWorld )
+{
+    SingletonCamera* main = InWorld ? InWorld->FindSingleton<SingletonCamera>() : nullptr;
+    return main ? main->GetMain() : nullptr;
+}
+
+
+Camera* SingletonCamera::GetMain() const
+{
+    if( m_entity )
+    {
+        Camera* camera = m_entity->TryGetComponent<Camera>();
+        return camera ? camera : Fallback;
+    }
+    return m_loose ? m_loose : Fallback;
+}
+
+
+void SingletonCamera::SetMain( Camera& InCamera )
+{
+    if( InCamera.Parent )
+    {
+        m_entity = InCamera.Parent;
+        m_loose = nullptr;
+    }
+    else
+    {
+        m_entity = EntityHandle();
+        m_loose = &InCamera;
+    }
+}
+
+
+void SingletonCamera::Forget( const Camera& InCamera )
+{
+    if( m_loose == &InCamera )
+    {
+        m_loose = nullptr;
+    }
+    if( Fallback == &InCamera )
+    {
+        Fallback = nullptr;
     }
 }
 
@@ -192,12 +237,15 @@ Matrix4 Camera::GetViewMatrix()
 
 bool Camera::IsCurrent()
 {
-    return Camera::CurrentCamera == this;
+    return GetMain( Parent.GetWorld() ) == this;
 }
 
 void Camera::SetCurrent()
 {
-    Camera::CurrentCamera = this;
+    if( World* world = Parent.GetWorld() )
+    {
+        world->Singleton<SingletonCamera>().SetMain( *this );
+    }
 }
 
 float Camera::GetFOV()
@@ -236,7 +284,7 @@ const int Camera::GetCameraId() const
 
 const bool Camera::IsMain() const
 {
-    return ( Camera::CurrentCamera == this );
+    return GetMain( Parent.GetWorld() ) == this;
 }
 
 void Camera::SetObliqueMatrixData( const glm::vec4& inVec )

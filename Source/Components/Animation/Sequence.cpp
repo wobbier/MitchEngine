@@ -499,7 +499,8 @@ void Sequence::StartPreview( float InFrame, bool InPlaying )
             Reflection::ValueToJson( *property.Ops, property.Value, saved.Value );
             m_saved.push_back( std::move( saved ) );
         }
-        m_savedCamera = Camera::CurrentCamera && Camera::CurrentCamera->Parent ? Camera::CurrentCamera->Parent : EntityHandle();
+        const Camera* main = Camera::GetMain( Parent.GetWorld() );
+        m_savedCamera = main && main->Parent ? main->Parent : EntityHandle();
         m_preview = true;
     }
     m_previewIdle = 0;

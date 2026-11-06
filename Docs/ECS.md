@@ -151,7 +151,7 @@ ME_REGISTER_CORE( RegenCore )
 4. **Shared logic goes in pure utilities** with few reads and few side effects.
 5. **Big side effects are queued** in a singleton component and resolved at one call site (deferred FX, spawns, and the like).
 
-Singletons so far (ME-297): `SingletonInput` (the networked actions' command layout and the local command, `Components/Networking/SingletonInput.h`).
+Singletons so far (ME-297): `SingletonInput` (the networked actions' command layout and the local command, `Components/Networking/SingletonInput.h`); `SingletonCamera` (the main camera, `Components/Camera.h`: `Camera::GetMain( world )`, was the static `Camera::CurrentCamera`).
 
 ## Caveats & Fragility
 

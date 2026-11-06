@@ -14,21 +14,35 @@ CameraCore::CameraCore() : Base( ComponentFilter().Requires<Camera>().Requires<T
 {
     SetIsSerializable( false );
     DefaultCamera = new Camera();
-    Camera::FallbackCamera = DefaultCamera;
 }
 
 CameraCore::~CameraCore()
 {
-    if( Camera::FallbackCamera == DefaultCamera )
-    {
-        Camera::FallbackCamera = nullptr;
-    }
+    // Its world (if it still has one) mustn't keep the default camera as main or fallback.
+    ForgetDefaultCamera();
     delete DefaultCamera;
 }
 
 void CameraCore::Init()
 {
-    DefaultCamera->SetCurrent();
+    // The world's main camera starts as this core's default camera, which it falls back to when
+    // its main camera goes (ME-297: SingletonCamera, per world). Scene loads come back here.
+    SingletonCamera& main = GetWorld().Singleton<SingletonCamera>();
+    main.Fallback = DefaultCamera;
+    main.SetMain( *DefaultCamera );
+}
+
+void CameraCore::OnRemovedFromWorld()
+{
+    ForgetDefaultCamera();
+}
+
+void CameraCore::ForgetDefaultCamera()
+{
+    if( SingletonCamera* main = GameWorld ? GameWorld->FindSingleton<SingletonCamera>() : nullptr )
+    {
+        main->Forget( *DefaultCamera );
+    }
 }
 
 void CameraCore::Update( const UpdateContext& inUpdateContext )
@@ -67,6 +81,8 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
     BGFXRenderer* renderer = inUpdateContext.GetSystem<BGFXRenderer>();
     Vector2 windowSize = GetEngine().GetWindow()->GetSize();
     CommandCache<Moonlight::CameraData>& cameraCache = renderer->GetCameraCache();
+    // This world's main camera (ME-297).
+    Camera* mainCamera = Camera::GetMain( &GetWorld() );
 
     for( auto& InEntity : Cameras )
     {
@@ -96,24 +112,24 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
                 CameraComponent.OutputSize = Vector2( static_cast<float>( target->mWidth ), static_cast<float>( target->mHeight ) );
             }
         }
-        else if( CameraComponent.MatchMainCamera && Camera::CurrentCamera )
+        else if( CameraComponent.MatchMainCamera && mainCamera )
         {
             // Screen-space views (PortalMaterial) line up pixel for pixel with the main camera and share
             // its background.
-            CameraComponent.OutputSize = Camera::CurrentCamera->OutputSize;
-            CameraComponent.m_FOV = Camera::CurrentCamera->m_FOV;
-            CameraComponent.Far = Camera::CurrentCamera->Far;
-            CameraComponent.Projection = Camera::CurrentCamera->Projection;
-            CameraComponent.OrthographicSize = Camera::CurrentCamera->OrthographicSize;
-            CameraComponent.ClearType = Camera::CurrentCamera->ClearType;
-            CameraComponent.ClearColor = Camera::CurrentCamera->ClearColor;
-            CameraComponent.Skybox = Camera::CurrentCamera->Skybox;
-            CameraComponent.ProceduralSky = Camera::CurrentCamera->ProceduralSky;
+            CameraComponent.OutputSize = mainCamera->OutputSize;
+            CameraComponent.m_FOV = mainCamera->m_FOV;
+            CameraComponent.Far = mainCamera->Far;
+            CameraComponent.Projection = mainCamera->Projection;
+            CameraComponent.OrthographicSize = mainCamera->OrthographicSize;
+            CameraComponent.ClearType = mainCamera->ClearType;
+            CameraComponent.ClearColor = mainCamera->ClearColor;
+            CameraComponent.Skybox = mainCamera->Skybox;
+            CameraComponent.ProceduralSky = mainCamera->ProceduralSky;
         }
         else if( CameraComponent.HasPartialViewport() )
         {
             // Split screen cameras share the main camera's output, so size from it.
-            CameraComponent.OutputSize = Camera::CurrentCamera ? Camera::CurrentCamera->OutputSize : windowSize;
+            CameraComponent.OutputSize = mainCamera ? mainCamera->OutputSize : windowSize;
         }
 
         Moonlight::CameraData* CamData = cameraCache.Get( CameraComponent.m_id );
@@ -278,7 +294,7 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
 void CameraCore::OnEntityAdded( Entity& NewEntity )
 {
     // A render texture camera never takes over the screen by itself.
-    if( Camera::CurrentCamera == DefaultCamera && !NewEntity.GetComponent<Camera>().HasTargetTexture() )
+    if( Camera::GetMain( &GetWorld() ) == DefaultCamera && !NewEntity.GetComponent<Camera>().HasTargetTexture() )
     {
         NewEntity.GetComponent<Camera>().SetCurrent();
     }
@@ -335,8 +351,9 @@ void CameraCore::OnEntityRemoved( Entity& InEntity )
     camera.m_id = ~0u;
     // A current camera that left the world hands the screen back to the default one; the next
     // camera added takes over from it (OnEntityAdded).
-    if( Camera::CurrentCamera == &camera && DefaultCamera )
+    SingletonCamera* main = GetWorld().FindSingleton<SingletonCamera>();
+    if( main && main->GetMain() == &camera && DefaultCamera )
     {
-        DefaultCamera->SetCurrent();
+        main->SetMain( *DefaultCamera );
     }
 }

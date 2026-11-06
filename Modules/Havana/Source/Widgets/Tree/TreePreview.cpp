@@ -138,7 +138,8 @@ void TreePreview::EnsureCamera( uint16_t InWidth, uint16_t InHeight )
     // The scene's sky and look (sharing its environment probe), without its fog or lens effects.
     // The studio's backdrop colour is its ambient light; its sun is the group light below (a
     // second procedural sky would fight the scene's over the one sky probe).
-    const Moonlight::CameraData* scene = Camera::CurrentCamera ? renderer.GetCameraCache().Get( Camera::CurrentCamera->GetCameraId() ) : nullptr;
+    const Camera* mainCamera = GetEngine().GetMainCamera();
+    const Moonlight::CameraData* scene = mainCamera ? renderer.GetCameraCache().Get( mainCamera->GetCameraId() ) : nullptr;
     const bool sceneLighting = SceneLighting && scene && scene != &camera;
     if( sceneLighting )
     {

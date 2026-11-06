@@ -53,7 +53,7 @@ static void Eng_Camera_ClearClipPlane( EntityID inId ) noexcept
 }
 
 
-// ME-312: the main camera (Camera::CurrentCamera), which scenes set with "IsCurrent" and the
+// ME-312: the main camera (its world's SingletonCamera, ME-297), which scenes set with "IsCurrent" and the
 // inspector with Make Current.
 static bool Eng_Camera_IsCurrent( EntityID inId ) noexcept
 {
@@ -79,9 +79,10 @@ static bool Eng_Camera_MakeCurrent( EntityID inId ) noexcept
 static void Eng_Camera_GetMain( EntityID* outId ) noexcept
 {
     *outId = EntityID();
-    const Camera* camera = Camera::CurrentCamera;
-    // The editor's default camera has no entity; a camera of another world isn't the script's.
-    if( camera && camera->Parent && camera->Parent.GetWorld() == ScriptBindings::GetWorld().lock().get() )
+    // The script world's main camera (ME-297). The camera core's default camera has no entity.
+    SharedPtr<World> world = ScriptBindings::GetWorld().lock();
+    const Camera* camera = Camera::GetMain( world.get() );
+    if( camera && camera->Parent && camera->Parent.GetWorld() == world.get() )
     {
         *outId = camera->Parent.GetID();
     }

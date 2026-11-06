@@ -26,6 +26,8 @@ public:
 private:
     void OnStart() override;
     void OnStop() override;
+    void OnRemovedFromWorld() override;
+    void ForgetDefaultCamera();
 
     bool m_running = false;
     class Camera* DefaultCamera;

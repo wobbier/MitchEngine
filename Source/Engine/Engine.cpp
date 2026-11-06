@@ -1392,6 +1392,12 @@ std::weak_ptr<World> Engine::GetWorld() const
     return GameWorld;
 }
 
+
+Camera* Engine::GetMainCamera() const
+{
+    return Camera::GetMain( GameWorld.get() );
+}
+
 const bool Engine::IsInitialized() const
 {
     return m_isInitialized;

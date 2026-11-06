@@ -231,9 +231,11 @@ void EditorApp::OnUpdate( const UpdateContext& inUpdateContext )
 
 void EditorApp::UpdateCameras()
 {
-    if( !Camera::CurrentCamera )
+    // The game world's main camera (ME-297), else the editor's own.
+    Camera* mainCamera = GetEngine().GetMainCamera();
+    if( !mainCamera )
     {
-        Camera::CurrentCamera = Camera::EditorCamera;
+        mainCamera = Camera::EditorCamera;
     }
 
     Moonlight::CameraData& EditorCamera = GetEngine().EditorCamera;
@@ -249,14 +251,14 @@ void EditorApp::UpdateCameras()
     EditorCamera.FOV = editorCamera->GetFOV();
     EditorCamera.Near = editorCamera->Near;
     EditorCamera.Far = editorCamera->Far;
-    Camera* environmentCamera = EditorSceneManager->UsesSceneEnvironment() && Camera::CurrentCamera ? Camera::CurrentCamera : editorCamera;
+    Camera* environmentCamera = EditorSceneManager->UsesSceneEnvironment() && mainCamera ? mainCamera : editorCamera;
     EditorCamera.Skybox = environmentCamera->Skybox;
     EditorCamera.ClearColor = environmentCamera->ClearColor;
     EditorCamera.ClearType = environmentCamera->ClearType;
     EditorCamera.ProceduralSky = environmentCamera->GetSkySettings();
     // The scene view shows the main camera's image settings (without its auto exposure state).
     {
-        const PostProcess* post = Camera::CurrentCamera && Camera::CurrentCamera->Parent ? Camera::CurrentCamera->Parent->TryGetComponent<PostProcess>() : nullptr;
+        const PostProcess* post = mainCamera && mainCamera->Parent ? mainCamera->Parent->TryGetComponent<PostProcess>() : nullptr;
         EditorCamera.Post = ( post && post->IsEnabled() ) ? post->ToSettings() : Moonlight::PostProcessSettings();
     }
     EditorCamera.Projection = editorCamera->Projection;
@@ -485,7 +487,7 @@ void EditorApp::StartGame()
     // ED-9, Play From Scene Camera: the game's camera starts where the World View is looking
     // (after the snapshot, so Stop puts it back). A camera under a rig or a character moves
     // its top-level ancestor by the same offset instead, keeping the rig's own orientation.
-    Camera* gameCamera = Camera::CurrentCamera;
+    Camera* gameCamera = GetEngine().GetMainCamera();
     SharedPtr<Transform> sceneCamera = EditorSceneManager ? EditorSceneManager->GetEditorCameraTransform() : nullptr;
     if( EditorConfig::GetInstance().GetPreference<bool>( "Play.FromSceneCamera", false ) && gameCamera && gameCamera != Camera::EditorCamera
         && gameCamera->Parent && sceneCamera )

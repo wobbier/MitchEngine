@@ -39,7 +39,7 @@ flowchart LR
     P --> Screen
 ```
 
-- `RmlUiCore::Update` (in the engine's UI stage) sizes the context to `Camera::CurrentCamera->OutputSize`, applies hot reloads, binds view models, loads/shows documents, feeds input, then renders into its offscreen target in `RenderView::RmlUi`. That view is the first of the UI band (`UIFirst`/`UICount` in `RenderViews.h`), before every camera, so the `UIComposite` pass samples this frame's UI.
+- `RmlUiCore::Update` (in the engine's UI stage) sizes the context to its world's main camera's `OutputSize` (`Camera::GetMain`, ME-297), applies hot reloads, binds view models, loads/shows documents, feeds input, then renders into its offscreen target in `RenderView::RmlUi`. That view is the first of the UI band (`UIFirst`/`UICount` in `RenderViews.h`), before every camera, so the `UIComposite` pass samples this frame's UI.
 - `RmlRenderInterface` compiles geometry into static buffers once and re-submits it. Per draw it sets the transform, scissor and texture. `border-radius` clipping uses stencil clip masks (inverse masks fall back to no clip). Layers, filters and shader decorators (`linear-gradient`, `box-shadow`, `filter`) aren't implemented yet; the vertex-colour `horizontal-gradient`/`vertical-gradient` decorators and `font-effect` (glow, shadow, outline) work.
 - `--no-ui` disables the composite. The editor's "Composite Game UI" render setting toggles it too.
 
@@ -214,7 +214,7 @@ In the editor the game's UI reads ImGui's absolute mouse (`io.MousePos`, so a Ga
 
 ## Caveats & Fragility
 
-- **UI follows `Camera::CurrentCamera`:** with no main camera (or a zero-size output) documents don't load and nothing composites.
+- **UI follows its world's main camera (`Camera::GetMain`):** with no main camera (or a zero-size output) documents don't load and nothing composites.
 - **No layers yet:** `filter`, `box-shadow`, `mask-image` and shader gradients render nothing; inverse clip masks don't clip.
 - **Data bindings are scalar:** numbers and strings only (no lists or structs), and a model's values bind lazily, so a document can briefly render before its first `Set`.
 - **Synthesized text input:** typed characters come from key events (US layout); real `SDL_TEXTINPUT`/IME routing is still to do.

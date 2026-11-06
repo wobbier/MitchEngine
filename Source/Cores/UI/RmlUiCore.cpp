@@ -874,11 +874,13 @@ void RmlUiCore::OnEntityRemoved( Entity& InEntity )
 void RmlUiCore::Update( const UpdateContext& inUpdateContext )
 {
 #if USING( ME_RMLUI )
-    if( m_renderer == nullptr || Camera::CurrentCamera == nullptr )
+    // The UI draws over its world's main camera (ME-297).
+    Camera* mainCamera = Camera::GetMain( GameWorld );
+    if( m_renderer == nullptr || mainCamera == nullptr )
     {
         return;
     }
-    const Vector2 outputSize = Camera::CurrentCamera->OutputSize;
+    const Vector2 outputSize = mainCamera->OutputSize;
     if( outputSize.x < 1.f || outputSize.y < 1.f )
     {
         return;
@@ -953,7 +955,7 @@ void RmlUiCore::Update( const UpdateContext& inUpdateContext )
         m_context->Update();
     }
 
-    Moonlight::CameraData* cameraData = Camera::CurrentCamera ? GetEngine().GetRenderer().GetCameraCache().Get( Camera::CurrentCamera->GetCameraId() ) : nullptr;
+    Moonlight::CameraData* cameraData = GetEngine().GetRenderer().GetCameraCache().Get( mainCamera->GetCameraId() );
     if( anyVisible )
     {
         const uint16_t width = static_cast<uint16_t>( outputSize.x );

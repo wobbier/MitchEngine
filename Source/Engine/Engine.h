@@ -68,7 +68,7 @@ public:
     void Run();
     // What the process should exit with once Run returns (non-zero: a --server / --connect that couldn't start).
     int GetExitCode() const;
-    // The command line's networking: the networked input layout scripts read (NET-6).
+    // The command line's networking: the session, the replay viewer, the Net Debugger (NET-5).
     NetLaunch& GetNetLaunch() { return m_netLaunch; }
     // Orderly teardown after the main loop: world, jobs, logging.
     void Shutdown();
@@ -76,6 +76,9 @@ public:
     BGFXRenderer& GetRenderer() const;
 
     std::weak_ptr<World> GetWorld() const;
+    // The game world's main camera (ME-297: Camera::GetMain of GameWorld), for the editor and the
+    // engine's own UI; a core or script reads its own world's.
+    class Camera* GetMainCamera() const;
 
     bool IsRunning() const;
     // Requests shutdown at the start of the next frame. Unless forced, Game::OnQuitRequested may veto.

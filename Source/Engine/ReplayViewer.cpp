@@ -942,11 +942,13 @@ void ReplayViewer::SetCamera( CameraMode InMode, uint32_t InNetId )
 
 void ReplayViewer::UpdateCamera( NetCore& InNet, float InDeltaSeconds )
 {
-    if( m_camera == CameraMode::Game || !Camera::CurrentCamera || !Camera::CurrentCamera->Parent )
+    // The replay world's main camera (ME-297).
+    Camera* main = Camera::GetMain( &InNet.GetWorld() );
+    if( m_camera == CameraMode::Game || !main || !main->Parent )
     {
         return;
     }
-    Transform* camera = Camera::CurrentCamera->Parent->TryGetComponent<Transform>();
+    Transform* camera = main->Parent->TryGetComponent<Transform>();
     if( !camera )
     {
         return;

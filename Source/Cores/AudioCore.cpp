@@ -942,7 +942,7 @@ Transform* AudioCore::FindListener()
             }
         } );
     }
-    Camera* camera = m_started || !Camera::EditorCamera ? Camera::CurrentCamera : Camera::EditorCamera;
+    Camera* camera = m_started || !Camera::EditorCamera ? Camera::GetMain( GameWorld ) : Camera::EditorCamera;
     if( !listener && camera && camera->Parent )
     {
         listener = camera->Parent->TryGetComponent<Transform>();

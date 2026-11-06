@@ -5,6 +5,7 @@
 #include "Mathf.h"
 #include <Utils/ImGuiUtils.h>
 #include "Components/Camera.h"
+#include "Engine/Engine.h"
 #include "Events/Event.h"
 #include "Events/EditorEvents.h"
 
@@ -91,9 +92,9 @@ void AssetPreviewWidget::Render()
 
             ImGui::SetCursorPos(ImVec2(OGCursorPos.x, OGCursorPos.y));
             ImGui::Text("Texture Size: X: %f, Y: %f", SceneViewRenderSize.x, SceneViewRenderSize.y);
-            if (Camera::CurrentCamera)
+            if (Camera* mainCamera = GetEngine().GetMainCamera())
             {
-                ImGui::Text("View Size: X: %f, Y: %f", Camera::CurrentCamera->OutputSize.x, Camera::CurrentCamera->OutputSize.y);
+                ImGui::Text("View Size: X: %f, Y: %f", mainCamera->OutputSize.x, mainCamera->OutputSize.y);
             }
 		}
 	}

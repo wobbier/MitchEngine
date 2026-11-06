@@ -7,9 +7,9 @@
 #include "Materials/StandardMaterial.h"
 #include "Tools/Cook/Cooker.h"
 #include "VFS/VFS.h"
-#if USING( ME_SCRIPTING )
 #include "Components/Transform.h"
 #include "Engine/World.h"
+#if USING( ME_SCRIPTING )
 #include "Scripting/Bindings/BindingContext.h"
 #include "Scripting/Bindings/Components/Camera.bindings.h"
 #endif
@@ -48,23 +48,6 @@ namespace RenderTextureTest
         std::string Root;
     };
 
-
-    // Restores the current camera a test changes.
-    struct CurrentCameraScope
-    {
-        CurrentCameraScope()
-            : Previous( Camera::CurrentCamera )
-        {
-            Camera::CurrentCamera = nullptr;
-        }
-
-        ~CurrentCameraScope()
-        {
-            Camera::CurrentCamera = Previous;
-        }
-
-        Camera* Previous = nullptr;
-    };
 }
 
 
@@ -171,7 +154,6 @@ TEST_CASE( "Render textures: load without a GPU and keep their target unless the
 
 TEST_CASE( "Render textures: a camera's link and pass switches round-trip" )
 {
-    RenderTextureTest::CurrentCameraScope scope;
     Camera feed;
     feed.Deserialize( json{ { "TargetTexture", "Assets/Textures/Feed.rendertexture" }, { "UpdateInterval", 3 },
         { "SunShadows", false }, { "AmbientOcclusion", false }, { "VolumetricFog", false } } );
@@ -205,11 +187,17 @@ TEST_CASE( "Render textures: a camera's link and pass switches round-trip" )
 
 TEST_CASE( "Render textures: a feed camera fills its target and never takes the screen" )
 {
-    RenderTextureTest::CurrentCameraScope scope;
-    Camera feed;
+    // The main camera is its world's (ME-297).
+    auto world = std::make_shared<World>();
+    world->IsLoading = false;
+    EntityHandle feedEntity = world->CreateEntity( "Feed" );
+    feedEntity->SetLoading( true );     // its Init waits for the target
+    feedEntity->AddComponent<Transform>();
+    Camera& feed = feedEntity->AddComponent<Camera>();
     feed.TargetTexture = Path( "Assets/Textures/Feed.rendertexture" );
     feed.Init();
-    CHECK( Camera::CurrentCamera != &feed );
+    CHECK( Camera::GetMain( world.get() ) == nullptr );
+    CHECK_FALSE( feed.IsMain() );
     CHECK( feed.RendersToTexture() );
 
     // A split-screen rect means nothing for a texture: the camera renders the whole target.
@@ -220,21 +208,22 @@ TEST_CASE( "Render textures: a feed camera fills its target and never takes the 
     CHECK( feed.GetViewportSize().y == doctest::Approx( 200.f ) );
     CHECK( feed.GetAspectRatio() == doctest::Approx( 1.92f ) );
 
-    // The main camera renders to the screen, even with a target set.
-    Camera main;
-    main.Init();
-    CHECK( Camera::CurrentCamera == &main );
+    // The main camera renders to the screen, even with a target set. The world's first camera
+    // without a target takes the screen.
+    EntityHandle mainEntity = world->CreateEntity( "Main" );
+    mainEntity->AddComponent<Transform>();
+    Camera& main = mainEntity->AddComponent<Camera>();
+    CHECK( Camera::GetMain( world.get() ) == &main );
+    CHECK( main.IsMain() );
     main.TargetTexture = Path( "Assets/Textures/Feed.rendertexture" );
     CHECK( main.HasTargetTexture() );
     CHECK_FALSE( main.RendersToTexture() );
-    Camera::CurrentCamera = nullptr;
 }
 
 
 #if USING( ME_SCRIPTING )
 TEST_CASE( "Scripts: Camera.MakeCurrent switches the main camera, Camera.Main finds its entity (ME-312)" )
 {
-    RenderTextureTest::CurrentCameraScope scope;   // before the world: its cameras go first
     auto world = std::make_shared<World>();
     world->IsLoading = false;
     const WeakPtr<World> previousWorld = ScriptBindings::GetWorld();
@@ -252,7 +241,7 @@ TEST_CASE( "Scripts: Camera.MakeCurrent switches the main camera, Camera.Main fi
     world->Simulate();
 
     // The first camera to start takes the screen.
-    CHECK( Camera::CurrentCamera == &firstCamera );
+    CHECK( Camera::GetMain( world.get() ) == &firstCamera );
     CHECK( api.Camera_IsCurrent( first.GetID() ) );
     CHECK_FALSE( api.Camera_IsCurrent( second.GetID() ) );
     EntityID main;
@@ -260,7 +249,7 @@ TEST_CASE( "Scripts: Camera.MakeCurrent switches the main camera, Camera.Main fi
     CHECK( main == first.GetID() );
 
     CHECK( api.Camera_MakeCurrent( second.GetID() ) );
-    CHECK( Camera::CurrentCamera == &secondCamera );
+    CHECK( Camera::GetMain( world.get() ) == &secondCamera );
     CHECK( api.Camera_IsCurrent( second.GetID() ) );
     CHECK_FALSE( api.Camera_IsCurrent( first.GetID() ) );
     api.Camera_GetMain( &main );
@@ -269,14 +258,28 @@ TEST_CASE( "Scripts: Camera.MakeCurrent switches the main camera, Camera.Main fi
     // No Camera: refused, nothing changes.
     CHECK_FALSE( api.Camera_MakeCurrent( plain.GetID() ) );
     CHECK_FALSE( api.Camera_IsCurrent( plain.GetID() ) );
-    CHECK( Camera::CurrentCamera == &secondCamera );
+    CHECK( Camera::GetMain( world.get() ) == &secondCamera );
 
-    // A main camera that isn't in the script world (the editor's, another world's) is no entity.
+    // Another world's main camera is its own (ME-297): the script world's stays.
+    auto other = std::make_shared<World>();
+    other->IsLoading = false;
+    EntityHandle elsewhere = other->CreateEntity( "Elsewhere" );
+    elsewhere->AddComponent<Transform>();
+    Camera& otherCamera = elsewhere->AddComponent<Camera>();
+    otherCamera.SetCurrent();
+    CHECK( Camera::GetMain( other.get() ) == &otherCamera );
+    CHECK( Camera::GetMain( world.get() ) == &secondCamera );
+    CHECK( api.Camera_IsCurrent( second.GetID() ) );
+    api.Camera_GetMain( &main );
+    CHECK( main == second.GetID() );
+
+    // A main camera without an entity (a camera core's default) is no entity.
     Camera loose;
-    Camera::CurrentCamera = &loose;
+    world->Singleton<SingletonCamera>().SetMain( loose );
     api.Camera_GetMain( &main );
     CHECK( main == EntityID() );
-    Camera::CurrentCamera = &secondCamera;
+    world->Singleton<SingletonCamera>().Forget( loose );
+    CHECK( Camera::GetMain( world.get() ) == nullptr );
     ScriptBindings::SetWorld( previousWorld );
 }
 #endif

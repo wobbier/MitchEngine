@@ -238,9 +238,10 @@ void PropertiesWidget::DrawRenderCameraSettings(World& world)
 		m_renderCameraGUID = 0;
 		cameraEntity.Reset();
 	}
-	if (m_renderCameraGUID == 0 && Camera::CurrentCamera && Camera::CurrentCamera->Parent.GetWorld() == &world)
+	Camera* mainCamera = Camera::GetMain(&world);
+	if (m_renderCameraGUID == 0 && mainCamera && mainCamera->Parent)
 	{
-		cameraEntity = Camera::CurrentCamera->Parent;
+		cameraEntity = mainCamera->Parent;
 	}
 	const std::string preview = m_renderCameraGUID == 0 ? "Main Camera" : cameraEntity->GetName();
 	HavanaUtils::Label("Camera");
@@ -249,7 +250,7 @@ void PropertiesWidget::DrawRenderCameraSettings(World& world)
 		if (ImGui::Selectable("Main Camera", m_renderCameraGUID == 0))
 		{
 			m_renderCameraGUID = 0;
-			cameraEntity = Camera::CurrentCamera && Camera::CurrentCamera->Parent.GetWorld() == &world ? Camera::CurrentCamera->Parent : EntityHandle();
+			cameraEntity = mainCamera && mainCamera->Parent ? mainCamera->Parent : EntityHandle();
 		}
 		world.Each<Camera>([&](Entity& entity, Camera&) {
 			ImGui::PushID(std::to_string(entity.GetGUID()).c_str());

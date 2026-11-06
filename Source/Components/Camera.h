@@ -11,6 +11,7 @@
 #include "Pointers.h"
 
 //class Frustum;
+class World;
 
 class Camera
     : public Component<Camera>
@@ -18,11 +19,12 @@ class Camera
     ME_REFLECTABLE( Camera )
     friend class CameraCore;
 public:
-    inline static Camera* CurrentCamera = nullptr;
+    // The editor's own view camera (Havana's, not any world's).
     inline static Camera* EditorCamera = nullptr;
-    // The camera CurrentCamera falls back to when the current one is destroyed (CameraCore's default
-    // camera), so the editor and UI never dereference a dead main camera.
-    inline static Camera* FallbackCamera = nullptr;
+    // InWorld's main camera (ME-297: the world's SingletonCamera): the camera made current while
+    // its entity still has it, else the world's fallback (its camera core's default camera). Null
+    // for no world, or a world with neither. A second world (killcam, replay, a preview) has its own.
+    static Camera* GetMain( World* InWorld );
 
     Vector2 OutputSize;
     Vector3 ClearColor;
@@ -82,7 +84,10 @@ public:
     void OnPropertyChanged( const std::string& InFieldName ) override;
 
     Matrix4 GetViewMatrix();
+    // This camera is its world's main camera.
     bool IsCurrent();
+    // Makes this camera its world's main camera (an entity's camera; one without an entity has no
+    // world: SingletonCamera::SetMain).
     void SetCurrent();
     float GetFOV();
     float GetAspectRatio() const;
@@ -162,3 +167,34 @@ private:
     virtual void OnSerialize( json& outJson ) final;
 };
 ME_REGISTER_COMPONENT_FOLDER( Camera, "Rendering" )
+
+
+// A world's main camera (ME-297), as a world singleton: World::Singleton<SingletonCamera>(). The
+// camera core makes it when it joins a world, with its default camera as the fallback; scenes
+// ("IsCurrent"), Camera.MakeCurrent, sequences' cuts and the editor's Make Current set it. Was the
+// static Camera::CurrentCamera: one main camera for the whole process.
+class SingletonCamera final
+    : public Component<SingletonCamera>
+{
+public:
+    SingletonCamera()
+        : Component( "SingletonCamera" )
+    {
+    }
+
+    // The camera made current while its entity still has it (a destroyed or removed camera gives
+    // the screen back), else Fallback.
+    Camera* GetMain() const;
+    // An entity's camera is held through its entity; one without an entity (the camera core's
+    // default) by pointer, which its owner forgets before deleting it.
+    void SetMain( Camera& InCamera );
+    // A camera without an entity is going away: neither main nor fallback any more.
+    void Forget( const Camera& InCamera );
+
+    // The world's camera when nothing else is main: its camera core's default camera.
+    Camera* Fallback = nullptr;
+
+private:
+    EntityHandle m_entity;
+    Camera* m_loose = nullptr;
+};

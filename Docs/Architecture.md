@@ -203,7 +203,7 @@ Flags are driven by `DEFINE_ME_*` preprocessor defines that Sharpmake sets per t
 - **Two core-update paths.** Engine-owned cores are updated by explicit member calls in a hardcoded order; scene-loaded cores through `UpdateLoadedCores` in priority order. Adding an engine-level core means editing the frame loop by hand.
 - **`RmlUiCore` is re-added on every scene load** in `Engine::LoadScene`; if you add another engine-owned core that must survive scene loads, it needs the same treatment (or `DestroyOnLoad = false`).
 - **Non-editor scene load runs `Simulate()` twice** (once unconditionally, once in the non-editor block) — harmless today but easy to trip over when reasoning about `OnEntityAdded` timing.
-- **`Camera::CurrentCamera` static global** is consulted by the resize path and UI sizing every frame; a scene without a main camera skips UI resize silently.
+- **The main camera is per world** (ME-297: `SingletonCamera`, read with `Camera::GetMain( world )`; `Engine::GetMainCamera` for the game world). It's consulted by the resize path and UI sizing every frame; a world without a main camera skips UI resize silently.
 - **Window/UI resize flows through a lambda captured in `Engine::Init`** (`ResizeFunc`) — it fires a `WindowResizedEvent` *and* directly pokes the renderer, UI, and config; resize behavior is split between that lambda and event receivers.
 - **`Assets\Config\Engine.cfg`** path is written with backslashes and relies on `Path` normalization; the editor-only first-run copy creates directories on Win64 only.
 

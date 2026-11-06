@@ -61,7 +61,7 @@ The chosen mode is logged at startup (`Audio: FMOD output …`). `IsSilent()` re
 1. **Pause.** When the engine pause state changes, the Music, SFX and Voice buses pause or resume. UI keeps playing.
 2. **Listener.** The core finds the listener, in this order:
    1. the first active `AudioListener` (play mode / game builds);
-   2. `Camera::CurrentCamera`;
+   2. its world's main camera (`Camera::GetMain`, ME-297);
    3. in edit mode, `Camera::EditorCamera`, so previews pan as you fly around.
 
    Its position, `Front()`, `Up()` and velocity (from the position change) go to FMOD.
