@@ -410,6 +410,12 @@ void NetCore::OnOwnerChanged( uint32_t InNetId, uint8_t InOwner )
 
 bool NetCore::GetCommand( Entity& InEntity, InputCommand& OutCommand, InputCommand& OutPrevious ) const
 {
+    if( m_replayResim.Active && m_replayResim.Entity == InEntity.GetId().Value() )
+    {
+        OutCommand = m_replayResim.Command;
+        OutPrevious = m_replayResim.Previous;
+        return true;
+    }
     if( m_server )
     {
         const NetIdentity* identity = InEntity.TryGetComponent<NetIdentity>();
@@ -463,6 +469,10 @@ void NetCore::SetOwner( Entity& InEntity, uint8_t InClient )
 
 bool NetCore::IsPredicted( Entity& InEntity ) const
 {
+    if( m_replayResim.Active && m_replayResim.Entity == InEntity.GetId().Value() )
+    {
+        return true;
+    }
     return m_client && m_predictor && m_predictor->GetPawn() && m_predictor->GetPawn()->GetId() == InEntity.GetId();
 }
 
@@ -665,6 +675,85 @@ NetReplayPlayback::Check NetCore::CheckPlayback() const
         return check;
     }
     return m_playback->CheckWorld( &m_glue.State );
+}
+
+
+NetReplayResim::Result NetCore::ResimulateReplay( uint32_t InNetId, uint32_t InFrom, uint32_t InTo, const NetReplayResim::Settings& InSettings )
+{
+    OPTICK_EVENT( "NetCore::ResimulateReplay" );
+    NetReplayResim::Result failed;
+    failed.NetId = InNetId;
+    failed.From = InFrom;
+    failed.To = InTo;
+    PhysicsCore* physics = GetWorld().GetCore<PhysicsCore>();
+    EntityHandle entity = m_playback ? FindEntity( InNetId ) : EntityHandle();
+    CharacterController* controller = entity ? entity->TryGetComponent<CharacterController>() : nullptr;
+    if( !m_playback || !m_replaySource )
+    {
+        failed.Error = "no replay is playing";
+        return failed;
+    }
+    if( !physics )
+    {
+        failed.Error = "the world has no physics";
+        return failed;
+    }
+    if( !controller )
+    {
+        failed.Error = entity ? "#" + std::to_string( InNetId ) + " has no CharacterController" : "#" + std::to_string( InNetId ) + " isn't in the world at tick " + std::to_string( m_playback->GetTick() );
+        return failed;
+    }
+    // Its own reader: the playback's keeps the chunk it shows.
+    NetReplayReader reader( *m_replaySource );
+    const float tickSeconds = 1.f / static_cast<float>( m_playback->GetTickRate() );
+    const CharacterController::NetState before = controller->GetNetState();
+    std::vector<uint8_t> predictedBefore;
+    if( m_glue.State.SavePredicted )
+    {
+        m_glue.State.SavePredicted( *entity.Get(), predictedBefore );
+    }
+
+    NetReplayResim::Hooks hooks;
+    hooks.Restore = [&]( const CharacterController::NetState& InState, const std::vector<uint8_t>& InPredicted ) {
+        controller->SetNetState( InState );
+        if( m_glue.RestorePredicted && !InPredicted.empty() )
+        {
+            m_glue.RestorePredicted( *entity.Get(), InPredicted );
+        }
+    };
+    hooks.Step = [&]( uint32_t InTick, const InputCommand& InCommand, const InputCommand& InPrevious ) {
+        m_replayResim.Active = true;
+        m_replayResim.Entity = entity->GetId().Value();
+        m_replayResim.Tick = InTick;
+        m_replayResim.Command = InCommand;
+        m_replayResim.Previous = InPrevious;
+        if( m_commandHandler )
+        {
+            m_commandHandler( *entity.Get(), InCommand );
+        }
+        if( m_glue.SimulatePredicted )
+        {
+            m_glue.SimulatePredicted( *entity.Get() );
+        }
+        physics->StepCharacter( *entity.Get(), *controller, tickSeconds );
+        m_replayResim.Active = false;
+    };
+    hooks.Save = [&]( CharacterController::NetState& OutState, std::vector<uint8_t>& OutPredicted ) {
+        OutState = controller->GetNetState();
+        if( m_glue.State.SavePredicted )
+        {
+            m_glue.State.SavePredicted( *entity.Get(), OutPredicted );
+        }
+    };
+    NetReplayResim::Result result = NetReplayResim::Run( reader, InNetId, InFrom, InTo, hooks, InSettings );
+    m_replayResim = ReplayResimTick();
+    // Back to the tick shown.
+    controller->SetNetState( before );
+    if( m_glue.RestorePredicted && !predictedBefore.empty() )
+    {
+        m_glue.RestorePredicted( *entity.Get(), predictedBefore );
+    }
+    return result;
 }
 
 

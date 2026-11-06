@@ -5,6 +5,7 @@
 #include "Net/NetPrediction.h"
 #include "Net/NetReplay.h"
 #include "Net/NetReplayPlayback.h"
+#include "Net/NetReplayResim.h"
 #include "Net/NetReplication.h"
 #include "Net/NetSession.h"
 #include <map>
@@ -105,7 +106,8 @@ public:
     // The command an entity runs with this tick, and the one before (button edges): on the server
     // its owner's; on a client its predicted pawn's (a resimulated tick's while resimulating).
     bool GetCommand( Entity& InEntity, InputCommand& OutCommand, InputCommand& OutPrevious ) const;
-    bool IsResimulating() const { return m_predictor && m_predictor->IsResimulating(); }
+    // (A replay's resim check counts too: ResimulateReplay.)
+    bool IsResimulating() const { return ( m_predictor && m_predictor->IsResimulating() ) || m_replayResim.Active; }
     // Whether this side runs an entity's fixed-step scripts: anything not networked, everything on
     // the server, and only the predicted pawn on a client (the rest follows the server).
     bool SimulatesLocally( Entity& InEntity ) const;
@@ -187,7 +189,10 @@ public:
     float GetRoundTripMs( uint8_t InClient = 0 ) const;
     // The tick being simulated (BeginTick to EndTick): the server's, or the client's.
     // (During a resimulation: the tick being replayed.)
-    uint32_t GetTick() const { return m_predictor && m_predictor->IsResimulating() ? m_predictor->GetCommand().Tick : m_tick; }
+    uint32_t GetTick() const
+    {
+        return m_replayResim.Active ? m_replayResim.Tick : m_predictor && m_predictor->IsResimulating() ? m_predictor->GetCommand().Tick : m_tick;
+    }
 
     // Match replays (ME-316, NetReplay.h): a server records every tick after its CaptureTick: the
     // whole capture, each character's mover and [Predicted] state, each client's command and link,
@@ -226,6 +231,15 @@ public:
     // The world against the recording at the tick shown (NetReplayPlayback::CheckWorld, with the
     // script glue's [Replicated] bytes).
     NetReplayPlayback::Check CheckPlayback() const;
+    // Resim check (ME-316 phase 3, NetReplayResim.h) while a replay plays: InNetId's character in this
+    // world simulated again from its recorded mover (and [Predicted] script state) over InFrom..InTo
+    // with its owner's recorded commands, the way the owner's prediction resimulates: the command
+    // handler, the scripts' fixed step (Net.IsResimulating is true, Net.Command and Net.Tick are the
+    // recorded tick's, the entity counts as predicted), then PhysicsCore::StepCharacter; each tick is
+    // compared with the recorded mover. The rest of the world stays at the tick shown (other
+    // characters' capsules included). The character's mover and [Predicted] state are put back
+    // afterwards. Its Error says why it couldn't run (no playback, no such character, no physics).
+    NetReplayResim::Result ResimulateReplay( uint32_t InNetId, uint32_t InFrom, uint32_t InTo, const NetReplayResim::Settings& InSettings = NetReplayResim::Settings() );
 
 #if USING( ME_EDITOR )
     void OnEditorInspect() final;
@@ -304,6 +318,16 @@ private:
     std::unique_ptr<INetReplaySource> m_replaySource;
     std::unique_ptr<NetReplayPlayback> m_playback;
     std::string m_playbackError;    // logged once
+    // ResimulateReplay's tick being simulated: the entity it's for, its command and the one before.
+    struct ReplayResimTick
+    {
+        bool Active = false;
+        uint64_t Entity = 0;    // EntityID value
+        uint32_t Tick = 0;
+        InputCommand Command;
+        InputCommand Previous;
+    };
+    ReplayResimTick m_replayResim;
 };
 
 ME_REGISTER_CORE( NetCore )
