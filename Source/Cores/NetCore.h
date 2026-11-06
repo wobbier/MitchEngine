@@ -200,6 +200,10 @@ public:
     // An event at the current tick into the recording (nothing without one): C#'s Replay.Event.
     // The name is cut to 64 bytes, the payload to 4000.
     void RecordReplayEvent( const std::string& InName, const std::string& InPayload, uint32_t InNetId = 0 );
+    // ... about an entity: its NetId (or its nearest networked ancestor's) is looked up when the tick
+    // is recorded, after CaptureTick, so an entity spawned this tick has its id already. One destroyed
+    // before then keeps the id it had when the event was raised.
+    void RecordReplayEvent( const std::string& InName, const std::string& InPayload, const EntityHandle& InEntity );
     // Engine::Run: backlog ticks it dropped (they never run); the next recorded tick says so.
     void NoteDroppedTicks( uint32_t InTicks ) { m_ticksDropped += InTicks; }
 
@@ -265,7 +269,13 @@ private:
     // ME-316: the recording, and what the next recorded tick carries.
     std::unique_ptr<NetReplayRecorder> m_recorder;
     std::vector<NetReplayShot> m_replayShots;
-    std::vector<NetReplayEvent> m_replayEvents;
+    // An event and the entity it's about (its NetId is resolved after CaptureTick).
+    struct PendingReplayEvent
+    {
+        NetReplayEvent Event;
+        EntityHandle Entity;
+    };
+    std::vector<PendingReplayEvent> m_replayEvents;
     std::map<uint32_t, uint8_t> m_replayOwners;     // NetId -> the owner last recorded
     std::map<uint8_t, uint64_t> m_replayMisses;     // client -> its misses at the last recorded tick
     uint32_t m_ticksOwed = 0;

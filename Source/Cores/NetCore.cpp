@@ -275,7 +275,7 @@ void NetCore::PushSessionEvent( NetSessionEvent::Kind InType, uint8_t InClientId
         {
             payload["reason"] = event.Reason;
         }
-        m_replayEvents.push_back( { joined ? "net.joined" : "net.left", payload.dump(), 0 } );
+        m_replayEvents.push_back( { { joined ? "net.joined" : "net.left", payload.dump(), 0 }, EntityHandle() } );
     }
 }
 
@@ -601,7 +601,7 @@ bool NetCore::StartRecording( const std::string& InPath, NetReplayHeader InHeade
         {
             json payload;
             payload["client"] = client->Id;
-            m_replayEvents.push_back( { "net.joined", payload.dump(), 0 } );
+            m_replayEvents.push_back( { { "net.joined", payload.dump(), 0 }, EntityHandle() } );
         }
     }
     return true;
@@ -635,7 +635,20 @@ void NetCore::RecordReplayEvent( const std::string& InName, const std::string& I
     {
         return;
     }
-    m_replayEvents.push_back( { Cut( InName, NetReplayFormat::kMaxEventName ), Cut( InPayload, NetReplayFormat::kMaxEventPayload ), InNetId } );
+    m_replayEvents.push_back( { { Cut( InName, NetReplayFormat::kMaxEventName ), Cut( InPayload, NetReplayFormat::kMaxEventPayload ), InNetId }, EntityHandle() } );
+}
+
+
+void NetCore::RecordReplayEvent( const std::string& InName, const std::string& InPayload, const EntityHandle& InEntity )
+{
+    if( !IsRecording() )
+    {
+        return;
+    }
+    // The id it has now (kept if it's destroyed before the tick is recorded); RecordReplayTick looks again.
+    const NetIdentity* identity = NetworkedSelfOrAncestor( InEntity );
+    m_replayEvents.push_back( { { Cut( InName, NetReplayFormat::kMaxEventName ), Cut( InPayload, NetReplayFormat::kMaxEventPayload ), identity ? identity->GetNetId() : 0u },
+        InEntity } );
 }
 
 
@@ -739,7 +752,18 @@ void NetCore::RecordReplayTick()
         it = tick.State.Entities.count( it->first ) ? std::next( it ) : m_replayOwners.erase( it );
     }
     tick.Shots = std::exchange( m_replayShots, {} );
-    tick.Events = std::exchange( m_replayEvents, {} );
+    // Events about entities: CaptureTick has given this tick's new ones their NetIds.
+    tick.Events.reserve( m_replayEvents.size() );
+    for( PendingReplayEvent& pending : m_replayEvents )
+    {
+        const NetIdentity* identity = NetworkedSelfOrAncestor( pending.Entity );
+        if( identity && identity->GetNetId() != 0 )
+        {
+            pending.Event.Entity = identity->GetNetId();
+        }
+        tick.Events.push_back( std::move( pending.Event ) );
+    }
+    m_replayEvents.clear();
     m_recorder->Record( std::move( tick ) );
 }
 

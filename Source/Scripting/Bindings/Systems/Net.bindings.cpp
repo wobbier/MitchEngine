@@ -402,8 +402,8 @@ static void Eng_Replay_Event( const uint8_t* name, const uint8_t* payload, Entit
     {
         return;
     }
-    EntityHandle entity = MakeHandle( id );
-    net->RecordReplayEvent( reinterpret_cast<const char*>( name ), payload ? reinterpret_cast<const char*>( payload ) : "", entity ? net->GetNetId( *entity.Get() ) : 0u );
+    // The NetId is looked up when the tick is recorded: a pawn instantiated this tick has none yet.
+    net->RecordReplayEvent( reinterpret_cast<const char*>( name ), payload ? reinterpret_cast<const char*>( payload ) : "", MakeHandle( id ) );
 }
 
 

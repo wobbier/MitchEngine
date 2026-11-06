@@ -473,7 +473,7 @@ TEST_CASE( "Replay: a file whose server died (no index, a torn last chunk) reads
     std::filesystem::remove( torn );
 }
 
-TEST_CASE( "Replay: a server records every tick's capture, commands, joins and lag-compensated shots; the file at tick N is the live capture at tick N (ME-316)" )
+TEST_CASE( "Replay: a server records every tick's capture, commands, joins and lag-compensated shots (with the hitboxes where they were rewound to); the file at tick N is the live capture at tick N (ME-316)" )
 {
     using namespace NetHarness;
     NetConditions toClient;
@@ -512,6 +512,7 @@ TEST_CASE( "Replay: a server records every tick's capture, commands, joins and l
     std::map<uint32_t, NetSnapshot> live;
     std::map<uint32_t, InputCommand> commands;
     std::map<uint32_t, LagCompensatedHit> shots;
+    std::map<uint32_t, uint32_t> newestAtShot;   // the lag-compensation history's newest tick when it fired
     net.ServerNet.SetCommandHandler( [&]( Entity& InShooter, const InputCommand& InCommand ) {
         commands[net.ServerNet.GetServer()->GetTick()] = InCommand;
         if( !( InCommand.Buttons & 2u ) )
@@ -519,8 +520,15 @@ TEST_CASE( "Replay: a server records every tick's capture, commands, joins and l
             return;
         }
         const EntityHandle self = net.ServerWorld->GetEntity( InShooter.GetId() );
+        newestAtShot[net.ServerNet.GetServer()->GetTick()] = net.ServerNet.GetLagCompensation().GetNewestTick();
         shots[net.ServerNet.GetServer()->GetTick()] = net.ServerNet.LagCompensatedRaycast( Vector3( 0.f, 1.f, -10.f ), Vector3( 0.f, 0.f, 1.f ), 100.f, InCommand, self );
     } );
+    // The target's x at every tick (the lag-compensation history records it at the tick's end).
+    std::map<uint32_t, float> targetX;
+    // A networked entity spawned mid-tick, and an event about it in the same tick: CaptureTick gives
+    // it its NetId only at the tick's end, and the event still names it.
+    EntityHandle spawned;
+    uint32_t spawnedAt = 0;
     net.OnServerTick = [&]( NetServer& InServer ) {
         // The capture so far is the tick before's.
         if( InServer.GetTick() > 0 )
@@ -528,7 +536,18 @@ TEST_CASE( "Replay: a server records every tick's capture, commands, joins and l
             live[net.ServerNet.GetReplicationServer()->GetCurrent().Tick] = net.ServerNet.GetReplicationServer()->GetCurrent();
         }
         const float x = std::sin( static_cast<float>( InServer.GetTick() ) * 0.05f ) * 3.f;
+        targetX[InServer.GetTick()] = x;
         target->GetComponent<Transform>().SetPosition( Vector3( x, 1.f, 10.f ) );
+        if( !spawned && net.ServerNet.IsRecording() && InServer.GetTick() >= 200 )
+        {
+            spawned = net.ServerWorld->CreateEntity();
+            spawned->SetName( "Spawned" );
+            spawned->AddComponent<Transform>();
+            spawned->AddComponent<NetIdentity>();
+            spawnedAt = InServer.GetTick();
+            CHECK( net.ServerNet.GetNetId( *spawned.Get() ) == 0u );
+            net.ServerNet.RecordReplayEvent( "spawn", "{}", spawned );
+        }
         net.ServerWorld->Simulate();
     };
     const std::filesystem::path path = TempFile( "Session.mreplay" );
@@ -563,8 +582,10 @@ TEST_CASE( "Replay: a server records every tick's capture, commands, joins and l
     size_t commandsCompared = 0;
     size_t shotsCompared = 0;
     size_t withRoundTrip = 0;
+    size_t rewoundAway = 0;
     bool joined = false;
     bool killed = false;
+    bool spawnNamed = false;
     std::map<uint32_t, std::string> names;
     REQUIRE( reader.ForEach( 0, ~0u, [&]( const NetReplayTick& InTick ) {
         // The state played back at tick N is the server's live capture at tick N.
@@ -599,6 +620,22 @@ TEST_CASE( "Replay: a server records every tick's capture, commands, joins and l
             REQUIRE( shot.Hitboxes.size() == 1 );
             CHECK( shot.Hitboxes[0].NetId == net.ServerNet.GetNetId( *target.Get() ) );
             CHECK( shot.Hitboxes[0].Name == "Target" );
+            // ... where the target was at the judged tick (newest - RewoundTicks, between two recorded
+            // ticks), not where it is now.
+            const double judged = static_cast<double>( newestAtShot[InTick.Tick] ) - shot.RewoundTicks;
+            const uint32_t before = static_cast<uint32_t>( std::floor( judged ) );
+            const float alpha = static_cast<float>( judged - std::floor( judged ) );
+            REQUIRE( targetX.count( before ) );
+            REQUIRE( targetX.count( before + 1 ) );
+            const float expected = targetX[before] + ( targetX[before + 1] - targetX[before] ) * alpha;
+            INFO( "shot at " << InTick.Tick << " judged at " << judged );
+            CHECK( std::fabs( shot.Hitboxes[0].Position.x - expected ) < 1e-3f );
+            if( std::fabs( targetX[newestAtShot[InTick.Tick]] - expected ) > 0.05f )
+            {
+                // It moved since: the live pose would have been somewhere else.
+                CHECK( std::fabs( shot.Hitboxes[0].Position.x - targetX[newestAtShot[InTick.Tick]] ) > 0.04f );
+                ++rewoundAway;
+            }
             ++shotsCompared;
         }
         else
@@ -609,6 +646,13 @@ TEST_CASE( "Replay: a server records every tick's capture, commands, joins and l
         {
             joined = joined || ( event.Name == "net.joined" && event.Payload == "{\"client\":1}" );
             killed = killed || ( event.Name == "kill" && event.Entity == net.ServerNet.GetNetId( *shooter.Get() ) );
+            if( event.Name == "spawn" )
+            {
+                CHECK( InTick.Tick == spawnedAt );
+                CHECK( event.Entity != 0u );
+                CHECK( event.Entity == net.ServerNet.GetNetId( *spawned.Get() ) );
+                spawnNamed = event.Entity != 0u;
+            }
         }
         return true;
     } ) );
@@ -619,8 +663,10 @@ TEST_CASE( "Replay: a server records every tick's capture, commands, joins and l
     CHECK( withRoundTrip + 30 >= commandsCompared );
     CHECK( shotsCompared >= 15 );
     CHECK( shotsCompared == shots.size() );
+    CHECK( rewoundAway >= 5 );
     CHECK( joined );
     CHECK( killed );
+    CHECK( spawnNamed );
     CHECK( names[net.ServerNet.GetNetId( *target.Get() )] == "Target" );
     CHECK( names[net.ServerNet.GetNetId( *shooter.Get() )] == "Shooter" );
     std::filesystem::remove( path );
