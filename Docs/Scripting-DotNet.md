@@ -105,6 +105,7 @@ Scripts run only while the game runs: in the editor that means Play mode, while 
 ### Hot reload (tools builds)
 
 1. The asset watcher sees a `.cs` change and calls `ScriptEngine::RequestReload()`. The inspector's **Rebuild && Reload Scripts** button on `ScriptCore` does the same. This starts `dotnet build` on a worker thread. A change during a build queues one more build.
+   - **Not during a network session (ME-311):** while the process's `NetCore` has a live session (hosting, or a client connecting or connected) the watcher's change doesn't rebuild, and a build that was already running isn't swapped in until it ends. The log says once that hot reload is paused and once that it resumes; an edit made meanwhile rebuilds when the session ends. The button still reloads. See `Networking.md` ("Script hot reload pauses during a session").
 2. `ScriptEngine::PollReload()` (main thread, every frame) picks up the result. A failed build logs the compiler output and leaves the running scripts untouched.
 3. On success `ReloadGameAssembly` loads the new DLL into a fresh ALC and snapshots every live instance's fields as JSON. It then unloads the old ALC and re-creates each instance **under the same handle**, so C++ never notices, restores its fields, and calls `OnReload()`.
 4. A class that no longer exists is dropped. `ScriptComponent::EnsureCreated` notices the dead handle (`IsHandleAlive`) and re-creates the script if the class comes back later.

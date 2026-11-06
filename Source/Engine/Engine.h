@@ -20,6 +20,7 @@
 #include "AutomationRunner.h"
 #include "NetLaunch.h"
 #include "Resource/FileWatcher.h"
+#include "ScriptReloadGate.h"
 
 class Game;
 class IWindow;
@@ -186,6 +187,8 @@ private:
 #if USING( ME_TOOLS )
     void PollAssetChanges();
     FileWatcher m_assetWatcher;
+    // ME-311: .cs edits don't hot reload while a network session is live.
+    ScriptReloadGate m_scriptReloadGate;
 #endif
 };
 

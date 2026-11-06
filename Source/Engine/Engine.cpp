@@ -696,7 +696,11 @@ void Engine::Run()
 #if USING( ME_TOOLS )
         PollAssetChanges();
 #if USING( ME_SCRIPTING )
-        ScriptEngine::PollReload();
+        // A build that finished during a network session waits for it to end (ME-311).
+        if( !m_scriptReloadGate.IsPaused() )
+        {
+            ScriptEngine::PollReload();
+        }
 #endif
 #endif
 
@@ -1164,6 +1168,15 @@ void Engine::PollAssetChanges()
     {
         CLog::Log( CLog::LogType::Info, "Hot reloaded: " + reloaded );
     }
+#if USING( ME_SCRIPTING )
+    // ME-311: script hot reload pauses while this process's network session is live (a .cs edit
+    // would rebuild in every local peer and change the schema the handshake checks); an edit made
+    // meanwhile rebuilds once the session ends.
+    if( m_scriptReloadGate.Update( Net && Net->IsSessionLive() ) )
+    {
+        ScriptEngine::RequestReload();
+    }
+#endif
     std::vector<FileWatcher::Change> changes = m_assetWatcher.ConsumeChanges();
     if( changes.empty() )
     {
@@ -1187,7 +1200,10 @@ void Engine::PollAssetChanges()
         // Game scripts: rebuild in the background and hot reload them.
         if( change.FullPath.size() > 3 && change.FullPath.compare( change.FullPath.size() - 3, 3, ".cs" ) == 0 )
         {
-            ScriptEngine::RequestReload();
+            if( m_scriptReloadGate.OnScriptChanged() )
+            {
+                ScriptEngine::RequestReload();
+            }
         }
 #endif
     }

@@ -56,9 +56,10 @@ The editor tooling (NET-7) comes next.
 | `Source/Net/NetPrediction.h` | `NetPredictor`: a 128-tick history of {command, mover state}, `Reconcile` (millimetre compare, then restore and resim with `PhysicsCore::StepCharacter`), and visual error smoothing |
 | `Source/Components/Networking/NetHitbox.h` | A capsule or box that lag-compensated shots test against |
 | `Source/Net/NetLagCompensation.h` | Each tick's hitbox poses for `MaxRewindSeconds`; `Raycast` at a view tick (analytic ray vs capsule / OBB, present colliders occlude); overlays |
-| `Source/Cores/NetCore.h` | Engine-owned (`Engine::Net`): `Host` / `Connect` / `Close`, the frame hooks (they drive the transport's `Update`), the version of its world, `WriteReport` |
+| `Source/Cores/NetCore.h` | Engine-owned (`Engine::Net`): `Host` / `Connect` / `Close`, `IsActive` (until `Shutdown`) / `IsSessionLive` (until `Close` or the session's end), the frame hooks (they drive the transport's `Update`), the version of its world, `WriteReport` |
 | `Source/Net/UdpTransport.h` | `UdpTransport`: non-blocking IPv4 UDP (BSD sockets / Winsock). Addresses pack `(ip << 16) \| port`; `Resolve( "host:port" )`, `ToString` |
 | `Source/Engine/NetLaunch.h` | The command line (`--server`, `--connect`, `--net-*`): starts the session after the scene loads, logs it, writes the report, says goodbye on exit |
+| `Source/Engine/ScriptReloadGate.h` | Pauses script hot reload while the process's session is live, and rebuilds what was edited once it ends (ME-311) |
 | `Source/Window/NullWindow.h` | The headless build's window: a size and SDL's event loop (Ctrl+C / SIGTERM close it) |
 | `Tools/RunNetSmoke.py` | The two-process smoke test (below) |
 | `Tools/RunNetLocal.py` | A server plus N client windows on this machine, for playing and debugging (below) |
@@ -441,6 +442,13 @@ The session starts after the scene loads, because the handshake hashes the scene
   - The compounds "Net: server + client (debug both)" and "Net: server + 2 clients (debug all)" run the server and one or two clients under gdb together. They use `--net-timeout 60`, so breakpoints don't drop the session.
 - **Window placement:** tiling window managers and native Wayland place windows themselves; the offsets matter on stacking desktops.
 
+**Script hot reload pauses during a session** (ME-311, tools builds):
+
+- **Why:** every tools process watches `Assets/` and rebuilds its C# when a `.cs` changes. With a server and clients on one machine, one edit started several `dotnet build`s at once (the clients share an output folder), and the reload changed the script schema the handshake checks: later joiners were turned away (`scripts`) while the peers already in played on with the old scripts.
+- **What happens:** while `NetCore::IsSessionLive()` (hosting until `Close`, or a client connecting or connected), `Engine::PollAssetChanges` doesn't call `ScriptEngine::RequestReload` for a `.cs` change, and a build already running when the session began isn't swapped in (`PollReload` waits). `ScriptReloadGate` (`Source/Engine/ScriptReloadGate.h`) decides, and logs once each: `Scripts: hot reload paused for the network session (edits rebuild once it ends)`, the first held edit, and `Scripts: the network session ended; hot reload resumes` (with `, rebuilding the scripts edited during it` when one was held).
+- **When it ends:** a client whose session is over (it left, was rejected, timed out or was disconnected) or a server after `Close` resumes, and rebuilds once if anything changed meanwhile. To pick up an edit, restart the session (RunNetLocal again).
+- **Unchanged:** without a session (the editor, offline play) every edit reloads as before, and the inspector's **Rebuild && Reload Scripts** button always works (an explicit request).
+
 **The smoke test** (`Tools/RunNetSmoke.py`, the RunChecks "Networking smoke" step):
 
 1. Starts the Server build on a free port (`--server 0`, read back from its log) on `Assets/Scenes/Tests/NetTest.lvl` with `--net-exit-when-empty`. NetTest has six networked boxes that fall and settle in view, and a `NetSpin` cube behind the camera that turns every fixed step, so every tick has a snapshot to send.
@@ -526,6 +534,7 @@ The session starts after the scene loads, because the handshake hashes the scene
   - **Present view (NET-15):** a client's `PresentRaycast` hits its hitbox where it shows it, with no rewind, and misses 2 m to the side. At 50 ms each way, both ends' `GetRoundTripMs` read about 117 ms.
   - **The shooter's own parts:** a pawn with a body hitbox, a child head hitbox and a grandchild gun collider shoots from inside its head, through its gun: `PresentRaycast` and the rewound `LagCompensatedRaycast` both hit the target 10 m ahead, unoccluded. Anyone else's ray from there stops at the head, and the gun still blocks other shots.
 - **Handshake:** another build is rejected (`"version mismatch: build"`) and the server lets it go; so is another scene (`"version mismatch: scene"`); a match connects.
+- **Script hot reload pauses for a session (`ScriptReloadGateTests.cpp`, ME-311):** the gate holds every edit while live and asks for one rebuild when the session ends (none if nothing changed); without a session each edit reloads. Two worlds: server and client are live from `Host` / `Connect` (before the handshake finishes) and while connected; the client's `Close` ends its session (still `IsActive`) but not the server's; the server's `Close` ends its; each then rebuilds the edits it held, and hosting again is live again. A client rejected for another script schema isn't live, so its reload resumes. Headless, on a copy of HeroShooter (2026-11-06): the Server Player hosting logged the pause and held two `.cs` edits (no build); a client connecting to a port nobody answers held them, then on its timeout logged the resume and rebuilt once; the game Player offline rebuilt and hot reloaded each edit.
 - **UDP and session endings (`NetUdpTests.cpp`):**
   - Addresses resolve (`localhost` too) and print, and malformed ones are refused.
   - Two sockets on 127.0.0.1 trade datagrams up to 1200 bytes, with each `From` equal to the sender's resolved address, and a taken port fails to bind.
@@ -571,7 +580,7 @@ The session starts after the scene loads, because the handshake hashes the scene
 - **No encryption or authentication:** the protocol id only filters strays.
 - **NetSchema is positional:** both sides must have the same components with the same replicated fields, in the same order. The C++ side isn't hashed into the handshake (the build hash covers it for the same game); C# net fields and RPCs are (NET-6).
 - **Script prediction is exact:** `[Predicted]` bytes compare bit for bit. Float code that differs across platforms (a Windows client on a Linux server) would read as corrections; quantize such state, or keep it in ints.
-- **Hot reload during a session** changes the schema hash for new joiners only, and drops the generated state of reloaded instances back to their saved public fields.
+- **Hot reload during a session** is paused (ME-311, above). Forced from the inspector's button, it changes the schema hash for new joiners only, and drops the generated state of reloaded instances back to their saved public fields.
 - **Spawned prefabs:** clients create spawned entities from `NetIdentity::Prefab`, which must exist on the client.
 - **UDP is IPv4 only** (a `NetAddress` is 64 bits).
   - On a multi-homed server bound to every interface, a reply can leave from another address than the one the client dialled, and the client then ignores it. Bind one address, or connect to the address it answers from.
