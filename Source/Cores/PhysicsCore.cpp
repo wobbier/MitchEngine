@@ -1,4 +1,6 @@
 #include "PCH.h"
+#include <optional>
+#include <Profiling/FrameStats.h>
 #include <Profiling/ThreadName.h>
 #include "PhysicsCore.h"
 #include "Components/Graphics/Mesh.h"
@@ -1317,13 +1319,19 @@ void PhysicsCore::FixedUpdate( const UpdateContext& inUpdateContext )
     }
     OPTICK_CATEGORY( "PhysicsCore::FixedUpdate", Optick::Category::Physics );
     const float dt = inUpdateContext.GetFixedDeltaTime();
-    SyncBodies( dt );
+    {
+        ME_STAT_SCOPE( "Physics Sync Bodies" );
+        SyncBodies( dt );
+    }
     // A failed required terrain stays inspectable while bodies wait instead of falling through it.
     if( !m_terrainShapesReady ) return;
     if( auto* terrain = GetWorld().GetCore<TerrainCore>(); terrain && !terrain->IsCollisionReady() ) return;
     SyncJoints();
 
     // Bodies whose Transform was moved by something else (scripts, the gizmo) follow it.
+    {
+    ME_STAT_SCOPE( "Physics Follow Transforms" );
+    OPTICK_EVENT( "PhysicsCore::FollowTransforms" );
     for( auto& [id, record] : m_bodies )
     {
         if( !IsBody( record.Body ) || !record.Owner )
@@ -1363,14 +1371,22 @@ void PhysicsCore::FixedUpdate( const UpdateContext& inUpdateContext )
         }
     }
 
-    StepCharacters( dt );
+    }
 
+    {
+        ME_STAT_SCOPE( "Physics Characters" );
+        StepCharacters( dt );
+    }
+
+    std::optional<ScopedFrameStat> stepStat( std::in_place, "Physics Step" );
     const auto start = std::chrono::steady_clock::now();
     m_taskCount = 0;
     b3World_Step( WorldId( m_world ), dt, kSubSteps );
     m_lastStepMs = std::chrono::duration<float, std::milli>( std::chrono::steady_clock::now() - start ).count();
     ++m_simTick;
+    stepStat.reset();
 
+    ME_STAT_SCOPE( "Physics Read Back" );
     for( auto& [id, record] : m_bodies )
     {
         if( !IsBody( record.Body ) )
