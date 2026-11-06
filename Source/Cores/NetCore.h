@@ -371,6 +371,7 @@ private:
     std::vector<PendingReplayEvent> m_replayEvents;
     std::map<uint32_t, uint8_t> m_replayOwners;     // NetId -> the owner last recorded
     std::map<uint8_t, uint64_t> m_replayMisses;     // client -> its misses at the last recorded tick
+    std::map<uint32_t, uint32_t> m_replayAlwaysRelevant;    // NetId -> the last recorded tick it was AlwaysRelevant at (pruned with the ring)
     uint32_t m_ticksOwed = 0;
     uint32_t m_ticksDropped = 0;
     // ME-316 playback: the source, then what reads it (destroyed first).

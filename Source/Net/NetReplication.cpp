@@ -355,20 +355,6 @@ void NetReplicationServer::CaptureTick( uint32_t InTick )
 }
 
 
-std::set<uint32_t> NetReplicationServer::GetAlwaysRelevant() const
-{
-    std::set<uint32_t> ids;
-    for( const auto& [id, meta] : m_meta )
-    {
-        if( meta.AlwaysRelevant )
-        {
-            ids.insert( id );
-        }
-    }
-    return ids;
-}
-
-
 void NetReplicationServer::PrepareSnapshots()
 {
     std::vector<std::pair<uint8_t, ClientState*>> clients;

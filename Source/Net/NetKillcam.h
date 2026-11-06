@@ -13,9 +13,13 @@
 //
 // The stream is the ME-316 chunk format, filtered for the killer:
 //
-// - State: what NET-13's relevancy would have sent the killer's client each tick: entities within
-//   RelevantRadius of the killer's pawn (its state's position that tick), AlwaysRelevant ones, the
-//   ones its client owns, the killer itself, plus the victim (whose death it shows, however far).
+// - State: every entity the tick has, as the killer's client had it. Those in its view (NET-13's
+//   relevancy: within RelevantRadius of the killer's pawn, its state's position that tick;
+//   AlwaysRelevant ones; the ones its client owns; the killer itself; plus the victim, whose death
+//   it shows, however far) with their state that tick. The rest hold the last state it had of them,
+//   as a client does (spawns and despawns go to every client whatever the view): their last in
+//   view, or the one they first have in the ring (the spawn pose, for one spawned since). So an
+//   entity leaves State only when it's destroyed, and a playback never despawns one for leaving view.
 // - Clients: the killer's client's command (buttons, axes, aim, ViewTick) and link; none for a bot.
 // - Movers: the killer's own (full precision and [Predicted] bytes), for its camera.
 // - Shots: those fired by, through (instigator) or at a relevant entity, with only the relevant
@@ -52,7 +56,8 @@ struct NetKillcamRequest
     uint32_t FirstTick = 0;
     uint32_t DeathTick = 0;         // the last tick sent
     // NET-13's settings (NetReplicationSettings::RelevantRadius; 0: everything is relevant) and the
-    // NetIds that are AlwaysRelevant.
+    // NetIds that are AlwaysRelevant: every one that was at a tick in the ring, destroyed since or
+    // not (NetCore keeps them as it records), so a projectile gone before the cut still counts.
     float RelevantRadius = 0.f;
     std::set<uint32_t> AlwaysRelevant;
     uint32_t ChunkTicks = 60;       // ticks a chunk (a keyframe and its deltas): a blob each

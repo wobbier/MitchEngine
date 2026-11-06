@@ -128,8 +128,6 @@ public:
     // Snapshot message bytes sent to every client so far.
     uint64_t GetSnapshotBytes() const { return m_snapshotBytes; }
     uint64_t GetSnapshotsSent() const { return m_snapshotsSent; }
-    // The NetIds captured this tick with NetIdentity::AlwaysRelevant (a killcam's view, ME-323).
-    std::set<uint32_t> GetAlwaysRelevant() const;
 
 private:
     struct ClientState

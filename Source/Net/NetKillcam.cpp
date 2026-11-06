@@ -100,6 +100,11 @@ std::vector<NetReplayTick> NetKillcam::Filter( const NetKillcamRequest& InReques
 
     const uint32_t chunkTicks = std::max<uint32_t>( 1, InRequest.ChunkTicks );
     std::map<uint32_t, NetReplayEntity> table = InRingEntities;
+    // What the killer's client holds for every entity: relevancy picks which states it's sent, not
+    // which entities exist (spawns and despawns go to every client), so an entity out of view keeps
+    // the last state it had in view, or the one it had when it first shows up in the ring (its spawn
+    // pose, for one spawned since). Walked from the ring's oldest tick, so the cut starts with them.
+    std::map<uint32_t, NetEntityState> held;
     std::vector<NetReplayTick> out;
     out.reserve( last - first + 1 );
     std::set<uint32_t> previous;
@@ -109,10 +114,6 @@ std::vector<NetReplayTick> NetKillcam::Filter( const NetKillcamRequest& InReques
         if( i > 0 )
         {
             Apply( table, tick );
-        }
-        if( tick.Tick < first )
-        {
-            continue;
         }
         if( tick.Tick > last )
         {
@@ -128,23 +129,37 @@ std::vector<NetReplayTick> NetKillcam::Filter( const NetKillcamRequest& InReques
 
         // NET-13's view from the killer (NetReplicationServer::Prepare's rule), and the victim.
         std::set<uint32_t> relevant;
-        NetReplayTick& filtered = out.emplace_back();
-        filtered.Tick = tick.Tick;
-        filtered.TicksOwed = tick.TicksOwed;
-        filtered.TicksDropped = tick.TicksDropped;
-        filtered.State.Tick = tick.Tick;
         for( const auto& [id, state] : tick.State.Entities )
         {
             auto row = table.find( id );
             const bool owned = killerClient != 0 && row != table.end() && row->second.Owner == killerClient;
             const float distance = ( state.GetPosition() - viewer ).Length();
-            if( id == InRequest.KillerNetId || id == InRequest.VictimNetId
-                || NetReplicationSettings::IsRelevant( InRequest.RelevantRadius, true, distance, InRequest.AlwaysRelevant.count( id ) > 0, owned ) )
+            const bool inView = id == InRequest.KillerNetId || id == InRequest.VictimNetId
+                || NetReplicationSettings::IsRelevant( InRequest.RelevantRadius, true, distance, InRequest.AlwaysRelevant.count( id ) > 0, owned );
+            if( inView )
             {
                 relevant.insert( id );
-                filtered.State.Entities.emplace( id, state );
+            }
+            if( inView || !held.count( id ) )
+            {
+                held[id] = state;
             }
         }
+        for( auto it = held.begin(); it != held.end(); )
+        {
+            it = tick.State.Entities.count( it->first ) ? std::next( it ) : held.erase( it );
+        }
+        if( tick.Tick < first )
+        {
+            continue;
+        }
+
+        NetReplayTick& filtered = out.emplace_back();
+        filtered.Tick = tick.Tick;
+        filtered.TicksOwed = tick.TicksOwed;
+        filtered.TicksDropped = tick.TicksDropped;
+        filtered.State.Tick = tick.Tick;
+        filtered.State.Entities.insert( held.begin(), held.end() );
         auto isRelevant = [&relevant]( uint32_t InId ) { return InId != 0 && relevant.count( InId ) > 0; };
 
         if( killerClient != 0 )
@@ -187,11 +202,13 @@ std::vector<NetReplayTick> NetKillcam::Filter( const NetKillcamRequest& InReques
                 filtered.Events.push_back( event );
             }
         }
-        // A chunk's first tick names everything in it; later ones what came into view, and owner changes.
+        // A chunk's first tick names everything in it; later ones what's new, and owner changes.
         const bool chunkStart = ( out.size() - 1 ) % chunkTicks == 0;
         std::set<uint32_t> named;
-        for( const uint32_t id : relevant )
+        std::set<uint32_t> present;
+        for( const auto& [id, state] : filtered.State.Entities )
         {
+            present.insert( id );
             if( chunkStart || !previous.count( id ) )
             {
                 if( auto row = table.find( id ); row != table.end() )
@@ -203,12 +220,12 @@ std::vector<NetReplayTick> NetKillcam::Filter( const NetKillcamRequest& InReques
         }
         for( const NetReplayEntity& entity : tick.Entities )
         {
-            if( relevant.count( entity.NetId ) && !named.count( entity.NetId ) )
+            if( present.count( entity.NetId ) && !named.count( entity.NetId ) )
             {
                 filtered.Entities.push_back( entity );
             }
         }
-        previous = std::move( relevant );
+        previous = std::move( present );
     }
     return out;
 }

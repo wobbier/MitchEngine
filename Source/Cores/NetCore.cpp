@@ -647,6 +647,7 @@ bool NetCore::StartRecording( const std::string& InPath, NetReplayHeader InHeade
     m_replayEvents.clear();
     m_replayOwners.clear();
     m_replayMisses.clear();
+    m_replayAlwaysRelevant.clear();
     m_ticksDropped = 0;
     // Who is here already.
     for( const auto& client : m_server->GetClients() )
@@ -981,6 +982,10 @@ void NetCore::RecordReplayTick()
             tick.Entities.push_back( { id, entity ? entity->GetName() : std::string(), identity ? identity->Prefab : std::string(), owner } );
             m_replayOwners[id] = owner;
         }
+        if( identity && identity->AlwaysRelevant )
+        {
+            m_replayAlwaysRelevant[id] = tick.Tick;
+        }
     }
     for( auto it = m_replayOwners.begin(); it != m_replayOwners.end(); )
     {
@@ -1016,7 +1021,14 @@ void NetCore::RecordReplayTick()
         tick.Events.push_back( std::move( pending.Event ) );
     }
     m_replayEvents.clear();
+    const uint32_t recorded = tick.Tick;
     m_recorder->Record( std::move( tick ) );
+    // AlwaysRelevant NetIds as long as the ring has a tick they were so at (a killcam's view).
+    const uint32_t oldest = m_recorder->GetRing().empty() ? recorded + 1 : m_recorder->GetRing().front()->Tick;
+    for( auto it = m_replayAlwaysRelevant.begin(); it != m_replayAlwaysRelevant.end(); )
+    {
+        it = it->second < oldest ? m_replayAlwaysRelevant.erase( it ) : std::next( it );
+    }
 }
 
 
@@ -1125,7 +1137,12 @@ void NetCore::UpdateKillcams()
                 continue;
             }
             send.Request.RelevantRadius = m_replicationServer->Settings.RelevantRadius;
-            send.Request.AlwaysRelevant = m_replicationServer->GetAlwaysRelevant();
+            // Every NetId AlwaysRelevant at a tick in the ring, alive now or not (a projectile gone by the death).
+            send.Request.AlwaysRelevant.clear();
+            for( const auto& entry : m_replayAlwaysRelevant )
+            {
+                send.Request.AlwaysRelevant.insert( entry.first );
+            }
             send.Request.Header = m_recorder->GetHeader();
             std::vector<std::shared_ptr<const NetReplayTick>> ring;
             ring.reserve( m_recorder->GetRing().size() );

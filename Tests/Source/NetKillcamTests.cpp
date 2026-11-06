@@ -7,12 +7,14 @@
 #include "Core/UpdateContext.h"
 #include "Cores/PhysicsCore.h"
 #include "Net/NetKillcam.h"
+#include "Net/NetReplayPlayback.h"
 #include "Net/NetReplication.h"
 #include "NetHarness.h"
 #include "Scripting/Bindings/BindingContext.h"
 #include "Scripting/Bindings/Systems/Net.bindings.h"
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <map>
 #include <memory>
 #include <set>
@@ -139,6 +141,23 @@ namespace NetKillcamTest
             }
         }
         return relevant;
+    }
+
+    // What the killer's client holds after a tick: the states in view as they are, the rest as it
+    // last had them (in view, or as the ring first has them); what's gone, gone.
+    void Hold( std::map<uint32_t, NetEntityState>& InOut, const NetReplayTick& InTick, const std::set<uint32_t>& InRelevant )
+    {
+        for( const auto& [id, state] : InTick.State.Entities )
+        {
+            if( InRelevant.count( id ) || !InOut.count( id ) )
+            {
+                InOut[id] = state;
+            }
+        }
+        for( auto it = InOut.begin(); it != InOut.end(); )
+        {
+            it = InTick.State.Entities.count( it->first ) ? std::next( it ) : InOut.erase( it );
+        }
     }
 
     struct TestContext
@@ -284,7 +303,13 @@ TEST_CASE( "Net: a killcam cut from the replay ring keeps what the killer's clie
     CHECK( reader.GetLastTick() == 590 );
     std::set<uint32_t> previous;
     std::map<uint32_t, NetReplayEntity> named;      // what the stream has named so far (a playback's table)
+    std::map<uint32_t, NetEntityState> held;        // what the killer's client has, from the ring's oldest tick
+    for( uint32_t t = 300; t < 351; ++t )
+    {
+        Hold( held, *ring[t - 300], Relevant( *ring[t - 300], ownersAt[t], 2, kRadius, { kFar }, KillerAt( t ), kKiller, kVictim ) );
+    }
     size_t filteredOut = 0;
+    size_t heldBack = 0;
     size_t shotsKept = 0;
     size_t eventsKept = 0;
     for( uint32_t t = 351; t <= 590; ++t )
@@ -294,13 +319,19 @@ TEST_CASE( "Net: a killcam cut from the replay ring keeps what the killer's clie
         NetReplayTick decoded;
         REQUIRE( reader.ReadTick( t, decoded ) );
         const std::set<uint32_t> relevant = Relevant( original, ownersAt[t], 2, kRadius, { kFar }, KillerAt( t ), kKiller, kVictim );
-        std::map<uint32_t, NetEntityState> expected;
-        for( const uint32_t id : relevant )
+        // Every entity the tick has (out of view isn't destroyed: a playback mustn't despawn it), those
+        // in view as they are, the rest as the killer's client last had them.
+        Hold( held, original, relevant );
+        CHECK( decoded.State.Entities == held );
+        CHECK( decoded.State.Entities.size() == original.State.Entities.size() );
+        for( const auto& [id, state] : original.State.Entities )
         {
-            expected.emplace( id, original.State.Entities.at( id ) );
+            if( !relevant.count( id ) )
+            {
+                ++filteredOut;
+                heldBack += decoded.State.Entities.at( id ) == state ? 0 : 1;
+            }
         }
-        CHECK( decoded.State.Entities == expected );
-        filteredOut += original.State.Entities.size() - expected.size();
         CHECK( relevant.count( kFar ) );
         CHECK( relevant.count( kArrow ) );
         CHECK( relevant.count( kVictim ) );
@@ -345,8 +376,10 @@ TEST_CASE( "Net: a killcam cut from the replay ring keeps what the killer's clie
         {
             named[entity.NetId] = entity;
         }
-        for( const uint32_t id : relevant )
+        std::set<uint32_t> present;
+        for( const auto& [id, state] : decoded.State.Entities )
         {
+            present.insert( id );
             REQUIRE( named.count( id ) );
             CHECK( named[id].Owner == ownersAt[t].at( id ) );
             if( !previous.count( id ) || ( t - 351 ) % 60 == 0 )
@@ -359,10 +392,11 @@ TEST_CASE( "Net: a killcam cut from the replay ring keeps what the killer's clie
                 CHECK( here );
             }
         }
-        previous = relevant;
+        previous = present;
     }
-    MESSAGE( filteredOut << " entity states filtered out over 240 ticks; " << shotsKept << " shots and " << eventsKept << " events kept" );
+    MESSAGE( filteredOut << " entity states out of view over 240 ticks (" << heldBack << " held back from the ring's); " << shotsKept << " shots and " << eventsKept << " events kept" );
     CHECK( filteredOut > 240 * 10 );
+    CHECK( heldBack > 240 * 10 );
     CHECK( shotsKept > 0 );
     CHECK( eventsKept > 0 );
 
@@ -689,8 +723,10 @@ TEST_CASE( "Net: at 150 ms RTT and 5% loss a kill streams the killer's 8 s to th
         owners[id] = entity.Owner;
     }
     Vector3 viewer;
+    std::map<uint32_t, NetEntityState> held;
     uint32_t compared = 0;
     size_t filteredOut = 0;
+    size_t heldBack = 0;
     size_t aimTurns = 0;
     size_t shotsSeen = 0;
     float lastYaw = -1.f;
@@ -705,22 +741,26 @@ TEST_CASE( "Net: at 150 ms RTT and 5% loss a kill streams the killer's 8 s to th
                 owners[entity.NetId] = entity.Owner;
             }
         }
+        INFO( "tick " << original.Tick );
+        viewer = original.State.Entities.at( killerId ).GetPosition();
+        const std::set<uint32_t> relevant = Relevant( original, owners, 2, 30.f, { farId }, viewer, killerId, victimId );
+        Hold( held, original, relevant );
         if( original.Tick < killcam.GetFirstTick() )
         {
             continue;
         }
-        INFO( "tick " << original.Tick );
-        viewer = original.State.Entities.at( killerId ).GetPosition();
-        const std::set<uint32_t> relevant = Relevant( original, owners, 2, 30.f, { farId }, viewer, killerId, victimId );
-        std::map<uint32_t, NetEntityState> expected;
-        for( const uint32_t id : relevant )
-        {
-            expected.emplace( id, original.State.Entities.at( id ) );
-        }
         NetReplayTick decoded;
         REQUIRE( reader.ReadTick( original.Tick, decoded ) );
-        CHECK( decoded.State.Entities == expected );
-        filteredOut += original.State.Entities.size() - expected.size();
+        CHECK( decoded.State.Entities == held );
+        CHECK( decoded.State.Entities.size() == original.State.Entities.size() );
+        for( const auto& [id, state] : original.State.Entities )
+        {
+            if( !relevant.count( id ) )
+            {
+                ++filteredOut;
+                heldBack += decoded.State.Entities.at( id ) == state ? 0 : 1;
+            }
+        }
         REQUIRE( decoded.Clients.size() == 1 );
         CHECK( decoded.Clients[0].Id == 2 );
         for( const NetReplayClient& client : original.Clients )
@@ -746,10 +786,233 @@ TEST_CASE( "Net: at 150 ms RTT and 5% loss a kill streams the killer's 8 s to th
         }
         ++compared;
     }
-    MESSAGE( compared << " ticks compared; " << filteredOut << " states out of the killer's view; " << shotsSeen << " shots; aim changed on " << aimTurns << " ticks" );
+    MESSAGE( compared << " ticks compared; " << filteredOut << " states out of the killer's view (" << heldBack << " held back from the ring's); " << shotsSeen << " shots; aim changed on " << aimTurns << " ticks" );
     CHECK( compared == 480 );
     CHECK( filteredOut > 480 * 5 );
+    CHECK( heldBack > 480 * 5 );
     CHECK( shotsSeen >= 15 );
     CHECK( aimTurns > 400 );
     CHECK( killEvent );
+}
+
+
+TEST_CASE( "Net: a bot's killcams: a newer one cancels the older, waiting or streaming; a victim who leaves takes its own; a projectile gone by the cut stays AlwaysRelevant; and played back, nothing out of view is despawned" )
+{
+    // Client 1's pawn is killed over and over by a bot (owned by nobody: no commands to send) at the
+    // origin, with a 20 m view. Out of it: a placed post at 400 m (it moves; the killer's client holds
+    // its pose) and an AlwaysRelevant arrow at 300 m that's destroyed a second before the kills.
+    Harness net( Link( 50.f, 0.f, 0.f, 3231 ), Link( 50.f, 0.f, 0.f, 3232 ) );
+    constexpr uint64_t kVictimGuid = 0x7A3E11;
+    constexpr uint64_t kPostGuid = 0x7A3E12;
+    net.Place( kVictimGuid );
+    net.Place( kPostGuid );
+    auto find = []( World& InWorld, uint64_t InGuid ) {
+        EntityHandle found;
+        InWorld.ForEachEntity( [&]( Entity& InEntity ) {
+            if( InEntity.GetGUID() == InGuid )
+            {
+                found = InWorld.GetEntity( InEntity.GetId() );
+            }
+        } );
+        return found;
+    };
+    EntityHandle victim = find( *net.ServerWorld, kVictimGuid );
+    EntityHandle post = find( *net.ServerWorld, kPostGuid );
+    victim->GetComponent<Transform>().SetPosition( Vector3( 5.f, 0.f, 0.f ) );
+    for( World* world : { net.ServerWorld.get(), net.ClientWorld.get() } )
+    {
+        world->Simulate();
+        world->Start();
+    }
+    EntityHandle arrow;
+    net.OnServerTick = [&]( NetServer& InServer ) {
+        const float t = static_cast<float>( InServer.GetTick() ) / 60.f;
+        post->GetComponent<Transform>().SetPosition( Vector3( 400.f, 0.f, std::sin( t * 3.f ) * 5.f ) );
+        if( arrow )
+        {
+            arrow->GetComponent<Transform>().SetPosition( Vector3( 300.f + t * 10.f, 2.f, 0.f ) );
+        }
+        net.ServerWorld->Simulate();
+    };
+    net.Start();
+    net.Run( 1.0 );
+    REQUIRE( net.ClientNet.GetClient()->GetState() == NetClient::State::Connected );
+    REQUIRE( net.ClientNet.GetClient()->GetClientId() == 1 );
+    victim->GetComponent<NetIdentity>().SetOwner( 1 );
+    net.ServerNet.GetReplicationServer()->Settings.RelevantRadius = 20.f;
+    REQUIRE( net.ServerNet.StartRecording( "" ) );
+    EntityHandle killer = net.ServerWorld->CreateEntity();
+    killer->SetName( "Bot" );
+    killer->AddComponent<Transform>();
+    killer->AddComponent<NetIdentity>();
+    arrow = net.ServerWorld->CreateEntity();
+    arrow->AddComponent<Transform>().SetPosition( Vector3( 300.f, 2.f, 0.f ) );
+    arrow->AddComponent<NetIdentity>().AlwaysRelevant = true;
+    net.Run( 1.0 );
+    const uint32_t arrowId = arrow->GetComponent<NetIdentity>().GetNetId();
+    REQUIRE( arrowId != 0 );
+    net.ServerWorld->DestroyEntity( arrow );
+    arrow = EntityHandle();
+    net.Run( 1.0 );
+    REQUIRE_FALSE( net.ServerNet.FindEntity( arrowId ) );
+
+    const NetCore::KillcamStats& stats = net.ServerNet.GetKillcamStats();
+    const NetKillcamReceiver& killcam = net.ClientNet.GetKillcam();
+    NetServer::Client& onServer = *net.ServerNet.GetServer()->GetClients().front();
+    auto runUntil = [&]( const std::function<bool()>& InDone, double InStep = 0.001, int InSteps = 3000 ) {
+        for( int i = 0; i < InSteps && !InDone(); ++i )
+        {
+            net.Run( InStep );
+        }
+        return InDone();
+    };
+
+    // Two deaths a tick apart: the first killcam, waiting for its tick or encoding, gives way.
+    REQUIRE( net.ServerNet.SendKillcam( victim, killer, 3.0 ) );
+    net.Run( 0.02 );
+    REQUIRE( net.ServerNet.SendKillcam( victim, killer, 3.0 ) );
+    CHECK( stats.Cancelled == 1 );
+    CHECK( net.ServerNet.GetKillcamsPending() == 1 );
+    REQUIRE( runUntil( [&]() { return killcam.GetId() == 2 && killcam.IsComplete(); } ) );
+    // Its last acks back: the server lets it go (a newer one before that would count it cancelled).
+    REQUIRE( runUntil( [&]() { return stats.Completed == 1; } ) );
+    CHECK( net.ServerNet.GetKillcamsPending() == 0 );
+
+    // One streaming (its first chunk in, the rest waiting on its ack) gives way too: its blob is cancelled.
+    const uint64_t blobsCancelled = onServer.Connection->GetStats().BlobsCancelled;
+    REQUIRE( net.ServerNet.SendKillcam( victim, killer, 3.0 ) );
+    REQUIRE( runUntil( [&]() { return killcam.GetId() == 3 && killcam.GetChunksReceived() > 0; } ) );
+    CHECK_FALSE( killcam.IsComplete() );
+    REQUIRE( net.ServerNet.SendKillcam( victim, killer, 3.0 ) );
+    CHECK( stats.Cancelled == 2 );
+    CHECK( onServer.Connection->GetStats().BlobsCancelled > blobsCancelled );
+    REQUIRE( runUntil( [&]() { return killcam.GetId() == 4 && killcam.IsComplete(); } ) );
+    CHECK( killcam.GetKillerClient() == 0 );
+    // The ring as the killcam was cut from it.
+    const std::vector<std::shared_ptr<const NetReplayTick>> ring( net.ServerNet.GetRecorder()->GetRing().begin(), net.ServerNet.GetRecorder()->GetRing().end() );
+    net.Run( 0.5 );
+    CHECK( stats.Completed == 2 );
+    CHECK( net.ServerNet.GetKillcamsPending() == 0 );
+    for( const NetBlobProgress& progress : onServer.Connection->GetBlobProgress() )
+    {
+        CHECK_FALSE( progress.Outgoing );
+    }
+
+    // The bot's killcam: nobody's commands; the arrow exact while it lived (AlwaysRelevant, though
+    // destroyed before the cut); the post in every tick, held as the killer's client had it.
+    const uint32_t killerId = killer->GetComponent<NetIdentity>().GetNetId();
+    const uint32_t victimId = victim->GetComponent<NetIdentity>().GetNetId();
+    const uint32_t postId = post->GetComponent<NetIdentity>().GetNetId();
+    NetReplayReader reader( *killcam.GetSource() );
+    REQUIRE( reader.GetFirstTick() == killcam.GetFirstTick() );
+    REQUIRE( ring.front()->Tick <= killcam.GetFirstTick() );
+    REQUIRE( ring.back()->Tick >= killcam.GetDeathTick() );
+    const NetEntityState postAtFirst = ring.front()->State.Entities.at( postId );
+    uint32_t compared = 0;
+    uint32_t arrowTicks = 0;
+    uint32_t postMoved = 0;
+    for( const auto& pointer : ring )
+    {
+        const NetReplayTick& original = *pointer;
+        if( original.Tick < killcam.GetFirstTick() || original.Tick > killcam.GetDeathTick() )
+        {
+            continue;
+        }
+        INFO( "tick " << original.Tick );
+        NetReplayTick decoded;
+        REQUIRE( reader.ReadTick( original.Tick, decoded ) );
+        std::set<uint32_t> ids;
+        std::set<uint32_t> decodedIds;
+        for( const auto& [id, state] : original.State.Entities )
+        {
+            ids.insert( id );
+        }
+        for( const auto& [id, state] : decoded.State.Entities )
+        {
+            decodedIds.insert( id );
+        }
+        CHECK( decodedIds == ids );
+        CHECK( decoded.Clients.empty() );
+        CHECK( decoded.State.Entities.at( killerId ) == original.State.Entities.at( killerId ) );
+        CHECK( decoded.State.Entities.at( victimId ) == original.State.Entities.at( victimId ) );
+        CHECK( decoded.State.Entities.at( postId ) == postAtFirst );
+        postMoved += original.State.Entities.at( postId ) == postAtFirst ? 0 : 1;
+        if( original.State.Entities.count( arrowId ) )
+        {
+            CHECK( decoded.State.Entities.at( arrowId ) == original.State.Entities.at( arrowId ) );
+            ++arrowTicks;
+        }
+        ++compared;
+    }
+    MESSAGE( compared << " ticks of the bot's killcam; the arrow in " << arrowTicks << ", the post held through " << postMoved << " moves" );
+    CHECK( compared == 180 );
+    CHECK( arrowTicks > 30 );
+    CHECK( postMoved > 100 );
+
+    // Played into a world of its own (phase 3's way): the post and the killer are the same entities
+    // from the first tick to the last, never despawned for being out of view.
+    {
+        NetCore replayNet;    // before the world
+        auto replayWorld = std::make_shared<World>();
+        replayWorld->IsLoading = false;
+        replayWorld->AddCore( replayNet );
+        for( uint64_t guid : { kVictimGuid, kPostGuid } )
+        {
+            EntityHandle entity = replayWorld->CreateEntityWithGUID( guid );
+            entity->AddComponent<Transform>();
+            entity->AddComponent<NetIdentity>();
+        }
+        auto source = std::make_unique<NetReplayMemorySource>( killcam.GetSource()->GetHeader() );
+        for( size_t i = 0; i < killcam.GetSource()->GetChunkCount(); ++i )
+        {
+            std::vector<uint8_t> bytes;
+            REQUIRE( killcam.GetSource()->ReadChunk( i, bytes ) );
+            REQUIRE( source->AddChunk( std::move( bytes ) ) );
+        }
+        std::string error;
+        REQUIRE_MESSAGE( replayNet.StartPlayback( std::move( source ), &error ), error );
+        NetReplayPlayback& playback = *replayNet.GetPlayback();
+        playback.SetPauseAt( playback.GetLastTick() );
+        playback.Play();
+        double now = 0.0;
+        EntityID postHere;
+        EntityID killerHere;
+        int frames = 0;
+        bool same = true;
+        for( int frame = 0; frame < 400 && !playback.IsPaused(); ++frame )
+        {
+            now += 1.0 / 60.0;
+            replayNet.Receive( now );
+            replayNet.BeginTick();
+            replayNet.EndTick( now );
+            replayNet.WriteInterpolated( 1.0 / 60.0 );
+            replayNet.Flush( now );
+            replayWorld->Simulate();
+            const EntityHandle postNow = replayNet.FindEntity( postId );
+            const EntityHandle killerNow = replayNet.FindEntity( killerId );
+            REQUIRE( postNow );
+            REQUIRE( killerNow );
+            if( frames++ == 0 )
+            {
+                postHere = postNow->GetId();
+                killerHere = killerNow->GetId();
+            }
+            same = same && postNow->GetId() == postHere && killerNow->GetId() == killerHere;
+        }
+        CHECK( playback.IsPaused() );
+        CHECK( replayNet.GetTick() == killcam.GetDeathTick() );
+        CHECK( same );
+        CHECK( frames > 170 );
+        replayNet.Shutdown();
+    }
+
+    // A victim who leaves mid-stream takes its killcam with it.
+    REQUIRE( net.ServerNet.SendKillcam( victim, killer, 3.0 ) );
+    net.Run( 0.05 );
+    net.ClientNet.GetClient()->Disconnect( net.Now() );
+    net.Run( 0.5 );
+    CHECK( stats.Cancelled == 3 );
+    CHECK( stats.Requested == 5 );
+    CHECK( stats.Failed == 0 );
+    CHECK( net.ServerNet.GetKillcamsPending() == 0 );
 }
