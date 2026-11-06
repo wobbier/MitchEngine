@@ -222,7 +222,6 @@ void RmlRenderInterface::SubmitGeometry( const Geometry& InGeometry, Rml::Vector
 
 void RmlRenderInterface::RenderGeometry( Rml::CompiledGeometryHandle InGeometry, Rml::Vector2f InTranslation, Rml::TextureHandle InTexture )
 {
-    OPTICK_EVENT( "RmlUi::RenderGeometry", Optick::Category::UI );
     if( InGeometry == 0 )
     {
         return;
@@ -245,7 +244,6 @@ void RmlRenderInterface::RenderGeometry( Rml::CompiledGeometryHandle InGeometry,
 
 void RmlRenderInterface::ReleaseGeometry( Rml::CompiledGeometryHandle InGeometry )
 {
-    OPTICK_EVENT( "RmlUi::ReleaseGeometry", Optick::Category::UI );
     if( InGeometry == 0 )
     {
         return;

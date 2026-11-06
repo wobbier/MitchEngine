@@ -23,9 +23,14 @@ public class RmlUiLib : BaseProject
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "RmlUi/Include"));
         conf.Defines.Add("RMLUI_STATIC_LIB");
         conf.Defines.Add("RMLUI_FONT_ENGINE_FREETYPE");
-        // RmlUi's internal profiling zones, routed to Optick / the Linux Chrome trace shim through
-        // RmlUiProfiling/tracy/Tracy.hpp (private: the engine's own RmlUi includes see none).
-        if (target.Optimization != Sharpmake.Optimization.Retail)
+        // RmlUi's internal profiling zones (layout, styles, geometry), opt-in: generate with
+        // ME_RMLUI_ZONES=1 in the environment, then rebuild RmlUi. They go to Optick / the Linux
+        // Chrome trace shim through RmlUiProfiling/tracy/Tracy.hpp. Off by default because RmlUi
+        // builds a path string for every element it updates or renders while they're on (its
+        // own #ifdef RMLUI_TRACY_PROFILING code): ~0.2-0.35 ms a frame in Debug for HeroShooter's
+        // HUD even with no capture running (ME-318).
+        if (target.Optimization != Sharpmake.Optimization.Retail
+            && System.Environment.GetEnvironmentVariable("ME_RMLUI_ZONES") == "1")
         {
             conf.Defines.Add("RMLUI_TRACY_PROFILING");
             conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "RmlUiProfiling"));

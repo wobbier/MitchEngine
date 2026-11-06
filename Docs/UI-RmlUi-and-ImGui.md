@@ -42,6 +42,12 @@ flowchart LR
 - `RmlRenderInterface` compiles geometry into static buffers once and re-submits it. Per draw it sets the transform, scissor and texture. `border-radius` clipping uses stencil clip masks (inverse masks fall back to no clip). Layers, filters and shader decorators (`linear-gradient`, `box-shadow`, `filter`) aren't implemented yet; the vertex-colour `horizontal-gradient`/`vertical-gradient` decorators and `font-effect` (glow, shadow, outline) work.
 - `--no-ui` disables the composite. The editor's "Composite Game UI" render setting toggles it too.
 
+### Profiling the UI (ME-318)
+
+- **Always on:** `RmlUiCore::Update` zones and `FrameStats`-scopes its steps (`UI Hot Reload`, `UI Sync Models`, `UI Documents`, `UI Input`, `UI Context Update`, `UI Context Render`), and the render interface zones geometry compiles, texture loads and clip masks. Their cost is below measurement.
+- **Model values:** `UI.Model(...).Set` (`ModelSetNumber` / `ModelSetString`) dirties a value only when it changes, so a script may set its whole HUD every frame. RmlUi then re-evaluates and lays out only what changed.
+- **Inside RmlUi (opt-in):** generate with `ME_RMLUI_ZONES=1` in the environment and rebuild RmlUi to get its own zones for layout, style recomputes, geometry building and document loading (`ThirdParty/RmlUiProfiling/tracy/Tracy.hpp` keeps those and drops its ~1 us per-element zones). It's off by default: while on, RmlUi builds a path string for every element it updates or renders, which cost HeroShooter's HUD ~0.2-0.35 ms a frame in Debug with no capture running.
+
 ### Input, navigation, text scale, localization
 
 - Mouse, wheel, keyboard and synthesized text input feed the context each update while a document is visible (`WantsMouse()` tells game input to yield). In the editor, mouse positions map from the window into the game view.
