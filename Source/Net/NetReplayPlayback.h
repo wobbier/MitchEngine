@@ -56,8 +56,9 @@ public:
     bool IsLooping() const { return m_looping; }
     uint32_t GetLoopFrom() const { return m_loopFrom; }
     uint32_t GetLoopTo() const { return m_loopTo; }
-    // Playing forward onto or past InTick pauses there, once (< 0: none).
-    void SetPauseAt( int64_t InTick ) { m_pauseAt = InTick; }
+    // Playing forward onto or past InTick pauses there, once (< 0: none; past the end: the last tick,
+    // so the end of the replay is where it rests either way).
+    void SetPauseAt( int64_t InTick );
     int64_t GetPauseAt() const { return m_pauseAt; }
 
     // Every frame, before the client's Update: moves the playhead (playing: InFrameSeconds x the

@@ -102,6 +102,12 @@ void NetReplayPlayback::SetLoop( uint32_t InFrom, uint32_t InTo )
 }
 
 
+void NetReplayPlayback::SetPauseAt( int64_t InTick )
+{
+    m_pauseAt = InTick < 0 ? -1 : std::min<int64_t>( InTick, m_last );
+}
+
+
 bool NetReplayPlayback::Update( double InFrameSeconds )
 {
     if( m_reader.IsEmpty() )

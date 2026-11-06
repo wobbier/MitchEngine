@@ -434,6 +434,20 @@ TEST_CASE( "Replay playback: seeking anywhere (back, forward, across keyframes, 
     }
     CHECK( playback.IsPaused() );
     CHECK( playback.GetTick() == playback.GetLastTick() );
+    // A pause-at past the end rests on the last tick (and is done with); a negative one is none.
+    playback.SetPauseAt( -5 );
+    CHECK( playback.GetPauseAt() == -1 );
+    playback.SetPauseAt( static_cast<int64_t>( playback.GetLastTick() ) + 100 );
+    CHECK( playback.GetPauseAt() == playback.GetLastTick() );
+    playback.Seek( playback.GetLastTick() - 2 );
+    playback.Play();
+    for( int frame = 0; frame < 5; ++frame )
+    {
+        viewer.Frame( 1.0 / 60.0 );
+    }
+    CHECK( playback.IsPaused() );
+    CHECK( playback.GetTick() == playback.GetLastTick() );
+    CHECK( playback.GetPauseAt() < 0 );
 
     // Seeking back before the placed entity's destruction can't bring it back: the check says so.
     playback.Seek( recording.DoomedAt - 5 );

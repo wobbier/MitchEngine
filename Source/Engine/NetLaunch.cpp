@@ -30,6 +30,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
 
 namespace
 {
@@ -670,6 +671,22 @@ namespace
         OutTo = static_cast<uint32_t>( to );
         return true;
     }
+
+    // A tick on the command line: digits only (atoi would read "abc" or "-1" as a tick).
+    bool ParseTick( const std::string& InText, uint32_t& OutTick )
+    {
+        if( InText.empty() || InText.find_first_not_of( "0123456789" ) != std::string::npos )
+        {
+            return false;
+        }
+        const unsigned long long tick = std::strtoull( InText.c_str(), nullptr, 10 );
+        if( tick > std::numeric_limits<uint32_t>::max() )
+        {
+            return false;
+        }
+        OutTick = static_cast<uint32_t>( tick );
+        return true;
+    }
 }
 
 
@@ -721,15 +738,47 @@ bool NetLaunch::StartReplay( NetCore& InNet )
     }
     if( CommandLine::Has( "--replay-start-tick" ) )
     {
-        playback.Seek( CommandLine::GetInt( "--replay-start-tick", 0 ) );
+        uint32_t start = 0;
+        if( !ParseTick( CommandLine::GetString( "--replay-start-tick" ), start ) )
+        {
+            m_error = "--replay-start-tick " + CommandLine::GetString( "--replay-start-tick" ) + ": expected a tick";
+            Say( CLog::LogType::Error, "Net: " + m_error );
+            return false;
+        }
+        playback.Seek( start );
     }
+    m_replayCheck = CommandLine::Has( "--replay-check" );
     if( CommandLine::Has( "--replay-pause-at" ) )
     {
-        playback.SetPauseAt( CommandLine::GetInt( "--replay-pause-at", -1 ) );
-        // Already there (or past it): show it, paused.
-        if( playback.GetPauseAt() <= static_cast<int64_t>( playback.GetTick() ) )
+        // A tick playing can reach: in the replay, and in the loop when there is one (a pause-at it
+        // never reaches would leave --replay-check waiting forever).
+        uint32_t pauseAt = 0;
+        const std::string text = CommandLine::GetString( "--replay-pause-at" );
+        const uint32_t from = playback.IsLooping() ? playback.GetLoopFrom() : playback.GetFirstTick();
+        const uint32_t to = playback.IsLooping() ? playback.GetLoopTo() : playback.GetLastTick();
+        if( !ParseTick( text, pauseAt ) )
         {
-            playback.Seek( static_cast<double>( playback.GetPauseAt() ) );
+            m_error = "--replay-pause-at " + text + ": expected a tick";
+        }
+        else if( pauseAt < from || pauseAt > to )
+        {
+            m_error = "--replay-pause-at " + text + ": playing never reaches it (ticks " + std::to_string( from ) + "-" + std::to_string( to )
+                + ( playback.IsLooping() ? ", the loop)" : ")" );
+        }
+        else if( m_replayCheck && CommandLine::Has( "--replay-paused" ) && pauseAt > playback.GetTick() )
+        {
+            m_error = "--replay-pause-at " + text + " with --replay-paused: it never plays there to check (drop one)";
+        }
+        if( !m_error.empty() )
+        {
+            Say( CLog::LogType::Error, "Net: " + m_error );
+            return false;
+        }
+        playback.SetPauseAt( pauseAt );
+        // Already there (or past it): show it, paused.
+        if( pauseAt <= playback.GetTick() )
+        {
+            playback.Seek( static_cast<double>( pauseAt ) );
             playback.SetPauseAt( -1 );
         }
     }
@@ -738,7 +787,6 @@ bool NetLaunch::StartReplay( NetCore& InNet )
     {
         playback.Play();
     }
-    m_replayCheck = CommandLine::Has( "--replay-check" );
     if( m_replayCheck && !paused && playback.GetPauseAt() < 0 )
     {
         Say( CLog::LogType::Warning, "Replay: --replay-check checks where it pauses: give --replay-pause-at or --replay-paused" );
@@ -980,6 +1028,13 @@ void NetLaunch::Shutdown( NetCore& InNet, double InNow )
     if( !m_requested )
     {
         return;
+    }
+    // --replay-check promises an exit code: a check that never ran (the playhead never rested on its
+    // tick before the run ended) is a failure, not a pass.
+    if( m_replayCheck && !m_replayChecked && m_error.empty() )
+    {
+        m_error = "--replay-check never ran: the replay never rested on its tick";
+        Say( CLog::LogType::Error, "Replay: " + m_error );
     }
     // The replay ends with the match: its last chunk and index are written before the report
     // (which counts them) and the goodbyes.
