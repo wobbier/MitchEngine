@@ -6,7 +6,7 @@
 #include <cstdlib>
 #endif
 #include "Events/EventReceiver.h"
-#include "Engine/NetLaunch.h"
+#include "Components/Networking/SingletonInput.h"
 #include "Input/InputActions.h"
 #include <SDL_keyboard.h>
 #include <SDL_mouse.h>
@@ -576,7 +576,7 @@ TEST_CASE( "Net: networked actions lay out the command by name; the local comman
     Input input;
     input.GetActions().SetMap( map );
 
-    NetLaunch launch;
+    SingletonInput launch;
     launch.BuildCommandLayout( input );
     // Buttons by name: Ability, Fire, Jump; then the axes: Move (two), Throttle.
     CHECK( launch.GetActionIndex( "Ability" ) == 0 );
@@ -665,7 +665,7 @@ TEST_CASE( "Net: the editor's Stop drops what scripts held and aimed, and a step
     map.Contexts = { gameplay };
     Input input;
     input.GetActions().SetMap( map );
-    NetLaunch launch;
+    SingletonInput launch;
     launch.BuildCommandLayout( input );
     auto step = [&launch]( const Input& InInput ) {
         InputCommand command;
@@ -697,7 +697,7 @@ TEST_CASE( "Net: the editor's Stop drops what scripts held and aimed, and a step
     // Nothing networked, only an aim: once Net.ClearAim stops it, the engine samples nothing and
     // clears what it had (Engine::Run), so Net.LocalCommand isn't left valid with the old aim.
     Input none;
-    NetLaunch aimOnly;
+    SingletonInput aimOnly;
     aimOnly.BuildCommandLayout( none );
     CHECK_FALSE( aimOnly.HasCommandLayout() );
     aimOnly.SetAim( 10.f, 0.f );

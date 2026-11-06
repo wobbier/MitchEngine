@@ -6,7 +6,7 @@
 
 #include "Cores/NetCore.h"
 #include "Cores/PhysicsCore.h"
-#include "Engine/Engine.h"
+#include "Components/Networking/SingletonInput.h"
 #include "Engine/World.h"
 #include "Scripting/Bindings/BindingContext.h"
 #include <algorithm>
@@ -28,6 +28,14 @@ namespace
     {
         SharedPtr<World> world = ScriptBindings::GetWorld().lock();
         return world ? world->GetCore<NetCore>() : nullptr;
+    }
+
+    // The script world's sampled input (ME-297): its networked actions' layout, the local command,
+    // what scripts hold and aim. Null without a script world.
+    SingletonInput* WorldInput()
+    {
+        SharedPtr<World> world = ScriptBindings::GetWorld().lock();
+        return world ? &world->Singleton<SingletonInput>() : nullptr;
     }
 }
 
@@ -139,13 +147,17 @@ static bool Eng_Net_GetCommand( EntityID id, int* outButtons, int* outPreviousBu
 
 static int Eng_Net_GetActionIndex( const uint8_t* action ) noexcept
 {
-    return action ? GetEngine().GetNetLaunch().GetActionIndex( reinterpret_cast<const char*>( action ) ) : -1;
+    SingletonInput* input = WorldInput();
+    return action && input ? input->GetActionIndex( reinterpret_cast<const char*>( action ) ) : -1;
 }
 
 
 static void Eng_Net_SetActionOverride( int index, bool held ) noexcept
 {
-    GetEngine().GetNetLaunch().SetActionOverride( index, held );
+    if( SingletonInput* input = WorldInput() )
+    {
+        input->SetActionOverride( index, held );
+    }
 }
 
 
@@ -265,13 +277,18 @@ static float Eng_Net_GetRoundTripMs( int clientId ) noexcept
 
 static void Eng_Net_SetAim( bool has, float yaw, float pitch ) noexcept
 {
+    SingletonInput* input = WorldInput();
+    if( !input )
+    {
+        return;
+    }
     if( has )
     {
-        GetEngine().GetNetLaunch().SetAim( yaw, pitch );
+        input->SetAim( yaw, pitch );
     }
     else
     {
-        GetEngine().GetNetLaunch().ClearAim();
+        input->ClearAim();
     }
 }
 
@@ -298,7 +315,8 @@ static bool Eng_Net_GetCommandAim( EntityID id, float* outYaw, float* outPitch )
 static int Eng_Net_GetAxisIndex( const uint8_t* action, int* outCount ) noexcept
 {
     int count = 0;
-    const int index = action ? GetEngine().GetNetLaunch().GetAxisIndex( reinterpret_cast<const char*>( action ), &count ) : -1;
+    SingletonInput* input = WorldInput();
+    const int index = action && input ? input->GetAxisIndex( reinterpret_cast<const char*>( action ), &count ) : -1;
     if( outCount )
     {
         *outCount = count;
@@ -309,7 +327,8 @@ static int Eng_Net_GetAxisIndex( const uint8_t* action, int* outCount ) noexcept
 
 static int Eng_Net_GetLayoutVersion() noexcept
 {
-    return static_cast<int>( GetEngine().GetNetLaunch().GetLayoutVersion() );
+    SingletonInput* input = WorldInput();
+    return input ? static_cast<int>( input->GetLayoutVersion() ) : 0;
 }
 
 
@@ -319,16 +338,19 @@ static int Eng_Net_GetLayoutVersion() noexcept
 static int Eng_Net_GetLocalCommand( int* outButtons, int* outPreviousButtons, float* outAxes, float* outAim, double* outViewTick, int* outTick ) noexcept
 {
     NetCore* net = Net();
-    const NetLaunch& launch = GetEngine().GetNetLaunch();
+    const SingletonInput* input = WorldInput();
     InputCommand command;
     InputCommand previous;
     bool valid = false;
     if( !net )
     {
-        valid = launch.HasLocalCommand();
-        command = launch.GetLocalCommand();
-        previous = launch.GetPreviousLocalCommand();
-        command.ViewTick = -1.0;
+        if( input && input->HasLocalCommand() )
+        {
+            valid = true;
+            command = input->GetLocalCommand();
+            previous = input->GetPreviousLocalCommand();
+            command.ViewTick = -1.0;
+        }
     }
     else if( net->IsClient() )
     {
@@ -339,11 +361,11 @@ static int Eng_Net_GetLocalCommand( int* outButtons, int* outPreviousButtons, fl
             command = predictor->GetCommand();
             previous = predictor->GetPreviousCommand();
         }
-        else if( launch.HasLocalCommand() )
+        else if( input && input->HasLocalCommand() )
         {
             valid = true;
-            command = launch.GetLocalCommand();
-            previous = launch.GetPreviousLocalCommand();
+            command = input->GetLocalCommand();
+            previous = input->GetPreviousLocalCommand();
             command.Tick = net->GetTick();
         }
     }

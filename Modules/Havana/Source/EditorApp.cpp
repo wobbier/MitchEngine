@@ -12,6 +12,7 @@
 #include "Components/Camera.h"
 #include "Cores/Scripting/ScriptCore.h"
 #include "Components/Physics/Rigidbody.h"
+#include "Components/Networking/SingletonInput.h"
 #include "Components/Graphics/Model.h"
 #include "Components/Lighting/Light.h"
 #include "Components/Graphics/PostProcess.h"
@@ -566,7 +567,10 @@ void EditorApp::StopGame()
     }
     // So do the networked actions scripts held (Net.Press) and the aim they set (Net.SetAim):
     // offline they feed Net.LocalCommand, and their scripts are gone.
-    GetEngine().GetNetLaunch().ResetLocalInput();
+    if( SharedPtr<World> world = GetEngine().GetWorld().lock() )
+    {
+        world->Singleton<SingletonInput>().ResetLocalInput();
+    }
 
     UndoStack::Get().SetSuspended( false );
     if( m_wasDirtyBeforePlay )

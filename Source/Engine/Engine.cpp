@@ -7,6 +7,7 @@
 #include "Cores/TerrainCore.h"
 #include "Cores/Physics2DCore.h"
 #include "Cores/NetCore.h"
+#include "Components/Networking/SingletonInput.h"
 #include "Cores/AnimationCore.h"
 #include "Text/FontAtlas.h"
 #include "Engine/LookPresets.h"
@@ -653,7 +654,7 @@ void Engine::Run()
 
     // --server / --connect (NET-5): after the scene loads, since the handshake hashes its
     // networked entities. One tick per fixed step.
-    m_netLaunch.BuildCommandLayout( GetInput() );
+    GameWorld->Singleton<SingletonInput>().BuildCommandLayout( GetInput() );
     m_netLaunch.Start( *Net, static_cast<uint16_t>( std::lround( 1.0 / m_fixedTimeStep ) ), GameWindow, engineConfig.GetValue( "Title" ) );
 
     GameClock.Reset();
@@ -858,15 +859,17 @@ void Engine::Run()
                     // this step's edges (a tap between ticks still counts once). A client sends
                     // it; offline it's C#'s Net.LocalCommand (the layout follows the map's hot
                     // reloads until a session fixes it). A server has no local player.
+                    // The game world's SingletonInput (ME-297): a second world samples into its own.
+                    SingletonInput& worldInput = GameWorld->Singleton<SingletonInput>();
                     if( !Net->IsActive() )
                     {
-                        m_netLaunch.RefreshCommandLayout( GetInput() );
+                        worldInput.RefreshCommandLayout( GetInput() );
                     }
-                    if( m_netLaunch.HasCommandLayout() && !Net->IsServer() )
+                    if( worldInput.HasCommandLayout() && !Net->IsServer() )
                     {
                         InputCommand command;
-                        m_netLaunch.SampleCommand( GetInput(), command );
-                        m_netLaunch.RecordLocalCommand( command );
+                        worldInput.SampleCommand( GetInput(), command );
+                        worldInput.RecordLocalCommand( command );
                         if( Net->IsClient() )
                         {
                             Net->SetLocalCommand( command );
@@ -876,7 +879,7 @@ void Engine::Run()
                     {
                         // Nothing sampled (nothing networked any more, or the server): Net.LocalCommand
                         // reads invalid rather than the last command.
-                        m_netLaunch.ClearLocalCommand();
+                        worldInput.ClearLocalCommand();
                     }
                     // A server catching up after a hitch measures its clients' slack against where
                     // it will be, not against this step (NetServer caps it at kMaxCatchUpSeconds).

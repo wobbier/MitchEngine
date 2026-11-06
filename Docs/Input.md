@@ -116,7 +116,7 @@ Gamepad shaping:
 ### Loading and editing maps
 
 - **Startup.** `Engine::InitGame` loads `ProjectSettings::InputActions` (default `Assets/Config/Input.inputactions`) into the game `Input` before `Game::OnInitialize`. A game can call `GetInput().LoadActions( path )` for another map.
-- **Hot reload.** The file is an `InputActionsResource`, so edits on disk hot reload (tools builds). Context enable states and overrides are kept across the reload. Without a network session the networked actions' command layout (`NetLaunch`, `Docs/Networking.md`) follows the reload (`InputActionSystem::GetMapVersion`); a session's layout stays as it started.
+- **Hot reload.** The file is an `InputActionsResource`, so edits on disk hot reload (tools builds). Context enable states and overrides are kept across the reload. Without a network session the networked actions' command layout (the world's `SingletonInput`, `Docs/Networking.md`) follows the reload (`InputActionSystem::GetMapVersion`); a session's layout stays as it started.
 - **Asset browser.** Selecting a `.inputactions` file shows its contents, drawn by the reflection inspector, with a **Save** button. This is the generic data-asset path: `MetaBase::GetEditableType` / `GetEditableData` / `SaveEditableData`. **Create > Input Actions** makes a starter map with Move / Look / Jump.
 - **Project Settings > Input.** Shows the map path, connected pads, and a live table of every action's value and bindings, useful for checking a pad or a binding. Note that the game `Input` reads nothing while the editor has keyboard focus.
 
