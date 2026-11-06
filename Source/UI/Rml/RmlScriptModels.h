@@ -3,6 +3,7 @@
 
 #if USING( ME_RMLUI )
 
+#include "CLog.h"
 #include "JSON.h"
 #include <RmlUi/Core/Context.h>
 #include <RmlUi/Core/DataModelHandle.h>
@@ -10,6 +11,7 @@
 #include <RmlUi/Core/TypeConverter.h>
 #include <RmlUi/Core/Variant.h>
 #include <algorithm>
+#include <cmath>
 #include <deque>
 #include <map>
 #include <string>
@@ -31,6 +33,11 @@
 class RmlScriptModels
 {
 public:
+    // A list's most items. A scoreboard or inventory is a few hundred at most; a bigger count or index
+    // is a script bug (a NetId or garbage int as a row), refused with a warning rather than allocating
+    // that many items and data-for rows.
+    static constexpr int kMaxListItems = 4096;
+
     void Ensure( const std::string& InModel )
     {
         m_models[InModel];
@@ -63,6 +70,11 @@ public:
     // A list's item count: new items have no fields, removed ones are dropped from the end.
     void SetListCount( const std::string& InModel, const std::string& InKey, int InCount )
     {
+        if( InCount > kMaxListItems )
+        {
+            BRUH_NEW( "[UI] {}.{}: list count {} is over the {} item limit; ignored", InModel, InKey, InCount, kMaxListItems );
+            return;
+        }
         List& list = m_models[InModel].Lists[InKey];
         const size_t count = static_cast<size_t>( std::max( InCount, 0 ) );
         if( list.Items.size() != count )
@@ -286,14 +298,30 @@ public:
                 arguments.push_back( argument.Get<bool>() );
                 break;
             case Rml::Variant::BYTE:
-            case Rml::Variant::FLOAT:
-            case Rml::Variant::DOUBLE:
             case Rml::Variant::INT:
             case Rml::Variant::INT64:
+                arguments.push_back( argument.Get<int64_t>() );
+                break;
             case Rml::Variant::UINT:
             case Rml::Variant::UINT64:
-                arguments.push_back( argument.Get<double>() );
+                arguments.push_back( argument.Get<uint64_t>() );
                 break;
+            case Rml::Variant::FLOAT:
+            case Rml::Variant::DOUBLE:
+            {
+                // RmlUi evaluates every literal and it_index as a double; a whole one goes out as an
+                // integer so C# reads pick(2) as "2", not "2.0".
+                const double number = argument.Get<double>();
+                if( std::trunc( number ) == number && std::abs( number ) < 9.0e15 )
+                {
+                    arguments.push_back( static_cast<int64_t>( number ) );
+                }
+                else
+                {
+                    arguments.push_back( number );
+                }
+                break;
+            }
             default:
                 arguments.push_back( argument.Get<Rml::String>() );
                 break;
@@ -430,6 +458,11 @@ private:
     {
         if( InIndex < 0 )
         {
+            return nullptr;
+        }
+        if( InIndex >= kMaxListItems )
+        {
+            BRUH_NEW( "[UI] {}.{}[{}].{}: index is over the {} item limit; ignored", InModel, InKey, InIndex, InField, kMaxListItems );
             return nullptr;
         }
         List& list = m_models[InModel].Lists[InKey];

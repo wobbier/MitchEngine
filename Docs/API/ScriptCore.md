@@ -2132,11 +2132,11 @@ A data event a document raised (UIModel.PollEvent): its name and the arguments R
 
 A list in a view model (UIModel.List), bound with data-for="row : key": each item is a record of number and string fields ({{ row.name }}, data-if="row.local", "key.size" for the count; it_index is the row's index). Values live engine-side like the model's; only a change redraws, and any change re-evaluates every row of the list.
 
-- `Count` (property): How many items it has. Setting it adds items without fields or drops them from the end.
+- `Count` (property): How many items it has. Setting it adds items without fields or drops them from the end; over 4096 is refused with a warning.
 - `Key` (field): The list's key in the model.
 - `Model` (field): The model's name.
 - `Set(System.Int32,System.String,System.Boolean)` (method): Sets item index's field to a bool (stored as 1 or 0).
-- `Set(System.Int32,System.String,System.Double)` (method): Sets item index's field to a number; an index past the end grows the list.
+- `Set(System.Int32,System.String,System.Double)` (method): Sets item index's field to a number; an index past the end grows the list (up to 4096 items; past that it's refused with a warning).
 - `Set(System.Int32,System.String,System.String)` (method): Sets item index's field to a string.
 
 ## UIModel

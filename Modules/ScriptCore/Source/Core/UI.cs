@@ -188,14 +188,14 @@ public readonly struct UIList
         Key = key;
     }
 
-    /// <summary>How many items it has. Setting it adds items without fields or drops them from the end.</summary>
+    /// <summary>How many items it has. Setting it adds items without fields or drops them from the end; over 4096 is refused with a warning.</summary>
     public int Count
     {
         get { unsafe { fixed (byte* m = Engine.Utf8(Model, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* k = Engine.Utf8(Key, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.UIModel_GetListCount(m, k); } }
         set { unsafe { fixed (byte* m = Engine.Utf8(Model, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* k = Engine.Utf8(Key, stackalloc byte[Engine.Utf8StackSize])) Engine._api.UIModel_SetListCount(m, k, value); } }
     }
 
-    /// <summary>Sets item index's field to a number; an index past the end grows the list.</summary>
+    /// <summary>Sets item index's field to a number; an index past the end grows the list (up to 4096 items; past that it's refused with a warning).</summary>
     public void Set(int index, string field, double value)
     {
         unsafe

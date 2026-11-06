@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 
 namespace RmlUiTest
 {
@@ -166,6 +167,8 @@ TEST_CASE( "RmlUi: script models bind values, and data-event-click arguments rea
     REQUIRE( args.is_array() );
     REQUIRE( args.size() == 3 );
     CHECK( args[0].get<double>() == doctest::Approx( 2.0 ) );
+    // A whole number goes out as one, so C#'s UIEvent.String(0) reads "2", not "2.0".
+    CHECK( models.LastEventArgs( "menu" ) == "[2,\"fast\",true]" );
     CHECK( args[1] == "fast" );
     CHECK( args[2] == true );
     CHECK( models.PollEvent( "menu" ) == "close" );
@@ -230,7 +233,7 @@ TEST_CASE( "RmlUi: a script list drives data-for rows that grow, change and shri
     REQUIRE( elements.size() == 3 );
     elements[2]->Click();
     CHECK( models.PollEvent( "board" ) == "pick" );
-    CHECK( json::parse( models.LastEventArgs( "board" ) ) == json::array( { 2 } ) );
+    CHECK( models.LastEventArgs( "board" ) == "[2]" );   // it_index, a whole number
 
     // Shrinking drops rows from the end.
     models.SetListCount( "board", "players", 1 );
@@ -239,6 +242,16 @@ TEST_CASE( "RmlUi: a script list drives data-for rows that grow, change and shri
     CHECK( rows() == std::vector<std::string>{ "Ada:3" } );
     CHECK( models.GetListCount( "board", "players" ) == 1 );
     CHECK( models.GetListCount( "board", "nothing" ) == 0 );
+
+    // A script bug (a NetId, a garbage int) as a row or count is refused, not allocated.
+    models.SetItemString( "board", "players", RmlScriptModels::kMaxListItems, "name", "Zed" );
+    models.SetItemNumber( "board", "players", 0x10000, "kills", 1 );
+    models.SetListCount( "board", "players", std::numeric_limits<int>::max() );
+    CHECK( models.GetListCount( "board", "players" ) == 1 );
+    models.SetItemString( "board", "players", RmlScriptModels::kMaxListItems - 1, "name", "Last" );
+    CHECK( models.GetListCount( "board", "players" ) == RmlScriptModels::kMaxListItems );   // the limit itself is fine
+    models.SetListCount( "board", "players", 1 );
+    CHECK( models.GetListCount( "board", "players" ) == 1 );
     document->Close();
     rml.Frame();
 }

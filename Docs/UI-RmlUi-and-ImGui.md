@@ -91,9 +91,9 @@ Three levels, simplest first:
        if (click.Name == "pick") Pick(click.Int(0), click.String(1));
    ```
 
-   Event arguments (ME-312) are evaluated by RmlUi (literals, model values, `ev.` fields) and reach the script as a JSON array (`ModelLastEventArgs`, read by `UIEvent`): numbers, strings and bools keep their type, anything else arrives as its text. One registered event name serves every button.
+   Event arguments (ME-312) are evaluated by RmlUi (literals, model values, `ev.` fields) and reach the script as a JSON array (`ModelLastEventArgs`, read by `UIEvent`): numbers, strings and bools keep their type (RmlUi evaluates numbers as doubles; a whole one goes out as an integer, so `pick(2)` reads `"2"`, not `"2.0"`), anything else arrives as its text. One registered event name serves every button.
 
-   Values are numbers or strings (bools are 0/1) and live engine-side (`RmlUiCore::Model*`), so C# hot reloads keep the rendered state. Documents that loaded before their model reload once when it materializes (the `UI: rebound` log). Lists (ME-312) bind with `data-for`: `hud.List("players")` is a list of records whose fields are numbers or strings, `rows.Count = n` sizes it and `rows.Set(i, "name", value)` fills it (an index past the end grows it):
+   Values are numbers or strings (bools are 0/1) and live engine-side (`RmlUiCore::Model*`), so C# hot reloads keep the rendered state. Documents that loaded before their model reload once when it materializes (the `UI: rebound` log). Lists (ME-312) bind with `data-for`: `hud.List("players")` is a list of records whose fields are numbers or strings, `rows.Count = n` sizes it and `rows.Set(i, "name", value)` fills it (an index past the end grows it). A list holds at most `RmlScriptModels::kMaxListItems` (4096) items: a bigger count or index is a script bug (a NetId used as a row) and is refused with a warning naming the model and key:
 
    ```html
    <div data-for="row : players" data-class-local="row.local" data-event-click="pick(it_index)">
