@@ -185,6 +185,13 @@ NetEntityState NetReplicationState::Capture( Entity& InEntity, const NetScriptSt
 }
 
 
+size_t NetReplicationState::Unpack( const std::vector<uint8_t>& InFields, std::vector<uint8_t>& OutReflected, std::vector<uint8_t>& OutScript )
+{
+    UnpackFields( InFields, OutReflected, OutScript );
+    return InFields.size() < 2 ? 0 : InFields.size() - OutScript.size();
+}
+
+
 NetReplicationServer::NetReplicationServer( World& InWorld, NetServer& InServer )
     : m_world( InWorld )
     , m_server( InServer )

@@ -626,3 +626,52 @@ TEST_CASE( "Replay inspector: NetSchema::Describe reads recorded field bytes by 
     CHECK( NetSchema::Describe( *entity.Get(), {}, &used ).empty() );
     CHECK( used == 0 );
 }
+
+
+TEST_CASE( "Replay inspector: a recorded state's Fields unpack into its NetSchema bytes, read by name, and its script bytes (ME-316)" )
+{
+    auto world = std::make_shared<World>();
+    world->IsLoading = false;
+    EntityHandle entity = world->CreateEntity();
+    entity->AddComponent<Transform>();
+    Gauge& gauge = entity->AddComponent<Gauge>();
+    gauge.Count = 300;      // a varuint wider than a byte: the u16 size read as a field would show
+    gauge.Level = -1.25f;
+    gauge.Tag = "green";
+    gauge.Lit = true;
+    // A script writing [Replicated] bytes after the C++ ones: the state a snapshot (and a replay) records.
+    NetScriptState scripts;
+    scripts.WriteReplicated = []( Entity&, std::vector<uint8_t>& OutBytes ) {
+        OutBytes.push_back( 0xAB );
+        OutBytes.push_back( 0xCD );
+    };
+    const NetEntityState state = NetReplicationState::Capture( *entity.Get(), &scripts );
+    const std::vector<uint8_t> schema = NetSchema::Write( *entity.Get() );
+    REQUIRE( state.Fields.size() == 2 + schema.size() + 2 );
+
+    std::vector<uint8_t> reflected;
+    std::vector<uint8_t> script;
+    const size_t start = NetReplicationState::Unpack( state.Fields, reflected, script );
+    CHECK( reflected == schema );
+    CHECK( script == std::vector<uint8_t>{ 0xAB, 0xCD } );
+    CHECK( start == 2 + schema.size() );
+    const std::vector<NetSchema::FieldValue> values = NetSchema::Describe( *entity.Get(), reflected );
+    REQUIRE( values.size() == 4 );
+    CHECK( values[0].Value == "300" );
+    CHECK( values[1].Value == "-1.2500" );
+    CHECK( values[2].Value == "\"green\"" );
+    CHECK( values[3].Value == "true" );
+    // The packed bytes as they are aren't the fields: the size comes first.
+    const std::vector<NetSchema::FieldValue> packed = NetSchema::Describe( *entity.Get(), state.Fields );
+    CHECK( ( packed.empty() || packed[0].Value != "300" ) );
+
+    // No C++ fields (HeroShooter's entities): the script bytes start after the size.
+    EntityHandle scripted = world->CreateEntity();
+    scripted->AddComponent<Transform>();
+    const NetEntityState scriptOnly = NetReplicationState::Capture( *scripted.Get(), &scripts );
+    CHECK( NetReplicationState::Unpack( scriptOnly.Fields, reflected, script ) == 2 );
+    CHECK( reflected.empty() );
+    CHECK( script == std::vector<uint8_t>{ 0xAB, 0xCD } );
+    CHECK( NetReplicationState::Unpack( {}, reflected, script ) == 0 );
+    CHECK( script.empty() );
+}

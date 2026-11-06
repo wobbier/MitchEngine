@@ -11,6 +11,7 @@
 #include "Jobs/BackgroundLane.h"
 #include "Net/NetLagCompensation.h"
 #include "Net/NetReplayPlayback.h"
+#include "Net/NetReplication.h"
 #include "Net/NetSnapshot.h"
 #include "optick.h"
 #if !USING( ME_HEADLESS )
@@ -240,10 +241,12 @@ struct ReplayViewer::Shown
     bool Valid = false;
     NetReplayTick Record;
     std::map<uint32_t, NetReplayEntity> Table;
-    // Per NetId: the recorded C++ fields by name (NetSchema::Describe), where its script's bytes start,
-    // and the script's public fields as the world had them while this tick was shown (none: never read).
+    // Per NetId: the recorded C++ fields by name (NetSchema::Describe of the state's NetSchema part),
+    // where its script's bytes start in the state's Fields (after the u16 size and the NetSchema
+    // bytes: NetReplicationState::Unpack), and the script's public fields as the world had them while
+    // this tick was shown (none: never read).
     std::map<uint32_t, std::vector<NetSchema::FieldValue>> Fields;
-    std::map<uint32_t, size_t> SchemaBytes;
+    std::map<uint32_t, size_t> ScriptStart;
     std::map<uint32_t, std::map<std::string, std::string>> Script;
     int Refreshes = 0;
 };
@@ -338,7 +341,8 @@ bool ReplayViewer::Configure( NetCore& InNet, std::string& OutError )
     }
 
     // The timeline, on the background lane from a source of its own (the file is read again: the
-    // main thread never waits on it).
+    // main thread never waits on it). Low: a decode of every chunk is long CPU work, and scene reads
+    // and replay writes mustn't queue behind it.
     std::string path = m_path;
     NetReplayTimeline* timeline = m_timeline.get();
     std::atomic<bool>* cancel = &m_cancel;
@@ -355,7 +359,7 @@ bool ReplayViewer::Configure( NetCore& InNet, std::string& OutError )
             error = "cancelled";
         }
         return error;
-    } );
+    }, Jobs::BackgroundPriority::Low );
     return true;
 }
 
@@ -455,6 +459,24 @@ void ReplayViewer::Refresh( NetCore& InNet )
         return;
     }
     const uint32_t tick = record->Tick;
+    // The recorded C++ fields by name, against the world's entity (its components' layout).
+    auto describe = [&InNet]( Shown& InShown ) {
+        if( !InShown.Valid || !InShown.Fields.empty() )
+        {
+            return;
+        }
+        for( const auto& [id, state] : InShown.Record.State.Entities )
+        {
+            EntityHandle entity = InNet.FindEntity( id );
+            if( entity )
+            {
+                std::vector<uint8_t> reflected;
+                std::vector<uint8_t> script;
+                InShown.ScriptStart[id] = NetReplicationState::Unpack( state.Fields, reflected, script );
+                InShown.Fields[id] = NetSchema::Describe( *entity.Get(), reflected );
+            }
+        }
+    };
     if( !m_shown || m_shown->Tick != tick || !m_shown->Valid )
     {
         std::unique_ptr<Shown> next = std::make_unique<Shown>();
@@ -462,46 +484,24 @@ void ReplayViewer::Refresh( NetCore& InNet )
         next->Valid = true;
         next->Record = *record;
         next->Table = playback->GetEntityTable();
+        // Playing at 1x the tick before is the one shown last; else it's read once paused (below).
         if( m_shown && m_shown->Valid && m_shown->Tick + 1 == tick )
         {
             m_before = std::move( m_shown );
         }
         else
         {
-            // The tick before from the viewer's own reader (the world never showed it: no script fields).
-            m_before = std::make_unique<Shown>();
-            if( tick > playback->GetFirstTick() && m_reader->ReadTick( tick - 1, m_before->Record ) )
-            {
-                m_before->Tick = tick - 1;
-                m_before->Valid = true;
-                m_before->Table = next->Table;
-            }
+            m_before.reset();
         }
-        // The recorded C++ fields by name, against the world's entity (its components' layout).
-        for( Shown* shown : { next.get(), m_before.get() } )
-        {
-            if( !shown->Valid || !shown->Fields.empty() )
-            {
-                continue;
-            }
-            for( const auto& [id, state] : shown->Record.State.Entities )
-            {
-                EntityHandle entity = InNet.FindEntity( id );
-                if( entity )
-                {
-                    size_t bytes = 0;
-                    shown->Fields[id] = NetSchema::Describe( *entity.Get(), state.Fields, &bytes );
-                    shown->SchemaBytes[id] = bytes;
-                }
-            }
-        }
+        describe( *next );
         m_shown = std::move( next );
         if( m_selected == 0 && !m_shown->Record.Movers.empty() )
         {
             m_selected = m_shown->Record.Movers.front().NetId;
         }
 
-        // Trails: on from the last tick, or read again after a jump.
+        // Trails: on from the last tick (the ticks since it, from the reader's cached chunk when
+        // playing faster than a tick a frame), or read again after a jump or a step back.
         if( m_drawTrails )
         {
             if( m_hasTrails && tick == m_trailTick + 1 )
@@ -513,9 +513,13 @@ void ReplayViewer::Refresh( NetCore& InNet )
             }
             else
             {
-                m_trails.clear();
-                const uint32_t from = tick > playback->GetFirstTick() + kTrailTicks ? tick - kTrailTicks : playback->GetFirstTick();
-                m_reader->ForEach( from, tick, [this]( const NetReplayTick& InTick ) {
+                const bool onward = m_hasTrails && tick > m_trailTick && tick - m_trailTick <= kTrailTicks;
+                if( !onward )
+                {
+                    m_trails.clear();
+                }
+                const uint32_t first = tick > playback->GetFirstTick() + kTrailTicks ? tick - kTrailTicks : playback->GetFirstTick();
+                m_reader->ForEach( onward ? m_trailTick + 1 : first, tick, [this]( const NetReplayTick& InTick ) {
                     for( const NetReplayMover& mover : InTick.Movers )
                     {
                         m_trails[mover.NetId].emplace_back( InTick.Tick, mover.State.Position );
@@ -533,6 +537,20 @@ void ReplayViewer::Refresh( NetCore& InNet )
             }
             m_hasTrails = true;
             m_trailTick = tick;
+        }
+    }
+    // The tick before, for the inspector's changes, from the viewer's own reader (the world never
+    // showed it: no script fields): only paused (a jump, a step, a check), once per tick, so playing
+    // fast never reads and decodes a tick a frame on the main thread.
+    if( playback->IsPaused() && tick > playback->GetFirstTick() && ( !m_before || m_before->Tick + 1 != tick ) )
+    {
+        m_before = std::make_unique<Shown>();
+        m_before->Tick = tick - 1;      // tried, even if it doesn't read
+        if( m_reader->ReadTick( tick - 1, m_before->Record ) )
+        {
+            m_before->Valid = true;
+            m_before->Table = m_shown->Table;
+            describe( *m_before );
         }
     }
     // The world's script fields, read again for a few frames (a script spawned by a seek starts a frame
@@ -1098,8 +1116,8 @@ json ReplayViewer::MakeReport( NetCore& InNet )
                 const bool changed = old && i < old->size() && ( *old )[i].Value != value.Value;
                 fields.push_back( { { "component", value.Component }, { "field", value.Field }, { "value", value.Value }, { "changed", changed } } );
             }
-            const size_t schema = m_shown->SchemaBytes[id];
-            entry["scriptBytes"] = Hex( std::vector<uint8_t>( state.Fields.begin() + std::min( schema, state.Fields.size() ), state.Fields.end() ) );
+            const size_t start = std::min( m_shown->ScriptStart[id], state.Fields.size() );
+            entry["scriptBytes"] = Hex( std::vector<uint8_t>( state.Fields.begin() + static_cast<std::ptrdiff_t>( start ), state.Fields.end() ) );
         }
         entry["replicated"] = fields;
         // The script's public fields as the world has them, and which changed since the tick before.
@@ -1404,8 +1422,12 @@ std::string ReplayViewer::RunCommand( NetCore& InNet, const std::vector<std::str
     if( verb == "resim" )
     {
         uint32_t id = m_selected;
-        uint32_t from = playback->GetReader().GetKeyframeTick( playback->GetTick() );
         uint32_t to = playback->GetTick();
+        uint32_t from = playback->GetReader().GetKeyframeTick( to );
+        if( from == to && to > playback->GetFirstTick() )
+        {
+            from = playback->GetReader().GetKeyframeTick( to - 1 );     // on a keyframe: from the one before
+        }
         for( size_t i = 1; i < InArgs.size(); ++i )
         {
             if( InArgs[i].find( ':' ) != std::string::npos )
@@ -1936,9 +1958,10 @@ void ReplayViewer::DrawInspector( NetCore& InNet )
     }
     if( ImGui::CollapsingHeader( "Recorded bytes" ) )
     {
-        const size_t schema = m_shown->SchemaBytes.count( id ) ? m_shown->SchemaBytes.at( id ) : 0;
+        // [u16 size][C++ (NetSchema) bytes][script bytes].
+        const size_t start = std::min( m_shown->ScriptStart.count( id ) ? m_shown->ScriptStart.at( id ) : 0, state.Fields.size() );
         const std::vector<size_t> changed = old ? ChangedBytes( state.Fields, old->Fields ) : std::vector<size_t>();
-        ImGui::TextWrapped( "fields %s (%zu C++, %zu script)", Hex( state.Fields ).c_str(), schema, state.Fields.size() - std::min( schema, state.Fields.size() ) );
+        ImGui::TextWrapped( "fields %s (2 size, %zu C++, %zu script)", Hex( state.Fields ).c_str(), start >= 2 ? start - 2 : 0, state.Fields.size() - start );
         if( !changed.empty() )
         {
             std::string list;

@@ -54,6 +54,10 @@ struct NetScriptState
 namespace NetReplicationState
 {
     NetEntityState Capture( Entity& InEntity, const NetScriptState* InScripts = nullptr );
+    // A captured state's Fields ([u16 NetSchema size][NetSchema bytes][script bytes]) split back
+    // into its NetSchema bytes and its script bytes. Returns where the script bytes start in
+    // InFields (0 when it's too short to hold the size).
+    size_t Unpack( const std::vector<uint8_t>& InFields, std::vector<uint8_t>& OutReflected, std::vector<uint8_t>& OutScript );
 }
 
 // The server's replication messages (type byte first), as NetReplicationServer sends them and
