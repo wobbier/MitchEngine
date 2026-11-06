@@ -41,6 +41,7 @@ NetReplayPlayback::NetReplayPlayback( INetReplaySource& InSource, NetReplication
         m_first = m_reader.GetFirstTick();
         m_last = m_reader.GetLastTick();
     }
+    m_chunks = m_reader.GetChunkCount();
     m_time = m_first;
     m_loopFrom = m_first;
     m_loopTo = m_last;
@@ -108,15 +109,45 @@ void NetReplayPlayback::SetPauseAt( int64_t InTick )
 }
 
 
+void NetReplayPlayback::Refresh()
+{
+    const size_t chunks = m_reader.GetChunkCount();
+    if( chunks == m_chunks )
+    {
+        return;
+    }
+    const bool wasEmpty = m_chunks == 0;
+    m_chunks = chunks;
+    if( wasEmpty )
+    {
+        m_first = m_reader.GetFirstTick();
+        m_time = m_first;
+        m_loopFrom = m_first;
+    }
+    const bool loopToEnd = m_loopTo == m_last;
+    m_last = m_reader.GetLastTick();
+    if( loopToEnd && !m_looping )
+    {
+        m_loopTo = m_last;
+    }
+}
+
+
 bool NetReplayPlayback::Update( double InFrameSeconds )
 {
     OPTICK_EVENT( "NetReplayPlayback::Update" );
+    Refresh();
     if( m_reader.IsEmpty() )
     {
         m_error = "the replay has no ticks";
         return false;
     }
-    if( !m_paused && InFrameSeconds > 0.0 )
+    if( !m_paused && InFrameSeconds > 0.0 && m_streaming && m_time >= m_last )
+    {
+        // Waiting for the next chunk: held on the last tick there is, still playing.
+        ++m_stalledFrames;
+    }
+    else if( !m_paused && InFrameSeconds > 0.0 )
     {
         const double before = m_time;
         m_time += InFrameSeconds * GetTickRate() * m_speed;
@@ -133,7 +164,8 @@ bool NetReplayPlayback::Update( double InFrameSeconds )
         else if( m_time >= m_last )
         {
             m_time = m_last;
-            m_paused = true;
+            // A source still streaming has more coming: hold here, playing.
+            m_paused = !m_streaming;
         }
     }
     m_time = std::clamp( m_time, static_cast<double>( m_first ), static_cast<double>( m_last ) );
@@ -176,6 +208,11 @@ bool NetReplayPlayback::Present()
                 m_record = std::move( record );
                 m_hasRecord = true;
                 readShown = true;
+            }
+            else if( tick == shown + 1 )
+            {
+                m_nextRecord = std::move( record );
+                m_hasNextRecord = true;
             }
         }
         else if( !m_reader.GetError().empty() )

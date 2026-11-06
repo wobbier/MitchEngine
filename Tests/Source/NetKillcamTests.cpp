@@ -4,8 +4,12 @@
 #include "Components/Networking/NetIdentity.h"
 #include "Components/Physics/CharacterController.h"
 #include "Components/Physics/Colliders.h"
+#include "Components/Camera.h"
+#include "Components/Networking/SingletonKillcam.h"
 #include "Core/UpdateContext.h"
 #include "Cores/PhysicsCore.h"
+#include "Engine/KillcamPlayer.h"
+#include "Events/EventReceiver.h"
 #include "Net/NetKillcam.h"
 #include "Net/NetReplayPlayback.h"
 #include "Net/NetReplication.h"
@@ -1015,4 +1019,375 @@ TEST_CASE( "Net: a bot's killcams: a newer one cancels the older, waiting or str
     CHECK( stats.Requested == 5 );
     CHECK( stats.Failed == 0 );
     CHECK( net.ServerNet.GetKillcamsPending() == 0 );
+}
+
+
+TEST_CASE( "Net: the victim plays its killcam into a replay world of its own while the live world keeps its session: every tick the replay world shows is the ring's, the live client loses no snapshots and gains no corrections (ME-323 phase 3)" )
+{
+    // Phase 3's done-when: the killcam played, not just received. Client 1 predicts the victim, client 2's
+    // pawn (the killer) circles turning its aim; 24 movers, a 30 m view, 150 ms RTT and 5% loss to the
+    // victim. The victim's KillcamPlayer plays the stream into a second World (its own NetCore, the same
+    // placed pawns, a camera) at 60 Hz beside the live session, from its first chunk.
+    PhysicsCore serverPhysics;
+    PhysicsCore clientPhysics;
+    Harness net( Link( 75.f, 5.f, 0.05f, 3231 ), Link( 75.f, 5.f, 0.05f, 3232 ) );
+    net.ServerWorld->AddCore( serverPhysics );
+    net.ClientWorld->AddCore( clientPhysics );
+    constexpr uint64_t kVictimGuid = 0x7A3E11;
+    constexpr uint64_t kKillerGuid = 0x7A3E12;
+    auto placePawns = [&]( World& InWorld, bool InCharacters ) {
+        for( const auto& [guid, at] : { std::pair<uint64_t, Vector3>( kVictimGuid, Vector3( 0.f, 0.9f, 0.f ) ), std::pair<uint64_t, Vector3>( kKillerGuid, Vector3( -12.f, 0.9f, -6.f ) ) } )
+        {
+            EntityHandle pawn = InWorld.CreateEntityWithGUID( guid );
+            pawn->AddComponent<Transform>().SetPosition( at );
+            pawn->AddComponent<NetIdentity>();
+            if( InCharacters )
+            {
+                pawn->AddComponent<CharacterController>();
+            }
+        }
+    };
+    auto floor = []( World& InWorld ) {
+        EntityHandle ground = InWorld.CreateEntity();
+        ground->AddComponent<Transform>().SetPosition( Vector3( 0.f, -0.5f, 0.f ) );
+        ground->AddComponent<BoxCollider>().Size = Vector3( 200.f, 1.f, 200.f );
+    };
+    floor( *net.ServerWorld );
+    floor( *net.ClientWorld );
+    placePawns( *net.ServerWorld, true );
+    placePawns( *net.ClientWorld, true );
+    auto find = []( World& InWorld, uint64_t InGuid ) {
+        EntityHandle found;
+        InWorld.ForEachEntity( [&]( Entity& InEntity ) {
+            if( InEntity.GetGUID() == InGuid )
+            {
+                found = InWorld.GetEntity( InEntity.GetId() );
+            }
+        } );
+        return found;
+    };
+    EntityHandle victim = find( *net.ServerWorld, kVictimGuid );
+    EntityHandle killer = find( *net.ServerWorld, kKillerGuid );
+    EntityHandle clientPawn = find( *net.ClientWorld, kVictimGuid );
+    victim->GetComponent<NetIdentity>().SetOwner( 1 );
+    for( World* world : { net.ServerWorld.get(), net.ClientWorld.get() } )
+    {
+        world->Simulate();
+        world->Start();
+    }
+    std::vector<EntityHandle> movers;
+    auto drive = []( Entity& InEntity, const InputCommand& InCommand ) {
+        if( CharacterController* controller = InEntity.TryGetComponent<CharacterController>() )
+        {
+            controller->SetMoveInput( Vector3( InCommand.Axes[0], 0.f, InCommand.Axes[1] ) );
+        }
+    };
+    net.ServerNet.SetCommandHandler( drive );
+    net.ClientNet.SetCommandHandler( drive );
+    Peer* killerPeer = nullptr;
+    net.MakeCommand = [&]( uint32_t InTick ) {
+        InputCommand command;
+        if( killerPeer && net.Making == &killerPeer->Net )
+        {
+            command.Axes[0] = 0.3f * std::sin( InTick * 0.02f );
+            command.Axes[1] = 0.3f * std::cos( InTick * 0.02f );
+            command.HasAim = true;
+            command.Yaw = static_cast<float>( ( InTick * 3 ) % 360 );
+            command.Pitch = -4.f;
+            return command;
+        }
+        switch( ( InTick / 120 ) % 4 )
+        {
+        case 0: command.Axes[1] = 0.5f; break;
+        case 1: command.Axes[0] = 0.5f; break;
+        case 2: command.Axes[1] = -0.5f; break;
+        default: command.Axes[0] = -0.5f; break;
+        }
+        return command;
+    };
+    uint32_t killTick = 0;
+    std::vector<std::shared_ptr<const NetReplayTick>> ringAtKill;
+    std::map<uint32_t, NetReplayEntity> ringEntitiesAtKill;
+    net.OnServerTick = [&]( NetServer& InServer ) {
+        const float t = static_cast<float>( InServer.GetTick() ) / 60.f;
+        for( size_t i = 0; i < movers.size(); ++i )
+        {
+            movers[i]->GetComponent<Transform>().SetPosition( Vector3( static_cast<float>( i ) * 8.f - 96.f, 0.f, std::sin( t + static_cast<float>( i ) ) * 4.f ) );
+        }
+        if( killTick != 0 && InServer.GetTick() == killTick )
+        {
+            REQUIRE( net.ServerNet.SendKillcam( victim, killer, 8.0 ) );
+        }
+        if( killTick != 0 && ringAtKill.empty() && InServer.GetTick() == killTick + 1 )
+        {
+            const NetReplayRecorder& recorder = *net.ServerNet.GetRecorder();
+            ringAtKill.assign( recorder.GetRing().begin(), recorder.GetRing().end() );
+            ringEntitiesAtKill = recorder.GetRingEntities();
+        }
+        Step( serverPhysics, *net.ServerWorld );
+    };
+    net.OnClientTick = [&]( NetCore& ) { Step( clientPhysics, *net.ClientWorld ); };
+
+    // The victim's killcam player: each replay world gets the scene's placed pawns and a camera.
+    KillcamPlayer player;
+    player.GetSettings().HoldSeconds = 0.5;
+    int populated = 0;
+    player.SetPopulate( [&]( KillcamPlayer::ReplayWorld& InReplay, std::string& ) {
+        ++populated;
+        placePawns( *InReplay.Instance, false );
+        EntityHandle camera = InReplay.Instance->CreateEntity( "Killcam Camera" );
+        camera->AddComponent<Transform>();
+        camera->AddComponent<Camera>().SetCurrent();
+        return true;
+    } );
+    std::vector<KillcamEvent> events;
+    auto listening = EventSubscription::Create<KillcamEvent>( [&]( const KillcamEvent& InEvent ) { events.push_back( InEvent ); } );
+    uint64_t playingFrames = 0;
+    double lastShown = -1.0;
+    bool shownOnlyRose = true;
+    bool beyondArrived = false;
+    World* replaySeen = nullptr;
+    net.OnMillisecond = [&]( double InNow ) {
+        if( static_cast<int64_t>( InNow * 60.0 ) == static_cast<int64_t>( ( InNow - 0.001 ) * 60.0 ) )
+        {
+            return;
+        }
+        player.Update( *net.ClientWorld, 1.0 / 60.0 );
+        if( player.IsPlaying() )
+        {
+            ++playingFrames;
+            replaySeen = player.GetWorld();
+            const NetReplayPlayback& playback = *player.GetNet()->GetPlayback();
+            shownOnlyRose = shownOnlyRose && ( playback.IsPaused() || player.GetStatus().Tick >= lastShown );
+            lastShown = player.GetStatus().Tick;
+            // Never past what had arrived.
+            beyondArrived = beyondArrived || playback.GetTick() > net.ClientNet.GetKillcam().GetSource()->GetChunkCount() * 60 + player.GetStatus().FirstTick;
+        }
+    };
+
+    net.Start();
+    for( int i = 0; i < 24; ++i )
+    {
+        EntityHandle mover = net.ServerWorld->CreateEntity();
+        mover->AddComponent<Transform>();
+        mover->AddComponent<NetIdentity>();
+        movers.push_back( mover );
+    }
+    net.ServerNet.GetReplicationServer()->Settings.RelevantRadius = 30.f;
+    REQUIRE( net.ServerNet.StartRecording( "" ) );
+    net.ClientNet.Predict( clientPawn );
+    net.Run( 1.5 );
+    Peer& peer = net.AddClient( Link( 40.f, 2.f, 0.f, 3233 ), [&]( World& InWorld ) {
+        floor( InWorld );
+        placePawns( InWorld, false );
+        InWorld.Simulate();
+        InWorld.Start();
+    } );
+    killerPeer = &peer;
+    net.Run( 1.5 );
+    REQUIRE( net.ClientNet.GetClient()->GetState() == NetClient::State::Connected );
+    REQUIRE( peer.Net.GetClient()->GetClientId() == 2 );
+    killer->GetComponent<NetIdentity>().SetOwner( 2 );
+    net.Run( 9.0 );
+    CHECK_FALSE( player.IsPlaying() );
+    CHECK( populated == 0 );
+
+    NetPredictor& predictor = *net.ClientNet.GetPredictor();
+    NetServer::Client& onServer = *net.ServerNet.GetServer()->GetClients().front();
+    REQUIRE( onServer.Id == 1 );
+    struct Counts
+    {
+        uint64_t Snapshots = 0;
+        uint64_t Misses = 0;
+        int Corrections = 0;
+        int Resyncs = 0;
+        uint32_t Tick = 0;
+        double At = 0.0;
+    };
+    auto count = [&]() {
+        Counts counts;
+        counts.Snapshots = net.ClientNet.GetReplicationClient()->GetSnapshotsReceived();
+        counts.Misses = onServer.Commands.GetMissedCount();
+        counts.Corrections = predictor.GetCorrectionCount();
+        counts.Resyncs = net.ClientNet.GetClient()->GetClock().GetResyncCount();
+        counts.Tick = net.ClientNet.GetTick();
+        counts.At = net.Now();
+        return counts;
+    };
+    const Counts before = count();
+    net.Run( 4.0 );
+    const Counts baseline = count();
+    const double baselineRate = static_cast<double>( baseline.Snapshots - before.Snapshots ) / ( baseline.At - before.At );
+    const size_t liveEntities = net.ClientWorld->GetEntityCount();
+
+    // The kill. The killcam starts on the victim with its first chunk, then plays at 60 Hz while the rest
+    // stream in; 2 s into it, still playing.
+    killTick = net.ServerNet.GetServer()->GetTick() + 2;
+    double startedAt = -1.0;
+    double completeAt = -1.0;
+    for( int i = 0; i < 1000 && !( player.IsPlaying() && player.GetStatus().Tick >= player.GetStatus().FirstTick + 120.0 ); ++i )
+    {
+        net.Run( 0.01 );
+        if( startedAt < 0.0 && player.IsPlaying() )
+        {
+            startedAt = net.Now();
+            // It started on what had arrived: its first chunk, perhaps not the whole stream.
+            MESSAGE( "the killcam started with " << net.ClientNet.GetKillcam().GetChunksReady() << " of " << net.ClientNet.GetKillcam().GetChunkCount() << " chunks in" );
+        }
+        if( completeAt < 0.0 && net.ClientNet.GetKillcam().IsComplete() )
+        {
+            completeAt = net.Now();
+        }
+    }
+    REQUIRE( player.IsPlaying() );
+    REQUIRE( startedAt > 0.0 );
+    CHECK( populated == 1 );
+    CHECK( completeAt > startedAt );        // it played before the stream was whole
+    const KillcamPlayer::Status status = player.GetStatus();
+    CHECK( status.Id == 1 );
+    CHECK( status.DeathTick == killTick );
+    CHECK( status.FirstTick == killTick - 479 );
+    CHECK( status.KillerClient == 2 );
+    CHECK( status.KillerNetId == killer->GetComponent<NetIdentity>().GetNetId() );
+    CHECK( status.VictimNetId == victim->GetComponent<NetIdentity>().GetNetId() );
+    CHECK( std::abs( status.Duration - ( 479.0 / 60.0 + 0.5 ) ) < 1e-9 );
+    CHECK( status.Elapsed > 1.9 );
+    CHECK( shownOnlyRose );
+    CHECK_FALSE( beyondArrived );
+    REQUIRE( events.size() == 1 );
+    CHECK( events[0].Type == KillcamEvent::Kind::Started );
+    CHECK( events[0].Source == net.ClientWorld.get() );
+    CHECK( events[0].KillerNetId == status.KillerNetId );
+
+    // Two worlds: the replay world has its own entities (its own killer, victim, movers), the live world
+    // gained none, each has its own SingletonKillcam pointing at the player.
+    World& replay = *player.GetWorld();
+    REQUIRE( &replay != net.ClientWorld.get() );
+    CHECK( replay.IsReplayWorld );
+    CHECK_FALSE( net.ClientWorld->IsReplayWorld );
+    CHECK( net.ClientWorld->GetEntityCount() == liveEntities );
+    NetCore& replayNet = *player.GetNet();
+    EntityHandle replayKiller = replayNet.FindEntity( status.KillerNetId );
+    EntityHandle liveKiller = net.ClientNet.FindEntity( status.KillerNetId );
+    REQUIRE( replayKiller );
+    REQUIRE( liveKiller );
+    CHECK( replayKiller.GetWorld() == &replay );
+    CHECK( liveKiller.GetWorld() == net.ClientWorld.get() );
+    CHECK( replay.Singleton<SingletonKillcam>().Player == &player );
+    CHECK( replay.Singleton<SingletonKillcam>().InReplayWorld );
+    CHECK( net.ClientWorld->Singleton<SingletonKillcam>().Player == &player );
+    CHECK_FALSE( net.ClientWorld->Singleton<SingletonKillcam>().InReplayWorld );
+    CHECK_FALSE( replayNet.IsSessionLive() );
+    CHECK( replayNet.IsPlayback() );
+
+    // The killer's view: the replay world's camera at its eye (1.6 m: no CharacterController here),
+    // looking along its client's recorded aim at the tick shown.
+    REQUIRE( status.HasView );
+    const Vector3 killerAt = replayKiller->GetComponent<Transform>().GetWorldPosition();
+    CHECK( ( status.Eye - ( killerAt + Vector3( 0.f, 1.6f, 0.f ) ) ).Length() < 1e-4f );
+    Camera* view = Camera::GetMain( &replay );
+    REQUIRE( view );
+    REQUIRE( view->Parent );
+    CHECK( ( view->Parent->GetComponent<Transform>().GetWorldPosition() - status.Eye ).Length() < 1e-4f );
+    CHECK( Camera::GetMain( net.ClientWorld.get() ) != view );
+    {
+        const NetReplayTick* record = replayNet.GetPlayback()->GetRecord();
+        REQUIRE( record );
+        REQUIRE( record->Clients.size() == 1 );
+        const float recordedYaw = record->Clients[0].Command.Yaw;
+        float delta = std::fmod( std::abs( status.Yaw - recordedYaw ), 360.f );
+        delta = std::min( delta, 360.f - delta );
+        CHECK( delta <= 3.01f );    // between this tick's aim and the next's (it turns 3 degrees a tick)
+        CHECK( std::abs( status.Pitch - record->Clients[0].Command.Pitch ) < 0.1f );
+    }
+
+    // Tick for tick, the replay world is the ring as the killer's client had it: walk the playback over
+    // every tick of the killcam (the live session waits, it's the same instant) and check the world at
+    // each against the stream, and the stream against the ring.
+    REQUIRE( !ringAtKill.empty() );
+    REQUIRE( net.ClientNet.GetKillcam().IsComplete() );
+    NetReplayPlayback& playback = *replayNet.GetPlayback();
+    playback.Pause();
+    playback.Seek( status.FirstTick );
+    const uint32_t killerId = status.KillerNetId;
+    const uint32_t victimId = status.VictimNetId;
+    std::map<uint32_t, uint8_t> owners;
+    for( const auto& [id, entity] : ringEntitiesAtKill )
+    {
+        owners[id] = entity.Owner;
+    }
+    std::map<uint32_t, NetEntityState> held;
+    uint32_t walked = 0;
+    size_t statesChecked = 0;
+    for( size_t i = 0; i < ringAtKill.size(); ++i )
+    {
+        const NetReplayTick& original = *ringAtKill[i];
+        if( i > 0 )
+        {
+            for( const NetReplayEntity& entity : original.Entities )
+            {
+                owners[entity.NetId] = entity.Owner;
+            }
+        }
+        const std::set<uint32_t> relevant = Relevant( original, owners, 2, 30.f, {}, original.State.Entities.at( killerId ).GetPosition(), killerId, victimId );
+        Hold( held, original, relevant );
+        if( original.Tick < status.FirstTick )
+        {
+            continue;
+        }
+        INFO( "tick " << original.Tick );
+        if( original.Tick > status.FirstTick )
+        {
+            playback.Step( 1 );
+        }
+        player.Update( *net.ClientWorld, 0.0 );
+        REQUIRE( player.IsPlaying() );
+        REQUIRE( playback.GetTick() == original.Tick );
+        const NetReplayPlayback::Check check = replayNet.CheckPlayback();
+        for( const std::string& problem : check.Problems )
+        {
+            FAIL_CHECK( problem );
+        }
+        CHECK( check.Passed() );
+        REQUIRE( playback.GetRecord() );
+        CHECK( playback.GetRecord()->State.Entities == held );
+        statesChecked += check.Matched;
+        ++walked;
+    }
+    MESSAGE( walked << " ticks walked, " << statesChecked << " entity states in the replay world checked against the ring; " << player.GetStats().StalledFrames << " frames waited on a chunk" );
+    CHECK( walked == 480 );
+    CHECK( statesChecked > 480 * 20 );
+
+    // On the death tick it holds, then ends: the replay world goes at once.
+    for( int i = 0; i < 200 && player.IsPlaying(); ++i )
+    {
+        net.Run( 0.01 );
+    }
+    CHECK_FALSE( player.IsPlaying() );
+    CHECK( player.GetWorld() == nullptr );
+    REQUIRE( events.size() == 2 );
+    CHECK( events[1].Type == KillcamEvent::Kind::Ended );
+    CHECK( events[1].Reason == "played" );
+    CHECK( events[1].Id == 1 );
+    CHECK( player.GetStats().Played == 1 );
+    CHECK( player.GetStats().Failed == 0 );
+    CHECK( net.ClientWorld->Singleton<SingletonKillcam>().Player == &player );
+
+    // The live session meanwhile, from the kill to the end of the killcam: the snapshot rate, the clock,
+    // the prediction and the commands as they were without one; the live world still predicting its
+    // pawn, ticking on.
+    const Counts during = count();
+    const double seconds = during.At - baseline.At;
+    const double duringRate = static_cast<double>( during.Snapshots - baseline.Snapshots ) / seconds;
+    MESSAGE( "live snapshots " << baselineRate << "/s before, " << duringRate << "/s while the killcam played (" << playingFrames << " frames of it); corrections "
+                                << baseline.Corrections - before.Corrections << " before, " << during.Corrections - baseline.Corrections << " during" );
+    CHECK( baselineRate > 50.0 );
+    CHECK( std::abs( duringRate - baselineRate ) <= baselineRate * 0.05 );
+    CHECK( during.Corrections == baseline.Corrections );
+    CHECK( during.Resyncs == baseline.Resyncs );
+    CHECK( static_cast<double>( during.Misses - baseline.Misses ) / seconds <= static_cast<double>( baseline.Misses - before.Misses ) / 4.0 + 0.5 );
+    CHECK( during.Tick > baseline.Tick + static_cast<uint32_t>( seconds * 60.0 * 0.9 ) );
+    CHECK( net.ClientNet.GetPredictor()->GetPawn() == clientPawn );
+    CHECK( net.ClientWorld->GetEntityCount() == liveEntities );
+    CHECK( replaySeen != nullptr );
 }

@@ -122,6 +122,10 @@ public:
     void LateUpdateLoadedCores( const UpdateContext& inUpdateContext );
 
     bool IsLoading = true;
+    // A replay world (ME-323 phase 3: a killcam's, KillcamPlayer): it presents a recording beside the
+    // live world. Only script classes marked [ReplayWorld] get instances in it, and they run
+    // presentation only (ScriptCore::SetPresentationOnly).
+    bool IsReplayWorld = false;
 
     // ------------------------------------------------------------------ Cores
     template <typename TCore>

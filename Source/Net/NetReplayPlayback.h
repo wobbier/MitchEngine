@@ -36,7 +36,17 @@ public:
     const NetReplayHeader& GetHeader() const { return m_reader.GetHeader(); }
     bool IsEmpty() const { return m_reader.IsEmpty(); }
     uint32_t GetFirstTick() const { return m_first; }
+    // The last tick the source has (a streaming one's grows as its chunks arrive).
     uint32_t GetLastTick() const { return m_last; }
+
+    // ME-323 phase 3: a source still being filled (a killcam's NetReplayMemorySource while its chunks
+    // stream in). Each Update picks up the chunks added since, and playing onto the last tick there is
+    // waits on it (still playing, the playhead held) instead of pausing; streaming off, it pauses there
+    // as at the end of any replay. A source only ever grows at its end.
+    void SetStreaming( bool InStreaming ) { m_streaming = InStreaming; }
+    bool IsStreaming() const { return m_streaming; }
+    // Frames a streaming playback spent held on its last tick, waiting for the next chunk.
+    uint64_t GetStalledFrames() const { return m_stalledFrames; }
     uint16_t GetTickRate() const;
 
     void Play();
@@ -72,6 +82,10 @@ public:
     // The whole tick's record (commands, shots, events, movers) as of the last Update; null when the
     // replay has none for it.
     const NetReplayTick* GetRecord() const { return m_hasRecord ? &m_record : nullptr; }
+    // Between two ticks: the record of the tick after the one shown (the one the client interpolates
+    // towards), for presenting what snapshots don't carry (a killcam's recorded aim) between ticks
+    // too; null on a whole tick or when it has none.
+    const NetReplayTick* GetNextRecord() const { return m_hasNextRecord && m_nextRecord.Tick == GetTick() + 1 ? &m_nextRecord : nullptr; }
     // What each NetId is (name, prefab, owner) as of the tick fed last.
     const std::map<uint32_t, NetReplayEntity>& GetEntityTable() const { return m_table; }
     NetReplayReader& GetReader() { return m_reader; }
@@ -100,6 +114,8 @@ public:
 private:
     // Makes the client show m_time: feeds ticks on from the last one fed, or rebuilds from the tick.
     bool Present();
+    // A streaming source's new chunks: the last tick moves on.
+    void Refresh();
     bool Rebuild( uint32_t InTick );
     void Feed( const NetReplayTick& InTick );
     void Send( const class BitWriter& InMessage, bool InReliable );
@@ -127,6 +143,11 @@ private:
     std::map<uint32_t, NetReplayEntity> m_table;
     NetReplayTick m_record;
     bool m_hasRecord = false;
+    NetReplayTick m_nextRecord;
+    bool m_hasNextRecord = false;
+    bool m_streaming = false;
+    size_t m_chunks = 0;
+    uint64_t m_stalledFrames = 0;
     std::string m_error;
     uint64_t m_ticksFed = 0;
     uint64_t m_rebuilds = 0;

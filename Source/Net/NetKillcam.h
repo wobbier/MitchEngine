@@ -103,6 +103,25 @@ namespace NetKillcam
 }
 
 
+// A killcam's replay source as a playback reads it (ME-323 phase 3, the "replay transport"): the
+// receiver's NetReplayMemorySource, shared, so NetCore::StartPlayback can own a source while the
+// receiver keeps adding the chunks still streaming in (NetReplayPlayback::SetStreaming). It keeps the
+// source alive after the receiver has moved on to a newer killcam.
+class NetKillcamSource final
+    : public INetReplaySource
+{
+public:
+    explicit NetKillcamSource( std::shared_ptr<NetReplayMemorySource> InSource ) : m_source( std::move( InSource ) ) {}
+    const NetReplayHeader& GetHeader() const override { return m_source->GetHeader(); }
+    size_t GetChunkCount() const override { return m_source->GetChunkCount(); }
+    const NetReplayChunk::Info& GetChunkInfo( size_t InIndex ) const override { return m_source->GetChunkInfo( InIndex ); }
+    bool ReadChunk( size_t InIndex, std::vector<uint8_t>& OutBytes ) override { return m_source->ReadChunk( InIndex, OutBytes ); }
+
+private:
+    std::shared_ptr<NetReplayMemorySource> m_source;
+};
+
+
 // The client's side: a killcam's blobs back into a replay source.
 class NetKillcamReceiver
 {
