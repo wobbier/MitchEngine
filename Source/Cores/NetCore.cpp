@@ -7,6 +7,7 @@
 #include "Cores/PhysicsCore.h"
 #include "Engine/ProjectSettings.h"
 #include "Engine/World.h"
+#include "Jobs/BackgroundLane.h"
 #include "Net/BitStream.h"
 #include "CLog.h"
 #include "JSON.h"
@@ -120,6 +121,22 @@ namespace
             --end;
         }
         return InText.substr( 0, end );
+    }
+
+    // A server's client by id, to send to (NetServer::FindClient is const).
+    NetServer::Client* FindAccepted( NetServer* InServer, uint8_t InId )
+    {
+        if( InServer )
+        {
+            for( const auto& client : InServer->GetClients() )
+            {
+                if( client->Id == InId && client->Accepted )
+                {
+                    return client.get();
+                }
+            }
+        }
+        return nullptr;
     }
 
     const char* StateName( NetClient::State InState )
@@ -269,6 +286,9 @@ bool NetCore::Connect( INetTransport& InTransport, NetAddress InServer, const Ne
             OnRpc( 0, InReader );
         }
     };
+    // Killcams (ME-323) come as blobs.
+    m_client->OnBlob = [this]( uint32_t, std::vector<uint8_t>& InData ) { OnBlob( InData ); };
+    m_killcam.Reset();
     m_client->Connect();
     m_reportedClientState = m_client->GetState();
     return true;
@@ -1000,6 +1020,259 @@ void NetCore::RecordReplayTick()
 }
 
 
+bool NetCore::SendKillcam( const EntityHandle& InVictim, const EntityHandle& InKiller, double InSeconds )
+{
+    const NetIdentity* victim = NetworkedSelfOrAncestor( InVictim );
+    const NetIdentity* killer = NetworkedSelfOrAncestor( InKiller );
+    if( !victim || !killer )
+    {
+        return false;
+    }
+    return SendKillcam( victim->GetOwner(), victim->GetNetId(), killer->GetNetId(), InSeconds );
+}
+
+
+bool NetCore::SendKillcam( uint8_t InClient, uint32_t InVictimNetId, uint32_t InKillerNetId, double InSeconds )
+{
+    if( !m_server || !IsRecording() || InClient == 0 || InKillerNetId == 0 || !( InSeconds > 0.0 ) )
+    {
+        return false;
+    }
+    const NetServer::Client* client = m_server->FindClient( InClient );
+    const NetReplaySettings& settings = m_recorder->GetSettings();
+    const uint16_t rate = std::max<uint16_t>( 1, m_server->GetTickRate() );
+    const uint32_t ringTicks = static_cast<uint32_t>( std::max( 0.0, settings.RingSeconds * rate ) );
+    if( !client || !client->Accepted || ringTicks == 0 )
+    {
+        return false;
+    }
+    ++m_killcamStats.Requested;
+    // A newer one replaces what the client was still getting.
+    for( auto it = m_killcams.begin(); it != m_killcams.end(); )
+    {
+        if( it->Client == InClient )
+        {
+            ++m_killcamStats.Cancelled;
+            CancelKillcam( *it );
+            it = m_killcams.erase( it );
+        }
+        else
+        {
+            ++it;
+        }
+    }
+    // This tick (the one being simulated, or the next) is the death: it's cut once it's recorded.
+    const uint32_t death = m_server->GetTick();
+    const uint32_t ticks = std::min( ringTicks, static_cast<uint32_t>( std::max( 1.0, std::round( InSeconds * rate ) ) ) );
+    KillcamSend& send = m_killcams.emplace_back();
+    send.Client = InClient;
+    send.Request.Id = m_nextKillcamId++;
+    send.Request.VictimNetId = InVictimNetId;
+    send.Request.KillerNetId = InKillerNetId;
+    send.Request.DeathTick = death;
+    send.Request.FirstTick = death >= ticks - 1 ? death - ( ticks - 1 ) : 0;
+    send.Request.ChunkTicks = std::max<uint32_t>( 1, m_killcamSettings.ChunkTicks );
+    send.Request.Codec = settings.Codec;
+    return true;
+}
+
+
+void NetCore::CancelKillcam( KillcamSend& InSend )
+{
+    NetServer::Client* client = FindAccepted( m_server.get(), InSend.Client );
+    if( client )
+    {
+        for( const uint32_t id : InSend.InFlight )
+        {
+            client->Connection->CancelBlob( id );
+        }
+    }
+    // An encode under way finishes on the lane and is dropped with its future.
+}
+
+
+void NetCore::UpdateKillcams()
+{
+    if( m_killcams.empty() )
+    {
+        return;
+    }
+    OPTICK_EVENT( "NetCore::UpdateKillcams" );
+    const uint32_t newest = m_recorder && !m_recorder->GetRing().empty() ? m_recorder->GetRing().back()->Tick : 0;
+    for( auto it = m_killcams.begin(); it != m_killcams.end(); )
+    {
+        KillcamSend& send = *it;
+        NetServer::Client* client = FindAccepted( m_server.get(), send.Client );
+        if( !client )
+        {
+            ++m_killcamStats.Cancelled;
+            CancelKillcam( send );
+            it = m_killcams.erase( it );
+            continue;
+        }
+        // Its death tick is in the ring: cut and encode it on the lane, from the ring's own ticks.
+        if( !send.Encoding && !send.Streaming )
+        {
+            if( !m_recorder || !IsRecording() )
+            {
+                ++m_killcamStats.Failed;
+                it = m_killcams.erase( it );
+                continue;
+            }
+            if( newest < send.Request.DeathTick )
+            {
+                ++it;
+                continue;
+            }
+            send.Request.RelevantRadius = m_replicationServer->Settings.RelevantRadius;
+            send.Request.AlwaysRelevant = m_replicationServer->GetAlwaysRelevant();
+            send.Request.Header = m_recorder->GetHeader();
+            std::vector<std::shared_ptr<const NetReplayTick>> ring;
+            ring.reserve( m_recorder->GetRing().size() );
+            for( const auto& tick : m_recorder->GetRing() )
+            {
+                if( tick->Tick > send.Request.DeathTick )
+                {
+                    break;
+                }
+                ring.push_back( tick );
+            }
+            send.Future = Jobs::BackgroundLane::Get().Submit( "Killcam Encode",
+                [request = send.Request, ring = std::move( ring ), entities = m_recorder->GetRingEntities()]() { return NetKillcam::Encode( request, ring, entities ); } );
+            send.Encoding = true;
+        }
+        if( send.Encoding )
+        {
+            if( send.Future.wait_for( std::chrono::seconds( 0 ) ) != std::future_status::ready )
+            {
+                ++it;
+                continue;
+            }
+            NetKillcam::Encoded encoded = send.Future.get();
+            send.Encoding = false;
+            if( encoded.Blobs.empty() )
+            {
+                ++m_killcamStats.Failed;
+                CLog::Log( CLog::LogType::Warning, "Net: killcam " + std::to_string( send.Request.Id ) + " for client " + std::to_string( send.Client ) + ": " + encoded.Error );
+                it = m_killcams.erase( it );
+                continue;
+            }
+            ++m_killcamStats.Encoded;
+            m_killcamStats.Bytes += encoded.Bytes;
+            m_killcamStats.Ticks += encoded.Ticks;
+            m_killcamStats.EncodeMs += encoded.Milliseconds;
+            CLog::Log( CLog::LogType::Info, "Net: killcam " + std::to_string( send.Request.Id ) + " for client " + std::to_string( send.Client ) + ": victim #"
+                + std::to_string( send.Request.VictimNetId ) + ", killer #" + std::to_string( send.Request.KillerNetId ) + ", ticks " + std::to_string( encoded.FirstTick )
+                + "-" + std::to_string( encoded.LastTick ) + ", " + std::to_string( encoded.Bytes / 1024 ) + " KB in " + std::to_string( encoded.Blobs.size() )
+                + " chunks (" + std::to_string( encoded.RawBytes / 1024 ) + " KB before deflate; encoded in " + std::to_string( static_cast<int>( encoded.Milliseconds + 0.5 ) )
+                + " ms)" );
+            send.Queued.assign( std::make_move_iterator( encoded.Blobs.begin() ), std::make_move_iterator( encoded.Blobs.end() ) );
+            send.Streaming = true;
+        }
+        // Streaming: the blobs still on their way, then the next ones in order while there's room.
+        std::set<uint32_t> onTheirWay;
+        for( const NetBlobProgress& progress : client->Connection->GetBlobProgress() )
+        {
+            if( progress.Outgoing )
+            {
+                onTheirWay.insert( progress.Id );
+            }
+        }
+        send.InFlight.erase( std::remove_if( send.InFlight.begin(), send.InFlight.end(), [&]( uint32_t InId ) { return !onTheirWay.count( InId ); } ),
+            send.InFlight.end() );
+        bool refused = false;
+        // The first chunk goes alone, so it has the whole share and the victim can start on it; once
+        // it's acked the rest go at once (the channel sends four at a time, in order, the rest queued).
+        const bool firstOnItsWay = send.FirstId != 0 && std::find( send.InFlight.begin(), send.InFlight.end(), send.FirstId ) != send.InFlight.end();
+        while( !send.Queued.empty() && !firstOnItsWay )
+        {
+            const uint32_t id = m_server->SendBlob( *client, send.Queued.front() );
+            if( id == 0 )
+            {
+                refused = true;
+                break;
+            }
+            send.InFlight.push_back( id );
+            send.Queued.pop_front();
+            if( send.FirstId == 0 )
+            {
+                send.FirstId = id;
+                break;
+            }
+        }
+        if( refused )
+        {
+            ++m_killcamStats.Failed;
+            CLog::Log( CLog::LogType::Warning, "Net: killcam " + std::to_string( send.Request.Id ) + ": the blob channel refused a chunk" );
+            CancelKillcam( send );
+            it = m_killcams.erase( it );
+            continue;
+        }
+        if( send.Queued.empty() && send.InFlight.empty() )
+        {
+            ++m_killcamStats.Completed;
+            it = m_killcams.erase( it );
+            continue;
+        }
+        ++it;
+    }
+}
+
+
+void NetCore::OnBlob( std::vector<uint8_t>& InData )
+{
+    const uint32_t before = m_killcam.GetId();
+    const bool wasComplete = m_killcam.IsComplete();
+    switch( m_killcam.Accept( InData.data(), InData.size() ) )
+    {
+    case NetKillcamReceiver::Result::Bad:
+        CLog::Log( CLog::LogType::Warning, "Net: a killcam blob from the server doesn't read: " + m_killcam.GetError() );
+        return;
+    case NetKillcamReceiver::Result::Accepted:
+        if( m_killcam.IsComplete() && ( !wasComplete || before != m_killcam.GetId() ) )
+        {
+            CLog::Log( CLog::LogType::Info, "Net: killcam " + std::to_string( m_killcam.GetId() ) + " received: victim #" + std::to_string( m_killcam.GetVictimNetId() )
+                + ", killer #" + std::to_string( m_killcam.GetKillerNetId() ) + ", ticks " + std::to_string( m_killcam.GetFirstTick() ) + "-"
+                + std::to_string( m_killcam.GetDeathTick() ) + ", " + std::to_string( m_killcam.GetBytesReceived() / 1024 ) + " KB in "
+                + std::to_string( m_killcam.GetChunkCount() ) + " chunks" );
+        }
+        return;
+    default:
+        return;
+    }
+}
+
+
+float NetCore::GetKillcamProgress() const
+{
+    if( m_killcam.GetId() == 0 )
+    {
+        return 0.f;
+    }
+    if( m_killcam.IsComplete() )
+    {
+        return 1.f;
+    }
+    if( m_killcam.GetTotalBytes() == 0 )
+    {
+        return 0.f;
+    }
+    // The blobs whole, and what has come of the ones on their way.
+    size_t done = m_killcam.GetBytesReceived();
+    if( m_client )
+    {
+        for( const NetBlobProgress& progress : m_client->GetConnection().GetBlobProgress() )
+        {
+            if( !progress.Outgoing )
+            {
+                done += progress.DoneBytes;
+            }
+        }
+    }
+    return std::min( 0.99f, static_cast<float>( static_cast<double>( done ) / static_cast<double>( m_killcam.GetTotalBytes() ) ) );
+}
+
+
 LagCompensatedHit NetCore::PresentRaycast( const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, const EntityHandle& InShooter )
 {
     // One recorded frame of the hitboxes as they are, judged at that frame.
@@ -1144,6 +1417,17 @@ bool NetCore::WriteReport( const std::string& InPath, double InNow ) const
             replay["Error"] = m_recorder->GetError();
             report["Replay"] = replay;
         }
+        json killcams;
+        killcams["Requested"] = m_killcamStats.Requested;
+        killcams["Encoded"] = m_killcamStats.Encoded;
+        killcams["Completed"] = m_killcamStats.Completed;
+        killcams["Failed"] = m_killcamStats.Failed;
+        killcams["Cancelled"] = m_killcamStats.Cancelled;
+        killcams["Bytes"] = m_killcamStats.Bytes;
+        killcams["Ticks"] = m_killcamStats.Ticks;
+        killcams["EncodeMs"] = m_killcamStats.EncodeMs;
+        killcams["Pending"] = m_killcams.size();
+        report["Killcams"] = killcams;
     }
     else if( m_playback )
     {
@@ -1187,6 +1471,21 @@ bool NetCore::WriteReport( const std::string& InPath, double InNow ) const
         report["SnapshotRate"] = span > 0.0 ? static_cast<double>( m_lastSnapshotCount - m_firstSnapshotCount ) / span : 0.0;
         report["Mirrored"] = m_replicationClient->GetEntityCount();
         report["RenderDelayTicks"] = m_replicationClient->GetDelayTicks();
+        if( m_killcam.GetId() != 0 )
+        {
+            json killcam;
+            killcam["Id"] = m_killcam.GetId();
+            killcam["Complete"] = m_killcam.IsComplete();
+            killcam["Chunks"] = m_killcam.GetChunkCount();
+            killcam["ChunksReceived"] = m_killcam.GetChunksReceived();
+            killcam["Bytes"] = m_killcam.GetBytesReceived();
+            killcam["TotalBytes"] = m_killcam.GetTotalBytes();
+            killcam["Victim"] = m_killcam.GetVictimNetId();
+            killcam["Killer"] = m_killcam.GetKillerNetId();
+            killcam["FirstTick"] = m_killcam.GetFirstTick();
+            killcam["DeathTick"] = m_killcam.GetDeathTick();
+            report["Killcam"] = killcam;
+        }
         if( m_predictor )
         {
             report["Corrections"] = m_predictor->GetCorrectionCount();
@@ -1222,6 +1521,9 @@ void NetCore::Shutdown()
     EndPresentation();
     StopRecording();
     m_recorder.reset();
+    m_killcams.clear();
+    m_killcamStats = KillcamStats();
+    m_killcam.Reset();
     m_playback.reset();
     m_replaySource.reset();
     m_playbackError.clear();
@@ -1348,6 +1650,8 @@ void NetCore::EndTick( double InNow )
         {
             RecordReplayTick();
         }
+        // Killcams cut from the ticks recorded so far, and their next chunks.
+        UpdateKillcams();
         m_server->EndTick( InNow );
         m_transport->Update( InNow );
     }

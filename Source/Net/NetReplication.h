@@ -86,6 +86,13 @@ struct NetReplicationSettings
     uint32_t BytesPerSecond = 0;
     // Encode each client's snapshot on the job system.
     bool UseJobs = true;
+
+    // The view rule: whether a client's snapshots take an entity InDistance from its viewer (a
+    // killcam, ME-323, applies it from the killer's pawn).
+    static bool IsRelevant( float InRadius, bool InHasViewer, float InDistance, bool InAlwaysRelevant, bool InOwnedByClient )
+    {
+        return InRadius <= 0.f || !InHasViewer || InAlwaysRelevant || InOwnedByClient || InDistance <= InRadius;
+    }
 };
 
 
@@ -121,6 +128,8 @@ public:
     // Snapshot message bytes sent to every client so far.
     uint64_t GetSnapshotBytes() const { return m_snapshotBytes; }
     uint64_t GetSnapshotsSent() const { return m_snapshotsSent; }
+    // The NetIds captured this tick with NetIdentity::AlwaysRelevant (a killcam's view, ME-323).
+    std::set<uint32_t> GetAlwaysRelevant() const;
 
 private:
     struct ClientState

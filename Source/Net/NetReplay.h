@@ -369,6 +369,9 @@ public:
     // What every live NetId is, as of the newest tick (the ring's ticks carry only what changed,
     // except each KeyframeInterval-th: a killcam encoder starts its table from this).
     const std::map<uint32_t, NetReplayEntity>& GetEntities() const { return m_entities; }
+    // ... as of the ring's oldest tick (empty with no ring): a killcam (ME-323) walks the ring's
+    // ticks' Entities forward from it to name what each tick has.
+    const std::map<uint32_t, NetReplayEntity>& GetRingEntities() const { return m_ringEntities; }
     uint64_t GetTicksRecorded() const { return m_ticks; }
     // Written so far (the lane's writes that finished).
     uint64_t GetChunksWritten() const;
@@ -395,6 +398,7 @@ private:
     std::deque<std::shared_ptr<const NetReplayTick>> m_ring;
     // What every live NetId is (a chunk's first tick lists them all).
     std::map<uint32_t, NetReplayEntity> m_entities;
+    std::map<uint32_t, NetReplayEntity> m_ringEntities;    // as of m_ring.front()
     uint64_t m_ticks = 0;
     uint32_t m_chunkTicks = 0;      // ticks since the last keyframe (the next chunk's start at 0)
     uint32_t m_flushTicks = 0;      // FlushSeconds in ticks (0: no tails)

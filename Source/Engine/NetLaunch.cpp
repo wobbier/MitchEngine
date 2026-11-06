@@ -441,8 +441,22 @@ bool NetLaunch::Update( NetCore& InNet )
 
 void NetLaunch::StartRecording( NetCore& InNet )
 {
+    NetReplayHeader header;
+    const ProjectSettings& settings = ProjectSettings::Get();
+    header.Product = settings.ProductName + " " + settings.ProductVersion;
+    header.EngineCommit = ReadGitCommit( Project::GetEngineRoot() );
+    header.GameCommit = ReadGitCommit( Project::GetRoot() );
+    header.Map = GetEngine().CurrentScene ? GetEngine().CurrentScene->FilePath.GetLocalPathString() : std::string();
+    header.CommandLine = QuotedCommandLine();
+    header.RecordedAt = UtcNow( "%Y-%m-%dT%H:%M:%SZ" );
     if( !CommandLine::Has( "--record-replay" ) )
     {
+        // The ring alone (ME-323): what Net.SendKillcam cuts killcams from.
+        if( !CommandLine::Has( "--no-replay-ring" ) && InNet.StartRecording( "", header ) )
+        {
+            Say( CLog::LogType::Info, "Net: keeping a " + std::to_string( static_cast<int>( InNet.GetRecorder()->GetSettings().RingSeconds ) )
+                + " s replay ring for killcams" );
+        }
         return;
     }
     // The file: user:// goes to the user folder; a name without a folder too, under Replays/; any
@@ -463,15 +477,6 @@ void NetLaunch::StartRecording( NetCore& InNet )
     }
     std::error_code error;
     path = std::filesystem::absolute( path, error ).lexically_normal().generic_string();
-
-    NetReplayHeader header;
-    const ProjectSettings& settings = ProjectSettings::Get();
-    header.Product = settings.ProductName + " " + settings.ProductVersion;
-    header.EngineCommit = ReadGitCommit( Project::GetEngineRoot() );
-    header.GameCommit = ReadGitCommit( Project::GetRoot() );
-    header.Map = GetEngine().CurrentScene ? GetEngine().CurrentScene->FilePath.GetLocalPathString() : std::string();
-    header.CommandLine = QuotedCommandLine();
-    header.RecordedAt = UtcNow( "%Y-%m-%dT%H:%M:%SZ" );
     if( InNet.StartRecording( path, header ) )
     {
         Say( CLog::LogType::Info, "Net: recording the match replay to " + path );

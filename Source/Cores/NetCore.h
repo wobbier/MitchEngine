@@ -1,6 +1,7 @@
 #pragma once
 #include "ECS/Core.h"
 #include "Events/Event.h"
+#include "Net/NetKillcam.h"
 #include "Net/NetLagCompensation.h"
 #include "Net/NetPrediction.h"
 #include "Net/NetReplay.h"
@@ -8,6 +9,8 @@
 #include "Net/NetReplayResim.h"
 #include "Net/NetReplication.h"
 #include "Net/NetSession.h"
+#include <deque>
+#include <future>
 #include <map>
 #include <memory>
 #include <optional>
@@ -229,6 +232,42 @@ public:
     // Engine::Run: backlog ticks it dropped (they never run); the next recorded tick says so.
     void NoteDroppedTicks( uint32_t InTicks ) { m_ticksDropped += InTicks; }
 
+    // Killcams (ME-323 phase 2, NetKillcam.h). Server: the last InSeconds up to this tick (the
+    // death) from the replay ring (StartRecording, a file or the ring alone: nothing is captured
+    // twice), filtered to what the killer's client would have been sent (NET-13 relevancy from the
+    // killer's pawn, plus the victim), with the killer's commands and aim, mover, shots and events,
+    // in ME-316 chunks streamed to the victim's owner over the blob channel. It's cut once the tick
+    // is recorded (EndTick), encoded on the background lane, then sent a chunk a blob: the first
+    // alone as soon as it's encoded (the whole share is its, so the victim can start on it), the
+    // rest at once when it's acked. A newer killcam for the same client cancels the older.
+    // False without a ring, on a client, for an unknown or unaccepted client, a bot victim (owner
+    // 0), or a killer that isn't networked. InSeconds is capped to the ring.
+    struct KillcamSettings
+    {
+        uint32_t ChunkTicks = 60;       // a chunk (a blob) every this many ticks
+    };
+    void SetKillcamSettings( const KillcamSettings& InSettings ) { m_killcamSettings = InSettings; }
+    bool SendKillcam( const EntityHandle& InVictim, const EntityHandle& InKiller, double InSeconds = 8.0 );
+    bool SendKillcam( uint8_t InClient, uint32_t InVictimNetId, uint32_t InKillerNetId, double InSeconds = 8.0 );
+    struct KillcamStats
+    {
+        uint64_t Requested = 0;
+        uint64_t Encoded = 0;       // cut and queued to send
+        uint64_t Completed = 0;     // every blob acked
+        uint64_t Failed = 0;        // nothing to send (the range isn't in the ring), a send refused
+        uint64_t Cancelled = 0;     // replaced by a newer one for the client, or the client left
+        uint64_t Bytes = 0;         // encoded
+        uint64_t Ticks = 0;
+        double EncodeMs = 0.0;      // on the lane, all of them
+    };
+    const KillcamStats& GetKillcamStats() const { return m_killcamStats; }
+    // Killcams waiting for their tick, encoding or streaming (server).
+    size_t GetKillcamsPending() const { return m_killcams.size(); }
+    // Client: the newest killcam the server sent (its chunks as they arrive, in a replay source).
+    const NetKillcamReceiver& GetKillcam() const { return m_killcam; }
+    // 0..1: the newest killcam's bytes in (blobs whole and on their way); 1 once complete, 0 before any.
+    float GetKillcamProgress() const;
+
     // Match replay playback (ME-316 phase 2, NetReplayPlayback.h): plays InSource into this world
     // through the client's replication path, with no session: every networked entity follows the
     // recording (nothing is predicted), networked scripts present rather than simulate (IsClient),
@@ -348,6 +387,27 @@ private:
         InputCommand Previous;
     };
     ReplayResimTick m_replayResim;
+    // ME-323 killcams. Server: each one from its request to its last blob acked.
+    struct KillcamSend
+    {
+        NetKillcamRequest Request;
+        uint8_t Client = 0;
+        bool Encoding = false;
+        std::future<NetKillcam::Encoded> Future;
+        std::deque<std::vector<uint8_t>> Queued;
+        std::vector<uint32_t> InFlight;     // blob ids
+        bool Streaming = false;
+        uint32_t FirstId = 0;               // the first chunk's blob: it goes alone, until it's acked
+    };
+    void UpdateKillcams();
+    void CancelKillcam( KillcamSend& InSend );
+    void OnBlob( std::vector<uint8_t>& InData );
+    KillcamSettings m_killcamSettings;
+    std::vector<KillcamSend> m_killcams;
+    uint32_t m_nextKillcamId = 1;
+    KillcamStats m_killcamStats;
+    // Client.
+    NetKillcamReceiver m_killcam;
 };
 
 ME_REGISTER_CORE( NetCore )

@@ -1449,9 +1449,22 @@ void NetReplayRecorder::Record( NetReplayTick&& InTick )
     if( ringTicks > 0 )
     {
         m_ring.push_back( tick );
+        if( m_ring.size() == 1 )
+        {
+            m_ringEntities = m_entities;
+        }
         while( m_ring.size() > ringTicks )
         {
             m_ring.pop_front();
+            // The table moves on to the new oldest tick.
+            for( const NetReplayEntity& entity : m_ring.front()->Entities )
+            {
+                m_ringEntities[entity.NetId] = entity;
+            }
+            for( auto it = m_ringEntities.begin(); it != m_ringEntities.end(); )
+            {
+                it = m_ring.front()->State.Entities.count( it->first ) ? std::next( it ) : m_ringEntities.erase( it );
+            }
         }
     }
     if( m_writer )

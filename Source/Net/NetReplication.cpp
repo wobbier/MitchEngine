@@ -355,6 +355,20 @@ void NetReplicationServer::CaptureTick( uint32_t InTick )
 }
 
 
+std::set<uint32_t> NetReplicationServer::GetAlwaysRelevant() const
+{
+    std::set<uint32_t> ids;
+    for( const auto& [id, meta] : m_meta )
+    {
+        if( meta.AlwaysRelevant )
+        {
+            ids.insert( id );
+        }
+    }
+    return ids;
+}
+
+
 void NetReplicationServer::PrepareSnapshots()
 {
     std::vector<std::pair<uint8_t, ClientState*>> clients;
@@ -427,7 +441,7 @@ void NetReplicationServer::Prepare( uint8_t InClient, ClientState& InState ) con
     {
         const EntityMeta& meta = m_meta.at( id );
         const float distance = hasViewer ? ( state.GetPosition() - viewer ).Length() : 0.f;
-        const bool relevant = Settings.RelevantRadius <= 0.f || !hasViewer || meta.AlwaysRelevant || meta.Owner == InClient || distance <= Settings.RelevantRadius;
+        const bool relevant = NetReplicationSettings::IsRelevant( Settings.RelevantRadius, hasViewer, distance, meta.AlwaysRelevant, meta.Owner == InClient );
         if( !relevant )
         {
             InState.Accumulators.erase( id );
