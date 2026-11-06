@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <deque>
 #include <functional>
+#include <future>
 #include <string>
 #include <utility>
 #include <vector>
@@ -45,6 +46,7 @@ struct NetMispredictRecord
     // After each resimulated tick (Tick + 1 .. NewestTick): one per Commands[1..].
     std::vector<CharacterController::NetState> Resimulated;
     uint32_t NewestTick = 0;
+    float TickSeconds = 1.f / 60.f;
     // How far the correction moved the pawn's present (newest) state: what the visual offset hides.
     Vector3 PresentJump;
     double ResimMilliseconds = 0.0;
@@ -184,3 +186,40 @@ private:
     std::vector<TimelineEntry> m_timeline;          // by tick % size
     std::deque<NetMispredictRecord> m_mispredicts;
 };
+
+
+// A misprediction outside the game (NET-7): written as JSON (.tmp/Net/Mispredict_<tick>.json from
+// the Net Debugger or the console), read back, and run again through PhysicsCore::StepCharacter so
+// a desync reproduces offline (in a doctest, against the same level geometry).
+namespace NetMispredict
+{
+    // Every field at full precision (floats round-trip exactly), script bytes in hex.
+    std::string ToJson( const NetMispredictRecord& InRecord );
+    bool FromJson( const std::string& InText, NetMispredictRecord& OutRecord, std::string* OutError = nullptr );
+    // Writes InRecord to InPath (folders made), now; Export does it on the background lane.
+    bool Save( const NetMispredictRecord& InRecord, const std::string& InPath, std::string* OutError = nullptr );
+    bool Load( const std::string& InPath, NetMispredictRecord& OutRecord, std::string* OutError = nullptr );
+    std::future<bool> Export( NetMispredictRecord InRecord, std::string InPath );
+    // "<folder>/Mispredict_<tick>.json"
+    std::string DefaultPath( const std::string& InFolder, uint32_t InTick );
+
+    struct Repro
+    {
+        std::string Error;          // couldn't run (no start state, no controller)
+        // From Start, Commands[0] stepped: the client's prediction again, and whether it's the
+        // recorded one bit for bit (the client's side of the desync, reproduced).
+        CharacterController::NetState Predicted;
+        bool PredictedMatches = false;
+        // From Authoritative, Commands[1..] stepped: the correction's resim again, and how many
+        // ticks of it are the recorded ones bit for bit (all of them: deterministic).
+        std::vector<CharacterController::NetState> Resimulated;
+        size_t ResimMatches = 0;
+        bool Ran() const { return Error.empty(); }
+        bool Reproduced( const NetMispredictRecord& InRecord ) const { return Ran() && PredictedMatches && ResimMatches == InRecord.Resimulated.size(); }
+    };
+    // InPawn (a CharacterController in a world with the recording's level) is put in the record's
+    // states and stepped with its commands: InHandler applies each, as the predictor does, then
+    // PhysicsCore::StepCharacter. Only the mover: [Predicted] script state isn't re-run here. The
+    // pawn is left in the resim's last state.
+    Repro Run( PhysicsCore& InPhysics, Entity& InPawn, const NetMispredictRecord& InRecord, const std::function<void( Entity&, const InputCommand& )>& InHandler );
+}

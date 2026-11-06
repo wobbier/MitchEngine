@@ -8,6 +8,8 @@
 #include "Net/NetPrediction.h"
 #include "NetHarness.h"
 #include <cmath>
+#include <filesystem>
+#include <map>
 
 namespace NetPredictionTest
 {
@@ -188,6 +190,7 @@ TEST_CASE( "Net: at 150 ms RTT a walk/jump course predicts with 0 corrections; a
     net.ClientNet.SetCommandHandler( DrivePawn );
     net.MakeCommand = CourseCommand;
     int knockbackTick = -1;
+    std::map<uint32_t, CharacterController::NetState> serverStates;   // after each tick
     net.OnServerTick = [&]( NetServer& InServer ) {
         if( knockbackTick >= 0 && InServer.GetTick() == static_cast<uint32_t>( knockbackTick ) )
         {
@@ -195,6 +198,7 @@ TEST_CASE( "Net: at 150 ms RTT a walk/jump course predicts with 0 corrections; a
             controller.SetVelocity( controller.GetVelocity() + Vector3( 6.f, 5.f, 0.f ) );
         }
         Step( serverPhysics, *net.ServerWorld );
+        serverStates[InServer.GetTick()] = serverPawn->GetComponent<CharacterController>().GetNetState();
     };
     net.OnClientTick = [&]( NetCore& ) { Step( clientPhysics, *net.ClientWorld ); };
     net.Start();
@@ -243,6 +247,53 @@ TEST_CASE( "Net: at 150 ms RTT a walk/jump course predicts with 0 corrections; a
     CHECK( knocked.Commands.size() == knocked.Resimulated.size() + 1 );
     CHECK( knocked.Resimulated.size() > 5 );   // a round trip of ticks at 150 ms
     MESSAGE( "knockback at tick " << knocked.Tick << ": " << knocked.Describe() << "; " << knocked.Resimulated.size() << " ticks resimulated" );
+    CHECK( knocked.Authoritative == serverStates[knocked.Tick] );
+
+    // Exported (on the background lane), read back, and run again offline in a world of its own
+    // with the same level: the client's prediction for the tick comes out again bit for bit (the
+    // desync, reproduced: it isn't the server's), and the resim from the server's state follows the
+    // server's own ticks after it exactly (it took the same commands).
+    const std::filesystem::path folder = std::filesystem::temp_directory_path() / "MitchMispredictTests";
+    std::filesystem::remove_all( folder );
+    const std::string path = NetMispredict::DefaultPath( folder.generic_string(), knocked.Tick );
+    REQUIRE( NetMispredict::Export( knocked, path ).get() );
+    NetMispredictRecord loaded;
+    std::string error;
+    REQUIRE_MESSAGE( NetMispredict::Load( path, loaded, &error ), error );
+    CHECK( loaded.Tick == knocked.Tick );
+    CHECK( loaded.Predicted == knocked.Predicted );
+    CHECK( loaded.Authoritative == knocked.Authoritative );
+    CHECK( loaded.Start == knocked.Start );
+    CHECK( loaded.Commands == knocked.Commands );
+    CHECK( loaded.Resimulated.size() == knocked.Resimulated.size() );
+    CHECK( loaded.Describe() == knocked.Describe() );
+    {
+        PhysicsCore physics;
+        auto world = std::make_shared<World>();
+        world->IsLoading = false;
+        world->AddCore( physics );
+        BuildCourse( *world );
+        EntityHandle pawn = world->CreateEntity( "Pawn" );
+        pawn->AddComponent<Transform>().SetPosition( Vector3( 0.f, 0.9f, 0.f ) );
+        pawn->AddComponent<CharacterController>();
+        world->Simulate();
+        world->Start();
+        const NetMispredict::Repro repro = NetMispredict::Run( physics, *pawn.Get(), loaded, DrivePawn );
+        REQUIRE_MESSAGE( repro.Ran(), repro.Error );
+        CHECK( repro.PredictedMatches );
+        CHECK_FALSE( NetPredictor::Matches( repro.Predicted, serverStates[loaded.Tick], 0.001f, 0.01f ) );
+        CHECK( repro.ResimMatches == loaded.Resimulated.size() );
+        CHECK( repro.Reproduced( loaded ) );
+        size_t sameAsServer = 0;
+        for( size_t i = 0; i < repro.Resimulated.size(); ++i )
+        {
+            sameAsServer += repro.Resimulated[i] == serverStates[loaded.Tick + 1 + static_cast<uint32_t>( i )] ? 1 : 0;
+        }
+        MESSAGE( "offline repro of tick " << loaded.Tick << ": the prediction again, then " << sameAsServer << " of " << repro.Resimulated.size()
+            << " resimulated ticks the server's to the bit" );
+        CHECK( sameAsServer == repro.Resimulated.size() );
+    }
+    std::filesystem::remove_all( folder );
     // Converged: the rest of the run predicts right.
     const CharacterController::NetState server = serverPawn->GetComponent<CharacterController>().GetNetState();
     CHECK( ( server.Position - Vector3( 0.f, 0.9f, 0.f ) ).Length() > 0.f );
