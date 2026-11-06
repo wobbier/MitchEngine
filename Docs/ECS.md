@@ -151,7 +151,7 @@ ME_REGISTER_CORE( RegenCore )
 4. **Shared logic goes in pure utilities** with few reads and few side effects.
 5. **Big side effects are queued** in a singleton component and resolved at one call site (deferred FX, spawns, and the like).
 
-Singletons so far (ME-297): `SingletonInput` (the networked actions' command layout and the local command, `Components/Networking/SingletonInput.h`); `SingletonCamera` (the main camera, `Components/Camera.h`: `Camera::GetMain( world )`, was the static `Camera::CurrentCamera`).
+Singletons so far (ME-297): `SingletonInput` (the networked actions' command layout and the local command, `Components/Networking/SingletonInput.h`); `SingletonCamera` (the main camera, `Components/Camera.h`: `Camera::GetMain( world )`, was the static `Camera::CurrentCamera`). Cores, components and C# bindings reach another per-world core through their own world (`GetWorld().GetCore<T>()`, an entity's `Parent.GetWorld()`, the script world), not `GetEngine()`: `RenderCore`'s physics, a transform's scene root, `UIModel`'s RmlUi core, `NavMeshSurface`, `Animator` and `Model`. `GetEngine()` stays for what is the process's: the window, the renderer, input devices, the clock and scene loading.
 
 ## Caveats & Fragility
 

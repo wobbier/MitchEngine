@@ -3,6 +3,7 @@
 #include "Components/Navigation/NavMeshModifiers.h"
 #include "Cores/NavigationCore.h"
 #include "Engine/Engine.h"
+#include "Engine/World.h"
 #include "Engine/ProjectSettings.h"
 
 #if USING( ME_EDITOR )
@@ -80,30 +81,38 @@ NavBuildSettings NavMeshSurface::GetBuildSettings() const
 }
 
 
+// The surface's own world's navigation (ME-297: not the engine's).
+static NavigationCore* NavCoreOf( const EntityHandle& InParent )
+{
+    World* world = InParent.GetWorld();
+    return world ? world->GetCore<NavigationCore>() : nullptr;
+}
+
+
 bool NavMeshSurface::HasNavMesh() const
 {
-    NavigationCore* core = GetEngine().Navigation;
+    NavigationCore* core = NavCoreOf( Parent );
     return core && core->GetNavMesh( *this ) != nullptr;
 }
 
 
 bool NavMeshSurface::IsBaking() const
 {
-    NavigationCore* core = GetEngine().Navigation;
+    NavigationCore* core = NavCoreOf( Parent );
     return core && core->IsBaking( *this );
 }
 
 
 float NavMeshSurface::GetBakeProgress() const
 {
-    NavigationCore* core = GetEngine().Navigation;
+    NavigationCore* core = NavCoreOf( Parent );
     return core ? core->GetBakeProgress( *this ) : 0.f;
 }
 
 
 void NavMeshSurface::Bake()
 {
-    if( NavigationCore* core = GetEngine().Navigation )
+    if( NavigationCore* core = NavCoreOf( Parent ) )
     {
         core->Bake( *this, true );
     }
@@ -112,7 +121,7 @@ void NavMeshSurface::Bake()
 
 void NavMeshSurface::Clear()
 {
-    if( NavigationCore* core = GetEngine().Navigation )
+    if( NavigationCore* core = NavCoreOf( Parent ) )
     {
         core->ClearNavMesh( *this );
     }
@@ -122,7 +131,7 @@ void NavMeshSurface::Clear()
 #if USING( ME_EDITOR )
 void NavMeshSurface::OnEditorInspect()
 {
-    NavigationCore* core = GetEngine().Navigation;
+    NavigationCore* core = NavCoreOf( Parent );
     if( !core )
     {
         return;

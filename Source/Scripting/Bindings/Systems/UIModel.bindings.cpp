@@ -4,7 +4,8 @@
 #if USING( ME_SCRIPTING )
 
 #include "CLog.h"
-#include "Engine/Engine.h"
+#include "Engine/World.h"
+#include "Scripting/Bindings/BindingContext.h"
 #include "Cores/UI/RmlUiCore.h"
 
 #include <cstring>
@@ -14,9 +15,11 @@
 
 namespace
 {
+    // The script world's (ME-297).
     RmlUiCore* UiCore()
     {
-        return GetEngine().RmlUi;
+        SharedPtr<World> world = ScriptBindings::GetWorld().lock();
+        return world ? world->GetCore<RmlUiCore>() : nullptr;
     }
 
 

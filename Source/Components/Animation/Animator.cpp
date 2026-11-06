@@ -4,6 +4,7 @@
 #include "Scene/AnimationClip.h"
 #include "Cores/AnimationCore.h"
 #include "Engine/Engine.h"
+#include "Engine/World.h"
 #include "Components/Graphics/Model.h"
 #include "Components/Transform.h"
 #include <algorithm>
@@ -445,7 +446,8 @@ float Animator::GetPreviewDuration() const
 #if USING( ME_EDITOR )
 void Animator::OnEditorInspect()
 {
-    AnimationCore* core = GetEngine().Animation;
+    World* world = Parent.GetWorld();
+    AnimationCore* core = world ? world->GetCore<AnimationCore>() : nullptr;
     if( !core || !core->IsRunning() )
     {
         // Edit mode: preview a state on the model.

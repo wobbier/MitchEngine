@@ -871,7 +871,8 @@ void RenderCore::OnDeviceLost()
 void RenderCore::UpdateOccluderFades()
 {
     m_occluderTargets.clear();
-    PhysicsCore* physics = GetEngine().Physics;
+    // Its own world's physics (ME-297: a core reaches per-world state through its world).
+    PhysicsCore* physics = GetWorld().GetCore<PhysicsCore>();
     if( !physics || !m_playing )
     {
         return;

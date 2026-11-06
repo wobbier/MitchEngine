@@ -5,6 +5,7 @@
 #include "Components/Transform.h"
 #include "Mesh.h"
 #include "Engine/Engine.h"
+#include "Engine/World.h"
 #include "ECS/Entity.h"
 #include "Events/HavanaEvents.h"
 #include "Types/AssetDescriptor.h"
@@ -135,7 +136,7 @@ void Model::Reload()
     if( m_compact && IsInitialized )
     {
         for( const auto& part : m_parts ) part.Renderer->Serialize( m_savedParts[part.Path] );
-        if( RenderCore* renderer = GetEngine().ModelRenderer ) renderer->ReleaseCompactParts( *Parent.Get() );
+        if( RenderCore* renderer = Parent.GetWorld() ? Parent.GetWorld()->GetCore<RenderCore>() : nullptr ) renderer->ReleaseCompactParts( *Parent.Get() );
         m_parts.clear();
         for( auto it = m_nodes.rbegin(); it != m_nodes.rend(); ++it ) it->Pose->OnDestroy();
         m_nodes.clear();
@@ -166,7 +167,7 @@ void Model::ReloadAll( World& InWorld, const std::string& InFullPath )
     {
         ResourceCache::GetInstance().Evict( Path( MitchTree::ChannelPath( path.GetLocalPathString(), channel ) ).FullPath );
     }
-    RenderCore* renderer = GetEngine().ModelRenderer;
+    RenderCore* renderer = InWorld.GetCore<RenderCore>();
     InWorld.ForEachEntity( [&]( Entity& entity ) {
         if( Model* model = entity.TryGetComponent<Model>(); model && model->ModelPath.FullPath == fullPath ) model->Reload();
         // Foliage re-fetches its species models when its draw is rebuilt.

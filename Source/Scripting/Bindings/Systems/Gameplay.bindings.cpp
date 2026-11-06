@@ -195,12 +195,21 @@ static void Eng_Transform_LookAt( EntityID inId, const Vector3* inTarget ) noexc
 }
 
 
+// The scene root of InTransform's world (ME-297: its SceneCore, not the engine's).
+static Transform* SceneRootOf( const Transform& InTransform )
+{
+    World* world = InTransform.Parent.GetWorld();
+    SceneCore* scene = world ? world->GetCore<SceneCore>() : nullptr;
+    return scene ? scene->GetRootTransform() : nullptr;
+}
+
+
 static void Eng_Transform_GetParent( EntityID inId, EntityID* outParent ) noexcept
 {
     *outParent = EntityID{};
     Transform* transform = TransformOf( inId );
     Transform* parent = transform ? transform->GetParentTransform() : nullptr;
-    if( parent && parent->Parent && parent != GetEngine().SceneNodes->GetRootTransform() )
+    if( parent && parent->Parent && parent != SceneRootOf( *transform ) )
     {
         *outParent = parent->Parent.GetID();
     }
@@ -216,7 +225,11 @@ static void Eng_Transform_SetParent( EntityID inId, EntityID inParent ) noexcept
     }
     Transform* parent = TransformOf( inParent );
     // Keeps the world pose, like reparenting in the editor.
-    transform->SetParent( parent ? *parent : *GetEngine().SceneNodes->GetRootTransform(), true );
+    Transform* root = parent ? parent : SceneRootOf( *transform );
+    if( root )
+    {
+        transform->SetParent( *root, true );
+    }
 }
 
 // World and scenes
