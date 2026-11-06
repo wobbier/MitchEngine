@@ -24,9 +24,13 @@ class ReplayViewer;
 //   --net-timeout s          seconds of silence before a peer counts as gone (default 10)
 //   --net-report file.json   on exit: the session's summary (NetCore::WriteReport)
 //   --net-exit-when-empty    server: quit once its last client has gone (smoke tests)
-//   --record-replay [file]   server: record the match (ME-316) to file (user://Replays/<UTC time>.mreplay
-//                            when omitted; user:// paths go to the user folder, a bare file name to
-//                            user://Replays/, other relative paths to the working directory). Read it with --replay-dump
+//   --record-replay [file]   server: record the match (ME-316) to file as well as the ring (below)
+//                            (user://Replays/<UTC time>.mreplay when omitted; user:// paths go to the user folder,
+//                            a bare file name to user://Replays/, other relative paths to the working directory).
+//                            Read it with --replay-dump
+//   --no-replay-ring         server: don't keep the 12 s replay ring every server keeps by default for killcams
+//                            (ME-323: Net.SendKillcam cuts them from it; while it's kept, Replay.IsRecording is
+//                            true and Replay.Event moments go into it). --record-replay keeps it whatever this says
 //
 // Match replay playback (ME-316 phase 2), in a client build (the Player), with no session:
 //   --replay file            play a replay into the loaded scene (it must be the scene it was recorded on:
