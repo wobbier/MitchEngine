@@ -42,6 +42,10 @@ namespace NetReplayResim
         std::function<void( uint32_t InTick, const InputCommand& InCommand, const InputCommand& InPrevious )> Step;
         // The character's state after the step.
         std::function<void( CharacterController::NetState&, std::vector<uint8_t>& )> Save;
+        // Optional, before each Step: every recorded mover as the tick began (the tick before's, the
+        // character's own among them), so the other characters' capsules stand where the server had
+        // them rather than where the tick on screen has them.
+        std::function<void( const std::vector<NetReplayMover>& )> PoseOthers;
     };
 
     struct Divergence

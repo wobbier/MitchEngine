@@ -112,12 +112,19 @@ NetReplayResim::Result NetReplayResim::Run( NetReplayReader& InReader, uint32_t 
     InputCommand previous;
     CharacterController::NetState state;
     std::vector<uint8_t> bytes;
+    std::vector<NetReplayMover> lastMovers;     // the tick before's (PoseOthers)
     // Names come from the chunk's first tick on.
     const uint32_t start = InReader.GetKeyframeTick( std::max( InFrom, InReader.GetFirstTick() ) );
     const bool read = InReader.ForEach( std::min( start, InFrom ), InTo, [&]( const NetReplayTick& InTick ) {
         for( const NetReplayEntity& entity : InTick.Entities )
         {
             table[entity.NetId] = entity;
+        }
+        std::vector<NetReplayMover> movers;
+        if( InHooks.PoseOthers )
+        {
+            movers.swap( lastMovers );
+            lastMovers = InTick.Movers;
         }
         if( InTick.Tick < InFrom )
         {
@@ -159,6 +166,10 @@ NetReplayResim::Result NetReplayResim::Run( NetReplayReader& InReader, uint32_t 
             haveCommand = true;
             previous = client->Command;
             return true;
+        }
+        if( InHooks.PoseOthers )
+        {
+            InHooks.PoseOthers( movers );
         }
         InHooks.Step( InTick.Tick, client->Command, haveCommand ? previous : InputCommand() );
         state = CharacterController::NetState();
@@ -244,6 +255,11 @@ std::string NetReplayResim::Describe( const Result& InResult, size_t InMaxLines 
     if( !InResult.Error.empty() )
     {
         return text + "can't check: " + InResult.Error;
+    }
+    if( InResult.Ticks == 0 )
+    {
+        // Seeded, then nothing after it in the range: no verdict.
+        return text + "nothing to compare: only tick " + std::to_string( InResult.FirstSeed ) + " (the seed) has its mover and its owner's command in the range";
     }
     text += std::to_string( InResult.Ticks ) + " resimulated from tick " + std::to_string( InResult.FirstSeed ) + ( InResult.ComparedPredicted ? " (mover and [Predicted] state)" : " (mover)" );
     if( InResult.Gaps > 0 )

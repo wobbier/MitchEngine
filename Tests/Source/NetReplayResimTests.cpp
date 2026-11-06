@@ -30,7 +30,17 @@ namespace NetReplayResimTest
     };
 
     constexpr uint64_t kPawnGuid = 0x9A3E;
-    constexpr uint32_t kPawnId = 1;     // the only placed networked entity: its static NetId
+    constexpr uint32_t kPawnId = 1;     // the first placed networked entity: its static NetId
+    constexpr uint64_t kOtherGuid = 0x9A3F;
+    constexpr uint32_t kOtherId = 2;    // another character (nobody's): far off the course, but on its start at kOtherInWay..
+    constexpr uint32_t kOtherInWay = 100;
+    constexpr uint32_t kOtherGone = 140;
+    const Vector3 kOtherFar( -30.f, 0.9f, -30.f );
+    const Vector3 kOtherOnCourse( 0.f, 0.9f, 2.5f );    // where the pawn was at ticks ~20-40 (it's elsewhere by then)
+    Vector3 OtherAt( uint32_t InTick )
+    {
+        return InTick >= kOtherInWay && InTick < kOtherGone ? kOtherOnCourse : kOtherFar + Vector3( 0.f, 0.f, static_cast<float>( InTick ) * 0.01f );
+    }
     constexpr uint32_t kTicks = 300;
     constexpr uint32_t kKnockback = 150;    // the server shoves the pawn (a hit)
     constexpr uint32_t kRefill = 200;       // the server changes its predicted state (a pickup)
@@ -169,6 +179,11 @@ namespace NetReplayResimTest
             mover.NetId = kPawnId;
             mover.State = controller.GetNetState();
             mover.Predicted = Bytes( counter );
+            NetReplayMover& other = tick.Movers.emplace_back();
+            other.NetId = kOtherId;
+            other.State.Position = OtherAt( t );
+            other.State.Grounded = true;
+            tick.State.Entities[kOtherId].SetPose( OtherAt( t ), Quaternion() );
             chunk.push_back( std::move( tick ) );
             if( chunk.size() == 100 )
             {
@@ -238,9 +253,27 @@ TEST_CASE( "Replay resim check: a character simulated again from its recorded mo
         OutState = controller.GetNetState();
         OutPredicted = Bytes( counter );
     };
+    // Before each step, every mover as the tick began: the tick before's.
+    std::vector<NetReplayMover> posed;
+    std::map<uint32_t, std::vector<NetReplayMover>> posedAt;
+    hooks.PoseOthers = [&]( const std::vector<NetReplayMover>& InMovers ) { posed = InMovers; };
+    auto step = hooks.Step;
+    hooks.Step = [&]( uint32_t InTick, const InputCommand& InCommand, const InputCommand& InPrevious ) {
+        posedAt[InTick] = posed;
+        step( InTick, InCommand, InPrevious );
+    };
 
     const NetReplayResim::Result whole = NetReplayResim::Run( reader, kPawnId, 0, kTicks - 1, hooks );
     CheckCourse( whole );
+    REQUIRE( posedAt.size() == whole.Ticks );
+    NetReplayTick tick36;
+    REQUIRE( reader.ReadTick( 36, tick36 ) );
+    REQUIRE( posedAt.at( 37 ).size() == 2 );
+    CHECK( posedAt.at( 37 )[0].State == tick36.Movers[0].State );
+    CHECK( posedAt.at( 37 )[1].NetId == kOtherId );
+    CHECK( posedAt.at( 37 )[1].State.Position.z == doctest::Approx( kOtherFar.z + 0.36f ) );
+    CHECK( posedAt.at( 101 )[1].State.Position.z == doctest::Approx( kOtherOnCourse.z ) );
+    posedAt.clear();
     // Each tick ran with the command the server ran.
     CHECK( commands.at( 37 ).Axes == CourseCommand( 37 ).Axes );
     CHECK( commands.at( 225 ).Buttons == CourseCommand( 225 ).Buttons );
@@ -253,6 +286,14 @@ TEST_CASE( "Replay resim check: a character simulated again from its recorded mo
     CHECK( tail.Ticks == 49 );
     CHECK_FALSE( tail.Diverged() );
     CHECK( NetReplayResim::Describe( tail ).find( "every one matches the recording" ) != std::string::npos );
+
+    // A range of one tick: seeded, nothing compared, and it doesn't claim a match.
+    const NetReplayResim::Result one = NetReplayResim::Run( reader, kPawnId, 200, 200, hooks );
+    CHECK( one.Error.empty() );
+    CHECK( one.Ticks == 0 );
+    CHECK_FALSE( one.Ran() );
+    CHECK( NetReplayResim::Describe( one ).find( "nothing to compare" ) != std::string::npos );
+    CHECK( NetReplayResim::Describe( one ).find( "matches" ) == std::string::npos );
 
     // Without the [Predicted] comparison, only the shove.
     NetReplayResim::Settings moverOnly;
@@ -280,6 +321,14 @@ TEST_CASE( "Replay resim check: NetCore::ResimulateReplay runs the world's comma
     world->AddCore( net );
     BuildCourse( *world );
     EntityHandle pawn = PlacePawn( *world );
+    // Another character, on the pawn's early course at the tick shown (120); the recording has it far
+    // off when the pawn passes there, so the resim must stand it where it was each tick (its capsule
+    // in the way at tick 120 would stop the pawn at ticks ~20-40).
+    EntityHandle other = world->CreateEntityWithGUID( kOtherGuid );
+    other->SetName( "Other" );
+    other->AddComponent<Transform>().SetPosition( kOtherOnCourse );
+    other->AddComponent<NetIdentity>();
+    CharacterController& otherController = other->AddComponent<CharacterController>();
     world->Simulate();
     world->Start();
     Step( physics, *world );    // the course's bodies
@@ -316,11 +365,29 @@ TEST_CASE( "Replay resim check: NetCore::ResimulateReplay runs the world's comma
     net.WriteInterpolated( 0.0 );
     CHECK( net.GetTick() == 120 );
     CharacterController& controller = pawn->GetComponent<CharacterController>();
+    // Playback restores each character's recorded [Predicted] state at the tick shown: tick 120's.
+    CHECK( counter == 121 );
+    playback.Seek( 230 );
+    net.WriteInterpolated( 0.0 );
+    CHECK( counter == 236 );     // 231, and the server's 5 at kRefill
+    playback.Seek( 120 );
+    net.WriteInterpolated( 0.0 );
+    CHECK( counter == 121 );
     counter = 999;
     const CharacterController::NetState shown = controller.GetNetState();
+    const CharacterController::NetState otherShown = otherController.GetNetState();
+    const Vector3 otherAt = other->GetComponent<Transform>().GetWorldPosition();
+    CHECK( std::abs( otherAt.z - kOtherOnCourse.z ) < 0.01f );     // its recorded (quantized) pose
+    REQUIRE( net.FindEntity( kOtherId ).Get() == other.Get() );
+    REQUIRE( net.FindEntity( kPawnId ).Get() == pawn.Get() );
+    const float push = controller.PushStrength;
 
     const NetReplayResim::Result result = net.ResimulateReplay( kPawnId, 0, kTicks - 1 );
     CheckCourse( result );
+    // The other character is back where the tick shown has it, and the pawn pushes as before.
+    CHECK( otherController.GetNetState() == otherShown );
+    CHECK( ( other->GetComponent<Transform>().GetWorldPosition() - otherAt ).Length() < 1e-6f );
+    CHECK( controller.PushStrength == push );
     CHECK( steps == static_cast<int>( result.Ticks ) );
     CHECK( wrongCommands == 0 );
     // Put back as the tick shown has it; nothing resimulates any more.

@@ -719,6 +719,16 @@ NetReplayResim::Result NetCore::ResimulateReplay( uint32_t InNetId, uint32_t InF
     {
         m_glue.State.SavePredicted( *entity.Get(), predictedBefore );
     }
+    // It pushes nothing: the dynamic bodies stay as the tick shown has them.
+    const float pushBefore = controller->PushStrength;
+    controller->PushStrength = 0.f;
+    // The other characters stand where the recording has them each tick (their capsules are what it
+    // collides with), and go back to the tick shown after.
+    std::map<uint32_t, std::pair<CharacterController::NetState, Vector3>> othersBefore;     // and where its Transform was
+    auto otherController = [this]( uint32_t InId ) -> CharacterController* {
+        EntityHandle other = FindEntity( InId );
+        return other ? other->TryGetComponent<CharacterController>() : nullptr;
+    };
 
     NetReplayResim::Hooks hooks;
     hooks.Restore = [&]( const CharacterController::NetState& InState, const std::vector<uint8_t>& InPredicted ) {
@@ -752,9 +762,33 @@ NetReplayResim::Result NetCore::ResimulateReplay( uint32_t InNetId, uint32_t InF
             m_glue.State.SavePredicted( *entity.Get(), OutPredicted );
         }
     };
+    hooks.PoseOthers = [&]( const std::vector<NetReplayMover>& InMovers ) {
+        for( const NetReplayMover& mover : InMovers )
+        {
+            CharacterController* other = mover.NetId != InNetId ? otherController( mover.NetId ) : nullptr;
+            if( other )
+            {
+                Transform* transform = other->Parent ? other->Parent->TryGetComponent<Transform>() : nullptr;
+                othersBefore.try_emplace( mover.NetId, other->GetNetState(), transform ? transform->GetWorldPosition() : Vector3() );
+                other->SetNetState( mover.State );
+            }
+        }
+    };
     NetReplayResim::Result result = NetReplayResim::Run( reader, InNetId, InFrom, InTo, hooks, InSettings );
     m_replayResim = ReplayResimTick();
     // Back to the tick shown.
+    for( const auto& [id, shown] : othersBefore )
+    {
+        if( CharacterController* other = otherController( id ) )
+        {
+            other->SetNetState( shown.first );
+            if( Transform* transform = other->Parent ? other->Parent->TryGetComponent<Transform>() : nullptr )
+            {
+                transform->SetWorldPosition( shown.second );
+            }
+        }
+    }
+    controller->PushStrength = pushBefore;
     controller->SetNetState( before );
     if( m_glue.RestorePredicted && !predictedBefore.empty() )
     {
