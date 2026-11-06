@@ -25,7 +25,8 @@ class ConditionedTransport;
 //   --net-report file.json   on exit: the session's summary (NetCore::WriteReport)
 //   --net-exit-when-empty    server: quit once its last client has gone (smoke tests)
 //   --record-replay [file]   server: record the match (ME-316) to file (user://Replays/<UTC time>.mreplay
-//                            when omitted; user:// paths go to the user folder). Read it with --replay-dump
+//                            when omitted; user:// paths go to the user folder, a bare file name to
+//                            user://Replays/, other relative paths to the working directory). Read it with --replay-dump
 class NetLaunch
 {
 public:

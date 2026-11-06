@@ -466,7 +466,7 @@ Exit codes: 0, 1 when the file can't be read, 2 for a bad option. A file without
 | `--net-timeout s` | Seconds of silence before a peer is gone (10) |
 | `--net-report file.json` | On exit, `NetCore::WriteReport`. **Server:** clients accepted / left / timed out / rejected, snapshots sent, and per client: status, connection stats, kbps, snapshots and their rate. **Client:** state, whether it connected, timeouts, RTT and loss, snapshots received and their rate, resyncs, dilation |
 | `--net-exit-when-empty` | Server: quit once its last client has gone |
-| `--record-replay [file]` | Server: record the match (ME-316, below) to `file`, by default `user://Replays/<UTC time>.mreplay` (`user://` resolves to the user folder). Logs `Net: recording the match replay to <absolute path>`; on exit the replay is closed before the report is written. A client logs that it doesn't record yet |
+| `--record-replay [file]` | Server: record the match (ME-316, below) to `file`, by default `user://Replays/<UTC time>.mreplay` (`user://` resolves to the user folder; a bare file name such as `match.mreplay` goes to `user://Replays/` too; other relative paths are against the working directory). Logs `Net: recording the match replay to <absolute path>`; on exit the replay is closed before the report is written. A client logs that it doesn't record yet |
 
 The session starts after the scene loads, because the handshake hashes the scene's networked entities, so both sides need `--scene` (or the same startup scene).
 

@@ -533,11 +533,17 @@ void NetLaunch::StartRecording( NetCore& InNet )
     {
         return;
     }
-    // The file: user:// goes to the user folder; a name without a folder too, under Replays/.
+    // The file: user:// goes to the user folder; a name without a folder too, under Replays/; any
+    // other relative path is against the working directory.
     std::string path = CommandLine::GetString( "--record-replay" );
     if( path.empty() )
     {
         path = std::string( VFS::kUserScheme ) + "Replays/" + UtcNow( "%Y%m%d-%H%M%S" ) + ".mreplay";
+    }
+    else if( path.rfind( VFS::kUserScheme, 0 ) != 0 && !std::filesystem::path( path ).has_parent_path() )
+    {
+        // "match.mreplay": where the default ones go, not wherever the process was started.
+        path = std::string( VFS::kUserScheme ) + "Replays/" + path;
     }
     if( path.rfind( VFS::kUserScheme, 0 ) == 0 )
     {
