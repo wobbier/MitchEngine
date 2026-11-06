@@ -38,7 +38,10 @@ namespace Jobs
     {
         LaneKind Kind = LaneKind::Worker;
         const char* Name = "";             // stable until the job system shuts down
-        uint64_t BusyNanoseconds = 0;      // wall time running jobs (nested jobs aren't counted twice)
+        // Wall time running jobs. A job nested in another on the same thread is inside the outer one's
+        // time, and a job's idle time inside a nested Wait (its inner jobs running elsewhere) is left
+        // out, so lanes never count the same work twice.
+        uint64_t BusyNanoseconds = 0;
         uint32_t Jobs = 0;                 // jobs run, nested ones included
     };
 
@@ -46,7 +49,8 @@ namespace Jobs
     {
         std::vector<LaneUtilization> Lanes;
         // Time the main thread spent inside Wait (ParallelFor's included) with nothing to run: it was
-        // waiting for jobs other threads were running. Waits inside a job aren't counted.
+        // waiting for jobs other threads were running. Waits inside a job aren't counted here
+        // (they come off that job's busy time instead).
         uint64_t WaitNanoseconds = 0;
     };
 
@@ -135,7 +139,8 @@ namespace Jobs
         };
 
         // Counts one job body run on this thread for its lane: a job, and its time unless it runs
-        // inside another job on this thread (then the outer one's time already covers it).
+        // inside another job on this thread (then the outer one's time already covers it). The
+        // outermost one leaves out its idle time inside nested Waits.
         class JobTimer
         {
         public:

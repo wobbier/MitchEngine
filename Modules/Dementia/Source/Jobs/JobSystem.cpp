@@ -11,8 +11,9 @@ namespace Jobs
         thread_local uint32_t s_threadIndex = 0;
         // Job bodies running on this thread right now (nested jobs run inside a helping Wait).
         thread_local int s_jobDepth = 0;
-        // This thread's outermost job time so far: Wait subtracts what it ran from its own time.
-        thread_local uint64_t s_busyNanoseconds = 0;
+        // Time this thread's current outermost job spent idle inside nested Waits (other threads were
+        // running what it waited for): its timer leaves that out of the lane's busy time.
+        thread_local uint64_t s_nestedIdleNanoseconds = 0;
 
         int64_t NowNanoseconds()
         {
@@ -43,6 +44,7 @@ namespace Jobs
         if( m_outermost )
         {
             m_start = NowNanoseconds();
+            s_nestedIdleNanoseconds = 0;
         }
     }
 
@@ -59,8 +61,9 @@ namespace Jobs
         if( m_outermost )
         {
             const uint64_t elapsed = static_cast<uint64_t>( NowNanoseconds() - m_start );
-            s_busyNanoseconds += elapsed;
-            lane.BusyNanoseconds.fetch_add( elapsed, std::memory_order_relaxed );
+            const uint64_t idle = s_nestedIdleNanoseconds;
+            s_nestedIdleNanoseconds = 0;
+            lane.BusyNanoseconds.fetch_add( elapsed > idle ? elapsed - idle : 0, std::memory_order_relaxed );
         }
     }
 
@@ -295,19 +298,31 @@ namespace Jobs
             return;
         }
         const uint32_t threadIndex = s_threadIndex < m_queueCount ? s_threadIndex : 0;
-        // The main thread's top-level waits count as "waiting on jobs" (less the jobs it ran meanwhile).
-        const bool timeWait = s_threadIndex == 0 && s_jobDepth == 0;
-        const int64_t waitStart = timeWait ? NowNanoseconds() : 0;
-        const uint64_t busyBefore = s_busyNanoseconds;
+        // Idle stretches (nothing left to run, the rest is on other threads) are timed: the main
+        // thread's top-level waits report them as "waiting on jobs", and a wait inside a job takes
+        // them out of that job's busy time. Jobs run while helping are neither.
+        const bool timeMainWait = s_threadIndex == 0 && s_jobDepth == 0;
+        const bool timeIdle = timeMainWait || s_jobDepth > 0;
+        uint64_t idleNanoseconds = 0;
+        int64_t idleSince = 0;
         int idleSpins = 0;
         while( !counter.IsDone() )
         {
             if( m_queueCount > 0 && TryRunOne( threadIndex ) )
             {
+                if( idleSince != 0 )
+                {
+                    idleNanoseconds += static_cast<uint64_t>( NowNanoseconds() - idleSince );
+                    idleSince = 0;
+                }
                 idleSpins = 0;
                 continue;
             }
             // The remaining jobs are running on other threads.
+            if( timeIdle && idleSince == 0 )
+            {
+                idleSince = NowNanoseconds();
+            }
             if( ++idleSpins < 64 )
             {
                 std::this_thread::yield();
@@ -317,11 +332,17 @@ namespace Jobs
                 std::this_thread::sleep_for( std::chrono::microseconds( 50 ) );
             }
         }
-        if( timeWait )
+        if( idleSince != 0 )
         {
-            const uint64_t total = static_cast<uint64_t>( NowNanoseconds() - waitStart );
-            const uint64_t helped = s_busyNanoseconds - busyBefore;
-            m_waitNanoseconds.fetch_add( total > helped ? total - helped : 0, std::memory_order_relaxed );
+            idleNanoseconds += static_cast<uint64_t>( NowNanoseconds() - idleSince );
+        }
+        if( timeMainWait )
+        {
+            m_waitNanoseconds.fetch_add( idleNanoseconds, std::memory_order_relaxed );
+        }
+        else if( s_jobDepth > 0 )
+        {
+            s_nestedIdleNanoseconds += idleNanoseconds;
         }
     }
 

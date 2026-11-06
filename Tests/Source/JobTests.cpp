@@ -215,6 +215,121 @@ TEST_CASE( "Jobs: utilization counts nested jobs once each, and the main thread'
 }
 
 
+namespace
+{
+    // Waits for a counter without helping, so only the private system's workers run its jobs.
+    bool WaitWithoutHelping( const Jobs::Counter& InCounter )
+    {
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds( 5 );
+        while( !InCounter.IsDone() && std::chrono::steady_clock::now() < deadline )
+        {
+            std::this_thread::yield();
+        }
+        return InCounter.IsDone();
+    }
+
+    bool WaitForFlag( const std::atomic<bool>& InFlag )
+    {
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds( 5 );
+        while( !InFlag.load() && std::chrono::steady_clock::now() < deadline )
+        {
+            std::this_thread::yield();
+        }
+        return InFlag.load();
+    }
+
+    uint64_t TotalBusyAll( const Jobs::Utilization& InUtilization )
+    {
+        return TotalBusy( InUtilization, Jobs::LaneKind::Worker ) + TotalBusy( InUtilization, Jobs::LaneKind::Main );
+    }
+
+    constexpr std::chrono::milliseconds kWork{ 20 };
+    constexpr uint64_t kWorkNs = 20'000'000u;
+}
+
+
+TEST_CASE( "Jobs: utilization never counts the same work twice (ME-320)" )
+{
+    Jobs::Utilization utilization;
+
+    SUBCASE( "a job nested in another on the same thread is inside the outer one's time" )
+    {
+        Jobs::JobSystem single;
+        single.Init( 1 );
+        single.TakeUtilization( utilization );
+        Jobs::Counter outer;
+        single.Run( outer, [&single]() {
+            // The only worker runs the inner job itself, inside this one's Wait.
+            Jobs::Counter inner;
+            single.Run( inner, []() { SpinFor( kWork ); } );
+            single.Wait( inner );
+        } );
+        REQUIRE( WaitWithoutHelping( outer ) );
+        single.TakeUtilization( utilization );
+        CHECK( utilization.Lanes[0].Jobs == 0 );
+        CHECK( utilization.Lanes[1].Jobs == 2 );
+        CHECK( utilization.Lanes[1].BusyNanoseconds >= kWorkNs * 9 / 10 );
+        // Timing the inner job again would make it ~40 ms.
+        CHECK( utilization.Lanes[1].BusyNanoseconds < kWorkNs * 3 / 2 );
+        single.Shutdown();
+    }
+
+    SUBCASE( "a job idle in a nested Wait isn't busy while another thread runs what it waits for" )
+    {
+        Jobs::JobSystem pair;
+        pair.Init( 2 );
+        pair.TakeUtilization( utilization );
+        std::atomic<bool> started{ false };
+        Jobs::Counter work;
+        pair.Run( work, [&started]() {
+            started.store( true );
+            SpinFor( kWork );
+        } );
+        REQUIRE( WaitForFlag( started ) );
+        // The other worker takes this one; it has nothing to run but waits ~20 ms.
+        Jobs::Counter waiter;
+        pair.Run( waiter, [&pair, &work]() { pair.Wait( work ); } );
+        REQUIRE( WaitWithoutHelping( work ) );
+        REQUIRE( WaitWithoutHelping( waiter ) );
+        pair.TakeUtilization( utilization );
+        CHECK( TotalJobs( utilization ) == 2 );
+        CHECK( TotalBusyAll( utilization ) >= kWorkNs * 9 / 10 );
+        // Counting the waiter's idle time would make the lanes' sum ~40 ms.
+        CHECK( TotalBusyAll( utilization ) < kWorkNs * 3 / 2 );
+        CHECK( utilization.WaitNanoseconds == 0 );
+        pair.Shutdown();
+    }
+
+    SUBCASE( "the main thread's wait leaves out the jobs it ran while helping" )
+    {
+        Jobs::JobSystem single;
+        single.Init( 1 );
+        single.TakeUtilization( utilization );
+        // Keep the only worker busy so the main thread has to run the job itself.
+        std::atomic<bool> blocked{ false };
+        std::atomic<bool> release{ false };
+        Jobs::Counter blocker;
+        single.Run( blocker, [&blocked, &release]() {
+            blocked.store( true );
+            WaitForFlag( release );
+        } );
+        REQUIRE( WaitForFlag( blocked ) );
+        Jobs::Counter counter;
+        single.Run( counter, []() { SpinFor( kWork ); } );
+        single.Wait( counter );
+        single.TakeUtilization( utilization );
+        release.store( true );
+        REQUIRE( WaitWithoutHelping( blocker ) );
+
+        CHECK( utilization.Lanes[0].Jobs == 1 );
+        CHECK( utilization.Lanes[0].BusyNanoseconds >= kWorkNs * 9 / 10 );
+        // Counting the 20 ms it spent running the job as waiting would fail this.
+        CHECK( utilization.WaitNanoseconds < kWorkNs / 4 );
+        single.Shutdown();
+    }
+}
+
+
 TEST_CASE( "FrameStats: EndFrame reports the job workers (ME-320)" )
 {
     Jobs::JobSystem& jobs = Jobs::JobSystem::Get();
