@@ -293,7 +293,8 @@ void EditorAutomation::Tick( EditorApp& InApp )
         for( const auto& scope : stats.GetScopes() ) scopes[scope.Name] = scope.Milliseconds;
         m_profileFrames.push_back( { { "FrameMs", stats.GetFrameMilliseconds() },
             { "GpuMs", render.GpuMilliseconds }, { "RenderThreadMs", render.RenderThreadMilliseconds },
-            { "DrawCalls", render.DrawCalls }, { "Triangles", render.Triangles }, { "Scopes", scopes } } );
+            { "DrawCalls", render.DrawCalls }, { "Triangles", render.Triangles }, { "Scopes", scopes },
+            { "Workers", FrameStats::ToJson( stats.GetJobStats(), stats.GetFrameMilliseconds() ) } } );
     }
     if( m_waitFrames > 0 )
     {

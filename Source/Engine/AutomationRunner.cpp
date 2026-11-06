@@ -75,6 +75,7 @@ bool AutomationRunner::OnFrameEnd( BGFXRenderer& renderer, double frameMilliseco
     if( m_frameIndex > static_cast<uint64_t>( m_warmupFrames ) && !m_screenshotRequested )
     {
         m_frameTimes.push_back( frameMilliseconds );
+        AccumulateJobStats( FrameStats::Get().GetJobStats(), frameMilliseconds );
     }
 
     if( m_targetFrames <= 0 || m_frameIndex < static_cast<uint64_t>( m_targetFrames ) )
@@ -125,6 +126,31 @@ void AutomationRunner::Shutdown()
 }
 
 
+void AutomationRunner::AccumulateJobStats( const FrameStats::JobStats& InStats, double InFrameMilliseconds )
+{
+    // Lanes are stable while the job system runs; start over if they ever change.
+    if( m_jobTotals.Lanes.size() != InStats.Lanes.size() )
+    {
+        m_jobTotals = InStats;
+        m_jobFrames = 1;
+        m_jobFrameMilliseconds = InFrameMilliseconds;
+        return;
+    }
+    for( size_t i = 0; i < InStats.Lanes.size(); ++i )
+    {
+        m_jobTotals.Lanes[i].BusyMilliseconds += InStats.Lanes[i].BusyMilliseconds;
+        m_jobTotals.Lanes[i].Jobs += InStats.Lanes[i].Jobs;
+    }
+    m_jobTotals.Jobs += InStats.Jobs;
+    m_jobTotals.WorkerBusyMilliseconds += InStats.WorkerBusyMilliseconds;
+    m_jobTotals.MainBusyMilliseconds += InStats.MainBusyMilliseconds;
+    m_jobTotals.MainJobs += InStats.MainJobs;
+    m_jobTotals.WaitMilliseconds += InStats.WaitMilliseconds;
+    m_jobFrameMilliseconds += InFrameMilliseconds;
+    ++m_jobFrames;
+}
+
+
 void AutomationRunner::WritePerfReport() const
 {
     json report;
@@ -170,6 +196,23 @@ void AutomationRunner::WritePerfReport() const
         views.push_back( { { "Name", view.Name }, { "GpuMs", view.GpuMilliseconds }, { "Triangles", view.Triangles } } );
     }
     report["Views"] = views;
+    // The job workers, averaged over the measured frames (same shape as a profile frame's).
+    if( m_jobFrames > 0 )
+    {
+        const double frames = static_cast<double>( m_jobFrames );
+        FrameStats::JobStats average = m_jobTotals;
+        for( FrameStats::JobLane& lane : average.Lanes )
+        {
+            lane.BusyMilliseconds /= frames;
+            lane.Jobs = static_cast<uint32_t>( lane.Jobs / frames + 0.5 );
+        }
+        average.Jobs = static_cast<uint32_t>( average.Jobs / frames + 0.5 );
+        average.MainJobs = static_cast<uint32_t>( average.MainJobs / frames + 0.5 );
+        average.WorkerBusyMilliseconds /= frames;
+        average.MainBusyMilliseconds /= frames;
+        average.WaitMilliseconds /= frames;
+        report["Workers"] = FrameStats::ToJson( average, m_jobFrameMilliseconds / frames );
+    }
     // The hardware profile's budgets: last frame's values, and peaks over the measured frames.
     if( HardwareBudget::Get().GetActiveProfile() )
     {

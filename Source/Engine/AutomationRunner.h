@@ -3,13 +3,15 @@
 #include <vector>
 #include <cstdint>
 #include <chrono>
+#include "Profiling/FrameStats.h"
 
 class BGFXRenderer;
 
 // Drives unattended runs from the command line:
 //   --frames N            run N frames then exit (or screenshot then exit)
 //   --screenshot <png>    capture the backbuffer after --frames and save it
-//   --perf-report <json>  record per-frame CPU times and write a summary on exit
+//   --perf-report <json>  record per-frame CPU times and write a summary on exit (with the job
+//                         workers' average busy ms, jobs and main-thread wait per frame: "Workers")
 //   --warmup N            frames to ignore at the start of the perf report (default 30)
 //   --trace <path>        record a profiler capture of the measured frames (Chrome trace JSON on Linux)
 //   --exit                exit once the above finish (implied by --frames)
@@ -38,6 +40,7 @@ public:
 
 private:
     void WritePerfReport() const;
+    void AccumulateJobStats( const FrameStats::JobStats& InStats, double InFrameMilliseconds );
 
     bool m_isActive = false;
     int m_targetFrames = -1;
@@ -54,4 +57,8 @@ private:
     // Time between consecutive frame ends (includes frame limiting / vsync waits).
     std::vector<double> m_wallFrameTimes;
     double m_lastFrameEndSeconds = -1.0;
+    // The measured frames' job system totals (FrameStats::GetJobStats summed), for "Workers".
+    FrameStats::JobStats m_jobTotals;
+    uint64_t m_jobFrames = 0;
+    double m_jobFrameMilliseconds = 0.0;
 };

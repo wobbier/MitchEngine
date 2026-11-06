@@ -237,7 +237,7 @@ The script runs one command per frame after a short warm-up and logs `[editor-ex
 |------|------|
 | `wait N`, `log text` | Wait frames, log |
 | `model-compact`, `model-expose path-or-name` | Compact the selected expanded Model, or expose one of its source nodes as an entity; both operations support undo/redo |
-| `profile-start`, `profile-stop path.json` | Record steady-state frame/GPU timings, draw counts, and CPU scopes to JSON; place a `wait N` between them and warm up before recording |
+| `profile-start`, `profile-stop path.json` | Record steady-state frame/GPU timings, draw counts, CPU scopes and the job workers (`Workers`: `Count`, `BusyMs[]`, `Jobs`, `WaitMs`, ...; `Docs/Jobs-and-Events.md`) to JSON, one object per frame; place a `wait N` between them and warm up before recording |
 | `trace-start`, `trace-stop path` | Capture detailed CPU scopes to an Optick/Chrome Trace file (the Linux tracer writes `.json`) |
 | `action Id`, `undo`, `redo` | Run an editor action / undo / redo |
 | `select a,b`, `select-add a`, `select-none` | Selection (names, or `Parent/Child` paths) |
