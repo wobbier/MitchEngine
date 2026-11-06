@@ -92,20 +92,15 @@ public static partial class ScriptBridge
         return null;
     }
 
-    internal static IEnumerable<T> AllScripts<T>() where T : class
-    {
-        foreach (var instance in Instances.Values)
-        {
-            if (instance is T match)
-            {
-                yield return match;
-            }
-        }
-    }
+    internal static ScriptSet<T> AllScripts<T>() where T : class => Scripts.All<T>();
 
     private static int _nextHandle = 1;
 
     private static readonly List<int> _handleOrder = new();
+
+    // Scripts.All (ME-312): handles in creation order, and the live script behind one.
+    internal static List<int> HandleOrder => _handleOrder;
+    internal static bool TryGetInstance(int handle, out IGameScript instance) => Instances.TryGetValue(handle, out instance!);
 
 
     /// <summary>

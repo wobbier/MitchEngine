@@ -143,6 +143,7 @@ The API is 120 functions (`ScriptAPI.def`). Strings cross as UTF-8 `byte*`, enti
 | Logging | `Debug.Log/Warning/Error` |
 | Debug draw | `Debug.DrawLine/DrawSphere(…, duration)` |
 | Time | `Time.DeltaTime` (scaled), `UnscaledDeltaTime`, `FixedDeltaTime`, `TimeScale` (get/set), `RealTime` (wall clock) |
+| Scripts | `Scripts.All<T>()` (every live script that is or implements T, in creation order; `foreach` allocates nothing, `CopyTo(list)` to keep or sort), `Scripts.First<T>(match)`, `Scripts.Count<T>()`: no game-side static registries to rebuild after a hot reload (ME-312) |
 | Entity | `IsAlive`, `Name`, `Active`, `Destroy()`, `Has/Add/GetComponent<T>`, and `HasComponent(name)` / `AddComponent(name)` for any registered component (the binding registry falls back to the engine's component registry); `Children`, `Guid`, `Layer`. `Query.WithComponent(name)` / `Query.Named(name)` return every match |
 | Transform | Local `Position`/`Rotation`/`Scale`; `WorldPosition`; `Forward`/`Right`/`Up`; `LookAt`, `LookDirection(forward, up)`; `Parent` |
 | World | `CreateEntity`, `Find(name)` (any depth), `Instantiate(prefab, parent)`, `LoadScene(path)` (queued to the end of the frame), `LoadSceneAdditive(path, async = true)` / `UnloadScene(id)` / `GetSceneState(id)` (`Docs/Serialization-and-Scenes.md`) |
@@ -376,7 +377,7 @@ The *world* pieces are scripts. They find those objects on whatever touches them
 | `GuardBrain` | GAME-3 sample AI on a NavMeshAgent. It patrols `Waypoints`, chases `Target` on sight, catches it, then searches the last known spot. `State` shows what it's doing, and every change is logged. |
 | `CameraBrain` | goes on the entity with the Camera. It shows the highest-priority live rig and blends (smoothstep) when that changes. `CameraImpulse.Shake(strength, seconds)` adds shake. |
 
-`Entity.GetScript<T>()` (any script type or interface) scans the live scripts, so call it on events rather than for every entity every frame.
+`Entity.GetScript<T>()` (any script type or interface) scans the live scripts, so call it on events rather than for every entity every frame. `Scripts.All<T>()` walks every live script of a type (the kit's camera brain and interaction finder use it).
 
 The kit's tests are `Generators.Tests/KitTests.cs` and `ScriptRegistryTests.cs`. `Tests/Templates/FirstPerson/FirstPersonFlows.edscript` plays the kit in the template:
 1. Walk over the key.

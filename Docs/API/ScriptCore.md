@@ -1815,12 +1815,35 @@ The script classes the game's and mods' assemblies define.
 - `ScriptTypes` (property): The game's script classes, then each mod's (MOD-2), then the engine's own (the GAME-7 starter kit: Door, Pickup...), each group by name. A game class with the same name as an engine one wins.
 - `Version` (property): Bumped whenever the assemblies change.
 
+## Scripts
+
+The live scripts (ME-312), so a game doesn't keep its own static registry of them (which a hot reload empties and every OnStart / OnReload / OnDestroy has to maintain):
+
+- `All1` (method): Every live script that is (or implements) T, in creation order; a struct enumerable, no allocation.
+- `Count1` (method): How many live scripts are (or implement) T.
+- `First1` (method): The first live script that is (or implements) T, or null.
+- `First1(System.Predicate{0})` (method): The first live script that is (or implements) T and matches, or null.
+
 ## ScriptSerializer
 
 simple JSON serialization for script state, using the same field reflection as the inspector. not super efficient but hey, it's only for editor persistence and maybe some debug dumping, so who cares.
 
 - `Deserialize(System.Object,System.String)` (method): Sets the fields named in JSON on target.
 - `Serialize(System.Object,System.Boolean)` (method): The public fields (and [Save] fields when asked) as JSON.
+
+## ScriptSet`1
+
+The live scripts that are T (Scripts.All): foreach over it allocates nothing. CopyTo fills a list to keep, sort or change the world while walking.
+
+- `CopyTo(System.Collections.Generic.List{0})` (method): Clears the list, then adds every match in creation order.
+- `GetEnumerator` (method): For foreach.
+
+## ScriptSet`1.Enumerator
+
+Walks the scripts that existed when the loop began, in creation order.
+
+- `Current` (property): The script at the enumerator's position.
+- `MoveNext` (method): Moves to the next live script that is T.
 
 ## SDLKey
 
