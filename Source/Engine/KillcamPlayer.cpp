@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <cmath>
 #include <sstream>
+#include <utility>
 
 namespace
 {
@@ -135,6 +136,10 @@ void KillcamPlayer::Update( World& InLive, double InFrameSeconds )
     Bind( InLive );
     NetCore* live = InLive.GetCore<NetCore>();
     const NetKillcamReceiver* killcam = live && live->GetClient() ? &live->GetKillcam() : nullptr;
+    if( std::exchange( m_skipRequested, false ) && m_replay )
+    {
+        End( "skipped" );
+    }
     if( m_replay && ( !live || !live->IsSessionLive() ) )
     {
         End( "stopped" );
@@ -271,15 +276,6 @@ void KillcamPlayer::Start( World& InLive, const NetKillcamReceiver& InKillcam )
 }
 
 
-void KillcamPlayer::Skip()
-{
-    if( m_replay )
-    {
-        End( "skipped" );
-    }
-}
-
-
 void KillcamPlayer::Stop()
 {
     if( m_replay )
@@ -301,6 +297,7 @@ void KillcamPlayer::End( const std::string& InReason )
     else if( InReason == "replaced" ) ++m_stats.Replaced;
     else if( InReason == "stopped" ) ++m_stats.Stopped;
     else ++m_stats.Failed;
+    m_skipRequested = false;
     std::unique_ptr<ReplayWorld> replay = std::move( m_replay );
     {
 #if USING( ME_SCRIPTING )

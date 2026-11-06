@@ -1279,6 +1279,46 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
     CHECK_FALSE( net.ClientWorld->Singleton<SingletonKillcam>().InReplayWorld );
     CHECK_FALSE( replayNet.IsSessionLive() );
     CHECK( replayNet.IsPlayback() );
+#if USING( ME_SCRIPTING )
+    // C#'s Net.Killcam: in the live world, one plays; in the replay world, one plays and it's that world.
+    // Killer and Victim are each world's own entities.
+    ScriptEngineAPI api{};
+    Register_NetBindings( api );
+    {
+        int id = 0, killerId = 0, victimId = 0, firstTick = 0, deathTick = 0;
+        float tick = 0.f, elapsed = 0.f, duration = 0.f;
+        {
+            ScriptBindings::WorldScope scope( net.ClientWorld );
+            CHECK( api.Net_GetKillcamPlayback( &id, &killerId, &victimId, &tick, &firstTick, &deathTick, &elapsed, &duration ) == 1 );
+        }
+        CHECK( id == 1 );
+        CHECK( killerId == static_cast<int>( status.KillerNetId ) );
+        CHECK( victimId == static_cast<int>( status.VictimNetId ) );
+        CHECK( firstTick == static_cast<int>( status.FirstTick ) );
+        CHECK( deathTick == static_cast<int>( status.DeathTick ) );
+        CHECK( std::abs( tick - static_cast<float>( status.Tick ) ) < 0.01f );
+        CHECK( std::abs( elapsed - static_cast<float>( status.Elapsed ) ) < 1e-3f );
+        CHECK( std::abs( duration - static_cast<float>( status.Duration ) ) < 1e-3f );
+        int idHere = 0;
+        float progress = 0.f;
+        EntityID killerHere;
+        EntityID victimHere;
+        {
+            ScriptBindings::WorldScope scope( player.GetWorldPtr() );
+            CHECK( api.Net_GetKillcamPlayback( &id, &killerId, &victimId, &tick, &firstTick, &deathTick, &elapsed, &duration ) == 3 );
+            CHECK( api.Net_GetKillcam( &idHere, &progress, &killerHere, &victimHere ) );
+            CHECK( api.Net_GetRole() == 2 );    // the replay world presents like a client
+        }
+        CHECK( idHere == 1 );
+        CHECK( killerHere == replayKiller->GetId() );
+        CHECK( victimHere == replayNet.FindEntity( status.VictimNetId )->GetId() );
+        {
+            ScriptBindings::WorldScope scope( net.ServerWorld );
+            CHECK( api.Net_GetKillcamPlayback( &id, &killerId, &victimId, &tick, &firstTick, &deathTick, &elapsed, &duration ) == 0 );
+            CHECK( id == 0 );
+        }
+    }
+#endif
 
     // The killer's view: the replay world's camera at its eye (1.6 m: no CharacterController here),
     // looking along its client's recorded aim at the tick shown.
@@ -1390,4 +1430,53 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
     CHECK( net.ClientNet.GetPredictor()->GetPawn() == clientPawn );
     CHECK( net.ClientWorld->GetEntityCount() == liveEntities );
     CHECK( replaySeen != nullptr );
+
+    // Two more kills a second apart: the second killcam starts, the third replaces it as soon as its first
+    // chunk is in; then C#'s Net.Killcam.Skip from the replay world's script ends it at the next update
+    // (not while that world's scripts run), and the live world is presented again.
+    killTick = net.ServerNet.GetServer()->GetTick() + 2;
+    ringAtKill.clear();
+    for( int i = 0; i < 300 && !( player.IsPlaying() && player.GetStatus().Id == 2 ); ++i )
+    {
+        net.Run( 0.01 );
+    }
+    REQUIRE( player.IsPlaying() );
+    CHECK( player.GetStatus().Id == 2 );
+    net.Run( 0.5 );
+    killTick = net.ServerNet.GetServer()->GetTick() + 2;
+    ringAtKill.clear();
+    for( int i = 0; i < 300 && !( player.IsPlaying() && player.GetStatus().Id == 3 ); ++i )
+    {
+        net.Run( 0.01 );
+    }
+    REQUIRE( player.IsPlaying() );
+    CHECK( player.GetStatus().Id == 3 );
+    CHECK( player.GetStats().Replaced == 1 );
+    REQUIRE( events.size() == 5 );
+    CHECK( events[2].Type == KillcamEvent::Kind::Started );
+    CHECK( events[3].Type == KillcamEvent::Kind::Ended );
+    CHECK( events[3].Reason == "replaced" );
+    CHECK( events[3].Id == 2 );
+    CHECK( events[4].Type == KillcamEvent::Kind::Started );
+    CHECK( events[4].Id == 3 );
+#if USING( ME_SCRIPTING )
+    {
+        ScriptBindings::WorldScope scope( player.GetWorldPtr() );
+        api.Net_SkipKillcam();
+    }
+#else
+    player.Skip();
+#endif
+    CHECK( player.IsPlaying() );    // until the next update
+    player.Update( *net.ClientWorld, 1.0 / 60.0 );
+    CHECK_FALSE( player.IsPlaying() );
+    REQUIRE( events.size() == 6 );
+    CHECK( events[5].Reason == "skipped" );
+    CHECK( player.GetStats().Skipped == 1 );
+    CHECK( player.GetStats().Started == 3 );
+    CHECK( populated == 3 );
+    // Nothing more to play: the newest has been seen.
+    net.Run( 1.0 );
+    CHECK_FALSE( player.IsPlaying() );
+    CHECK( player.GetStats().Started == 3 );
 }

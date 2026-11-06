@@ -107,6 +107,23 @@ public readonly record struct NetConnected(int ClientId);
 /// server went quiet), or "rejected: " and the server's reason (anything that isn't text comes through as
 /// U+FFFD). Not raised when this client quits: scripts have stopped by then.</param>
 public readonly record struct NetDisconnected(string Reason);
+/// <summary>
+/// EventBus, on a client: a killcam started playing (ME-323; also Net.Killcam.Started). The screen shows
+/// its replay world from now until KillcamEnded.
+/// </summary>
+/// <param name="Id">The killcam's id (Net.Killcam.Id).</param>
+/// <param name="KillerId">The killer's NetId.</param>
+/// <param name="VictimId">The victim's NetId (this player's pawn).</param>
+public readonly record struct KillcamStarted(int Id, int KillerId, int VictimId);
+/// <summary>
+/// EventBus, on a client: a killcam ended (ME-323; also Net.Killcam.Ended); the screen shows the live world again.
+/// </summary>
+/// <param name="Id">The killcam's id.</param>
+/// <param name="KillerId">The killer's NetId.</param>
+/// <param name="VictimId">The victim's NetId.</param>
+/// <param name="Reason">"played" (to the death and a second on it), "skipped" (Net.Killcam.Skip), "replaced" (a newer
+/// one started), "stopped" (the session ended or a scene loaded) or "failed: " and why.</param>
+public readonly record struct KillcamEnded(int Id, int KillerId, int VictimId, string Reason);
 
 
 /// <summary>
@@ -392,11 +409,70 @@ public static unsafe class Net
         Engine._api.Net_SendKillcam != null && Engine._api.Net_SendKillcam(victim, killer, seconds) != 0;
 
     /// <summary>
-    /// Client: the newest killcam the server sent (ME-323). It arrives a chunk at a time while the death
-    /// cam plays; a newer one replaces it.
+    /// Client: the newest killcam the server sent (ME-323). It arrives a chunk at a time; a newer one
+    /// replaces it. The Player plays each one as soon as its first chunk is in, into a replay world of its
+    /// own beside the live one (which keeps its session, prediction and simulation): the screen, the
+    /// camera and the audio listener show the killer's eye along its recorded aim until the death tick
+    /// has held a second, then switch straight back. Started and Ended say when; Skip ends one early. The
+    /// game's UI stays over it. Scripts marked [ReplayWorld] run in the replay world too, presentation
+    /// only: InReplayWorld tells them which world they're in.
     /// </summary>
     public static class Killcam
     {
+        /// <summary>A killcam is playing (the screen shows its replay world).</summary>
+        public static bool IsPlaying => (Playback(out _) & 1) != 0;
+        /// <summary>This script runs in a killcam's replay world ([ReplayWorld] scripts): present, don't touch the game's state.</summary>
+        public static bool InReplayWorld => (Playback(out _) & 2) != 0;
+        /// <summary>The killer's NetId (Net.GetNetId) in the killcam playing, or the last one played (0: none yet).</summary>
+        public static int KillerId { get { Playback(out var p); return p.KillerId; } }
+        /// <summary>The victim's NetId in the killcam playing, or the last one played (0: none yet).</summary>
+        public static int VictimId { get { Playback(out var p); return p.VictimId; } }
+        /// <summary>The tick the killcam shows (fractional between ticks), from FirstTick to DeathTick.</summary>
+        public static float Tick { get { Playback(out var p); return p.Tick; } }
+        /// <summary>The killcam's first tick.</summary>
+        public static int FirstTick { get { Playback(out var p); return p.FirstTick; } }
+        /// <summary>The death's tick, the killcam's last.</summary>
+        public static int DeathTick { get { Playback(out var p); return p.DeathTick; } }
+        /// <summary>Seconds it has played.</summary>
+        public static float Elapsed { get { Playback(out var p); return p.Elapsed; } }
+        /// <summary>Seconds it plays: its ticks at the tick rate, then a second on the death.</summary>
+        public static float Duration { get { Playback(out var p); return p.Duration; } }
+        /// <summary>Ends the killcam playing: the screen switches back to the live world (this frame from a live world's script, the next from the replay world's).</summary>
+        public static void Skip()
+        {
+            if (Engine._api.Net_SkipKillcam != null) Engine._api.Net_SkipKillcam();
+        }
+
+        /// <summary>A killcam started playing (EventBus KillcamStarted; a script's handler goes with it).</summary>
+        public static event Action<KillcamStarted> Started
+        {
+            add => EventBus.Subscribe(value);
+            remove => EventBus.Unsubscribe(value);
+        }
+        /// <summary>A killcam ended: played, skipped, replaced, stopped or failed (EventBus KillcamEnded; a script's handler goes with it).</summary>
+        public static event Action<KillcamEnded> Ended
+        {
+            add => EventBus.Subscribe(value);
+            remove => EventBus.Unsubscribe(value);
+        }
+
+        private struct PlaybackState
+        {
+            public int Id, KillerId, VictimId, FirstTick, DeathTick;
+            public float Tick, Elapsed, Duration;
+        }
+
+        private static int Playback(out PlaybackState state)
+        {
+            state = default;
+            if (Engine._api.Net_GetKillcamPlayback == null) return 0;
+            int id = 0, killer = 0, victim = 0, first = 0, death = 0;
+            float tick = 0f, elapsed = 0f, duration = 0f;
+            int flags = Engine._api.Net_GetKillcamPlayback(&id, &killer, &victim, &tick, &first, &death, &elapsed, &duration);
+            state = new PlaybackState { Id = id, KillerId = killer, VictimId = victim, FirstTick = first, DeathTick = death, Tick = tick, Elapsed = elapsed, Duration = duration };
+            return flags;
+        }
+
         /// <summary>The newest one's id (from 1; 0: none yet). A new id is a new killcam.</summary>
         public static int Id { get { Get(out int id, out _, out _, out _); return id; } }
         /// <summary>Whether the newest one is here whole.</summary>

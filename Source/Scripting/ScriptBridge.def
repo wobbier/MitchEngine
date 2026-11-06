@@ -54,3 +54,6 @@ void NetSchemaHash( ulong* outHash )
 ## Developer console (PLAY-10)
 int GetConsoleCommands( byte* outText, int size )
 int RunConsoleCommand( cstr line, byte* outText, int size )
+
+## Replay worlds (ME-323): a script class's callbacks before any instance exists (8: [ReplayWorld])
+int GetScriptTypeCallbacks( cstr typeName )

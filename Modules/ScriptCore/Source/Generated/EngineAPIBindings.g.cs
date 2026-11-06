@@ -9,7 +9,7 @@ namespace ScriptCore;
 public unsafe struct EngineAPIBindings
 {
     // The ABI both sides were generated from (C++: kScriptEngineAPIHash).
-    public const ulong AbiHash = 0x774849618099D86CUL;
+    public const ulong AbiHash = 0x112204E8256171C4UL;
 
     // Core
     public delegate* unmanaged<byte*, void> Log;
@@ -479,6 +479,16 @@ public unsafe struct EngineAPIBindings
     // newest: its id (0: none), 0..1 of it here, the killer and victim in this world (Entity.Null when not here); complete
     public delegate* unmanaged<Entity, Entity, float, byte> Net_SendKillcam;
     public delegate* unmanaged<int*, float*, Entity*, Entity*, byte> Net_GetKillcam;
+
+    // Killcam playback (ME-323 phase 3): the killcam playing into its replay world. Flags: 1 one plays, 2 the script
+
+    // world is its replay world. Its id, the killer's and victim's NetIds, the tick shown, its first and death ticks, the
+
+    // seconds played and how long it plays (the last one's when none plays); Skip ends it at the engine's next killcam
+
+    // update (the same frame for a live world's script)
+    public delegate* unmanaged<int*, int*, int*, float*, int*, int*, float*, float*, int> Net_GetKillcamPlayback;
+    public delegate* unmanaged<void> Net_SkipKillcam;
 }
 
 // The sizes C++ static_asserts for the structs that cross (checked when the API is bound).

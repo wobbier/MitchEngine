@@ -105,8 +105,10 @@ public:
     // presentation): starts a killcam that has arrived, moves the one playing by InFrameSeconds, places
     // the camera, and ends it when it's done. InLive: the world whose NetCore receives killcams.
     void Update( World& InLive, double InFrameSeconds );
-    // Ends the killcam playing now (C#'s Net.Killcam.Skip); its replay world goes at once.
-    void Skip();
+    // Ends the killcam playing (C#'s Net.Killcam.Skip) at the start of the next Update, which in the
+    // engine is later the same frame for a live world's script: the replay world goes then (never while
+    // its own scripts are running, which may be what asked).
+    void Skip() { m_skipRequested = m_replay != nullptr; }
     // Ends whatever plays ("stopped"): a scene load, the session's end, shutdown.
     void Stop();
 
@@ -166,4 +168,5 @@ private:
     Stats m_stats;
     double m_held = 0.0;            // seconds on the death tick, complete
     double m_stalled = 0.0;         // seconds waiting on a chunk, now
+    bool m_skipRequested = false;
 };

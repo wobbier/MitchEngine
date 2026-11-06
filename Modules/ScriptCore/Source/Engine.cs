@@ -484,6 +484,26 @@ public static partial class ScriptBridge
         }
     }
 
+    /// <summary>
+    /// ME-323: the callbacks a script class implements, as ScriptGetSchedule has them (1 OnFixedUpdate,
+    /// 2 OnUpdate, 4 OnLateUpdate, 8 [ReplayWorld]), before any instance exists; -1 when there's no such
+    /// script type. A replay world creates only [ReplayWorld] scripts.
+    /// </summary>
+    [UnmanagedCallersOnly]
+    public static unsafe int GetScriptTypeCallbacks(byte* inTypeName)
+    {
+        try
+        {
+            var type = ScriptRegistry.Find(ReadUtf8(inTypeName));
+            return type is null ? -1 : ScheduleOf(type).Callbacks;
+        }
+        catch (Exception ex)
+        {
+            ReportException("GetScriptTypeCallbacks", ex);
+            return -1;
+        }
+    }
+
     [UnmanagedCallersOnly]
     public static unsafe int CreateScript(byte* inTypeName, Entity inEntity)
     {
@@ -651,6 +671,8 @@ public static partial class ScriptBridge
         if (Implements(type, nameof(IGameScript.OnFixedUpdate))) callbacks |= 1;
         if (Implements(type, nameof(IGameScript.OnUpdate))) callbacks |= 2;
         if (Implements(type, nameof(IGameScript.OnLateUpdate))) callbacks |= 4;
+        // ME-323: runs in replay worlds too (presentation only).
+        if (type.GetCustomAttribute<ReplayWorldAttribute>(inherit: true) != null) callbacks |= 8;
         var attribute = type.GetCustomAttribute<ExecutionOrderAttribute>(inherit: true);
         var schedule = (attribute?.Order ?? 0, callbacks);
         _schedules[type] = schedule;

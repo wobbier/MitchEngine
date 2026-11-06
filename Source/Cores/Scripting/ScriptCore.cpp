@@ -3,6 +3,9 @@
 #include "ScriptCore.h"
 #include "Components/Scripting/ScriptComponent.h"
 #include "Scripting/ScriptEngine.h"
+#if USING( ME_SCRIPTING )
+#include "Scripting/Bindings/BindingContext.h"
+#endif
 #include "Cores/NavigationCore.h"
 #include "Cores/NetCore.h"
 #include "Cores/Physics2DCore.h"
@@ -12,6 +15,7 @@
 #include "Physics/CollisionRouter.h"
 #include "Physics/PhysicsTypes.h"
 #include "Engine/Engine.h"
+#include "Engine/KillcamPlayer.h"
 #include "Components/Animation/Animator.h"
 #include "Components/Animation/Sequence.h"
 #include "Events/PlatformEvents.h"
@@ -22,6 +26,7 @@
 #include "Events/EditorEvents.h"
 #include "Path.h"
 #include "optick.h"
+#include <optional>
 
 #if USING( ME_EDITOR )
 #include "imgui.h"
@@ -103,6 +108,20 @@ ScriptCore::ScriptCore()
             break;
         }
     } );
+    // ME-323: a killcam started or ended on this (the live) world's side (KillcamStarted / KillcamEnded).
+    Listen<KillcamEvent>( [this]( const KillcamEvent& InEvent ) {
+        if( InEvent.Source != GameWorld )
+        {
+            return;
+        }
+        const bool started = InEvent.Type == KillcamEvent::Kind::Started;
+        json event = { { "Type", started ? "KillcamStarted" : "KillcamEnded" }, { "Id", InEvent.Id }, { "KillerId", InEvent.KillerNetId }, { "VictimId", InEvent.VictimNetId } };
+        if( !started )
+        {
+            event["Reason"] = InEvent.Reason;
+        }
+        QueueEngineEvent( std::move( event ) );
+    } );
 #endif
 }
 
@@ -116,8 +135,12 @@ void ScriptCore::OnStart()
     }
     m_running = true;
 #if USING( ME_SCRIPTING )
-    // A fresh scheduler, with the main-thread context in place before any OnStart awaits.
-    ScriptEngine::SchedulerTick( 0.f, true );
+    // A fresh scheduler, with the main-thread context in place before any OnStart awaits. (A replay
+    // world's scripts share the game's.)
+    if( !m_presentationOnly )
+    {
+        ScriptEngine::SchedulerTick( 0.f, true );
+    }
 #endif
     StartPendingScripts();
 }
@@ -126,6 +149,12 @@ void ScriptCore::OnStart()
 void ScriptCore::StartPendingScripts()
 {
 #if USING( ME_SCRIPTING )
+    // A replay world's scripts start against their own world.
+    std::optional<ScriptBindings::WorldScope> scope;
+    if( m_presentationOnly )
+    {
+        scope.emplace( GetWorld().weak_from_this() );
+    }
     std::vector<ScriptComponent*> pending;
     for( Entity& entity : GetEntities() )
     {
@@ -174,16 +203,20 @@ void ScriptCore::OnStop()
     // await, coroutine, timer or tween outlives it.
     m_engineEvents.clear();
 #if USING( ME_SCRIPTING )
-    ScriptEngine::SchedulerTick( 0.f, true );
+    if( !m_presentationOnly )
+    {
+        ScriptEngine::SchedulerTick( 0.f, true );
+    }
 #endif
 }
 
 
 void ScriptCore::QueueEngineEvent( json InEvent )
 {
-    // Bounded: events pile up while nothing runs (edit mode, a paused game).
+    // Bounded: events pile up while nothing runs (edit mode, a paused game). A replay world's core
+    // delivers none: the game world's delivers each once.
     constexpr size_t kMaxQueued = 256;
-    if( m_engineEvents.size() < kMaxQueued )
+    if( !m_presentationOnly && m_engineEvents.size() < kMaxQueued )
     {
         m_engineEvents.push_back( std::move( InEvent ) );
     }
@@ -286,7 +319,8 @@ const std::vector<ScriptComponent*>& ScriptCore::RunList( uint32_t InCallback )
 void ScriptCore::FixedUpdate( const UpdateContext& inUpdateContext )
 {
 #if USING( ME_SCRIPTING )
-    if( !m_running )
+    // A replay world's scripts present: the recording simulates.
+    if( !m_running || m_presentationOnly )
     {
         return;
     }
@@ -318,6 +352,15 @@ void ScriptCore::Update( const UpdateContext& inUpdateContext )
     // Scripts created since the world started (spawned, or loaded with a scene) start before
     // their first update.
     StartPendingScripts();
+    if( m_presentationOnly )
+    {
+        ScriptBindings::WorldScope scope( GetWorld().weak_from_this() );
+        for( ScriptComponent* script : RunList( ScriptEngine::UpdateCallback ) )
+        {
+            ScriptEngine::ScriptOnUpdate( script->m_dotnetHandle, inUpdateContext.GetDeltaTime() );
+        }
+        return;
+    }
     if( !m_engineEvents.empty() )
     {
         // Moved out first: a handler that loads a scene queues new events for the next frame.
@@ -344,6 +387,11 @@ void ScriptCore::LateUpdate( const UpdateContext& inUpdateContext )
         return;
     }
     OPTICK_EVENT( "ScriptCore::LateUpdate" );
+    std::optional<ScriptBindings::WorldScope> scope;
+    if( m_presentationOnly )
+    {
+        scope.emplace( GetWorld().weak_from_this() );
+    }
     for( ScriptComponent* script : RunList( ScriptEngine::LateUpdateCallback ) )
     {
         ScriptEngine::ScriptOnLateUpdate( script->m_dotnetHandle, inUpdateContext.GetDeltaTime() );
@@ -366,6 +414,12 @@ void ScriptCore::OnEntityRemoved( Entity& InEntity )
 #if USING( ME_SCRIPTING )
     if( ScriptComponent* script = InEntity.TryGetComponent<ScriptComponent>() )
     {
+        // A replay world's script's OnDestroy acts on its own world.
+        std::optional<ScriptBindings::WorldScope> scope;
+        if( m_presentationOnly )
+        {
+            scope.emplace( GetWorld().weak_from_this() );
+        }
         script->DestroyInstance();
     }
 #endif

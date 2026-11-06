@@ -34,6 +34,22 @@ public sealed class ExecutionOrderAttribute : Attribute
     public int Order { get; }
 }
 
+/// <summary>
+/// ME-323: the script also runs in replay worlds (a killcam's: Net.Killcam.InReplayWorld), for
+/// presentation only. A replay world plays a recording beside the live world; only scripts marked
+/// [ReplayWorld] get an instance there (the rest of the scene's and the spawned prefabs' scripts are
+/// left out, so their OnStart / OnDestroy never touch the game's state), and they get OnStart,
+/// OnUpdate and OnLateUpdate, never OnFixedUpdate: the recording drives every networked entity and
+/// their [Replicated] fields. Their engine calls act on the replay world. Static state is shared with
+/// the live world's scripts, and so is Scripts.All: check Net.Killcam.InReplayWorld before touching
+/// either.
+///   [ReplayWorld] public class Nameplate : Script { ... }
+/// </summary>
+[AttributeUsage(AttributeTargets.Class, Inherited = true)]
+public sealed class ReplayWorldAttribute : Attribute
+{
+}
+
 /// <summary>The script classes the game's and mods' assemblies define.</summary>
 public static class ScriptRegistry
 {

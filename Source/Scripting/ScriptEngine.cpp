@@ -1085,6 +1085,16 @@ ScriptEngine::Schedule ScriptEngine::GetSchedule( int inHandle )
 }
 
 
+int ScriptEngine::GetTypeCallbacks( const std::string& inName )
+{
+    if( !gDotnetAPI.GetScriptTypeCallbacks )
+    {
+        return -1;
+    }
+    return gDotnetAPI.GetScriptTypeCallbacks( reinterpret_cast<const uint8_t*>( inName.c_str() ) );
+}
+
+
 uint32_t ScriptEngine::GetReloadGeneration()
 {
     return gReloadGeneration;

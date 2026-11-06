@@ -271,6 +271,7 @@ Script calls act on `ScriptBindings::GetWorld()`:
 - **Default:** the engine's game world (`ScriptEngine::SetWorld`).
 - **Scoped:** inside a `ScriptBindings::WorldScope` on the current thread, they act on the scope's world. Scopes nest and are per-thread, so a server or rollback simulation can run its scripts against its own world.
 - **Core lookup:** bindings reach physics, 2D physics and navigation through `ScriptBindings::Physics()` / `Physics2D()` / `Navigation()`, which are that world's cores, not `GetEngine()`'s. `ScriptCore` syncs its own world's cores before `OnStart`.
+- **Replay worlds (ME-323):** a killcam plays into a world of its own beside the game's (`World::IsReplayWorld`, `Engine/KillcamPlayer.h`). Only classes marked `[ReplayWorld]` get an instance there (`ScriptComponent::EnsureCreated` asks `ScriptEngine::GetTypeCallbacks`, the `GetScriptTypeCallbacks` bridge entry: bit 8), so the rest of the scene's and the spawned prefabs' scripts never run their `OnStart` / `OnDestroy` against the game's state. That world's `ScriptCore` is presentation-only (`SetPresentationOnly`): `OnStart`, `OnUpdate` and `OnLateUpdate` inside a `WorldScope` of the replay world (as are its scripts' creation and `OnDestroy`), never `OnFixedUpdate` (the recording simulates), and nothing process-wide: no engine events for the EventBus, no scheduler ticks or resets. Static fields and `Scripts.All` are still shared with the game world's scripts: `Net.Killcam.InReplayWorld` tells a script where it runs.
 
 ### API reference (CS-10)
 

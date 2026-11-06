@@ -44,6 +44,16 @@ void ScriptComponent::EnsureCreated()
     {
         return;
     }
+    // A replay world (ME-323: a killcam's) has only [ReplayWorld] scripts: the rest never exist there,
+    // so their OnStart / OnDestroy never touch the game's state beside it.
+    if( Parent && Parent.GetWorld() && Parent.GetWorld()->IsReplayWorld )
+    {
+        const int callbacks = ScriptEngine::GetTypeCallbacks( ScriptName );
+        if( callbacks < 0 || !( callbacks & ScriptEngine::ReplayWorldCallback ) )
+        {
+            return;
+        }
+    }
     m_dotnetHandle = ScriptEngine::CreateScript( ScriptName, Parent.GetID() );
     m_started = false;
     if( m_dotnetHandle >= 0 )

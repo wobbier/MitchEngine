@@ -7,6 +7,8 @@
 #include "Cores/NetCore.h"
 #include "Cores/PhysicsCore.h"
 #include "Components/Networking/SingletonInput.h"
+#include "Components/Networking/SingletonKillcam.h"
+#include "Engine/KillcamPlayer.h"
 #include "Engine/World.h"
 #include "Scripting/Bindings/BindingContext.h"
 #include <algorithm>
@@ -460,8 +462,36 @@ static bool Eng_Net_SendKillcam( EntityID victim, EntityID killer, float seconds
 }
 
 
+// The script world's killcam player (ME-323 phase 3), and whether that world is its replay world.
+static KillcamPlayer* KillcamOf( bool* OutInReplayWorld = nullptr )
+{
+    SharedPtr<World> world = ScriptBindings::GetWorld().lock();
+    SingletonKillcam* singleton = world ? world->FindSingleton<SingletonKillcam>() : nullptr;
+    if( OutInReplayWorld )
+    {
+        *OutInReplayWorld = singleton && singleton->InReplayWorld;
+    }
+    return singleton ? singleton->Player : nullptr;
+}
+
+
 static bool Eng_Net_GetKillcam( int* outId, float* outProgress, EntityID* outKiller, EntityID* outVictim ) noexcept
 {
+    // In a killcam's replay world: the one it plays, its killer and victim as that world has them.
+    bool inReplay = false;
+    if( KillcamPlayer* player = KillcamOf( &inReplay ); player && inReplay && player->IsPlaying() )
+    {
+        const KillcamPlayer::Status& status = player->GetStatus();
+        auto here = [player]( uint32_t InNetId ) {
+            EntityHandle entity = player->GetNet()->FindEntity( InNetId );
+            return entity ? entity->GetId() : EntityID();
+        };
+        if( outId ) *outId = static_cast<int>( status.Id );
+        if( outProgress ) *outProgress = status.Complete ? 1.f : 0.99f;
+        if( outKiller ) *outKiller = here( status.KillerNetId );
+        if( outVictim ) *outVictim = here( status.VictimNetId );
+        return status.Complete;
+    }
     NetCore* net = Net();
     const NetKillcamReceiver* killcam = net && net->GetClient() ? &net->GetKillcam() : nullptr;
     if( outId )
@@ -485,6 +515,33 @@ static bool Eng_Net_GetKillcam( int* outId, float* outProgress, EntityID* outKil
         *outVictim = find( killcam ? killcam->GetVictimNetId() : 0 );
     }
     return killcam && killcam->IsComplete();
+}
+
+
+static int Eng_Net_GetKillcamPlayback( int* outId, int* outKillerId, int* outVictimId, float* outTick, int* outFirstTick, int* outDeathTick, float* outElapsed,
+    float* outDuration ) noexcept
+{
+    bool inReplay = false;
+    const KillcamPlayer* player = KillcamOf( &inReplay );
+    const KillcamPlayer::Status status = player ? player->GetStatus() : KillcamPlayer::Status();
+    if( outId ) *outId = static_cast<int>( status.Id );
+    if( outKillerId ) *outKillerId = static_cast<int>( status.KillerNetId );
+    if( outVictimId ) *outVictimId = static_cast<int>( status.VictimNetId );
+    if( outTick ) *outTick = static_cast<float>( status.Tick );
+    if( outFirstTick ) *outFirstTick = static_cast<int>( status.FirstTick );
+    if( outDeathTick ) *outDeathTick = static_cast<int>( status.DeathTick );
+    if( outElapsed ) *outElapsed = static_cast<float>( status.Elapsed );
+    if( outDuration ) *outDuration = static_cast<float>( status.Duration );
+    return ( player && player->IsPlaying() ? 1 : 0 ) | ( inReplay ? 2 : 0 );
+}
+
+
+static void Eng_Net_SkipKillcam() noexcept
+{
+    if( KillcamPlayer* player = KillcamOf() )
+    {
+        player->Skip();
+    }
 }
 
 
@@ -522,6 +579,8 @@ void Register_NetBindings( ScriptEngineAPI& inAPI )
     inAPI.Replay_GetTick = &Eng_Replay_GetTick;
     inAPI.Net_SendKillcam = &Eng_Net_SendKillcam;
     inAPI.Net_GetKillcam = &Eng_Net_GetKillcam;
+    inAPI.Net_GetKillcamPlayback = &Eng_Net_GetKillcamPlayback;
+    inAPI.Net_SkipKillcam = &Eng_Net_SkipKillcam;
 }
 
 #endif

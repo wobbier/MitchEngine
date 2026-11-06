@@ -124,6 +124,8 @@ public static class EventBus
                 case "NetClientLeft": Publish(new NetClientLeft(Int(e, "ClientId"), Text(e, "Reason"))); break;
                 case "NetConnected": Publish(new NetConnected(Int(e, "ClientId"))); break;
                 case "NetDisconnected": Publish(new NetDisconnected(Text(e, "Reason"))); break;
+                case "KillcamStarted": Publish(new KillcamStarted(Int(e, "Id"), Int(e, "KillerId"), Int(e, "VictimId"))); break;
+                case "KillcamEnded": Publish(new KillcamEnded(Int(e, "Id"), Int(e, "KillerId"), Int(e, "VictimId"), Text(e, "Reason"))); break;
             }
         }
     }

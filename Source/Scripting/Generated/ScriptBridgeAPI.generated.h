@@ -5,7 +5,7 @@
 #include "ScriptEngineAPI.generated.h"
 
 // The managed entry points, filled in one call by ScriptCore's ScriptBridge.GetBridge (ME-299).
-constexpr uint64_t kScriptBridgeAPIHash = 0xD28F6DD7CDEA67C3ULL;
+constexpr uint64_t kScriptBridgeAPIHash = 0x80FF9A3D4C87993EULL;
 
 struct ScriptBridgeAPI
 {
@@ -55,4 +55,7 @@ struct ScriptBridgeAPI
     // Developer console (PLAY-10)
     int ( *GetConsoleCommands )( uint8_t* outText, int size ) = nullptr;
     int ( *RunConsoleCommand )( const uint8_t* line, uint8_t* outText, int size ) = nullptr;
+
+    // Replay worlds (ME-323): a script class's callbacks before any instance exists (8: [ReplayWorld])
+    int ( *GetScriptTypeCallbacks )( const uint8_t* typeName ) = nullptr;
 };

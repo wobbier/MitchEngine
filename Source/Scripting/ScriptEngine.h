@@ -88,6 +88,8 @@ public:
         FixedUpdateCallback = 1,
         UpdateCallback = 2,
         LateUpdateCallback = 4,
+        // ME-323: the class is [ReplayWorld]: it runs in replay worlds too, presentation only.
+        ReplayWorldCallback = 8,
     };
     struct Schedule
     {
@@ -95,6 +97,9 @@ public:
         uint32_t Callbacks = 0;     // none for a dead handle
     };
     static Schedule    GetSchedule( int inHandle );
+    // ME-323: a script class's ScheduleCallback bits by name, before any instance exists (a replay
+    // world creates only [ReplayWorld] scripts); -1 for no such class.
+    static int         GetTypeCallbacks( const std::string& inName );
     // Bumped by each hot reload: script classes (so their schedules) may have changed.
     static uint32_t    GetReloadGeneration();
     // Physics callbacks (OnCollisionEnter / Exit, OnTriggerEnter / Exit in C#).

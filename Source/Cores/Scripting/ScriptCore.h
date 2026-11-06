@@ -28,6 +28,13 @@ public:
     // and the world starts again); physics, animation and the other cores run.
     void SetSuspended( bool InSuspended ) { m_suspended = InSuspended; }
     bool IsSuspended() const { return m_suspended; }
+    // ME-323: a replay world's (a killcam's) script core. Its scripts ([ReplayWorld] ones: no other
+    // class gets an instance in a replay world) present only: OnStart, OnUpdate and OnLateUpdate, each
+    // inside a WorldScope of its world so their engine calls act on it, and never OnFixedUpdate. It
+    // leaves everything process-wide to the game world's ScriptCore: no engine events for C#'s
+    // EventBus, no scheduler ticks or resets (awaits, timers and tweens are the game's).
+    void SetPresentationOnly( bool InPresentationOnly ) { m_presentationOnly = InPresentationOnly; }
+    bool IsPresentationOnly() const { return m_presentationOnly; }
     void FixedUpdate( const UpdateContext& inUpdateContext ) final;
     void Update( const UpdateContext& inUpdateContext ) final;
     void LateUpdate( const UpdateContext& inUpdateContext ) final;
@@ -42,6 +49,7 @@ public:
 private:
     bool m_running = false;
     bool m_suspended = false;
+    bool m_presentationOnly = false;
     uint64_t m_nextStartSequence = 0;
     // The scripts running a callback this tick, in update order (RunList).
     std::vector<ScriptComponent*> m_runList;

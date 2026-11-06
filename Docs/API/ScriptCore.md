@@ -1025,6 +1025,25 @@ script friendly names for my SDL garbage
 - `LeftCommand` (field): Aka LeftWindows / LeftSuper
 - `RightCommand` (field): Aka RightWindows / RightSuper
 
+## KillcamEnded
+
+EventBus, on a client: a killcam ended (ME-323; also Net.Killcam.Ended); the screen shows the live world again.
+
+- `(constructor)(System.Int32,System.Int32,System.Int32,System.String)` (method): EventBus, on a client: a killcam ended (ME-323; also Net.Killcam.Ended); the screen shows the live world again.
+- `Id` (property): The killcam's id.
+- `KillerId` (property): The killer's NetId.
+- `Reason` (property): "played" (to the death and a second on it), "skipped" (Net.Killcam.Skip), "replaced" (a newer one started), "stopped" (the session ended or a scene loaded) or "failed: " and why.
+- `VictimId` (property): The victim's NetId.
+
+## KillcamStarted
+
+EventBus, on a client: a killcam started playing (ME-323; also Net.Killcam.Started). The screen shows its replay world from now until KillcamEnded.
+
+- `(constructor)(System.Int32,System.Int32,System.Int32)` (method): EventBus, on a client: a killcam started playing (ME-323; also Net.Killcam.Started). The screen shows its replay world from now until KillcamEnded.
+- `Id` (property): The killcam's id (Net.Killcam.Id).
+- `KillerId` (property): The killer's NetId.
+- `VictimId` (property): The victim's NetId (this player's pawn).
+
 ## Kit.BeatClock
 
 NEXT-8: a music clock for rhythm and beat-synced gameplay. It follows an AudioSource's playback position as the audio mixer sees it (sample-accurate, not frame time), smoothed between mixer updates, and fires each beat and bar it crosses exactly once, in order, even across hitches. A script owns one and ticks it:
@@ -1481,13 +1500,25 @@ NET-6: the session from scripts. Without a session (offline play, the editor) Ro
 
 ## Net.Killcam
 
-Client: the newest killcam the server sent (ME-323). It arrives a chunk at a time while the death cam plays; a newer one replaces it.
+Client: the newest killcam the server sent (ME-323). It arrives a chunk at a time; a newer one replaces it. The Player plays each one as soon as its first chunk is in, into a replay world of its own beside the live one (which keeps its session, prediction and simulation): the screen, the camera and the audio listener show the killer's eye along its recorded aim until the death tick has held a second, then switch straight back. Started and Ended say when; Skip ends one early. The game's UI stays over it. Scripts marked [ReplayWorld] run in the replay world too, presentation only: InReplayWorld tells them which world they're in.
 
+- `DeathTick` (property): The death's tick, the killcam's last.
+- `Duration` (property): Seconds it plays: its ticks at the tick rate, then a second on the death.
+- `Elapsed` (property): Seconds it has played.
+- `Ended` (event): A killcam ended: played, skipped, replaced, stopped or failed (EventBus KillcamEnded; a script's handler goes with it).
+- `FirstTick` (property): The killcam's first tick.
 - `Id` (property): The newest one's id (from 1; 0: none yet). A new id is a new killcam.
+- `InReplayWorld` (property): This script runs in a killcam's replay world ([ReplayWorld] scripts): present, don't touch the game's state.
+- `IsPlaying` (property): A killcam is playing (the screen shows its replay world).
 - `Killer` (property): The killer in this world (Entity.Null when it isn't here any more).
+- `KillerId` (property): The killer's NetId (Net.GetNetId) in the killcam playing, or the last one played (0: none yet).
 - `Progress` (property): How much of the newest one is here, 0..1 (1 once received).
 - `Received` (property): Whether the newest one is here whole.
+- `Skip` (method): Ends the killcam playing: the screen switches back to the live world (this frame from a live world's script, the next from the replay world's).
+- `Started` (event): A killcam started playing (EventBus KillcamStarted; a script's handler goes with it).
+- `Tick` (property): The tick the killcam shows (fractional between ticks), from FirstTick to DeathTick.
 - `Victim` (property): The victim in this world (Entity.Null when it isn't here any more).
+- `VictimId` (property): The victim's NetId in the killcam playing, or the last one played (0: none yet).
 
 ## NetClientJoined
 
@@ -1741,6 +1772,11 @@ Match replays (ME-316): a server started with --record-replay records every tick
 - `Quote(System.String)` (method): A JSON string literal for a payload: quotes, backslashes and control characters escaped.
 - `Tick` (property): The recorded server tick the replay shows (-1 when none plays).
 
+## ReplayWorldAttribute
+
+ME-323: the script also runs in replay worlds (a killcam's: Net.Killcam.InReplayWorld), for presentation only. A replay world plays a recording beside the live world; only scripts marked [ReplayWorld] get an instance there (the rest of the scene's and the spawned prefabs' scripts are left out, so their OnStart / OnDestroy never touch the game's state), and they get OnStart, OnUpdate and OnLateUpdate, never OnFixedUpdate: the recording drives every networked entity and their [Replicated] fields. Their engine calls act on the replay world. Static state is shared with the live world's scripts, and so is Scripts.All: check Net.Killcam.InReplayWorld before touching either. [ReplayWorld] public class Nameplate : Script { ... }
+
+
 ## ReplicatedAttribute
 
 Server-authoritative state sent to clients in snapshots. bool, int, float, double, int enums, Vector2, Vector3 and Quaternion.
@@ -1845,6 +1881,7 @@ The engine's entry points into managed code ([UnmanagedCallersOnly]: script life
 - `GetFieldsJson(System.Int32,System.Byte*,System.Int32)` (method): Writes the fields as JSON and returns its byte length; when that doesn't fit in bufSize the caller retries with a bigger buffer.
 - `GetHandleTypeName(System.Int32,System.Byte*,System.Int32)` (method): The class of a live script (differs from the name it was created with after a rename).
 - `GetSaveFieldsJson(System.Int32,System.Byte*,System.Int32)` (method): GetFieldsJson plus the non-public [Save] fields: a save game's snapshot.
+- `GetScriptTypeCallbacks(System.Byte*)` (method): ME-323: the callbacks a script class implements, as ScriptGetSchedule has them (1 OnFixedUpdate, 2 OnUpdate, 4 OnLateUpdate, 8 [ReplayWorld]), before any instance exists; -1 when there's no such script type. A replay world creates only [ReplayWorld] scripts.
 - `InspectDataAsset(System.Byte*)` (method): CS-7: the asset details pane draws a data asset's fields (and saves edits).
 - `IsHandleAlive(System.Int32)` (method): 1 while a handle has a live script (a reload drops scripts whose type was deleted).
 - `NetGetFlags(System.Int32)` (method): 0: no script or not networked; else 1 | bit 1 predicted fields, bit 2 replicated, bit 3 RPCs.

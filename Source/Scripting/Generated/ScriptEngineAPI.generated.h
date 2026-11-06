@@ -19,7 +19,7 @@ struct ScriptRaycastHit
 };
 
 // The ABI both sides were generated from (C# checks it: ScriptBridge.GetEngineAPIHash).
-constexpr uint64_t kScriptEngineAPIHash = 0x774849618099D86CULL;
+constexpr uint64_t kScriptEngineAPIHash = 0x112204E8256171C4ULL;
 
 // Structs that cross: their layout is part of the ABI (C# checks the same sizes).
 static_assert( sizeof( EntityID ) == 8, "EntityID crosses into C#: its size is part of the script ABI" );
@@ -500,4 +500,14 @@ struct ScriptEngineAPI
     // newest: its id (0: none), 0..1 of it here, the killer and victim in this world (Entity.Null when not here); complete
     bool ( *Net_SendKillcam )( EntityID victim, EntityID killer, float seconds ) noexcept;
     bool ( *Net_GetKillcam )( int* outId, float* outProgress, EntityID* outKiller, EntityID* outVictim ) noexcept;
+
+    // Killcam playback (ME-323 phase 3): the killcam playing into its replay world. Flags: 1 one plays, 2 the script
+
+    // world is its replay world. Its id, the killer's and victim's NetIds, the tick shown, its first and death ticks, the
+
+    // seconds played and how long it plays (the last one's when none plays); Skip ends it at the engine's next killcam
+
+    // update (the same frame for a live world's script)
+    int ( *Net_GetKillcamPlayback )( int* outId, int* outKillerId, int* outVictimId, float* outTick, int* outFirstTick, int* outDeathTick, float* outElapsed, float* outDuration ) noexcept;
+    void ( *Net_SkipKillcam )() noexcept;
 };
