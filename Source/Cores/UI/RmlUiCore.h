@@ -7,10 +7,12 @@
 #include <bgfx/bgfx.h>
 #include <deque>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
 class BGFXRenderer;
+class RmlScriptModels;
 class UIDocument;
 
 namespace Rml
@@ -88,6 +90,9 @@ public:
     std::vector<std::pair<std::string, std::string>> ModelListValues( const std::string& InModel ) const;
     // Pops the oldest queued data-event name ("" when none are waiting).
     std::string ModelPollEvent( const std::string& InModel );
+    // ME-312: the arguments of the event ModelPollEvent last returned (data-event-click="pick(2)"),
+    // as a JSON array.
+    std::string ModelLastEventArgs( const std::string& InModel ) const;
 
     // UI-4: dp-unit text scale (the context's density-independent pixel ratio), the string
     // table language ("" = none; loads Assets/UI/Strings/<code>.json and reloads documents),
@@ -113,23 +118,8 @@ private:
     void HotReload();
     void SyncModels();
 
-    // One script view-model value: a number or a UTF-8 string.
-    struct ModelValue
-    {
-        double Number = 0.0;
-        std::string String;
-        bool IsString = false;
-        bool Bound = false;
-        bool Dirty = false;
-    };
-    struct Model
-    {
-        std::map<std::string, ModelValue> Values;
-        std::map<std::string, bool> Events;   // name -> bound to Rml yet
-        std::deque<std::string> EventQueue;
-        bool Created = false;
-    };
-    std::map<std::string, Model> m_models;
+    // The script view models (UI.Model): values, lists and queued events (UI/Rml/RmlScriptModels.h).
+    std::unique_ptr<RmlScriptModels> m_models;
     struct Overlay
     {
         std::string Path;

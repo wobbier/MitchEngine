@@ -19,7 +19,7 @@ struct ScriptRaycastHit
 };
 
 // The ABI both sides were generated from (C# checks it: ScriptBridge.GetEngineAPIHash).
-constexpr uint64_t kScriptEngineAPIHash = 0xFC2D082D6FDDB103ULL;
+constexpr uint64_t kScriptEngineAPIHash = 0x385BF541A14222F9ULL;
 
 // Structs that cross: their layout is part of the ABI (C# checks the same sizes).
 static_assert( sizeof( EntityID ) == 8, "EntityID crosses into C#: its size is part of the script ABI" );
@@ -465,4 +465,9 @@ struct ScriptEngineAPI
     bool ( *Camera_IsCurrent )( EntityID id ) noexcept;
     bool ( *Camera_MakeCurrent )( EntityID id ) noexcept;
     void ( *Camera_GetMain )( EntityID* outId ) noexcept;
+
+    // RmlUi data-event arguments (ME-312): data-event-click="pick(2, 'fast')" queues "pick"; this is
+
+    // the JSON array of the arguments of the event UIModel_PollEvent last returned for the model ("[]")
+    int ( *UIModel_GetEventArgs )( const uint8_t* model, uint8_t* outJson, int size ) noexcept;
 };

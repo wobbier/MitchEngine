@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 
 namespace ScriptCore;
 
@@ -14,6 +15,10 @@ namespace ScriptCore;
 ///    ...
 ///    for (string e; (e = hud.PollEvent()) != ""; )   // drain queued clicks each update
 ///        if (e == "increment") hud.Set("score", hud.GetNumber("score") + 1);
+///
+///    hud.On("pick");                        //   &lt;button data-event-click="pick(2)"&gt;
+///    while (hud.PollEvent(out UIEvent click))
+///        if (click.Name == "pick") Pick(click.Int(0));
 /// </code>
 /// </summary>
 public static class UI
@@ -98,6 +103,47 @@ public readonly struct UIModel
     }
 
     /// <summary>
+    /// Pops the oldest queued event with its arguments (ME-312): data-event-click="pick(2, 'fast')"
+    /// arrives as Name "pick" with Int(0) == 2 and String(1) == "fast". False when none are waiting.
+    /// </summary>
+    public bool PollEvent(out UIEvent uiEvent)
+    {
+        string name = PollEvent();
+        if (name.Length == 0)
+        {
+            uiEvent = default;
+            return false;
+        }
+        uiEvent = new UIEvent(name, ReadEventArgs());
+        return true;
+    }
+
+    private JsonElement ReadEventArgs()
+    {
+        unsafe
+        {
+            int length;
+            fixed (byte* m = Engine.Utf8(Name, stackalloc byte[Engine.Utf8StackSize])) length = Engine._api.UIModel_GetEventArgs(m, null, 0);
+            if (length <= 2)
+            {
+                return default;   // "[]": no arguments
+            }
+            var buffer = new byte[length + 1];
+            fixed (byte* m = Engine.Utf8(Name, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* b = buffer)
+                length = Engine._api.UIModel_GetEventArgs(m, b, buffer.Length);
+            try
+            {
+                using var document = JsonDocument.Parse(new System.ReadOnlyMemory<byte>(buffer, 0, System.Math.Clamp(length, 0, buffer.Length - 1)));
+                return document.RootElement.ValueKind == JsonValueKind.Array ? document.RootElement.Clone() : default;
+            }
+            catch (JsonException)
+            {
+                return default;
+            }
+        }
+    }
+
+    /// <summary>
     /// The oldest queued event name, or "" when none are waiting.
     /// </summary>
     public string PollEvent()
@@ -110,5 +156,78 @@ public readonly struct UIModel
                 length = Engine._api.UIModel_PollEvent(m, b, buffer.Length);
             return length > 0 ? Encoding.UTF8.GetString(buffer, 0, System.Math.Min(length, buffer.Length)) : "";
         }
+    }
+}
+
+/// <summary>
+/// A data event a document raised (UIModel.PollEvent): its name and the arguments RmlUi evaluated,
+/// data-event-click="pick(2, 'fast', true)" giving Int(0) == 2, String(1) == "fast", Bool(2).
+/// </summary>
+public readonly struct UIEvent
+{
+    /// <summary>The event's name (data-event-click="name(...)").</summary>
+    public readonly string Name;
+    private readonly JsonElement args;
+
+    internal UIEvent(string name, JsonElement arguments)
+    {
+        Name = name;
+        args = arguments;
+    }
+
+    /// <summary>How many arguments it was raised with.</summary>
+    public int ArgCount => args.ValueKind == JsonValueKind.Array ? args.GetArrayLength() : 0;
+
+    /// <summary>Argument i as a number: a number, a numeric string, or a bool as 1 / 0; the fallback otherwise.</summary>
+    public double Number(int i, double fallback = 0)
+    {
+        if (!TryGet(i, out var arg)) return fallback;
+        switch (arg.ValueKind)
+        {
+            case JsonValueKind.Number: return arg.GetDouble();
+            case JsonValueKind.True: return 1;
+            case JsonValueKind.False: return 0;
+            case JsonValueKind.String:
+                return double.TryParse(arg.GetString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double value) ? value : fallback;
+            default: return fallback;
+        }
+    }
+
+    /// <summary>Argument i as a whole number (Number, rounded); the fallback when it isn't one.</summary>
+    public int Int(int i, int fallback = 0) => TryGet(i, out _) ? (int)System.Math.Round(Number(i, fallback)) : fallback;
+
+    /// <summary>Argument i as text: a string as itself, a number or bool as written ("2", "true"); "" when missing.</summary>
+    public string String(int i)
+    {
+        if (!TryGet(i, out var arg)) return "";
+        return arg.ValueKind == JsonValueKind.String ? arg.GetString() ?? "" : arg.GetRawText();
+    }
+
+    /// <summary>Argument i as a bool: true, or a non-zero number; false otherwise.</summary>
+    public bool Bool(int i) => TryGet(i, out var arg) && (arg.ValueKind == JsonValueKind.True || (arg.ValueKind == JsonValueKind.Number && arg.GetDouble() != 0));
+
+    /// <summary>"name(arg, ...)".</summary>
+    public override string ToString()
+    {
+        int count = ArgCount;
+        if (count == 0) return Name ?? "";
+        var text = new StringBuilder(Name).Append('(');
+        for (int i = 0; i < count; ++i)
+        {
+            if (i > 0) text.Append(", ");
+            text.Append(String(i));
+        }
+        return text.Append(')').ToString();
+    }
+
+    private bool TryGet(int i, out JsonElement arg)
+    {
+        if ((uint)i < (uint)ArgCount)
+        {
+            arg = args[i];
+            return true;
+        }
+        arg = default;
+        return false;
     }
 }

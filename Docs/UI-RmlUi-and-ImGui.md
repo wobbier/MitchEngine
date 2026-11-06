@@ -21,6 +21,7 @@ Two UI systems coexist. **RmlUi** renders the game's HTML/CSS UI (`UIDocument` c
 | `Source/UI/Rml/RmlRenderInterface.*` | RmlUi on bgfx: compiled geometry, premultiplied alpha, scissor, transforms, stencil clip masks |
 | `Source/UI/Rml/RmlInterfaces.*` | System (time, cursor, string table) and VFS file interfaces |
 | `Source/UI/Rml/RmlInput.*` | Engine key codes to RmlUi key identifiers and characters |
+| `Source/UI/Rml/RmlScriptModels.h` | The script view models' store: values, queued data events with their arguments, binding into the context (`RmlUiCore::Model*` forward to it) |
 | `Source/Scripting/Bindings/Systems/UIModel.bindings.cpp` + `Modules/ScriptCore/Source/Core/UI.cs` | `UI.Model(...)`, the C# view-model API |
 | `Modules/Havana/Source/Editor/UIAutomation.cpp` | The `ui-click`, `ui-assert-text`, `ui-assert-focused`, `input-press`, `ui-set-text-scale`, `ui-set-language` edscript commands |
 | `Assets/Shaders/UI/Rml.*` | Document shaders; `Assets/Shaders/UI.*` is the composite |
@@ -84,7 +85,13 @@ Three levels, simplest first:
    hud.On("increment");                // <button data-event-click="increment">
    for (string e; (e = hud.PollEvent()) != ""; )
        if (e == "increment") hud.Set("score", hud.GetNumber("score") + 1);
+
+   hud.On("pick");                     // <button data-event-click="pick(2, 'fast')">
+   while (hud.PollEvent(out UIEvent click))
+       if (click.Name == "pick") Pick(click.Int(0), click.String(1));
    ```
+
+   Event arguments (ME-312) are evaluated by RmlUi (literals, model values, `ev.` fields) and reach the script as a JSON array (`ModelLastEventArgs`, read by `UIEvent`): numbers, strings and bools keep their type, anything else arrives as its text. One registered event name serves every button.
 
    Values are numbers or strings (bools are 0/1) and live engine-side (`RmlUiCore::Model*`), so C# hot reloads keep the rendered state. Documents that loaded before their model reload once when it materializes (the `UI: rebound` log). Lists aren't bindable yet: write repeated elements out (see `Assets/UI/Drive/Slots.rml`).
    Settings need no model either: `RmlSettings` (`Source/UI/Rml/RmlSettings.h`) keeps attributed elements current whenever the player settings or a rebind change. `data-setting-text="Audio.Music"` (with `data-format="percent|scale|onoff"`) shows a value, `data-setting-selected="Graphics.Quality|Low"` and `data-window-mode="borderless"` set the `selected` class, and `data-binding="Jump|0"` shows a binding's control. At load it fills `data-options="quality"` / `"languages"` with choice buttons and `data-controls` with a row per action of the game input. While a rebind waits (and on the frame it ends) the documents get no keys, buttons or gamepad navigation.

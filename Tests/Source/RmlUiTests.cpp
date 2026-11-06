@@ -5,6 +5,8 @@
 
 #include "UI/Rml/RmlInterfaces.h"
 #include "UI/Rml/RmlRenderInterface.h"
+#include "UI/Rml/RmlScriptModels.h"
+#include "JSON.h"
 #include <RmlUi/Core.h>
 #include <bgfx/bgfx.h>
 #include <filesystem>
@@ -12,6 +14,47 @@
 
 namespace RmlUiTest
 {
+    // Rml on bgfx's Noop renderer (no window, no GPU) with Inter loaded, and one 960x540 context.
+    struct NoopRml
+    {
+        NoopRml()
+        {
+            bgfx::renderFrame();
+            bgfx::Init init;
+            init.type = bgfx::RendererType::Noop;
+            REQUIRE( bgfx::init( init ) );
+            render.Init( false );
+            Rml::SetSystemInterface( &system );
+            Rml::SetFileInterface( &files );
+            Rml::SetRenderInterface( &render );
+            REQUIRE( Rml::Initialise() );
+            REQUIRE( Rml::LoadFontFace( "Assets/Fonts/Inter-Regular.ttf", true ) );
+            Context = Rml::CreateContext( "models", Rml::Vector2i( 960, 540 ) );
+            REQUIRE( Context != nullptr );
+        }
+
+        ~NoopRml()
+        {
+            Rml::RemoveContext( "models" );
+            Rml::Shutdown();
+            render.Shutdown();
+            bgfx::shutdown();
+        }
+
+        void Frame()
+        {
+            system.AdvanceTime( 1.0 / 60.0 );
+            Context->Update();
+            render.BeginFrame( 0, 960, 540 );
+            Context->Render();
+        }
+
+        RmlSystemInterface system;
+        RmlFileInterface files;
+        RmlRenderInterface render;
+        Rml::Context* Context = nullptr;
+    };
+
     void WriteTextFile( const std::string& InPath, const char* InText )
     {
         std::filesystem::create_directories( std::filesystem::path( InPath ).parent_path() );
@@ -84,6 +127,52 @@ TEST_CASE( "RmlUi: a document lifecycle leaks no geometry or texture handles (bg
     }
 
     bgfx::shutdown();
+}
+
+
+TEST_CASE( "RmlUi: script models bind values, and data-event-click arguments reach the script as JSON (ME-312)" )
+{
+    RmlUiTest::NoopRml rml;
+    RmlScriptModels models;
+    models.Ensure( "menu" );
+    models.SetString( "menu", "label", "Go" );
+    models.RegisterEvent( "menu", "pick" );
+    models.RegisterEvent( "menu", "close" );
+    CHECK( models.Sync( *rml.Context ) );          // new model: documents must (re)load
+    CHECK_FALSE( models.Sync( *rml.Context ) );    // nothing new since
+
+    Rml::ElementDocument* document = rml.Context->LoadDocumentFromMemory(
+        "<rml><head><style>body { font-family: Inter; }</style></head><body data-model=\"menu\">"
+        "<button id=\"two\" data-event-click=\"pick(2, 'fast', true)\">{{ label }}</button>"
+        "<button id=\"close\" data-event-click=\"close\">x</button></body></rml>" );
+    REQUIRE( document != nullptr );
+    document->Show();
+    rml.Frame();
+    Rml::Element* two = document->GetElementById( "two" );
+    REQUIRE( two != nullptr );
+    CHECK( two->GetInnerRML() == "Go" );
+
+    // A changed value redraws; an unchanged one isn't dirtied.
+    models.SetString( "menu", "label", "Went" );
+    CHECK_FALSE( models.Sync( *rml.Context ) );
+    rml.Frame();
+    CHECK( two->GetInnerRML() == "Went" );
+
+    two->Click();
+    document->GetElementById( "close" )->Click();
+    CHECK( models.PollEvent( "menu" ) == "pick" );
+    const json args = json::parse( models.LastEventArgs( "menu" ) );
+    REQUIRE( args.is_array() );
+    REQUIRE( args.size() == 3 );
+    CHECK( args[0].get<double>() == doctest::Approx( 2.0 ) );
+    CHECK( args[1] == "fast" );
+    CHECK( args[2] == true );
+    CHECK( models.PollEvent( "menu" ) == "close" );
+    CHECK( models.LastEventArgs( "menu" ) == "[]" );
+    CHECK( models.PollEvent( "menu" ).empty() );
+    CHECK( models.PollEvent( "nobody" ).empty() );
+    document->Close();
+    rml.Frame();
 }
 
 #endif

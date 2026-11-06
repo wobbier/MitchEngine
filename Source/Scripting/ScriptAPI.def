@@ -425,3 +425,7 @@ bool Component_SetEnabled( Entity id, cstr component, bool enabled )
 bool Camera_IsCurrent( Entity id )
 bool Camera_MakeCurrent( Entity id )
 void Camera_GetMain( Entity* outId )
+
+## RmlUi data-event arguments (ME-312): data-event-click="pick(2, 'fast')" queues "pick"; this is
+## the JSON array of the arguments of the event UIModel_PollEvent last returned for the model ("[]")
+int UIModel_GetEventArgs( cstr model, byte* outJson, int size )

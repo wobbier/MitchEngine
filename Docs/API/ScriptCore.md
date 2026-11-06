@@ -2116,6 +2116,18 @@ Script-owned view models for RmlUi documents (UI-3). Values live engine-side, so
 - `Show(System.String)` (method): The UIDocument on the entity with this name (a menu such as the stock options menu, Assets/UI/Options/Options.rml). False when no UIDocument entity has that name.
 - `Toggle(System.String)` (method): Shows the document if hidden, hides it if shown.
 
+## UIEvent
+
+A data event a document raised (UIModel.PollEvent): its name and the arguments RmlUi evaluated, data-event-click="pick(2, 'fast', true)" giving Int(0) == 2, String(1) == "fast", Bool(2).
+
+- `ArgCount` (property): How many arguments it was raised with.
+- `Bool(System.Int32)` (method): Argument i as a bool: true, or a non-zero number; false otherwise.
+- `Int(System.Int32,System.Int32)` (method): Argument i as a whole number (Number, rounded); the fallback when it isn't one.
+- `Name` (field): The event's name (data-event-click="name(...)").
+- `Number(System.Int32,System.Double)` (method): Argument i as a number: a number, a numeric string, or a bool as 1 / 0; the fallback otherwise.
+- `String(System.Int32)` (method): Argument i as text: a string as itself, a number or bool as written ("2", "true"); "" when missing.
+- `ToString` (method): "name(arg, ...)".
+
 ## UIModel
 
 A view model: values RML binds ({{ key }}) and events it raises.
@@ -2125,6 +2137,7 @@ A view model: values RML binds ({{ key }}) and events it raises.
 - `Name` (field): The model's name (data-model="name").
 - `On(System.String)` (method): Registers a data-event name the document can raise (data-event-click="name").
 - `PollEvent` (method): The oldest queued event name, or "" when none are waiting.
+- `PollEvent(ScriptCore.UIEvent@)` (method): Pops the oldest queued event with its arguments (ME-312): data-event-click="pick(2, 'fast')" arrives as Name "pick" with Int(0) == 2 and String(1) == "fast". False when none are waiting.
 - `Set(System.String,System.Boolean)` (method): Sets a bool (stored as 1 or 0).
 - `Set(System.String,System.Double)` (method): Sets a number.
 - `Set(System.String,System.String)` (method): Sets a string.

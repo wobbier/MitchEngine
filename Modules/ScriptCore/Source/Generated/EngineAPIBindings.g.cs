@@ -9,7 +9,7 @@ namespace ScriptCore;
 public unsafe struct EngineAPIBindings
 {
     // The ABI both sides were generated from (C++: kScriptEngineAPIHash).
-    public const ulong AbiHash = 0xFC2D082D6FDDB103UL;
+    public const ulong AbiHash = 0x385BF541A14222F9UL;
 
     // Core
     public delegate* unmanaged<byte*, void> Log;
@@ -444,6 +444,11 @@ public unsafe struct EngineAPIBindings
     public delegate* unmanaged<Entity, byte> Camera_IsCurrent;
     public delegate* unmanaged<Entity, byte> Camera_MakeCurrent;
     public delegate* unmanaged<Entity*, void> Camera_GetMain;
+
+    // RmlUi data-event arguments (ME-312): data-event-click="pick(2, 'fast')" queues "pick"; this is
+
+    // the JSON array of the arguments of the event UIModel_PollEvent last returned for the model ("[]")
+    public delegate* unmanaged<byte*, byte*, int, int> UIModel_GetEventArgs;
 }
 
 // The sizes C++ static_asserts for the structs that cross (checked when the API is bound).

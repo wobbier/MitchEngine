@@ -20,6 +20,7 @@
 #include "UI/Rml/RmlInterfaces.h"
 #include "UI/Rml/RmlElements.h"
 #include "UI/Rml/RmlRenderInterface.h"
+#include "UI/Rml/RmlScriptModels.h"
 #include "UI/Rml/RmlSettings.h"
 #include "Engine/LoadingScreen.h"
 #include "Engine/Localization.h"
@@ -159,6 +160,7 @@ RmlUiCore::RmlUiCore( BGFXRenderer* InRenderer )
     SetIsSerializable( false );
 #if USING( ME_RMLUI )
     m_renderer = InRenderer;
+    m_models = std::make_unique<RmlScriptModels>();
 #endif
 }
 
@@ -695,186 +697,61 @@ void RmlUiCore::HotReload()
 
 void RmlUiCore::ModelEnsure( const std::string& InModel )
 {
-    m_models[InModel];
+    m_models->Ensure( InModel );
 }
 
 
-// Scripts set every value every frame (a HUD's FillHud); only a changed one is dirtied, so RmlUi
-// re-evaluates (and lays out) only the bindings whose values changed (ME-318).
 void RmlUiCore::ModelSetNumber( const std::string& InModel, const std::string& InKey, double InValue )
 {
-    ModelValue& value = m_models[InModel].Values[InKey];
-    if( value.IsString || value.Number != InValue )
-    {
-        value.Number = InValue;
-        value.IsString = false;
-        value.Dirty = true;
-    }
+    m_models->SetNumber( InModel, InKey, InValue );
 }
 
 
 void RmlUiCore::ModelSetString( const std::string& InModel, const std::string& InKey, const std::string& InValue )
 {
-    ModelValue& value = m_models[InModel].Values[InKey];
-    if( !value.IsString || value.String != InValue )
-    {
-        value.String = InValue;
-        value.IsString = true;
-        value.Dirty = true;
-    }
+    m_models->SetString( InModel, InKey, InValue );
 }
 
 
 void RmlUiCore::ModelRegisterEvent( const std::string& InModel, const std::string& InKey )
 {
-    m_models[InModel].Events.emplace( InKey, false );
+    m_models->RegisterEvent( InModel, InKey );
 }
 
 
 double RmlUiCore::ModelGetNumber( const std::string& InModel, const std::string& InKey ) const
 {
-    const auto model = m_models.find( InModel );
-    if( model == m_models.end() )
-    {
-        return 0.0;
-    }
-    const auto value = model->second.Values.find( InKey );
-    return value != model->second.Values.end() && !value->second.IsString ? value->second.Number : 0.0;
+    return m_models->GetNumber( InModel, InKey );
 }
 
 
 std::string RmlUiCore::ModelGetString( const std::string& InModel, const std::string& InKey ) const
 {
-    const auto model = m_models.find( InModel );
-    if( model == m_models.end() )
-    {
-        return {};
-    }
-    const auto value = model->second.Values.find( InKey );
-    if( value == model->second.Values.end() )
-    {
-        return {};
-    }
-    return value->second.IsString ? value->second.String : std::to_string( value->second.Number );
+    return m_models->GetString( InModel, InKey );
 }
 
 
 std::vector<std::pair<std::string, std::string>> RmlUiCore::ModelListValues( const std::string& InModel ) const
 {
-    std::vector<std::pair<std::string, std::string>> values;
-    const auto model = m_models.find( InModel );
-    if( model == m_models.end() )
-    {
-        return values;
-    }
-    for( const auto& [key, value] : model->second.Values )
-    {
-        values.emplace_back( key, value.IsString ? "\"" + value.String + "\"" : Rml::ToString( value.Number ) );
-    }
-    return values;
+    return m_models->ListValues( InModel );
 }
 
 
 std::string RmlUiCore::ModelPollEvent( const std::string& InModel )
 {
-    auto model = m_models.find( InModel );
-    if( model == m_models.end() || model->second.EventQueue.empty() )
-    {
-        return {};
-    }
-    std::string event = std::move( model->second.EventQueue.front() );
-    model->second.EventQueue.pop_front();
-    return event;
+    return m_models->PollEvent( InModel );
+}
+
+
+std::string RmlUiCore::ModelLastEventArgs( const std::string& InModel ) const
+{
+    return m_models->LastEventArgs( InModel );
 }
 
 
 void RmlUiCore::SyncModels()
 {
-    bool materialized = false;
-    for( auto& [name, model] : m_models )
-    {
-        Rml::DataModelConstructor constructor;
-        if( !model.Created )
-        {
-            constructor = m_context->CreateDataModel( name );
-            if( !constructor )
-            {
-                constructor = m_context->GetDataModel( name );
-            }
-            if( !constructor )
-            {
-                continue;
-            }
-            model.Created = true;
-            materialized = true;
-        }
-        Rml::DataModelHandle handle;
-        for( auto& [key, value] : model.Values )
-        {
-            if( !value.Bound )
-            {
-                if( !constructor )
-                {
-                    constructor = m_context->GetDataModel( name );
-                }
-                ModelValue* stored = &value;
-                constructor.BindFunc(
-                    key,
-                    [stored]( Rml::Variant& OutValue ) {
-                        if( stored->IsString )
-                        {
-                            OutValue = stored->String;
-                        }
-                        else
-                        {
-                            OutValue = stored->Number;
-                        }
-                    },
-                    [stored]( const Rml::Variant& InValue ) {
-                        // Two-way bindings (data-value on inputs) write the view's value back.
-                        if( stored->IsString )
-                        {
-                            stored->String = InValue.Get<Rml::String>();
-                        }
-                        else
-                        {
-                            stored->Number = InValue.Get<double>();
-                        }
-                    } );
-                value.Bound = true;
-                value.Dirty = false;
-                materialized = true;
-                continue;
-            }
-            if( value.Dirty )
-            {
-                if( !handle )
-                {
-                    handle = m_context->GetDataModel( name ).GetModelHandle();
-                }
-                handle.DirtyVariable( key );
-                value.Dirty = false;
-            }
-        }
-        for( auto& [key, bound] : model.Events )
-        {
-            if( bound )
-            {
-                continue;
-            }
-            if( !constructor )
-            {
-                constructor = m_context->GetDataModel( name );
-            }
-            Model* owner = &model;
-            const std::string eventName = key;
-            constructor.BindEventCallback( key, [owner, eventName]( Rml::DataModelHandle, Rml::Event&, const Rml::VariantList& ) {
-                owner->EventQueue.push_back( eventName );
-            } );
-            bound = true;
-            materialized = true;
-        }
-    }
+    const bool materialized = m_models->Sync( *m_context );
 
     if( materialized )
     {
