@@ -1471,12 +1471,23 @@ NET-6: the session from scripts. Without a session (offline play, the editor) Ro
 - `RoleServer` (field): This peer is the server.
 - `RoundTripMs` (property): Smoothed round trip in ms: a client's to the server, or (server) to one client.
 - `RoundTripMsTo(System.Int32)` (method): Server: the round trip to one client, in ms.
+- `SendKillcam(ScriptCore.Entity,ScriptCore.Entity,System.Single)` (method): Server: sends the victim's owner a killcam (ME-323), the last
 - `SendRpc(ScriptCore.Entity,System.Int32,System.Int32,System.ReadOnlySpan{System.Byte},ScriptCore.INetScript)` (method): Generated RPC stubs call this. kind: 0 to the server, 1 to the owner, 2 to every client. Offline both sides are local, and an RPC addressed to the side we're on runs here directly.
 - `SetAim(System.Single,System.Single)` (method): The local player's absolute aim (NET-15), sent with every command until cleared: degrees, yaw about +Y (0 down +Z, 90 down +X), pitch up from level. Set it from where the view looks each frame; the pawn's script reads Net.Command(Entity).Yaw / Pitch / AimDirection in OnFixedUpdate on both sides, so a predicted shot and the server's aim the same way.
 - `SetOwner(ScriptCore.Entity,System.Int32)` (method): Server: hands an entity to a client, which then predicts it (0: back to the server).
 - `Tick` (property): The simulation tick being run (a past one while resimulating).
-- `VisualOffset(ScriptCore.Entity)` (method): A client's predicted pawn: where to draw it relative to its simulated pose (Transform), the rest of a correction being smoothed out (gone in about 100 ms). Draw its meshes, or put the camera, at the Transform plus this. Corrections over 2 m (a teleport, a respawn) snap, so it's zero then. Zero for anything else, on the server and offline.
+- `VisualOffset(ScriptCore.Entity)` (method): A client's predicted pawn: where it's drawn relative to its simulated pose (Transform), the rest of a correction being smoothed out (gone in about 100 ms). The engine draws the pawn and everything under it (meshes, an attached camera, audio sources) there itself, after the late update; scripts always read the simulated pose. Add this to place something from the pawn's pose yourself (a camera that isn't its child, an effect). Corrections over 2 m (a teleport, a respawn) snap, so it's zero then. Zero for anything else, on the server and offline.
 - `WarnRpcTooLarge(System.String)` (method): Generated RPC stubs with string arguments: the arguments didn't fit the RPC buffer.
+
+## Net.Killcam
+
+Client: the newest killcam the server sent (ME-323). It arrives a chunk at a time while the death cam plays; a newer one replaces it.
+
+- `Id` (property): The newest one's id (from 1; 0: none yet). A new id is a new killcam.
+- `Killer` (property): The killer in this world (Entity.Null when it isn't here any more).
+- `Progress` (property): How much of the newest one is here, 0..1 (1 once received).
+- `Received` (property): Whether the newest one is here whole.
+- `Victim` (property): The victim in this world (Entity.Null when it isn't here any more).
 
 ## NetClientJoined
 
@@ -1726,7 +1737,7 @@ Match replays (ME-316): a server started with --record-replay records every tick
 - `Event(System.String,System.String)` (method): An event at the current tick: a short name (up to 64 bytes) and a payload (JSON by convention, up to 4000 bytes; longer is cut). Nothing unless recording.
 - `Event(System.String,System.String,ScriptCore.Entity)` (method): An event about an entity (its NetId goes in the replay; --entity filters on it). Nothing unless recording.
 - `IsPlaying` (property): Whether this process plays a replay back (a Player started with --replay file.mreplay). The world follows the recording, Net.IsClient is true and networked scripts present rather than simulate. Nothing is owned or predicted here (Net.LocalClientId is 0), so a game hides its "connecting" UI and its own player's view when this is set.
-- `IsRecording` (property): Whether this process records a match replay (a server with --record-replay).
+- `IsRecording` (property): Whether this process records: a server with --record-replay, or one keeping the replay ring killcams are cut from (every server, unless started with --no-replay-ring). Events go to both.
 - `Quote(System.String)` (method): A JSON string literal for a payload: quotes, backslashes and control characters escaped.
 - `Tick` (property): The recorded server tick the replay shows (-1 when none plays).
 

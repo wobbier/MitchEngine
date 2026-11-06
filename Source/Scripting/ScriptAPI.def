@@ -447,3 +447,9 @@ bool Replay_IsRecording()
 ## world follows it, networked scripts present it), and the tick it shows (-1 when none plays)
 bool Replay_IsPlaying()
 int Replay_GetTick()
+
+## Killcams (ME-323): the server sends the victim's owner the last seconds before the death as the killer saw
+## them (false off the server, without the replay ring, for a bot victim or an unnetworked killer); a client's
+## newest: its id (0: none), 0..1 of it here, the killer and victim in this world (Entity.Null when not here); complete
+bool Net_SendKillcam( Entity victim, Entity killer, float seconds )
+bool Net_GetKillcam( int* outId, float* outProgress, Entity* outKiller, Entity* outVictim )

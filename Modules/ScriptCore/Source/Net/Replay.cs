@@ -15,7 +15,10 @@ namespace ScriptCore;
 /// </summary>
 public static unsafe class Replay
 {
-    /// <summary>Whether this process records a match replay (a server with --record-replay).</summary>
+    /// <summary>
+    /// Whether this process records: a server with --record-replay, or one keeping the replay ring killcams
+    /// are cut from (every server, unless started with --no-replay-ring). Events go to both.
+    /// </summary>
     public static bool IsRecording => Engine._api.Replay_IsRecording != null && Engine._api.Replay_IsRecording() != 0;
 
     /// <summary>

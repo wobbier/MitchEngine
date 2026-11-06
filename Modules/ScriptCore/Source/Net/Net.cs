@@ -381,6 +381,48 @@ public static unsafe class Net
     }
 
     /// <summary>
+    /// Server: sends the victim's owner a killcam (ME-323), the last <paramref name="seconds"/> before this
+    /// tick as the killer saw them: what the killer's client was in view of, its aim and commands, its
+    /// shots and the replay events (Replay.Event) about what's in view, cut from the server's replay ring
+    /// and streamed over the blob channel. The game decides what a kill is. False off the server,
+    /// without the ring (a server keeps it unless started with --no-replay-ring), for a victim no client
+    /// owns (a bot) or a killer that isn't networked. A newer one for the same player replaces the older.
+    /// </summary>
+    public static bool SendKillcam(Entity victim, Entity killer, float seconds = 8f) =>
+        Engine._api.Net_SendKillcam != null && Engine._api.Net_SendKillcam(victim, killer, seconds) != 0;
+
+    /// <summary>
+    /// Client: the newest killcam the server sent (ME-323). It arrives a chunk at a time while the death
+    /// cam plays; a newer one replaces it.
+    /// </summary>
+    public static class Killcam
+    {
+        /// <summary>The newest one's id (from 1; 0: none yet). A new id is a new killcam.</summary>
+        public static int Id { get { Get(out int id, out _, out _, out _); return id; } }
+        /// <summary>Whether the newest one is here whole.</summary>
+        public static bool Received => Get(out _, out _, out _, out _);
+        /// <summary>How much of the newest one is here, 0..1 (1 once received).</summary>
+        public static float Progress { get { Get(out _, out float progress, out _, out _); return progress; } }
+        /// <summary>The killer in this world (Entity.Null when it isn't here any more).</summary>
+        public static Entity Killer { get { Get(out _, out _, out Entity killer, out _); return killer; } }
+        /// <summary>The victim in this world (Entity.Null when it isn't here any more).</summary>
+        public static Entity Victim { get { Get(out _, out _, out _, out Entity victim); return victim; } }
+
+        private static bool Get(out int id, out float progress, out Entity killer, out Entity victim)
+        {
+            int i = 0;
+            float p = 0f;
+            Entity k = Entity.Null, v = Entity.Null;
+            bool complete = Engine._api.Net_GetKillcam != null && Engine._api.Net_GetKillcam(&i, &p, &k, &v) != 0;
+            id = i;
+            progress = p;
+            killer = k;
+            victim = v;
+            return complete;
+        }
+    }
+
+    /// <summary>
     /// An RPC's arguments must fit one message (1024 bytes) with its header.
     /// </summary>
     public const int MaxRpcArgsBytes = 1008;

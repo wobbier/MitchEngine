@@ -452,6 +452,42 @@ static int Eng_Replay_GetTick() noexcept
 }
 
 
+// C#'s Net.SendKillcam / Net.Killcam (ME-323): the server cuts and streams one; a client's newest.
+static bool Eng_Net_SendKillcam( EntityID victim, EntityID killer, float seconds ) noexcept
+{
+    NetCore* net = Net();
+    return net && net->IsServer() && net->SendKillcam( MakeHandle( victim ), MakeHandle( killer ), static_cast<double>( seconds ) );
+}
+
+
+static bool Eng_Net_GetKillcam( int* outId, float* outProgress, EntityID* outKiller, EntityID* outVictim ) noexcept
+{
+    NetCore* net = Net();
+    const NetKillcamReceiver* killcam = net && net->GetClient() ? &net->GetKillcam() : nullptr;
+    if( outId )
+    {
+        *outId = killcam ? static_cast<int>( killcam->GetId() ) : 0;
+    }
+    if( outProgress )
+    {
+        *outProgress = killcam ? net->GetKillcamProgress() : 0.f;
+    }
+    auto find = [net, killcam]( uint32_t InNetId ) {
+        EntityHandle entity = killcam && InNetId != 0 ? net->FindEntity( InNetId ) : EntityHandle();
+        return entity ? entity->GetId() : EntityID();
+    };
+    if( outKiller )
+    {
+        *outKiller = find( killcam ? killcam->GetKillerNetId() : 0 );
+    }
+    if( outVictim )
+    {
+        *outVictim = find( killcam ? killcam->GetVictimNetId() : 0 );
+    }
+    return killcam && killcam->IsComplete();
+}
+
+
 void Register_NetBindings( ScriptEngineAPI& inAPI )
 {
     // Scripts can add it by name (World.Instantiate + AddComponent("NetIdentity")) and query it.
@@ -484,6 +520,8 @@ void Register_NetBindings( ScriptEngineAPI& inAPI )
     inAPI.Replay_IsRecording = &Eng_Replay_IsRecording;
     inAPI.Replay_IsPlaying = &Eng_Replay_IsPlaying;
     inAPI.Replay_GetTick = &Eng_Replay_GetTick;
+    inAPI.Net_SendKillcam = &Eng_Net_SendKillcam;
+    inAPI.Net_GetKillcam = &Eng_Net_GetKillcam;
 }
 
 #endif

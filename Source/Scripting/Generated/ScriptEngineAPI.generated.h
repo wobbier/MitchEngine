@@ -19,7 +19,7 @@ struct ScriptRaycastHit
 };
 
 // The ABI both sides were generated from (C# checks it: ScriptBridge.GetEngineAPIHash).
-constexpr uint64_t kScriptEngineAPIHash = 0x016ED9952C7B53D5ULL;
+constexpr uint64_t kScriptEngineAPIHash = 0x774849618099D86CULL;
 
 // Structs that cross: their layout is part of the ABI (C# checks the same sizes).
 static_assert( sizeof( EntityID ) == 8, "EntityID crosses into C#: its size is part of the script ABI" );
@@ -492,4 +492,12 @@ struct ScriptEngineAPI
     // world follows it, networked scripts present it), and the tick it shows (-1 when none plays)
     bool ( *Replay_IsPlaying )() noexcept;
     int ( *Replay_GetTick )() noexcept;
+
+    // Killcams (ME-323): the server sends the victim's owner the last seconds before the death as the killer saw
+
+    // them (false off the server, without the replay ring, for a bot victim or an unnetworked killer); a client's
+
+    // newest: its id (0: none), 0..1 of it here, the killer and victim in this world (Entity.Null when not here); complete
+    bool ( *Net_SendKillcam )( EntityID victim, EntityID killer, float seconds ) noexcept;
+    bool ( *Net_GetKillcam )( int* outId, float* outProgress, EntityID* outKiller, EntityID* outVictim ) noexcept;
 };

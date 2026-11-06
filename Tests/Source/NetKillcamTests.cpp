@@ -9,6 +9,8 @@
 #include "Net/NetKillcam.h"
 #include "Net/NetReplication.h"
 #include "NetHarness.h"
+#include "Scripting/Bindings/BindingContext.h"
+#include "Scripting/Bindings/Systems/Net.bindings.h"
 #include <algorithm>
 #include <cmath>
 #include <map>
@@ -472,6 +474,10 @@ TEST_CASE( "Net: at 150 ms RTT and 5% loss a kill streams the killer's 8 s to th
         }
         return command;
     };
+#if USING( ME_SCRIPTING )
+    ScriptEngineAPI api{};
+    Register_NetBindings( api );
+#endif
     uint32_t killTick = 0;
     bool killed = false;
     std::vector<std::shared_ptr<const NetReplayTick>> ringAtKill;
@@ -495,7 +501,14 @@ TEST_CASE( "Net: at 150 ms RTT and 5% loss a kill streams the killer's 8 s to th
         if( killTick != 0 && InServer.GetTick() == killTick )
         {
             net.ServerNet.RecordReplayEvent( "kill", "{\"killer\":\"Kestrel\",\"victim\":\"Striker\"}", victim );
+#if USING( ME_SCRIPTING )
+            // As C#'s Net.SendKillcam does it; a bot (owned by nobody) has nobody to send one to.
+            ScriptBindings::WorldScope scope( net.ServerWorld );
+            CHECK_FALSE( api.Net_SendKillcam( distant->GetId(), killer->GetId(), 8.f ) );
+            REQUIRE( api.Net_SendKillcam( victim->GetId(), killer->GetId(), 8.f ) );
+#else
             REQUIRE( net.ServerNet.SendKillcam( victim, killer, 8.0 ) );
+#endif
             killed = true;
         }
         // The ring as the killcam is cut from it (the death tick is recorded by now).
@@ -633,6 +646,31 @@ TEST_CASE( "Net: at 150 ms RTT and 5% loss a kill streams the killer's 8 s to th
     CHECK( during.Resyncs == baseline.Resyncs );
     CHECK( during.Corrections == baseline.Corrections );
     CHECK( linkRate <= onServer.Connection->GetBlobSettings().LinkBytesPerSecond * 1.03 );
+#if USING( ME_SCRIPTING )
+    // C#'s Net.Killcam on the victim's side: received, whole, the killer and victim as this world has them.
+    {
+        int id = 0;
+        float progress = 0.f;
+        EntityID killerHere;
+        EntityID victimHere;
+        {
+            ScriptBindings::WorldScope scope( net.ClientWorld );
+            CHECK( api.Net_GetKillcam( &id, &progress, &killerHere, &victimHere ) );
+            CHECK_FALSE( api.Net_SendKillcam( clientPawn->GetId(), clientPawn->GetId(), 8.f ) );   // not the server
+        }
+        CHECK( id == 1 );
+        CHECK( progress == 1.f );
+        CHECK( victimHere == clientPawn->GetId() );
+        const EntityHandle killerMirror = net.ClientNet.FindEntity( killer->GetComponent<NetIdentity>().GetNetId() );
+        REQUIRE( killerMirror );
+        CHECK( killerHere == killerMirror->GetId() );
+        {
+            ScriptBindings::WorldScope scope( net.ServerWorld );
+            CHECK_FALSE( api.Net_GetKillcam( &id, &progress, &killerHere, &victimHere ) );
+            CHECK( id == 0 );
+        }
+    }
+#endif
     // The last blobs' acks come back; the server lets the killcam go.
     net.Run( 1.0 );
     CHECK( stats.Completed == 1 );
