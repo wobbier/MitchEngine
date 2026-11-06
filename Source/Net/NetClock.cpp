@@ -89,7 +89,7 @@ bool NetClock::InCooldown() const
 }
 
 
-void NetClock::OnSlackReport( float InSlack, float InArrived )
+void NetClock::OnSlackReport( float InSlack, float InArrived, float InBehindTicks )
 {
     if( InCooldown() )
     {
@@ -102,11 +102,11 @@ void NetClock::OnSlackReport( float InSlack, float InArrived )
     // command arrived with must both say so (the smoothed one lags a gap's end); the jump goes by
     // the lesser.
     const float behind = -std::max( InSlack, InArrived );
-    if( behind > m_settings.BehindTicks )
+    if( behind > InBehindTicks )
     {
         error = -behind - m_target;
     }
-    if( std::abs( error ) > m_settings.ResyncTicks || behind > m_settings.BehindTicks )
+    if( std::abs( error ) > m_settings.ResyncTicks || behind > InBehindTicks )
     {
         // Too far ahead: step back (the commands for those ticks get sent again); too far behind:
         // skip ahead.

@@ -532,6 +532,20 @@ TEST_CASE( "Net: a clock behind jumps to the target at once, and a resync's cool
     ahead.OnSlackReport( 4.f, -3.f );
     CHECK( ahead.GetResyncCount() == 0 );
     CHECK( ahead.GetDilation() < 0.f );
+
+    // Under BehindTicks it dilates; told to jump if behind at all (a client back from its own
+    // hitch, ME-313), it jumps.
+    NetClock slightly;
+    slightly.Start( 100 );
+    slightly.OnSlackReport( -0.75f, -0.75f );
+    CHECK( slightly.GetResyncCount() == 0 );
+    slightly.OnSlackReport( -0.75f, -0.75f, 0.f );
+    CHECK( slightly.GetResyncCount() == 1 );
+    CHECK( slightly.GetTick() == 104 );
+    NetClock onTime;
+    onTime.Start( 100 );
+    onTime.OnSlackReport( -0.5f, 0.25f, 0.f );
+    CHECK( onTime.GetResyncCount() == 0 );
 }
 
 
@@ -1172,14 +1186,17 @@ TEST_CASE( "Net: a client that hitches comes back without a resync when it catch
     // they're the client's own (ME-313): it knows it sent late, and the server's misses on the
     // ticks it made late don't grow the target (they took it to 4, 6 and 8 for 0.05, 0.1 and
     // 0.15-0.17 s, easing back over 20 s and more). Nor does the round trip of a packet it read
-    // late (it took the jitter floor, and the target, to 2 after 0.05 s).
+    // late (it took the jitter floor, and the target, to 2 after 0.05 s). Just past the engine's
+    // catch-up (0.16-0.17 s with 8 steps) it comes back under a tick behind, inside BehindTicks:
+    // back from its own hitch, it jumps if behind at all (dilating back missed a tick a tick,
+    // and took the target to 7).
     struct Case
     {
         int CatchUp;
         double Hitch;
     };
     for( const Case c : { Case{ 1000, 0.05 }, Case{ 1000, 0.1 }, Case{ 1000, 0.15 }, Case{ 1000, 0.17 }, Case{ 8, 0.05 }, Case{ 8, 0.1 }, Case{ 8, 0.15 },
-             Case{ 1000, 0.3 }, Case{ 1000, 1.0 }, Case{ 8, 0.18 }, Case{ 8, 0.2 }, Case{ 8, 0.25 }, Case{ 8, 0.3 }, Case{ 8, 1.0 } } )
+             Case{ 8, 0.16 }, Case{ 8, 0.17 }, Case{ 1000, 0.3 }, Case{ 1000, 1.0 }, Case{ 8, 0.18 }, Case{ 8, 0.2 }, Case{ 8, 0.25 }, Case{ 8, 0.3 }, Case{ 8, 1.0 } } )
     {
         const int catchUp = c.CatchUp;
         const double hitch = c.Hitch;
@@ -1214,16 +1231,18 @@ TEST_CASE( "Net: a client that hitches comes back without a resync when it catch
             << client.GetOutageCount() << " outages, " << client.GetHitchCount() << " hitches (" << client.GetHitchMisses() << " misses its own), settled " << settled << " s after, misses " << probe.Misses( hitchAt, freshAt ) << " own + " << late
             << " late (" << after << " after 0.1 s), worst stale " << stale << " ms (before " << staleBefore << "), target " << targetBefore << " -> "
             << client.GetClock().GetTargetSlack() << " (deepest " << deepest << ")" );
-        // Past MaxSlack and the usual wait (0.18 s and more), the gap is an outage.
+        // Past MaxSlack and the usual wait (0.18 s and more), the gap is an outage. Past 8 steps
+        // and a frame (0.15 s), the engine's catch-up leaves it behind.
         const bool outage = hitch > 0.175;
+        const bool behind = catchUp < 100 && hitch > 0.155;
         CHECK( client.GetState() == NetClient::State::Connected );
-        CHECK( resyncs == ( catchUp > 100 || !outage ? 0 : 1 ) );
+        CHECK( resyncs == ( behind ? 1 : 0 ) );
         // 0.05 s is inside the usual wait: no stall.
         CHECK( client.GetStallCount() == ( hitch > 0.075 ? 1u : 0u ) );
         CHECK( client.GetOutageCount() == ( outage ? 1u : 0u ) );
-        // The client saw its own hitch, and every miss of a short one was its own.
+        // The client saw its own hitch, and every miss of a short one caught up in full was its own.
         CHECK( client.GetHitchCount() == 1 );
-        if( !outage )
+        if( !outage && !behind )
         {
             CHECK( client.GetHitchMisses() == probe.Misses( hitchAt, net.Now() + 1.0 ) );
         }

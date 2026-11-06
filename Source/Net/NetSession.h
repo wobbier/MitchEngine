@@ -304,6 +304,8 @@ private:
     uint32_t m_frameFirstTick = 0;
     uint64_t m_hitches = 0;
     uint64_t m_hitchMisses = 0;
+    // The server just heard a hitch's burst: the next report to steer jumps if behind at all.
+    bool m_hitchBack = false;
     bool m_stalled = false;
     uint64_t m_stalls = 0;
     uint64_t m_stalledReports = 0;

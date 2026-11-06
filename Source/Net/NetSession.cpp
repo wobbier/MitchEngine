@@ -666,10 +666,12 @@ uint64_t NetClient::TakeHitchMisses( const Report& InReport )
     const int64_t to = std::min<int64_t>( InReport.ServerTick, m_hitchLast );
     const uint64_t own = std::min<uint64_t>( m_gapMisses, static_cast<uint64_t>( std::max<int64_t>( 0, to - from + 1 ) ) );
     m_hitchMisses += own;
-    // The server has heard the burst: the hitch's gap is over.
+    // The server has heard the burst: the hitch's gap is over (and the next report to steer says
+    // whether the engine caught up on all of it).
     if( InReport.Newest >= m_hitchFirst )
     {
         m_hasHitch = false;
+        m_hitchBack = true;
     }
     return own;
 }
@@ -702,7 +704,13 @@ void NetClient::Steer( const Report& InReport )
     const double tickRate = static_cast<double>( std::max<uint16_t>( m_tickRate, 1 ) );
     const float arrived = static_cast<float>( static_cast<double>( static_cast<int64_t>( InReport.Newest ) - static_cast<int64_t>( InReport.ServerTick ) ) + InReport.Waited * tickRate );
     const int resyncs = m_clock.GetResyncCount();
-    m_clock.OnSlackReport( InReport.Slack, arrived );
+    // Back from a hitch the engine didn't catch up on in full (it runs 8 steps a frame and drops
+    // the rest), the clock is behind by the time dropped. Even under BehindTicks every command is
+    // late, and dilating back costs a miss a tick, each one growing the target: jump if it's
+    // behind at all.
+    const bool hitchBack = m_hitchBack;
+    m_hitchBack = false;
+    m_clock.OnSlackReport( InReport.Slack, arrived, hitchBack ? 0.f : m_clock.GetSettings().BehindTicks );
     if( m_clock.GetResyncCount() != resyncs )
     {
         // The clock was off (its commands late or far early): the jump fixes that, a deeper
@@ -714,6 +722,7 @@ void NetClient::Steer( const Report& InReport )
         m_gapMisses = 0;
         m_inOutage = false;
         m_hasHitch = false;
+        m_hitchBack = false;
         return;
     }
     // The buffer grows to cover them (NET-14).

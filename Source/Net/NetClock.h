@@ -43,7 +43,10 @@ public:
     // The server's smoothed slack for this client, and the slack its newest command arrived with
     // (unsmoothed). The clock is behind only when both say so: the smoothed slack lags a gap's
     // end, and sinks through its first ticks, before the server's wait says it's a stall.
-    void OnSlackReport( float InSlack, float InArrived );
+    // InBehindTicks: how far behind jumps (BehindTicks unless the caller knows better: a client
+    // back from its own hitch jumps if it's behind at all).
+    void OnSlackReport( float InSlack, float InArrived, float InBehindTicks );
+    void OnSlackReport( float InSlack, float InArrived ) { OnSlackReport( InSlack, InArrived, m_settings.BehindTicks ); }
     void OnSlackReport( float InSlack ) { OnSlackReport( InSlack, InSlack ); }
     // The server has stopped hearing this client's commands (the uplink is down or slow, or the
     // client itself stalled), so its slack is about the silence, not the clock: hold the clock as
