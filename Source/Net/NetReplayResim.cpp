@@ -195,7 +195,8 @@ NetReplayResim::Result NetReplayResim::Run( NetReplayReader& InReader, uint32_t 
 }
 
 
-std::vector<uint32_t> NetReplayResim::FindCharacters( NetReplayReader& InReader, uint32_t InFrom, uint32_t InTo, std::string* OutError )
+std::vector<uint32_t> NetReplayResim::FindCharacters( NetReplayReader& InReader, uint32_t InFrom, uint32_t InTo, std::string* OutError,
+    std::map<uint32_t, std::pair<uint32_t, uint32_t>>* OutSpans )
 {
     std::map<uint32_t, NetReplayEntity> table;
     std::set<uint32_t> found;
@@ -219,6 +220,11 @@ std::vector<uint32_t> NetReplayResim::FindCharacters( NetReplayReader& InReader,
             if( named != table.end() && named->second.Owner != 0 )
             {
                 found.insert( mover.NetId );
+            }
+            if( OutSpans )
+            {
+                auto [span, added] = OutSpans->try_emplace( mover.NetId, InTick.Tick, InTick.Tick );
+                span->second.second = InTick.Tick;
             }
         }
         return true;

@@ -8,6 +8,7 @@
 #include "Reflection/Reflection.h"
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 
 namespace
@@ -232,6 +233,91 @@ size_t NetSchema::CountReplicatedFields( Entity& InEntity )
         ForEachReplicated( *component, [&count]( const Reflection::FieldInfo&, void* ) { ++count; } );
     }
     return count;
+}
+
+
+std::vector<NetSchema::FieldValue> NetSchema::Describe( Entity& InEntity, const std::vector<uint8_t>& InFields, size_t* OutBytes )
+{
+    using Reflection::PropertyType;
+    std::vector<FieldValue> values;
+    BitReader reader( InFields );
+    auto format = []( const char* InFormat, auto... InArgs ) {
+        char text[160];
+        std::snprintf( text, sizeof( text ), InFormat, InArgs... );
+        return std::string( text );
+    };
+    for( BaseComponent* component : InEntity.GetAllComponents() )
+    {
+        const Reflection::TypeInfo* type = component->GetTypeInfo();
+        ForEachReplicated( *component, [&]( const Reflection::FieldInfo& InField, void* ) {
+            if( reader.IsOverflowed() || InFields.empty() )
+            {
+                return;
+            }
+            FieldValue value;
+            value.Component = type ? type->Name : std::string( "?" );
+            value.Field = InField.Name;
+            switch( InField.GetType() )
+            {
+            case PropertyType::Bool:
+                value.Value = reader.ReadBool() ? "true" : "false";
+                break;
+            case PropertyType::Int:
+            case PropertyType::UInt:
+            {
+                const uint64_t bits = reader.ReadVarUInt();
+                const size_t bytes = InField.Ops->IntBytes;
+                if( InField.GetType() == PropertyType::Int && bytes > 0 && bytes < 8 && ( bits >> ( bytes * 8 - 1 ) ) & 1u )
+                {
+                    value.Value = std::to_string( static_cast<int64_t>( bits | ( ~0ull << ( bytes * 8 ) ) ) );
+                }
+                else
+                {
+                    value.Value = InField.GetType() == PropertyType::Int ? std::to_string( static_cast<int64_t>( bits ) ) : std::to_string( bits );
+                }
+                break;
+            }
+            case PropertyType::Enum:
+                value.Value = std::to_string( reader.ReadVarUInt() );
+                break;
+            case PropertyType::Float:
+                value.Value = format( "%.4f", reader.ReadFloat() );
+                break;
+            case PropertyType::Double:
+            {
+                double number = 0.0;
+                reader.ReadBytes( &number, sizeof( number ) );
+                value.Value = format( "%.6f", number );
+                break;
+            }
+            case PropertyType::Vector2:
+            case PropertyType::Vector3:
+            case PropertyType::Vector4:
+            case PropertyType::Quaternion:
+            {
+                const int count = InField.GetType() == PropertyType::Vector2 ? 2 : InField.GetType() == PropertyType::Vector3 ? 3 : 4;
+                value.Value = "(";
+                for( int i = 0; i < count; ++i )
+                {
+                    value.Value += format( i ? ", %.4f" : "%.4f", reader.ReadFloat() );
+                }
+                value.Value += ")";
+                break;
+            }
+            case PropertyType::String:
+                value.Value = "\"" + reader.ReadString() + "\"";
+                break;
+            default:
+                return;     // Write skips it too
+            }
+            values.push_back( std::move( value ) );
+        } );
+    }
+    if( OutBytes )
+    {
+        *OutBytes = InFields.empty() || reader.IsOverflowed() ? 0 : std::min( InFields.size(), ( InFields.size() * 8 - reader.GetBitsRemaining() + 7 ) / 8 );
+    }
+    return values;
 }
 
 

@@ -57,6 +57,17 @@ namespace NetSchema
     void Read( Entity& InEntity, const std::vector<uint8_t>& InFields );
     // How many fields of the entity's components replicate.
     size_t CountReplicatedFields( Entity& InEntity );
+    // What Write's bytes say, field by field, read against InEntity's components (their layout)
+    // without applying anything: a replay inspector's view of a recorded state (ME-316).
+    struct FieldValue
+    {
+        std::string Component;
+        std::string Field;
+        std::string Value;      // "true", "42", "1.500", "(1.000, 2.000, 3.000)", "\"text\""
+    };
+    // OutBytes: how many of InFields the components' fields took (a C# script's [Replicated] bytes
+    // follow them in a snapshot's state).
+    std::vector<FieldValue> Describe( Entity& InEntity, const std::vector<uint8_t>& InFields, size_t* OutBytes = nullptr );
     // Every reflected type's Replicated fields (type, field names and kinds, in order) as one hash:
     // which layout a recording's field bytes have (ME-316 replay headers).
     uint64_t Hash();

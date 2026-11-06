@@ -618,7 +618,7 @@ void Engine::StopGame()
 
 int Engine::GetExitCode() const
 {
-    return m_netLaunch.HasFailed() ? 1 : 0;
+    return m_netLaunch.GetExitCode();
 }
 
 
@@ -1023,6 +1023,8 @@ void Engine::Run()
             {
                 OPTICK_EVENT( "EngineLateUpdate" );
                 ME_STAT_SCOPE( "Cameras" );
+                // ME-316: a replay viewer's free / follow / POV camera, over whatever the game placed.
+                m_netLaunch.UpdateReplayCamera( *Net, updateContext.GetUnscaledDeltaTime() );
                 Cameras->Update( updateContext );
                 SceneNodes->LateUpdate( updateContext );
                 Cameras->LateUpdate( updateContext );
@@ -1054,7 +1056,7 @@ void Engine::Run()
 #if USING( ME_IMGUI )
                 // PLAY-10: ~ opens the developer console.
                 DevConsole::Get().UpdateAndDraw( GetInput().WasKeyPressed( KeyCode::Tilde ) );
-                // ME-316: the Replay window while Player --replay plays.
+                // ME-316: the replay viewer's windows while Player --replay plays.
                 m_netLaunch.DrawReplayControls( *Net );
                 if( CommandLine::Has( "--budget-hud" ) )
                 {

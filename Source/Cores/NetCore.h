@@ -116,6 +116,8 @@ public:
     void SetOwner( Entity& InEntity, uint8_t InClient );
     bool IsPredicted( Entity& InEntity ) const;
     uint32_t GetNetId( Entity& InEntity ) const;
+    // The entity's NetId, or its nearest networked ancestor's (a pawn's Head hitbox); 0 for none.
+    static uint32_t GetNetIdOrAncestor( const EntityHandle& InEntity );
     EntityHandle FindEntity( uint32_t InNetId ) const;
     // RPC kinds: to the server (from the owner), to the entity's owner, to every client. False
     // when this side can't send that kind or the message is too big (1 KB).

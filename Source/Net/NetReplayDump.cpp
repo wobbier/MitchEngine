@@ -771,7 +771,9 @@ bool NetReplayDump::Write( NetReplayReader& InReader, const Options& InOptions, 
 
 bool NetReplayDump::IsRequested()
 {
-    return CommandLine::Has( "--replay-dump" );
+    // --resim-check needs the world (its physics and scripts): the engine plays the file instead
+    // (NetLaunch, ReplayViewer).
+    return CommandLine::Has( "--replay-dump" ) && !CommandLine::Has( "--resim-check" );
 }
 
 

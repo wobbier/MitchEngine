@@ -477,6 +477,13 @@ bool NetCore::IsPredicted( Entity& InEntity ) const
 }
 
 
+uint32_t NetCore::GetNetIdOrAncestor( const EntityHandle& InEntity )
+{
+    const NetIdentity* identity = NetworkedSelfOrAncestor( InEntity );
+    return identity ? identity->GetNetId() : 0;
+}
+
+
 uint32_t NetCore::GetNetId( Entity& InEntity ) const
 {
     const NetIdentity* identity = InEntity.TryGetComponent<NetIdentity>();
@@ -1316,6 +1323,20 @@ void NetCore::WriteInterpolated( double InFrameSeconds )
         }
         m_replicationClient->Update( InFrameSeconds );
         m_tick = m_playback->GetTick();
+        // Each character's recorded [Predicted] script state at the tick shown (format 3 movers):
+        // what the server and the owner had, which snapshots don't carry. Every frame, so an entity
+        // spawned by a seek gets it once its script is up.
+        if( const NetReplayTick* record = m_playback->GetRecord(); record && m_glue.RestorePredicted )
+        {
+            for( const NetReplayMover& mover : record->Movers )
+            {
+                EntityHandle entity = mover.Predicted.empty() ? EntityHandle() : FindEntity( mover.NetId );
+                if( entity )
+                {
+                    m_glue.RestorePredicted( *entity.Get(), mover.Predicted );
+                }
+            }
+        }
         return;
     }
     if( m_client && m_client->GetState() == NetClient::State::Connected )

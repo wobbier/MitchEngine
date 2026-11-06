@@ -4,6 +4,7 @@
 #include "Net/NetReplay.h"
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -75,8 +76,10 @@ namespace NetReplayResim
     Result Run( NetReplayReader& InReader, uint32_t InNetId, uint32_t InFrom, uint32_t InTo, const Hooks& InHooks, const Settings& InSettings = Settings() );
 
     // The NetIds with a recorded mover and an owning client (a player's character) in InFrom..InTo:
-    // the ones a resim check can run (a bot's commands aren't recorded).
-    std::vector<uint32_t> FindCharacters( NetReplayReader& InReader, uint32_t InFrom, uint32_t InTo, std::string* OutError = nullptr );
+    // the ones a resim check can run (a bot's commands aren't recorded). OutSpans (optional): each
+    // one's first and last tick with a mover.
+    std::vector<uint32_t> FindCharacters( NetReplayReader& InReader, uint32_t InFrom, uint32_t InTo, std::string* OutError = nullptr,
+        std::map<uint32_t, std::pair<uint32_t, uint32_t>>* OutSpans = nullptr );
 
     // "<name>#<id> client N ticks a-b: ..." with the divergences, one line each.
     std::string Describe( const Result& InResult, size_t InMaxLines = 8 );

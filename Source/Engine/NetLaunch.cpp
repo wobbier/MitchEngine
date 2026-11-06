@@ -6,6 +6,7 @@
 #include "JSON.h"
 #include "Net/NetCommands.h"
 #include "Net/NetTransport.h"
+#include "Net/NetReplayDump.h"
 #include "Net/NetVersion.h"
 #include "Net/UdpTransport.h"
 #include "Components/Networking/NetIdentity.h"
@@ -15,6 +16,7 @@
 #include "Engine/Input.h"
 #include "Engine/Project.h"
 #include "Engine/ProjectSettings.h"
+#include "Engine/ReplayViewer.h"
 #include "VFS/VFS.h"
 #include "World/Scene.h"
 #include "Window/IWindow.h"
@@ -171,7 +173,20 @@ bool NetLaunch::IsRequested()
 
 bool NetLaunch::IsReplaying()
 {
-    return CommandLine::Has( "--replay" );
+    // --replay-dump FILE --resim-check needs the world: it plays FILE like --replay (NetReplayDump
+    // leaves it to the engine).
+    return CommandLine::Has( "--replay" ) || ( CommandLine::Has( "--replay-dump" ) && CommandLine::Has( "--resim-check" ) );
+}
+
+
+int NetLaunch::GetExitCode() const
+{
+    if( !m_error.empty() )
+    {
+        return 1;
+    }
+    const int viewer = m_viewer ? m_viewer->GetExitCode() : m_viewerExitCode;
+    return viewer >= 0 ? viewer : 0;
 }
 
 
@@ -317,16 +332,44 @@ bool NetLaunch::Update( NetCore& InNet )
     }
     if( NetReplayPlayback* playback = InNet.GetPlayback() )
     {
-        // --replay-check: once the playhead rests on its tick (and a few frames have let what it
-        // spawned settle), check and quit.
-        if( m_replayCheck && !m_replayChecked && playback->IsPaused() && playback->GetPauseAt() < 0 )
+        // The viewer's tools: the timeline, a marker jump, the resim check, the overlays.
+        if( m_viewer )
+        {
+            std::string error;
+            const bool done = m_viewer->Update( InNet, error );
+            if( !error.empty() )
+            {
+                m_error = error;
+                Say( CLog::LogType::Error, "Replay: " + m_error );
+                return true;
+            }
+            if( done )
+            {
+                return true;
+            }
+        }
+        // --replay-check: once the playhead rests on its tick (a marker jump done, and a few frames
+        // have let what it spawned settle), check and quit.
+        if( m_replayCheck && !m_replayChecked && playback->IsPaused() && playback->GetPauseAt() < 0 && !( m_viewer && m_viewer->IsSettling() ) )
         {
             if( ++m_replayCheckWait >= 3 )
             {
                 m_replayChecked = true;
-                RunReplayCheck( InNet );
+                if( RunReplayCheck( InNet ) && m_viewer )
+                {
+                    std::string error;
+                    if( !m_viewer->OnChecked( InNet, error ) )
+                    {
+                        m_error = error;
+                        Say( CLog::LogType::Error, "Replay: " + m_error );
+                    }
+                }
                 return true;
             }
+        }
+        else
+        {
+            m_replayCheckWait = 0;
         }
         return false;
     }
@@ -693,7 +736,13 @@ namespace
 
 bool NetLaunch::StartReplay( NetCore& InNet )
 {
-    const std::string path = ResolveReplayPath( CommandLine::GetString( "--replay" ) );
+    const std::string path = ResolveReplayPath( CommandLine::GetString( CommandLine::Has( "--replay" ) ? "--replay" : "--replay-dump" ) );
+    if( CommandLine::Has( "--resim-check" ) && CommandLine::Has( "--replay-check" ) )
+    {
+        m_error = "--resim-check and --replay-check: one at a time";
+        Say( CLog::LogType::Error, "Net: " + m_error );
+        return false;
+    }
     auto source = std::make_unique<NetReplayFileSource>();
     if( !source->Open( path ) )
     {
@@ -783,7 +832,9 @@ bool NetLaunch::StartReplay( NetCore& InNet )
             playback.SetPauseAt( -1 );
         }
     }
-    const bool paused = CommandLine::Has( "--replay-paused" ) || ( CommandLine::Has( "--replay-pause-at" ) && playback.GetPauseAt() < 0 );
+    // A marker jump and the resim check move the playhead themselves (ReplayViewer).
+    const bool paused = CommandLine::Has( "--replay-paused" ) || ( CommandLine::Has( "--replay-pause-at" ) && playback.GetPauseAt() < 0 )
+        || CommandLine::Has( "--replay-marker" ) || CommandLine::Has( "--resim-check" );
     if( !paused )
     {
         playback.Play();
@@ -792,8 +843,22 @@ bool NetLaunch::StartReplay( NetCore& InNet )
     {
         Say( CLog::LogType::Warning, "Replay: --replay-check checks where it pauses: give --replay-pause-at or --replay-paused" );
     }
+    // The viewer's tools, with the networked actions' names for the input view.
+    std::vector<ReplayViewer::Action> actions;
+    for( const CommandSlot& slot : m_commandSlots )
+    {
+        actions.push_back( { slot.Action, slot.Index, slot.IsButton, slot.AxisCount } );
+    }
+    m_viewer = std::make_unique<ReplayViewer>( path, std::move( actions ) );
+    std::string viewerError;
+    if( !m_viewer->Configure( InNet, viewerError ) )
+    {
+        m_error = viewerError;
+        Say( CLog::LogType::Error, "Net: " + m_error );
+        return false;
+    }
     RegisterReplayCommands( InNet );
-    ShowRole( "replay" );
+    ShowRole( CommandLine::Has( "--resim-check" ) ? "resim check" : "replay" );
     return true;
 }
 
@@ -845,9 +910,12 @@ void NetLaunch::RegisterReplayCommands( NetCore& InNet )
     }
     registered = true;
     NetCore* net = &InNet;
+    NetLaunch* self = this;
     DevConsole::Get().Register( "replay",
-        "the replay playing (--replay): replay [play|pause|toggle|step [n]|seek <tick>|speed <x>|loop <a> <b>|loop off|pause-at <tick>|check|info]",
-        [net]( const std::vector<std::string>& InArgs ) -> std::string {
+        "the replay playing (--replay): replay [play|pause|toggle|step [n]|seek <tick>|speed <x>|loop <a> <b>|loop off|pause-at <tick>|check|info"
+        "|markers [kind]|marker <kind> [n]|next [kind]|prev [kind]|inspect [netid]|input|shots|resim [netid] [a:b]|camera game|free|follow <id>|pov <id>"
+        "|overlay shots|hitboxes|trails on|off|report <file>]",
+        [net, self]( const std::vector<std::string>& InArgs ) -> std::string {
             NetReplayPlayback* playback = net->GetPlayback();
             if( !playback )
             {
@@ -923,7 +991,9 @@ void NetLaunch::RegisterReplayCommands( NetCore& InNet )
             }
             else if( !verb.empty() )
             {
-                return "unknown: replay " + verb + " (help replay)";
+                bool handled = false;
+                const std::string out = self->m_viewer ? self->m_viewer->RunCommand( *net, InArgs, handled ) : std::string();
+                return handled ? out : "unknown: replay " + verb + " (help replay)";
             }
             return Status( *playback );
         } );
@@ -932,97 +1002,19 @@ void NetLaunch::RegisterReplayCommands( NetCore& InNet )
 
 void NetLaunch::DrawReplayControls( NetCore& InNet )
 {
-#if USING( ME_IMGUI ) && !USING( ME_EDITOR ) && USING( ME_GAME_TOOLS )
-    NetReplayPlayback* playback = InNet.GetPlayback();
-    if( !playback || playback->IsEmpty() )
+    if( m_viewer && InNet.GetPlayback() )
     {
-        return;
+        m_viewer->DrawUI( InNet );
     }
-    // Keys, unless a text field has them.
-    if( !ImGui::GetIO().WantTextInput )
+}
+
+
+void NetLaunch::UpdateReplayCamera( NetCore& InNet, float InDeltaSeconds )
+{
+    if( m_viewer && InNet.GetPlayback() )
     {
-        const int step = ImGui::GetIO().KeyShift ? 10 : 1;
-        if( ImGui::IsKeyPressed( ImGuiKey_Space, false ) )
-        {
-            playback->TogglePause();
-        }
-        if( ImGui::IsKeyPressed( ImGuiKey_RightArrow ) )
-        {
-            playback->Step( step );
-        }
-        if( ImGui::IsKeyPressed( ImGuiKey_LeftArrow ) )
-        {
-            playback->Step( -step );
-        }
+        m_viewer->UpdateCamera( InNet, InDeltaSeconds );
     }
-    ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos( ImVec2( viewport->Pos.x + 10.f, viewport->Pos.y + viewport->Size.y - 10.f ), ImGuiCond_FirstUseEver, ImVec2( 0.f, 1.f ) );
-    ImGui::SetNextWindowSize( ImVec2( std::min( 720.f, viewport->Size.x - 20.f ), 0.f ), ImGuiCond_FirstUseEver );
-    if( ImGui::Begin( "Replay" ) )
-    {
-        if( ImGui::Button( playback->IsPaused() ? "Play" : "Pause" ) )
-        {
-            playback->TogglePause();
-        }
-        for( const int delta : { -10, -1, 1, 10 } )
-        {
-            ImGui::SameLine();
-            const std::string label = ( delta > 0 ? "+" : "" ) + std::to_string( delta );
-            if( ImGui::Button( label.c_str() ) )
-            {
-                playback->Step( delta );
-            }
-        }
-        ImGui::SameLine();
-        float speed = static_cast<float>( playback->GetSpeed() );
-        ImGui::SetNextItemWidth( 140.f );
-        if( ImGui::SliderFloat( "Speed", &speed, static_cast<float>( NetReplayPlayback::kMinSpeed ), static_cast<float>( NetReplayPlayback::kMaxSpeed ), "%.2fx",
-                ImGuiSliderFlags_Logarithmic ) )
-        {
-            playback->SetSpeed( speed );
-        }
-        int tick = static_cast<int>( playback->GetTick() );
-        ImGui::SetNextItemWidth( -1.f );
-        if( ImGui::SliderInt( "##Tick", &tick, static_cast<int>( playback->GetFirstTick() ), static_cast<int>( playback->GetLastTick() ), "tick %d" ) )
-        {
-            playback->Seek( tick );
-        }
-        bool looping = playback->IsLooping();
-        if( ImGui::Checkbox( "Loop", &looping ) )
-        {
-            looping ? playback->SetLoop( playback->GetLoopFrom(), playback->GetLoopTo() ) : playback->ClearLoop();
-        }
-        ImGui::SameLine();
-        int range[2] = { static_cast<int>( playback->GetLoopFrom() ), static_cast<int>( playback->GetLoopTo() ) };
-        ImGui::SetNextItemWidth( 220.f );
-        if( ImGui::DragInt2( "##LoopRange", range, 1.f, static_cast<int>( playback->GetFirstTick() ), static_cast<int>( playback->GetLastTick() ) ) )
-        {
-            playback->SetLoop( static_cast<uint32_t>( std::max( 0, range[0] ) ), static_cast<uint32_t>( std::max( 0, range[1] ) ) );
-            if( !looping )
-            {
-                playback->ClearLoop();
-            }
-        }
-        ImGui::SameLine();
-        const double seconds = ( playback->GetTime() - playback->GetFirstTick() ) / playback->GetTickRate();
-        ImGui::Text( "%.2f s", seconds );
-        // The tick's own record: events and shots (phase 3 draws them).
-        if( const NetReplayTick* record = playback->GetRecord() )
-        {
-            for( const NetReplayEvent& event : record->Events )
-            {
-                ImGui::TextWrapped( "event %s %s", event.Name.c_str(), event.Payload.c_str() );
-            }
-            for( const NetReplayShot& shot : record->Shots )
-            {
-                ImGui::Text( "shot client %u from #%u: %s", shot.Client, shot.Shooter, shot.Hit ? ( "HIT #" + std::to_string( shot.Target ) + " " + shot.TargetPart ).c_str() : "miss" );
-            }
-        }
-    }
-    ImGui::End();
-#else
-    (void)InNet;
-#endif
 }
 
 
@@ -1059,6 +1051,11 @@ void NetLaunch::Shutdown( NetCore& InNet, double InNow )
         }
     }
     InNet.Close( InNow );
+    if( m_viewer )
+    {
+        m_viewerExitCode = m_viewer->GetExitCode();
+        m_viewer.reset();
+    }
     InNet.Shutdown();
     m_conditioned.reset();
     m_socket.reset();

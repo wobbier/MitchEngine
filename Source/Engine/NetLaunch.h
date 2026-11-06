@@ -10,6 +10,7 @@ class IWindow;
 class NetCore;
 class UdpTransport;
 class ConditionedTransport;
+class ReplayViewer;
 
 // Networking from the command line (NET-5): Engine::Run starts it once the scene has loaded (the
 // handshake hashes the scene's networked entities), checks it every frame and ends it on exit.
@@ -43,6 +44,11 @@ class ConditionedTransport;
 // The console's "replay" command (play, pause, step, seek, speed, loop, pause-at, check, info) drives it
 // too (the edscript "console replay ..." and --console "replay ..."), and game-tools builds draw a
 // Replay window (Space play / pause, Left / Right step, Shift for 10).
+//
+// The viewer's debug tools (ME-316 phase 3, ReplayViewer.h): a timeline with markers, an inspector,
+// input, lag-compensation and resim views, world overlays and cameras; their options:
+//   --replay-marker KIND[:N] --replay-report FILE --resim-check [A:B] --replay-camera MODE
+//   --replay-overlays LIST   (and --replay-dump FILE --resim-check, which plays FILE to check it)
 class NetLaunch
 {
 public:
@@ -56,6 +62,9 @@ public:
     static bool IsHosting();
     // The command line asked for a session that couldn't start (the process exits non-zero).
     bool HasFailed() const { return !m_error.empty(); }
+    // The process's exit code: 1 when it failed, a replay check's own (--resim-check: 3 when a tick
+    // diverged), else 0.
+    int GetExitCode() const;
 
     // Starts what the command line asks for: false when it asked and couldn't (logged; Update then
     // says to quit, and the report says why). InTickRate: the engine's fixed steps per second.
@@ -68,8 +77,10 @@ public:
 
     // --replay was given (ME-316).
     static bool IsReplaying();
-    // Game-tools builds with ImGui: the Replay window while a replay plays.
+    // Game-tools builds with ImGui: the replay viewer's windows while a replay plays.
     void DrawReplayControls( NetCore& InNet );
+    // Before the cameras update: the replay viewer's free / follow / POV camera.
+    void UpdateReplayCamera( NetCore& InNet, float InDeltaSeconds );
 
     // Networked input actions (NET-6, InputAction::Networked), sorted by name: buttons take the
     // command's bits in that order, Value / Vector2 actions its 4 axes. Built before Start.
@@ -127,6 +138,9 @@ private:
     void RegisterReplayCommands( NetCore& InNet );
     // --replay-check, once the playhead rests where it was asked to: false when the world differs.
     bool RunReplayCheck( NetCore& InNet );
+    // The viewer's tools (ME-316 phase 3), while a replay plays.
+    std::unique_ptr<ReplayViewer> m_viewer;
+    int m_viewerExitCode = -1;          // the viewer's, kept past Shutdown
     bool m_replayCheck = false;
     int m_replayCheckWait = 0;          // frames paused on the tick before checking (spawns settle)
     bool m_replayChecked = false;
