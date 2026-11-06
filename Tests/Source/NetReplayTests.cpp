@@ -1,7 +1,9 @@
 #include "PCH.h"
 #include <doctest/doctest.h>
 #include "Components/Networking/NetHitbox.h"
+#include "JSON.h"
 #include "Net/NetReplay.h"
+#include "Net/NetReplayDump.h"
 #include "NetHarness.h"
 #include <algorithm>
 #include <cmath>
@@ -9,6 +11,7 @@
 #include <fstream>
 #include <map>
 #include <random>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -619,5 +622,74 @@ TEST_CASE( "Replay: a server records every tick's capture, commands, joins and l
     CHECK( killed );
     CHECK( names[net.ServerNet.GetNetId( *target.Get() )] == "Target" );
     CHECK( names[net.ServerNet.GetNetId( *shooter.Get() )] == "Shooter" );
+    std::filesystem::remove( path );
+}
+
+TEST_CASE( "Replay: ReplayDump prints the summary, events, shots and command changes, filters by ticks and entity, and as JSON (ME-316)" )
+{
+    const std::filesystem::path path = TempFile( "Dump.mreplay" );
+    std::filesystem::remove( path );
+    {
+        NetReplaySettings settings;
+        settings.KeyframeInterval = 100;
+        NetReplayRecorder recorder( MakeHeader(), settings );
+        REQUIRE( recorder.OpenFile( path.string() ) );
+        for( NetReplayTick& tick : MakeMatch( 0, 400 ) )
+        {
+            recorder.Record( std::move( tick ) );
+        }
+        recorder.Close();
+    }
+    NetReplayFileSource source;
+    REQUIRE( source.Open( path.string() ) );
+    NetReplayReader reader( source );
+    auto dump = [&reader]( std::vector<std::string> InArgs ) {
+        InArgs.insert( InArgs.begin(), "Player" );
+        NetReplayDump::Options options;
+        std::string error;
+        REQUIRE_MESSAGE( NetReplayDump::ParseArgs( InArgs, options, error ), error );
+        std::ostringstream out;
+        REQUIRE_MESSAGE( NetReplayDump::Write( reader, options, out, error ), error );
+        return out.str();
+    };
+
+    const std::string text = dump( { "--replay-dump", path.string() } );
+    CHECK( text.find( "map          Assets/Scenes/Arena.lvl" ) != std::string::npos );
+    CHECK( text.find( "ticks 0..399: 400 ticks" ) != std::string::npos );
+    CHECK( text.find( "events kill x7 net.joined x1" ) != std::string::npos );
+    CHECK( text.find( "shots 45: 23 hit" ) != std::string::npos );
+    CHECK( text.find( "\n0 shot client 1 #3 HIT #4 (Head) at (0.000, 1.600, 9.600)" ) != std::string::npos );
+    CHECK( text.find( "    hitbox #5 Body box" ) != std::string::npos );
+    CHECK( text.find( "\n61 event kill {\"killer\":\"Alpha\"" ) != std::string::npos );
+    // Client 1 holds its input for 20 ticks: its commands print when they change.
+    CHECK( text.find( "\n20 command client 1 buttons 00000005" ) != std::string::npos );
+    CHECK( text.find( "\n21 command client 1 " ) == std::string::npos );
+    CHECK( text.find( "\n100 command client 1 " ) != std::string::npos );   // a new chunk doesn't reprint
+
+    // A range and an entity: only what touches it, from inside a chunk (the names still come from its start).
+    const std::string ranged = "\n" + dump( { "--replay-dump", path.string(), "--ticks", "150:199", "--shots", "--events" } );
+    CHECK( ranged.find( "\n153 shot" ) != std::string::npos );
+    CHECK( ranged.find( "\n144 shot" ) == std::string::npos );
+    CHECK( ranged.find( "\n183 event kill" ) != std::string::npos );
+    CHECK( ranged.find( "\n207 shot" ) == std::string::npos );
+
+    const std::string states = dump( { "--replay-dump", path.string(), "--ticks", "100:101", "--entity", "65537", "--states" } );
+    CHECK( states.find( "100 state Pickup#65537 at (3.000, 0.500, -2.000)" ) != std::string::npos );
+    CHECK( states.find( " state #1 " ) == std::string::npos );
+
+    const json document = json::parse( dump( { "--replay-dump", path.string(), "--json", "--summary", "--shots", "--ticks", ":20" } ) );
+    CHECK( document["header"]["map"] == "Assets/Scenes/Arena.lvl" );
+    CHECK( document["header"]["tickRate"] == 60 );
+    CHECK( document["summary"]["ticks"] == 21 );
+    CHECK( document["summary"]["shots"]["total"] == 3 );
+    REQUIRE( document["ticks"].size() == 3 );
+    CHECK( document["ticks"][0]["tick"] == 0 );
+    CHECK( document["ticks"][0]["shots"][0]["hit"] == true );
+    CHECK( document["ticks"][0]["shots"][0]["hitboxes"].size() == 2 );
+
+    NetReplayDump::Options options;
+    std::string error;
+    CHECK_FALSE( NetReplayDump::ParseArgs( { "Player", "--replay-dump" }, options, error ) );
+    CHECK_FALSE( NetReplayDump::ParseArgs( { "Player", "--replay-dump", "x", "--ticks", "9:3" }, options, error ) );
     std::filesystem::remove( path );
 }

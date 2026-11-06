@@ -56,6 +56,7 @@ The editor tooling (NET-7) comes next.
 | `Source/Net/NetPrediction.h` | `NetPredictor`: a 128-tick history of {command, mover state}, `Reconcile` (millimetre compare, then restore and resim with `PhysicsCore::StepCharacter`), and visual error smoothing |
 | `Source/Components/Networking/NetHitbox.h` | A capsule or box that lag-compensated shots test against |
 | `Source/Net/NetLagCompensation.h` | Each tick's hitbox poses for `MaxRewindSeconds`; `Raycast` at a view tick (analytic ray vs capsule / OBB, present colliders occlude); overlays |
+| `Source/Net/NetReplayDump.h` | ReplayDump: `<game> --replay-dump file.mreplay [...]` prints a replay as text or JSON, before the engine starts |
 | `Source/Net/NetReplay.h` | Match replays (ME-316): the `.mreplay` format (header, self-contained chunks, index), `NetReplayRecorder` (ring + chunks written on the background lane), `INetReplaySource` (file or memory) and `NetReplayReader` (any tick, any range) |
 | `Source/Cores/NetCore.h` | Engine-owned (`Engine::Net`): `Host` / `Connect` / `Close`, `IsActive` (until `Shutdown`) / `IsSessionLive` (until `Close` or the session's end), the frame hooks (they drive the transport's `Update`), the version of its world, `WriteReport` |
 | `Source/Net/UdpTransport.h` | `UdpTransport`: non-blocking IPv4 UDP (BSD sockets / Winsock). Addresses pack `(ip << 16) \| port`; `Resolve( "host:port" )`, `ToString` |
@@ -406,6 +407,23 @@ The server's ground truth for a whole match, for debugging after the fact: one r
 
 **Reading:** an `INetReplaySource` gives the header and chunks (`NetReplayFileSource` from a file, `NetReplayMemorySource` from bytes; ME-323's stream will be another). `NetReplayReader` reads any tick (decoding its chunk from the keyframe, kept for the next read) or a range in order.
 
+**ReplayDump** (`NetReplayDump.h`): any game executable (the Player, the headless Server Player, a game's own) given `--replay-dump <file>` prints the replay and exits, before the project, window or scripts start (`ME_APPLICATION_MAIN`); in the dev tree, run it through `Tools/NixEnv.sh`.
+
+| Option | Prints |
+|--------|--------|
+| (none of the below) | the summary, events, shots, and each client's command when its input changes or it missed one |
+| `--summary` | the header (product, time, map, commits, command line, tick rate, hashes), ticks and seconds, most ticks owed and ticks dropped, each entity (NetId, name, owner, prefab), each client (ticks, RTT average / max, loss, misses, late commands, resyncs), event counts by name, shots hit / missed / occluded / clamped / rejected |
+| `--events` | `<tick> event <name> <payload> [<entity>#<id>]` |
+| `--shots` | `<tick> shot client N <shooter> HIT <target> (<part>) at (x, y, z) d=… from … dir … view … rewound … ticks`, a `MISS` (or `MISS (occluded …)`), then each rewound hitbox |
+| `--commands` | every tick's command per client: buttons, axes, aim, view tick, `(missed: repeated)` |
+| `--net` | per tick: owed and dropped ticks, each client's RTT, loss, slack, misses, late commands, resyncs |
+| `--states` | per tick: each entity's position, rotation and field bytes (hex) |
+| `--ticks a:b` | only ticks a to b (`a:` and `:b` work); names still come from the chunk's start |
+| `--entity id` | only that NetId: its events, the shots it fired or took, its owner's commands, its states |
+| `--json` | one JSON document: `header` and `summary` (with `--summary`), and `ticks`: `[{tick, events, shots, commands, net, states}]` with the ticks that have any |
+
+Exit codes: 0, 1 when the file can't be read, 2 for a bad option. A file without its index says so and reads up to its last whole chunk.
+
 ### UDP and dedicated servers (NET-5)
 
 **`UdpTransport`:**
@@ -607,6 +625,7 @@ The session starts after the scene loads, because the handshake hashes the scene
 - **Round trip:** 240 match-like ticks (movers, a pickup that comes and goes, a client joining mid-chunk, held and changing commands, exact and inexact view ticks, shots with hitboxes, events) come back field for field, raw and deflated. A flipped byte fails the checksum; a short chunk or header is refused.
 - **Recorder and seeking:** 637 ticks recorded at a 60-tick keyframe interval write 11 chunks on the background lane and an index; every tick, read in a shuffled order, equals what was recorded, each chunk's first tick names every live dynamic NetId, a range comes back in order, and the same chunks read from memory match. The ring holds the newest `RingSeconds`.
 - **A dead server's file:** without its index and with half its last chunk, a replay reads up to its last whole chunk.
+- **ReplayDump:** a 400-tick replay prints its map, tick count, event and shot counts, a hit with its part and point and the rewound hitboxes, a kill event's payload, and a held command only when it changes (not again at a chunk's start); `--ticks 150:199` keeps that range (with names from the chunk's start), `--entity` one entity's states, `--json` parses with the header, summary and only the ticks that have shots; bad options are refused.
 - **A recorded session (`NetHarness`, 40 ms each way):** a server recording at a 45-tick interval for 6 s: the state at every tick read back equals the live `CaptureTick` at that tick (366 ticks), each tick's command equals the one the command handler ran, every lag-compensated shot comes back with its hit, rewind, target and the target's rewound hitbox (24 shots), and the client's join, a script event and the entities' names are there. A client can't record.
 
 ## How to Extend

@@ -4,6 +4,7 @@
 #include "Core/UpdateContext.h"
 #include "Core/CommandLine.h"
 #include "Engine/Project.h"
+#include "Net/NetReplayDump.h"
 
 class Game
 {
@@ -33,6 +34,8 @@ public:
 #define ME_APPLICATION_MAIN(className)                                      \
     int _main(int argc, char** argv) {                                      \
         CommandLine::Set(argc, argv);                                       \
+        if(NetReplayDump::IsRequested())                                    \
+            return NetReplayDump::Run();                                    \
         if(!Project::InitFromCommandLine())                                 \
             return 1;                                                       \
         className app(argc, argv);                                          \
@@ -52,6 +55,8 @@ public:
 #define ME_APPLICATION_MAIN(className)                                      \
     int main(int argc, char** argv) {                                       \
         CommandLine::Set(argc, argv);                                       \
+        if(NetReplayDump::IsRequested())                                    \
+            return NetReplayDump::Run();                                    \
         if(!Project::InitFromCommandLine())                                 \
             return 1;                                                       \
         className app(argc, argv);                                          \
