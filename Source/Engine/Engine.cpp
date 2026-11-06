@@ -696,11 +696,9 @@ void Engine::Run()
 #if USING( ME_TOOLS )
         PollAssetChanges();
 #if USING( ME_SCRIPTING )
-        // A build that finished during a network session waits for it to end (ME-311).
-        if( !m_scriptReloadGate.IsPaused() )
-        {
-            ScriptEngine::PollReload();
-        }
+        // A build that finished during a network session waits for it to end, unless the
+        // inspector's button asked for it; a failed one is still reported (ME-311).
+        ScriptEngine::PollReload( !m_scriptReloadGate.IsPaused() );
 #endif
 #endif
 

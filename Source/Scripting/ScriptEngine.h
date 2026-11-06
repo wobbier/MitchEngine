@@ -55,8 +55,10 @@ public:
     static bool BuildScripts( std::string* OutLog = nullptr );
     // Hot reload: RequestReload rebuilds on a worker thread; PollReload (every frame, main thread)
     // swaps the assembly in when the build finishes. Live scripts keep their handles and fields.
-    static void RequestReload();
-    static bool PollReload();
+    // ME-311: with InMaySwap false (a network session is live) a successful build waits, unswapped,
+    // unless it was asked for explicitly (InExplicit: the inspector's button); failures still report.
+    static void RequestReload( bool InExplicit = false );
+    static bool PollReload( bool InMaySwap = true );
     static bool Reload();
     static bool IsHandleAlive( int inHandle );
 

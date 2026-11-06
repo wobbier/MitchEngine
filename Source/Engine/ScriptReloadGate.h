@@ -9,12 +9,13 @@
 // the old scripts. So while this process's NetCore has a live session (NetCore::IsSessionLive:
 // hosting, or a client connecting or connected) Engine::PollAssetChanges asks this gate before
 // RequestReload, and Engine::Run holds a build that was already running when the session began
-// instead of swapping it in (PollReload waits).
+// instead of swapping it in (PollReload( false ): a failed one is still reported).
 //
 // It logs once when hot reload pauses for a session and once when it resumes. An edit made while
 // paused isn't lost: when the session ends the scripts rebuild then. Without a session (the
 // editor, offline play) every edit reloads as before. The editor's explicit "Rebuild && Reload
-// Scripts" button isn't gated: asking for it is the user's call.
+// Scripts" button isn't gated (RequestReload( true ) swaps in through the hold): asking for it is
+// the user's call.
 class ScriptReloadGate
 {
 public:

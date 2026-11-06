@@ -149,6 +149,10 @@ namespace
     std::atomic<bool> gBuildDone{ false };
     bool gBuildSucceeded = false;
     bool gReloadQueued = false;
+    // ME-311: the inspector's button asked (RequestReload( true )): its build swaps in even while
+    // PollReload is told to hold builds (a network session); cleared once it has.
+    bool gExplicitReload = false;
+    bool gHeldBuildLogged = false;
     std::mutex gBuildMutex;
     std::string gBuildLog;
 
@@ -596,12 +600,16 @@ bool ScriptEngine::IsAvailable()
 }
 
 
-void ScriptEngine::RequestReload()
+void ScriptEngine::RequestReload( bool InExplicit )
 {
 #if USING( ME_TOOLS )
     if( !gAvailable )
     {
         return;
+    }
+    if( InExplicit )
+    {
+        gExplicitReload = true;
     }
     if( gBuildRunning )
     {
@@ -634,13 +642,33 @@ void ScriptEngine::RequestReload()
 }
 
 
-bool ScriptEngine::PollReload()
+bool ScriptEngine::PollReload( bool InMaySwap )
 {
 #if USING( ME_TOOLS )
     if( !gBuildDone )
     {
         return false;
     }
+    if( !InMaySwap && !gExplicitReload )
+    {
+        // ME-311: a network session is live. A successful build stays built, unswapped, until
+        // it ends (or the button asks); a failed one is reported now (nothing to swap anyway).
+        bool succeeded = false;
+        {
+            std::lock_guard<std::mutex> lock( gBuildMutex );
+            succeeded = gBuildSucceeded;
+        }
+        if( succeeded )
+        {
+            if( !gHeldBuildLogged )
+            {
+                CLog::Log( CLog::LogType::Info, "Scripts: built; the reload waits for the network session to end" );
+                gHeldBuildLogged = true;
+            }
+            return false;
+        }
+    }
+    gHeldBuildLogged = false;
     gBuildDone = false;
     if( gBuildThread.joinable() )
     {
@@ -670,7 +698,11 @@ bool ScriptEngine::PollReload()
     if( gReloadQueued )
     {
         gReloadQueued = false;
-        RequestReload();
+        RequestReload();   // an explicit request waiting on it stays explicit
+    }
+    else
+    {
+        gExplicitReload = false;
     }
     return reloaded;
 #else

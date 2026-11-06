@@ -424,7 +424,8 @@ void ScriptCore::OnEditorInspect()
     HavanaUtils::SkipLabel();
     if( ImGui::Button( "Rebuild && Reload Scripts" ) )
     {
-        ScriptEngine::RequestReload();
+        // Explicit: it reloads even during a network session (ME-311).
+        ScriptEngine::RequestReload( true );
     }
     if( ImGui::TreeNodeEx( "Script Classes", ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding ) )
     {
