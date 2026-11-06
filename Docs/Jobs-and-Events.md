@@ -119,7 +119,7 @@ A `ParallelFor` with a single batch runs inline on the caller and creates no job
 
 ### Thread inventory (ME-319)
 
-Every thread the engine starts. `Engine::Init` logs the bound, e.g. `Threads: main 1, job workers 31, background 4, resource loaders 4, reimport 4, file watcher 1 = 45 at most (32 hardware threads)` (a Debug HeroShooter client; Release builds have no reimport pool or file watcher):
+Every thread the engine starts. `Engine::Init` logs the bound, e.g. `Threads: main 1, job workers 31, background 4, resource loaders 4, reimport 4, file watcher 1, script init 1, script build 1 = 47 at most (32 hardware threads)` (a Debug HeroShooter client; Release builds have no reimport pool, file watcher or script build thread; the script threads come and go but count towards the bound):
 
 | Thread(s) | Count | Lifetime | What runs there |
 |-----------|-------|----------|-----------------|

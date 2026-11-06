@@ -1281,7 +1281,8 @@ void Engine::LogThreadInventory()
     // ME-319: every thread the engine starts, bounded: the job workers (hardware threads - 1), the
     // background lane and the resource loaders (hardware threads / 4 each, at most 4), and in tools
     // builds the reimport pool and the file watcher. Script Runtime Init (startup) and Script Build
-    // (tools, hot reload) come and go; FMOD, .NET and driver threads aren't the engine's.
+    // (tools, hot reload) come and go but count towards the bound; FMOD, .NET and driver threads
+    // aren't the engine's.
     const uint32_t workers = Jobs::JobSystem::Get().GetWorkerCount();
     const uint32_t background = Jobs::BackgroundLane::Get().GetThreadCount();
     const uint32_t loaders = ResourceCache::GetPoolThreadCount();
@@ -1292,6 +1293,14 @@ void Engine::LogThreadInventory()
     const uint32_t reimport = ResourceCache::GetPoolThreadCount();
     total += reimport + 1;
     line += ", reimport " + std::to_string( reimport ) + ", file watcher 1";
+#endif
+#if USING( ME_SCRIPTING )
+    total += 1;
+    line += ", script init 1";
+#if USING( ME_TOOLS )
+    total += 1;
+    line += ", script build 1";
+#endif
 #endif
     line += " = " + std::to_string( total ) + " at most (" + std::to_string( std::thread::hardware_concurrency() ) + " hardware threads)";
     CLog::Log( CLog::LogType::Info, line );
