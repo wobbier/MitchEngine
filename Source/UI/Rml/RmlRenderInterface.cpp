@@ -1,4 +1,5 @@
 #include "PCH.h"
+#include <optick.h>
 #include "UI/Rml/RmlRenderInterface.h"
 #include "Graphics/Texture.h"
 #include "Resource/ResourceCache.h"
@@ -146,6 +147,7 @@ void RmlRenderInterface::BeginFrame( bgfx::ViewId InView, uint16_t InWidth, uint
 
 Rml::CompiledGeometryHandle RmlRenderInterface::CompileGeometry( Rml::Span<const Rml::Vertex> InVertices, Rml::Span<const int> InIndices )
 {
+    OPTICK_EVENT( "RmlUi::CompileGeometry", Optick::Category::UI );
     Geometry geometry;
     geometry.Vertices = bgfx::createVertexBuffer(
         bgfx::copy( InVertices.data(), static_cast<uint32_t>( InVertices.size() * sizeof( Rml::Vertex ) ) ), m_layout );
@@ -220,6 +222,7 @@ void RmlRenderInterface::SubmitGeometry( const Geometry& InGeometry, Rml::Vector
 
 void RmlRenderInterface::RenderGeometry( Rml::CompiledGeometryHandle InGeometry, Rml::Vector2f InTranslation, Rml::TextureHandle InTexture )
 {
+    OPTICK_EVENT( "RmlUi::RenderGeometry", Optick::Category::UI );
     if( InGeometry == 0 )
     {
         return;
@@ -242,6 +245,7 @@ void RmlRenderInterface::RenderGeometry( Rml::CompiledGeometryHandle InGeometry,
 
 void RmlRenderInterface::ReleaseGeometry( Rml::CompiledGeometryHandle InGeometry )
 {
+    OPTICK_EVENT( "RmlUi::ReleaseGeometry", Optick::Category::UI );
     if( InGeometry == 0 )
     {
         return;
@@ -258,6 +262,7 @@ void RmlRenderInterface::ReleaseGeometry( Rml::CompiledGeometryHandle InGeometry
 
 Rml::TextureHandle RmlRenderInterface::LoadTexture( Rml::Vector2i& OutDimensions, const Rml::String& InSource )
 {
+    OPTICK_EVENT( "RmlUi::LoadTexture", Optick::Category::UI );
     // A render texture (UI-8 <viewport>): its own live image, owned by the asset.
     if( InSource.size() > 14 && InSource.compare( InSource.size() - 14, 14, ".rendertexture" ) == 0 )
     {
@@ -348,6 +353,7 @@ Rml::TextureHandle RmlRenderInterface::LoadTexture( Rml::Vector2i& OutDimensions
 
 Rml::TextureHandle RmlRenderInterface::GenerateTexture( Rml::Span<const Rml::byte> InSource, Rml::Vector2i InDimensions )
 {
+    OPTICK_EVENT( "RmlUi::GenerateTexture", Optick::Category::UI );
     const bgfx::TextureHandle texture = bgfx::createTexture2D(
         static_cast<uint16_t>( InDimensions.x ), static_cast<uint16_t>( InDimensions.y ), false, 1,
         bgfx::TextureFormat::RGBA8, BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP,
@@ -416,6 +422,7 @@ void RmlRenderInterface::EnableClipMask( bool InEnable )
 
 void RmlRenderInterface::RenderToClipMask( Rml::ClipMaskOperation InOperation, Rml::CompiledGeometryHandle InGeometry, Rml::Vector2f InTranslation )
 {
+    OPTICK_EVENT( "RmlUi::RenderToClipMask", Optick::Category::UI );
     if( InGeometry == 0 )
     {
         return;

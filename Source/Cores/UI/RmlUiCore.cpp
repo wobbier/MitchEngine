@@ -24,6 +24,8 @@
 #include "Engine/LoadingScreen.h"
 #include "Engine/Localization.h"
 #include <RmlUi/Core.h>
+#include <Profiling/FrameStats.h>
+#include <optick.h>
 #include <RmlUi/Debugger.h>
 #include <SDL_mouse.h>
 #if USING( ME_EDITOR )
@@ -975,9 +977,20 @@ void RmlUiCore::Update( const UpdateContext& inUpdateContext )
 
     s_systemInterface.AdvanceTime( inUpdateContext.GetUnscaledDeltaTime() );
     EnsureContext( outputSize );
-    HotReload();
-    SyncModels();
+    {
+        OPTICK_EVENT( "RmlUi::HotReload", Optick::Category::UI );
+        ME_STAT_SCOPE( "UI Hot Reload" );
+        HotReload();
+    }
+    {
+        // The C# data models' changed values into RmlUi (UI.Model(...).Set).
+        OPTICK_EVENT( "RmlUi::SyncModels", Optick::Category::UI );
+        ME_STAT_SCOPE( "UI Sync Models" );
+        SyncModels();
+    }
 
+    OPTICK_EVENT( "RmlUi::Documents", Optick::Category::UI );
+    ME_STAT_SCOPE( "UI Documents" );
     LoadOverlays();
     bool anyVisible = std::any_of( m_overlays.begin(), m_overlays.end(), []( const Overlay& InOverlay ) { return InOverlay.Document != nullptr; } );
     for( Entity& entity : GetEntities() )
@@ -998,6 +1011,7 @@ void RmlUiCore::Update( const UpdateContext& inUpdateContext )
     // Settings-bound elements (RmlSettings) follow the player settings and rebinds.
     if( RmlSettings::ConsumeChanged() )
     {
+        OPTICK_EVENT( "RmlUi::RefreshSettings", Optick::Category::UI );
         for( Entity& entity : GetEntities() )
         {
             UIDocument& document = entity.GetComponent<UIDocument>();
@@ -1017,17 +1031,26 @@ void RmlUiCore::Update( const UpdateContext& inUpdateContext )
 
     if( anyVisible )
     {
+        OPTICK_EVENT( "RmlUi::Input", Optick::Category::UI );
+        ME_STAT_SCOPE( "UI Input" );
         ProcessInput();
         ApplyRequestedCursor();
     }
 
-    m_context->Update();
+    {
+        // RmlUi's own update: data bindings, styles, layout, animations, events.
+        OPTICK_EVENT( "Rml::Context::Update", Optick::Category::UI );
+        ME_STAT_SCOPE( "UI Context Update" );
+        m_context->Update();
+    }
 
     Moonlight::CameraData* cameraData = Camera::CurrentCamera ? GetEngine().GetRenderer().GetCameraCache().Get( Camera::CurrentCamera->GetCameraId() ) : nullptr;
     if( anyVisible )
     {
         const uint16_t width = static_cast<uint16_t>( outputSize.x );
         const uint16_t height = static_cast<uint16_t>( outputSize.y );
+        OPTICK_EVENT( "Rml::Context::Render", Optick::Category::UI );
+        ME_STAT_SCOPE( "UI Context Render" );
         EnsureRenderTarget( width, height );
         s_renderInterface.BeginFrame( Moonlight::RenderView::RmlUi, width, height, m_frameBuffer );
         m_context->Render();

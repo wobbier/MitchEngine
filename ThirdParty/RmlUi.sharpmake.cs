@@ -23,6 +23,15 @@ public class RmlUiLib : BaseProject
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "RmlUi/Include"));
         conf.Defines.Add("RMLUI_STATIC_LIB");
         conf.Defines.Add("RMLUI_FONT_ENGINE_FREETYPE");
+        // RmlUi's internal profiling zones, routed to Optick / the Linux Chrome trace shim through
+        // RmlUiProfiling/tracy/Tracy.hpp (private: the engine's own RmlUi includes see none).
+        if (target.Optimization != Sharpmake.Optimization.Retail)
+        {
+            conf.Defines.Add("RMLUI_TRACY_PROFILING");
+            conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "RmlUiProfiling"));
+            conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]",
+                target.SubPlatform == CommonTarget.SubPlatformType.linux ? "ChromeTrace" : "Optick/src"));
+        }
         conf.ExportDefines.Add("RMLUI_STATIC_LIB");
         conf.ExportAdditionalLibrariesEvenForStaticLib = true;
 
