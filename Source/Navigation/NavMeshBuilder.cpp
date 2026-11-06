@@ -1,5 +1,6 @@
 #include "PCH.h"
-#include <Profiling/ThreadName.h>
+#include <Jobs/BackgroundLane.h>
+#include "optick.h"
 #include "NavMeshBuilder.h"
 
 #include "Recast.h"
@@ -611,53 +612,37 @@ NavBuildResult BuildNavMesh( const NavBuildInput& InInput, const NavBuildSetting
     }
     const int workCount = static_cast<int>( work.size() );
 
-    // Build tiles on dedicated threads (long-running work must not land in a frame's job waits).
+    // Tiles build on the background lane (ME-319): the caller works through them while free lane
+    // threads help. Never the job workers: long work must not land in a frame's job waits.
     std::vector<TileResult> tiles( tileCount );
-    std::atomic<int> nextTile{ 0 };
     if( InOptions.TilesTotal )
     {
         InOptions.TilesTotal->store( workCount );
     }
-    auto worker = [&]() {
-        for( ;; )
+    auto buildTile = [&]( uint32_t InNext ) {
+        if( InOptions.Cancel && InOptions.Cancel->load() )
         {
-            if( InOptions.Cancel && InOptions.Cancel->load() )
-            {
-                return;
-            }
-            const int next = nextTile.fetch_add( 1 );
-            if( next >= workCount )
-            {
-                return;
-            }
-            const int index = work[next];
-            tiles[index] = BuildTile( bake, index % bake.TilesX, index / bake.TilesX );
-            if( InOptions.TilesDone )
-            {
-                InOptions.TilesDone->fetch_add( 1 );
-            }
+            return;
+        }
+        const int index = work[InNext];
+        tiles[index] = BuildTile( bake, index % bake.TilesX, index / bake.TilesX );
+        if( InOptions.TilesDone )
+        {
+            InOptions.TilesDone->fetch_add( 1 );
         }
     };
-    unsigned int threadCount = InOptions.ThreadCount;
-    if( threadCount == 0 )
+    // ThreadCount counts the caller: N threads = N - 1 helpers. 0 = every lane thread may help.
+    const uint32_t helpers = InOptions.ThreadCount == 0 ? 0u : std::max( 1u, InOptions.ThreadCount - 1 );
+    if( InOptions.ThreadCount == 1 )
     {
-        const unsigned int hardware = std::thread::hardware_concurrency();
-        threadCount = hardware > 1 ? hardware - 1 : 1;
+        for( int next = 0; next < workCount; ++next )
+        {
+            buildTile( static_cast<uint32_t>( next ) );
+        }
     }
-    threadCount = std::max( 1u, std::min<unsigned int>( threadCount, static_cast<unsigned int>( std::max( workCount, 1 ) ) ) );
-    std::vector<std::thread> threads;
-    for( unsigned int i = 1; i < threadCount; ++i )
+    else
     {
-        threads.emplace_back( [&worker]() {
-            ME_PROFILE_THREAD( "Nav Tile Builder" );
-            OPTICK_EVENT( "NavMesh Tiles" );
-            worker();
-        } );
-    }
-    worker();
-    for( std::thread& thread : threads )
-    {
-        thread.join();
+        Jobs::BackgroundLane::Get().ParallelFor( "NavMesh Tiles", static_cast<uint32_t>( workCount ), buildTile, helpers );
     }
     if( InOptions.Cancel && InOptions.Cancel->load() )
     {

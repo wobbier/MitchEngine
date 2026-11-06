@@ -1,5 +1,5 @@
 #include "PCH.h"
-#include <Profiling/ThreadName.h>
+#include <Jobs/BackgroundLane.h>
 #include "Core/WorkStatus.h"
 #include "NavigationCore.h"
 #include "Components/Graphics/Mesh.h"
@@ -423,7 +423,7 @@ void NavigationCore::SetMesh( SurfaceRecord& InRecord, const NavMeshData& InData
     if( InRecord.Carve )
     {
         InRecord.Carve->Cancel = true;
-        if( InRecord.Carve->Thread.joinable() ) InRecord.Carve->Thread.join();
+        if( InRecord.Carve->Task.valid() ) InRecord.Carve->Task.wait();
         InRecord.Carve.reset();
     }
     InRecord.CarveInput.reset();
@@ -450,9 +450,9 @@ void NavigationCore::DestroySurface( SurfaceRecord& InRecord )
     if( InRecord.Carve )
     {
         InRecord.Carve->Cancel = true;
-        if( InRecord.Carve->Thread.joinable() )
+        if( InRecord.Carve->Task.valid() )
         {
-            InRecord.Carve->Thread.join();
+            InRecord.Carve->Task.wait();
         }
         InRecord.Carve.reset();
     }
@@ -831,11 +831,11 @@ bool NavigationCore::Bake( NavMeshSurface& InSurface, bool InAsync )
     };
     if( InAsync )
     {
-        job->Thread = std::thread( [run = std::move( run )]() mutable {
-            ME_PROFILE_THREAD( "Nav Bake" );
+        // Low: a long CPU build never holds up a scene read or a write (ME-319).
+        job->Task = Jobs::BackgroundLane::Get().Submit( "Nav Bake", [run = std::move( run )]() mutable {
             OPTICK_EVENT( "NavMesh Bake" );
             run();
-        } );
+        }, Jobs::BackgroundPriority::Low );
     }
     else
     {
@@ -870,9 +870,9 @@ void NavigationCore::CancelBake( SurfaceRecord& InRecord )
         return;
     }
     InRecord.Bake->Cancel = true;
-    if( InRecord.Bake->Thread.joinable() )
+    if( InRecord.Bake->Task.valid() )
     {
-        InRecord.Bake->Thread.join();
+        InRecord.Bake->Task.wait();
     }
     InRecord.Bake.reset();
 }
@@ -887,9 +887,9 @@ void NavigationCore::PollBakes()
             continue;
         }
         std::unique_ptr<BakeJob> job = std::move( record.Bake );
-        if( job->Thread.joinable() )
+        if( job->Task.valid() )
         {
-            job->Thread.join();
+            job->Task.wait();
         }
         const std::string name = record.Surface ? record.Surface->GetName() : std::string( "?" );
         NavBuildResult& result = job->Result;
@@ -943,13 +943,13 @@ void NavigationCore::WaitForBakes()
 {
     for( auto& [id, record] : m_surfaces )
     {
-        if( record.Bake && record.Bake->Thread.joinable() )
+        if( record.Bake && record.Bake->Task.valid() )
         {
-            record.Bake->Thread.join();
+            record.Bake->Task.wait();
         }
-        if( record.Carve && record.Carve->Thread.joinable() )
+        if( record.Carve && record.Carve->Task.valid() )
         {
-            record.Carve->Thread.join();
+            record.Carve->Task.wait();
         }
     }
     PollBakes();
@@ -1138,8 +1138,7 @@ void NavigationCore::StartCarves()
 
         auto job = std::make_unique<BakeJob>();
         BakeJob* raw = job.get();
-        job->Thread = std::thread( [raw, input = std::move( input ), settings = record.CarveSettings, grid = std::move( grid ), tiles = std::move( tiles )]() {
-            ME_PROFILE_THREAD( "Nav Carve" );
+        job->Task = Jobs::BackgroundLane::Get().Submit( "Nav Carve", [raw, input = std::move( input ), settings = record.CarveSettings, grid = std::move( grid ), tiles = std::move( tiles )]() {
             OPTICK_EVENT( "NavMesh Carve" );
             NavBuildOptions options;
             options.Cancel = &raw->Cancel;
@@ -1148,7 +1147,7 @@ void NavigationCore::StartCarves()
             options.ThreadCount = 2;    // a handful of tiles; leave the cores to the game
             raw->Result = BuildNavMesh( input, settings, options );
             raw->Done = true;
-        } );
+        }, Jobs::BackgroundPriority::Low );
         record.Carve = std::move( job );
     }
 }
@@ -1163,9 +1162,9 @@ void NavigationCore::PollCarves()
             continue;
         }
         std::unique_ptr<BakeJob> job = std::move( record.Carve );
-        if( job->Thread.joinable() )
+        if( job->Task.valid() )
         {
-            job->Thread.join();
+            job->Task.wait();
         }
         if( !job->Result.Success )
         {
@@ -1190,9 +1189,9 @@ void NavigationCore::RestoreBakedMeshes()
         if( record.Carve )
         {
             record.Carve->Cancel = true;
-            if( record.Carve->Thread.joinable() )
+            if( record.Carve->Task.valid() )
             {
-                record.Carve->Thread.join();
+                record.Carve->Task.wait();
             }
             record.Carve.reset();
         }

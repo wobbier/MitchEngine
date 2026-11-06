@@ -58,7 +58,7 @@ Units are metres; +Y is up. The navmesh lies on surfaces facing up (normal `cros
    - The modifier that applies is the entity's own, or the nearest ancestor's with `ApplyToChildren`. `OverrideArea` sets the area its triangles get; otherwise they get the surface's `DefaultArea`.
    - Mirrored transforms flip triangle winding so surfaces still face up.
    - Modifier volumes become convex XZ outlines (the hull of the box's corners) with a height range, and links become world-space point pairs. `Collect` = Volume clips the bake to the surface's box.
-2. **Build (worker threads):** `BuildNavMesh` runs on a `std::thread` with its own tile workers, not the job system: a long tile must never land inside a frame's `ParallelFor` wait.
+2. **Build (background lane):** `BuildNavMesh` runs as a Low-priority `Nav Bake` task on `Jobs::BackgroundLane` (ME-319), and its tiles build through the lane's `ParallelFor` (the bake's thread plus free lane threads; `NavBuildOptions::ThreadCount` caps it), never the job workers: a long tile must never land inside a frame's `ParallelFor` wait. Low tasks never take the lane's last thread, so a bake doesn't hold up scene reads or writes, and lane threads run below normal OS priority, so the frame wins when cores are short.
    - **Tiles:** the area is split into `TileSize`-cell tiles, and triangles are bucketed into the tiles they touch (plus the border every tile reads).
    - **Per tile:** rasterize, filter (low obstacles, ledges, low ceilings), compact, erode by the agent radius, mark volumes, then build regions with the chosen `Partition`. Contours, polygons, detail mesh and Detour tile data follow.
    - **Progress and cancel:** `TilesDone` / `TilesTotal` report progress, and `Cancel` abandons the bake. A new bake of the same surface cancels the running one.
@@ -126,7 +126,7 @@ A `NavMeshObstacle` (box or upright cylinder) is left out of bakes. While the wo
 
 1. **Movement:** it counts as moved once any outline point drifts more than `MoveThreshold` from where it was last carved. It is carved again after standing still for `CarveDelay`, so a pushed crate doesn't rebuild tiles every frame.
 2. **Tiles:** the tiles under the old and the new footprint, plus a margin of twice the agent radius for the tile borders, join the surface's pending set.
-3. **Rebuild:** `StartCarves` runs `BuildNavMesh` on a background thread for just those tiles. It uses the navmesh's own grid (`NavBuildOptions::Grid` / `OnlyTiles`), the static geometry gathered once, and every obstacle as a Not Walkable volume grown by the agent radius (`rcOffsetPoly`).
+3. **Rebuild:** `StartCarves` runs `BuildNavMesh` as a Low-priority `Nav Carve` task on the background lane for just those tiles (two threads: the task plus one helper). It uses the navmesh's own grid (`NavBuildOptions::Grid` / `OnlyTiles`), the static geometry gathered once, and every obstacle as a Not Walkable volume grown by the agent radius (`rcOffsetPoly`).
 4. **Swap:** `PollCarves` replaces the tiles in place (`NavMesh::ReplaceTiles`). DetourCrowd notices the changed polygons and replans paths through them.
 
 Stopping play restores the navmesh as baked. A new bake re-carves every obstacle.

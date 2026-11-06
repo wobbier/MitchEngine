@@ -7,6 +7,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <future>
 #include <thread>
 #include <unordered_map>
 #include <vector>
@@ -101,7 +102,9 @@ public:
 private:
     struct BakeJob
     {
-        std::thread Thread;
+        // On the background lane (ME-319); whoever drops the job waits for it (the task holds a raw
+        // pointer to it).
+        std::future<void> Task;
         std::atomic<bool> Done{ false };
         std::atomic<bool> Cancel{ false };
         std::atomic<int> TilesDone{ 0 };
