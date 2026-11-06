@@ -126,6 +126,10 @@ public:
     bool WriteReport( const std::string& InPath, double InNow ) const;
 
     bool IsActive() const { return m_server || m_client; }
+    // A session is under way (ME-311): hosting until Close, or a client connecting or connected.
+    // A client whose session ended (left, rejected, timed out, disconnected by the server) isn't,
+    // though it stays IsActive (readable) until Shutdown; nor is anything after Close.
+    bool IsSessionLive() const;
     bool IsServer() const { return m_server != nullptr; }
     bool IsClient() const { return m_client != nullptr; }
     NetServer* GetServer() { return m_server.get(); }
@@ -224,6 +228,7 @@ private:
     double m_startedAt = -1.0;
     double m_lastNow = 0.0;
     bool m_closing = false;
+    bool m_closed = false;   // Close ran (until the next Host / Connect / Shutdown)
     std::vector<Departure> m_departures;
     std::vector<NetSessionEvent> m_sessionEvents;
     bool m_firingSessionEvents = false;

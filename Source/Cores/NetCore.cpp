@@ -129,6 +129,7 @@ bool NetCore::Host( INetTransport& InTransport, uint16_t InTickRate )
     {
         return false;
     }
+    m_closed = false;
     m_transport = &InTransport;
     m_server = std::make_unique<NetServer>( InTransport, MakeVersion(), InTickRate );
     m_server->SetTimeout( m_timeout );
@@ -169,6 +170,7 @@ bool NetCore::Connect( INetTransport& InTransport, NetAddress InServer, const Ne
     {
         return false;
     }
+    m_closed = false;
     m_transport = &InTransport;
     m_client = std::make_unique<NetClient>( InTransport, InServer, MakeVersion(), InClock );
     m_client->SetTimeout( m_timeout );
@@ -510,10 +512,25 @@ float NetCore::GetRoundTripMs( uint8_t InClient ) const
 }
 
 
+bool NetCore::IsSessionLive() const
+{
+    if( m_closed )
+    {
+        return false;
+    }
+    if( m_server )
+    {
+        return true;
+    }
+    return m_client && ( m_client->GetState() == NetClient::State::Connecting || m_client->GetState() == NetClient::State::Connected );
+}
+
+
 void NetCore::Close( double InNow )
 {
     m_lastNow = InNow;
     m_closing = true;
+    m_closed = true;
     if( m_server )
     {
         m_server->Close( InNow );
@@ -662,6 +679,7 @@ bool NetCore::WriteReport( const std::string& InPath, double InNow ) const
 
 void NetCore::Shutdown()
 {
+    m_closed = false;
     m_predictor.reset();
     m_replicationServer.reset();
     m_replicationClient.reset();
