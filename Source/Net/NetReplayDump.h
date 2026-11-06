@@ -11,12 +11,13 @@ class NetReplayReader;
 // window or scripts:
 //
 //   Player --replay-dump file.mreplay [--ticks a:b] [--entity id] [--events] [--shots] [--commands]
-//          [--net] [--states] [--summary] [--json]
+//          [--net] [--states] [--markers] [--summary] [--json]
 //
 // Sections: --summary (the header, chunks, entities, clients and counts), --events, --shots (with
 // the rewound hitboxes), --commands (every tick's, per client), --net (owed / dropped ticks and each
 // client's link, per tick), --states (each entity's pose and field bytes, and each character's mover
-// at full precision with its [Predicted] bytes, per tick). With none of
+// at full precision with its [Predicted] bytes, per tick), --markers (the viewer's timeline markers:
+// kills, joins, leaves, events, hits, misses, resyncs, hitches; NetReplayTimeline.h). With none of
 // them: the summary, events, shots, and each client's command whenever its input changes or it
 // missed one. --ticks limits to a range (a:b, a: or :b), --entity to one NetId (its events, the
 // shots it fired or took, its owner's commands, its states). --json prints one document with the
@@ -36,6 +37,7 @@ namespace NetReplayDump
         bool CommandChanges = false;
         bool Net = false;
         bool States = false;
+        bool Markers = false;   // the timeline's (NetReplayTimeline)
         bool Json = false;
     };
 

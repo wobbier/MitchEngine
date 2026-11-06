@@ -57,6 +57,7 @@ The editor tooling (NET-7) comes next.
 | `Source/Components/Networking/NetHitbox.h` | A capsule or box that lag-compensated shots test against |
 | `Source/Net/NetLagCompensation.h` | Each tick's hitbox poses for `MaxRewindSeconds`; `Raycast` at a view tick (analytic ray vs capsule / OBB, present colliders occlude); overlays |
 | `Source/Net/NetReplayPlayback.h` | Match replay playback (ME-316): a source's ticks into a world as the server's replication messages through a session-less `NetReplicationClient`; play / pause, step, seek, speed, loop, pause-at; `CheckWorld` against the recording |
+| `Source/Net/NetReplayTimeline.h` | Match replay timeline (ME-316 phase 3): markers (kills, joins, leaves, events, hits, misses, resyncs, hitches) and each client's link per tick from one pass over a replay |
 | `Source/Net/NetReplayDump.h` | ReplayDump: `<game> --replay-dump file.mreplay [...]` prints a replay as text or JSON, before the engine starts |
 | `Source/Net/NetReplay.h` | Match replays (ME-316): the `.mreplay` format (header, self-contained chunks, index), `NetReplayRecorder` (ring + chunks written on the background lane), `INetReplaySource` (file or memory) and `NetReplayReader` (any tick, any range) |
 | `Source/Cores/NetCore.h` | Engine-owned (`Engine::Net`): `Host` / `Connect` / `Close`, `IsActive` (until `Shutdown`) / `IsSessionLive` (until `Close` or the session's end), the frame hooks (they drive the transport's `Update`), the version of its world, `WriteReport` |
@@ -427,9 +428,24 @@ The server's ground truth for a whole match, for debugging after the fact: one r
 | `--states` | per tick: each entity's position, rotation and field bytes (hex), and each character's `mover` at full precision (position to 6 decimals in text, exact in JSON's `movers`): velocity, input, grounded / airborne, jump, `[Predicted]` bytes |
 | `--ticks a:b` | only ticks a to b (`a:` and `:b` work); names still come from the chunk's start |
 | `--entity id` | only that NetId: its events, the shots it fired, instigated or took, its owner's commands, its states and mover |
-| `--json` | one JSON document: `header` and `summary` (with `--summary`), and `ticks`: `[{tick, events, shots, commands, net, states, movers}]` with the ticks that have any; `summary.sweeps` counts projectile sweeps |
+| `--markers` | the viewer's timeline markers (below): `<tick> marker <kind> <label>` and the count of each kind over the whole replay; JSON: `markers: [{tick, kind, name, label, entity, client, ticks}]`. Alone it prints no tick sections |
+| `--json` | one JSON document: `header` and `summary` (with `--summary`), `markers` (with `--markers`), and `ticks`: `[{tick, events, shots, commands, net, states, movers}]` with the ticks that have any; `summary.sweeps` counts projectile sweeps |
 
 Exit codes: 0, 1 when the file can't be read, 2 for a bad option. A file without its index says so and reads up to its last whole chunk.
+
+**Timeline (`NetReplayTimeline.h`, phase 3):** one pass over a replay gives the moments a viewer jumps to and each client's link along the match. Nothing in it needs the engine (ReplayDump's `--markers` prints it). Markers, in tick order:
+
+| Kind | From |
+|------|------|
+| `kill` | an event named `kill` (the game's, `Replay.Event`); a payload with `killer` and `victim` strings labels it `kill <killer> > <victim>` |
+| `join` / `leave` | `net.joined` / `net.left` (the client from the payload) |
+| `event` | any other event (picks, damage, respawns) |
+| `hit` | a lag-compensated trigger pull that hit (a projectile's sweep isn't one) |
+| `miss` | a client's command hadn't arrived and the server repeated the last: where its prediction was most likely corrected (the server records no client corrections). Misses within 10 ticks of each other are one marker spanning them |
+| `resync` | a client's clock went back (its command buffer's resync count rose) |
+| `hitch` | the server was behind (ticks owed after a tick) or dropped backlog; within 30 ticks of each other, one marker |
+
+Each client also gets a value per tick from its first (`NaN` while it wasn't connected): RTT, loss, command slack and whether its command was repeated; the timeline keeps the ticks owed and the trigger pulls per tick too. `Find( kind, n )` (n < 0 counts from the end) and `Neighbour( tick, forward, kinds )` look markers up.
 
 **Playback (`NetReplayPlayback.h`, phase 2):** a source's ticks played into a world through the client's own replication path. Each tick becomes the messages a server would have sent for it, written by the server's own encoders (`NetReplicationMessages`: spawns with the recorded prefab, owner and pose, despawns, owner changes, then a `Snapshot` delta against the tick before), and goes into `NetReplicationClient::Deliver` as if it came off the wire. So prefab spawning, the snapshot codec, sample buffers, interpolation, `NetSchema::Read` and the C# `[Replicated]` fields all run as on a client. The viewer owns nothing, so nothing is predicted. `NetReplicationClient( world )` (no `NetClient`) is the session-less client it feeds; its render tick is driven (`DriveRenderTick`): no delay, steering or extrapolation, the world shows exactly the playhead's tick (between ticks, the two either side, interpolated).
 
@@ -658,6 +674,12 @@ The session starts after the scene loads, because the handshake hashes the scene
 - **Seeking:** 60 ticks in a shuffled order across chunks, including the spawn's and the despawn's ticks and the ones either side, each exactly the live capture; step back and forth; half speed shows the midpoint between two ticks; 4× feeds four deltas a frame without a rebuild; pause-at stops on its tick; a loop stays in its range; the end pauses on the last tick (a pause-at past it rests there too); every tick checked, the spinner's owner is the server's before the takeover and client 1's after, across seeks both ways, and a world with the wrong owner fails the check ("owner 1, recorded 0"); played at 0.3× from the first tick to the last, each chunk is read and decoded once (the reader keeps one decoded chunk; reading the shown tick after feeding the next chunk's first used to decode three times at every boundary); seeking back before the placed entity's destruction fails the check with "not in the world".
 - **In `NetCore`:** a world with only one of the placed entities is refused ("another scene"); the right one plays through the engine's frame hooks to a pause-at tick 300 ticks in, where `CheckPlayback` matches every entity; a second `StartPlayback` and `StartRecording` are refused; the viewer is a client, not a live session, predicts nothing, the networked entity owned by client 1 is owned by 1 there too and doesn't simulate locally (a non-networked one does), and the report's role is `replay`.
 - **In the game (HeroShooter `Tools/MatchSmoke.py --record-replay`):** the client Player plays the server's replay headless (`--replay --replay-start-tick <kill - 30> --replay-pause-at <kill> --replay-check`) to the match's last kill: at tick 6350 (of 6979, a seek into the 22nd chunk), 5 of 5 entities (two pawns with their C# `[Replicated]` state, two player slots, the game mode) are the recording, the victim's pawn is at 0 health and dead, and the killer's slot has the kill count the event says. The first run also checked tick 609 (the first kill) the same way.
+
+`NetReplayTimelineTests.cpp` (ME-316 phase 3), on a 200-tick replay in 4 deflated chunks from memory:
+
+- **Markers:** a kill (labelled from its payload, `kill Bravo > Alpha [Striker#65537]`), both joins and the leave with their clients, a pick, one hit (the miss beside it and an arrow's sweep that hits aren't), client 2's misses at 100, 101 and 105 as one 6-tick run and 140 as another, client 1's resync, owed ticks at 30, 31 and 45 as one hitch and 3 dropped at 180 as another; in tick order; `Find` from either end and by event name, `Neighbour` back and forth by kind; a cancelled build stops without an error.
+- **Series:** each client's RTT, loss and repeated commands per tick from its first, `NaN` once it left; the ticks owed and trigger pulls per tick.
+- **ReplayDump `--markers`:** the text lines and counts, no tick sections alone; JSON within `--ticks 80:130` (kill, miss, resync) and `--entity` (the pick and the hit it fired).
 
 ## How to Extend
 

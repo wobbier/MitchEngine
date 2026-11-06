@@ -3,6 +3,7 @@
 #include "Core/CommandLine.h"
 #include "JSON.h"
 #include "Net/NetReplay.h"
+#include "Net/NetReplayTimeline.h"
 #include <algorithm>
 #include <cinttypes>
 #include <cstdarg>
@@ -331,6 +332,10 @@ bool NetReplayDump::ParseArgs( const std::vector<std::string>& InArgs, Options& 
         {
             OutOptions.States = any = true;
         }
+        else if( arg == "--markers" )
+        {
+            OutOptions.Markers = any = true;
+        }
         else if( arg == "--json" )
         {
             OutOptions.Json = true;
@@ -506,6 +511,48 @@ bool NetReplayDump::Write( NetReplayReader& InReader, const Options& InOptions, 
             {
                 InOut << Format( "projectile sweeps %" PRIu64 ": %" PRIu64 " hit\n", summary.Sweeps, summary.SweepHits );
             }
+        }
+    }
+
+    // The timeline's markers (NetReplayTimeline: what the viewer's scrubber jumps to).
+    if( InOptions.Markers )
+    {
+        NetReplayTimeline timeline;
+        std::string error;
+        if( !timeline.Build( InReader, &error ) )
+        {
+            OutError = error;
+            return false;
+        }
+        json markers = json::array();
+        for( const NetReplayMarker& marker : timeline.GetMarkers() )
+        {
+            if( marker.Tick < from || marker.Tick > to || ( InOptions.Entity && marker.Entity != InOptions.Entity ) )
+            {
+                continue;
+            }
+            if( InOptions.Json )
+            {
+                markers.push_back( { { "tick", marker.Tick }, { "kind", NetReplayTimeline::KindName( marker.Type ) }, { "name", marker.Name }, { "label", marker.Label },
+                    { "entity", marker.Entity }, { "client", marker.Client }, { "ticks", marker.Ticks } } );
+            }
+            else
+            {
+                InOut << marker.Tick << " marker " << NetReplayTimeline::KindName( marker.Type ) << " " << marker.Label << "\n";
+            }
+        }
+        if( InOptions.Json )
+        {
+            document["markers"] = markers;
+        }
+        else
+        {
+            InOut << "markers:";
+            for( uint8_t i = 0; i < static_cast<uint8_t>( NetReplayMarker::Kind::Count ); ++i )
+            {
+                InOut << " " << NetReplayTimeline::KindName( static_cast<NetReplayMarker::Kind>( i ) ) << " " << timeline.Count( static_cast<NetReplayMarker::Kind>( i ) );
+            }
+            InOut << " (whole replay)\n";
         }
     }
 
