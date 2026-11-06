@@ -847,6 +847,13 @@ namespace
             client->GetClock().GetTick(), stats.RoundTripMs, stats.PacketLoss * 100.f, client->GetServerSlack(), client->GetClock().GetTargetSlack(),
             client->GetClock().GetDilation() * 100.f );
         std::string out = line;
+        // Blobs on their way (ME-323), either way.
+        for( const NetBlobProgress& blob : client->GetConnection().GetBlobProgress() )
+        {
+            std::snprintf( line, sizeof( line ), "; blob %s #%u %zu/%zu bytes%s", blob.Outgoing ? "out" : "in", blob.Id, blob.DoneBytes, blob.Size,
+                blob.Outgoing && !blob.Started ? " (queued)" : "" );
+            out += line;
+        }
         if( const NetPredictor* predictor = InNet.GetPredictor() )
         {
             std::snprintf( line, sizeof( line ), "; prediction: %d corrections, %d matches, %d initial sync, %zu mismatches on the timeline", predictor->GetCorrectionCount(),
@@ -985,6 +992,19 @@ void NetLaunch::DrawNetDebugger( NetCore& InNet )
         m_netDebugger.KbpsOut );
     ImGui::Text( "Slack %.2f (target %.2f), dilation %+.2f%%, %d resyncs, %llu hitches", client->GetServerSlack(), client->GetClock().GetTargetSlack(),
         client->GetClock().GetDilation() * 100.f, client->GetClock().GetResyncCount(), static_cast<unsigned long long>( client->GetHitchCount() ) );
+    // The blob channel (ME-323): the counts, and a bar for each blob on its way.
+    ImGui::Text( "Blobs: %llu received, %llu sent (%llu acked), %llu cancelled (%llu by the server); slices %llu sent, %llu resent, %llu duplicate",
+        static_cast<unsigned long long>( stats.BlobsReceived ), static_cast<unsigned long long>( stats.BlobsSent ), static_cast<unsigned long long>( stats.BlobsAcked ),
+        static_cast<unsigned long long>( stats.BlobsCancelled ), static_cast<unsigned long long>( stats.BlobsCancelledByRemote ),
+        static_cast<unsigned long long>( stats.BlobSlicesSent ), static_cast<unsigned long long>( stats.BlobSlicesResent ),
+        static_cast<unsigned long long>( stats.BlobSlicesDuplicate ) );
+    for( const NetBlobProgress& blob : client->GetConnection().GetBlobProgress() )
+    {
+        char label[128];
+        std::snprintf( label, sizeof( label ), "%s #%u: %.1f / %.1f KB%s", blob.Outgoing ? "out" : "in", blob.Id, static_cast<double>( blob.DoneBytes ) / 1024.0,
+            static_cast<double>( blob.Size ) / 1024.0, blob.Outgoing && !blob.Started ? " (queued)" : "" );
+        ImGui::ProgressBar( blob.Size > 0 ? static_cast<float>( static_cast<double>( blob.DoneBytes ) / static_cast<double>( blob.Size ) ) : 0.f, ImVec2( -1.f, 0.f ), label );
+    }
     const NetPredictor* predictor = InNet.GetPredictor();
     if( !predictor )
     {

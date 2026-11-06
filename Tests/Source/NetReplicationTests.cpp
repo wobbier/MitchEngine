@@ -7,8 +7,11 @@
 #include "Cores/PhysicsCore.h"
 #include "Net/BitStream.h"
 #include "Net/NetSnapshot.h"
+#include "JSON.h"
 #include "NetHarness.h"
 #include <cmath>
+#include <filesystem>
+#include <fstream>
 #include <map>
 #include <set>
 
@@ -402,4 +405,16 @@ TEST_CASE( "Net: a 500 KB blob at 150 ms RTT and 5% loss leaves the snapshot rat
     CHECK( linkRate <= budget * 1.03 );
     CHECK( seconds < 8.0 );
     CHECK( stats.BlobSlicesResent > 0 );
+
+    // The client's report (--net-report) counts it.
+    const std::filesystem::path folder = std::filesystem::temp_directory_path() / "MitchNetTests";
+    std::filesystem::create_directories( folder );
+    const std::filesystem::path report = folder / "BlobReport.json";
+    REQUIRE( net.ClientNet.WriteReport( report.string(), net.Now() ) );
+    std::ifstream in( report );
+    const json written = json::parse( in, nullptr, false );
+    REQUIRE_FALSE( written.is_discarded() );
+    const json blobs = written.value( "Connection", json::object() ).value( "Blobs", json::object() );
+    CHECK( blobs.value( "Received", 0 ) == 1 );
+    CHECK( blobs.value( "BytesReceived", 0 ) == blob.size() );
 }

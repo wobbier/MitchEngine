@@ -42,6 +42,21 @@ namespace
         out["ReliableResent"] = InStats.ReliableResent;
         out["KbpsOut"] = InSeconds > 0.0 ? static_cast<double>( InStats.BytesSent ) * 8.0 / 1000.0 / InSeconds : 0.0;
         out["KbpsIn"] = InSeconds > 0.0 ? static_cast<double>( InStats.BytesReceived ) * 8.0 / 1000.0 / InSeconds : 0.0;
+        // The blob channel (ME-323).
+        json blobs;
+        blobs["Sent"] = InStats.BlobsSent;
+        blobs["Acked"] = InStats.BlobsAcked;
+        blobs["Received"] = InStats.BlobsReceived;
+        blobs["Cancelled"] = InStats.BlobsCancelled;
+        blobs["CancelledByRemote"] = InStats.BlobsCancelledByRemote;
+        blobs["Refused"] = InStats.BlobsRefused;
+        blobs["SlicesSent"] = InStats.BlobSlicesSent;
+        blobs["SlicesResent"] = InStats.BlobSlicesResent;
+        blobs["SlicesDuplicate"] = InStats.BlobSlicesDuplicate;
+        blobs["BytesSent"] = InStats.BlobBytesSent;
+        blobs["BytesReceived"] = InStats.BlobBytesReceived;
+        blobs["Packets"] = InStats.BlobPacketsSent;
+        out["Blobs"] = blobs;
         return out;
     }
 
