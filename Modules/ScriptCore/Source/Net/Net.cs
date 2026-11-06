@@ -423,6 +423,8 @@ public static unsafe class Net
         public static bool IsPlaying => (Playback(out _) & 1) != 0;
         /// <summary>This script runs in a killcam's replay world ([ReplayWorld] scripts): present, don't touch the game's state.</summary>
         public static bool InReplayWorld => (Playback(out _) & 2) != 0;
+        /// <summary>The id of the killcam playing, or of the last one played (0: none yet); Id is the newest received, which can be a newer one than this.</summary>
+        public static int PlayingId { get { Playback(out var p); return p.Id; } }
         /// <summary>The killer's NetId (Net.GetNetId) in the killcam playing, or the last one played (0: none yet).</summary>
         public static int KillerId { get { Playback(out var p); return p.KillerId; } }
         /// <summary>The victim's NetId in the killcam playing, or the last one played (0: none yet).</summary>
