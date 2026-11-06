@@ -628,4 +628,50 @@ TEST_CASE( "Scripts: Component.Enabled turns a NetHitbox off for rewound shots a
     CHECK( api.Component_GetEnabled( pawn.GetID(), name( "NoSuchThing" ) ) == -1 );
     ScriptBindings::SetWorld( previousWorld );
 }
+TEST_CASE( "Scripts: the C# NetIdentity and NetHitbox wrappers' fields read and write by name, enums as names (ME-312)" )
+{
+    auto world = std::make_shared<World>();
+    world->IsLoading = false;
+    const WeakPtr<World> previousWorld = ScriptBindings::GetWorld();
+    ScriptBindings::SetWorld( world );
+    ScriptEngineAPI api{};
+    Register_GameplayBindings( api );
+    const auto text = []( const char* InText ) { return reinterpret_cast<const uint8_t*>( InText ); };
+    const auto get = [&]( EntityID InId, const char* InComponent, const char* InPath ) {
+        char buffer[256] = {};
+        const int length = api.Component_GetField( InId, text( InComponent ), text( InPath ), reinterpret_cast<uint8_t*>( buffer ), sizeof( buffer ) );
+        return length < 0 ? std::string( "<missing>" ) : std::string( buffer );
+    };
+
+    EntityHandle entity = world->CreateEntity( "Door" );
+    entity->AddComponent<Transform>();
+    NetIdentity& identity = entity->AddComponent<NetIdentity>();
+    NetHitbox& hitbox = entity->AddComponent<NetHitbox>();
+    const EntityID id = entity.GetID();
+
+    // Every property the wrappers expose, by the names they use (NetHitbox.cs, NetIdentity.cs).
+    CHECK( api.Component_SetField( id, text( "NetHitbox" ), text( "Shape" ), text( "\"Box\"" ) ) );
+    CHECK( hitbox.Shape == NetHitboxShape::Box );
+    CHECK( get( id, "NetHitbox", "Shape" ) == "\"Box\"" );
+    CHECK( api.Component_SetField( id, text( "NetHitbox" ), text( "Center" ), text( "[0,1.5,0]" ) ) );
+    CHECK( hitbox.Center.y == doctest::Approx( 1.5f ) );
+    CHECK( api.Component_SetField( id, text( "NetHitbox" ), text( "HalfExtents" ), text( "[1,2,0.25]" ) ) );
+    CHECK( hitbox.HalfExtents.z == doctest::Approx( 0.25f ) );
+    CHECK( api.Component_SetField( id, text( "NetHitbox" ), text( "Radius" ), text( "0.3" ) ) );
+    CHECK( api.Component_SetField( id, text( "NetHitbox" ), text( "Height" ), text( "2" ) ) );
+    CHECK( api.Component_SetField( id, text( "NetHitbox" ), text( "Occluder" ), text( "true" ) ) );
+    CHECK( hitbox.Radius == doctest::Approx( 0.3f ) );
+    CHECK( hitbox.Height == doctest::Approx( 2.f ) );
+    CHECK( hitbox.Occluder );
+
+    CHECK( api.Component_SetField( id, text( "NetIdentity" ), text( "Prefab" ), text( "\"Assets/Prefabs/Door.prefab\"" ) ) );
+    CHECK( api.Component_SetField( id, text( "NetIdentity" ), text( "Priority" ), text( "4" ) ) );
+    CHECK( api.Component_SetField( id, text( "NetIdentity" ), text( "AlwaysRelevant" ), text( "true" ) ) );
+    CHECK( identity.Prefab == "Assets/Prefabs/Door.prefab" );
+    CHECK( identity.Priority == doctest::Approx( 4.f ) );
+    CHECK( identity.AlwaysRelevant );
+    CHECK( get( id, "NetIdentity", "Prefab" ) == "\"Assets/Prefabs/Door.prefab\"" );
+    CHECK( get( id, "NetIdentity", "AlwaysRelevant" ) == "true" );
+    ScriptBindings::SetWorld( previousWorld );
+}
 #endif

@@ -1544,6 +1544,35 @@ Net.LagCompensatedRaycast's result. Entity: the hitbox's entity (also when Occlu
 
 - `(constructor)(System.Boolean,ScriptCore.Entity,Vector3,System.Boolean,System.Boolean,System.Boolean,System.Boolean)` (method): Net.LagCompensatedRaycast's result. Entity: the hitbox's entity (also when Occluded hid it). Rejected: the shooter's view was in the future. Rewound: judged at the shooter's view (server).
 
+## NetHitbox
+
+A shape lag-compensated shots test against (NET-8; ME-312 wrapper): the server keeps where each one was for the last ~400 ms and rewinds to what the shooter saw (Net.LagCompensatedRaycast). Hitboxes aren't colliders. One per entity: a pawn's head is a child entity with its own. Enabled = false takes it out of shots (a dead pawn), from the server's next recorded tick.
+
+- `Center` (property): The shape's centre in the entity's local space.
+- `HalfExtents` (property): Box: half its size on each local axis, in metres.
+- `Height` (property): Capsule: its height end to end, caps included, in metres.
+- `Occluder` (property): A moving blocker (a door, a platform), not a target (NET-15): rewound shots stop where it was in the shooter's view, never hit it, and ignore this entity's present-day colliders.
+- `Radius` (property): Capsule: its radius in metres.
+- `Shape` (property): A capsule along the entity's local Y, or an oriented box.
+
+## NetHitboxShape
+
+A NetHitbox's shape.
+
+- `Box` (field): An oriented box: HalfExtents.
+- `Capsule` (field): Along the entity's local Y: Height end to end, Radius.
+
+## NetIdentity
+
+Marks an entity as networked (NET-3; ME-312 wrapper): the server sends its pose and its scripts' [Replicated] fields to every client. Placed in a scene it has a static NetId, the same on every peer; added or instantiated while a session runs (on the server) it gets a dynamic NetId and every client creates its copy from Prefab (empty: the prefab the entity was instantiated from, else a bare entity). Add it before the entity's first update: entity.AddComponent<NetIdentity>().
+
+- `AlwaysRelevant` (property): Sent to every client wherever it is, ignoring the server's relevant radius (a game mode, a scoreboard).
+- `IsLocalOwner` (property): Whether this client owns (and predicts) it (Net.IsOwner).
+- `NetId` (property): Its id on the wire, the same on every peer (0 outside a session, or before it's assigned).
+- `Owner` (property): The client that owns (and predicts) it, 0 for the server. Setting it is the server's: the new owner predicts it from then on (Net.SetOwner).
+- `Prefab` (property): The prefab clients create for a copy spawned during a session ("Assets/Prefabs/Pawn.prefab"); empty takes the asset World.Instantiate made the entity from.
+- `Priority` (property): Relevancy (NET-13): how much its updates matter next to others' when a client's bandwidth runs short (default 1).
+
 ## NetReader
 
 Reads what NetWriter wrote; past the end every read returns the default and sets Overflowed.
