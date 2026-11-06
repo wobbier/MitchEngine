@@ -2316,6 +2316,27 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             Fail( "dirty flag is " + std::string( UndoStack::Get().IsDirty() ? "true" : "false" ) );
         }
     }
+    else if( command == "mouse-capture" )
+    {
+        // mouse-capture true   (what C#'s Input.MouseCaptured = true asks of the game's Input)
+        GetEngine().GetInput().SetMouseCapture( args == "1" || args == "true" );
+    }
+    else if( command == "assert-cursor" )
+    {
+        // assert-cursor locked | free   (ME-322: only a locked cursor is held in the window)
+        const Input& input = GetEngine().GetInput();
+        const bool locked = input.IsCursorLocked();
+        const std::string state = std::string( locked ? "locked" : "free" ) + ( input.IsCursorConfined() ? ", confined" : ", not confined" )
+            + ( input.IsMouseCaptured() ? ", requested" : ", not requested" ) + ( input.IsCapturing() ? ", game has input" : ", game has no input" );
+        if( args != "locked" && args != "free" )
+        {
+            Fail( "assert-cursor: expected locked or free" );
+        }
+        else if( locked != ( args == "locked" ) || input.IsCursorConfined() != locked )
+        {
+            Fail( "assert-cursor " + args + ": the cursor is " + state );
+        }
+    }
     else if( command == "assert-playing" )
     {
         const bool expected = args == "1" || args == "true";
