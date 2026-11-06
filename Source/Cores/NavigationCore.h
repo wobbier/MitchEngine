@@ -102,9 +102,11 @@ public:
 private:
     struct BakeJob
     {
-        // On the background lane (ME-319); whoever drops the job waits for it (the task holds a raw
-        // pointer to it).
+        // On the background lane (ME-319). The task shares ownership of the job, so dropping one
+        // never has to wait for it: a cancel only waits for a task that has started (it stops within
+        // a tile); one still queued sees Cancel when it starts and returns at once (CancelJob).
         std::future<void> Task;
+        std::atomic<bool> Started{ false };
         std::atomic<bool> Done{ false };
         std::atomic<bool> Cancel{ false };
         std::atomic<int> TilesDone{ 0 };
@@ -121,7 +123,7 @@ private:
         std::unique_ptr<NavMesh> Mesh;
         dtCrowd* Crowd = nullptr;
         float CrowdRadius = 0.f;
-        std::unique_ptr<BakeJob> Bake;
+        std::shared_ptr<BakeJob> Bake;
         std::string LoadedPath;
         bool LoadAttempted = false;
         bool Inspected = false;
@@ -134,7 +136,7 @@ private:
         NavBuildSettings CarveSettings;
         NavMeshData BaseData;
         bool Carved = false;
-        std::unique_ptr<BakeJob> Carve;
+        std::shared_ptr<BakeJob> Carve;
         std::set<std::pair<int, int>> PendingTiles;
         // Out-of-date check (inspector)
         double OutOfDateCheckedAt = -1.0;
@@ -179,6 +181,8 @@ private:
     void StepAgents( float InDeltaSeconds );
     void DrawDebug();
     void CancelBake( SurfaceRecord& InRecord );
+    // Cancels and drops a bake or carve job: waits only if its task has started (ME-319).
+    static void CancelJob( std::shared_ptr<BakeJob>& InOutJob );
     SurfaceRecord* FindSurface( const NavMeshSurface& InSurface );
     const SurfaceRecord* FindSurface( const NavMeshSurface& InSurface ) const;
     SurfaceRecord* SurfaceFor( const Vector3& InPosition, float InAgentRadius, int InAgentType = 0 );

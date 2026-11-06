@@ -10,10 +10,16 @@
 #include "Debug/DebugDraw.h"
 #include "Engine/ProjectSettings.h"
 #include "Engine/World.h"
+#include "Jobs/BackgroundLane.h"
 #include "Navigation/NavMesh.h"
 #include "Navigation/NavMeshBuilder.h"
+#include <atomic>
+#include <chrono>
 #include <cmath>
+#include <future>
 #include <memory>
+#include <thread>
+#include <vector>
 
 namespace NavigationTest
 {
@@ -483,6 +489,69 @@ TEST_CASE( "Navigation: deleting a surface joins its running bake or carve" )
     CHECK_FALSE( scene.Navigation.IsBaking() );
     CHECK_FALSE( scene.Navigation.IsCarving() );
     scene.Navigation.WaitForBakes();
+}
+
+
+TEST_CASE( "Navigation: cancelling a bake still queued on the background lane doesn't wait for the lane (ME-319)" )
+{
+    // Other Low work (another surface's bake, a texture pack, a terrain cook) holds every Low slot,
+    // so this bake is queued. Re-baking or deleting the surface must not stall the main thread
+    // until that unrelated work ends: the queued task sees Cancel when it starts and returns.
+    Scene scene;
+    scene.Box( "Ground", Vector3( 0.f, -0.5f, 0.f ), Vector3( 20.f, 1.f, 20.f ) );
+    NavMeshSurface& surface = scene.Surface();
+    const EntityHandle owner = surface.Parent;
+
+    Jobs::BackgroundLane& lane = Jobs::BackgroundLane::Get();
+    const int lowSlots = static_cast<int>( lane.GetThreadCount() ) - 1;
+    std::atomic<bool> release{ false };
+    std::atomic<int> blocked{ 0 };
+    std::vector<std::future<void>> blockers;
+    for( int i = 0; i < lowSlots; ++i )
+    {
+        blockers.push_back( lane.Submit( "Test Low Blocker", [&]() {
+            blocked.fetch_add( 1 );
+            while( !release.load() ) std::this_thread::sleep_for( std::chrono::milliseconds( 1 ) );
+        }, Jobs::BackgroundPriority::Low ) );
+    }
+    // Never hang the run if a cancel does wait: the blockers give up after a few seconds.
+    std::thread safety( [&]() {
+        for( int i = 0; i < 5000 && !release.load(); ++i ) std::this_thread::sleep_for( std::chrono::milliseconds( 1 ) );
+        release.store( true );
+    } );
+    const auto end = std::chrono::steady_clock::now() + std::chrono::seconds( 10 );
+    while( blocked.load() < lowSlots && std::chrono::steady_clock::now() < end ) std::this_thread::sleep_for( std::chrono::milliseconds( 1 ) );
+    REQUIRE( blocked.load() == lowSlots );
+
+    REQUIRE( scene.Navigation.Bake( surface, true ) );
+    REQUIRE( scene.Navigation.IsBaking() );
+    const auto start = std::chrono::steady_clock::now();
+    bool rebaked = false;
+    SUBCASE( "re-bake" )
+    {
+        REQUIRE( scene.Navigation.Bake( surface, true ) );
+        rebaked = true;
+    }
+    SUBCASE( "delete the surface" )
+    {
+        owner->MarkForDelete();
+        scene.GameWorld->Simulate();
+        CHECK( scene.Navigation.GetSurfaceCount() == 0 );
+    }
+    const double waited = std::chrono::duration<double>( std::chrono::steady_clock::now() - start ).count();
+    const bool stillBlocked = !release.load();
+    release.store( true );
+    safety.join();
+    for( std::future<void>& blocker : blockers ) blocker.wait();
+    CHECK( stillBlocked );
+    CHECK( waited < 1.0 );
+
+    scene.Navigation.WaitForBakes();
+    CHECK_FALSE( scene.Navigation.IsBaking() );
+    if( rebaked )
+    {
+        CHECK( scene.Navigation.GetNavMesh( Vector3() ) != nullptr );
+    }
 }
 
 

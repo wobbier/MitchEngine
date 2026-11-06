@@ -420,12 +420,7 @@ void NavigationCore::LoadSurface( SurfaceRecord& InRecord, NavMeshSurface& InSur
 
 void NavigationCore::SetMesh( SurfaceRecord& InRecord, const NavMeshData& InData )
 {
-    if( InRecord.Carve )
-    {
-        InRecord.Carve->Cancel = true;
-        if( InRecord.Carve->Task.valid() ) InRecord.Carve->Task.wait();
-        InRecord.Carve.reset();
-    }
+    CancelJob( InRecord.Carve );
     InRecord.CarveInput.reset();
     InRecord.Carved = false;
     InRecord.PendingTiles.clear();
@@ -447,15 +442,7 @@ void NavigationCore::SetMesh( SurfaceRecord& InRecord, const NavMeshData& InData
 void NavigationCore::DestroySurface( SurfaceRecord& InRecord )
 {
     CancelBake( InRecord );
-    if( InRecord.Carve )
-    {
-        InRecord.Carve->Cancel = true;
-        if( InRecord.Carve->Task.valid() )
-        {
-            InRecord.Carve->Task.wait();
-        }
-        InRecord.Carve.reset();
-    }
+    CancelJob( InRecord.Carve );
     DestroyCrowd( InRecord );
 }
 
@@ -813,13 +800,20 @@ bool NavigationCore::Bake( NavMeshSurface& InSurface, bool InAsync )
         return false;
     }
     const NavBuildSettings settings = InSurface.GetBuildSettings();
-    auto job = std::make_unique<BakeJob>();
+    auto job = std::make_shared<BakeJob>();
     job->InputHash = input.Hash(); job->SettingsHash = settings.Hash(); job->Input = std::make_unique<NavBuildInput>( std::move( input ) );
 #if USING( ME_TOOLS )
     job->SavePath = GetDataPath( InSurface );
 #endif
     BakeJob* raw = job.get();
     auto run = [raw, settings]() {
+        raw->Started = true;
+        if( raw->Cancel )
+        {
+            raw->Result.Error = "cancelled";   // dropped while it waited for the lane
+            raw->Done = true;
+            return;
+        }
         // ED-14: the editor's status shows the bake (its progress is the tiles built).
         WorkStatus::Scope status( "Baking navigation" );
         NavBuildOptions options;
@@ -831,8 +825,11 @@ bool NavigationCore::Bake( NavMeshSurface& InSurface, bool InAsync )
     };
     if( InAsync )
     {
-        // Low: a long CPU build never holds up a scene read or a write (ME-319).
-        job->Task = Jobs::BackgroundLane::Get().Submit( "Nav Bake", [run = std::move( run )]() mutable {
+        // Low: a long CPU build never holds up a scene read or a write (ME-319). The task owns a
+        // reference: a cancelled bake that hasn't started can be dropped without waiting.
+        job->Task = Jobs::BackgroundLane::Get().Submit( "Nav Bake", [owner = job, run = std::move( run )]() mutable {
+            // Released when the task ends: the future's state keeps this lambda alive (no cycle).
+            const std::shared_ptr<BakeJob> self = std::move( owner );
             OPTICK_EVENT( "NavMesh Bake" );
             run();
         }, Jobs::BackgroundPriority::Low );
@@ -865,16 +862,25 @@ void NavigationCore::BakeAll( bool InAsync )
 
 void NavigationCore::CancelBake( SurfaceRecord& InRecord )
 {
-    if( !InRecord.Bake )
+    CancelJob( InRecord.Bake );
+}
+
+
+void NavigationCore::CancelJob( std::shared_ptr<BakeJob>& InOutJob )
+{
+    if( !InOutJob )
     {
         return;
     }
-    InRecord.Bake->Cancel = true;
-    if( InRecord.Bake->Task.valid() )
+    // Cancel before reading Started (the task sets Started before reading Cancel): either the task
+    // sees Cancel and returns, or it started and stops within a tile. A queued task that hasn't
+    // started is never waited for: it may sit behind other Low lane work for seconds.
+    InOutJob->Cancel = true;
+    if( InOutJob->Started && InOutJob->Task.valid() )
     {
-        InRecord.Bake->Task.wait();
+        InOutJob->Task.wait();
     }
-    InRecord.Bake.reset();
+    InOutJob.reset();
 }
 
 
@@ -886,7 +892,7 @@ void NavigationCore::PollBakes()
         {
             continue;
         }
-        std::unique_ptr<BakeJob> job = std::move( record.Bake );
+        std::shared_ptr<BakeJob> job = std::move( record.Bake );
         if( job->Task.valid() )
         {
             job->Task.wait();
@@ -1136,9 +1142,17 @@ void NavigationCore::StartCarves()
         std::vector<std::pair<int, int>> tiles( record.PendingTiles.begin(), record.PendingTiles.end() );
         record.PendingTiles.clear();
 
-        auto job = std::make_unique<BakeJob>();
+        auto job = std::make_shared<BakeJob>();
         BakeJob* raw = job.get();
-        job->Task = Jobs::BackgroundLane::Get().Submit( "Nav Carve", [raw, input = std::move( input ), settings = record.CarveSettings, grid = std::move( grid ), tiles = std::move( tiles )]() {
+        job->Task = Jobs::BackgroundLane::Get().Submit( "Nav Carve", [owner = job, raw, input = std::move( input ), settings = record.CarveSettings, grid = std::move( grid ), tiles = std::move( tiles )]() mutable {
+            const std::shared_ptr<BakeJob> self = std::move( owner );   // released when the task ends
+            raw->Started = true;
+            if( raw->Cancel )
+            {
+                raw->Result.Error = "cancelled";
+                raw->Done = true;
+                return;
+            }
             OPTICK_EVENT( "NavMesh Carve" );
             NavBuildOptions options;
             options.Cancel = &raw->Cancel;
@@ -1161,7 +1175,7 @@ void NavigationCore::PollCarves()
         {
             continue;
         }
-        std::unique_ptr<BakeJob> job = std::move( record.Carve );
+        std::shared_ptr<BakeJob> job = std::move( record.Carve );
         if( job->Task.valid() )
         {
             job->Task.wait();
@@ -1186,15 +1200,7 @@ void NavigationCore::RestoreBakedMeshes()
 {
     for( auto& [id, record] : m_surfaces )
     {
-        if( record.Carve )
-        {
-            record.Carve->Cancel = true;
-            if( record.Carve->Task.valid() )
-            {
-                record.Carve->Task.wait();
-            }
-            record.Carve.reset();
-        }
+        CancelJob( record.Carve );
         record.PendingTiles.clear();
         if( record.Carved )
         {
