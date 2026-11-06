@@ -116,6 +116,24 @@ public readonly struct Entity : IEquatable<Entity>
         unsafe { fixed (byte* p = Engine.Utf8(component, stackalloc byte[Engine.Utf8StackSize])) Engine._api.Entity_AddComponent(this, p); }
     }
 
+    /// <summary>
+    /// Whether a component, by registry name ("Mesh", "BoxCollider", "NetHitbox"), is enabled: its
+    /// own switch, not the entity's Active (see Component.Enabled). False when there's no such component.
+    /// </summary>
+    public bool IsComponentEnabled(string component)
+    {
+        unsafe { fixed (byte* p = Engine.Utf8(component, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Component_GetEnabled(this, p) == 1; }
+    }
+
+    /// <summary>
+    /// Turns a component, by registry name, on or off (see Component.Enabled); false when the entity
+    /// has no such component.
+    /// </summary>
+    public bool SetComponentEnabled(string component, bool enabled)
+    {
+        unsafe { fixed (byte* p = Engine.Utf8(component, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.Component_SetEnabled(this, p, enabled ? (byte)1 : (byte)0) != 0; }
+    }
+
     /// <summary>Whether the entity has a component of type T.</summary>
     public bool HasComponent<T>() where T : Component, new()
     {

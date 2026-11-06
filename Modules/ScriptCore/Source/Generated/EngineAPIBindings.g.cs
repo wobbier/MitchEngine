@@ -9,7 +9,7 @@ namespace ScriptCore;
 public unsafe struct EngineAPIBindings
 {
     // The ABI both sides were generated from (C++: kScriptEngineAPIHash).
-    public const ulong AbiHash = 0xF676E4EBE023EB39UL;
+    public const ulong AbiHash = 0x7A2E491150AEBF70UL;
 
     // Core
     public delegate* unmanaged<byte*, void> Log;
@@ -429,6 +429,14 @@ public unsafe struct EngineAPIBindings
     // Input contexts on and off, per local player (0: the default player)
     public delegate* unmanaged<int, byte*, byte, void> Input_SetContextEnabled;
     public delegate* unmanaged<int, byte*, byte> Input_IsContextEnabled;
+
+    // Component switches (ME-312): the component's own enabled flag, not a field. A disabled component
+
+    // is skipped by its core (a Mesh doesn't draw, a collider doesn't collide, a NetHitbox isn't hit)
+
+    // and gets OnDisable. Get: 1 / 0, -1 when the entity has no such component.
+    public delegate* unmanaged<Entity, byte*, int> Component_GetEnabled;
+    public delegate* unmanaged<Entity, byte*, byte, byte> Component_SetEnabled;
 }
 
 // The sizes C++ static_asserts for the structs that cross (checked when the API is bound).

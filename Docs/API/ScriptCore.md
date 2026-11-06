@@ -490,6 +490,7 @@ The command line the game started with: flags as "--name value". A name works wi
 stateless proxy, just marshalling really
 
 - `AddComponent1` (method): Adds a component of type T to the entity and returns it.
+- `Enabled` (property): The component's own switch (ME-312), separate from the entity's Active: a disabled component stays on the entity, keeps its fields and is skipped by its core (a Mesh doesn't draw, a collider doesn't collide, a NetHitbox isn't hit, an AudioSource doesn't play) and gets OnDisable. False when the component is gone. Local to this peer: networked scripts set it from replicated state on every peer.
 - `Entity` (property): The entity this component is on.
 - `Equals(ScriptCore.Component)` (method): Same component on the same entity; two missing components are equal (Unity-style fake null).
 - `Equals(System.Object)` (method): Same component on the same entity.
@@ -743,12 +744,14 @@ struct because it's mapped to the engine EntityID struct. don't fuckin add anyth
 - `HasComponent1` (method): Whether the entity has a component of type T.
 - `Index` (field): Mirrors the engine's 8-byte EntityID: slot index + generation (0 = null).
 - `IsAlive` (property): Whether the entity still exists.
+- `IsComponentEnabled(System.String)` (method): Whether a component, by registry name ("Mesh", "BoxCollider", "NetHitbox"), is enabled: its own switch, not the entity's Active (see Component.Enabled). False when there's no such component.
 - `Layer` (property): The physics / filtering layer, 0..31 (Project Settings names them).
 - `Name` (property): The entity's name.
 - `Null` (field): {0, 0}
 - `op_Equality(ScriptCore.Entity,ScriptCore.Entity)` (method): Same entity.
 - `op_Implicit(ScriptCore.Entity)~System.Boolean` (method): what is life?
 - `op_Inequality(ScriptCore.Entity,ScriptCore.Entity)` (method): Different entities.
+- `SetComponentEnabled(System.String,System.Boolean)` (method): Turns a component, by registry name, on or off (see Component.Enabled); false when the entity has no such component.
 - `SetField1(System.String,System.String,0)` (method): Sets a field of any component by name (see GetField); false when the component or field is missing.
 - `SetFieldJson(System.String,System.String,System.String)` (method): Sets a component field from JSON text; false when the component or field is missing.
 - `ToString` (method): "Entity(index:generation)".

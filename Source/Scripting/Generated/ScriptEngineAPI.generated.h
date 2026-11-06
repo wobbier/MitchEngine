@@ -19,7 +19,7 @@ struct ScriptRaycastHit
 };
 
 // The ABI both sides were generated from (C# checks it: ScriptBridge.GetEngineAPIHash).
-constexpr uint64_t kScriptEngineAPIHash = 0xF676E4EBE023EB39ULL;
+constexpr uint64_t kScriptEngineAPIHash = 0x7A2E491150AEBF70ULL;
 
 // Structs that cross: their layout is part of the ABI (C# checks the same sizes).
 static_assert( sizeof( EntityID ) == 8, "EntityID crosses into C#: its size is part of the script ABI" );
@@ -450,4 +450,12 @@ struct ScriptEngineAPI
     // Input contexts on and off, per local player (0: the default player)
     void ( *Input_SetContextEnabled )( int player, const uint8_t* context, bool enabled ) noexcept;
     bool ( *Input_IsContextEnabled )( int player, const uint8_t* context ) noexcept;
+
+    // Component switches (ME-312): the component's own enabled flag, not a field. A disabled component
+
+    // is skipped by its core (a Mesh doesn't draw, a collider doesn't collide, a NetHitbox isn't hit)
+
+    // and gets OnDisable. Get: 1 / 0, -1 when the entity has no such component.
+    int ( *Component_GetEnabled )( EntityID id, const uint8_t* component ) noexcept;
+    bool ( *Component_SetEnabled )( EntityID id, const uint8_t* component, bool enabled ) noexcept;
 };

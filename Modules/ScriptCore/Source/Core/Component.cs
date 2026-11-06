@@ -15,6 +15,19 @@ public abstract class Component
     /// </summary>
     public bool Exists => Entity.IsAlive && Entity.HasComponentNamed(GetType().Name);
 
+    /// <summary>
+    /// The component's own switch (ME-312), separate from the entity's Active: a disabled component
+    /// stays on the entity, keeps its fields and is skipped by its core (a Mesh doesn't draw, a
+    /// collider doesn't collide, a NetHitbox isn't hit, an AudioSource doesn't play) and gets
+    /// OnDisable. False when the component is gone. Local to this peer: networked scripts set it
+    /// from replicated state on every peer.
+    /// </summary>
+    public bool Enabled
+    {
+        get => Entity.IsComponentEnabled(GetType().Name);
+        set => Entity.SetComponentEnabled(GetType().Name, value);
+    }
+
     /// <summary>The entity's Transform.</summary>
     public Transform transform => Entity.GetComponent<Transform>();
     /// <summary>The entity's component of type T, or null.</summary>

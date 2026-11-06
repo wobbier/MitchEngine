@@ -413,3 +413,9 @@ void Character_GetPosition( Entity id, Vector3* outPosition )
 ## Input contexts on and off, per local player (0: the default player)
 void Input_SetContextEnabled( int player, cstr context, bool enabled )
 bool Input_IsContextEnabled( int player, cstr context )
+
+## Component switches (ME-312): the component's own enabled flag, not a field. A disabled component
+## is skipped by its core (a Mesh doesn't draw, a collider doesn't collide, a NetHitbox isn't hit)
+## and gets OnDisable. Get: 1 / 0, -1 when the entity has no such component.
+int Component_GetEnabled( Entity id, cstr component )
+bool Component_SetEnabled( Entity id, cstr component, bool enabled )

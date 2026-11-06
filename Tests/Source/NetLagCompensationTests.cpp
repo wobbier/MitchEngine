@@ -8,6 +8,10 @@
 #include "Net/NetCommands.h"
 #include "Net/NetLagCompensation.h"
 #include "NetHarness.h"
+#if USING( ME_SCRIPTING )
+#include "Scripting/Bindings/BindingContext.h"
+#include "Scripting/Bindings/Systems/Gameplay.bindings.h"
+#endif
 #include <cmath>
 #include <map>
 
@@ -579,3 +583,49 @@ TEST_CASE( "Net: a shooter's own hitboxes and colliders, its children's too, nev
     CHECK( blocked.Occluded );
     CHECK_FALSE( blocked.Hit );
 }
+
+
+#if USING( ME_SCRIPTING )
+TEST_CASE( "Scripts: Component.Enabled turns a NetHitbox off for rewound shots and back on; a missing component reads -1 (ME-312)" )
+{
+    auto world = std::make_shared<World>();
+    world->IsLoading = false;
+    const WeakPtr<World> previousWorld = ScriptBindings::GetWorld();
+    ScriptBindings::SetWorld( world );
+    ScriptEngineAPI api{};
+    Register_GameplayBindings( api );
+
+    EntityHandle pawn = world->CreateEntity( "Pawn" );
+    pawn->AddComponent<Transform>().SetPosition( Vector3( 0.f, 1.f, 5.f ) );
+    NetHitbox& hitbox = pawn->AddComponent<NetHitbox>();
+    world->Simulate();
+    const auto name = []( const char* InText ) { return reinterpret_cast<const uint8_t*>( InText ); };
+
+    NetLagCompensation lag;
+    lag.Record( *world, 1 );
+    CHECK( lag.GetPosesAt( 1.0 ).size() == 1 );
+    CHECK( api.Component_GetEnabled( pawn.GetID(), name( "NetHitbox" ) ) == 1 );
+
+    // Off through the script API: the real flag (not a serialized "Enabled" field), so the server's
+    // record skips it: a dead pawn's hitbox is out of every rewound shot.
+    CHECK( api.Component_SetEnabled( pawn.GetID(), name( "NetHitbox" ), false ) );
+    CHECK_FALSE( hitbox.IsEnabled() );
+    CHECK( api.Component_GetEnabled( pawn.GetID(), name( "NetHitbox" ) ) == 0 );
+    lag.Record( *world, 2 );
+    CHECK( lag.GetPosesAt( 2.0 ).empty() );
+    json saved;
+    hitbox.Serialize( saved );
+    CHECK( saved.value( "Enabled", true ) == false );
+
+    CHECK( api.Component_SetEnabled( pawn.GetID(), name( "NetHitbox" ), true ) );
+    CHECK( hitbox.IsEnabled() );
+    lag.Record( *world, 3 );
+    CHECK( lag.GetPosesAt( 3.0 ).size() == 1 );
+
+    // Not on the entity, or not a component at all.
+    CHECK( api.Component_GetEnabled( pawn.GetID(), name( "BoxCollider" ) ) == -1 );
+    CHECK_FALSE( api.Component_SetEnabled( pawn.GetID(), name( "BoxCollider" ), false ) );
+    CHECK( api.Component_GetEnabled( pawn.GetID(), name( "NoSuchThing" ) ) == -1 );
+    ScriptBindings::SetWorld( previousWorld );
+}
+#endif

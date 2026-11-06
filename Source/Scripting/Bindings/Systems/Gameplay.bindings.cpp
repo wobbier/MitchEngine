@@ -643,6 +643,27 @@ static bool Eng_Component_SetField( EntityID inId, const uint8_t* inComponent, c
 }
 
 
+// ME-312: the component's own enabled flag (BaseComponent::SetEnabled), which "Enabled" through
+// SetField can't reach: it isn't a reflected field, and it's only serialized when false.
+static int Eng_Component_GetEnabled( EntityID inId, const uint8_t* inComponent ) noexcept
+{
+    const BaseComponent* component = ComponentOf( inId, inComponent );
+    return component ? ( component->IsEnabled() ? 1 : 0 ) : -1;
+}
+
+
+static bool Eng_Component_SetEnabled( EntityID inId, const uint8_t* inComponent, bool inEnabled ) noexcept
+{
+    BaseComponent* component = ComponentOf( inId, inComponent );
+    if( !component )
+    {
+        return false;
+    }
+    component->SetEnabled( inEnabled );
+    return true;
+}
+
+
 // Character controller
 
 static void Eng_Character_SetMoveInput( EntityID inId, const Vector3* inDirection ) noexcept
@@ -910,6 +931,8 @@ void Register_GameplayBindings( ScriptEngineAPI& inAPI )
     inAPI.Debug_DrawSphere = Eng_Debug_DrawSphere;
     inAPI.Component_GetField = Eng_Component_GetField;
     inAPI.Component_SetField = Eng_Component_SetField;
+    inAPI.Component_GetEnabled = Eng_Component_GetEnabled;
+    inAPI.Component_SetEnabled = Eng_Component_SetEnabled;
     inAPI.Character_SetMoveInput = Eng_Character_SetMoveInput;
     inAPI.Character_Move = Eng_Character_Move;
     inAPI.Character_Jump = Eng_Character_Jump;
