@@ -1,5 +1,6 @@
 #include "PCH.h"
-#include <Profiling/ThreadName.h>
+#include <Jobs/BackgroundLane.h>
+#include "optick.h"
 #include "TerrainPreview.h"
 #include <chrono>
 
@@ -55,8 +56,7 @@ namespace TerrainData
         {
             m_cancel = std::make_shared<std::atomic_bool>( false ); m_jobRevision = field.GetRevision();
             // Capture once only when a worker is available; intermediate edits queue no field copies.
-            m_job = std::async( std::launch::async, [snapshot = field, previous = preview, guid, epoch = m_epoch, cancel = m_cancel, build = m_builder]() {
-                ME_PROFILE_THREAD( "Terrain Preview" );
+            m_job = Jobs::BackgroundLane::Get().Submit( "Terrain Preview", [snapshot = field, previous = preview, guid, epoch = m_epoch, cancel = m_cancel, build = m_builder]() {
                 OPTICK_EVENT( "TerrainPreview::Build" );
                 Result result; result.Epoch = epoch; result.GUID = guid; result.Revision = snapshot.GetRevision();
                 const auto started = std::chrono::steady_clock::now();

@@ -1,5 +1,6 @@
 #include "PCH.h"
-#include <Profiling/ThreadName.h>
+#include <Jobs/BackgroundLane.h>
+#include "optick.h"
 #include "LoadingScreen.h"
 #include "CLog.h"
 #include "Cores/UI/RmlUiCore.h"
@@ -74,8 +75,7 @@ bool LoadingScreen::LoadSceneAsync( const std::string& InScene, const std::strin
     m_settledFrames = 0;
     m_peakPending = 0;
     m_loggedPercent = -1;
-    m_reading = std::async( std::launch::async, [scene = InScene]() {
-        ME_PROFILE_THREAD( "Scene Read" );
+    m_reading = Jobs::BackgroundLane::Get().Submit( "Scene Read", [scene = InScene]() {
         OPTICK_EVENT( "SceneStreaming::ReadScene" );
         return SceneStreaming::ReadScene( scene );
     } );

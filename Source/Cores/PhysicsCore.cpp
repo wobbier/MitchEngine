@@ -1,7 +1,7 @@
 #include "PCH.h"
 #include <optional>
 #include <Profiling/FrameStats.h>
-#include <Profiling/ThreadName.h>
+#include <Jobs/BackgroundLane.h>
 #include "PhysicsCore.h"
 #include "Components/Graphics/Mesh.h"
 #include "Components/Graphics/Terrain.h"
@@ -473,8 +473,7 @@ const std::vector<void*>* PhysicsCore::GetTerrainMeshes( std::shared_ptr<const T
                 m_terrainCookSource = tile;
                 try
                 {
-                    m_terrainCook = std::async( std::launch::async, [tile]() {
-                        ME_PROFILE_THREAD( "Terrain Cook" );
+                    m_terrainCook = Jobs::BackgroundLane::Get().Submit( "Terrain Cook", [tile]() {
                         OPTICK_EVENT( "TerrainPhysics::Cook" );
                         return TerrainPhysics::Cook( *tile );
                     } );

@@ -1,5 +1,5 @@
 #include "PCH.h"
-#include <Profiling/ThreadName.h>
+#include <Jobs/BackgroundLane.h>
 #include "SceneStreaming.h"
 #include "CLog.h"
 #include "Engine/World.h"
@@ -127,8 +127,7 @@ uint16_t SceneStreaming::LoadAsync( const std::string& InPath )
     entry.Id = NextId();
     entry.Path = InPath;
     entry.Status = State::Loading;
-    entry.Pending = std::async( std::launch::async, [InPath] {
-        ME_PROFILE_THREAD( "Scene Read" );
+    entry.Pending = Jobs::BackgroundLane::Get().Submit( "Scene Read", [InPath] {
         OPTICK_EVENT( "SceneStreaming::ReadScene" );
         return ReadScene( InPath );
     } );

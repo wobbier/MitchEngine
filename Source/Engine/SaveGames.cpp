@@ -1,5 +1,6 @@
 #include "PCH.h"
-#include <Profiling/ThreadName.h>
+#include <Jobs/BackgroundLane.h>
+#include "optick.h"
 #include "SaveGames.h"
 #include "CLog.h"
 #include "Components/Scripting/ScriptComponent.h"
@@ -214,8 +215,8 @@ bool SaveGames::Save( const std::string& InSlot, const std::string& InName )
     };
     const std::string directory = GetSlotDirectory( InSlot );
     m_writingSlot = InSlot;
-    m_write = std::async( std::launch::async, [directory, meta, world = std::move( worldData )]() {
-        ME_PROFILE_THREAD( "Save Write" );
+    // Engine::Shutdown drains the lane, so a save started just before quitting still lands.
+    m_write = Jobs::BackgroundLane::Get().Submit( "Save Write", [directory, meta, world = std::move( worldData )]() {
         OPTICK_EVENT( "SaveGames::WriteSlot" );
         return WriteSlot( directory, meta, world );
     } );

@@ -1,5 +1,6 @@
 #include "PCH.h"
-#include <Profiling/ThreadName.h>
+#include <Jobs/BackgroundLane.h>
+#include "optick.h"
 #include "TerrainStreamCache.h"
 #include <algorithm>
 #include <chrono>
@@ -306,8 +307,7 @@ namespace TerrainData
                 const auto archive = m_archive; const auto loader = m_loader; const uint64_t generation = entry.Request; const auto coord = request.Coordinate;
                 try
                 {
-                    m_job = std::async( std::launch::async, [archive, loader, coord, generation]() {
-                        ME_PROFILE_THREAD( "Terrain Stream" );
+                    m_job = Jobs::BackgroundLane::Get().Submit( "Terrain Stream", [archive, loader, coord, generation]() {
                         OPTICK_EVENT( "TerrainStreamCache::LoadTile" );
                         Completion result; result.Coordinate = coord; result.Request = generation;
                         try { if( !loader( *archive, coord, result.Tile, result.Error ) ) result.Tile.reset(); }
