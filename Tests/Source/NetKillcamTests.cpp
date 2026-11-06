@@ -805,7 +805,7 @@ TEST_CASE( "Net: a bot's killcams: a newer one cancels the older, waiting or str
 {
     // Client 1's pawn is killed over and over by a bot (owned by nobody: no commands to send) at the
     // origin, with a 20 m view. Out of it: a placed post at 400 m (it moves; the killer's client holds
-    // its pose) and an AlwaysRelevant arrow at 300 m that's destroyed a second before the kills.
+    // its pose) and an AlwaysRelevant arrow at 300 m that's destroyed before the kills.
     Harness net( Link( 50.f, 0.f, 0.f, 3231 ), Link( 50.f, 0.f, 0.f, 3232 ) );
     constexpr uint64_t kVictimGuid = 0x7A3E11;
     constexpr uint64_t kPostGuid = 0x7A3E12;
@@ -846,14 +846,15 @@ TEST_CASE( "Net: a bot's killcams: a newer one cancels the older, waiting or str
     victim->GetComponent<NetIdentity>().SetOwner( 1 );
     net.ServerNet.GetReplicationServer()->Settings.RelevantRadius = 20.f;
     REQUIRE( net.ServerNet.StartRecording( "" ) );
-    // A second of ring before anything happens: the kills come about 2.2-2.4 s on (the encodes before
-    // them take wall-clock time on the lane), and a 3 s killcam's first tick must be in the ring, or
-    // its range is cut short to the ring's start (it was, at 2.98 s, a run in five).
-    net.Run( 1.0 );
+    // A second of ring before anything happens: the kills come about 1.7-2.4 s after the arrow goes (the
+    // encodes before them take wall-clock time on the lane), and a 3 s killcam's first tick must be in
+    // the ring, or its range is cut short to the ring's start (it was, at 2.98 s, a run in five). The
+    // killer is there from the ring's start, so it's in every tick a killcam can cover.
     EntityHandle killer = net.ServerWorld->CreateEntity();
     killer->SetName( "Bot" );
     killer->AddComponent<Transform>();
     killer->AddComponent<NetIdentity>();
+    net.Run( 1.0 );
     arrow = net.ServerWorld->CreateEntity();
     arrow->AddComponent<Transform>().SetPosition( Vector3( 300.f, 2.f, 0.f ) );
     arrow->AddComponent<NetIdentity>().AlwaysRelevant = true;
@@ -862,7 +863,10 @@ TEST_CASE( "Net: a bot's killcams: a newer one cancels the older, waiting or str
     REQUIRE( arrowId != 0 );
     net.ServerWorld->DestroyEntity( arrow );
     arrow = EntityHandle();
-    net.Run( 1.0 );
+    // Half a second on: the last killcam is cut 1.7-2.4 s after this (the encodes before it take
+    // wall-clock time on the lane), so its 3 s still hold most of the arrow's second. A second here
+    // left as few as 27 of its ticks in, a run in six under load.
+    net.Run( 0.5 );
     REQUIRE_FALSE( net.ServerNet.FindEntity( arrowId ) );
 
     const NetCore::KillcamStats& stats = net.ServerNet.GetKillcamStats();
