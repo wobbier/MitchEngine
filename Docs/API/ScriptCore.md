@@ -493,7 +493,7 @@ The command line the game started with: flags as "--name value". A name works wi
 stateless proxy, just marshalling really
 
 - `AddComponent1` (method): Adds a component of type T to the entity and returns it.
-- `Enabled` (property): The component's own switch (ME-312), separate from the entity's Active: a disabled component stays on the entity, keeps its fields and is skipped by its core (a Mesh doesn't draw, a collider doesn't collide, a NetHitbox isn't hit, an AudioSource doesn't play) and gets OnDisable. False when the component is gone. Local to this peer: networked scripts set it from replicated state on every peer.
+- `Enabled` (property): The component's own switch (ME-312), separate from the entity's Active: a disabled component stays on the entity, keeps its fields and is skipped by its core (a Mesh doesn't draw, a collider doesn't collide, a NetHitbox isn't hit, an AudioSource doesn't play) and gets OnDisable. False when the component is gone. Local to this peer: networked scripts set it from replicated state on every peer. ScriptComponent and NetIdentity refuse to turn off (a warning says so): off would destroy the script, or leave the entity replicated with its owner's commands ignored; deactivate the entity (Entity.Active) or keep a flag in the script instead.
 - `Entity` (property): The entity this component is on.
 - `Equals(ScriptCore.Component)` (method): Same component on the same entity; two missing components are equal (Unity-style fake null).
 - `Equals(System.Object)` (method): Same component on the same entity.
@@ -754,7 +754,7 @@ struct because it's mapped to the engine EntityID struct. don't fuckin add anyth
 - `op_Equality(ScriptCore.Entity,ScriptCore.Entity)` (method): Same entity.
 - `op_Implicit(ScriptCore.Entity)~System.Boolean` (method): what is life?
 - `op_Inequality(ScriptCore.Entity,ScriptCore.Entity)` (method): Different entities.
-- `SetComponentEnabled(System.String,System.Boolean)` (method): Turns a component, by registry name, on or off (see Component.Enabled); false when the entity has no such component.
+- `SetComponentEnabled(System.String,System.Boolean)` (method): Turns a component, by registry name, on or off (see Component.Enabled); false when the entity has no such component, or it's a ScriptComponent or NetIdentity being turned off (refused).
 - `SetField1(System.String,System.String,0)` (method): Sets a field of any component by name (see GetField); false when the component or field is missing.
 - `SetFieldJson(System.String,System.String,System.String)` (method): Sets a component field from JSON text; false when the component or field is missing.
 - `ToString` (method): "Entity(index:generation)".
@@ -1564,7 +1564,7 @@ A NetHitbox's shape.
 
 ## NetIdentity
 
-Marks an entity as networked (NET-3; ME-312 wrapper): the server sends its pose and its scripts' [Replicated] fields to every client. Placed in a scene it has a static NetId, the same on every peer; added or instantiated while a session runs (on the server) it gets a dynamic NetId and every client creates its copy from Prefab (empty: the prefab the entity was instantiated from, else a bare entity). Add it before the entity's first update: entity.AddComponent<NetIdentity>().
+Marks an entity as networked (NET-3; ME-312 wrapper): the server sends its pose and its scripts' [Replicated] fields to every client. Placed in a scene it has a static NetId, the same on every peer; added or instantiated while a session runs (on the server) it gets a dynamic NetId and every client creates its copy from Prefab (empty: the prefab the entity was instantiated from, else a bare entity). Add it before the entity's first update: entity.AddComponent<NetIdentity>(). Enabled = false is refused: to stop networking an entity, deactivate or destroy it.
 
 - `AlwaysRelevant` (property): Sent to every client wherever it is, ignoring the server's relevant radius (a game mode, a scoreboard).
 - `IsLocalOwner` (property): Whether this client owns (and predicts) it (Net.IsOwner).

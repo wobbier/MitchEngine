@@ -6,6 +6,7 @@ namespace ScriptCore;
 /// peer; added or instantiated while a session runs (on the server) it gets a dynamic NetId and every
 /// client creates its copy from Prefab (empty: the prefab the entity was instantiated from, else a
 /// bare entity). Add it before the entity's first update: entity.AddComponent&lt;NetIdentity&gt;().
+/// Enabled = false is refused: to stop networking an entity, deactivate or destroy it.
 /// </summary>
 public class NetIdentity : Component
 {

@@ -626,6 +626,17 @@ TEST_CASE( "Scripts: Component.Enabled turns a NetHitbox off for rewound shots a
     CHECK( api.Component_GetEnabled( pawn.GetID(), name( "BoxCollider" ) ) == -1 );
     CHECK_FALSE( api.Component_SetEnabled( pawn.GetID(), name( "BoxCollider" ), false ) );
     CHECK( api.Component_GetEnabled( pawn.GetID(), name( "NoSuchThing" ) ) == -1 );
+
+    // A NetIdentity's off would stop routing its owner's commands while replication kept sending it:
+    // scripts can't turn it off (they deactivate the entity), only back on.
+    NetIdentity& identity = pawn->AddComponent<NetIdentity>();
+    world->Simulate();
+    CHECK_FALSE( api.Component_SetEnabled( pawn.GetID(), name( "NetIdentity" ), false ) );
+    CHECK( identity.IsEnabled() );
+    CHECK( api.Component_GetEnabled( pawn.GetID(), name( "NetIdentity" ) ) == 1 );
+    identity.SetEnabled( false );   // as a scene could have saved it
+    CHECK( api.Component_SetEnabled( pawn.GetID(), name( "NetIdentity" ), true ) );
+    CHECK( identity.IsEnabled() );
     ScriptBindings::SetWorld( previousWorld );
 }
 TEST_CASE( "Scripts: the C# NetIdentity and NetHitbox wrappers' fields read and write by name, enums as names (ME-312)" )

@@ -659,6 +659,17 @@ static bool Eng_Component_SetEnabled( EntityID inId, const uint8_t* inComponent,
     {
         return false;
     }
+    // Two switches whose off isn't "skipped by its core, kept as is", so scripts can't throw them:
+    // - ScriptComponent: off drops the entity from ScriptCore, which destroys the script (OnDestroy)
+    //   and on re-enable makes a fresh one from its saved fields, at the end of the creation order.
+    // - NetIdentity: off only drops it from NetCore's command routing while replication still sends
+    //   it, so its owner's commands go nowhere and the owner is corrected forever.
+    // Turning either back on (a scene saved it off) is allowed.
+    if( !inEnabled && ( component->GetName() == "ScriptComponent" || component->GetName() == "NetIdentity" ) )
+    {
+        BRUH_NEW( "[Scripts] {} can't be disabled from a script: deactivate the entity (Entity.Active) or keep a flag in the script instead", component->GetName() );
+        return false;
+    }
     component->SetEnabled( inEnabled );
     return true;
 }

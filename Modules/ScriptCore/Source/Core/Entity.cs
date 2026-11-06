@@ -127,7 +127,7 @@ public readonly struct Entity : IEquatable<Entity>
 
     /// <summary>
     /// Turns a component, by registry name, on or off (see Component.Enabled); false when the entity
-    /// has no such component.
+    /// has no such component, or it's a ScriptComponent or NetIdentity being turned off (refused).
     /// </summary>
     public bool SetComponentEnabled(string component, bool enabled)
     {

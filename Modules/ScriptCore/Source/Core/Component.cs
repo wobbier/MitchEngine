@@ -20,7 +20,9 @@ public abstract class Component
     /// stays on the entity, keeps its fields and is skipped by its core (a Mesh doesn't draw, a
     /// collider doesn't collide, a NetHitbox isn't hit, an AudioSource doesn't play) and gets
     /// OnDisable. False when the component is gone. Local to this peer: networked scripts set it
-    /// from replicated state on every peer.
+    /// from replicated state on every peer. ScriptComponent and NetIdentity refuse to turn off (a
+    /// warning says so): off would destroy the script, or leave the entity replicated with its owner's
+    /// commands ignored; deactivate the entity (Entity.Active) or keep a flag in the script instead.
     /// </summary>
     public bool Enabled
     {
