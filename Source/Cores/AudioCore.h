@@ -109,8 +109,9 @@ public:
     using OcclusionQuery = std::function<int( const Vector3& InListener, const Vector3& InSource, Entity* InListenerEntity, Entity& InSourceEntity )>;
     void SetOcclusionQuery( OcclusionQuery InQuery );
     // ME-323: the listener from another world while it's presented (a killcam's replay world: its first
-    // AudioListener, else its main camera); null: this core's own world.
-    void SetListenerWorld( World* InWorld ) { m_listenerWorld = InWorld; }
+    // AudioListener, else its main camera); null: this core's own world. A change forgets the listener
+    // found in the old world (its handle would outlive a replay world that's gone).
+    void SetListenerWorld( World* InWorld );
     // Seconds between a source's occlusion checks.
     static constexpr float kOcclusionInterval = 0.1f;
 

@@ -1000,7 +1000,11 @@ void Engine::Run()
 
             // ME-323 phase 3: a killcam plays into its replay world beside this one, and while it does
             // that world is the one presented (cameras, render prep, the audio listener).
-            UpdateKillcam( updateContext );
+            {
+                ME_FRAMEPROFILE_SCOPED( "Killcam", ProfileCategory::Game );
+                ME_STAT_SCOPE( "Killcam" );
+                UpdateKillcam( updateContext );
+            }
 
             // NET-7: gameplay is done with the frame, so the predicted pawn is drawn where its
             // smoothed correction puts it (render-only: undone after Render) for audio, cameras and
@@ -1286,6 +1290,7 @@ void Engine::Shutdown()
 
     // A killcam's replay world goes first (its cores share the renderer and the scripts).
     m_killcam.Stop();
+    AudioThread->SetListenerWorld( nullptr );
     // Components get OnDisable/OnDestroy while every engine system is still alive.
     if( GameWorld )
     {
@@ -1537,7 +1542,16 @@ void Engine::LoadSceneInternal( const std::string& SceneFile, const json* InData
 {
     OPTICK_EVENT( "Engine::LoadScene" );
     // A killcam of the old scene can't play on (and its world shares the mesh cache cleared below).
+    // The game world is presented again now, not at the next UpdateKillcam: nothing may keep pointing
+    // into the replay world that just went.
     m_killcam.Stop();
+    AudioThread->SetListenerWorld( nullptr );
+    Cameras->SetPresented( true );
+    ModelRenderer->SetPresented( true );
+    // The next scene's file is read ahead for its killcams (UpdateKillcam), not this one's.
+    m_killcamLevelPath.clear();
+    m_killcamLevelRead = std::future<json>();
+    m_killcamLevel = json();
     Cameras->Init();
     if( CurrentScene )
     {
@@ -1588,6 +1602,7 @@ void Engine::LoadSceneInternal( const std::string& SceneFile, const json* InData
 bool Engine::PopulateKillcamWorld( KillcamPlayer::ReplayWorld& InReplay, std::string& OutError )
 {
     OPTICK_EVENT( "Engine::PopulateKillcamWorld" );
+    ME_STAT_SCOPE( "Killcam Populate" );
     if( !CurrentScene || CurrentScene->IsNewScene() )
     {
         OutError = "there's no scene file to play it in";
@@ -1619,15 +1634,31 @@ bool Engine::PopulateKillcamWorld( KillcamPlayer::ReplayWorld& InReplay, std::st
         InReplay.Net->SetScriptGlue( MakeScriptNetGlue() );
     }
 #endif
-    // The game world's scene, read again: its placed networked entities must be the recording's.
-    Scene scene( CurrentScene->FilePath.GetLocalPathString() );
+    // The game world's scene again: its placed networked entities must be the recording's. Its file was
+    // read and parsed once, on the background lane, when the session went live (UpdateKillcam); a copy
+    // of that is loaded (waiting on the read only if a death beat it), else the file is read now.
+    const std::string path = CurrentScene->FilePath.GetLocalPathString();
+    Scene scene( path );
+    bool readAhead = false;
+    if( path == m_killcamLevelPath )
+    {
+        if( m_killcamLevelRead.valid() )
+        {
+            m_killcamLevel = m_killcamLevelRead.get();
+        }
+        if( !m_killcamLevel.is_null() )
+        {
+            scene.PreloadedData = m_killcamLevel;
+            readAhead = true;
+        }
+    }
     if( !scene.Load( InReplay.Instance, false ) )
     {
-        OutError = "its scene (" + CurrentScene->FilePath.GetLocalPathString() + ") didn't load";
+        OutError = "its scene (" + path + ") didn't load";
         return false;
     }
-    CLog::Log( CLog::LogType::Info, "Net: killcam world: " + CurrentScene->FilePath.GetLocalPathString() + ", " + std::to_string( world.GetEntityCount() ) + " entities in "
-        + std::to_string( static_cast<int>( std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - start ).count() ) ) + " ms" );
+    CLog::Log( CLog::LogType::Info, "Net: killcam world: " + path + ( readAhead ? " (read ahead)" : " (read now)" ) + ", " + std::to_string( world.GetEntityCount() )
+        + " entities in " + std::to_string( static_cast<int>( std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - start ).count() ) ) + " ms" );
     return true;
 }
 
@@ -1635,6 +1666,18 @@ bool Engine::PopulateKillcamWorld( KillcamPlayer::ReplayWorld& InReplay, std::st
 void Engine::UpdateKillcam( const UpdateContext& InContext )
 {
     OPTICK_EVENT( "Engine::UpdateKillcam" );
+    // A client session's scene file, read and parsed on the background lane once, so a death only
+    // builds its killcam's replay world (PopulateKillcamWorld) instead of reading the file too.
+    if( m_killcam.GetSettings().AutoPlay && Net->GetClient() && Net->IsSessionLive() && CurrentScene && !CurrentScene->IsNewScene() )
+    {
+        const std::string path = CurrentScene->FilePath.GetLocalPathString();
+        if( path != m_killcamLevelPath )
+        {
+            m_killcamLevelPath = path;
+            m_killcamLevel = json();
+            m_killcamLevelRead = Jobs::BackgroundLane::Get().Submit( "Killcam Scene Read", [path]() { return SceneStreaming::ReadScene( path ); } );
+        }
+    }
     m_killcam.Update( *GameWorld, InContext.GetDeltaTime() );
     World* replay = m_killcam.GetWorld();
     if( replay )

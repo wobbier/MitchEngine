@@ -930,6 +930,18 @@ void AudioCore::UpdateOcclusion( Entity& InEntity, AudioSource& InSource, const 
 }
 
 
+void AudioCore::SetListenerWorld( World* InWorld )
+{
+    if( InWorld == m_listenerWorld )
+    {
+        return;
+    }
+    m_listenerWorld = InWorld;
+    m_listenerEntity.Reset();
+    m_hasListenerPosition = false;
+}
+
+
 Transform* AudioCore::FindListener()
 {
     Transform* listener = nullptr;

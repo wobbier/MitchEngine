@@ -203,6 +203,11 @@ private:
     std::string m_killcamCapturePath;
     double m_killcamCaptureAt = 2.0;
     bool m_killcamCaptured = false;
+    // The scene file a client session's killcams load into their replay worlds, read and parsed on the
+    // background lane once per scene (UpdateKillcam), then copied for each.
+    std::string m_killcamLevelPath;
+    std::future<json> m_killcamLevelRead;
+    json m_killcamLevel;
     SceneStreaming m_sceneStreaming;
 #if USING( ME_TOOLS )
     void PollAssetChanges();
