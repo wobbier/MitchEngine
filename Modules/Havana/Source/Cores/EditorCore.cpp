@@ -236,6 +236,14 @@ void EditorCore::Update( const UpdateContext& inUpdateContext )
     }
 
     SceneViewWidget* sceneView = m_editor ? m_editor->GetSceneView() : nullptr;
+    // Nothing shows the editor camera (the World View is closed, behind a tab, or hidden by
+    // Maximize On Play): no navigation, whose keys the game reads too, and no overlays, which
+    // would be collected every frame (~0.85 ms in Debug) and never drawn.
+    if( sceneView && !sceneView->IsImageShown() )
+    {
+        return;
+    }
+
     const ImGuiIO& io = ImGui::GetIO();
     EditorCameraController::Input input;
     if( sceneView )

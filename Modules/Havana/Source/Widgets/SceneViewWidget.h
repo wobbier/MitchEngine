@@ -85,6 +85,9 @@ public:
 	// Draws over the viewport image (the UI designer's selection outline): the foreground list
 	// of the image's OS window and the image's screen rectangle; null when it wasn't shown.
 	ImDrawList* GetImageDrawList(Vector2& OutMin, Vector2& OutSize) const;
+	// The viewport image was shown last frame: false while closed, behind another tab, collapsed,
+	// or hidden in the dock while the Game View is maximized on play.
+	bool IsImageShown() const { return m_imageShown; }
 	// The display presets ("Freeform", "1080p", "Steam Deck", ...): false for an unknown name.
 	bool SetDisplayPreset(const std::string& InName);
 	// Where the game's image is drawn (ImGui's absolute coordinates) and its drawn size.
