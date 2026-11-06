@@ -3,8 +3,10 @@
 #include "Events/Event.h"
 #include "Net/NetLagCompensation.h"
 #include "Net/NetPrediction.h"
+#include "Net/NetReplay.h"
 #include "Net/NetReplication.h"
 #include "Net/NetSession.h"
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -183,11 +185,33 @@ public:
     // (During a resimulation: the tick being replayed.)
     uint32_t GetTick() const { return m_predictor && m_predictor->IsResimulating() ? m_predictor->GetCommand().Tick : m_tick; }
 
+    // Match replays (ME-316, NetReplay.h): a server records every tick after its CaptureTick: the
+    // whole capture, each client's command and link, owed and dropped ticks, entity names and
+    // owners, every LagCompensatedRaycast (with the rewound hitboxes), joins and leaves, and
+    // RecordReplayEvent's. The chunks are written on the background lane. InPath "": the ring
+    // only. The header's tick rate and hashes come from the session. False on a client, while
+    // recording, or when the file can't be written.
+    bool StartRecording( const std::string& InPath, NetReplayHeader InHeader = NetReplayHeader(), const NetReplaySettings& InSettings = NetReplaySettings() );
+    // Writes the last chunk and the index and waits (logged); the recorder stays readable until
+    // Shutdown or the next StartRecording. Shutdown stops it too.
+    void StopRecording();
+    bool IsRecording() const { return m_recorder && !m_recorder->IsClosed(); }
+    const NetReplayRecorder* GetRecorder() const { return m_recorder.get(); }
+    // An event at the current tick into the recording (nothing without one): C#'s Replay.Event.
+    // The name is cut to 64 bytes, the payload to 4000.
+    void RecordReplayEvent( const std::string& InName, const std::string& InPayload, uint32_t InNetId = 0 );
+    // Engine::Run: backlog ticks it dropped (they never run); the next recorded tick says so.
+    void NoteDroppedTicks( uint32_t InTicks ) { m_ticksDropped += InTicks; }
+
 #if USING( ME_EDITOR )
     void OnEditorInspect() final;
 #endif
 
 private:
+    void RecordReplayTick();
+    void RecordShot( const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, double InViewTick, const EntityHandle& InShooter,
+        const LagCompensatedHit& InHit );
+
     // A client the server no longer has: what the report says about it.
     struct Departure
     {
@@ -238,6 +262,14 @@ private:
     double m_lastSnapshotAt = -1.0;
     uint64_t m_firstSnapshotCount = 0;
     uint64_t m_lastSnapshotCount = 0;
+    // ME-316: the recording, and what the next recorded tick carries.
+    std::unique_ptr<NetReplayRecorder> m_recorder;
+    std::vector<NetReplayShot> m_replayShots;
+    std::vector<NetReplayEvent> m_replayEvents;
+    std::map<uint32_t, uint8_t> m_replayOwners;     // NetId -> the owner last recorded
+    std::map<uint8_t, uint64_t> m_replayMisses;     // client -> its misses at the last recorded tick
+    uint32_t m_ticksOwed = 0;
+    uint32_t m_ticksDropped = 0;
 };
 
 ME_REGISTER_CORE( NetCore )

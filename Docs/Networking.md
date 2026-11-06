@@ -394,6 +394,16 @@ The server's ground truth for a whole match, for debugging after the fact: one r
 
 **Recording (`NetReplayRecorder`):** `Record` keeps a ring of the newest ticks (`RingSeconds`, 12 s) and every `KeyframeInterval` ticks (300: 5 s at 60 Hz) hands the chunk to a `Jobs::SerialQueue` ("Replay Writer") on the background lane (ME-319), which encodes, deflates (zlib) and writes it in order. The tick never waits on the disk; `Close` writes the last chunk and the index and waits. A write that fails stops the file (logged once); the ring goes on.
 
+**On the server (`NetCore`):** `StartRecording( path, header, settings )` (a server only; path `""` keeps the ring alone) fills the header's tick rate, protocol and hashes from the session and records every tick in `EndTick`, straight after `CaptureTick`:
+
+- each accepted client's `Current` command, `Missed` when its miss count moved, and its link stats;
+- the ticks owed (`BeginTick`) and those `Engine::Run` dropped since the last tick (`NoteDroppedTicks`: past `kMaxCatchUpSeconds` of backlog, or a backlog it can't run);
+- a NetId's name, prefab and owner the first tick it's seen and whenever its owner changes;
+- every `LagCompensatedRaycast` of the tick (C#'s `Net.LagCompensatedRaycast` on the server goes through it, with or without a command), with the hitboxes at the tick it was judged at, the shooter's own left out; a hitbox on a child (a Head) names its nearest networked ancestor;
+- `net.joined` / `net.left` events (`{"client":N}`, with the `reason` for a leave; the clients already there when recording starts count as joined), and `RecordReplayEvent( name, payload, netId )`'s.
+
+`StopRecording` (and `Shutdown`) writes the rest and logs `Replay: wrote <path>: N ticks (S s) in C chunks, X KB (Y KB before deflate)`. The server's `--net-report` gains a `Replay` block (path, ticks, chunks, bytes, raw bytes, error).
+
 **Reading:** an `INetReplaySource` gives the header and chunks (`NetReplayFileSource` from a file, `NetReplayMemorySource` from bytes; ME-323's stream will be another). `NetReplayReader` reads any tick (decoding its chunk from the keyframe, kept for the next read) or a range in order.
 
 ### UDP and dedicated servers (NET-5)
@@ -434,6 +444,7 @@ The server's ground truth for a whole match, for debugging after the fact: one r
 | `--net-timeout s` | Seconds of silence before a peer is gone (10) |
 | `--net-report file.json` | On exit, `NetCore::WriteReport`. **Server:** clients accepted / left / timed out / rejected, snapshots sent, and per client: status, connection stats, kbps, snapshots and their rate. **Client:** state, whether it connected, timeouts, RTT and loss, snapshots received and their rate, resyncs, dilation |
 | `--net-exit-when-empty` | Server: quit once its last client has gone |
+| `--record-replay [file]` | Server: record the match (ME-316, below) to `file`, by default `user://Replays/<UTC time>.mreplay` (`user://` resolves to the user folder). Logs `Net: recording the match replay to <absolute path>`; on exit the replay is closed before the report is written. A client logs that it doesn't record yet |
 
 The session starts after the scene loads, because the handshake hashes the scene's networked entities, so both sides need `--scene` (or the same startup scene).
 
@@ -596,6 +607,7 @@ The session starts after the scene loads, because the handshake hashes the scene
 - **Round trip:** 240 match-like ticks (movers, a pickup that comes and goes, a client joining mid-chunk, held and changing commands, exact and inexact view ticks, shots with hitboxes, events) come back field for field, raw and deflated. A flipped byte fails the checksum; a short chunk or header is refused.
 - **Recorder and seeking:** 637 ticks recorded at a 60-tick keyframe interval write 11 chunks on the background lane and an index; every tick, read in a shuffled order, equals what was recorded, each chunk's first tick names every live dynamic NetId, a range comes back in order, and the same chunks read from memory match. The ring holds the newest `RingSeconds`.
 - **A dead server's file:** without its index and with half its last chunk, a replay reads up to its last whole chunk.
+- **A recorded session (`NetHarness`, 40 ms each way):** a server recording at a 45-tick interval for 6 s: the state at every tick read back equals the live `CaptureTick` at that tick (366 ticks), each tick's command equals the one the command handler ran, every lag-compensated shot comes back with its hit, rewind, target and the target's rewound hitbox (24 shots), and the client's join, a script event and the entities' names are there. A client can't record.
 
 ## How to Extend
 

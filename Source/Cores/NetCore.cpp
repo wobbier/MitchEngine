@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "Cores/NetCore.h"
 #include "Mods/Mods.h"
+#include "Components/Networking/NetHitbox.h"
 #include "Components/Networking/NetIdentity.h"
 #include "Components/Transform.h"
 #include "Cores/PhysicsCore.h"
@@ -42,6 +43,67 @@ namespace
         out["KbpsOut"] = InSeconds > 0.0 ? static_cast<double>( InStats.BytesSent ) * 8.0 / 1000.0 / InSeconds : 0.0;
         out["KbpsIn"] = InSeconds > 0.0 ? static_cast<double>( InStats.BytesReceived ) * 8.0 / 1000.0 / InSeconds : 0.0;
         return out;
+    }
+
+    // An entity's NetId, or its nearest networked ancestor's (a pawn's Head hitbox): 0 for none.
+    const NetIdentity* NetworkedSelfOrAncestor( const EntityHandle& InEntity )
+    {
+        if( !InEntity )
+        {
+            return nullptr;
+        }
+        if( const NetIdentity* identity = InEntity->TryGetComponent<NetIdentity>(); identity && identity->GetNetId() != 0 )
+        {
+            return identity;
+        }
+        const Transform* transform = InEntity->TryGetComponent<Transform>();
+        for( const Transform* parent = transform ? transform->GetParentTransform() : nullptr; parent; parent = parent->GetParentTransform() )
+        {
+            if( parent->Parent )
+            {
+                if( const NetIdentity* identity = parent->Parent->TryGetComponent<NetIdentity>(); identity && identity->GetNetId() != 0 )
+                {
+                    return identity;
+                }
+            }
+        }
+        return nullptr;
+    }
+
+    bool IsSelfOrUnder( const EntityHandle& InEntity, const EntityHandle& InRoot )
+    {
+        if( !InEntity || !InRoot )
+        {
+            return false;
+        }
+        if( InEntity == InRoot )
+        {
+            return true;
+        }
+        const Transform* transform = InEntity->TryGetComponent<Transform>();
+        for( const Transform* parent = transform ? transform->GetParentTransform() : nullptr; parent; parent = parent->GetParentTransform() )
+        {
+            if( parent->Parent == InRoot )
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    std::string Cut( const std::string& InText, size_t InMax )
+    {
+        if( InText.size() <= InMax )
+        {
+            return InText;
+        }
+        // Not inside a UTF-8 sequence.
+        size_t end = InMax;
+        while( end > 0 && ( static_cast<unsigned char>( InText[end] ) & 0xC0 ) == 0x80 )
+        {
+            --end;
+        }
+        return InText.substr( 0, end );
     }
 
     const char* StateName( NetClient::State InState )
@@ -204,6 +266,17 @@ void NetCore::PushSessionEvent( NetSessionEvent::Kind InType, uint8_t InClientId
     event.ClientId = InClientId;
     event.Reason = std::move( InReason );
     event.Source = GameWorld;
+    if( m_server && IsRecording() && ( InType == NetSessionEvent::Kind::ClientJoined || InType == NetSessionEvent::Kind::ClientLeft ) )
+    {
+        const bool joined = InType == NetSessionEvent::Kind::ClientJoined;
+        json payload;
+        payload["client"] = InClientId;
+        if( !joined )
+        {
+            payload["reason"] = event.Reason;
+        }
+        m_replayEvents.push_back( { joined ? "net.joined" : "net.left", payload.dump(), 0 } );
+    }
 }
 
 
@@ -488,7 +561,186 @@ void NetCore::OnRpc( uint8_t InFromClient, BitReader& InReader )
 LagCompensatedHit NetCore::LagCompensatedRaycast( const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, const InputCommand& InCommand,
     const EntityHandle& InShooter )
 {
-    return m_lagCompensation.Raycast( GetWorld().GetCore<PhysicsCore>(), InOrigin, InDirection, InMaxDistance, InCommand.ViewTick, InShooter );
+    const LagCompensatedHit hit = m_lagCompensation.Raycast( GetWorld().GetCore<PhysicsCore>(), InOrigin, InDirection, InMaxDistance, InCommand.ViewTick, InShooter );
+    if( m_server && IsRecording() )
+    {
+        RecordShot( InOrigin, InDirection, InMaxDistance, InCommand.ViewTick, InShooter, hit );
+    }
+    return hit;
+}
+
+
+bool NetCore::StartRecording( const std::string& InPath, NetReplayHeader InHeader, const NetReplaySettings& InSettings )
+{
+    if( !m_server || IsRecording() )
+    {
+        return false;
+    }
+    const NetVersion& version = m_server->GetVersion();
+    InHeader.TickRate = m_server->GetTickRate();
+    InHeader.NetProtocol = version.Protocol;
+    InHeader.BuildHash = version.Build;
+    InHeader.ScriptSchemaHash = version.ScriptSchema;
+    InHeader.SceneHash = version.Scene;
+    InHeader.NetSchemaHash = NetSchema::Hash();
+    auto recorder = std::make_unique<NetReplayRecorder>( std::move( InHeader ), InSettings );
+    if( !InPath.empty() && !recorder->OpenFile( InPath ) )
+    {
+        return false;
+    }
+    m_recorder = std::move( recorder );
+    m_replayShots.clear();
+    m_replayEvents.clear();
+    m_replayOwners.clear();
+    m_replayMisses.clear();
+    m_ticksDropped = 0;
+    // Who is here already.
+    for( const auto& client : m_server->GetClients() )
+    {
+        if( client->Accepted )
+        {
+            json payload;
+            payload["client"] = client->Id;
+            m_replayEvents.push_back( { "net.joined", payload.dump(), 0 } );
+        }
+    }
+    return true;
+}
+
+
+void NetCore::StopRecording()
+{
+    if( !IsRecording() )
+    {
+        return;
+    }
+    m_recorder->Close();
+    if( !m_recorder->GetPath().empty() )
+    {
+        const uint64_t ticks = m_recorder->GetTicksRecorded();
+        const uint16_t rate = std::max<uint16_t>( 1, m_recorder->GetHeader().TickRate );
+        CLog::Log( m_recorder->HasFailed() ? CLog::LogType::Error : CLog::LogType::Info,
+            "Replay: wrote " + m_recorder->GetPath() + ": " + std::to_string( ticks ) + " ticks (" + std::to_string( ticks / rate ) + " s) in "
+                + std::to_string( m_recorder->GetChunksWritten() ) + " chunks, " + std::to_string( m_recorder->GetBytesWritten() / 1024 ) + " KB ("
+                + std::to_string( m_recorder->GetRawBytes() / 1024 ) + " KB before deflate)" + ( m_recorder->HasFailed() ? ", then failed: " + m_recorder->GetError() : "" ) );
+    }
+    m_replayShots.clear();
+    m_replayEvents.clear();
+}
+
+
+void NetCore::RecordReplayEvent( const std::string& InName, const std::string& InPayload, uint32_t InNetId )
+{
+    if( !IsRecording() )
+    {
+        return;
+    }
+    m_replayEvents.push_back( { Cut( InName, NetReplayFormat::kMaxEventName ), Cut( InPayload, NetReplayFormat::kMaxEventPayload ), InNetId } );
+}
+
+
+void NetCore::RecordShot( const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, double InViewTick, const EntityHandle& InShooter,
+    const LagCompensatedHit& InHit )
+{
+    NetReplayShot& shot = m_replayShots.emplace_back();
+    if( const NetIdentity* shooter = NetworkedSelfOrAncestor( InShooter ) )
+    {
+        shot.Shooter = shooter->GetNetId();
+        shot.Client = shooter->GetOwner();
+    }
+    shot.Origin = InOrigin;
+    shot.Direction = InDirection;
+    shot.Range = InMaxDistance;
+    shot.ViewTick = InViewTick;
+    shot.RewoundTicks = InHit.RewoundTicks;
+    shot.Hit = InHit.Hit;
+    shot.Occluded = InHit.Occluded;
+    shot.Clamped = InHit.Clamped;
+    shot.Rejected = InHit.Rejected;
+    if( InHit.Entity )
+    {
+        const NetIdentity* target = NetworkedSelfOrAncestor( InHit.Entity );
+        shot.Target = target ? target->GetNetId() : 0;
+        shot.TargetPart = InHit.Entity->GetName();
+    }
+    shot.Point = InHit.Point;
+    shot.Distance = InHit.Distance;
+    shot.Tested = static_cast<uint32_t>( std::max( 0, InHit.Tested ) );
+    if( InHit.Rejected )
+    {
+        return;
+    }
+    // The hitboxes as the shot was judged against them (all of them, not only the broadphase's).
+    const double judged = static_cast<double>( m_lagCompensation.GetNewestTick() ) - InHit.RewoundTicks;
+    for( const NetLagCompensation::HitboxPose& pose : m_lagCompensation.GetPosesAt( judged ) )
+    {
+        if( IsSelfOrUnder( pose.Entity, InShooter ) )
+        {
+            continue;
+        }
+        NetReplayHitbox& hitbox = shot.Hitboxes.emplace_back();
+        const NetIdentity* owner = NetworkedSelfOrAncestor( pose.Entity );
+        hitbox.NetId = owner ? owner->GetNetId() : 0;
+        hitbox.Name = pose.Entity ? pose.Entity->GetName() : std::string();
+        hitbox.Shape = pose.Shape;
+        hitbox.Position = pose.Position;
+        hitbox.Rotation = pose.Rotation;
+        hitbox.Radius = pose.Radius;
+        hitbox.HalfHeight = pose.HalfHeight;
+        hitbox.HalfExtents = pose.HalfExtents;
+        hitbox.Occluder = pose.Occluder;
+    }
+}
+
+
+void NetCore::RecordReplayTick()
+{
+    NetReplayTick tick;
+    tick.Tick = m_server->GetTick();
+    tick.TicksOwed = m_ticksOwed;
+    tick.TicksDropped = std::exchange( m_ticksDropped, 0u );
+    tick.State = m_replicationServer->GetCurrent();
+    for( const auto& client : m_server->GetClients() )
+    {
+        if( !client->Accepted )
+        {
+            continue;
+        }
+        NetReplayClient& record = tick.Clients.emplace_back();
+        record.Id = client->Id;
+        record.Command = client->Current;
+        const uint64_t misses = client->Commands.GetMissedCount();
+        auto known = m_replayMisses.find( client->Id );
+        record.Missed = known != m_replayMisses.end() ? misses != known->second : misses > 0;
+        m_replayMisses[client->Id] = misses;
+        const NetStats& stats = client->Connection->GetStats();
+        record.RoundTripMs = stats.RoundTripMs;
+        record.PacketLoss = stats.PacketLoss;
+        record.Slack = client->Commands.GetSlack();
+        record.Misses = static_cast<uint32_t>( misses );
+        record.LateCommands = static_cast<uint32_t>( client->Commands.GetLateArrivals() );
+        record.Resyncs = static_cast<uint32_t>( client->Commands.GetRewindCount() );
+    }
+    // What NetIds are: new ones, and owners that changed.
+    for( const auto& [id, state] : tick.State.Entities )
+    {
+        EntityHandle entity = m_replicationServer->FindEntity( id );
+        const NetIdentity* identity = entity ? entity->TryGetComponent<NetIdentity>() : nullptr;
+        const uint8_t owner = identity ? identity->GetOwner() : 0;
+        auto known = m_replayOwners.find( id );
+        if( known == m_replayOwners.end() || known->second != owner )
+        {
+            tick.Entities.push_back( { id, entity ? entity->GetName() : std::string(), identity ? identity->Prefab : std::string(), owner } );
+            m_replayOwners[id] = owner;
+        }
+    }
+    for( auto it = m_replayOwners.begin(); it != m_replayOwners.end(); )
+    {
+        it = tick.State.Entities.count( it->first ) ? std::next( it ) : m_replayOwners.erase( it );
+    }
+    tick.Shots = std::exchange( m_replayShots, {} );
+    tick.Events = std::exchange( m_replayEvents, {} );
+    m_recorder->Record( std::move( tick ) );
 }
 
 
@@ -624,6 +876,18 @@ bool NetCore::WriteReport( const std::string& InPath, double InNow ) const
             }
         }
         report["Clients"] = clients;
+        if( m_recorder )
+        {
+            json replay;
+            replay["Path"] = m_recorder->GetPath();
+            replay["Ticks"] = m_recorder->GetTicksRecorded();
+            replay["Chunks"] = m_recorder->GetChunksWritten();
+            replay["Bytes"] = m_recorder->GetBytesWritten();
+            replay["RawBytes"] = m_recorder->GetRawBytes();
+            replay["Closed"] = m_recorder->IsClosed();
+            replay["Error"] = m_recorder->GetError();
+            report["Replay"] = replay;
+        }
     }
     else if( m_client )
     {
@@ -679,6 +943,8 @@ bool NetCore::WriteReport( const std::string& InPath, double InNow ) const
 
 void NetCore::Shutdown()
 {
+    StopRecording();
+    m_recorder.reset();
     m_closed = false;
     m_predictor.reset();
     m_replicationServer.reset();
@@ -738,6 +1004,7 @@ void NetCore::BeginTick( uint32_t InTicksOwed )
     if( m_server )
     {
         m_tick = m_server->GetTick();
+        m_ticksOwed = InTicksOwed;
         m_server->BeginTick( InTicksOwed );
         // Each client's command drives what it owns.
         if( m_commandHandler )
@@ -788,6 +1055,10 @@ void NetCore::EndTick( double InNow )
     {
         m_lagCompensation.Record( GetWorld(), m_server->GetTick() );
         m_replicationServer->CaptureTick( m_server->GetTick() );
+        if( IsRecording() )
+        {
+            RecordReplayTick();
+        }
         m_server->EndTick( InNow );
         m_transport->Update( InNow );
     }

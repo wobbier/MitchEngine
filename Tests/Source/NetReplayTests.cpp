@@ -1,10 +1,13 @@
 #include "PCH.h"
 #include <doctest/doctest.h>
+#include "Components/Networking/NetHitbox.h"
 #include "Net/NetReplay.h"
+#include "NetHarness.h"
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <random>
 #include <string>
 #include <vector>
@@ -464,4 +467,157 @@ TEST_CASE( "Replay: a file whose server died (no index, a torn last chunk) reads
     CHECK_FALSE( reader.ReadTick( 150, tick ) );
     std::filesystem::remove( path );
     std::filesystem::remove( torn );
+}
+
+TEST_CASE( "Replay: a server records every tick's capture, commands, joins and lag-compensated shots; the file at tick N is the live capture at tick N (ME-316)" )
+{
+    using namespace NetHarness;
+    NetConditions toClient;
+    toClient.LatencyMs = 40.f;
+    toClient.Seed = 61;
+    NetConditions toServer = toClient;
+    toServer.Seed = 62;
+    Harness net( toClient, toServer );
+    net.Place( 0x7A26E7 );     // the target
+    net.Place( 0x5400 );       // the shooter, owned by the client
+    EntityHandle target;
+    EntityHandle shooter;
+    net.ServerWorld->ForEachEntity( [&]( Entity& InEntity ) {
+        if( InEntity.GetGUID() == 0x7A26E7 ) target = net.ServerWorld->GetEntity( InEntity.GetId() );
+        if( InEntity.GetGUID() == 0x5400 ) shooter = net.ServerWorld->GetEntity( InEntity.GetId() );
+    } );
+    target->SetName( "Target" );
+    shooter->SetName( "Shooter" );
+    NetHitbox& hitbox = target->AddComponent<NetHitbox>();
+    hitbox.Radius = 0.4f;
+    hitbox.Height = 1.8f;
+    shooter->GetComponent<Transform>().SetPosition( Vector3( 0.f, 1.f, -10.f ) );
+    shooter->GetComponent<NetIdentity>().SetOwner( 1 );
+    net.ServerWorld->Simulate();
+    net.ServerWorld->Start();
+
+    // Fire every 15 ticks straight down +Z; the target strafes across it.
+    net.MakeCommand = []( uint32_t InTick ) {
+        InputCommand command;
+        command.Buttons = InTick % 15 == 0 ? 2u : 0u;
+        command.Axes = { 0.f, 0.f, 1.f, 0.f };
+        command.HasAim = true;
+        command.Yaw = NetCommands::QuantizeYaw( static_cast<float>( InTick % 360 ) );
+        return command;
+    };
+    std::map<uint32_t, NetSnapshot> live;
+    std::map<uint32_t, InputCommand> commands;
+    std::map<uint32_t, LagCompensatedHit> shots;
+    net.ServerNet.SetCommandHandler( [&]( Entity& InShooter, const InputCommand& InCommand ) {
+        commands[net.ServerNet.GetServer()->GetTick()] = InCommand;
+        if( !( InCommand.Buttons & 2u ) )
+        {
+            return;
+        }
+        const EntityHandle self = net.ServerWorld->GetEntity( InShooter.GetId() );
+        shots[net.ServerNet.GetServer()->GetTick()] = net.ServerNet.LagCompensatedRaycast( Vector3( 0.f, 1.f, -10.f ), Vector3( 0.f, 0.f, 1.f ), 100.f, InCommand, self );
+    } );
+    net.OnServerTick = [&]( NetServer& InServer ) {
+        // The capture so far is the tick before's.
+        if( InServer.GetTick() > 0 )
+        {
+            live[net.ServerNet.GetReplicationServer()->GetCurrent().Tick] = net.ServerNet.GetReplicationServer()->GetCurrent();
+        }
+        const float x = std::sin( static_cast<float>( InServer.GetTick() ) * 0.05f ) * 3.f;
+        target->GetComponent<Transform>().SetPosition( Vector3( x, 1.f, 10.f ) );
+        net.ServerWorld->Simulate();
+    };
+    const std::filesystem::path path = TempFile( "Session.mreplay" );
+    std::filesystem::remove( path );
+    net.Start();
+    NetReplayHeader header;
+    header.Map = "Harness";
+    NetReplaySettings settings;
+    settings.KeyframeInterval = 45;
+    REQUIRE( net.ServerNet.StartRecording( path.string(), header, settings ) );
+    CHECK( net.ServerNet.IsRecording() );
+    CHECK_FALSE( net.ClientNet.StartRecording( path.string() + ".client" ) );   // a server's job
+    net.Run( 6.0 );
+    net.ServerNet.RecordReplayEvent( "kill", "{\"killer\":1}", net.ServerNet.GetNetId( *shooter.Get() ) );
+    net.Run( 0.1 );
+    net.ServerNet.StopRecording();
+    CHECK_FALSE( net.ServerNet.IsRecording() );
+    const NetReplayRecorder* recorder = net.ServerNet.GetRecorder();
+    REQUIRE( recorder );
+    CHECK_FALSE( recorder->HasFailed() );
+
+    NetReplayFileSource source;
+    REQUIRE_MESSAGE( source.Open( path.string() ), source.GetError() );
+    CHECK( source.GetHeader().TickRate == 60 );
+    CHECK( source.GetHeader().Map == "Harness" );
+    CHECK( source.GetHeader().SceneHash == net.ServerNet.GetServer()->GetVersion().Scene );
+    CHECK( source.GetHeader().NetSchemaHash == NetSchema::Hash() );
+    NetReplayReader reader( source );
+    CHECK( reader.GetTickCount() == recorder->GetTicksRecorded() );
+
+    size_t compared = 0;
+    size_t commandsCompared = 0;
+    size_t shotsCompared = 0;
+    size_t withRoundTrip = 0;
+    bool joined = false;
+    bool killed = false;
+    std::map<uint32_t, std::string> names;
+    REQUIRE( reader.ForEach( 0, ~0u, [&]( const NetReplayTick& InTick ) {
+        // The state played back at tick N is the server's live capture at tick N.
+        if( auto it = live.find( InTick.Tick ); it != live.end() )
+        {
+            CHECK( InTick.State.Entities == it->second.Entities );
+            ++compared;
+        }
+        for( const NetReplayEntity& entity : InTick.Entities )
+        {
+            names[entity.NetId] = entity.Name;
+        }
+        if( auto it = commands.find( InTick.Tick ); it != commands.end() )
+        {
+            REQUIRE( InTick.Clients.size() == 1 );
+            CHECK( InTick.Clients[0].Id == 1 );
+            CHECK( InTick.Clients[0].Command == it->second );
+            // The round trip, from the first ack on (80 ms of link plus the tick).
+            withRoundTrip += InTick.Clients[0].RoundTripMs > 60.f ? 1 : 0;
+            ++commandsCompared;
+        }
+        if( auto it = shots.find( InTick.Tick ); it != shots.end() )
+        {
+            REQUIRE( InTick.Shots.size() == 1 );
+            const NetReplayShot& shot = InTick.Shots[0];
+            CHECK( shot.Client == 1 );
+            CHECK( shot.Shooter == net.ServerNet.GetNetId( *shooter.Get() ) );
+            CHECK( shot.Hit == it->second.Hit );
+            CHECK( shot.RewoundTicks == it->second.RewoundTicks );
+            CHECK( shot.Target == ( it->second.Hit ? net.ServerNet.GetNetId( *target.Get() ) : 0u ) );
+            // The target's hitbox, rewound: the shooter has none.
+            REQUIRE( shot.Hitboxes.size() == 1 );
+            CHECK( shot.Hitboxes[0].NetId == net.ServerNet.GetNetId( *target.Get() ) );
+            CHECK( shot.Hitboxes[0].Name == "Target" );
+            ++shotsCompared;
+        }
+        else
+        {
+            CHECK( InTick.Shots.empty() );
+        }
+        for( const NetReplayEvent& event : InTick.Events )
+        {
+            joined = joined || ( event.Name == "net.joined" && event.Payload == "{\"client\":1}" );
+            killed = killed || ( event.Name == "kill" && event.Entity == net.ServerNet.GetNetId( *shooter.Get() ) );
+        }
+        return true;
+    } ) );
+    MESSAGE( compared << " ticks compared with the live capture, " << commandsCompared << " commands, " << shotsCompared << " shots; "
+                      << std::filesystem::file_size( path ) << " bytes" );
+    CHECK( compared >= 300 );
+    CHECK( commandsCompared >= 300 );
+    CHECK( withRoundTrip + 30 >= commandsCompared );
+    CHECK( shotsCompared >= 15 );
+    CHECK( shotsCompared == shots.size() );
+    CHECK( joined );
+    CHECK( killed );
+    CHECK( names[net.ServerNet.GetNetId( *target.Get() )] == "Target" );
+    CHECK( names[net.ServerNet.GetNetId( *shooter.Get() )] == "Shooter" );
+    std::filesystem::remove( path );
 }

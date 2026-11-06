@@ -842,8 +842,10 @@ void Engine::Run()
                 if( Net->KeepsBacklog() && m_fixedAccumulator > NetServer::kMaxCatchUpSeconds )
                 {
                     // A server keeps at most kMaxCatchUpSeconds of backlog (it can't keep up, or a hitch
-                    // ran past it): the rest is lost, in whole steps.
-                    m_fixedAccumulator -= std::ceil( ( m_fixedAccumulator - NetServer::kMaxCatchUpSeconds ) / m_fixedTimeStep ) * m_fixedTimeStep;
+                    // ran past it): the rest is lost, in whole steps (a match replay notes them, ME-316).
+                    const double lost = std::ceil( ( m_fixedAccumulator - NetServer::kMaxCatchUpSeconds ) / m_fixedTimeStep );
+                    m_fixedAccumulator -= lost * m_fixedTimeStep;
+                    Net->NoteDroppedTicks( static_cast<uint32_t>( lost ) );
                 }
                 int steps = 0;
                 const auto stepsStartTime = std::chrono::steady_clock::now();
@@ -909,6 +911,7 @@ void Engine::Run()
                     const double stepsSeconds = std::chrono::duration<double>( std::chrono::steady_clock::now() - stepsStartTime ).count();
                     if( !Net->KeepsBacklog() || ( m_fixedFrameDelta <= 0.f && stepsSeconds > steps * static_cast<double>( m_fixedTimeStep ) ) )
                     {
+                        Net->NoteDroppedTicks( static_cast<uint32_t>( m_fixedAccumulator / m_fixedTimeStep ) );
                         m_fixedAccumulator = std::fmod( m_fixedAccumulator, static_cast<double>( m_fixedTimeStep ) );
                     }
                 }

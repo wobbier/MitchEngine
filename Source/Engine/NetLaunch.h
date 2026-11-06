@@ -24,6 +24,8 @@ class ConditionedTransport;
 //   --net-timeout s          seconds of silence before a peer counts as gone (default 10)
 //   --net-report file.json   on exit: the session's summary (NetCore::WriteReport)
 //   --net-exit-when-empty    server: quit once its last client has gone (smoke tests)
+//   --record-replay [file]   server: record the match (ME-316) to file (user://Replays/<UTC time>.mreplay
+//                            when omitted; user:// paths go to the user folder). Read it with --replay-dump
 class NetLaunch
 {
 public:
@@ -95,6 +97,8 @@ private:
     std::unique_ptr<UdpTransport> m_socket;
     std::unique_ptr<ConditionedTransport> m_conditioned;
     std::string m_reportPath;
+    // Starts the match replay if the command line asks (a server; logged either way).
+    void StartRecording( NetCore& InNet );
     std::string m_error;
     bool m_requested = false;
     bool m_exitWhenEmpty = false;

@@ -8,7 +8,12 @@
 #include "Net/NetTransport.h"
 #include "Net/NetVersion.h"
 #include "Net/UdpTransport.h"
+#include "Engine/Engine.h"
 #include "Engine/Input.h"
+#include "Engine/Project.h"
+#include "Engine/ProjectSettings.h"
+#include "VFS/VFS.h"
+#include "World/Scene.h"
 #include "Window/IWindow.h"
 #if USING( ME_SCRIPTING )
 #include "Scripting/ScriptNet.h"
@@ -16,6 +21,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <ctime>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 
@@ -28,6 +35,105 @@ namespace
     {
         CLog::Log( InType, InMessage );
         std::cout.flush();
+    }
+
+
+    // The commit checked out in InFolder or the nearest repository above it (a submodule's .git
+    // file points at its git dir): "" when there's none (a shipped build).
+    std::string ReadGitCommit( const std::string& InFolder )
+    {
+        namespace fs = std::filesystem;
+        std::error_code error;
+        for( fs::path folder = fs::absolute( InFolder, error ); !folder.empty(); folder = folder.parent_path() )
+        {
+            fs::path git = folder / ".git";
+            if( fs::is_regular_file( git, error ) )
+            {
+                std::ifstream link( git );
+                std::string line;
+                std::getline( link, line );
+                if( line.rfind( "gitdir: ", 0 ) != 0 )
+                {
+                    return {};
+                }
+                git = fs::path( line.substr( 8 ) );
+                if( git.is_relative() )
+                {
+                    git = folder / git;
+                }
+            }
+            if( fs::is_directory( git, error ) )
+            {
+                std::ifstream headFile( git / "HEAD" );
+                std::string head;
+                std::getline( headFile, head );
+                if( head.rfind( "ref: ", 0 ) != 0 )
+                {
+                    return head;
+                }
+                const std::string ref = head.substr( 5 );
+                // Worktrees keep refs in the common dir.
+                fs::path common = git;
+                if( std::ifstream commonFile( git / "commondir" ); commonFile )
+                {
+                    std::string relative;
+                    std::getline( commonFile, relative );
+                    common = fs::path( relative ).is_relative() ? git / relative : fs::path( relative );
+                }
+                for( const fs::path& dir : { git, common } )
+                {
+                    std::ifstream refFile( dir / ref );
+                    std::string commit;
+                    if( refFile && std::getline( refFile, commit ) && !commit.empty() )
+                    {
+                        return commit;
+                    }
+                }
+                std::ifstream packed( common / "packed-refs" );
+                std::string line;
+                while( std::getline( packed, line ) )
+                {
+                    if( line.size() > 41 && line.compare( 41, std::string::npos, ref ) == 0 )
+                    {
+                        return line.substr( 0, 40 );
+                    }
+                }
+                return {};
+            }
+            if( folder == folder.parent_path() )
+            {
+                break;
+            }
+        }
+        return {};
+    }
+
+    std::string UtcNow( const char* InFormat )
+    {
+        const std::time_t now = std::time( nullptr );
+        std::tm utc{};
+#if USING( ME_PLATFORM_WINDOWS )
+        gmtime_s( &utc, &now );
+#else
+        gmtime_r( &now, &utc );
+#endif
+        char text[32] = {};
+        std::strftime( text, sizeof( text ), InFormat, &utc );
+        return text;
+    }
+
+    std::string QuotedCommandLine()
+    {
+        std::string line;
+        for( const std::string& arg : CommandLine::GetArgs() )
+        {
+            if( !line.empty() )
+            {
+                line += ' ';
+            }
+            line += arg.find_first_of( " \t\"'" ) == std::string::npos && !arg.empty() ? arg : "'" + arg + "'";
+        }
+        return line;
     }
 
     // "0.05" or "5%".
@@ -160,9 +266,14 @@ bool NetLaunch::Start( NetCore& InNet, uint16_t InTickRate, IWindow* InWindow, c
         InNet.Host( *transport, InTickRate );
         Say( CLog::LogType::Info, "Net: hosting on UDP port " + std::to_string( m_socket->GetPort() ) + " at " + std::to_string( InTickRate ) + " Hz" + conditioned );
         ShowRole( "server :" + std::to_string( m_socket->GetPort() ) );
+        StartRecording( InNet );
     }
     else
     {
+        if( CommandLine::Has( "--record-replay" ) )
+        {
+            Say( CLog::LogType::Warning, "Net: --record-replay records on the server; a client doesn't record yet" );
+        }
         InNet.Connect( *transport, server );
         Say( CLog::LogType::Info, "Net: connecting to " + UdpTransport::ToString( server ) + conditioned );
         ShowRole( "connecting to " + UdpTransport::ToString( server ) );
@@ -416,12 +527,53 @@ void NetLaunch::SetAim( float InYaw, float InPitch )
 }
 
 
+void NetLaunch::StartRecording( NetCore& InNet )
+{
+    if( !CommandLine::Has( "--record-replay" ) )
+    {
+        return;
+    }
+    // The file: user:// goes to the user folder; a name without a folder too, under Replays/.
+    std::string path = CommandLine::GetString( "--record-replay" );
+    if( path.empty() )
+    {
+        path = std::string( VFS::kUserScheme ) + "Replays/" + UtcNow( "%Y%m%d-%H%M%S" ) + ".mreplay";
+    }
+    if( path.rfind( VFS::kUserScheme, 0 ) == 0 )
+    {
+        path = VFS::Get().GetUserRoot() + "/" + path.substr( std::string( VFS::kUserScheme ).size() );
+    }
+    std::error_code error;
+    path = std::filesystem::absolute( path, error ).lexically_normal().generic_string();
+
+    NetReplayHeader header;
+    const ProjectSettings& settings = ProjectSettings::Get();
+    header.Product = settings.ProductName + " " + settings.ProductVersion;
+    header.EngineCommit = ReadGitCommit( Project::GetEngineRoot() );
+    header.GameCommit = ReadGitCommit( Project::GetRoot() );
+    header.Map = GetEngine().CurrentScene ? GetEngine().CurrentScene->FilePath.GetLocalPathString() : std::string();
+    header.CommandLine = QuotedCommandLine();
+    header.RecordedAt = UtcNow( "%Y-%m-%dT%H:%M:%SZ" );
+    if( InNet.StartRecording( path, header ) )
+    {
+        Say( CLog::LogType::Info, "Net: recording the match replay to " + path );
+    }
+    else
+    {
+        Say( CLog::LogType::Error, "Net: can't record the match replay to " + path );
+    }
+}
+
+
 void NetLaunch::Shutdown( NetCore& InNet, double InNow )
 {
     if( !m_requested )
     {
         return;
     }
+    // The replay ends with the match: its last chunk and index are written before the report
+    // (which counts them) and the goodbyes.
+    InNet.StopRecording();
     // The report first: it describes the session as it ran, before the goodbyes.
     if( !m_reportPath.empty() )
     {

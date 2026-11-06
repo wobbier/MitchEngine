@@ -219,7 +219,10 @@ static bool Eng_Net_LagCompensatedRaycast( EntityID shooter, const Vector3* orig
         }
         else if( net->IsActive() && net->IsServer() )
         {
-            hit = net->GetLagCompensation().Raycast( net->GetWorld().GetCore<PhysicsCore>(), *origin, *direction, range, -1.0, shooterHandle );
+            // No command (a bot): judged at the newest recorded tick, and recorded like any shot (ME-316).
+            InputCommand present;
+            present.ViewTick = -1.0;
+            hit = net->LagCompensatedRaycast( *origin, *direction, range, present, shooterHandle );
         }
         else
         {
