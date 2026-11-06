@@ -3,9 +3,14 @@
 // Drop-in Optick replacement that writes Chrome Trace JSON (chrome://tracing / Perfetto)
 // Outputs <capture_name>.json instead of .opt
 
+#define ME_CHROMETRACE 1
+
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdio>
+#include <iterator>
+#include <map>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -67,7 +72,32 @@ public:
     {
         std::lock_guard<std::mutex> lock( m_mutex );
         m_events.clear();
+        // Short-lived threads (std::async) come and go; forget the ones already gone.
+        for( auto it = m_threads.begin(); it != m_threads.end(); )
+        {
+            it = it->second.exitTs != 0 ? m_threads.erase( it ) : std::next( it );
+        }
+        m_captureStart = NowUs();
         m_recording.store( true, std::memory_order_release );
+    }
+
+    // OPTICK_THREAD: names the calling thread's lane. Registered threads are written to every
+    // capture, in registration order, whether or not they recorded anything (ME-321).
+    void RegisterThread( const char* name )
+    {
+        std::lock_guard<std::mutex> lock( m_mutex );
+        Thread& thread = m_threads[ThreadIndex()];
+        thread.name = name ? name : "";
+        thread.sortIndex = m_nextSortIndex++;
+        thread.exitTs = 0;
+    }
+
+    // The thread is exiting: captures started after this leave its lane out.
+    void UnregisterThread()
+    {
+        std::lock_guard<std::mutex> lock( m_mutex );
+        auto it = m_threads.find( ThreadIndex() );
+        if( it != m_threads.end() ) it->second.exitTs = NowUs();
     }
 
     void Stop()
@@ -122,6 +152,44 @@ public:
 
         fprintf( f, "{\"traceEvents\":[\n" );
         bool first = true;
+        // Every registered thread's lane, named and ordered, with a marker at the capture's start so
+        // viewers show it even when the thread did nothing during the capture.
+        const int64_t markerTs = m_captureStart > 0 ? m_captureStart : ( m_events.empty() ? NowUs() : m_events.front().ts );
+        // Lanes in registration order, except that names differing only by a number ("Job Worker 2",
+        // "Job Worker 10") keep numeric order: workers register in whatever order they start.
+        std::vector<std::pair<int, const Thread*>> lanes;
+        for( const auto& [tid, thread] : m_threads )
+        {
+            if( thread.exitTs == 0 || thread.exitTs >= m_captureStart ) lanes.push_back( { tid, &thread } );
+        }
+        auto stem = []( const std::string& n ) { return n.substr( 0, n.find_last_not_of( "0123456789" ) + 1 ); };
+        auto number = []( const std::string& n ) { const size_t d = n.find_last_not_of( "0123456789" ) + 1; return d < n.size() ? std::stol( n.substr( d ) ) : -1L; };
+        std::map<std::string, int> firstOfStem;
+        for( const auto& lane : lanes )
+        {
+            const std::string key = stem( lane.second->name );
+            auto it = firstOfStem.find( key );
+            if( it == firstOfStem.end() || lane.second->sortIndex < it->second ) firstOfStem[key] = lane.second->sortIndex;
+        }
+        std::sort( lanes.begin(), lanes.end(), [&]( const auto& a, const auto& b ) {
+            const int ga = firstOfStem[stem( a.second->name )], gb = firstOfStem[stem( b.second->name )];
+            if( ga != gb ) return ga < gb;
+            const long na = number( a.second->name ), nb = number( b.second->name );
+            return na != nb ? na < nb : a.second->sortIndex < b.second->sortIndex;
+        } );
+        int laneIndex = 0;
+        for( const auto& [tid, threadPtr] : lanes )
+        {
+            const Thread& thread = *threadPtr;
+            if( !first ) fputc( ',', f );
+            fprintf( f, "{\"name\":\"thread_name\",\"ph\":\"M\",\"pid\":1,\"tid\":%d,\"args\":{\"name\":\"%s\"}}\n",
+                tid, JsonEscape( thread.name ).c_str() );
+            fprintf( f, ",{\"name\":\"thread_sort_index\",\"ph\":\"M\",\"pid\":1,\"tid\":%d,\"args\":{\"sort_index\":%d}}\n",
+                tid, laneIndex++ );
+            fprintf( f, ",{\"name\":\"Capture\",\"cat\":\"thread\",\"ph\":\"i\",\"s\":\"t\",\"ts\":%.3f,\"pid\":1,\"tid\":%d}\n",
+                (double)markerTs, tid );
+            first = false;
+        }
         for( const auto& e : m_events )
         {
             if( !first ) fputc( ',', f );
@@ -136,9 +204,28 @@ public:
     }
 
 private:
-    std::atomic<bool>  m_recording{ false };
-    std::mutex         m_mutex;
-    std::vector<Event> m_events;
+    struct Thread
+    {
+        std::string name;
+        int         sortIndex = 0;
+        int64_t     exitTs = 0;     // 0 while the thread runs
+    };
+
+    std::atomic<bool>     m_recording{ false };
+    std::mutex            m_mutex;
+    std::vector<Event>    m_events;
+    std::map<int, Thread> m_threads;
+    int                   m_nextSortIndex = 0;
+    int64_t               m_captureStart = 0;
+};
+
+// OPTICK_THREAD's scope: registers the thread for its lifetime, like Optick's ThreadScope.
+struct ThreadScope
+{
+    explicit ThreadScope( const char* name ) { Tracer::Get().RegisterThread( name ); }
+    ~ThreadScope() { Tracer::Get().UnregisterThread(); }
+    ThreadScope( const ThreadScope& ) = delete;
+    ThreadScope& operator=( const ThreadScope& ) = delete;
 };
 
 // Costs one atomic load when no capture is running: names are only touched while recording.
@@ -187,7 +274,7 @@ struct Scope
 #define OPTICK_EVENT_DYNAMIC( name ) ChromeTrace::Scope _CT_CONCAT( _ct_, __LINE__ )( name, "event", true );
 #define OPTICK_CATEGORY( name, cat ) ChromeTrace::Scope _CT_CONCAT( _ct_, __LINE__ )( name, #cat );
 #define OPTICK_FRAME( name )         ChromeTrace::Scope _CT_CONCAT( _ct_, __LINE__ )( name, "frame" );
-#define OPTICK_THREAD( name )        ( (void)0 )
+#define OPTICK_THREAD( name )        ChromeTrace::ThreadScope _CT_CONCAT( _ct_thread_, __LINE__ )( name );
 #define OPTICK_START_CAPTURE()       ChromeTrace::Tracer::Get().Start()
 #define OPTICK_STOP_CAPTURE()        ChromeTrace::Tracer::Get().Stop()
 #define OPTICK_SAVE_CAPTURE( path )  ChromeTrace::Tracer::Get().Save( path )
