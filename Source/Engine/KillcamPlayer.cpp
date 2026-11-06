@@ -236,6 +236,11 @@ void KillcamPlayer::Start( World& InLive, const NetKillcamReceiver& InKillcam )
     world.IsReplayWorld = true;
     world.IsLoading = false;
     world.AddCore( *replay->Net );
+    // The live session's command layout: the recording's version check folds it in with the scripts'.
+    if( NetCore* live = InLive.GetCore<NetCore>() )
+    {
+        replay->Net->SetCommandSchema( live->GetCommandSchema() );
+    }
     SingletonKillcam& singleton = world.Singleton<SingletonKillcam>();
     singleton.Player = this;
     singleton.InReplayWorld = true;

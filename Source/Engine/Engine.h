@@ -19,6 +19,7 @@
 #include "Core/FrameRenderData.h"
 #include "AutomationRunner.h"
 #include "NetLaunch.h"
+#include "KillcamPlayer.h"
 #include "Resource/FileWatcher.h"
 #include "ScriptReloadGate.h"
 
@@ -70,6 +71,9 @@ public:
     int GetExitCode() const;
     // The command line's networking: the session, the replay viewer, the Net Debugger (NET-5).
     NetLaunch& GetNetLaunch() { return m_netLaunch; }
+    // ME-323 phase 3: the killcams the game world's session receives, played into a replay world of
+    // their own and presented instead of the game world while they play (the Player; not Havana yet).
+    KillcamPlayer& GetKillcam() { return m_killcam; }
     // Orderly teardown after the main loop: world, jobs, logging.
     void Shutdown();
 
@@ -149,6 +153,12 @@ private:
     // Logs the threads the engine starts and their bound (ME-319).
     void LogThreadInventory();
     void LoadSceneInternal( const std::string& SceneFile, const json* InData );
+    // ME-323: a killcam's replay world: the scene's placed entities and what presents them.
+    bool PopulateKillcamWorld( KillcamPlayer::ReplayWorld& InReplay, std::string& OutError );
+    // Each frame after the game world's late update: the killcam playing, and which world is presented.
+    void UpdateKillcam( const UpdateContext& InContext );
+    // After the game world's cameras: the replay world's, with the game's UI over them.
+    void LateUpdateKillcam( const UpdateContext& InContext );
 
     double m_fixedAccumulator = 0.0;
     float m_fixedTimeStep = 1.f / 60.f;
@@ -188,6 +198,11 @@ public:
 private:
     AutomationRunner m_automation;
     NetLaunch m_netLaunch;
+    KillcamPlayer m_killcam;
+    // --killcam-capture PNG [--killcam-capture-at S]: a screenshot that far into the first killcam.
+    std::string m_killcamCapturePath;
+    double m_killcamCaptureAt = 2.0;
+    bool m_killcamCaptured = false;
     SceneStreaming m_sceneStreaming;
 #if USING( ME_TOOLS )
     void PollAssetChanges();

@@ -14,7 +14,9 @@ public:
 
     void UnLoad();
 
-    bool Load( SharedPtr<World> InWorld );
+    // InLoadCores: add the cores the scene lists (a second world loading the same scene, a killcam's
+    // replay world, brings its own).
+    bool Load( SharedPtr<World> InWorld, bool InLoadCores = true );
 
     bool IsNewScene();
 

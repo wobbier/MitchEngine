@@ -105,6 +105,7 @@ public:
     void SetScriptGlue( ScriptGlue InGlue ) { m_glue = std::move( InGlue ); }
     // The networked input actions' layout (names, order, kinds), folded into the handshake.
     void SetCommandSchema( uint64_t InHash ) { m_commandSchema = InHash; }
+    uint64_t GetCommandSchema() const { return m_commandSchema; }
 
     // The command an entity runs with this tick, and the one before (button edges): on the server
     // its owner's; on a client its predicted pawn's (a resimulated tick's while resimulating).

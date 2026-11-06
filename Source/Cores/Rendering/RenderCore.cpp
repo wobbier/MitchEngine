@@ -379,7 +379,21 @@ void RenderCore::Init()
     LodBias = CommandLine::GetFloat( "--lod-bias", LodBias );
     //m_renderer->ClearDebugColliders();
     ClearTerrainDraws();
-    GetEngine().GetRenderer().ClearMeshes();
+    if( !m_sharesRenderer )
+    {
+        GetEngine().GetRenderer().ClearMeshes();
+    }
+}
+
+void RenderCore::HideCommands()
+{
+    // Empty commands draw nothing, in no view or shadow, until the next Update fills them again.
+    auto& cache = GetEngine().GetRenderer().GetMeshCache();
+    Moonlight::MeshCommand empty;
+    for( const auto& entry : m_meshCommands ) cache.Update( entry.second, empty );
+    for( const auto& entry : m_compactCommands ) for( unsigned int id : entry.second ) cache.Update( id, empty );
+    for( const auto& entry : m_terrainDraws ) for( const auto& part : entry.second->Parts ) if( part ) cache.Update( part->GetId(), empty );
+    for( const auto& entry : m_foliageDraws ) for( const auto& instance : entry.second.Instances ) for( const auto& part : instance.second.Parts ) if( part ) cache.Update( part->GetId(), empty );
 }
 
 void RenderCore::OnEntityAdded( Entity& NewEntity )
@@ -427,6 +441,17 @@ RenderCore::~RenderCore()
 void RenderCore::Update( const UpdateContext& inUpdateContext )
 {
     OPTICK_CATEGORY( "RenderCore::Update", Optick::Category::Rendering );
+    // ME-323: another world is on screen (a killcam's replay world, or the game world during one).
+    if( !m_presented )
+    {
+        if( !m_hidden )
+        {
+            HideCommands();
+            m_hidden = true;
+        }
+        return;
+    }
+    m_hidden = false;
     for( auto it = m_retiringTerrains.begin(); it != m_retiringTerrains.end(); )
         if( --it->Frames == 0 ) it = m_retiringTerrains.erase( it ); else ++it;
     auto& Renderables = GetEntities();
@@ -965,8 +990,18 @@ void RenderCore::OnStop()
         if( Model* model = entity.TryGetComponent<Model>() )
             for( auto& part : model->GetRenderParts() ) part.Renderer->Id = std::numeric_limits<unsigned int>::max();
     }
+    if( m_sharesRenderer )
+    {
+        // Another world's commands stay: only this core's go.
+        auto& cache = GetEngine().GetRenderer().GetMeshCache();
+        for( const auto& entry : m_meshCommands ) cache.Pop( entry.second );
+        for( const auto& entry : m_compactCommands ) for( unsigned int id : entry.second ) cache.Pop( id );
+    }
     m_compactCommands.clear(); m_meshCommands.clear();
-    GetEngine().GetRenderer().ClearMeshes();
+    if( !m_sharesRenderer )
+    {
+        GetEngine().GetRenderer().ClearMeshes();
+    }
     //m_renderer->ClearDebugColliders();
 }
 

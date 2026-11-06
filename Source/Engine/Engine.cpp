@@ -34,6 +34,10 @@
 #include "Cores/UI/RmlUiCore.h"
 #include "Cores/Scripting/ScriptCore.h"
 #include "Engine/QuitSignals.h"
+#include "Components/Networking/SingletonKillcam.h"
+#if USING( ME_SCRIPTING )
+#include "Scripting/ScriptNet.h"
+#endif
 
 #if USING( ME_EDITOR_WIN64 )
 #include "Utils/StringUtils.h"
@@ -656,6 +660,14 @@ void Engine::Run()
     // networked entities. One tick per fixed step.
     GameWorld->Singleton<SingletonInput>().BuildCommandLayout( GetInput() );
     m_netLaunch.Start( *Net, static_cast<uint16_t>( std::lround( 1.0 / m_fixedTimeStep ) ), GameWindow, engineConfig.GetValue( "Title" ) );
+    // ME-323 phase 3: killcams the session receives play into a replay world of their own.
+    m_killcam.SetPopulate( [this]( KillcamPlayer::ReplayWorld& InReplay, std::string& OutError ) { return PopulateKillcamWorld( InReplay, OutError ); } );
+    m_killcamCapturePath = CommandLine::GetString( "--killcam-capture" );
+    m_killcamCaptureAt = std::max( 0.f, CommandLine::GetFloat( "--killcam-capture-at", 2.f ) );
+#if USING( ME_EDITOR )
+    // Havana's Game View picks its camera itself: killcams arrive (Net.Killcam) but don't play there yet.
+    m_killcam.GetSettings().AutoPlay = false;
+#endif
 
     GameClock.Reset();
     m_fixedAccumulator = 0.0;
@@ -986,6 +998,10 @@ void Engine::Run()
                 GameWorld->Simulate();
             }
 
+            // ME-323 phase 3: a killcam plays into its replay world beside this one, and while it does
+            // that world is the one presented (cameras, render prep, the audio listener).
+            UpdateKillcam( updateContext );
+
             // NET-7: gameplay is done with the frame, so the predicted pawn is drawn where its
             // smoothed correction puts it (render-only: undone after Render) for audio, cameras and
             // render prep.
@@ -1002,6 +1018,14 @@ void Engine::Run()
                 ME_FRAMEPROFILE_SCOPED( "Particles", ProfileCategory::Rendering );
                 ME_STAT_SCOPE( "Particles" );
                 Particles->Update( updateContext );
+                if( m_killcam.IsPlaying() )
+                {
+                    // The game world's particles simulate on, out of sight.
+                    for( Moonlight::ParticleBatch& batch : NewRenderer->GetParticleBatches() )
+                    {
+                        batch.Instances.clear();
+                    }
+                }
             }
 
             // UI Update
@@ -1036,6 +1060,7 @@ void Engine::Run()
                 Cameras->Update( updateContext );
                 SceneNodes->LateUpdate( updateContext );
                 Cameras->LateUpdate( updateContext );
+                LateUpdateKillcam( updateContext );
                 AudioThread->LateUpdate( updateContext );
 #if !USING( ME_HEADLESS )
                 ModelRenderer->LateUpdate( updateContext );
@@ -1052,6 +1077,11 @@ void Engine::Run()
                 Terrains->Update( updateContext );
 #if !USING( ME_HEADLESS )
                 ModelRenderer->Update( updateContext );
+                // Only the presented world's prepares anything (RenderCore::SetPresented).
+                if( RenderCore* replay = m_killcam.IsPlaying() ? m_killcam.GetWorld()->GetCore<RenderCore>() : nullptr )
+                {
+                    replay->Update( updateContext );
+                }
 #endif
             }
 
@@ -1254,6 +1284,8 @@ void Engine::Shutdown()
 #endif
     CLog::Log( CLog::LogType::Info, "Shutting down." );
 
+    // A killcam's replay world goes first (its cores share the renderer and the scripts).
+    m_killcam.Stop();
     // Components get OnDisable/OnDestroy while every engine system is still alive.
     if( GameWorld )
     {
@@ -1504,6 +1536,8 @@ std::string Engine::GetEntityScenePath( const Entity& InEntity ) const
 void Engine::LoadSceneInternal( const std::string& SceneFile, const json* InData )
 {
     OPTICK_EVENT( "Engine::LoadScene" );
+    // A killcam of the old scene can't play on (and its world shares the mesh cache cleared below).
+    m_killcam.Stop();
     Cameras->Init();
     if( CurrentScene )
     {
@@ -1549,6 +1583,117 @@ void Engine::LoadSceneInternal( const std::string& SceneFile, const json* InData
     GameWorld->Simulate();
     GameWorld->Start();
 #endif
+}
+
+bool Engine::PopulateKillcamWorld( KillcamPlayer::ReplayWorld& InReplay, std::string& OutError )
+{
+    OPTICK_EVENT( "Engine::PopulateKillcamWorld" );
+    if( !CurrentScene || CurrentScene->IsNewScene() )
+    {
+        OutError = "there's no scene file to play it in";
+        return false;
+    }
+    const auto start = std::chrono::steady_clock::now();
+    World& world = *InReplay.Instance;
+    // Its own presentation cores (the renderer's caches are shared, so they never clear them): the
+    // scene graph, cameras and render prep, and [ReplayWorld] scripts.
+    auto add = [&]( auto InCore ) -> decltype( *InCore )& {
+        auto& core = *InCore;
+        InReplay.Cores.push_back( std::move( InCore ) );
+        world.AddCore( core );
+        return core;
+    };
+    add( std::make_unique<SceneCore>() );
+#if !USING( ME_HEADLESS )
+    add( std::make_unique<CameraCore>() );
+    auto render = std::make_unique<RenderCore>();
+    render->SetSharesRenderer( true );
+    add( std::move( render ) );
+#endif
+#if USING( ME_SCRIPTING )
+    if( Scripts )
+    {
+        auto scripts = std::make_unique<ScriptCore>();
+        scripts->SetPresentationOnly( true );
+        add( std::move( scripts ) );
+        InReplay.Net->SetScriptGlue( MakeScriptNetGlue() );
+    }
+#endif
+    // The game world's scene, read again: its placed networked entities must be the recording's.
+    Scene scene( CurrentScene->FilePath.GetLocalPathString() );
+    if( !scene.Load( InReplay.Instance, false ) )
+    {
+        OutError = "its scene (" + CurrentScene->FilePath.GetLocalPathString() + ") didn't load";
+        return false;
+    }
+    CLog::Log( CLog::LogType::Info, "Net: killcam world: " + CurrentScene->FilePath.GetLocalPathString() + ", " + std::to_string( world.GetEntityCount() ) + " entities in "
+        + std::to_string( static_cast<int>( std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - start ).count() ) ) + " ms" );
+    return true;
+}
+
+
+void Engine::UpdateKillcam( const UpdateContext& InContext )
+{
+    OPTICK_EVENT( "Engine::UpdateKillcam" );
+    m_killcam.Update( *GameWorld, InContext.GetDeltaTime() );
+    World* replay = m_killcam.GetWorld();
+    if( replay )
+    {
+        // Its [ReplayWorld] scripts present it (ScriptCore::SetPresentationOnly).
+        if( ScriptCore* scripts = replay->GetCore<ScriptCore>() )
+        {
+            scripts->Update( InContext );
+            scripts->LateUpdate( InContext );
+            replay->Simulate();
+        }
+    }
+    // One world on screen a frame: the replay world's cameras and meshes while it plays, else the game
+    // world's. The audio listener follows; the game world's sounds and UI stay.
+    Cameras->SetPresented( replay == nullptr );
+    ModelRenderer->SetPresented( replay == nullptr );
+    AudioThread->SetListenerWorld( replay );
+
+    // --killcam-capture: what the screen shows that far into the first killcam.
+    const KillcamPlayer::Status& status = m_killcam.GetStatus();
+    if( replay && !m_killcamCaptured && !m_killcamCapturePath.empty() && status.Elapsed >= m_killcamCaptureAt )
+    {
+        m_killcamCaptured = true;
+        NewRenderer->RequestScreenshot( m_killcamCapturePath );
+        std::ostringstream line;
+        line.precision( 2 );
+        line << std::fixed << "Net: killcam " << status.Id << " capture at tick " << status.Tick << " (" << status.Elapsed << " s in): the replay world presented";
+        EntityHandle killer = m_killcam.GetNet()->FindEntity( status.KillerNetId );
+        if( status.HasView && killer )
+        {
+            const Vector3 at = killer->GetComponent<Transform>().GetWorldPosition();
+            line << ", the camera at killer #" << status.KillerNetId << "'s eye (" << status.Eye.x << ", " << status.Eye.y << ", " << status.Eye.z << ") aiming yaw " << status.Yaw
+                 << " pitch " << status.Pitch << ", the killer at (" << at.x << ", " << at.y << ", " << at.z << ")";
+        }
+        line << " -> " << m_killcamCapturePath;
+        CLog::Log( CLog::LogType::Info, line.str() );
+    }
+}
+
+
+void Engine::LateUpdateKillcam( const UpdateContext& InContext )
+{
+    World* replay = m_killcam.GetWorld();
+    CameraCore* cameras = replay ? replay->GetCore<CameraCore>() : nullptr;
+    if( !cameras )
+    {
+        return;
+    }
+    cameras->LateUpdate( InContext );
+    // The game's UI (RmlUi composites onto the game world's main camera) over the killcam.
+    Camera* live = Camera::GetMain( GameWorld.get() );
+    Camera* shown = Camera::GetMain( replay );
+    CommandCache<Moonlight::CameraData>& cache = NewRenderer->GetCameraCache();
+    Moonlight::CameraData* from = live ? cache.Get( live->GetCameraId() ) : nullptr;
+    Moonlight::CameraData* to = shown ? cache.Get( shown->GetCameraId() ) : nullptr;
+    if( from && to )
+    {
+        to->RmlTexture = from->RmlTexture;
+    }
 }
 
 #if USING( ME_EDITOR )

@@ -22,7 +22,7 @@ void Scene::UnLoad()
 }
 
 
-bool Scene::Load( SharedPtr<World> InWorld )
+bool Scene::Load( SharedPtr<World> InWorld, bool InLoadCores )
 {
     OPTICK_EVENT( "Scene::Load" );
     GameWorld = InWorld;
@@ -61,7 +61,7 @@ bool Scene::Load( SharedPtr<World> InWorld )
     {
         OPTICK_EVENT( "Scene::Load::Entities" );
         SceneSerializer::LoadOptions options;
-        options.LoadCores = true;
+        options.LoadCores = InLoadCores;
         if( SceneCore* scene = GameWorld->GetCore<SceneCore>() ) options.Parent = scene->GetRootTransform();
         SceneSerializer::Deserialize( *GameWorld, level, options );
     }

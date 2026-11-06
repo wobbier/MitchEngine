@@ -83,6 +83,21 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
     CommandCache<Moonlight::CameraData>& cameraCache = renderer->GetCameraCache();
     // This world's main camera (ME-297).
     Camera* mainCamera = Camera::GetMain( &GetWorld() );
+    // ME-323: another world is on screen: nothing of this one's renders.
+    if( !m_presented )
+    {
+        for( auto& InEntity : Cameras )
+        {
+            if( Moonlight::CameraData* data = cameraCache.Get( InEntity.GetComponent<Camera>().m_id ) )
+            {
+                data->IsMain = false;
+                data->ShouldRender = false;
+            }
+        }
+        m_wasHidden = true;
+        return;
+    }
+    const bool unhide = std::exchange( m_wasHidden, false );
 
     for( auto& InEntity : Cameras )
     {
@@ -195,6 +210,11 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
                 CamData->DynamicResolution = false;
             }
             CamData->Target = target ? CameraComponent.m_target : nullptr;
+            if( unhide && !toTexture )
+            {
+                // Back on screen after another world's turn (a render texture camera keeps its schedule).
+                CamData->ShouldRender = true;
+            }
             CamData->TargetOrder = InEntity.GetGUID();
             CamData->RenderDeltaSeconds = 0.f;
             if( toTexture )

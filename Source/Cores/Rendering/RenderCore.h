@@ -50,6 +50,15 @@ public:
     virtual void OnStart() override;
     virtual void OnStop() override;
 
+    // ME-323: a second world's RenderCore (a killcam's replay world) shares the renderer's mesh cache
+    // with the game world's: it never clears the cache (Init, OnStop), it only pops its own commands.
+    void SetSharesRenderer( bool InShares ) { m_sharesRenderer = InShares; }
+    // One world is drawn a frame: only the presented world's RenderCore prepares one. One taken off
+    // screen empties its mesh commands once (out of every view and shadow) and skips its Update until
+    // it's presented again, so the renderer's lights, decals, sprites and wind are the presented world's.
+    void SetPresented( bool InPresented ) { m_presented = InPresented; }
+    bool IsPresented() const { return m_presented; }
+
 #if USING( ME_EDITOR )
     virtual void OnEditorInspect() final;
 #endif
@@ -84,6 +93,10 @@ private:
     std::unordered_map<uint64_t, std::vector<unsigned int>> m_compactCommands;
     std::unordered_map<uint64_t, unsigned int> m_meshCommands;
     bool EnableDebugDraw = false;
+    bool m_sharesRenderer = false;
+    bool m_presented = true;
+    bool m_hidden = false;      // its commands are emptied (not presented)
+    void HideCommands();
     // The world is playing (editor: levels of detail then follow the game camera).
     bool m_playing = false;
         //Moonlight::Renderer* m_renderer;

@@ -933,16 +933,18 @@ void AudioCore::UpdateOcclusion( Entity& InEntity, AudioSource& InSource, const 
 Transform* AudioCore::FindListener()
 {
     Transform* listener = nullptr;
-    if( m_started )
+    // The presented world's (ME-323: a killcam's replay world while it plays).
+    World* world = m_listenerWorld ? m_listenerWorld : GameWorld;
+    if( m_started && world )
     {
-        GetWorld().Each<Transform, AudioListener>( [&listener]( Entity&, Transform& InTransform, AudioListener& ) {
+        world->Each<Transform, AudioListener>( [&listener]( Entity&, Transform& InTransform, AudioListener& ) {
             if( !listener )
             {
                 listener = &InTransform;
             }
         } );
     }
-    Camera* camera = m_started || !Camera::EditorCamera ? Camera::GetMain( GameWorld ) : Camera::EditorCamera;
+    Camera* camera = m_started || !Camera::EditorCamera ? Camera::GetMain( world ) : Camera::EditorCamera;
     if( !listener && camera && camera->Parent )
     {
         listener = camera->Parent->TryGetComponent<Transform>();

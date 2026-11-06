@@ -108,6 +108,9 @@ public:
     // with physics raycasts; without a query nothing is occluded).
     using OcclusionQuery = std::function<int( const Vector3& InListener, const Vector3& InSource, Entity* InListenerEntity, Entity& InSourceEntity )>;
     void SetOcclusionQuery( OcclusionQuery InQuery );
+    // ME-323: the listener from another world while it's presented (a killcam's replay world: its first
+    // AudioListener, else its main camera); null: this core's own world.
+    void SetListenerWorld( World* InWorld ) { m_listenerWorld = InWorld; }
     // Seconds between a source's occlusion checks.
     static constexpr float kOcclusionInterval = 0.1f;
 
@@ -137,6 +140,7 @@ private:
     Vector3 m_listenerPosition;
     bool m_hasListenerPosition = false;
     EntityHandle m_listenerEntity;
+    World* m_listenerWorld = nullptr;
     OcclusionQuery m_occlusionQuery;
     std::array<float, static_cast<size_t>( AudioBus::Count )> m_busVolumes;
     std::array<float, static_cast<size_t>( AudioBus::Count )> m_playerVolumes;
