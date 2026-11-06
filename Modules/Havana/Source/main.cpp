@@ -134,7 +134,7 @@ static int CookProject()
 
 // --build-game [<profile> | --profile <file.json>] [--out <dir>] [--scene <lvl>]...
 //              [--configuration Retail|Release|Debug] [--no-compile] [--loose] [--archive]
-//              [--game <exe> | --no-record] [--cancel-file <file>] [--verbose]
+//              [--dedicated-server] [--game <exe> | --no-record] [--cancel-file <file>] [--verbose]
 // Build Game (SHIP-3, Engine/Docs/Building.md) without opening the editor: a shippable build of
 // the project from a build profile (the named one, one written to a file, else the first in Project
 // Settings, else the defaults); the options override its settings. The build stops after its
@@ -180,6 +180,8 @@ static int BuildGameCommand()
     profile.Configuration = CommandLine::GetString( "--configuration", profile.Configuration );
     profile.Pak = profile.Pak && !CommandLine::Has( "--loose" );
     profile.Archive = profile.Archive || CommandLine::Has( "--archive" );
+    // The headless Server build of the executable, <Product>-Server (ME-308).
+    profile.Server = profile.Server || CommandLine::Has( "--dedicated-server" );
 
     BuildGame::Request request;
     request.Profile = profile;

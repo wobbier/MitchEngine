@@ -386,6 +386,7 @@ public partial class Dasher : Script
 
 - **Defines:** `DEFINE_ME_HEADLESS`. Debug and Release keep `ME_TOOLS`, so scripts still build beside the exe, while `ME_IMGUI` and `ME_GAME_TOOLS` are off when headless.
 - **Scripts of a shared executable:** the headless Player running a C#-only project builds its scripts into `<project>/.tmp/Scripts/Player-Server-<Config>/` (and `--artifacts-path .tmp/dotnet-Server`), apart from the client Players' `Player-<Config>/`, so a server and its clients on one machine never `dotnet build` into the same folder.
+- **Hosts by default:** a headless build with neither `--server` nor `--connect` hosts on the default port (`NetLaunch::IsHosting`), so a shipped server starts with no arguments (ME-308: Build Game's `Server` profile ships it as `<Product>-Server`, `Building.md`). Ctrl+C or SIGTERM stops it through the engine's quit path (`Engine/QuitSignals.h`: the .NET runtime's own SIGTERM handling exited the process mid-frame and crashed the shutdown), so its clients get a Disconnect.
 - **Window:** `Engine::Init` creates a `NullWindow` instead of an SDL window.
 - **Renderer:** runs bgfx's **Noop** backend (`RendererCreationSettings::Type`). Noop loads the platform's own shader binaries (`GetPlatformString`: spirv / metal / dx11) and draws nothing.
   - Frames only advance bgfx: no mesh/sprite command prep, particles, culling or passes (ME-286). LostTemple averages 6.0 ms a frame instead of 9.9, Playground 0.26 instead of 0.76.
@@ -399,7 +400,7 @@ public partial class Dasher : Script
 
 | Option | Effect |
 |--------|--------|
-| `--server [port]` | Host on that UDP port (7777 by default; 0 picks a free one and logs it), every interface, at the engine's tick rate (`1 / FixedTimeStep`) |
+| `--server [port]` | Host on that UDP port (7777 by default; 0 picks a free one and logs it), every interface, at the engine's tick rate (`1 / FixedTimeStep`). A headless Server build hosts without it, unless it connects |
 | `--connect host:port` | Join a server: a dotted IPv4 address or a name that resolves to one |
 | `--net-lag ms`, `--net-jitter ms`, `--net-loss f` | Condition what this side sends. Loss is a fraction (`0.05`) or a percentage (`5%`). Both sides add up: `--net-lag 40` on each is 80 ms RTT plus a frame |
 | `--net-seed n` | The conditions' seed |

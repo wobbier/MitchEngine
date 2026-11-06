@@ -10,7 +10,8 @@
 // Build Game (SHIP-3, Engine/Docs/Building.md): one shippable build of the project from a build
 // profile (Project Settings > Build), for the machine building it. The steps:
 //   1. Compile - the game executable in the profile's configuration (Retail by default): the
-//                project's Game_EntryPoint, or the Player for a C#-only project;
+//                project's Game_EntryPoint, or the Player for a C#-only project; a Server profile
+//                (ME-308) builds the headless Server configuration of the same target instead;
 //   2. Scripts - the C# script project in Release;
 //   3. Cook    - the profile's scenes (the SHIP-2 cooker), as one Game.mpak or a loose tree;
 //   4. Runtime - an app-local .NET (dotnet/), copied from the build machine's install;
@@ -63,19 +64,22 @@ namespace BuildGame
         std::vector<std::string> Warnings;
     };
 
-    // Where a profile builds to: its OutputDirectory, or Builds/<Name>.
+    // Where a profile builds to: its OutputDirectory, or Builds/<Name> (Builds/<Name>-Server for a
+    // dedicated server, so a client and a server profile of one name sit side by side).
     std::string OutputDirectory( const ProjectSettings::BuildProfile& InProfile );
     // The executable a configuration's game build produces, e.g.
-    // ".build/Game_linux_Retail/Game_EntryPoint_x64".
-    std::string GameExecutable( const std::string& InConfiguration );
+    // ".build/Game_linux_Retail/Game_EntryPoint_x64"; with InServer the headless Server build of it
+    // (".build/Server_linux_Retail/Game_EntryPoint_x64").
+    std::string GameExecutable( const std::string& InConfiguration, bool InServer = false );
     // The same for the generic Player, e.g. ".build/Game_linux_Retail/Player".
-    std::string PlayerExecutable( const std::string& InConfiguration );
+    std::string PlayerExecutable( const std::string& InConfiguration, bool InServer = false );
     // The project has no C++ game module (Project::HasGameModule), so it ships the Player built in
     // this editor's checkout instead of its own Game_EntryPoint (Engine/Docs/Projects.md).
     bool ShipsPlayer();
     // The executable a configuration's build of this project ships, absolute: the project's
-    // GameExecutable, or for a C#-only project the PlayerExecutable beside this editor build.
-    std::string RuntimeExecutable( const std::string& InConfiguration );
+    // GameExecutable, or for a C#-only project the PlayerExecutable beside this editor build; the
+    // headless Server build of either with InServer.
+    std::string RuntimeExecutable( const std::string& InConfiguration, bool InServer = false );
     // The tools game configuration matching this editor build: "Release" next to a Release
     // editor, else "Debug".
     std::string RecordingConfiguration();
@@ -84,8 +88,8 @@ namespace BuildGame
     // project), which the cooker records scenes through; empty when there is none.
     std::string FindRecordingExecutable();
     // The file name a product's executable ships as ("My Game" -> "My Game.x86_64" on Linux,
-    // "My Game.exe" on Windows).
-    std::string ShippedExecutableName( const std::string& InProductName );
+    // "My Game.exe" on Windows); a dedicated server as "My Game-Server.x86_64".
+    std::string ShippedExecutableName( const std::string& InProductName, bool InServer = false );
 
     // Tools builds; runs on the calling thread.
     Report Run( const Request& InRequest );

@@ -89,7 +89,7 @@ def main():
     parser.add_argument("--server-game", required=True, help="headless server executable (config=server_linux_debug)")
     parser.add_argument("--client-game", required=True, help="game executable for the client")
     parser.add_argument("--scene", default="Assets/Scenes/Tests/NetTest.lvl")
-    parser.add_argument("--reference", default="Assets/Scenes/Tests/Reference", help="folder with <scene>.png")
+    parser.add_argument("--reference", default="Assets/Scenes/Tests/Reference", help="folder with <scene>.png; '' skips the capture check")
     parser.add_argument("--wrapper", default="", help="command prefix for the client (e.g. Engine/Tools/Headless.sh)")
     parser.add_argument("--frames", type=int, default=900, help="client frames before it captures and leaves")
     parser.add_argument("--max-fps", type=float, default=60.0, help="client frame cap (frames are wall time)")
@@ -223,7 +223,12 @@ def main():
             failures.append(f"the client wasn't connected at the end (state {client_stats.get('State')!r})")
         if client_stats.get("Timeouts", 0) != 0:
             failures.append("the client timed out")
-        if tick_rate <= 0 or abs(rate / tick_rate - 1.0) > args.rate_tolerance:
+        # A scene with no networked entities sends only idle keep-alives (one every 15 ticks), so the rate
+        # says nothing there (a shipped C#-only sample in RunChecks' dedicated-server step).
+        idle_scene = server_stats is not None and server_stats.get("Networked", 1) == 0
+        if idle_scene:
+            print("      snapshot rate not checked: the scene has no networked entities (keep-alives only)")
+        elif tick_rate <= 0 or abs(rate / tick_rate - 1.0) > args.rate_tolerance:
             failures.append(f"snapshot rate {rate:.2f}/s is more than {args.rate_tolerance:.0%} off the {tick_rate} Hz tick rate")
         # Frames run at most at --max-fps, so the session can only be longer than this.
         connected_seconds = client_stats.get("ConnectedSeconds", 0.0) or 0.0
@@ -266,6 +271,8 @@ def main():
 
     if not os.path.exists(shot):
         failures.append(f"no client capture (see {client_log_path})")
+    elif not args.reference:
+        print("      capture: not compared (no --reference)")
     else:
         width, height, rows = read_png(shot)
         small = downscale(width, height, rows, args.scale) if args.scale > 1 else (width, height, rows)

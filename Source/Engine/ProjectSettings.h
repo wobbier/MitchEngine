@@ -121,6 +121,10 @@ public:
         bool Pak = true;
         // Also packs the output into one archive next to it (.tar.gz; .zip on Windows).
         bool Archive = false;
+        // A dedicated server (ME-308): the headless Server build of the executable (no window, no
+        // rendering, no audio; NET-5), shipped as <Product>-Server with the same scripts, content and
+        // .NET. It hosts on start (--server, 7777 unless given). Output defaults to Builds/<Name>-Server.
+        bool Server = false;
     };
     std::vector<BuildProfile> BuildProfiles;
     // The profile named InName ("" = the first); null when there is none.

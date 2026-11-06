@@ -47,6 +47,7 @@ namespace
         profile.OutputDirectory = InEntry.value( "Output", profile.OutputDirectory );
         profile.Pak = InEntry.value( "Pak", profile.Pak );
         profile.Archive = InEntry.value( "Archive", profile.Archive );
+        profile.Server = InEntry.value( "Server", profile.Server );
         if( InEntry.contains( "Scenes" ) && InEntry["Scenes"].is_array() )
         {
             for( const json& scene : InEntry["Scenes"] )
@@ -64,7 +65,7 @@ namespace
     json ProfileToJson( const ProjectSettings::BuildProfile& InProfile )
     {
         return { { "Name", InProfile.Name }, { "Configuration", InProfile.Configuration }, { "Output", InProfile.OutputDirectory },
-            { "Scenes", InProfile.Scenes }, { "Pak", InProfile.Pak }, { "Archive", InProfile.Archive } };
+            { "Scenes", InProfile.Scenes }, { "Pak", InProfile.Pak }, { "Archive", InProfile.Archive }, { "Server", InProfile.Server } };
     }
 }
 

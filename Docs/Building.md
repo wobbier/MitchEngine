@@ -49,6 +49,7 @@ Engine/Tools/Headless.sh ./.build/Editor_Debug/Havana --build-game --scene Asset
 | `--out <dir>` | Where the build goes (default: the profile's, else `Builds/<Profile>`) |
 | `--scene <lvl>` (repeatable) | The scenes to ship (default: the profile's, else the project's `Build.Scenes` plus its `StartupScene`) |
 | `--configuration Retail\|Release\|Debug` | The game configuration (default `Retail`). Release and Debug keep the tools code (automation, cooking) |
+| `--dedicated-server` | Ship the headless Server build instead (the profile's `Server`, below) |
 | `--no-compile` | Package the configuration's existing executable (`.build/Game_<platform>_<Configuration>/`) instead of building it |
 | `--loose` | Ship the cooked tree as files instead of `Game.mpak` |
 | `--archive` | Also pack the output into `<dir>.tar.gz` (`.zip` on Windows) next to it |
@@ -72,8 +73,27 @@ A build profile is one way to build the project. Profiles are saved in
 | `Scenes` | `[]` | The scenes to ship. Empty: `Build.Scenes` and the `StartupScene` |
 | `Pak` | `true` | The content in one `Game.mpak` (true) or as a loose cooked tree |
 | `Archive` | `false` | Also a `.tar.gz` (`.zip` on Windows) of the output |
+| `Server` | `false` | A dedicated server (ME-308): the headless **Server** build of the executable, shipped as `<Product>-Server`. Output defaults to `Builds/<Name>-Server` |
 
 Builds are made for the machine building them: a Linux editor builds Linux games.
+
+### Dedicated servers
+
+A profile with `Server` ships the same project as a headless dedicated server (NET-5: `ME_HEADLESS`,
+no window, bgfx Noop, no ImGui, no audio): the `server_<platform>_<configuration>` build of the same
+target (`.build/Server_linux_Retail/Player` for a C#-only project, `.../Game_EntryPoint_x64`
+otherwise), the Release scripts beside it (a Retail build loads `Game.Script.dll` from its own
+folder, as the client does), the same `Game.mpak` and app-local .NET, and `<Product>-Server.sh`
+as the launcher. FMOD isn't linked by the Server build, so it isn't bundled.
+
+A headless build **hosts on start** (`NetLaunch::IsHosting`): `./HeroShooter-Server.sh` hosts on
+UDP 7777, `--server 7788` picks the port, and every other networking option (`--net-timeout`,
+`--net-report`, `--net-exit-when-empty`, the link conditions) works as in `Networking.md`. A client
+built from the same project and engine joins it with `--connect host:port`; the handshake compares
+the build, the scripts and the scene, so ship the client and the server from the same checkout.
+
+The cook still records through the tools *game* build (a headless build renders nothing), which
+is compiled along with the server when the build compiles.
 
 ## The steps
 
@@ -84,6 +104,8 @@ Builds are made for the machine building them: a Linux editor builds Linux games
    (`Project::HasGameModule`), so it ships the **Player** instead: `make -C <checkout> -f
    <Solution>.make Player config=game_linux_<configuration>` in the checkout this editor was
    built in (the parent of its `.build/`), output `<checkout>/.build/Game_<platform>_<Configuration>/Player`.
+   A `Server` profile builds `config=server_linux_<configuration>` of the same target instead
+   (output `.build/Server_<platform>_<Configuration>/`), plus the tools game build to record with.
    The cook records through that checkout's tools Player, run in the project. Windows and macOS need `--no-compile` and an IDE build for
    now (ME-265).
 2. **Scripts.** `dotnet build Project/Game.Script.csproj -c Release` (`Debug` for Debug builds)
@@ -101,15 +123,16 @@ Builds are made for the machine building them: a Linux editor builds Linux games
    `ThirdPartyNotices.txt`. It is about 71 MiB.
 5. **Package.**
    - The executable is copied as `<Product Name>.x86_64` (Linux), `<Product Name>.exe`
-     (Windows) or `<Product Name>` (macOS).
+     (Windows) or `<Product Name>` (macOS); a dedicated server as `<Product Name>-Server.x86_64`
+     with `<Product Name>-Server.sh` as its launcher.
    - **Linux:** `ldd` picks the libraries a distro doesn't provide, or provides in other
      versions: SDL2, `libstdc++`, `libgcc_s`, `libnethost` and anything linked from the
      tree the executable was built in (FMOD): the project, or the Player's checkout. These go into `lib/`, and `<Product Name>.sh` launches the game with
      them. glibc, the GL/Vulkan drivers, X11/Wayland, ALSA and curl are left to the system.
    - **Windows:** the DLLs the build copied next to the executable ship beside it.
    - The product icon is copied as `icon.<ext>`.
-   - `BuildInfo.json` records the product, profile, configuration, platform, launcher, content
-     and .NET version.
+   - `BuildInfo.json` records the product, profile, configuration, whether it is a dedicated
+     server, platform, launcher, content and .NET version.
    - The optional archive is made with `tar`.
 
 The output folder is only ever replaced when it holds an earlier build (its `BuildInfo.json`) or
@@ -178,6 +201,10 @@ copy and started from an empty directory the same way, must match
 `Tests/Samples/ScriptOnly/Reference/Main.png` (0.2% limit; the runs are byte-identical, and the
 scene without its script is 1.4% off) with the log showing the app-local runtime and
 `Game.Script.dll` loaded. It is 124 MiB: a 46 MiB Player, a 1 MiB pak, .NET and the libraries.
+The same step then builds the copy's **dedicated server** (`--build-game --dedicated-server`) and
+runs `RunNetSmoke.py` with both shipped builds, from an empty directory without `DOTNET_ROOT`: the
+shipped server must host from its launcher with no arguments, the shipped client must connect
+and leave cleanly, and both logs must show the pak mounted and the app-local runtime.
 
 Results on Linux (2026-10-25):
 

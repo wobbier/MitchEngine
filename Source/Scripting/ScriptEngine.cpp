@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "ScriptEngine.h"
 #include "ScriptHost.h"
+#include "Engine/QuitSignals.h"
 
 #if USING( ME_SCRIPTING )
 
@@ -520,6 +521,8 @@ int ScriptEngine::Init()
     if( gInitResult == 0 )
     {
         LoadModAssemblies();
+        // The runtime took SIGINT / SIGTERM on start; the engine's handler goes back in place (QuitSignals.h).
+        QuitSignals::Install();
     }
     return gInitResult;
 }

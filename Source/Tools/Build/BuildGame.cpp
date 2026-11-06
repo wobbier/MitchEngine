@@ -74,21 +74,23 @@ namespace BuildGame
 
     std::string OutputDirectory( const ProjectSettings::BuildProfile& InProfile )
     {
-        return InProfile.OutputDirectory.empty() ? "Builds/" + FileSafe( InProfile.Name, "Default" ) : InProfile.OutputDirectory;
+        return !InProfile.OutputDirectory.empty() ? InProfile.OutputDirectory : "Builds/" + FileSafe( InProfile.Name, "Default" ) + ( InProfile.Server ? "-Server" : "" );
     }
 
 
     namespace
     {
-        // An executable in a configuration's game build folder, e.g. ".build/Game_linux_Retail/Player".
-        std::string BuildExecutable( const std::string& InConfiguration, const std::string& InStem )
+        // An executable in a configuration's game (or headless Server) build folder, e.g.
+        // ".build/Game_linux_Retail/Player" or ".build/Server_linux_Retail/Player" (CommonTarget.Name).
+        std::string BuildExecutable( const std::string& InConfiguration, const std::string& InStem, bool InServer )
         {
+            const std::string mode = InServer ? "Server" : "Game";
 #if USING( ME_PLATFORM_WINDOWS )
-            return ".build/Game_win64_" + InConfiguration + "/" + InStem + ".exe";
+            return ".build/" + mode + "_win64_" + InConfiguration + "/" + InStem + ".exe";
 #elif USING( ME_PLATFORM_MACOS )
-            return ".build/Game_macos_" + InConfiguration + "/" + InStem;
+            return ".build/" + mode + "_macos_" + InConfiguration + "/" + InStem;
 #else
-            return ".build/Game_linux_" + InConfiguration + "/" + InStem;
+            return ".build/" + mode + "_linux_" + InConfiguration + "/" + InStem;
 #endif
         }
 
@@ -115,15 +117,15 @@ namespace BuildGame
     }
 
 
-    std::string GameExecutable( const std::string& InConfiguration )
+    std::string GameExecutable( const std::string& InConfiguration, bool InServer )
     {
-        return BuildExecutable( InConfiguration, "Game_EntryPoint_x64" );
+        return BuildExecutable( InConfiguration, "Game_EntryPoint_x64", InServer );
     }
 
 
-    std::string PlayerExecutable( const std::string& InConfiguration )
+    std::string PlayerExecutable( const std::string& InConfiguration, bool InServer )
     {
-        return BuildExecutable( InConfiguration, "Player" );
+        return BuildExecutable( InConfiguration, "Player", InServer );
     }
 
 
@@ -133,10 +135,10 @@ namespace BuildGame
     }
 
 
-    std::string RuntimeExecutable( const std::string& InConfiguration )
+    std::string RuntimeExecutable( const std::string& InConfiguration, bool InServer )
     {
         std::error_code error;
-        const fs::path executable = ShipsPlayer() ? BesideEditor( PlayerExecutable( InConfiguration ) ) : fs::absolute( GameExecutable( InConfiguration ), error );
+        const fs::path executable = ShipsPlayer() ? BesideEditor( PlayerExecutable( InConfiguration, InServer ) ) : fs::absolute( GameExecutable( InConfiguration, InServer ), error );
         return executable.lexically_normal().generic_string();
     }
 
@@ -167,9 +169,9 @@ namespace BuildGame
     }
 
 
-    std::string ShippedExecutableName( const std::string& InProductName )
+    std::string ShippedExecutableName( const std::string& InProductName, bool InServer )
     {
-        const std::string name = FileSafe( InProductName, "Game" );
+        const std::string name = FileSafe( InProductName, "Game" ) + ( InServer ? "-Server" : "" );
 #if USING( ME_PLATFORM_WINDOWS )
         return name + ".exe";
 #elif USING( ME_PLATFORM_LINUX )
@@ -504,12 +506,14 @@ namespace BuildGame
 
             // Builds a configuration's game executable through the solution makefile: the
             // project's Game_EntryPoint, or for a C#-only project (no solution of its own) the
-            // Player, in the checkout this editor was built in.
-            bool MakeGame( const std::string& InConfiguration )
+            // Player, in the checkout this editor was built in; with InServer its headless Server
+            // configuration (config=server_<platform>_<configuration>, ME-308).
+            bool MakeGame( const std::string& InConfiguration, bool InServer )
             {
 #if USING( ME_PLATFORM_LINUX )
                 const bool player = ShipsPlayer();
                 const std::string target = player ? "Player" : "Game_EntryPoint";
+                const std::string flavour = InServer ? " Server" : "";
                 std::error_code error;
                 const fs::path checkout = player ? EditorBuildDirectory().parent_path().parent_path() : fs::current_path( error );
                 const std::string makefile = FindSolutionMakefile( checkout, target );
@@ -521,16 +525,16 @@ namespace BuildGame
                     return false;
                 }
                 const unsigned jobs = std::max( 1u, std::thread::hardware_concurrency() );
-                const int status = Command( "make -C \"" + checkout.generic_string() + "\" -f \"" + makefile + "\" " + target + " config=game_linux_" + Lower( InConfiguration )
+                const int status = Command( "make -C \"" + checkout.generic_string() + "\" -f \"" + makefile + "\" " + target + " config=" + ( InServer ? "server" : "game" ) + "_linux_" + Lower( InConfiguration )
                     + " -j" + std::to_string( jobs ) );
                 if( status != 0 )
                 {
-                    CommandFailed( "Compiling the " + InConfiguration + ( player ? " Player" : " game" ), status );
+                    CommandFailed( "Compiling the " + InConfiguration + flavour + ( player ? " Player" : " game" ), status );
                     return false;
                 }
                 return true;
 #else
-                Error( "Build Game can't compile on this platform yet: build the game's " + InConfiguration + " configuration in your IDE, then build without compiling (--no-compile)" );
+                Error( "Build Game can't compile on this platform yet: build the game's " + InConfiguration + ( InServer ? " Server" : "" ) + " configuration in your IDE, then build without compiling (--no-compile)" );
                 return false;
 #endif
             }
@@ -538,28 +542,30 @@ namespace BuildGame
 
             bool Compile()
             {
-                m_executable = RuntimeExecutable( m_profile.Configuration );
-                // The cooker records through a tools game build. Unless one was named, it's the one
-                // matching this editor, compiled here too, so a stale build never records.
+                m_executable = RuntimeExecutable( m_profile.Configuration, m_profile.Server );
+                // The cooker records through a tools game build (never the headless one: it renders
+                // nothing). Unless one was named, it's the one matching this editor, compiled here
+                // too, so a stale build never records.
                 const std::string recordConfiguration = RecordingConfiguration();
-                const bool compileRecorder = m_request.Record && m_request.RecordExecutable.empty() && recordConfiguration != m_profile.Configuration;
-                if( m_request.Compile && ( !MakeGame( m_profile.Configuration ) || ( compileRecorder && !MakeGame( recordConfiguration ) ) ) )
+                const bool compileRecorder = m_request.Record && m_request.RecordExecutable.empty() && ( m_profile.Server || recordConfiguration != m_profile.Configuration );
+                if( m_request.Compile && ( !MakeGame( m_profile.Configuration, m_profile.Server ) || ( compileRecorder && !MakeGame( recordConfiguration, false ) ) ) )
                 {
                     return false;
                 }
                 std::error_code error;
+                const std::string flavour = m_profile.Server ? " Server" : "";
                 if( !fs::is_regular_file( m_executable, error ) )
                 {
-                    Error( "No " + m_profile.Configuration + ( ShipsPlayer() ? " Player at " : " game executable at " ) + m_executable.generic_string() );
+                    Error( "No " + m_profile.Configuration + flavour + ( ShipsPlayer() ? " Player at " : " game executable at " ) + m_executable.generic_string() );
                     return false;
                 }
-                Info( std::string( ShipsPlayer() ? "Player (a C#-only project): " : "Game executable: " ) + m_executable.generic_string() );
+                Info( std::string( ShipsPlayer() ? "Player (a C#-only project)" : "Game executable" ) + ( m_profile.Server ? ", dedicated server: " : ": " ) + m_executable.generic_string() );
                 // Its libraries come from the tree it was built in (<tree>/.build/<config>/<exe>).
                 m_buildTree = m_executable.parent_path().parent_path().parent_path();
                 if( m_request.Record )
                 {
                     m_recordExecutable = !m_request.RecordExecutable.empty() ? m_request.RecordExecutable
-                        : m_request.Compile ? RuntimeExecutable( recordConfiguration )
+                        : m_request.Compile ? RuntimeExecutable( recordConfiguration, false )
                         : FindRecordingExecutable();
                     if( m_recordExecutable.empty() || !fs::is_regular_file( m_recordExecutable, error ) )
                     {
@@ -779,8 +785,13 @@ namespace BuildGame
                 const ProjectSettings& settings = ProjectSettings::Get();
                 std::ofstream launcher( InLauncher, std::ios::out | std::ios::trunc );
                 launcher << "#!/bin/sh\n"
-                         << "# " << settings.ProductName << " " << settings.ProductVersion << " (made with Build Game): runs the game with the libraries\n"
-                         << "# in lib/ and the .NET runtime in dotnet/, from any working directory.\n"
+                         << "# " << settings.ProductName << " " << settings.ProductVersion << " (made with Build Game): runs the " << ( m_profile.Server ? "dedicated server" : "game" ) << " with the libraries\n"
+                         << "# in lib/ and the .NET runtime in dotnet/, from any working directory.\n";
+                if( m_profile.Server )
+                {
+                    launcher << "# It hosts on UDP 7777 (--server <port> picks another; --net-timeout, --net-report... as in Docs/Networking.md).\n";
+                }
+                launcher
                          << "cd \"$(dirname \"$0\")\" || exit 1\n"
                          << "LD_LIBRARY_PATH=\"$PWD/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}\" exec \"./" << InExecutable << "\" \"$@\"\n";
                 launcher.close();
@@ -800,13 +811,13 @@ namespace BuildGame
             bool Package()
             {
                 const ProjectSettings& settings = ProjectSettings::Get();
-                const std::string executable = ShippedExecutableName( settings.ProductName );
+                const std::string executable = ShippedExecutableName( settings.ProductName, m_profile.Server );
                 if( !CopyFile( m_executable, m_out / executable ) )
                 {
                     return false;
                 }
 #if USING( ME_PLATFORM_LINUX )
-                const fs::path launcher = m_out / ( FileSafe( settings.ProductName, "Game" ) + ".sh" );
+                const fs::path launcher = m_out / ( FileSafe( settings.ProductName, "Game" ) + ( m_profile.Server ? "-Server.sh" : ".sh" ) );
                 if( !BundleLibraries( m_out / executable ) || !WriteLauncher( launcher, executable ) )
                 {
                     return false;
@@ -902,6 +913,7 @@ namespace BuildGame
                 info["Product"] = { { "Name", settings.ProductName }, { "Org", settings.ProductOrg }, { "Version", settings.ProductVersion } };
                 info["Profile"] = m_profile.Name;
                 info["Configuration"] = m_profile.Configuration;
+                info["Server"] = m_profile.Server;
                 info["Platform"] = Cook::PlatformName( Cook::HostPlatform() );
                 info["Launcher"] = m_launcher;
                 info["Content"] = m_profile.Pak ? std::string( CookedAssets::kShippedPak ) : std::string( "loose" );

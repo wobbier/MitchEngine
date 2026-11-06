@@ -52,7 +52,19 @@ NetLaunch::~NetLaunch() = default;
 
 bool NetLaunch::IsRequested()
 {
-    return CommandLine::Has( "--server" ) || CommandLine::Has( "--connect" );
+    return IsHosting() || CommandLine::Has( "--connect" );
+}
+
+
+bool NetLaunch::IsHosting()
+{
+#if USING( ME_HEADLESS )
+    // A dedicated server has nothing else to do: a shipped one (Build Game's Server profile) hosts
+    // on the default port when started with no arguments.
+    return !CommandLine::Has( "--connect" );
+#else
+    return CommandLine::Has( "--server" );
+#endif
 }
 
 
@@ -76,7 +88,7 @@ bool NetLaunch::Start( NetCore& InNet, uint16_t InTickRate, IWindow* InWindow, c
     {
         return true;
     }
-    const bool host = CommandLine::Has( "--server" );
+    const bool host = IsHosting();
     if( host && CommandLine::Has( "--connect" ) )
     {
         m_error = "--server and --connect: pick one";

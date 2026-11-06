@@ -6,7 +6,8 @@
 NullWindow::NullWindow( const Vector2& InSize )
     : m_size( InSize )
 {
-    // Events only (no video): SDL turns SIGINT/SIGTERM into SDL_QUIT.
+    // Events only (no video): SDL turns SIGINT/SIGTERM into SDL_QUIT (and QuitSignals.h catches them
+    // once the .NET runtime has replaced SDL's handlers).
     m_sdlEvents = SDL_InitSubSystem( SDL_INIT_EVENTS ) == 0;
 }
 

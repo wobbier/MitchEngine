@@ -23,7 +23,10 @@ TEST_CASE( "ProjectSettings: product, startup and build settings round-trip" )
     demo.Scenes = { "Assets/Scenes/Tests/UITest.lvl" };
     demo.Pak = false;
     demo.Archive = true;
-    saved.BuildProfiles = { ProjectSettings::BuildProfile(), demo };
+    ProjectSettings::BuildProfile server;
+    server.Name = "Server";
+    server.Server = true;
+    saved.BuildProfiles = { ProjectSettings::BuildProfile(), demo, server };
     saved.SetLayerName( 3, "Probe Layer" );
     saved.BusVolumes[1] = 0.25f;
     saved.LoadingDocument = "Assets/UI/Probe/Loading.rml";
@@ -45,10 +48,12 @@ TEST_CASE( "ProjectSettings: product, startup and build settings round-trip" )
     CHECK( loaded.BuildScenes == saved.BuildScenes );
     CHECK( loaded.BuildAlwaysInclude == saved.BuildAlwaysInclude );
     CHECK( loaded.BuildExclude == saved.BuildExclude );
-    REQUIRE( loaded.BuildProfiles.size() == 2 );
+    REQUIRE( loaded.BuildProfiles.size() == 3 );
     CHECK( loaded.BuildProfiles[0].Name == "Default" );
     CHECK( loaded.BuildProfiles[0].Configuration == "Retail" );
     CHECK( loaded.BuildProfiles[0].Pak );
+    CHECK( !loaded.BuildProfiles[0].Server );
+    CHECK( loaded.BuildProfiles[2].Server );
     const ProjectSettings::BuildProfile* found = loaded.FindBuildProfile( "Demo" );
     REQUIRE( found );
     CHECK( found->Configuration == "Release" );
@@ -56,6 +61,7 @@ TEST_CASE( "ProjectSettings: product, startup and build settings round-trip" )
     CHECK( found->Scenes == demo.Scenes );
     CHECK( !found->Pak );
     CHECK( found->Archive );
+    CHECK( !found->Server );
     CHECK( loaded.FindBuildProfile( "" ) == &loaded.BuildProfiles[0] );
     CHECK( loaded.FindBuildProfile( "Missing" ) == nullptr );
     CHECK( loaded.GetLayerName( 3 ) == "Probe Layer" );

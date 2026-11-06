@@ -230,6 +230,29 @@ if [[ -d $sample && -d $sample_checks/Reference ]]; then
             echo "The shipped C#-only build didn't run its scripts on the app-local .NET (see .tmp/ScreenshotRegression/ScriptOnlyShipped/Main.log)"
             failed+=("C#-only project shipped runtime")
         fi
+        # The dedicated server (ME-308): a Server profile of the same copy ships the headless Player. Its
+        # launcher hosts with no arguments; the shipped client joins it (RunNetSmoke, no capture to compare:
+        # the sample's spinner turns with wall time), both from the empty directory, on the app-local .NET.
+        if ! "$here/Headless.sh" ./.build/Editor_Debug/Havana --project "$projects/ScriptOnly" --build-game --dedicated-server --out "$projects/BuiltServer" \
+                > .tmp/RunChecks.scriptonly-server.log 2>&1; then
+            grep -E "Build Game|Error" .tmp/RunChecks.scriptonly-server.log | tail -20
+            failed+=("C#-only project build game (server)")
+        else
+            grep -E "Build Game finished" .tmp/RunChecks.scriptonly-server.log
+            mv "$projects/BuiltServer" "$projects/Server"
+            server_launcher="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["Launcher"])' "$projects/Server/BuildInfo.json")"
+            rm -rf .tmp/NetSmoke/ScriptOnlyShipped
+            if ! ( cd "$projects/Empty" && env -u DOTNET_ROOT LD_LIBRARY_PATH="$system_libs" python3 "$here/RunNetSmoke.py" \
+                    --server-game "$projects/Server/$server_launcher" --client-game "$projects/Game/$launcher" --wrapper "$here/Headless.sh" \
+                    --scene Assets/Scenes/Main.lvl --reference "" --frames 300 --out "$PWD/.tmp/NetSmoke/ScriptOnlyShipped" ); then
+                failed+=("C#-only project shipped server")
+            elif ! grep -q "Content: mounting" .tmp/NetSmoke/ScriptOnlyShipped/server.log \
+                    || ! grep -q "Scripts: .NET runtime from the app-local install" .tmp/NetSmoke/ScriptOnlyShipped/server.log \
+                    || ! grep -q "Loaded 1 type(s) from Game.Script.dll" .tmp/NetSmoke/ScriptOnlyShipped/server.log; then
+                echo "The shipped server didn't run from its pak on the app-local .NET (see .tmp/NetSmoke/ScriptOnlyShipped/server.log)"
+                failed+=("C#-only project shipped server runtime")
+            fi
+        fi
     fi
     rm -rf "$projects"
 fi

@@ -32,6 +32,7 @@
 #include "Input/Gamepads.h"
 #include "Cores/UI/RmlUiCore.h"
 #include "Cores/Scripting/ScriptCore.h"
+#include "Engine/QuitSignals.h"
 
 #if USING( ME_EDITOR_WIN64 )
 #include "Utils/StringUtils.h"
@@ -634,6 +635,8 @@ void Engine::Run()
 
     GameClock.Reset();
     m_fixedAccumulator = 0.0;
+    // Ctrl+C / SIGTERM reach the loop below (QuitSignals.h); without scripting nothing installed it yet.
+    QuitSignals::Install();
 
     // Game loop
     forever
@@ -645,6 +648,12 @@ void Engine::Run()
 #endif
         // Check and call events
         GameWindow->ParseMessageQueue();
+        // Ctrl+C / SIGTERM: through the same quit path as a closed window (QuitSignals.h).
+        if( QuitSignals::Requested() && !m_forceQuit )
+        {
+            CLog::Log( CLog::LogType::Info, std::string( "Engine: " ) + QuitSignals::Name() + " received; shutting down" );
+            Quit( true );
+        }
 
         if( GameWindow->ShouldClose() )
         {

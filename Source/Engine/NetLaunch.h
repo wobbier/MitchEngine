@@ -14,7 +14,8 @@ class ConditionedTransport;
 // Networking from the command line (NET-5): Engine::Run starts it once the scene has loaded (the
 // handshake hashes the scene's networked entities), checks it every frame and ends it on exit.
 //
-//   --server [port]          host on UDP port (7777 when omitted, 0 = any free port), every interface
+//   --server [port]          host on UDP port (7777 when omitted, 0 = any free port), every interface;
+//                            a headless Server build hosts without it too (ME-308), unless it connects
 //   --connect host:port      join a server (IPv4 address or name)
 //   --net-lag ms             hold this side's packets back (one way; both sides: double it for RTT)
 //   --net-jitter ms          +/- around the lag
@@ -29,8 +30,11 @@ public:
     NetLaunch();
     ~NetLaunch();
 
-    // True when the command line asks for a session (whether or not it started).
+    // True when the command line asks for a session (whether or not it started). A headless Server
+    // build always does: it hosts unless told to connect.
     static bool IsRequested();
+    // The command line asks to host (or this is a headless build that wasn't told to connect).
+    static bool IsHosting();
     // The command line asked for a session that couldn't start (the process exits non-zero).
     bool HasFailed() const { return !m_error.empty(); }
 

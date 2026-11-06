@@ -226,7 +226,7 @@ bool BuildGameWidget::StartBuild( bool InRunWhenDone, const std::string& InRunAr
     // cmd /c drops the first and last quote of a command line that starts with one.
     command = Quote( command );
 #endif
-    CLog::Log( CLog::LogType::Info, "Build Game: building '" + profile.Name + "' (" + profile.Configuration + ") into " + m_outputDirectory );
+    CLog::Log( CLog::LogType::Info, "Build Game: building '" + profile.Name + "' (" + profile.Configuration + ( profile.Server ? ", dedicated server" : "" ) + ") into " + m_outputDirectory );
 
     m_state = std::make_shared<BuildState>();
     // Build & Run: only once the build is really under way (an earlier build's result must not run).
@@ -391,6 +391,12 @@ void BuildGameWidget::DrawProfile( ProjectSettings::BuildProfile& InProfile )
     HavanaUtils::Label( "Archive" );
     ImGui::Checkbox( "##Archive", &InProfile.Archive );
     ImGui::SetItemTooltip( "Also packs the build into one .tar.gz (.zip on Windows) next to it." );
+
+    HavanaUtils::Label( "Dedicated server" );
+    ImGui::Checkbox( "##Server", &InProfile.Server );
+    ImGui::SetItemTooltip( "Ships the headless Server build of the executable (no window, no rendering, no audio) as <Product>-Server,\n"
+                           "with the same scripts, content and .NET. It hosts on UDP 7777 when started (--server <port> picks another).\n"
+                           "Output defaults to Builds/<Name>-Server, so it sits next to the client build of the same name." );
 
     HavanaUtils::Label( "Scenes" );
     if( ImGui::SmallButton( "Add" ) )
