@@ -414,7 +414,9 @@ void World::SyncEntity( uint32_t InIndex )
     const ComponentTypeArray effectiveMask = isActive ? ( record.EnabledMask & ~record.PendingRemoval ) : ComponentTypeArray();
 
     // Core membership. Removal happens while the components still exist so cores can clean up.
-    for( BaseCore* core : m_sortedCores )
+    // Over a copy: an OnEntityAdded that adds a core (editor tooling) re-sorts m_sortedCores.
+    const std::vector<BaseCore*> cores = m_sortedCores;
+    for( BaseCore* core : cores )
     {
         const bool shouldBeMember = isActive && core->GetComponentFilter().PassFilter( effectiveMask );
         const bool isMember = core->Contains( InIndex );

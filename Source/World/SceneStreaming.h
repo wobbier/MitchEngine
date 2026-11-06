@@ -1,6 +1,7 @@
 #pragma once
 #include "JSON.h"
 #include <cstdint>
+#include <deque>
 #include <future>
 #include <string>
 #include <vector>
@@ -56,7 +57,9 @@ private:
         State Status = State::None;
         std::future<json> Pending;
     };
-    std::vector<Entry> m_scenes;
+    // A deque: Instantiate holds an Entry& while components it creates may request further loads
+    // (push_back), and a deque's push_back keeps existing elements where they are.
+    std::deque<Entry> m_scenes;
     uint16_t m_nextId = 0;
 
     uint16_t NextId();

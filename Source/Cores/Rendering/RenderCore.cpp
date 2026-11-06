@@ -340,7 +340,8 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
             for( size_t layer = 0; layer < 4; ++layer )
             {
                 const auto& source = surface->Layers[layer]; material.Layers[layer] = { source.Color[0], source.Color[1], source.Color[2], source.Roughness };
-                material.Mapping[layer] = { 1.f / source.TileSize, source.NormalStrength, source.Metallic, source.FlipNormalY ? -1.f : 1.f };
+                // Validated on load/save, but a C++ caller can still set it to 0/inf: never divide by it blindly.
+                material.Mapping[layer] = { 1.f / std::max( source.TileSize, 0.01f ), source.NormalStrength, source.Metallic, source.FlipNormalY ? -1.f : 1.f };
             }
             if( !streamed && draw->PaintedSurface != surface )
                 surfaceReady &= material.SetWeights( TerrainData::BuildSurfacePatch( *surface, data->Patches[i]->Mesh.SampleOrigin,

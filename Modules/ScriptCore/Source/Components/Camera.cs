@@ -38,12 +38,14 @@ public class Camera : Component
     }
 
     /// <summary>
-    /// CS-5 e: projection. FieldOfView is the vertical angle in degrees (the engine's Zoom field).
+    /// CS-5 e: projection. FieldOfView is the vertical angle in degrees: the engine's reflected
+    /// "FieldOfView" field, the one the projection is built from (the hidden legacy "Zoom" field is
+    /// read by nothing).
     /// </summary>
     public float FieldOfView
     {
-        get => Entity.GetField<float>("Camera", "Zoom", 45f);
-        set => Entity.SetField("Camera", "Zoom", value);
+        get => Entity.GetField<float>("Camera", "FieldOfView", 60f);
+        set => Entity.SetField("Camera", "FieldOfView", value);
     }
 
     /// <summary>The near clipping distance in metres.</summary>

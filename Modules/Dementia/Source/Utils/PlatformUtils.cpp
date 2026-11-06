@@ -337,7 +337,7 @@ Buffer PlatformUtils::ReadBytes( const Path& inFilePath )
     }
 
     Buffer buffer( size );
-    stream.read( (char*)buffer.Data, size );
+    stream.read( reinterpret_cast<char*>( buffer.Data() ), size );
     stream.close();
 
     return buffer;

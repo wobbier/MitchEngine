@@ -200,7 +200,7 @@ private:
     std::map<uint32_t, EntityHandle> m_entities;
     std::map<uint32_t, std::deque<Sample>> m_samples;
     std::set<uint32_t> m_predicted;
-    std::deque<NetSnapshot> m_snapshots;    // decoded, newest last, up to 32
+    std::deque<NetSnapshot> m_snapshots;    // decoded, newest last, up to kReceivedHistory
     bool m_hasSnapshot = false;
     uint32_t m_newest = 0;
     uint64_t m_received = 0;

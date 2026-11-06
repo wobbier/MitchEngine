@@ -14,10 +14,15 @@ CameraCore::CameraCore() : Base( ComponentFilter().Requires<Camera>().Requires<T
 {
     SetIsSerializable( false );
     DefaultCamera = new Camera();
+    Camera::FallbackCamera = DefaultCamera;
 }
 
 CameraCore::~CameraCore()
 {
+    if( Camera::FallbackCamera == DefaultCamera )
+    {
+        Camera::FallbackCamera = nullptr;
+    }
     delete DefaultCamera;
 }
 
@@ -320,9 +325,18 @@ void CameraCore::OnEntityRemoved( Entity& InEntity )
 {
     Camera& camera = InEntity.GetComponent<Camera>();
     const unsigned int id = camera.m_id;
-    Moonlight::CameraData* camData = GetEngine().GetRenderer().GetCameraCache().Get( id );
-    delete camData->Buffer;
-    GetEngine().GetRenderer().GetCameraCache().Pop( id );
+    if( Moonlight::CameraData* camData = GetEngine().GetRenderer().GetCameraCache().Get( id ) )
+    {
+        delete camData->Buffer;
+        camData->Buffer = nullptr;
+        GetEngine().GetRenderer().GetCameraCache().Pop( id );
+    }
     // The slot goes to the next camera added: this one (deactivated, perhaps still current) has none.
     camera.m_id = ~0u;
+    // A current camera that left the world hands the screen back to the default one; the next
+    // camera added takes over from it (OnEntityAdded).
+    if( Camera::CurrentCamera == &camera && DefaultCamera )
+    {
+        DefaultCamera->SetCurrent();
+    }
 }

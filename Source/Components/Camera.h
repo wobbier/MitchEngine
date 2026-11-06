@@ -20,6 +20,9 @@ class Camera
 public:
     inline static Camera* CurrentCamera = nullptr;
     inline static Camera* EditorCamera = nullptr;
+    // The camera CurrentCamera falls back to when the current one is destroyed (CameraCore's default
+    // camera), so the editor and UI never dereference a dead main camera.
+    inline static Camera* FallbackCamera = nullptr;
 
     Vector2 OutputSize;
     Vector3 ClearColor;

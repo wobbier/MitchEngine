@@ -1,4 +1,5 @@
 #include "PCH.h"
+#include "Components/Networking/NetIdentity.h"
 #include "Net.bindings.h"
 
 #if USING( ME_SCRIPTING )
@@ -392,6 +393,8 @@ static void Eng_Net_GetVisualOffset( EntityID id, Vector3* outOffset ) noexcept
 
 void Register_NetBindings( ScriptEngineAPI& inAPI )
 {
+    // Scripts can add it by name (World.Instantiate + AddComponent("NetIdentity")) and query it.
+    ScriptBindings::RegisterComponent<NetIdentity>( "NetIdentity" );
     inAPI.Net_GetRole = &Eng_Net_GetRole;
     inAPI.Net_GetLocalClientId = &Eng_Net_GetLocalClientId;
     inAPI.Net_GetTick = &Eng_Net_GetTick;

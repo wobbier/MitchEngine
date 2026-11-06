@@ -198,6 +198,7 @@ private:
     std::array<PhysicsTask, 128> m_tasks;
     int m_taskCount = 0;
     std::vector<CollisionEvent> m_pendingEvents;
+    std::vector<CollisionEvent> m_deliveringEvents;   // the batch being delivered; swapped with m_pendingEvents to keep capacity
 };
 
 ME_REGISTER_CORE( PhysicsCore )

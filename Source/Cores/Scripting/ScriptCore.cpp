@@ -199,6 +199,7 @@ void ScriptCore::StartScript( ScriptComponent& InScript )
         InScript.m_started = true;
         InScript.m_hadUpdate = false;
         InScript.m_startSequence = m_nextStartSequence++;
+        m_orderDirty = true;
         ScriptEngine::ScriptOnStart( InScript.m_dotnetHandle );
     }
 #endif
@@ -240,28 +241,43 @@ const std::vector<ScriptComponent*>& ScriptCore::RunList( uint32_t InCallback )
 {
     m_runList.clear();
 #if USING( ME_SCRIPTING )
-    for( Entity& entity : GetEntities() )
+    // The order only changes when the set of scripts, a start sequence or the schedules change, so
+    // sort then; every fixed step, update and late update just filters the ordered list.
+    const uint32_t generation = ScriptEngine::GetReloadGeneration();
+    if( m_orderDirty || m_orderGeneration != generation || m_orderedScripts.size() != GetEntities().size() )
     {
-        ScriptComponent& script = entity.GetComponent<ScriptComponent>();
-        if( !script.m_started || !script.IsEnabled() || !entity.IsActiveInHierarchy() )
+        m_orderedScripts.clear();
+        m_orderedScripts.reserve( GetEntities().size() );
+        for( Entity& entity : GetEntities() )
+        {
+            ScriptComponent& script = entity.GetComponent<ScriptComponent>();
+            RefreshSchedule( script );
+            m_orderedScripts.push_back( &script );
+        }
+        std::sort( m_orderedScripts.begin(), m_orderedScripts.end(), &ScriptCore::RunsBefore );
+        m_orderDirty = false;
+        m_orderGeneration = generation;
+    }
+    for( ScriptComponent* script : m_orderedScripts )
+    {
+        if( !script->m_started || !script->IsEnabled() || !script->Parent || !script->Parent->IsActiveInHierarchy() )
         {
             continue;
         }
-        RefreshSchedule( script );
+        RefreshSchedule( *script );
         if( InCallback == ScriptEngine::UpdateCallback )
         {
-            script.m_hadUpdate = true;
+            script->m_hadUpdate = true;
         }
-        else if( InCallback == ScriptEngine::LateUpdateCallback && !script.m_hadUpdate )
+        else if( InCallback == ScriptEngine::LateUpdateCallback && !script->m_hadUpdate )
         {
             continue;
         }
-        if( script.m_callbacks & InCallback )
+        if( script->m_callbacks & InCallback )
         {
-            m_runList.push_back( &script );
+            m_runList.push_back( script );
         }
     }
-    std::sort( m_runList.begin(), m_runList.end(), &ScriptCore::RunsBefore );
 #endif
     return m_runList;
 }
@@ -338,6 +354,7 @@ void ScriptCore::LateUpdate( const UpdateContext& inUpdateContext )
 
 void ScriptCore::OnEntityAdded( Entity& NewEntity )
 {
+    m_orderDirty = true;
     // ScriptComponent::Init creates the instance; spawned during play, it starts before the next
     // update (StartPendingScripts), once physics has its bodies.
 }
@@ -345,6 +362,7 @@ void ScriptCore::OnEntityAdded( Entity& NewEntity )
 
 void ScriptCore::OnEntityRemoved( Entity& InEntity )
 {
+    m_orderDirty = true;
 #if USING( ME_SCRIPTING )
     if( ScriptComponent* script = InEntity.TryGetComponent<ScriptComponent>() )
     {

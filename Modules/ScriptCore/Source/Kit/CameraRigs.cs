@@ -192,7 +192,7 @@ public class CameraBrain : Script
     public override void OnStart()
     {
         // Rigs without a field of view of their own use the camera's.
-        _baseFieldOfView = _setFieldOfView = Entity.GetField("Camera", "Zoom", 55f);
+        _baseFieldOfView = _setFieldOfView = Entity.GetField("Camera", "FieldOfView", 60f);
     }
 
     /// <inheritdoc/>
@@ -223,7 +223,7 @@ public class CameraBrain : Script
         transform.LookDirection(pose.Forward, pose.Up);
         if (pose.FieldOfView > 0f && MathF.Abs(pose.FieldOfView - _setFieldOfView) > 1e-4f)
         {
-            Entity.SetField("Camera", "Zoom", pose.FieldOfView);
+            Entity.SetField("Camera", "FieldOfView", pose.FieldOfView);
             _setFieldOfView = pose.FieldOfView;
         }
     }

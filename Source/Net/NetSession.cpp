@@ -1,8 +1,10 @@
 #include "PCH.h"
 #include "Net/NetSession.h"
+#include "CLog.h"
 #include "Net/BitStream.h"
 #include "Net/NetQuantize.h"
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 
 namespace
@@ -19,13 +21,19 @@ namespace
 
     void SendOn( NetConnection& InConnection, const BitWriter& InWriter, bool InReliable )
     {
-        if( InReliable )
+        const bool sent = InReliable ? InConnection.SendReliable( InWriter.GetBytes() ) : InConnection.SendUnreliable( InWriter.GetBytes() );
+        if( !sent )
         {
-            InConnection.SendReliable( InWriter.GetBytes() );
-        }
-        else
-        {
-            InConnection.SendUnreliable( InWriter.GetBytes() );
+            // Too big for one message (a pawn with a lot of predicted state, say): say so, once a
+            // second, instead of dropping it silently and never syncing.
+            static auto lastWarning = std::chrono::steady_clock::time_point();
+            const auto now = std::chrono::steady_clock::now();
+            if( now - lastWarning >= std::chrono::seconds( 1 ) )
+            {
+                lastWarning = now;
+                YIKES( "Net: dropped a " + std::to_string( InWriter.GetBytes().size() ) + "-byte " + ( InReliable ? "reliable" : "unreliable" )
+                    + " message; the limit is " + std::to_string( NetConnection::kMaxMessageBytes ) + " bytes" );
+            }
         }
     }
 

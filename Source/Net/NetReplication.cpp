@@ -12,7 +12,13 @@
 
 namespace
 {
-    constexpr size_t kSnapshotHistory = 32;
+    // What the server keeps of what it sent (delta baselines a client may still ack) and what a
+    // client keeps of what it decoded (to apply those deltas). Both must cover a round trip: the
+    // baseline is acked about half an RTT after it was sent and its delta arrives another half later,
+    // so beyond this many ticks of RTT the server has to send full state every tick (no stall, but
+    // the bandwidth of a fresh join). 128 ticks is ~2 s at 60 Hz; 32 was ~530 ms.
+    constexpr size_t kSentHistory = 128;
+    constexpr size_t kReceivedHistory = 128;
     constexpr size_t kSampleHistory = 64;
 
     // Placed networked entities, by GUID: the same order on both sides.
@@ -219,6 +225,15 @@ void NetReplicationServer::CaptureTick( uint32_t InTick )
         NetIdentity* identity = InEntity.TryGetComponent<NetIdentity>();
         if( identity && identity->m_netId == 0 )
         {
+            // World.Instantiate / CreateFromPrefab record the asset on the entity; a NetIdentity that
+            // doesn't name a prefab of its own takes it, so clients create the same prefab.
+            if( identity->Prefab.empty() )
+            {
+                if( const World::EntityRecord* record = m_world.GetRecord( InEntity.GetId() ) )
+                {
+                    identity->Prefab = record->PrefabAsset;
+                }
+            }
             identity->m_netId = m_nextDynamicId++;
             m_entities[identity->m_netId] = m_world.GetEntity( InEntity.GetId() );
             BitWriter spawn;
@@ -459,7 +474,7 @@ void NetReplicationServer::Prepare( uint8_t InClient, ClientState& InState ) con
     InState.HasSent = true;
     InState.LastSentTick = m_current.Tick;
     InState.Sent.push_back( InState.PreparedSent );
-    while( InState.Sent.size() > kSnapshotHistory )
+    while( InState.Sent.size() > kSentHistory )
     {
         InState.Sent.pop_front();
     }
@@ -765,7 +780,7 @@ void NetReplicationClient::OnSnapshot( BitReader& InReader )
     m_newest = decoded.Tick;
     ++m_received;
     m_snapshots.push_back( std::move( decoded ) );
-    while( m_snapshots.size() > kSnapshotHistory )
+    while( m_snapshots.size() > kReceivedHistory )
     {
         m_snapshots.pop_front();
     }
