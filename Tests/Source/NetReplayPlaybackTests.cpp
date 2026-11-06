@@ -326,6 +326,21 @@ TEST_CASE( "Replay playback: stepping through a recorded session, the world at e
     // The placed entity destroyed at DoomedAt is gone from the viewer's world too.
     CHECK_FALSE( viewer.Client.FindEntity( 3 ) );
     CHECK_FALSE( Find( *viewer.GameWorld, kDoomed ) );
+
+    // Played at 0.3x (between ticks almost every frame) from the start to the end: each chunk
+    // is read and decoded once, not again at every chunk boundary.
+    REQUIRE( playback.GetReader().GetChunkCount() >= 2 );
+    playback.Seek( playback.GetFirstTick() );
+    viewer.Frame();
+    const uint64_t loads = playback.GetReader().GetChunkLoads();
+    playback.SetSpeed( 0.3 );
+    playback.Play();
+    for( int frame = 0; frame < 10000 && !playback.IsPaused(); ++frame )
+    {
+        viewer.Frame( 1.0 / 60.0 );
+    }
+    CHECK( playback.GetTick() == playback.GetLastTick() );
+    CHECK( playback.GetReader().GetChunkLoads() - loads == playback.GetReader().GetChunkCount() - 1 );
 }
 
 TEST_CASE( "Replay playback: seeking anywhere (back, forward, across keyframes, a spawn and a despawn) shows that tick exactly; step, speed, loop and pause-at (ME-316)" )

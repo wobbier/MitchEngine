@@ -110,6 +110,7 @@ void NetReplayPlayback::SetPauseAt( int64_t InTick )
 
 bool NetReplayPlayback::Update( double InFrameSeconds )
 {
+    OPTICK_EVENT( "NetReplayPlayback::Update" );
     if( m_reader.IsEmpty() )
     {
         m_error = "the replay has no ticks";
@@ -154,6 +155,15 @@ bool NetReplayPlayback::Present()
             return false;
         }
     }
+    // The shown tick's record, read in tick order with the feeding: the reader keeps one decoded
+    // chunk, so reading the shown tick after feeding the next chunk's first tick would decode both
+    // chunks again (and the next one once more the frame after) at every chunk boundary.
+    bool readShown = m_hasRecord && m_record.Tick == shown;
+    if( !readShown && shown <= m_fedTick )
+    {
+        m_hasRecord = m_reader.ReadTick( shown, m_record );
+        readShown = true;
+    }
     for( uint32_t tick = m_fedTick + 1; tick <= need; ++tick )
     {
         NetReplayTick record;
@@ -161,15 +171,26 @@ bool NetReplayPlayback::Present()
         if( m_reader.ReadTick( tick, record ) )
         {
             Feed( record );
+            if( tick == shown )
+            {
+                m_record = std::move( record );
+                m_hasRecord = true;
+                readShown = true;
+            }
         }
         else if( !m_reader.GetError().empty() )
         {
             m_error = m_reader.GetError();
             return false;
         }
+        else if( tick == shown )
+        {
+            m_hasRecord = false;
+            readShown = true;
+        }
     }
     m_lastShown = shown;
-    if( !m_hasRecord || m_record.Tick != shown )
+    if( !readShown )
     {
         m_hasRecord = m_reader.ReadTick( shown, m_record );
     }
@@ -180,6 +201,7 @@ bool NetReplayPlayback::Present()
 
 bool NetReplayPlayback::Rebuild( uint32_t InTick )
 {
+    OPTICK_EVENT( "NetReplayPlayback::Rebuild" );
     ++m_rebuilds;
     NetReplayTick record;
     if( !m_reader.ReadTick( InTick, record ) )
@@ -213,6 +235,8 @@ bool NetReplayPlayback::Rebuild( uint32_t InTick )
     m_historyStart = InTick;
     m_fedState = record.State;
     m_lastShown = InTick;
+    m_record = std::move( record );
+    m_hasRecord = true;
     ++m_ticksFed;
     return true;
 }

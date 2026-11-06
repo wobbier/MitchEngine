@@ -305,12 +305,16 @@ public:
     // a chunk wouldn't decode.
     bool ForEach( uint32_t InFrom, uint32_t InTo, const std::function<bool( const NetReplayTick& )>& InFn );
     const std::string& GetError() const { return m_error; }
+    size_t GetChunkCount() const { return m_source.GetChunkCount(); }
+    // Chunks read and decoded so far (it keeps the last one decoded; tests count re-decodes).
+    uint64_t GetChunkLoads() const { return m_chunkLoads; }
 
 private:
     bool LoadChunk( size_t InIndex );
 
     INetReplaySource& m_source;
     size_t m_loaded = static_cast<size_t>( -1 );
+    uint64_t m_chunkLoads = 0;
     std::vector<NetReplayTick> m_ticks;
     std::vector<uint8_t> m_bytes;
     std::string m_error;

@@ -1224,6 +1224,8 @@ bool NetReplayReader::LoadChunk( size_t InIndex )
     {
         return true;
     }
+    OPTICK_EVENT( "NetReplayReader::LoadChunk" );
+    ++m_chunkLoads;
     m_loaded = static_cast<size_t>( -1 );
     if( !m_source.ReadChunk( InIndex, m_bytes ) )
     {
