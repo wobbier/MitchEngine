@@ -89,6 +89,8 @@ NetServer::Client* NetServer::FindOrAdd( NetAddress InAddress )
     auto client = std::make_unique<Client>();
     client->Address = InAddress;
     client->Connection = std::make_unique<NetConnection>( m_transport, InAddress );
+    // An address that hasn't been accepted can't make the server hold anything for blobs.
+    client->Connection->SetAcceptIncomingBlobs( false );
     client->Commands.SetMaxRepeats( m_maxCommandRepeats );
     m_clients.push_back( std::move( client ) );
     return m_clients.back().get();
@@ -217,6 +219,7 @@ void NetServer::HandleReliable( Client& InClient, const std::vector<uint8_t>& In
     else
     {
         InClient.Accepted = true;
+        InClient.Connection->SetAcceptIncomingBlobs( true );
         InClient.Id = id;
         InClient.AcceptedAt = InClient.LastHeard;
         ++m_acceptedCount;
@@ -453,8 +456,11 @@ void NetClient::Receive( double InNow )
         {
             HandleUnreliable( message );
         }
+        // Blobs the server sent right after its Welcome can arrive whole before it does (the
+        // packet carrying it lost, or overtaken): they wait in the connection until it's here.
+        // The server counts them delivered once their slices are acked.
         uint32_t blobId = 0;
-        while( m_connection.ReceiveBlob( blobId, message ) )
+        while( m_state != State::Connecting && m_connection.ReceiveBlob( blobId, message ) )
         {
             if( m_state == State::Connected && OnBlob )
             {

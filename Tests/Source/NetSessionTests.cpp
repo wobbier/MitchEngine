@@ -4,6 +4,7 @@
 #include "Net/NetClock.h"
 #include "Net/NetCommands.h"
 #include "Net/NetQuantize.h"
+#include "Net/NetSession.h"
 #include "NetHarness.h"
 #include <algorithm>
 #include <cmath>
@@ -1896,4 +1897,141 @@ TEST_CASE( "Net: a client with other net-required mods is rejected with the list
     NetVersion none;
     none.SetMods( {} );
     CHECK( none.ModSet == 0 );
+}
+
+
+namespace
+{
+    // Holds the server's packets that carry messages (the Welcome's, every tick's state) while
+    // Holding, and lets packets of blob slices alone through.
+    struct HoldMainPackets final
+        : public INetTransport
+    {
+        INetTransport& Inner;
+        bool Holding = true;
+        std::vector<std::pair<NetAddress, std::vector<uint8_t>>> Held;
+
+        explicit HoldMainPackets( INetTransport& InInner )
+            : Inner( InInner )
+        {
+        }
+        NetAddress GetAddress() const override { return Inner.GetAddress(); }
+        bool Receive( NetPacket& OutPacket ) override { return Inner.Receive( OutPacket ); }
+        void Send( NetAddress InTo, const uint8_t* InData, size_t InSize ) override
+        {
+            BitReader reader( InData, InSize );
+            reader.ReadBits( 16 );      // protocol
+            reader.ReadBits( 16 );      // sequence
+            if( reader.ReadBool() )
+            {
+                reader.ReadBits( 16 );  // ack
+                reader.ReadBits( 32 );  // ack bits
+                reader.ReadBits( 16 );  // ack delay
+            }
+            const bool hasMessages = reader.ReadBool();
+            if( Holding && hasMessages )
+            {
+                Held.emplace_back( InTo, std::vector<uint8_t>( InData, InData + InSize ) );
+                return;
+            }
+            Inner.Send( InTo, InData, InSize );
+        }
+        void Release()
+        {
+            Holding = false;
+            for( const auto& [to, data] : Held )
+            {
+                Inner.Send( to, data.data(), data.size() );
+            }
+            Held.clear();
+        }
+    };
+}
+
+
+TEST_CASE( "Net: a blob that arrives whole before the Welcome waits for it, and a peer not yet accepted can't make the server hold blobs (ME-323)" )
+{
+    LoopbackNetwork network;
+    LoopbackTransport serverRaw( network, 1 );
+    LoopbackTransport clientRaw( network, 2 );
+    HoldMainPackets serverSide( serverRaw );
+    NetServer server( serverSide, NetVersion(), 60 );
+    NetClient client( clientRaw, 1, NetVersion() );
+
+    // The server sends a blob the moment it accepts the client, and fills every packet it always
+    // sends with a big message, so the blob's slices all go in packets of their own.
+    std::vector<uint8_t> blob( 3000 );
+    for( size_t i = 0; i < blob.size(); ++i )
+    {
+        blob[i] = static_cast<uint8_t>( i * 7 + 3 );
+    }
+    uint32_t sentId = 0;
+    server.OnClientAccepted = [&]( NetServer::Client& InClient ) { sentId = server.SendBlob( InClient, blob ); };
+    server.OnPacket = [&]( NetServer::Client& InClient ) {
+        BitWriter filler;
+        filler.WriteBits( 200, 8 );
+        const std::vector<uint8_t> bytes( 1000, 0xEE );
+        filler.WriteBytes( bytes.data(), bytes.size() );
+        server.Send( InClient, filler, false );
+    };
+    std::vector<std::pair<uint32_t, std::vector<uint8_t>>> got;
+    client.OnBlob = [&]( uint32_t InId, std::vector<uint8_t>& InData ) { got.emplace_back( InId, InData ); };
+
+    double now = 0.0;
+    auto step = [&]() {
+        now += 1.0 / 60.0;
+        server.Receive( now );
+        server.BeginTick();
+        server.EndTick( now );
+        client.Receive( now );
+        client.SubmitCommand( InputCommand() );
+        client.Flush( now );
+    };
+    client.Connect();
+    // The Welcome (and every state packet after it) is held: the blob arrives whole first.
+    for( int i = 0; i < 60 && client.GetConnection().GetStats().BlobsReceived == 0; ++i )
+    {
+        step();
+    }
+    REQUIRE( sentId != 0 );
+    REQUIRE( client.GetConnection().GetStats().BlobsReceived == 1 );
+    CHECK( client.GetState() == NetClient::State::Connecting );
+    CHECK( got.empty() );
+    // Then the Welcome: the blob is handed over once the client is in.
+    serverSide.Release();
+    for( int i = 0; i < 30 && got.empty(); ++i )
+    {
+        step();
+    }
+    CHECK( client.GetState() == NetClient::State::Connected );
+    REQUIRE( got.size() == 1 );
+    CHECK( got[0].first == sentId );
+    CHECK( got[0].second == blob );
+
+    // An address that never said Hello sends a slice claiming 4 MB: the server reserves nothing.
+    LoopbackTransport strangerRaw( network, 3 );
+    BitWriter forged;
+    forged.WriteBits( NetConnection::kProtocolId, 16 );
+    forged.WriteBits( 0, 16 );
+    forged.WriteBool( false );
+    forged.WriteBool( false );
+    forged.WriteBool( true );
+    forged.WriteBool( true );
+    forged.WriteBool( false );
+    forged.WriteBool( true );
+    forged.WriteVarUInt( 1 );
+    forged.WriteVarUInt( NetConnection::kMaxBlobBytes );
+    forged.WriteVarUInt( 0 );
+    const std::vector<uint8_t> slice( NetConnection::kBlobSliceBytes, 0x42 );
+    forged.WriteBytes( slice.data(), slice.size() );
+    forged.WriteBool( false );
+    strangerRaw.Send( 1, forged.GetBytes().data(), forged.GetByteCount() );
+    step();
+    REQUIRE( server.GetClients().size() == 2 );
+    const NetConnection& stranger = *server.GetClients().back()->Connection;
+    CHECK_FALSE( server.GetClients().back()->Accepted );
+    CHECK( stranger.GetBlobProgress().empty() );
+    CHECK( stranger.GetStats().BlobSlicesIgnored == 1 );
+    // The accepted client's connection takes blobs.
+    CHECK( server.GetClients().front()->Connection->IsAcceptingIncomingBlobs() );
 }

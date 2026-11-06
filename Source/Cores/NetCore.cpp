@@ -53,6 +53,7 @@ namespace
         blobs["SlicesSent"] = InStats.BlobSlicesSent;
         blobs["SlicesResent"] = InStats.BlobSlicesResent;
         blobs["SlicesDuplicate"] = InStats.BlobSlicesDuplicate;
+        blobs["SlicesIgnored"] = InStats.BlobSlicesIgnored;
         blobs["BytesSent"] = InStats.BlobBytesSent;
         blobs["BytesReceived"] = InStats.BlobBytesReceived;
         blobs["Packets"] = InStats.BlobPacketsSent;

@@ -29,7 +29,8 @@ struct NetStats
     float PacketLoss = 0.f;             // smoothed fraction of packets lost
     // The blob channel (ME-323).
     uint64_t BlobsSent = 0;             // queued (SendBlob)
-    uint64_t BlobsAcked = 0;            // ... and every slice acked: the remote has it all
+    uint64_t BlobsAcked = 0;            // ... and every slice acked: the remote has it all (delivered,
+                                        // unless it refused it while the last slices were on the way)
     uint64_t BlobsReceived = 0;         // reassembled and delivered
     uint64_t BlobsCancelled = 0;        // by this end, either way (CancelBlob, CancelIncomingBlob)
     uint64_t BlobsCancelledByRemote = 0;
@@ -37,6 +38,9 @@ struct NetStats
     uint64_t BlobSlicesSent = 0;        // resends too
     uint64_t BlobSlicesResent = 0;
     uint64_t BlobSlicesDuplicate = 0;   // received again (a resend crossed its ack)
+    uint64_t BlobSlicesIgnored = 0;     // received and dropped: incoming blobs not allowed here yet, or
+                                        // not an honest peer's (an id too far ahead, a ninth blob at once,
+                                        // a size that changed)
     uint64_t BlobBytesSent = 0;         // slice payload, resends too
     uint64_t BlobBytesReceived = 0;     // new slice payload
     uint64_t BlobPacketsSent = 0;       // packets of slices alone, past the one SendPacket always sends
@@ -97,6 +101,9 @@ public:
     static constexpr size_t kMaxIncomingBlobs = 8;
     // Packets of slices alone one SendPacket may add.
     static constexpr int kMaxBlobPacketsPerSend = 16;
+    // Ids the remote cancelled before this end saw a slice of them, held until the oldest blob not
+    // done gets past them, at most (past it, such cancels are ignored: a hostile peer's).
+    static constexpr size_t kMaxIncomingFinished = 4096;
 
     NetConnection( INetTransport& InTransport, NetAddress InRemote );
 
@@ -122,9 +129,12 @@ public:
     bool ReceiveUnreliable( std::vector<uint8_t>& OutMessage );
 
     // Blobs (ME-323). SendBlob queues one: its id (never 0), or 0 when it's empty or past
-    // kMaxBlobBytes (refused: nothing queued). CancelBlob stops one of this end's that the remote
-    // doesn't have all of yet (false otherwise); the remote drops what it has of it.
-    // CancelIncomingBlob drops one arriving from the remote and tells it to stop sending.
+    // kMaxBlobBytes (refused: nothing queued). CancelBlob stops one of this end's that isn't known
+    // to be done yet (false otherwise: every slice acked, or cancelled already); the remote drops
+    // what it has of it. A cancel can lose the race: the remote may already have the blob whole,
+    // its last acks still on their way (then it's delivered there all the same).
+    // CancelIncomingBlob drops one arriving from the remote and tells it to stop sending (slices
+    // already on their way are acked and dropped: the sender may count it acked first).
     uint32_t SendBlob( const void* InData, size_t InSize );
     uint32_t SendBlob( const std::vector<uint8_t>& InData ) { return SendBlob( InData.data(), InData.size() ); }
     bool CancelBlob( uint32_t InId );
@@ -135,6 +145,11 @@ public:
     std::vector<NetBlobProgress> GetBlobProgress() const;
     size_t GetPendingBlobCount() const { return m_blobsOut.size(); }
     void SetBlobSettings( const NetBlobSettings& InSettings ) { m_blobSettings = InSettings; }
+    // Whether the remote's blobs are taken in (default yes). Off, their slices and cancels are
+    // dropped before anything is reserved for them (BlobSlicesIgnored): a server turns it on only
+    // once it accepted the peer, so an address that never said Hello can't make it hold megabytes.
+    void SetAcceptIncomingBlobs( bool InAccept ) { m_acceptIncomingBlobs = InAccept; }
+    bool IsAcceptingIncomingBlobs() const { return m_acceptIncomingBlobs; }
     const NetBlobSettings& GetBlobSettings() const { return m_blobSettings; }
     // About the packet ReceivePacket last accepted (drained right after that call, the messages
     // above are its). Newest: no packet the remote sent later had arrived before it (it moved the
@@ -144,7 +159,9 @@ public:
     // arriving first mustn't make it old news).
     bool WasLastPacketNewest() const { return m_lastPacketNewest; }
     // The newest of this end's packets the remote had received when it sent that packet (false
-    // when it had none yet): what the remote knew of this end when it wrote the messages.
+    // when it had none yet): what the remote knew of this end when it wrote the messages. Only the
+    // packets SendPacket always sends count (not packets of blob slices alone, which carry no
+    // messages): an ack at or past one of them means the remote has it or a later one like it.
     bool GetLastPacketAck( uint16_t& OutAck ) const
     {
         OutAck = m_lastPacketAck;
@@ -180,6 +197,7 @@ private:
         uint16_t Sequence = 0;
         bool Valid = false;
         bool Acked = false;
+        bool SlicesOnly = false;    // a packet of blob slices alone (SendBlobPacket)
         double SentAt = 0.0;
         std::vector<uint16_t> Reliable;
         std::vector<BlobSliceRef> Slices;
@@ -215,6 +233,9 @@ private:
     };
 
     double ResendDelay() const;
+    // A slice's: ResendDelay plus how long the remote holds a packet before its ack goes out (its
+    // gap between packets: a 20 Hz end acks 50 ms late, which the round trip leaves out).
+    double BlobResendDelay() const { return ResendDelay() + m_remoteAckDelay; }
     void WriteHeader( BitWriter& InWriter, uint16_t InSequence, double InNow ) const;
     void ProcessAcks( uint16_t InAck, uint32_t InAckBits, double InAckDelay, double InNow );
     void OnAcked( SentPacket& InPacket );
@@ -225,6 +246,11 @@ private:
     static uint32_t SliceCount( size_t InSize ) { return static_cast<uint32_t>( ( InSize + kBlobSliceBytes - 1 ) / kBlobSliceBytes ); }
     static size_t SliceBytes( size_t InSize, uint32_t InIndex ) { return std::min( kBlobSliceBytes, InSize - static_cast<size_t>( InIndex ) * kBlobSliceBytes ); }
     void RefillBlobTokens( double InNow );
+    // How many seconds of their rate the blob buckets hold (and owe at most): a little over this
+    // end's usual gap between packets, so a slow tick rate can still spend the whole rate.
+    double BlobBurstSeconds() const;
+    // The newest packet SendPacket always sent among InAck and the 32 before it the remote acked.
+    bool FindMainAck( uint16_t InAck, uint32_t InAckBits, uint16_t& OutAck ) const;
     bool HasBlobAllowance() const { return m_blobLinkTokens > 0.0 || m_blobMinTokens > 0.0; }
     size_t GetActiveBlobSlots() const;
     bool HasSliceDue( double InNow, double InResendDelay ) const;
@@ -255,6 +281,7 @@ private:
     double m_lastReadAt = -1.0;         // BeginRead's last pass
     double m_readGap = 0.0;             // ... the time since the one before it
     double m_readInterval = -1.0;       // ... and the usual time between them (smoothed; < 0: unknown)
+    double m_remoteAckDelay = 0.0;      // the remote's wait before acking, about its longest lately
     std::array<SentPacket, 1024> m_sent;
     uint16_t m_finalized = 0xFFFF;      // sent packets up to here are counted acked or lost
     bool m_hasAck = false;
@@ -289,6 +316,7 @@ private:
     double m_blobMinTokens = 0.0;
     double m_blobRefilledAt = -1.0;
     // Blobs, receiving: every id below the floor, and those in the set, are done (delivered or cancelled).
+    bool m_acceptIncomingBlobs = true;
     std::vector<IncomingBlob> m_blobsIn;
     uint32_t m_blobInFloor = 1;
     std::set<uint32_t> m_blobInFinished;

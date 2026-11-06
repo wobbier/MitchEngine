@@ -21,6 +21,8 @@ namespace
     constexpr double kReadWaitGaps = 2.0;
     // A gap between packets counts this much at most towards the usual one (a hitch's is no guide).
     constexpr double kMaxSendGapSample = 0.5;
+    // The remote's wait before acking counts this much at most towards a slice's resend delay.
+    constexpr double kMaxAckDelaySample = 0.25;
 
     // Blobs (ME-323). The trailer after the messages: its flag, extra-packet bit and the two lists' ends.
     constexpr size_t kTrailerBytes = 1;
@@ -29,8 +31,10 @@ namespace
     // Per slice: more, id (up to 5 bytes), size (up to 4 for 4 MB), index (up to 2 for 4096 slices).
     constexpr size_t kSliceOverheadBytes = 12;
     // The buckets hold this many seconds of their rate (at least a packet or two), and owe at most
-    // as much: a burst of slice packets is a couple of ticks' worth at 60 Hz.
+    // as much: a burst of slice packets is a couple of ticks' worth at 60 Hz. At least two of this
+    // end's usual gaps between packets (a 20 Hz end refills 50 ms at a time), up to the most.
     constexpr double kBlobBurstSeconds = 0.035;
+    constexpr double kMaxBlobBurstSeconds = 0.25;
     // Ids further than this past the oldest one not done are ignored (a hostile peer's).
     constexpr uint32_t kMaxBlobIdAhead = 1u << 20;
 }
@@ -183,10 +187,11 @@ void NetConnection::SendPacket( double InNow )
     m_blobLinkTokens -= static_cast<double>( bytes.size() );
 
     // Then packets of slices alone, while the share allows.
-    for( int i = 0; i < kMaxBlobPacketsPerSend && HasBlobAllowance() && HasSliceDue( InNow, resendDelay ) && SendBlobPacket( InNow ); ++i )
+    const double sliceResendDelay = BlobResendDelay();
+    for( int i = 0; i < kMaxBlobPacketsPerSend && HasBlobAllowance() && HasSliceDue( InNow, sliceResendDelay ) && SendBlobPacket( InNow ); ++i )
     {
     }
-    const double linkFloor = -std::max( 2.0 * kMaxPacketBytes, m_blobSettings.LinkBytesPerSecond * kBlobBurstSeconds );
+    const double linkFloor = -std::max( 2.0 * kMaxPacketBytes, m_blobSettings.LinkBytesPerSecond * BlobBurstSeconds() );
     m_blobLinkTokens = std::max( m_blobLinkTokens, linkFloor );
 }
 
@@ -212,6 +217,7 @@ bool NetConnection::SendBlobPacket( double InNow )
     SentPacket record;
     record.Sequence = m_sequence;
     record.Valid = true;
+    record.SlicesOnly = true;
     record.SentAt = InNow;
     BitWriter writer;
     WriteHeader( writer, record.Sequence, InNow );
@@ -320,6 +326,9 @@ void NetConnection::ProcessAcks( uint16_t InAck, uint32_t InAckBits, double InAc
             m_stats.RoundTripDeviationMs += static_cast<float>( ( std::abs( error ) - m_stats.RoundTripDeviationMs ) * 0.25 );
             m_stats.RoundTripMs += static_cast<float>( error * 0.125 );
         }
+        // Held at the longest wait lately, easing down: a resend sooner than that is spurious.
+        const double wait = std::min( InAckDelay, kMaxAckDelaySample );
+        m_remoteAckDelay = std::max( wait, m_remoteAckDelay + ( wait - m_remoteAckDelay ) * 0.05 );
         OnAcked( *latest );
     }
     for( uint32_t i = 0; i < 32; ++i )
@@ -473,8 +482,9 @@ bool NetConnection::ReceivePacket( const uint8_t* InData, size_t InSize, double 
     }
     ++m_stats.PacketsReceived;
     m_stats.BytesReceived += InSize;
-    m_lastPacketHasAck = hasAck;
-    m_lastPacketAck = ack;
+    // What the remote had of this end's packets: the newest it acked that carried messages (one
+    // of slices alone sent right after a lost packet says nothing about that packet's messages).
+    m_lastPacketHasAck = hasAck && FindMainAck( ack, ackBits, m_lastPacketAck );
     if( hasAck )
     {
         ProcessAcks( ack, ackBits, ackDelay, InNow );
@@ -492,11 +502,22 @@ bool NetConnection::ReceivePacket( const uint8_t* InData, size_t InSize, double 
     }
     for( const auto& [id, theirs] : cancels )
     {
-        AcceptBlobCancel( id, theirs );
+        // The remote refusing one of this end's always counts; its own blobs only once allowed.
+        if( theirs || m_acceptIncomingBlobs )
+        {
+            AcceptBlobCancel( id, theirs );
+        }
     }
     for( ReceivedSlice& slice : slices )
     {
-        AcceptSlice( std::move( slice ), InNow );
+        if( m_acceptIncomingBlobs )
+        {
+            AcceptSlice( std::move( slice ), InNow );
+        }
+        else
+        {
+            ++m_stats.BlobSlicesIgnored;
+        }
     }
     return true;
 }
@@ -637,14 +658,46 @@ std::vector<NetBlobProgress> NetConnection::GetBlobProgress() const
 }
 
 
+bool NetConnection::FindMainAck( uint16_t InAck, uint32_t InAckBits, uint16_t& OutAck ) const
+{
+    auto isMain = [this]( uint16_t InSequence ) {
+        // One no longer in the ring is long settled: taken as it always was, a main packet.
+        const SentPacket& record = m_sent[InSequence % m_sent.size()];
+        return !( record.Valid && record.Sequence == InSequence && record.SlicesOnly );
+    };
+    if( isMain( InAck ) )
+    {
+        OutAck = InAck;
+        return true;
+    }
+    for( uint32_t i = 0; i < 32; ++i )
+    {
+        const uint16_t sequence = static_cast<uint16_t>( InAck - 1 - i );
+        if( ( InAckBits & ( 1u << i ) ) && isMain( sequence ) )
+        {
+            OutAck = sequence;
+            return true;
+        }
+    }
+    return false;
+}
+
+
+double NetConnection::BlobBurstSeconds() const
+{
+    return std::clamp( 2.0 * m_sendGap, kBlobBurstSeconds, kMaxBlobBurstSeconds );
+}
+
+
 void NetConnection::RefillBlobTokens( double InNow )
 {
     const double linkRate = m_blobSettings.LinkBytesPerSecond;
     const double minRate = m_blobSettings.MinBytesPerSecond;
-    const double seconds = m_blobRefilledAt < 0.0 ? 0.0 : std::clamp( InNow - m_blobRefilledAt, 0.0, 0.25 );
+    const double seconds = m_blobRefilledAt < 0.0 ? 0.0 : std::clamp( InNow - m_blobRefilledAt, 0.0, kMaxBlobBurstSeconds );
     m_blobRefilledAt = InNow;
-    m_blobLinkTokens = std::min( m_blobLinkTokens + linkRate * seconds, std::max( 2.0 * kMaxPacketBytes, linkRate * kBlobBurstSeconds ) );
-    m_blobMinTokens = std::min( m_blobMinTokens + minRate * seconds, std::max( static_cast<double>( kMaxPacketBytes ), minRate * kBlobBurstSeconds ) );
+    const double burst = BlobBurstSeconds();
+    m_blobLinkTokens = std::min( m_blobLinkTokens + linkRate * seconds, std::max( 2.0 * kMaxPacketBytes, linkRate * burst ) );
+    m_blobMinTokens = std::min( m_blobMinTokens + minRate * seconds, std::max( static_cast<double>( kMaxPacketBytes ), minRate * burst ) );
 }
 
 
@@ -731,7 +784,7 @@ bool NetConnection::TakeSlice( double InNow, double InResendDelay, size_t InRoom
 
 bool NetConnection::WriteBlobTrailer( BitWriter& InWriter, bool InExtra, size_t& InBudget, double InNow, SentPacket& InRecord )
 {
-    const double resendDelay = ResendDelay();
+    const double resendDelay = BlobResendDelay();
     // Cancels due: new ones, and any not acked for a little over a round trip. Tiny, outside the
     // share, and in the packet SendPacket always sends (a packet of slices alone carries slices only).
     for( BlobCancel& cancel : m_blobCancels )
@@ -755,7 +808,7 @@ bool NetConnection::WriteBlobTrailer( BitWriter& InWriter, bool InExtra, size_t&
         m_blobMinTokens -= static_cast<double>( bytes + kSliceOverheadBytes );
         InRecord.Slices.push_back( slice );
     }
-    m_blobMinTokens = std::max( m_blobMinTokens, -std::max( static_cast<double>( kMaxPacketBytes ), m_blobSettings.MinBytesPerSecond * kBlobBurstSeconds ) );
+    m_blobMinTokens = std::max( m_blobMinTokens, -std::max( static_cast<double>( kMaxPacketBytes ), m_blobSettings.MinBytesPerSecond * BlobBurstSeconds() ) );
     if( InRecord.Cancels.empty() && InRecord.Slices.empty() )
     {
         return false;
@@ -828,6 +881,7 @@ void NetConnection::AcceptSlice( ReceivedSlice&& InSlice, double InNow )
     }
     if( InSlice.Blob - m_blobInFloor >= kMaxBlobIdAhead )
     {
+        ++m_stats.BlobSlicesIgnored;
         return;
     }
     auto it = std::find_if( m_blobsIn.begin(), m_blobsIn.end(), [&InSlice]( const IncomingBlob& InBlob ) { return InBlob.Id == InSlice.Blob; } );
@@ -835,6 +889,7 @@ void NetConnection::AcceptSlice( ReceivedSlice&& InSlice, double InNow )
     {
         if( m_blobsIn.size() >= kMaxIncomingBlobs )
         {
+            ++m_stats.BlobSlicesIgnored;
             return;
         }
         IncomingBlob blob;
@@ -848,6 +903,7 @@ void NetConnection::AcceptSlice( ReceivedSlice&& InSlice, double InNow )
     IncomingBlob& blob = *it;
     if( blob.Data.size() != InSlice.Size )
     {
+        ++m_stats.BlobSlicesIgnored;
         return;     // not what its first slice said: not an honest peer's
     }
     if( blob.Have[InSlice.Index] )
@@ -896,6 +952,12 @@ void NetConnection::AcceptBlobCancel( uint32_t InId, bool InTheirs )
     if( it != m_blobsIn.end() )
     {
         m_blobsIn.erase( it );
+    }
+    else if( m_blobInFinished.size() >= kMaxIncomingFinished )
+    {
+        // One never seen, with the set full: an honest sender doesn't get this far ahead of its
+        // oldest blob, so it's a hostile peer's (each id would cost a node, never freed).
+        return;
     }
     MarkIncomingFinished( InId );
     ++m_stats.BlobsCancelledByRemote;

@@ -24,6 +24,7 @@ namespace NetTest
         NetConnection ToB{ A, 2 };
         NetConnection ToA{ B, 1 };
         double Now = 0.0;
+        double Tick = kTick;    // how long each Step is
 
         Link( NetConditions InAToB, NetConditions InBToA )
             : A( RawA, InAToB )
@@ -39,7 +40,7 @@ namespace NetTest
             const double start = Now;
             for( int i = 1; i <= kSubSteps; ++i )
             {
-                Now = start + kTick * i / kSubSteps;
+                Now = start + Tick * i / kSubSteps;
                 A.Update( Now );
                 B.Update( Now );
                 NetPacket packet;
@@ -802,4 +803,234 @@ TEST_CASE( "Net: blobs get what live traffic leaves of the link, and at least th
     CHECK( liveReceived == liveSent );
     CHECK( blobRate >= settings.MinBytesPerSecond * 0.85 );
     CHECK( blobRate <= settings.MinBytesPerSecond * 1.25 );
+}
+
+
+TEST_CASE( "Net: an end at 20 or 30 Hz still spends its whole blob share" )
+{
+    // The buckets hold two of the end's usual gaps between packets: with a fixed 35 ms a 20 Hz end
+    // could spend 70% of its link budget at most.
+    for( const double hz : { 20.0, 30.0 } )
+    {
+        NetTest::Link link( NetConditions{}, NetConditions{} );
+        link.Tick = 1.0 / hz;
+        NetBlobSettings settings;
+        link.ToB.SetBlobSettings( settings );
+        REQUIRE( link.ToB.SendBlob( NetTest::BlobFor( 2 * 1024 * 1024, 21 ) ) );
+        uint64_t linkBytes0 = 0;
+        uint64_t blobBytes0 = 0;
+        const int ticks = static_cast<int>( hz * 4.0 );
+        for( int tick = 0; tick < ticks; ++tick )
+        {
+            if( tick == static_cast<int>( hz ) )
+            {
+                linkBytes0 = link.ToB.GetStats().BytesSent;
+                blobBytes0 = link.ToA.GetStats().BlobBytesReceived;
+            }
+            link.Step();
+        }
+        const double linkRate = static_cast<double>( link.ToB.GetStats().BytesSent - linkBytes0 ) / 3.0;
+        const double blobRate = static_cast<double>( link.ToA.GetStats().BlobBytesReceived - blobBytes0 ) / 3.0;
+        MESSAGE( hz << " Hz: blobs " << blobRate << " B/s, link " << linkRate << " B/s, " << link.ToB.GetStats().BlobSlicesResent << " slices resent" );
+        CHECK( linkRate >= settings.LinkBytesPerSecond * 0.9 );
+        // And spent on new slices: the far end acks a tick late, which a resend mustn't beat.
+        CHECK( blobRate >= settings.LinkBytesPerSecond * 0.85 );
+        CHECK( link.ToB.GetStats().BlobSlicesResent == 0 );
+        CHECK( linkRate <= settings.LinkBytesPerSecond * 1.03 );
+        CHECK( link.ToB.GetPendingBlobCount() == 1 );
+    }
+}
+
+
+TEST_CASE( "Net: a packet of blob slices alone is never the newest, and an ack of one doesn't stand for the packet before it" )
+{
+    LoopbackNetwork network;
+    LoopbackTransport rawA( network, 1 );
+    LoopbackTransport rawB( network, 2 );
+    NetConnection a( rawA, 2 );
+    NetConnection b( rawB, 1 );
+    double now = 0.0;
+    NetPacket packet;
+    auto exchange = [&]() {
+        a.SendPacket( now );
+        b.SendPacket( now );
+        while( rawB.Receive( packet ) )
+        {
+            b.ReceivePacket( packet.Data.data(), packet.Data.size(), now );
+        }
+        while( rawA.Receive( packet ) )
+        {
+            a.ReceivePacket( packet.Data.data(), packet.Data.size(), now );
+        }
+        now += 1.0 / 60.0;
+    };
+    for( int i = 0; i < 10; ++i )
+    {
+        exchange();
+    }
+    // A blob, and a live message that fills the packet SendPacket always sends: the slices go in
+    // packets of their own right after it.
+    REQUIRE( a.SendBlob( NetTest::BlobFor( 8000, 30 ) ) );
+    const std::vector<uint8_t> live( 1000, 0x11 );
+    auto sendRound = [&]( std::vector<NetPacket>& OutSent ) {
+        now += 0.05;
+        REQUIRE( a.SendUnreliable( live ) );
+        a.SendPacket( now );
+        OutSent.clear();
+        while( rawB.Receive( packet ) )
+        {
+            OutSent.push_back( packet );
+        }
+    };
+    std::vector<NetPacket> sent;
+    const uint16_t main = a.GetNextSequence();
+    sendRound( sent );
+    REQUIRE( sent.size() >= 2 );
+    // The slice packet arrives first: it isn't the newest, and the main packet after it still is.
+    REQUIRE( b.ReceivePacket( sent[1].Data.data(), sent[1].Data.size(), now ) );
+    CHECK_FALSE( b.WasLastPacketNewest() );
+    REQUIRE( b.ReceivePacket( sent[0].Data.data(), sent[0].Data.size(), now ) );
+    CHECK( b.WasLastPacketNewest() );
+    std::vector<uint8_t> message;
+    CHECK( b.ReceiveUnreliable( message ) );
+    CHECK( message == live );
+
+    // The next main packet is lost and a slice packet behind it arrives: what B tells A it has
+    // acks that slice packet, yet A reads the newest of its main packets B has: the one before.
+    const uint16_t lost = a.GetNextSequence();
+    sendRound( sent );
+    REQUIRE( sent.size() >= 2 );
+    REQUIRE( b.ReceivePacket( sent[1].Data.data(), sent[1].Data.size(), now ) );
+    CHECK_FALSE( b.WasLastPacketNewest() );
+    b.SendPacket( now );
+    REQUIRE( rawA.Receive( packet ) );
+    REQUIRE( a.ReceivePacket( packet.Data.data(), packet.Data.size(), now ) );
+    uint16_t ack = 0;
+    REQUIRE( a.GetLastPacketAck( ack ) );
+    CHECK( ack == main );
+    CHECK( NetSequenceGreater( lost, ack ) );
+}
+
+
+TEST_CASE( "Net: forged blob trailers reserve nothing where blobs aren't allowed, and a hostile peer's ids, counts, sizes and indexes are refused" )
+{
+    LoopbackNetwork network;
+    LoopbackTransport raw( network, 1 );
+    uint16_t sequence = 0;
+    auto header = [&]( BitWriter& InWriter ) {
+        InWriter.WriteBits( NetConnection::kProtocolId, 16 );
+        InWriter.WriteBits( sequence++, 16 );
+        InWriter.WriteBool( false );    // no ack
+    };
+    // A packet of one slice (alone): blob InId of InSize bytes, slice InIndex.
+    auto slicePacket = [&]( uint32_t InId, uint32_t InSize, uint32_t InIndex ) {
+        BitWriter writer;
+        header( writer );
+        writer.WriteBool( false );      // no messages
+        writer.WriteBool( true );       // the trailer
+        writer.WriteBool( true );       // slices alone
+        writer.WriteBool( false );      // no cancels
+        writer.WriteBool( true );
+        writer.WriteVarUInt( InId );
+        writer.WriteVarUInt( InSize );
+        writer.WriteVarUInt( InIndex );
+        const size_t first = static_cast<size_t>( InIndex ) * NetConnection::kBlobSliceBytes;
+        const std::vector<uint8_t> bytes( first < InSize ? std::min( NetConnection::kBlobSliceBytes, InSize - first ) : 0, 0x42 );
+        writer.WriteBytes( bytes.data(), bytes.size() );
+        writer.WriteBool( false );
+        return writer.GetBytes();
+    };
+    auto cancelPacket = [&]( uint32_t InFirst, uint32_t InCount ) {
+        BitWriter writer;
+        header( writer );
+        writer.WriteBool( false );
+        writer.WriteBool( true );
+        writer.WriteBool( false );
+        for( uint32_t i = 0; i < InCount; ++i )
+        {
+            writer.WriteBool( true );
+            writer.WriteVarUInt( InFirst + i );
+            writer.WriteBool( false );  // the sender's own blob
+        }
+        writer.WriteBool( false );
+        writer.WriteBool( false );      // no slices
+        return writer.GetBytes();
+    };
+    auto receive = [&]( NetConnection& InConnection, const std::vector<uint8_t>& InPacket ) {
+        return InConnection.ReceivePacket( InPacket.data(), InPacket.size(), 0.0 );
+    };
+
+    // Not allowed (a server's peer before it's accepted): a slice claiming 4 MB reserves nothing.
+    {
+        NetConnection closed( raw, 2 );
+        closed.SetAcceptIncomingBlobs( false );
+        CHECK( receive( closed, slicePacket( 1, NetConnection::kMaxBlobBytes, 0 ) ) );
+        CHECK( receive( closed, cancelPacket( 2, 10 ) ) );
+        CHECK( closed.GetBlobProgress().empty() );
+        CHECK( closed.GetStats().BlobSlicesIgnored == 1 );
+        CHECK( closed.GetStats().BlobsCancelledByRemote == 0 );
+        CHECK( closed.GetStats().PacketsRejected == 0 );
+        // Allowed later, the next slice is taken in.
+        closed.SetAcceptIncomingBlobs( true );
+        CHECK( receive( closed, slicePacket( 1, 3000, 0 ) ) );
+        CHECK( closed.GetBlobProgress().size() == 1 );
+    }
+
+    NetConnection connection( raw, 2 );
+    // An id far past the oldest one not done.
+    CHECK( receive( connection, slicePacket( 1 + ( 1u << 20 ), 3000, 0 ) ) );
+    CHECK( connection.GetBlobProgress().empty() );
+    CHECK( connection.GetStats().BlobSlicesIgnored == 1 );
+    // A blob whose size changes between its slices: the later one is dropped.
+    CHECK( receive( connection, slicePacket( 1, 5000, 0 ) ) );
+    CHECK( receive( connection, slicePacket( 1, 6000, 1 ) ) );
+    std::vector<NetBlobProgress> progress = connection.GetBlobProgress();
+    REQUIRE( progress.size() == 1 );
+    CHECK( progress[0].Size == 5000 );
+    CHECK( progress[0].DoneBytes == NetConnection::kBlobSliceBytes );
+    CHECK( connection.GetStats().BlobSlicesIgnored == 2 );
+    // An index past the blob's slices: the packet is malformed, rejected whole.
+    CHECK_FALSE( receive( connection, slicePacket( 2, 5000, 5 ) ) );
+    CHECK( connection.GetStats().PacketsRejected == 1 );
+    // Eight blobs at once at most; a ninth is dropped.
+    for( uint32_t id = 2; id <= NetConnection::kMaxIncomingBlobs; ++id )
+    {
+        CHECK( receive( connection, slicePacket( id, 5000, 0 ) ) );
+    }
+    CHECK( connection.GetBlobProgress().size() == NetConnection::kMaxIncomingBlobs );
+    CHECK( receive( connection, slicePacket( NetConnection::kMaxIncomingBlobs + 1, 5000, 0 ) ) );
+    CHECK( connection.GetBlobProgress().size() == NetConnection::kMaxIncomingBlobs );
+    CHECK( connection.GetStats().BlobSlicesIgnored == 3 );
+
+    // Cancels for ids never seen are held (late slices of them are old news) up to a bound: a
+    // peer cancelling ids by the million can't grow the set without end.
+    const uint32_t first = NetConnection::kMaxIncomingBlobs + 1;
+    const uint32_t count = static_cast<uint32_t>( NetConnection::kMaxIncomingFinished ) + 200;
+    for( uint32_t done = 0; done < count; done += 100 )
+    {
+        REQUIRE( receive( connection, cancelPacket( first + done, std::min<uint32_t>( 100, count - done ) ) ) );
+    }
+    CHECK( connection.GetStats().BlobsCancelledByRemote == NetConnection::kMaxIncomingFinished );
+    const uint64_t duplicates = connection.GetStats().BlobSlicesDuplicate;
+    CHECK( receive( connection, slicePacket( first, 5000, 0 ) ) );     // cancelled: old news
+    CHECK( connection.GetStats().BlobSlicesDuplicate == duplicates + 1 );
+
+    // A packet with a message past the size cap is rejected whole: the messages before it too.
+    BitWriter liar;
+    header( liar );
+    liar.WriteBool( true );
+    liar.WriteBool( false );
+    liar.WriteVarUInt( 4 );
+    const uint8_t fine[4] = { 1, 2, 3, 4 };
+    liar.WriteBytes( fine, sizeof( fine ) );
+    liar.WriteBool( true );
+    liar.WriteBool( false );
+    liar.WriteVarUInt( NetConnection::kMaxMessageBytes + 1 );
+    const std::vector<uint8_t> big( NetConnection::kMaxMessageBytes + 1, 7 );
+    liar.WriteBytes( big.data(), big.size() );
+    liar.WriteBool( false );
+    CHECK_FALSE( receive( connection, liar.GetBytes() ) );
+    CHECK( connection.GetStats().PacketsRejected == 2 );
+    std::vector<uint8_t> message;
+    CHECK_FALSE( connection.ReceiveUnreliable( message ) );
 }
