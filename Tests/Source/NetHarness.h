@@ -65,6 +65,10 @@ namespace NetHarness
         // come back behind.
         double ClientHitchUntil = -1.0;
         int ClientCatchUpTicks = 8;
+        // The hitch comes inside a frame instead (an Update or Render stall, as most do in
+        // Engine::Run): the first frame due in it receives and makes its ticks on time, then sends
+        // only at ClientHitchUntil; the next frame catches up on the time since it.
+        bool ClientHitchInFrame = false;
         // A server hitch: no ticks (nor reads) until then (seconds). Then it catches up on the
         // ticks it owes (KeepsBacklog), each taking ServerCatchUpMs of wall time, as a Debug
         // server's do, so its reports for them go out spread over a few client frames. As in
@@ -200,11 +204,27 @@ namespace NetHarness
                     }
                 }
 
+                // An in-frame hitch's frame sends once the stall is over.
+                if( m_flushPending && now >= ClientHitchUntil )
+                {
+                    ClientNet.Flush( now );
+                    m_flushPending = false;
+                }
                 // Client frames (60 Hz unless set): due ticks, interpolated poses, then one packet.
                 if( ClientFrame( Milliseconds ) != ClientFrame( Milliseconds - 1 ) )
                 {
                     if( now < ClientHitchUntil )
                     {
+                        if( ClientHitchInFrame && m_hitchFrom < 0.0 && !m_flushPending )
+                        {
+                            ClientStep( ClientNet, now, -1.0, false );
+                            m_lastClientStep = now;
+                            m_flushPending = true;
+                            if( OnClientFrame )
+                            {
+                                OnClientFrame( *ClientNet.GetClient() );
+                            }
+                        }
                         m_hitchFrom = m_hitchFrom < 0.0 ? m_lastClientStep : m_hitchFrom;
                     }
                     else
@@ -231,7 +251,7 @@ namespace NetHarness
             }
         }
 
-        void ClientStep( NetCore& InNet, double InNow, double InSeconds = -1.0 )
+        void ClientStep( NetCore& InNet, double InNow, double InSeconds = -1.0, bool InFlush = true )
         {
             NetClient* client = InNet.GetClient();
             InNet.Receive( InNow );
@@ -255,7 +275,10 @@ namespace NetHarness
                 }
             }
             InNet.WriteInterpolated( ClientFrameSeconds );
-            InNet.Flush( InNow );
+            if( InFlush )
+            {
+                InNet.Flush( InNow );
+            }
         }
 
         double ServerStart = 0.0;
@@ -269,6 +292,7 @@ namespace NetHarness
     private:
         double m_lastClientStep = 0.0;
         double m_hitchFrom = -1.0;
+        bool m_flushPending = false;
         int64_t m_serverBusyUntil = 0;
         int m_frameSteps = 0;
         int64_t m_frameStartMs = 0;

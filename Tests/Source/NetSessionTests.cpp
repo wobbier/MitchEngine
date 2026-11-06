@@ -1259,6 +1259,100 @@ TEST_CASE( "Net: a client that hitches comes back without a resync when it catch
 }
 
 
+TEST_CASE( "Net: a client's own hitch inside a frame, back to back, or on a lossy link doesn't grow the slack target" )
+{
+    // ME-313's hitches past the harness's usual kind (whole frames skipped, the late packet
+    // carrying the catch-up burst). Most of Engine::Run's hitches come inside a frame (Update,
+    // Render): the frame makes its ticks on time and sends them late, and the next frame makes
+    // the ticks the stall was due, its packet one frame after. Stutter brings slow frames back to
+    // back, each a hitch before the server's report on the last one is back. And a lossy, longer
+    // link mustn't turn a hitch the engine caught up on into a resync.
+    struct Case
+    {
+        const char* Name;
+        bool InFrame;
+        double Hitch;
+        double Second;    // a second hitch, a frame after the first ends (0: none)
+        int CatchUp;
+        bool Lossy;
+        bool Far;         // 50 ms each way: the round trip is longer than a frame
+    };
+    const Case cases[] = {
+        { "in-frame 0.05 s", true, 0.05, 0.0, 1000, false, false },
+        { "in-frame 0.1 s", true, 0.1, 0.0, 1000, false, false },
+        { "in-frame 0.14 s", true, 0.14, 0.0, 1000, false, false },
+        { "in-frame 0.1 s, 8 steps", true, 0.1, 0.0, 8, false, false },
+        { "in-frame 0.17 s, 8 steps", true, 0.17, 0.0, 8, false, false },
+        { "in-frame 0.25 s, 8 steps", true, 0.25, 0.0, 8, false, false },
+        { "in-frame 0.05 s, 50 ms", true, 0.05, 0.0, 1000, false, true },
+        { "0.05 s twice, 50 ms", false, 0.05, 0.05, 1000, false, true },
+        { "0.1 then 0.05 s, 50 ms", false, 0.1, 0.05, 1000, false, true },
+        { "in-frame 0.05 s twice, 50 ms", true, 0.05, 0.05, 1000, false, true },
+        { "0.05 s, 50+-10 ms 5% loss", false, 0.05, 0.0, 1000, true, true },
+        { "0.1 s, 50+-10 ms 5% loss", false, 0.1, 0.0, 1000, true, true },
+        { "0.15 s, 50+-10 ms 5% loss", false, 0.15, 0.0, 1000, true, true },
+        { "in-frame 0.1 s, 50+-10 ms 5% loss", true, 0.1, 0.0, 1000, true, true },
+    };
+    uint64_t seed = 70;
+    for( const Case& c : cases )
+    {
+        const std::string name = c.Name;
+        CAPTURE( name );
+        const NetConditions down = c.Lossy ? Link( 50.f, 10.f, 0.05f, seed ) : Link( c.Far ? 50.f : 20.f, 2.f, 0.f, seed );
+        const NetConditions up = c.Lossy ? Link( 50.f, 10.f, 0.05f, seed + 1 ) : Link( c.Far ? 50.f : 20.f, 2.f, 0.f, seed + 1 );
+        seed += 10;
+        Harness net( down, up );
+        ClockProbe probe;
+        probe.Attach( net );
+        net.Start();
+        net.Run( c.Far ? 40.0 : 12.0 );
+        NetClient& client = *net.ClientNet.GetClient();
+        REQUIRE( client.GetState() == NetClient::State::Connected );
+        const int resyncsBefore = client.GetClock().GetResyncCount();
+        const float targetBefore = client.GetClock().GetTargetSlack();
+        net.ClientCatchUpTicks = c.CatchUp;
+        net.ClientHitchInFrame = c.InFrame;
+        auto hitch = [&]( double InSeconds ) {
+            // From just before a frame: an in-frame hitch's frame is the next millisecond's.
+            while( net.ClientFrame( net.Milliseconds + 1 ) == net.ClientFrame( net.Milliseconds ) )
+            {
+                net.Run( 0.001 );
+            }
+            net.ClientHitchUntil = net.Now() + 0.001 + InSeconds;
+            net.Run( 0.001 + InSeconds );
+        };
+        const double hitchAt = net.Now();
+        hitch( c.Hitch );
+        if( c.Second > 0.0 )
+        {
+            net.Run( 1.0 / 60.0 );
+            hitch( c.Second );
+        }
+        net.Run( 10.0 );
+        const int resyncs = client.GetClock().GetResyncCount() - resyncsBefore;
+        const uint64_t misses = probe.Misses( hitchAt, net.Now() + 1.0 );
+        const float deepest = probe.MaxTarget( hitchAt, net.Now() + 1.0 );
+        MESSAGE( name << ": " << resyncs << " resyncs, " << client.GetOutageCount() << " outages, " << client.GetHitchCount() << " hitches (" << client.GetHitchMisses()
+            << " of " << misses << " misses its own), target " << targetBefore << " -> " << client.GetClock().GetTargetSlack() << " (deepest " << deepest << ")" );
+        // As with whole frames skipped: past 8 steps and a frame the clock comes back behind and
+        // jumps once; past MaxSlack and the usual wait, the gap is an outage.
+        const bool behind = c.CatchUp < 100 && c.Hitch > 0.155;
+        const bool outage = c.Hitch > 0.175;
+        CHECK( client.GetState() == NetClient::State::Connected );
+        CHECK( resyncs == ( behind ? 1 : 0 ) );
+        CHECK( client.GetOutageCount() == ( outage ? 1u : 0u ) );
+        CHECK( client.GetHitchCount() == ( c.Second > 0.0 ? 2u : 1u ) );
+        if( !c.Lossy && !behind )
+        {
+            // Every miss the hitches' own.
+            CHECK( client.GetHitchMisses() == misses );
+        }
+        CHECK( deepest <= targetBefore );
+        CHECK( client.GetClock().GetTargetSlack() <= targetBefore );
+    }
+}
+
+
 TEST_CASE( "Net: a server that hitches and catches up leaves its clients' clocks alone" )
 {
     // After a hitch a Debug server runs the ticks it owes back to back, a few ms each, its

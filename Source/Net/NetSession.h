@@ -240,7 +240,7 @@ private:
     void NoteReport( const Report& InReport );
     // The newest report of a Receive: the clock, and the misses due to grow the target.
     void Steer( const Report& InReport );
-    // Of the gap InReport ends, the misses on the newest hitch's burst (its own, not the link's).
+    // Of the gap InReport ends, the misses on the hitches' bursts (their own, not the link's).
     uint64_t TakeHitchMisses( const Report& InReport );
     // Whether the server had stopped hearing this client when it sent InReport.
     bool IsStalled( const Report& InReport ) const;
@@ -295,16 +295,26 @@ private:
     // are on the ticks after it, up to the newest report's).
     uint32_t m_missesTick = 0;
     uint32_t m_gapFrom = 0;
-    // The newest hitch's burst, ticks [m_hitchFirst, m_hitchLast], until the gap it caused ends
-    // (the server heard them). m_frameFirstTick: the first tick made since the last packet with
-    // commands went out.
-    bool m_hasHitch = false;
-    uint32_t m_hitchFirst = 0;
-    uint32_t m_hitchLast = 0;
+    // The hitches' bursts the server hasn't heard all of yet, ticks [First, Last]: back to back
+    // (stutter) they come faster than the round trip. kMaxHitchBursts at most (the oldest go).
+    struct HitchBurst
+    {
+        uint32_t First = 0;
+        uint32_t Last = 0;
+    };
+    static constexpr size_t kMaxHitchBursts = 8;
+    std::vector<HitchBurst> m_hitchBursts;
+    // A hitch inside the frame (after its ticks, before its send: Update, Render) made the next
+    // frame's first ticks late too, up to m_hitchOpenUntil: they join the newest burst.
+    bool m_hitchOpen = false;
+    uint32_t m_hitchOpenUntil = 0;
+    // m_frameFirstTick: the first tick made since the last packet with commands went out.
+    // m_receivedAt: the frame's Receive (before its ticks).
     uint32_t m_frameFirstTick = 0;
+    double m_receivedAt = -1.0;
     uint64_t m_hitches = 0;
     uint64_t m_hitchMisses = 0;
-    // The server just heard a hitch's burst: the next report to steer jumps if behind at all.
+    // The server just heard all of a hitch's burst: the next report to steer jumps if behind at all.
     bool m_hitchBack = false;
     bool m_stalled = false;
     uint64_t m_stalls = 0;

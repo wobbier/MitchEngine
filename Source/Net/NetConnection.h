@@ -57,6 +57,11 @@ public:
     void SendPacket( double InNow );
     // A packet from the remote. False when it was rejected or a duplicate.
     bool ReceivePacket( const uint8_t* InData, size_t InSize, double InNow );
+    // A pass reading the remote's packets begins (every frame or tick, packets or not). Long after
+    // the last one, the packets read now may have sat unread meanwhile (this end hitched inside a
+    // frame, after its last read): their round trips aren't the link's. Long: over two usual
+    // gaps between passes. Optional: an end that never calls it judges by its last send alone.
+    void BeginRead( double InNow );
 
     bool ReceiveReliable( std::vector<uint8_t>& OutMessage );
     bool ReceiveUnreliable( std::vector<uint8_t>& OutMessage );
@@ -109,6 +114,9 @@ private:
     uint16_t m_sequence = 0;
     double m_lastSentAt = -1.0;
     double m_sendGap = 0.0;             // smoothed seconds between packets sent
+    double m_lastReadAt = -1.0;         // BeginRead's last pass
+    double m_readGap = 0.0;             // ... the time since the one before it
+    double m_readInterval = -1.0;       // ... and the usual time between them (smoothed; < 0: unknown)
     std::array<SentPacket, 1024> m_sent;
     uint16_t m_finalized = 0xFFFF;      // sent packets up to here are counted acked or lost
     bool m_hasAck = false;

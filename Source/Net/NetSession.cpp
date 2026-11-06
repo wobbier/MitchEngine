@@ -419,6 +419,8 @@ void NetClient::Connect()
 
 void NetClient::Receive( double InNow )
 {
+    m_receivedAt = InNow;
+    m_connection.BeginRead( InNow );
     m_jitterBefore = m_connection.GetStats().RoundTripDeviationMs / 1000.0;
     NetPacket packet;
     while( m_transport.Receive( packet ) )
@@ -655,24 +657,36 @@ void NetClient::NoteReport( const Report& InReport )
 
 uint64_t NetClient::TakeHitchMisses( const Report& InReport )
 {
-    if( !m_hasHitch )
+    if( m_hitchBursts.empty() )
     {
         return 0;
     }
     // The gap's misses are on the server's ticks after m_gapFrom, up to the report's, one a tick
-    // at most: as many as fall on the hitch's burst are its own (made late; a deeper buffer would
-    // have covered them, but only by holding every command that much longer from then on).
-    const int64_t from = std::max<int64_t>( static_cast<int64_t>( m_gapFrom ) + 1, m_hitchFirst );
-    const int64_t to = std::min<int64_t>( InReport.ServerTick, m_hitchLast );
-    const uint64_t own = std::min<uint64_t>( m_gapMisses, static_cast<uint64_t>( std::max<int64_t>( 0, to - from + 1 ) ) );
-    m_hitchMisses += own;
-    // The server has heard the burst: the hitch's gap is over (and the next report to steer says
-    // whether the engine caught up on all of it).
-    if( InReport.Newest >= m_hitchFirst )
+    // at most: as many as fall on the hitches' bursts are their own (made late; a deeper buffer
+    // would have covered them, but only by holding every command that much longer from then on).
+    uint64_t ticks = 0;
+    for( const HitchBurst& burst : m_hitchBursts )
     {
-        m_hasHitch = false;
-        m_hitchBack = true;
+        const int64_t from = std::max<int64_t>( static_cast<int64_t>( m_gapFrom ) + 1, burst.First );
+        const int64_t to = std::min<int64_t>( InReport.ServerTick, burst.Last );
+        ticks += static_cast<uint64_t>( std::max<int64_t>( 0, to - from + 1 ) );
     }
+    const uint64_t own = std::min( m_gapMisses, ticks );
+    m_hitchMisses += own;
+    // A burst the server has heard all of is over (and the next report to steer says whether the
+    // engine caught up on all of it). Not one still growing (an in-frame hitch's next frame).
+    const size_t before = m_hitchBursts.size();
+    const size_t growing = m_hitchOpen ? m_hitchBursts.size() - 1 : m_hitchBursts.size();
+    size_t kept = 0;
+    for( size_t i = 0; i < m_hitchBursts.size(); ++i )
+    {
+        if( i == growing || m_hitchBursts[i].Last > InReport.Newest )
+        {
+            m_hitchBursts[kept++] = m_hitchBursts[i];
+        }
+    }
+    m_hitchBursts.resize( kept );
+    m_hitchBack = m_hitchBack || kept < before;
     return own;
 }
 
@@ -697,6 +711,17 @@ void NetClient::Steer( const Report& InReport )
         return;
     }
     m_stalled = false;
+    if( !m_hitchBursts.empty() && ( m_hitchOpen || InReport.Newest < m_hitchBursts.back().Last ) )
+    {
+        // The server hasn't heard all of this client's hitch yet: the ticks it lacks are made (or
+        // are this frame's to make, after a hitch inside the last) and on their way, so its slack
+        // is about the hitch's gap, not the clock. (A hitch inside a frame sends the ticks it made
+        // late a frame after the rest: the report on those reads as the clock far behind.) Hold
+        // the clock until it has; then, behind at all, it jumps.
+        m_clock.OnStall();
+        m_clock.OnMisses( due );
+        return;
+    }
     // The slack the newest command arrived with: against the report's tick, plus the ticks the
     // server has waited since. Unsmoothed, and steady through a gap's first ticks, before the
     // report counts as stalled (the slack sinks meanwhile). It leaves out a catching-up server's
@@ -721,7 +746,8 @@ void NetClient::Steer( const Report& InReport )
         m_hasResyncSequence = false;
         m_gapMisses = 0;
         m_inOutage = false;
-        m_hasHitch = false;
+        m_hitchBursts.clear();
+        m_hitchOpen = false;
         m_hitchBack = false;
         return;
     }
@@ -759,6 +785,10 @@ void NetClient::SubmitCommand( InputCommand InCommand )
     if( !m_newCommand )
     {
         m_frameFirstTick = InCommand.Tick;
+    }
+    if( m_hitchOpen && !m_hitchBursts.empty() && InCommand.Tick <= m_hitchOpenUntil )
+    {
+        m_hitchBursts.back().Last = std::max( m_hitchBursts.back().Last, InCommand.Tick );
     }
     m_commands.push_back( InCommand );
     m_lastCommand = InCommand;
@@ -803,12 +833,31 @@ void NetClient::Flush( double InNow )
             // past the usual interval, a burst made late. The server's misses on those ticks are
             // the hitch's, not the link's. (Once the usual is known: it starts from 0, and a slow
             // client's first gaps aren't hitches.)
+            // A hitch inside the frame (after its ticks: Update, Render) made the ticks due
+            // meanwhile late too; the next frame makes them. Back to back, hitches' bursts join.
             const double tick = 1.0 / static_cast<double>( std::max<uint16_t>( m_tickRate, 1 ) );
+            m_hitchOpen = false;
             if( m_state == State::Connected && m_sendSamples >= kHitchAfterSamples && InNow - m_lastCommandSentAt > std::max( tick, m_sendInterval ) + 2.0 * tick )
             {
-                m_hasHitch = true;
-                m_hitchFirst = m_frameFirstTick;
-                m_hitchLast = m_lastCommand.Tick;
+                if( !m_hitchBursts.empty() && m_frameFirstTick <= m_hitchBursts.back().Last + 1 )
+                {
+                    m_hitchBursts.back().Last = std::max( m_hitchBursts.back().Last, m_lastCommand.Tick );
+                }
+                else
+                {
+                    if( m_hitchBursts.size() >= kMaxHitchBursts )
+                    {
+                        m_hitchBursts.erase( m_hitchBursts.begin() );
+                    }
+                    m_hitchBursts.push_back( { m_frameFirstTick, m_lastCommand.Tick } );
+                }
+                const double inFrame = m_receivedAt >= 0.0 ? InNow - m_receivedAt : 0.0;
+                const long late = std::lround( inFrame / tick );
+                if( late > 0 )
+                {
+                    m_hitchOpen = true;
+                    m_hitchOpenUntil = m_lastCommand.Tick + static_cast<uint32_t>( late );
+                }
                 ++m_hitches;
             }
             m_sendInterval += ( std::clamp( InNow - m_lastCommandSentAt, 0.0, 0.25 ) - m_sendInterval ) * 0.1;

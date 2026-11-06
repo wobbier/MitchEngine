@@ -17,6 +17,8 @@ namespace
     // of this end's usual gaps between packets (a slow end sends seldom, and must still sample).
     constexpr double kMaxRoundTripWait = 0.05;
     constexpr double kRoundTripWaitGaps = 3.0;
+    // Or read over this many of this end's usual gaps between reads after the one before.
+    constexpr double kReadWaitGaps = 2.0;
     // A gap between packets counts this much at most towards the usual one (a hitch's is no guide).
     constexpr double kMaxSendGapSample = 0.5;
 }
@@ -65,6 +67,18 @@ double NetConnection::ResendDelay() const
         return 0.1;
     }
     return std::max( 0.02, ( m_stats.RoundTripMs * 1.25 + m_stats.RoundTripDeviationMs * 2.0 ) / 1000.0 );
+}
+
+
+void NetConnection::BeginRead( double InNow )
+{
+    m_readGap = m_lastReadAt >= 0.0 ? InNow - m_lastReadAt : 0.0;
+    m_lastReadAt = InNow;
+    if( m_readGap > 0.0 )
+    {
+        const double sample = std::min( m_readGap, kMaxSendGapSample );
+        m_readInterval = m_readInterval < 0.0 ? sample : m_readInterval + ( sample - m_readInterval ) * 0.1;
+    }
 }
 
 
@@ -225,13 +239,16 @@ void NetConnection::ProcessAcks( uint16_t InAck, uint32_t InAckBits, double InAc
     {
         // The round trip of the newest packet acked, minus the time it waited on the far side. Not
         // from a packet that sat unread here while this end stalled: that wait isn't the link's.
+        // (Stalled since its last send, or since its last read: a hitch after a frame's read and
+        // before its send, then the send just before this read.)
         const double sample = std::max( 0.0, InNow - latest->SentAt - InAckDelay ) * 1000.0;
+        const double maxWait = std::max( kMaxRoundTripWait, kRoundTripWaitGaps * m_sendGap );
         if( m_stats.RoundTripMs <= 0.f )
         {
             m_stats.RoundTripMs = static_cast<float>( sample );
             m_stats.RoundTripDeviationMs = static_cast<float>( sample * 0.5 );
         }
-        else if( InNow - m_lastSentAt <= std::max( kMaxRoundTripWait, kRoundTripWaitGaps * m_sendGap ) )
+        else if( InNow - m_lastSentAt <= maxWait && m_readGap <= maxWait && ( m_readInterval < 0.0 || m_readGap <= kReadWaitGaps * m_readInterval ) )
         {
             const double error = sample - m_stats.RoundTripMs;
             m_stats.RoundTripDeviationMs += static_cast<float>( ( std::abs( error ) - m_stats.RoundTripDeviationMs ) * 0.25 );
