@@ -62,10 +62,12 @@ struct Event
 class Tracer
 {
 public:
+    // Never destroyed: threads still running during static destruction (job workers joined by the
+    // JobSystem's own static destructor) unregister their lanes and close zones after it.
     static Tracer& Get()
     {
-        static Tracer inst;
-        return inst;
+        static Tracer* inst = new Tracer();
+        return *inst;
     }
 
     void Start()
