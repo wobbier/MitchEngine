@@ -138,7 +138,9 @@ public:
     bool GetNewestReconciled( uint32_t& OutTick ) const { OutTick = m_reconciled; return m_hasReconciled; }
     // InTick's outcome, None once it's older than the timeline.
     NetPredictOutcome GetOutcome( uint32_t InTick ) const;
-    // Every mismatch on the timeline (oldest first), initial syncs included.
+    // Every mismatch on the timeline (oldest first), initial syncs included; one ages off with its
+    // tick once a tick kTimelineSeconds newer is reconciled, match or not. Under a steady desync
+    // only the newest kMaxMispredicts keep a record: GetOutcome still names the older ones.
     const std::deque<NetMispredictRecord>& GetMispredicts() const { return m_mispredicts; }
     const NetMispredictRecord* FindMispredict( uint32_t InTick ) const;
 
@@ -158,6 +160,8 @@ private:
         NetPredictOutcome Outcome = NetPredictOutcome::None;
     };
     void NoteOutcome( uint32_t InTick, NetPredictOutcome InOutcome );
+    // Drops the records older than the timeline (from the newest reconciled tick) and past kMaxMispredicts.
+    void PruneMispredicts();
 
     PhysicsCore& m_physics;
     EntityHandle m_pawn;

@@ -9,6 +9,7 @@
 #include "NetHarness.h"
 #include <cmath>
 #include <filesystem>
+#include <limits>
 #include <map>
 
 namespace NetPredictionTest
@@ -414,4 +415,111 @@ TEST_CASE( "Net: a correction too far to glide (the server teleported the pawn) 
     CHECK( predictor.GetVisualOffset().Length() == 0.f );
     predictor.UpdateSmoothing( 1.0 / 60.0 );
     CHECK( predictor.GetVisualOffset().Length() == 0.f );
+}
+
+
+TEST_CASE( "Net: mismatch records age off the timeline with matches alone, and a steady desync keeps the newest 64 while every tick stays a correction" )
+{
+    PhysicsCore physics;
+    auto world = std::make_shared<World>();
+    world->IsLoading = false;
+    world->AddCore( physics );
+    BuildCourse( *world );
+    EntityHandle pawn = world->CreateEntity( "Pawn" );
+    pawn->AddComponent<Transform>().SetPosition( Vector3( 0.f, 0.9f, 0.f ) );
+    CharacterController& controller = pawn->AddComponent<CharacterController>();
+    world->Simulate();
+    world->Start();
+
+    NetPredictor predictor( physics, pawn, DrivePawn, 1.f / 60.f );
+    const uint32_t span = predictor.GetTimelineTicks();
+    REQUIRE( span == 600 );
+    // Each tick reconciled as soon as it's recorded: 0..9 match, 10..79 are pushed 5 cm (a steady
+    // desync, 70 corrections), then only matches.
+    for( uint32_t tick = 0; tick < 80 + span + 10; ++tick )
+    {
+        predictor.Apply( CourseCommand( tick ) );
+        Step( physics, *world );
+        predictor.Record( tick );
+        CharacterController::NetState server = controller.GetNetState();
+        const bool desync = tick >= 10 && tick < 80;
+        if( desync )
+        {
+            server.Position.x += 0.05f;
+        }
+        CHECK( predictor.Reconcile( tick, server ) == desync );
+        if( tick == 79 )
+        {
+            CHECK( predictor.GetCorrectionCount() == 70 );
+            // Only the newest kMaxMispredicts keep a record; the timeline still names the older ones.
+            CHECK( predictor.GetMispredicts().size() == NetPredictor::kMaxMispredicts );
+            CHECK( predictor.GetMispredicts().front().Tick == 80 - NetPredictor::kMaxMispredicts );
+            CHECK( predictor.FindMispredict( 10 ) == nullptr );
+            CHECK( predictor.GetOutcome( 10 ) == NetPredictOutcome::Correction );
+            CHECK( predictor.GetOutcome( 79 ) == NetPredictOutcome::Correction );
+        }
+        if( tick == 79 + span - 1 )
+        {
+            // 79 is still on the timeline (the newest 600 ticks: 79..678), so its record stays.
+            CHECK( predictor.GetOutcome( 79 ) == NetPredictOutcome::Correction );
+            REQUIRE( predictor.GetMispredicts().size() == 1 );
+            CHECK( predictor.GetMispredicts().front().Tick == 79 );
+        }
+        if( tick == 79 + span )
+        {
+            // A match a full timeline later takes it off: no new mismatch needed.
+            CHECK( predictor.GetOutcome( 79 ) == NetPredictOutcome::None );
+            CHECK( predictor.GetMispredicts().empty() );
+            CHECK( predictor.FindMispredict( 79 ) == nullptr );
+        }
+    }
+    CHECK( predictor.GetMatchCount() == 10 + static_cast<int>( span ) + 10 );
+}
+
+
+TEST_CASE( "Net: a misprediction with NaN / infinity round-trips through JSON, and a malformed file is an error, not a throw" )
+{
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    const float inf = std::numeric_limits<float>::infinity();
+    NetMispredictRecord record;
+    record.Tick = 726;
+    record.Predicted.Position = Vector3( 1.f, 2.f, 3.f );
+    record.Predicted.Velocity = Vector3( nan, inf, -inf );     // a blown-up mover
+    record.Authoritative.Position = Vector3( 1.f, 2.f, 3.f );
+    record.Authoritative.Velocity = Vector3( 0.1f, -9.81f, 1e-7f );
+    InputCommand command;
+    command.Tick = 726;
+    command.Axes[0] = nan;
+    command.Yaw = inf;
+    command.ViewTick = -std::numeric_limits<double>::infinity();
+    record.Commands.push_back( command );
+    record.ResimMilliseconds = std::numeric_limits<double>::quiet_NaN();
+
+    const std::string text = NetMispredict::ToJson( record );
+    CHECK( text.find( "null" ) == std::string::npos );
+    NetMispredictRecord loaded;
+    std::string error;
+    REQUIRE_MESSAGE( NetMispredict::FromJson( text, loaded, &error ), error );
+    CHECK( loaded.Tick == 726 );
+    CHECK( std::isnan( loaded.Predicted.Velocity.x ) );
+    CHECK( loaded.Predicted.Velocity.y == inf );
+    CHECK( loaded.Predicted.Velocity.z == -inf );
+    CHECK( loaded.Authoritative == record.Authoritative );     // finite floats exactly
+    REQUIRE( loaded.Commands.size() == 1 );
+    CHECK( std::isnan( loaded.Commands[0].Axes[0] ) );
+    CHECK( loaded.Commands[0].Yaw == inf );
+    CHECK( loaded.Commands[0].ViewTick == -std::numeric_limits<double>::infinity() );
+    CHECK( std::isnan( loaded.ResimMilliseconds ) );
+
+    // Hand-edited files: wrong field types come back false with a reason.
+    for( const char* bad : { R"({"format":1,"tick":"726"})", R"({"format":1,"scriptDiffs":[["a",2]]})", R"({"format":1,"predicted":5})",
+             R"({"format":1,"commands":[{"axes":3}]})", R"({"format":"1"})", R"([1,2])", "not json" } )
+    {
+        error.clear();
+        CHECK_MESSAGE( !NetMispredict::FromJson( bad, loaded, &error ), bad );
+        CHECK_MESSAGE( !error.empty(), bad );
+    }
+    // A null where a number goes (an old export's NaN) reads as the default, not a throw.
+    REQUIRE( NetMispredict::FromJson( R"({"format":1,"predicted":{"velocity":[null,1,2]}})", loaded, &error ) );
+    CHECK( ( loaded.Predicted.Velocity == Vector3( 0.f, 1.f, 2.f ) ) );
 }

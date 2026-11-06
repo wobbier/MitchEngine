@@ -1088,8 +1088,20 @@ void NetLaunch::RegisterNetCommands( NetCore& InNet )
                 {
                     return "nothing predicted";
                 }
-                std::string out = std::to_string( predictor->GetMispredicts().size() ) + " mismatch(es) in the last " + std::to_string( static_cast<int>( NetPredictor::kTimelineSeconds ) )
-                    + " s (" + std::to_string( predictor->GetCorrectionCount() ) + " corrections, " + std::to_string( predictor->GetMatchCount() ) + " matches in all)";
+                // Counted from the timeline: a steady desync has more than the records kept.
+                size_t onTimeline = 0;
+                uint32_t newest = 0;
+                if( predictor->GetNewestReconciled( newest ) )
+                {
+                    const uint32_t span = predictor->GetTimelineTicks();
+                    for( uint32_t tick = newest + 1 >= span ? newest + 1 - span : 0; tick <= newest; ++tick )
+                    {
+                        const NetPredictOutcome outcome = predictor->GetOutcome( tick );
+                        onTimeline += outcome == NetPredictOutcome::Correction || outcome == NetPredictOutcome::InitialSync ? 1 : 0;
+                    }
+                }
+                std::string out = std::to_string( onTimeline ) + " mismatch(es) in the last " + std::to_string( static_cast<int>( NetPredictor::kTimelineSeconds ) ) + " s, "
+                    + std::to_string( predictor->GetMispredicts().size() ) + " with a record (" + std::to_string( predictor->GetCorrectionCount() ) + " corrections, " + std::to_string( predictor->GetMatchCount() ) + " matches in all)";
                 for( const NetMispredictRecord& record : predictor->GetMispredicts() )
                 {
                     out += "\n  tick " + std::to_string( record.Tick ) + ( record.InitialSync ? " (initial sync)" : "" ) + ": " + record.Describe() + "; "
@@ -1174,6 +1186,8 @@ void NetLaunch::DrawNetDebugger( NetCore& InNet )
         draw->AddRectFilled( origin, ImVec2( origin.x + width, origin.y + height ), IM_COL32( 25, 25, 30, 255 ) );
         const float perTick = width / static_cast<float>( span );
         auto xOf = [&]( uint32_t InTick ) { return origin.x + static_cast<float>( InTick - first ) * perTick; };
+        // Every reconciled tick from the timeline itself: under a steady desync only the newest
+        // kMaxMispredicts mismatches keep a record, and the rest must still read red.
         for( uint32_t tick = first; tick <= newest; ++tick )
         {
             const NetPredictOutcome outcome = predictor->GetOutcome( tick );
@@ -1181,8 +1195,13 @@ void NetLaunch::DrawNetDebugger( NetCore& InNet )
             {
                 draw->AddRectFilled( ImVec2( xOf( tick ), origin.y + height * 0.55f ), ImVec2( xOf( tick ) + std::max( perTick, 1.f ), origin.y + height ), IM_COL32( 60, 170, 80, 255 ) );
             }
+            else if( outcome == NetPredictOutcome::Correction || outcome == NetPredictOutcome::InitialSync )
+            {
+                const ImU32 color = outcome == NetPredictOutcome::InitialSync ? IM_COL32( 150, 150, 150, 255 ) : IM_COL32( 230, 60, 50, 255 );
+                draw->AddRectFilled( ImVec2( xOf( tick ), origin.y ), ImVec2( xOf( tick ) + std::max( perTick, 1.f ), origin.y + height ), color );
+            }
         }
-        // The mismatches on top, wide enough to see and click.
+        // The mismatches with a record on top, wide enough to see and click.
         for( const NetMispredictRecord& record : predictor->GetMispredicts() )
         {
             if( record.Tick < first )
@@ -1215,7 +1234,12 @@ void NetLaunch::DrawNetDebugger( NetCore& InNet )
             }
             else
             {
-                ImGui::Text( "tick %u: %s", tick, names[static_cast<int>( predictor->GetOutcome( tick ) )] );
+                const NetPredictOutcome outcome = predictor->GetOutcome( tick );
+                ImGui::Text( "tick %u: %s", tick, names[static_cast<int>( outcome )] );
+                if( ( outcome == NetPredictOutcome::Correction || outcome == NetPredictOutcome::InitialSync ) && !predictor->FindMispredict( tick ) )
+                {
+                    ImGui::Text( "(no record: only the newest %zu mismatches keep one)", NetPredictor::kMaxMispredicts );
+                }
             }
             ImGui::EndTooltip();
             if( clicked && closest )

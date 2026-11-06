@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <sstream>
 
 
@@ -110,6 +111,16 @@ void NetPredictor::NoteOutcome( uint32_t InTick, NetPredictOutcome InOutcome )
 }
 
 
+void NetPredictor::PruneMispredicts()
+{
+    while( !m_mispredicts.empty()
+        && ( m_mispredicts.size() > kMaxMispredicts || ( m_hasReconciled && m_reconciled - m_mispredicts.front().Tick >= m_timeline.size() ) ) )
+    {
+        m_mispredicts.pop_front();
+    }
+}
+
+
 NetPredictOutcome NetPredictor::GetOutcome( uint32_t InTick ) const
 {
     if( m_timeline.empty() || !m_hasReconciled || InTick > m_reconciled || m_reconciled - InTick >= m_timeline.size() )
@@ -194,6 +205,8 @@ bool NetPredictor::Reconcile( uint32_t InTick, const CharacterController::NetSta
     }
     m_hasReconciled = true;
     m_reconciled = InTick;
+    // Mismatches leave with their tick's place on the timeline, whatever this tick turns out to be.
+    PruneMispredicts();
     // Script state is exact (the same code ran on the same inputs); without hooks it isn't compared.
     const bool scriptsMatch = !m_scripts.Save || frame.Scripts == InScripts;
     if( scriptsMatch && Matches( frame.State, InServer, PositionTolerance, VelocityTolerance ) )
@@ -280,10 +293,7 @@ bool NetPredictor::Reconcile( uint32_t InTick, const CharacterController::NetSta
     record.InitialSync = m_matches == 0 && m_corrections == 0;
     NoteOutcome( InTick, record.InitialSync ? NetPredictOutcome::InitialSync : NetPredictOutcome::Correction );
     m_mispredicts.push_back( std::move( record ) );
-    while( m_mispredicts.size() > kMaxMispredicts || ( !m_mispredicts.empty() && InTick - m_mispredicts.front().Tick >= m_timeline.size() ) )
-    {
-        m_mispredicts.pop_front();
-    }
+    PruneMispredicts();
     if( m_matches == 0 && m_corrections == 0 )
     {
         ++m_initialSyncs;
@@ -319,14 +329,68 @@ void NetPredictor::UpdateSmoothing( double InFrameSeconds )
 
 namespace
 {
+    // JSON has no NaN or infinity (nlohmann writes them as null): those go as "nan" / "inf" /
+    // "-inf", so a blown-up state (the desync most worth running again) comes back as it was.
+    json FloatJson( double InValue )
+    {
+        if( std::isnan( InValue ) )
+        {
+            return "nan";
+        }
+        if( std::isinf( InValue ) )
+        {
+            return InValue > 0.0 ? "inf" : "-inf";
+        }
+        return InValue;
+    }
+
+    double JsonDouble( const json& InValue, double InDefault )
+    {
+        if( InValue.is_number() )
+        {
+            return InValue.get<double>();
+        }
+        if( InValue.is_string() )
+        {
+            const std::string& text = InValue.get_ref<const std::string&>();
+            if( text == "nan" )
+            {
+                return std::numeric_limits<double>::quiet_NaN();
+            }
+            if( text == "inf" || text == "-inf" )
+            {
+                return text[0] == '-' ? -std::numeric_limits<double>::infinity() : std::numeric_limits<double>::infinity();
+            }
+        }
+        return InDefault;
+    }
+
+    float JsonFloat( const json& InValue, float InDefault = 0.f )
+    {
+        // Floats are written from float, so the double read back narrows to the same float.
+        return InValue.is_number_float() ? InValue.get<float>() : static_cast<float>( JsonDouble( InValue, InDefault ) );
+    }
+
+    double FieldDouble( const json& InObject, const char* InKey, double InDefault )
+    {
+        const auto found = InObject.find( InKey );
+        return found == InObject.end() ? InDefault : JsonDouble( *found, InDefault );
+    }
+
+    float FieldFloat( const json& InObject, const char* InKey, float InDefault )
+    {
+        const auto found = InObject.find( InKey );
+        return found == InObject.end() ? InDefault : JsonFloat( *found, InDefault );
+    }
+
     json VectorJson( const Vector3& InValue )
     {
-        return json::array( { InValue.x, InValue.y, InValue.z } );
+        return json::array( { FloatJson( InValue.x ), FloatJson( InValue.y ), FloatJson( InValue.z ) } );
     }
 
     Vector3 JsonVector( const json& InValue )
     {
-        return InValue.is_array() && InValue.size() == 3 ? Vector3( InValue[0].get<float>(), InValue[1].get<float>(), InValue[2].get<float>() ) : Vector3();
+        return InValue.is_array() && InValue.size() == 3 ? Vector3( JsonFloat( InValue[0] ), JsonFloat( InValue[1] ), JsonFloat( InValue[2] ) ) : Vector3();
     }
 
     json StateJson( const CharacterController::NetState& InState )
@@ -351,8 +415,8 @@ namespace
 
     json CommandJson( const InputCommand& InCommand )
     {
-        return json{ { "tick", InCommand.Tick }, { "buttons", InCommand.Buttons }, { "axes", json::array( { InCommand.Axes[0], InCommand.Axes[1], InCommand.Axes[2], InCommand.Axes[3] } ) },
-            { "viewTick", InCommand.ViewTick }, { "hasAim", InCommand.HasAim }, { "yaw", InCommand.Yaw }, { "pitch", InCommand.Pitch } };
+        return json{ { "tick", InCommand.Tick }, { "buttons", InCommand.Buttons }, { "axes", json::array( { FloatJson( InCommand.Axes[0] ), FloatJson( InCommand.Axes[1] ), FloatJson( InCommand.Axes[2] ), FloatJson( InCommand.Axes[3] ) } ) },
+            { "viewTick", FloatJson( InCommand.ViewTick ) }, { "hasAim", InCommand.HasAim }, { "yaw", FloatJson( InCommand.Yaw ) }, { "pitch", FloatJson( InCommand.Pitch ) } };
     }
 
     InputCommand JsonCommand( const json& InValue )
@@ -363,12 +427,12 @@ namespace
         const json axes = InValue.value( "axes", json::array() );
         for( size_t i = 0; i < command.Axes.size() && i < axes.size(); ++i )
         {
-            command.Axes[i] = axes[i].get<float>();
+            command.Axes[i] = JsonFloat( axes[i] );
         }
-        command.ViewTick = InValue.value( "viewTick", -1.0 );
+        command.ViewTick = FieldDouble( InValue, "viewTick", -1.0 );
         command.HasAim = InValue.value( "hasAim", false );
-        command.Yaw = InValue.value( "yaw", 0.f );
-        command.Pitch = InValue.value( "pitch", 0.f );
+        command.Yaw = FieldFloat( InValue, "yaw", 0.f );
+        command.Pitch = FieldFloat( InValue, "pitch", 0.f );
         return command;
     }
 
@@ -406,7 +470,7 @@ std::string NetMispredict::ToJson( const NetMispredictRecord& InRecord )
     out["format"] = 1;
     out["tick"] = InRecord.Tick;
     out["newestTick"] = InRecord.NewestTick;
-    out["tickSeconds"] = InRecord.TickSeconds;
+    out["tickSeconds"] = FloatJson( InRecord.TickSeconds );
     out["initialSync"] = InRecord.InitialSync;
     out["describe"] = InRecord.Describe();
     out["predicted"] = StateJson( InRecord.Predicted );
@@ -436,7 +500,7 @@ std::string NetMispredict::ToJson( const NetMispredictRecord& InRecord )
     }
     out["resimulated"] = resimulated;
     out["presentJump"] = VectorJson( InRecord.PresentJump );
-    out["resimMilliseconds"] = InRecord.ResimMilliseconds;
+    out["resimMilliseconds"] = FloatJson( InRecord.ResimMilliseconds );
     return out.dump( 2 );
 }
 
@@ -444,7 +508,8 @@ std::string NetMispredict::ToJson( const NetMispredictRecord& InRecord )
 bool NetMispredict::FromJson( const std::string& InText, NetMispredictRecord& OutRecord, std::string* OutError )
 {
     const json in = json::parse( InText, nullptr, false );
-    if( in.is_discarded() || !in.is_object() || in.value( "format", 0 ) != 1 )
+    const bool format1 = in.is_object() && in.contains( "format" ) && in["format"].is_number_integer() && in["format"].get<int>() == 1;
+    if( in.is_discarded() || !format1 )
     {
         if( OutError )
         {
@@ -452,38 +517,50 @@ bool NetMispredict::FromJson( const std::string& InText, NetMispredictRecord& Ou
         }
         return false;
     }
-    NetMispredictRecord record;
-    record.Tick = in.value( "tick", 0u );
-    record.NewestTick = in.value( "newestTick", 0u );
-    record.TickSeconds = in.value( "tickSeconds", 1.f / 60.f );
-    record.InitialSync = in.value( "initialSync", false );
-    record.Predicted = JsonState( in.value( "predicted", json::object() ) );
-    record.Authoritative = JsonState( in.value( "authoritative", json::object() ) );
-    record.PredictedScripts = HexBytes( in.value( "predictedScripts", std::string() ) );
-    record.AuthoritativeScripts = HexBytes( in.value( "authoritativeScripts", std::string() ) );
-    for( const json& range : in.value( "scriptDiffs", json::array() ) )
+    // A field of the wrong type (a hand-edited file) throws from nlohmann: that's an error here.
+    try
     {
-        if( range.is_array() && range.size() == 2 )
+        NetMispredictRecord record;
+        record.Tick = in.value( "tick", 0u );
+        record.NewestTick = in.value( "newestTick", 0u );
+        record.TickSeconds = FieldFloat( in, "tickSeconds", 1.f / 60.f );
+        record.InitialSync = in.value( "initialSync", false );
+        record.Predicted = JsonState( in.value( "predicted", json::object() ) );
+        record.Authoritative = JsonState( in.value( "authoritative", json::object() ) );
+        record.PredictedScripts = HexBytes( in.value( "predictedScripts", std::string() ) );
+        record.AuthoritativeScripts = HexBytes( in.value( "authoritativeScripts", std::string() ) );
+        for( const json& range : in.value( "scriptDiffs", json::array() ) )
         {
-            record.ScriptDiffs.emplace_back( range[0].get<uint32_t>(), range[1].get<uint32_t>() );
+            if( range.is_array() && range.size() == 2 )
+            {
+                record.ScriptDiffs.emplace_back( range[0].get<uint32_t>(), range[1].get<uint32_t>() );
+            }
         }
+        record.HasStart = in.value( "hasStart", false );
+        record.Start = JsonState( in.value( "start", json::object() ) );
+        record.StartScripts = HexBytes( in.value( "startScripts", std::string() ) );
+        record.PreviousCommand = JsonCommand( in.value( "previousCommand", json::object() ) );
+        for( const json& command : in.value( "commands", json::array() ) )
+        {
+            record.Commands.push_back( JsonCommand( command ) );
+        }
+        for( const json& state : in.value( "resimulated", json::array() ) )
+        {
+            record.Resimulated.push_back( JsonState( state ) );
+        }
+        record.PresentJump = JsonVector( in.value( "presentJump", json() ) );
+        record.ResimMilliseconds = FieldDouble( in, "resimMilliseconds", 0.0 );
+        OutRecord = std::move( record );
+        return true;
     }
-    record.HasStart = in.value( "hasStart", false );
-    record.Start = JsonState( in.value( "start", json::object() ) );
-    record.StartScripts = HexBytes( in.value( "startScripts", std::string() ) );
-    record.PreviousCommand = JsonCommand( in.value( "previousCommand", json::object() ) );
-    for( const json& command : in.value( "commands", json::array() ) )
+    catch( const json::exception& e )
     {
-        record.Commands.push_back( JsonCommand( command ) );
+        if( OutError )
+        {
+            *OutError = std::string( "bad misprediction field: " ) + e.what();
+        }
+        return false;
     }
-    for( const json& state : in.value( "resimulated", json::array() ) )
-    {
-        record.Resimulated.push_back( JsonState( state ) );
-    }
-    record.PresentJump = JsonVector( in.value( "presentJump", json() ) );
-    record.ResimMilliseconds = in.value( "resimMilliseconds", 0.0 );
-    OutRecord = std::move( record );
-    return true;
 }
 
 
