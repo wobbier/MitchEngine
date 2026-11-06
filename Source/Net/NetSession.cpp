@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 
 namespace
 {
@@ -769,9 +770,16 @@ void NetClient::Steer( const Report& InReport )
     // behind at all.
     const bool hitchBack = m_hitchBack;
     m_hitchBack = false;
+    const uint32_t tickBefore = m_clock.GetTick();
     m_clock.OnSlackReport( InReport.Slack, arrived, hitchBack ? 0.f : m_clock.GetSettings().BehindTicks );
     if( m_clock.GetResyncCount() != resyncs )
     {
+        // Logged, so a test can tell when (a killcam, a hitch) and a person why.
+        char line[192];
+        std::snprintf( line, sizeof( line ), "Net: clock resync %d at server tick %u: tick %u -> %u (slack %.2f, arrived %.2f, target %.2f%s)",
+            m_clock.GetResyncCount(), InReport.ServerTick, tickBefore, m_clock.GetTick(), InReport.Slack, arrived, m_clock.GetTargetSlack(),
+            hitchBack ? ", back from a hitch" : "" );
+        CLog::Log( CLog::LogType::Info, line );
         // The clock was off (its commands late or far early): the jump fixes that, a deeper
         // buffer wouldn't. The reports describe the old clock until the server hears the new (and
         // the clock ignores their misses until it can steer again: NetClock::OnMisses).
