@@ -1,5 +1,6 @@
 #include "FileWatcher.h"
 #include "optick.h"
+#include "Profiling/ThreadName.h"
 #include <algorithm>
 #include <string_view>
 
@@ -176,7 +177,7 @@ std::vector<FileWatcher::Change> FileWatcher::ConsumeChanges()
 
 void FileWatcher::ThreadMain()
 {
-    OPTICK_THREAD( "File Watcher" );
+    ME_PROFILE_THREAD( "File Watcher" );
     while( m_running.load() )
     {
         {

@@ -155,6 +155,11 @@ Engine::~Engine()
 
 void Engine::Init( Game* game )
 {
+#if defined( ME_CHROMETRACE )
+    // The main thread's lane, first and named in every capture (ME-321). Windows Optick names it
+    // from OPTICK_FRAME; the OS name stays the process name.
+    static ChromeTrace::ThreadScope s_mainThread( "Main Thread" );
+#endif
     OPTICK_EVENT( "Engine::Init" );
     if( m_isInitialized || !game )
     {

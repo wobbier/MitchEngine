@@ -52,8 +52,9 @@ namespace Jobs
         static uint32_t GetCurrentThreadIndex();
 
         // Runs fn() on some thread. The counter is incremented now and decremented when fn returns.
+        // InName labels the job's profiler zone (a string literal: it's kept by pointer).
         template<typename Fn>
-        void Run( Counter& counter, Fn&& fn );
+        void Run( Counter& counter, Fn&& fn, const char* InName = "Job" );
 
         // Blocks until the counter reaches zero, executing queued jobs meanwhile.
         void Wait( Counter& counter );
@@ -61,11 +62,17 @@ namespace Jobs
         // Calls fn( begin, end ) over [0, count) split into batches of at least minBatchSize, on all
         // threads including the caller. Returns when every batch is done. No allocations.
         template<typename Fn>
-        void ParallelFor( uint32_t count, uint32_t minBatchSize, Fn&& fn );
+        void ParallelFor( uint32_t count, uint32_t minBatchSize, Fn&& fn, const char* InName = "Job" );
+        // The same, its jobs' profiler zones named (a string literal: it's kept by pointer).
+        template<typename Fn>
+        void ParallelFor( const char* InName, uint32_t count, uint32_t minBatchSize, Fn&& fn )
+        {
+            ParallelFor( count, minBatchSize, std::forward<Fn>( fn ), InName );
+        }
 
         // Low level: enqueue a raw range job (used by physics task callbacks).
         using RangeFunction = void ( * )( void* context, uint32_t begin, uint32_t end );
-        void Submit( Counter& counter, RangeFunction function, void* context, uint32_t begin, uint32_t end );
+        void Submit( Counter& counter, RangeFunction function, void* context, uint32_t begin, uint32_t end, const char* InName = "Job" );
 
     private:
         struct Job
@@ -76,6 +83,7 @@ namespace Jobs
             uint32_t Begin = 0;
             uint32_t End = 0;
             Counter* Owner = nullptr;
+            const char* Name = "Job";
         };
 
         struct alignas( 64 ) Queue
@@ -107,7 +115,7 @@ namespace Jobs
     // ---------------------------------------------------------------------------------------------
 
     template<typename Fn>
-    void JobSystem::Run( Counter& counter, Fn&& fn )
+    void JobSystem::Run( Counter& counter, Fn&& fn, const char* InName )
     {
         using Callable = std::decay_t<Fn>;
         Job job;
@@ -115,13 +123,14 @@ namespace Jobs
         job.Function = []( void* context, uint32_t, uint32_t ) { ( *static_cast<Callable*>( context ) )(); };
         job.DeleteContext = []( void* context ) { delete static_cast<Callable*>( context ); };
         job.Owner = &counter;
+        job.Name = InName;
         counter.Pending.fetch_add( 1, std::memory_order_relaxed );
         Push( &job, 1 );
     }
 
 
     template<typename Fn>
-    void JobSystem::ParallelFor( uint32_t count, uint32_t minBatchSize, Fn&& fn )
+    void JobSystem::ParallelFor( uint32_t count, uint32_t minBatchSize, Fn&& fn, const char* InName )
     {
         if( count == 0 )
         {
@@ -162,6 +171,7 @@ namespace Jobs
             job.Begin = batch * batchSize;
             job.End = ( batch + 1 ) * batchSize < count ? ( batch + 1 ) * batchSize : count;
             job.Owner = &counter;
+            job.Name = InName;
             if( queued == kChunk )
             {
                 Push( jobs, queued );

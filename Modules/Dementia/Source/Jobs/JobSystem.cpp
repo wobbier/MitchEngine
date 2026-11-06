@@ -1,5 +1,6 @@
 #include "JobSystem.h"
 #include "optick.h"
+#include "Profiling/ThreadName.h"
 #include <chrono>
 #include <string>
 
@@ -110,7 +111,7 @@ namespace Jobs
     }
 
 
-    void JobSystem::Submit( Counter& counter, RangeFunction function, void* context, uint32_t begin, uint32_t end )
+    void JobSystem::Submit( Counter& counter, RangeFunction function, void* context, uint32_t begin, uint32_t end, const char* InName )
     {
         EnsureStarted();
         Job job;
@@ -119,6 +120,7 @@ namespace Jobs
         job.Begin = begin;
         job.End = end;
         job.Owner = &counter;
+        job.Name = InName;
         counter.Pending.fetch_add( 1, std::memory_order_relaxed );
         Push( &job, 1 );
     }
@@ -203,7 +205,11 @@ namespace Jobs
 
     void JobSystem::Execute( Job& job )
     {
-        job.Function( job.Context, job.Begin, job.End );
+        {
+            // Each job's zone, on whichever thread runs it (a worker, or a thread helping in Wait).
+            OPTICK_EVENT_DYNAMIC( job.Name ? job.Name : "Job" );
+            job.Function( job.Context, job.Begin, job.End );
+        }
         if( job.DeleteContext )
         {
             job.DeleteContext( job.Context );
@@ -255,7 +261,7 @@ namespace Jobs
     {
         s_threadIndex = threadIndex;
         const std::string threadName = "Job Worker " + std::to_string( threadIndex );
-        OPTICK_THREAD( threadName.c_str() );
+        ME_PROFILE_THREAD( threadName.c_str() );
 
         int idleSpins = 0;
         while( m_running.load( std::memory_order_acquire ) )
@@ -273,6 +279,7 @@ namespace Jobs
             }
 
             // Nothing to do for a while: sleep until work arrives.
+            OPTICK_EVENT( "Worker Sleep", Optick::Category::WaitEmpty );
             std::unique_lock<std::mutex> lock( m_sleepMutex );
             m_sleepingWorkers.fetch_add( 1, std::memory_order_acq_rel );
             m_sleepCondition.wait_for( lock, std::chrono::milliseconds( 5 ), [this]() {

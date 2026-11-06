@@ -1,4 +1,5 @@
 #include <Resource/ResourceCache.h>
+#include <Profiling/ThreadName.h>
 #include "Core/WorkStatus.h"
 #include <filesystem>
 
@@ -36,7 +37,7 @@ struct ResourceCache::AsyncLoads
     void Run( int InIndex )
     {
         const std::string threadName = "Resource Loader " + std::to_string( InIndex );
-        OPTICK_THREAD( threadName.c_str() );
+        ME_PROFILE_THREAD( threadName.c_str() );
         std::unique_lock<std::mutex> lock( Mutex );
         while( true )
         {
@@ -134,7 +135,7 @@ struct ResourceCache::Reimports
     void Run( int InIndex )
     {
         const std::string threadName = "Reimport " + std::to_string( InIndex );
-        OPTICK_THREAD( threadName.c_str() );
+        ME_PROFILE_THREAD( threadName.c_str() );
         std::unique_lock<std::mutex> lock( Mutex );
         while( true )
         {
