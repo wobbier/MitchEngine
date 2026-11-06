@@ -57,6 +57,9 @@ namespace NetSchema
     void Read( Entity& InEntity, const std::vector<uint8_t>& InFields );
     // How many fields of the entity's components replicate.
     size_t CountReplicatedFields( Entity& InEntity );
+    // Every reflected type's Replicated fields (type, field names and kinds, in order) as one hash:
+    // which layout a recording's field bytes have (ME-316 replay headers).
+    uint64_t Hash();
 }
 
 

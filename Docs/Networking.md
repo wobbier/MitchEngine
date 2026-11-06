@@ -56,6 +56,7 @@ The editor tooling (NET-7) comes next.
 | `Source/Net/NetPrediction.h` | `NetPredictor`: a 128-tick history of {command, mover state}, `Reconcile` (millimetre compare, then restore and resim with `PhysicsCore::StepCharacter`), and visual error smoothing |
 | `Source/Components/Networking/NetHitbox.h` | A capsule or box that lag-compensated shots test against |
 | `Source/Net/NetLagCompensation.h` | Each tick's hitbox poses for `MaxRewindSeconds`; `Raycast` at a view tick (analytic ray vs capsule / OBB, present colliders occlude); overlays |
+| `Source/Net/NetReplay.h` | Match replays (ME-316): the `.mreplay` format (header, self-contained chunks, index), `NetReplayRecorder` (ring + chunks written on the background lane), `INetReplaySource` (file or memory) and `NetReplayReader` (any tick, any range) |
 | `Source/Cores/NetCore.h` | Engine-owned (`Engine::Net`): `Host` / `Connect` / `Close`, `IsActive` (until `Shutdown`) / `IsSessionLive` (until `Close` or the session's end), the frame hooks (they drive the transport's `Update`), the version of its world, `WriteReport` |
 | `Source/Net/UdpTransport.h` | `UdpTransport`: non-blocking IPv4 UDP (BSD sockets / Winsock). Addresses pack `(ip << 16) \| port`; `Resolve( "host:port" )`, `ToString` |
 | `Source/Engine/NetLaunch.h` | The command line (`--server`, `--connect`, `--net-*`): starts the session after the scene loads, logs it, writes the report, says goodbye on exit |
@@ -372,6 +373,29 @@ public partial class Dasher : Script
   - **Also exposed:** `Net.Command(e).ViewTick`, `Net.RoundTripMs` (a client's) and `Net.RoundTripMsTo(clientId)` (the server's, per client).
 - **Overlays:** with `DrawOverlays`, each shot draws the ray (green on a hit, red otherwise), the rewound hitboxes in yellow and the present ones in gray, for 2 s.
 
+### Match replays (ME-316)
+
+The server's ground truth for a whole match, for debugging after the fact: one record per simulated tick, with no relevancy filter. ME-202's file replays share the format; ME-323's killcam will read the same data from the recorder's ring.
+
+**A tick's record (`NetReplayTick`):**
+
+- **State:** every networked entity's `NetEntityState` (the quantized pose and `NetSchema` bytes): `CaptureTick`'s snapshot, unfiltered.
+- **Clients:** each client's command for the tick (buttons, axes, aim, `ViewTick`), whether it was a repeat (`Missed`), and its link: RTT, loss, command slack, misses, late commands and clock resyncs so far.
+- **Ticks:** the ticks still owed after it (a server catching up) and the backlog the engine dropped before it.
+- **Entities:** what each NetId is (name, prefab, owner), when it appears or changes owner.
+- **Shots:** every lag-compensated shot: shooter and its client, ray, range, view tick, ticks rewound, hit / occluded / clamped / rejected, the hitbox hit (NetId and part) and point, and every hitbox as it was rewound.
+- **Events:** name, payload (free text, JSON by convention) and the NetId it's about: joins and leaves, and the game's own.
+
+**The file (`.mreplay`, little-endian, versioned by `NetReplayFormat::kVersion`):**
+
+1. **Header:** `MREPLAY\0`, the format version, then product, engine and game commits, map, command line, UTC time, tick rate, keyframe interval, net protocol, and the build, script schema, scene and `NetSchema::Hash` hashes (the reflected Replicated fields' layout).
+2. **Chunks**, each self-contained: `MRCK`, first and last tick, tick count, codec, raw and stored size, an FNV-1a checksum of the stored bytes, then the ticks. The first tick's state is whole (the keyframe) and the rest are `NetSnapshotCodec` deltas against the tick before; a held command costs a bit. The first tick also names every live NetId, so a chunk decodes alone: seeking decodes one chunk, and the same bytes can go over a network stream.
+3. **Index:** `MRIX` and each chunk's offset and ticks, then the index's offset and `MRINDEX\0`. A file whose server died has none: readers scan the chunks and stop at the first torn one.
+
+**Recording (`NetReplayRecorder`):** `Record` keeps a ring of the newest ticks (`RingSeconds`, 12 s) and every `KeyframeInterval` ticks (300: 5 s at 60 Hz) hands the chunk to a `Jobs::SerialQueue` ("Replay Writer") on the background lane (ME-319), which encodes, deflates (zlib) and writes it in order. The tick never waits on the disk; `Close` writes the last chunk and the index and waits. A write that fails stops the file (logged once); the ring goes on.
+
+**Reading:** an `INetReplaySource` gives the header and chunks (`NetReplayFileSource` from a file, `NetReplayMemorySource` from bytes; ME-323's stream will be another). `NetReplayReader` reads any tick (decoding its chunk from the keyframe, kept for the next read) or a range in order.
+
 ### UDP and dedicated servers (NET-5)
 
 **`UdpTransport`:**
@@ -566,6 +590,12 @@ The session starts after the scene loads, because the handshake hashes the scene
   - **With the stall check and catch-up slack:** both again with 0 resyncs, 0 stalls and 0 missed commands (RTT 15 and 115 ms). The observer run (two clients, the server loading the second's world as it joins) passes too.
   - **Protocol 7 (the server's wait, gaps and outages, the catch-up bound):** clean 0 resyncs, 0 stalls, 0 outages, 0 missed (RTT 15.5 ms); lossy the same (RTT 115 ms); the observer run 0 resyncs, 1 stall and 4 late commands as the second client joined. HeroShooter's `Tools/MatchSmoke.py --expect-match-over` (a dedicated server Player and two autopilot clients, a full match to 3): 10 kills, 0 resyncs and 0 stalls on both clients, RTT 18 and 32 ms, 29 and 20 corrections against about 6500 matches; with `--net-lag 40 --net-jitter 5 --net-loss 2%`, 10 kills, 0 resyncs, 1 stall on one client, RTT 99 and 102 ms, 23 and 15 corrections against about 6400 matches.
 - **Round trip:** at 50 ms each way, 5% loss, with 0 or ±10 ms jitter, both ends estimate within 10% of 100 ms. Garbage and lying packets are rejected, and oversized messages are refused. An end at 5 fps on a 50 ms link keeps sampling: a round trip of 186 ms (its frames' wait included), deviation 2.3 ms (a fixed 100 ms cutoff froze it at half the first sample). After 40000 packets, the next is still the newest; a reordered one isn't.
+
+`NetReplayTests.cpp` (ME-316):
+
+- **Round trip:** 240 match-like ticks (movers, a pickup that comes and goes, a client joining mid-chunk, held and changing commands, exact and inexact view ticks, shots with hitboxes, events) come back field for field, raw and deflated. A flipped byte fails the checksum; a short chunk or header is refused.
+- **Recorder and seeking:** 637 ticks recorded at a 60-tick keyframe interval write 11 chunks on the background lane and an index; every tick, read in a shuffled order, equals what was recorded, each chunk's first tick names every live dynamic NetId, a range comes back in order, and the same chunks read from memory match. The ring holds the newest `RingSeconds`.
+- **A dead server's file:** without its index and with half its last chunk, a replay reads up to its last whole chunk.
 
 ## How to Extend
 

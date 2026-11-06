@@ -4,7 +4,9 @@
 #include "ECS/Entity.h"
 #include "Net/BitStream.h"
 #include "Net/NetQuantize.h"
+#include "Net/NetVersion.h"
 #include "Reflection/Reflection.h"
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 
@@ -230,6 +232,40 @@ size_t NetSchema::CountReplicatedFields( Entity& InEntity )
         ForEachReplicated( *component, [&count]( const Reflection::FieldInfo&, void* ) { ++count; } );
     }
     return count;
+}
+
+
+uint64_t NetSchema::Hash()
+{
+    std::vector<const Reflection::TypeInfo*> types = Reflection::Registry::GetAllTypes();
+    std::sort( types.begin(), types.end(), []( const Reflection::TypeInfo* InA, const Reflection::TypeInfo* InB ) { return InA->Name < InB->Name; } );
+    uint64_t hash = NetVersion::Hash( "NetSchema" );
+    for( const Reflection::TypeInfo* type : types )
+    {
+        // Base fields first, as ForEachField visits them.
+        std::vector<const Reflection::TypeInfo*> chain;
+        for( const Reflection::TypeInfo* link = type; link; link = link->GetBaseType() )
+        {
+            chain.insert( chain.begin(), link );
+        }
+        bool any = false;
+        for( const Reflection::TypeInfo* link : chain )
+        {
+            for( const Reflection::FieldInfo& field : link->Fields )
+            {
+                if( field.Has( Reflection::FieldFlags::Replicated ) )
+                {
+                    if( !any )
+                    {
+                        hash = NetVersion::Hash( type->Name + "\n", hash );
+                        any = true;
+                    }
+                    hash = NetVersion::Hash( field.Name + ":" + std::to_string( static_cast<int>( field.GetType() ) ) + "\n", hash );
+                }
+            }
+        }
+    }
+    return hash;
 }
 
 
