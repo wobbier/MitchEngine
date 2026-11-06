@@ -48,7 +48,8 @@ namespace Jobs
 // torn one.
 namespace NetReplayFormat
 {
-    constexpr uint32_t kVersion = 1;
+    // 2: link stats at their resolution (RTT 0.1 ms, loss 0.01%, slack 0.01 tick), sent when they change.
+    constexpr uint32_t kVersion = 2;
     constexpr char kMagic[8] = { 'M', 'R', 'E', 'P', 'L', 'A', 'Y', '\0' };
     constexpr char kTrailer[8] = { 'M', 'R', 'I', 'N', 'D', 'E', 'X', '\0' };
     constexpr uint32_t kChunkMagic = 0x4B43524Du;   // "MRCK"
@@ -91,6 +92,7 @@ struct NetReplayClient
     uint8_t Id = 0;
     InputCommand Command;       // what the server simulated (client->Current)
     bool Missed = false;        // it hadn't arrived: a repeat (neutral past the repeat cap)
+    // The link, kept to RTT 0.1 ms, loss 0.01% and slack 0.01 tick (a reader gets those back).
     float RoundTripMs = 0.f;
     float PacketLoss = 0.f;
     float Slack = 0.f;          // the command buffer's smoothed slack, in ticks

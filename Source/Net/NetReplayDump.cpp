@@ -99,13 +99,30 @@ namespace
     struct Names
     {
         std::map<uint32_t, NetReplayEntity> Entities;
+        // Every owner each NetId had, in order ("1>0": client 1's until it left).
+        std::map<uint32_t, std::vector<uint8_t>> Owners;
 
         void Note( const NetReplayTick& InTick )
         {
             for( const NetReplayEntity& entity : InTick.Entities )
             {
                 Entities[entity.NetId] = entity;
+                std::vector<uint8_t>& owners = Owners[entity.NetId];
+                if( owners.empty() || owners.back() != entity.Owner )
+                {
+                    owners.push_back( entity.Owner );
+                }
             }
+        }
+        std::string OwnersOf( uint32_t InNetId ) const
+        {
+            std::string text;
+            auto it = Owners.find( InNetId );
+            for( const uint8_t owner : it != Owners.end() ? it->second : std::vector<uint8_t>{ 0 } )
+            {
+                text += ( text.empty() ? "" : ">" ) + std::to_string( owner );
+            }
+            return text;
         }
         std::string Of( uint32_t InNetId ) const
         {
@@ -428,7 +445,8 @@ bool NetReplayDump::Write( NetReplayReader& InReader, const Options& InOptions, 
             {
                 if( seenEntities.count( id ) && ( InOptions.Entity == 0 || id == InOptions.Entity ) )
                 {
-                    entities.push_back( { { "netId", id }, { "name", entity.Name }, { "prefab", entity.Prefab }, { "owner", entity.Owner } } );
+                    entities.push_back( { { "netId", id }, { "name", entity.Name }, { "prefab", entity.Prefab }, { "owner", entity.Owner },
+                        { "owners", names.Owners[id] } } );
                 }
             }
             counts["entities"] = entities;
@@ -452,7 +470,7 @@ bool NetReplayDump::Write( NetReplayReader& InReader, const Options& InOptions, 
             {
                 if( seenEntities.count( id ) && ( InOptions.Entity == 0 || id == InOptions.Entity ) )
                 {
-                    InOut << Format( "  #%-6u %-24s owner %-3u %s\n", id, entity.Name.c_str(), entity.Owner, entity.Prefab.c_str() );
+                    InOut << Format( "  #%-6u %-24s owner %-5s %s\n", id, entity.Name.c_str(), names.OwnersOf( id ).c_str(), entity.Prefab.c_str() );
                 }
             }
             InOut << "clients\n";

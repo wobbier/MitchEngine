@@ -3,6 +3,7 @@
 #include "CLog.h"
 #include "Jobs/BackgroundLane.h"
 #include "Net/BitStream.h"
+#include "Net/NetQuantize.h"
 #include "Net/NetVersion.h"
 #include <algorithm>
 #include <cmath>
@@ -133,6 +134,91 @@ namespace
         return ReadDouble( InReader );
     }
 
+    bool SameBits( float InA, float InB )
+    {
+        return std::memcmp( &InA, &InB, sizeof( float ) ) == 0;
+    }
+
+    // A value the wire quantized (axes, pitch: NetQuantize at InBits) as its InBits, when that's
+    // exact; else the raw float.
+    void WriteGridFloat( BitWriter& InWriter, float InValue, float InMin, float InMax, int InBits )
+    {
+        const uint32_t bits = NetQuantize::Quantize( InValue, InMin, InMax, InBits );
+        const bool exact = SameBits( NetQuantize::Dequantize( bits, InMin, InMax, InBits ), InValue );
+        InWriter.WriteBool( exact );
+        if( exact )
+        {
+            InWriter.WriteBits( bits, InBits );
+        }
+        else
+        {
+            InWriter.WriteFloat( InValue );
+        }
+    }
+
+    float ReadGridFloat( BitReader& InReader, float InMin, float InMax, int InBits )
+    {
+        return InReader.ReadBool() ? NetQuantize::Dequantize( InReader.ReadBits( InBits ), InMin, InMax, InBits ) : InReader.ReadFloat();
+    }
+
+    // Yaw as the wire sends it (NetCommands: 16 bits of a turn), when that's exact.
+    void WriteYaw( BitWriter& InWriter, float InDegrees )
+    {
+        const double wrapped = InDegrees - 360.0 * std::floor( InDegrees / 360.0 );
+        const uint32_t bits = static_cast<uint32_t>( std::llround( wrapped / 360.0 * 65536.0 ) ) & 0xFFFFu;
+        const bool exact = SameBits( static_cast<float>( bits * 360.0 / 65536.0 ), InDegrees );
+        InWriter.WriteBool( exact );
+        if( exact )
+        {
+            InWriter.WriteBits( bits, 16 );
+        }
+        else
+        {
+            InWriter.WriteFloat( InDegrees );
+        }
+    }
+
+    float ReadYaw( BitReader& InReader )
+    {
+        return InReader.ReadBool() ? static_cast<float>( InReader.ReadBits( 16 ) * 360.0 / 65536.0 ) : InReader.ReadFloat();
+    }
+
+    // The link stats are for people: RTT to 0.1 ms, loss to 0.01%, slack to 0.01 tick.
+    struct LinkBits
+    {
+        uint64_t RoundTrip = 0;
+        uint64_t Loss = 0;
+        int64_t Slack = 0;
+        uint32_t Misses = 0;
+        uint32_t LateCommands = 0;
+        uint32_t Resyncs = 0;
+
+        explicit LinkBits( const NetReplayClient& InClient )
+            : RoundTrip( static_cast<uint64_t>( std::llround( std::clamp( InClient.RoundTripMs, 0.f, 1e6f ) * 10.0 ) ) )
+            , Loss( static_cast<uint64_t>( std::llround( std::clamp( InClient.PacketLoss, 0.f, 1.f ) * 10000.0 ) ) )
+            , Slack( std::llround( std::clamp( InClient.Slack, -1e6f, 1e6f ) * 100.0 ) )
+            , Misses( InClient.Misses )
+            , LateCommands( InClient.LateCommands )
+            , Resyncs( InClient.Resyncs )
+        {
+        }
+        bool operator==( const LinkBits& InOther ) const
+        {
+            return RoundTrip == InOther.RoundTrip && Loss == InOther.Loss && Slack == InOther.Slack && Misses == InOther.Misses && LateCommands == InOther.LateCommands
+                && Resyncs == InOther.Resyncs;
+        }
+    };
+
+    uint64_t ZigZag( int64_t InValue )
+    {
+        return ( static_cast<uint64_t>( InValue ) << 1 ) ^ static_cast<uint64_t>( InValue >> 63 );
+    }
+
+    int64_t UnZigZag( uint64_t InValue )
+    {
+        return static_cast<int64_t>( InValue >> 1 ) ^ -static_cast<int64_t>( InValue & 1 );
+    }
+
     bool SameInput( const InputCommand& InA, const InputCommand& InB )
     {
         return InA.Buttons == InB.Buttons && InA.Axes == InB.Axes && InA.HasAim == InB.HasAim && InA.Yaw == InB.Yaw && InA.Pitch == InB.Pitch;
@@ -155,20 +241,27 @@ namespace
             InWriter.WriteVarUInt( command.Buttons );
             for( const float axis : command.Axes )
             {
-                InWriter.WriteFloat( axis );
+                WriteGridFloat( InWriter, axis, -1.f, 1.f, 16 );
             }
             InWriter.WriteBool( command.HasAim );
-            InWriter.WriteFloat( command.Yaw );
-            InWriter.WriteFloat( command.Pitch );
+            WriteYaw( InWriter, command.Yaw );
+            WriteGridFloat( InWriter, command.Pitch, -90.f, 90.f, 16 );
         }
         WriteViewTick( InWriter, command.Tick, command.ViewTick );
         InWriter.WriteBool( InClient.Missed );
-        InWriter.WriteFloat( InClient.RoundTripMs );
-        InWriter.WriteFloat( InClient.PacketLoss );
-        InWriter.WriteFloat( InClient.Slack );
-        InWriter.WriteVarUInt( InClient.Misses );
-        InWriter.WriteVarUInt( InClient.LateCommands );
-        InWriter.WriteVarUInt( InClient.Resyncs );
+        // The link, when it changed (at its resolution).
+        const LinkBits link( InClient );
+        const bool sameLink = InPrevious && LinkBits( *InPrevious ) == link;
+        InWriter.WriteBool( sameLink );
+        if( !sameLink )
+        {
+            InWriter.WriteVarUInt( link.RoundTrip );
+            InWriter.WriteVarUInt( link.Loss );
+            InWriter.WriteVarUInt( ZigZag( link.Slack ) );
+            InWriter.WriteVarUInt( link.Misses );
+            InWriter.WriteVarUInt( link.LateCommands );
+            InWriter.WriteVarUInt( link.Resyncs );
+        }
     }
 
     bool ReadClient( BitReader& InReader, uint32_t InTick, NetReplayClient& OutClient, const NetReplayClient* InPrevious )
@@ -193,20 +286,36 @@ namespace
             command.Buttons = static_cast<uint32_t>( InReader.ReadVarUInt() );
             for( float& axis : command.Axes )
             {
-                axis = InReader.ReadFloat();
+                axis = ReadGridFloat( InReader, -1.f, 1.f, 16 );
             }
             command.HasAim = InReader.ReadBool();
-            command.Yaw = InReader.ReadFloat();
-            command.Pitch = InReader.ReadFloat();
+            command.Yaw = ReadYaw( InReader );
+            command.Pitch = ReadGridFloat( InReader, -90.f, 90.f, 16 );
         }
         command.ViewTick = ReadViewTick( InReader, command.Tick );
         OutClient.Missed = InReader.ReadBool();
-        OutClient.RoundTripMs = InReader.ReadFloat();
-        OutClient.PacketLoss = InReader.ReadFloat();
-        OutClient.Slack = InReader.ReadFloat();
-        OutClient.Misses = static_cast<uint32_t>( InReader.ReadVarUInt() );
-        OutClient.LateCommands = static_cast<uint32_t>( InReader.ReadVarUInt() );
-        OutClient.Resyncs = static_cast<uint32_t>( InReader.ReadVarUInt() );
+        if( InReader.ReadBool() )
+        {
+            if( !InPrevious )
+            {
+                return false;
+            }
+            OutClient.RoundTripMs = InPrevious->RoundTripMs;
+            OutClient.PacketLoss = InPrevious->PacketLoss;
+            OutClient.Slack = InPrevious->Slack;
+            OutClient.Misses = InPrevious->Misses;
+            OutClient.LateCommands = InPrevious->LateCommands;
+            OutClient.Resyncs = InPrevious->Resyncs;
+        }
+        else
+        {
+            OutClient.RoundTripMs = static_cast<float>( static_cast<double>( InReader.ReadVarUInt() ) / 10.0 );
+            OutClient.PacketLoss = static_cast<float>( static_cast<double>( InReader.ReadVarUInt() ) / 10000.0 );
+            OutClient.Slack = static_cast<float>( static_cast<double>( UnZigZag( InReader.ReadVarUInt() ) ) / 100.0 );
+            OutClient.Misses = static_cast<uint32_t>( InReader.ReadVarUInt() );
+            OutClient.LateCommands = static_cast<uint32_t>( InReader.ReadVarUInt() );
+            OutClient.Resyncs = static_cast<uint32_t>( InReader.ReadVarUInt() );
+        }
         return !InReader.IsOverflowed();
     }
 

@@ -94,7 +94,7 @@ namespace NetReplayTest
                 command.ViewTick = InTick % 5 == 0 ? -1.0 : InTick % 5 == 1 ? static_cast<double>( InTick ) - 0.123456789 : static_cast<double>( InTick ) - 3.0 - 5.0 / 64.0;
             }
             client.Missed = id == 3 && InTick % 13 == 0;
-            client.RoundTripMs = 20.f + id + static_cast<float>( InTick % 7 );
+            client.RoundTripMs = 20.f + id + static_cast<float>( InTick / 7 % 7 ) * 1.37f;
             client.PacketLoss = id == 3 ? 0.02f : 0.f;
             client.Slack = 1.5f + 0.01f * static_cast<float>( InTick % 11 );
             client.Misses = InTick / 13;
@@ -185,9 +185,10 @@ namespace NetReplayTest
             CHECK( a.Command.Yaw == b.Command.Yaw );
             CHECK( a.Command.Pitch == b.Command.Pitch );
             CHECK( a.Missed == b.Missed );
-            CHECK( a.RoundTripMs == b.RoundTripMs );
-            CHECK( a.PacketLoss == b.PacketLoss );
-            CHECK( a.Slack == b.Slack );
+            // The link comes back at its resolution.
+            CHECK( std::fabs( a.RoundTripMs - b.RoundTripMs ) <= 0.05f + 1e-4f );
+            CHECK( std::fabs( a.PacketLoss - b.PacketLoss ) <= 0.00005f + 1e-7f );
+            CHECK( std::fabs( a.Slack - b.Slack ) <= 0.005f + 1e-5f );
             CHECK( a.Misses == b.Misses );
             CHECK( a.LateCommands == b.LateCommands );
             CHECK( a.Resyncs == b.Resyncs );

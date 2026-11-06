@@ -381,7 +381,7 @@ The server's ground truth for a whole match, for debugging after the fact: one r
 **A tick's record (`NetReplayTick`):**
 
 - **State:** every networked entity's `NetEntityState` (the quantized pose and `NetSchema` bytes): `CaptureTick`'s snapshot, unfiltered.
-- **Clients:** each client's command for the tick (buttons, axes, aim, `ViewTick`), whether it was a repeat (`Missed`), and its link: RTT, loss, command slack, misses, late commands and clock resyncs so far.
+- **Clients:** each client's command for the tick (buttons, axes, aim, `ViewTick`), whether it was a repeat (`Missed`), and its link: RTT (to 0.1 ms), loss (0.01%), command slack (0.01 tick), misses, late commands and clock resyncs so far.
 - **Ticks:** the ticks still owed after it (a server catching up) and the backlog the engine dropped before it.
 - **Entities:** what each NetId is (name, prefab, owner), when it appears or changes owner.
 - **Shots:** every lag-compensated shot: shooter and its client, ray, range, view tick, ticks rewound, hit / occluded / clamped / rejected, the hitbox hit (NetId and part) and point, and every hitbox as it was rewound.
@@ -392,6 +392,8 @@ The server's ground truth for a whole match, for debugging after the fact: one r
 1. **Header:** `MREPLAY\0`, the format version, then product, engine and game commits, map, command line, UTC time, tick rate, keyframe interval, net protocol, and the build, script schema, scene and `NetSchema::Hash` hashes (the reflected Replicated fields' layout).
 2. **Chunks**, each self-contained: `MRCK`, first and last tick, tick count, codec, raw and stored size, an FNV-1a checksum of the stored bytes, then the ticks. The first tick's state is whole (the keyframe) and the rest are `NetSnapshotCodec` deltas against the tick before; a held command costs a bit. The first tick also names every live NetId, so a chunk decodes alone: seeking decodes one chunk, and the same bytes can go over a network stream.
 3. **Index:** `MRIX` and each chunk's offset and ticks, then the index's offset and `MRINDEX\0`. A file whose server died has none: readers scan the chunks and stop at the first torn one.
+
+**Size** (HeroShooter's MatchSmoke, Debug, 2 players, 6–16 networked entities, 117 s): 548 KB, about 280 KB a minute; 1.86 MB before deflate. The states are most of it (two pawns' ~110 bytes of `[Replicated]` script fields change every tick and go whole), then the commands (the autopilot turns every tick). Re-encoding the same match at other keyframe intervals: 30 ticks 858 KB, 60 770, 150 709, 300 689, 600 679, 3600 669 (before the link-stat change below), so 300 ticks (5 s) costs 3% over one keyframe for the whole match while seeking decodes at most 300 ticks and a chunk is ~25 KB (a killcam stream's slice). The link stats are kept at their resolution (RTT 0.1 ms, loss 0.01%, slack 0.01 tick) and sent only when they change, and axes, yaw and pitch go at the wire's 16 bits when they're on its grid (raw floats otherwise): that took the match from 689 KB to 548.
 
 **Recording (`NetReplayRecorder`):** `Record` keeps a ring of the newest ticks (`RingSeconds`, 12 s) and every `KeyframeInterval` ticks (300: 5 s at 60 Hz) hands the chunk to a `Jobs::SerialQueue` ("Replay Writer") on the background lane (ME-319), which encodes, deflates (zlib) and writes it in order. The tick never waits on the disk; `Close` writes the last chunk and the index and waits. A write that fails stops the file (logged once); the ring goes on.
 
@@ -414,7 +416,7 @@ The server's ground truth for a whole match, for debugging after the fact: one r
 | Option | Prints |
 |--------|--------|
 | (none of the below) | the summary, events, shots, and each client's command when its input changes or it missed one |
-| `--summary` | the header (product, time, map, commits, command line, tick rate, hashes), ticks and seconds, most ticks owed and ticks dropped, each entity (NetId, name, owner, prefab), each client (ticks, RTT average / max, loss, misses, late commands, resyncs), event counts by name, shots hit / missed / occluded / clamped / rejected |
+| `--summary` | the header (product, time, map, commits, command line, tick rate, hashes), ticks and seconds, most ticks owed and ticks dropped, each entity (NetId, name, its owners in order, e.g. `1>0` when its client left, prefab), each client (ticks, RTT average / max, loss, misses, late commands, resyncs), event counts by name, shots hit / missed / occluded / clamped / rejected |
 | `--events` | `<tick> event <name> <payload> [<entity>#<id>]` |
 | `--shots` | `<tick> shot client N <shooter> HIT <target> (<part>) at (x, y, z) d=… from … dir … view … rewound … ticks`, a `MISS` (or `MISS (occluded …)`), then each rewound hitbox |
 | `--commands` | every tick's command per client: buttons, axes, aim, view tick, `(missed: repeated)` |
@@ -624,7 +626,7 @@ The session starts after the scene loads, because the handshake hashes the scene
 
 `NetReplayTests.cpp` (ME-316):
 
-- **Round trip:** 240 match-like ticks (movers, a pickup that comes and goes, a client joining mid-chunk, held and changing commands, exact and inexact view ticks, shots with hitboxes, events) come back field for field, raw and deflated. A flipped byte fails the checksum; a short chunk or header is refused.
+- **Round trip:** 240 match-like ticks (link stats back at their resolution) (movers, a pickup that comes and goes, a client joining mid-chunk, held and changing commands, exact and inexact view ticks, shots with hitboxes, events) come back field for field, raw and deflated. A flipped byte fails the checksum; a short chunk or header is refused.
 - **Recorder and seeking:** 637 ticks recorded at a 60-tick keyframe interval write 11 chunks on the background lane and an index; every tick, read in a shuffled order, equals what was recorded, each chunk's first tick names every live dynamic NetId, a range comes back in order, and the same chunks read from memory match. The ring holds the newest `RingSeconds`.
 - **A dead server's file:** without its index and with half its last chunk, a replay reads up to its last whole chunk.
 - **ReplayDump:** a 400-tick replay prints its map, tick count, event and shot counts, a hit with its part and point and the rewound hitboxes, a kill event's payload, and a held command only when it changes (not again at a chunk's start); `--ticks 150:199` keeps that range (with names from the chunk's start), `--entity` one entity's states, `--json` parses with the header, summary and only the ticks that have shots; bad options are refused.
