@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "EngineConfig.h"
 #include "Engine/AutomationRunner.h"
+#include <cstring>
 
 namespace
 {
@@ -102,8 +103,16 @@ void EngineConfig::LoadUserState()
     {
         return;
     }
+    // ... but not the window the user last left it at: automated editor runs open at the project's
+    // size, or a window sized for a big monitor overhangs Xvfb's screen and the flows' pointer
+    // warps get clamped short of what they aim at (ME-307).
+    const bool unattended = AutomationRunner::IsUnattendedRun();
     for( const char* key : kUserKeys )
     {
+        if( unattended && std::strcmp( key, "Window" ) == 0 )
+        {
+            continue;
+        }
         if( user.contains( key ) )
         {
             Root[key] = user[key];

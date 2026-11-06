@@ -1248,6 +1248,12 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             {
                 PreferencesWidget::ApplyAppearancePreferences();
             }
+            // The Game View reads this one as it opens; a flow sets it before `play`.
+            SceneViewWidget* gameView = InApp.Editor ? InApp.Editor->GetGameView() : nullptr;
+            if( key == "GameView.MaximizeOnPlay" && gameView && parsed.is_boolean() )
+            {
+                gameView->MaximizeOnPlayPreference = parsed.get<bool>();
+            }
         }
     }
     else if( command == "trace-start" )

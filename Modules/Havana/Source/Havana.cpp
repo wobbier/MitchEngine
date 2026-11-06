@@ -369,15 +369,19 @@ void Havana::InitUI()
     std::filesystem::create_directories( ".tmp", ec );
     EngineConfigFilePath = Path( ".tmp/imgui.ini", true );
     DefaultLayoutFilePath = Path( "Assets/Config/imgui.cfg" );
-    ActiveWorkspace = EditorConfig::GetInstance().GetPreference<int>( "ActiveWorkspace", 1 );
+    // Unattended runs (editor flows, screenshots) start from the project's default layout and
+    // panels in workspace 1, like a fresh checkout: a user's own arrangement (a short Game View, a
+    // panel floating over the World View) moves or covers what the flows click (ME-307).
+    const bool userLayout = !AutomationRunner::IsUnattendedRun();
+    ActiveWorkspace = userLayout ? EditorConfig::GetInstance().GetPreference<int>( "ActiveWorkspace", 1 ) : 1;
     if( ActiveWorkspace < 1 || ActiveWorkspace > 9 ) ActiveWorkspace = 1;
     const Path activeWorkspaceLayout = GetWorkspaceLayoutPath( ActiveWorkspace );
     ImGuiIO& io = ImGui::GetIO(); (void)io;
-    if( activeWorkspaceLayout.Exists )
+    if( userLayout && activeWorkspaceLayout.Exists )
     {
         LoadLayoutFile( activeWorkspaceLayout.FullPath.c_str() );
     }
-    else if( EngineConfigFilePath.Exists )
+    else if( userLayout && EngineConfigFilePath.Exists )
     {
         LoadLayoutFile( EngineConfigFilePath.FullPath.c_str() );
     }
@@ -433,7 +437,7 @@ void Havana::InitUI()
         i->Init();
         DefaultPanelOpen[i->Name] = i->IsOpen;
         auto& panelData = EditorConfig::GetInstance().PanelVisibility;
-        if( panelData.find( i->Name ) != panelData.end() )
+        if( userLayout && panelData.find( i->Name ) != panelData.end() )
         {
             i->IsOpen = panelData[i->Name].IsVisible;
         }
@@ -449,7 +453,16 @@ void Havana::InitUI()
         CustomRegisteredWidgets.push_back( customWidget );
         customWidget->Init();
     }
-    RestoreWorkspacePanelVisibility( ActiveWorkspace );
+    if( userLayout )
+    {
+        RestoreWorkspacePanelVisibility( ActiveWorkspace );
+    }
+    else
+    {
+        // Its output is in the run's own log, and the default layout floats it over the World View
+        // where it would take the flows' clicks and drags.
+        LogPanel->IsOpen = false;
+    }
     // A user's first launch starts the tour (ED-3); it records when it's done or skipped.
     if( !AutomationRunner::IsUnattendedRun() && !EditorConfig::GetInstance().GetPreference<bool>( "Editor.TourDone", false ) )
     {

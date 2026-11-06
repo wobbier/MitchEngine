@@ -198,7 +198,8 @@ namespace TerrainAutomation
             {
                 const auto* viewport = ImGui::GetMainViewport();
                 ImGui::SetWindowDock( window, 0, ImGuiCond_Always );
-                ImGui::SetWindowPos( window, ImVec2( viewport->WorkPos.x + ImGuiTheme::Em( 3 ), viewport->WorkPos.y + ImGuiTheme::Em( 3 ) ), ImGuiCond_Always );
+                // On the right, over the side panels: the flows' brush strokes land in the World View.
+                ImGui::SetWindowPos( window, ImVec2( viewport->WorkPos.x + viewport->WorkSize.x - ImGuiTheme::Em( 28 ), viewport->WorkPos.y + ImGuiTheme::Em( 3 ) ), ImGuiCond_Always );
                 ImGui::SetWindowSize( window, ImVec2( ImGuiTheme::Em( 25 ), std::min( ImGuiTheme::Em( 52 ), viewport->WorkSize.y - ImGuiTheme::Em( 4 ) ) ), ImGuiCond_Always );
             }
         }

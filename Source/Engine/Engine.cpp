@@ -399,6 +399,22 @@ void Engine::Init( Game* game )
         OPTICK_EVENT( "Engine::Init::CreateWindow" );
         GameWindow = new SDLWindow( engineConfig.GetValue( "Title" ), ResizeFunc, engineConfig.WindowPosition.x, engineConfig.WindowPosition.y, engineConfig.WindowSize );
         ApplyProductIcon( GameWindow );
+        // An automated run without --width/--height fits its window on the display (Xvfb's is
+        // 1920x1080): the pointer can't be warped onto a part of the window past the screen's
+        // edge, so editor flows would click short of their targets (ME-307).
+        SDL_Window* handle = static_cast<SDLWindow*>( GameWindow )->WindowHandle;
+        SDL_Rect bounds{};
+        const bool sizeGiven = CommandLine::Has( "--width" ) && CommandLine::Has( "--height" );
+        if( AutomationRunner::IsUnattendedRun() && !sizeGiven && handle && SDL_GetDisplayUsableBounds( std::max( SDL_GetWindowDisplayIndex( handle ), 0 ), &bounds ) == 0
+            && ( engineConfig.WindowSize.x > bounds.w || engineConfig.WindowSize.y > bounds.h ) )
+        {
+            engineConfig.WindowSize = Vector2( std::min( engineConfig.WindowSize.x, static_cast<float>( bounds.w ) ), std::min( engineConfig.WindowSize.y, static_cast<float>( bounds.h ) ) );
+            const int width = static_cast<int>( engineConfig.WindowSize.x );
+            const int height = static_cast<int>( engineConfig.WindowSize.y );
+            SDL_SetWindowSize( handle, width, height );
+            SDL_SetWindowPosition( handle, bounds.x + ( bounds.w - width ) / 2, bounds.y + ( bounds.h - height ) / 2 );
+            CLog::Log( CLog::LogType::Info, "Window: " + std::to_string( width ) + "x" + std::to_string( height ) + " to fit the display (unattended run)" );
+        }
     }
 #endif
 
