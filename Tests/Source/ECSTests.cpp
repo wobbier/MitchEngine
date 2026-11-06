@@ -687,4 +687,16 @@ TEST_CASE( "ECS: World singletons are per world, made on first use, never saved 
     CHECK( a->FindSingleton<SingletonClock>()->Ticks == 6 );
     CHECK( a->GetEntityCount() == 0 );
     CHECK( a->IsSingletonEntity( holder ) );
+
+    // Nor does the editor's Stop (Destroy: every entity and core), which keeps using the world:
+    // the holder goes only with the World, so a later first Singleton<T>() still only adds a
+    // component (ME-297).
+    SingletonClock* clock = a->FindSingleton<SingletonClock>();
+    a->CreateEntity( "Play-mode" );
+    a->Simulate();
+    a->Destroy();
+    CHECK( a->GetEntityCount() == 0 );
+    CHECK( a->IsSingletonEntity( holder ) );
+    REQUIRE( a->FindSingleton<SingletonClock>() == clock );
+    CHECK( clock->Ticks == 6 );
 }

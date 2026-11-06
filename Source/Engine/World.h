@@ -92,7 +92,8 @@ public:
 
     // ------------------------------------------------------------------ Singletons (NET-16)
     // One T per world, on a hidden entity (scene kSingletonScene: never saved with a scene, not
-    // listed in the hierarchy, counted or visited by ForEachEntity, kept through scene loads),
+    // listed in the hierarchy, counted or visited by ForEachEntity, kept through scene loads and
+    // Destroy(): it goes only with the World),
     // the component created on first use. The holder is made with the world, so a first use from
     // inside a callback (a component's Init, a core's OnEntityAdded, a script's OnCreate) never
     // creates an entity under a caller holding an Entity&. State a core shares with the rest of its
@@ -113,6 +114,7 @@ public:
     void Simulate();
     void Start();
     void Stop();
+    // Every entity and core, except the singletons' holder (the editor's Stop keeps using the world).
     void Destroy();
     void Unload();
     void UpdateLoadedCores( const UpdateContext& inUpdateContext );

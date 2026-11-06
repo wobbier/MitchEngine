@@ -48,6 +48,12 @@ World::World()
 World::~World()
 {
     Destroy();
+    // Destroy() keeps the singletons' holder (it lives as long as the World object, ME-297).
+    if( m_hasSingletonEntity )
+    {
+        DestroyEntityNow( m_singletonEntity );
+        m_hasSingletonEntity = false;
+    }
     for( auto& core : Cores )
     {
         core.second->Clear();
@@ -649,12 +655,14 @@ void World::Stop()
 
 void World::Destroy()
 {
-    // Every entity, children before parents.
+    // Every entity, children before parents; not the singletons' holder (ME-297): the world's
+    // state (its input layout, its main camera's slot) outlives the editor's Stop as it outlives a
+    // scene load, so the holder stays the world's until the World itself goes (~World).
     std::vector<EntityID> ordered;
     for( uint32_t index = 0; index < m_records.size(); ++index )
     {
         const EntityRecord& record = m_records[index];
-        if( !record.Alive )
+        if( !record.Alive || IsSingletonEntity( record.Facade.GetId() ) )
         {
             continue;
         }
@@ -670,7 +678,7 @@ void World::Destroy()
     }
     for( uint32_t index = 0; index < m_records.size(); ++index )
     {
-        if( m_records[index].Alive )
+        if( m_records[index].Alive && !IsSingletonEntity( m_records[index].Facade.GetId() ) )
         {
             DestroyEntityNow( m_records[index].Facade.GetId() );
         }

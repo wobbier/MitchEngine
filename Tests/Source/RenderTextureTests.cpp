@@ -221,6 +221,49 @@ TEST_CASE( "Render textures: a feed camera fills its target and never takes the 
 }
 
 
+TEST_CASE( "Cameras: a world's main camera falls back when its entity goes, a reused slot isn't main, and the editor's Stop keeps the world's camera slot (ME-297)" )
+{
+    auto world = std::make_shared<World>();
+    world->IsLoading = false;
+    // A camera core's default camera, the world's fallback (CameraCore::Init).
+    Camera fallback;
+    world->Singleton<SingletonCamera>().Fallback = &fallback;
+    CHECK( Camera::GetMain( world.get() ) == &fallback );
+
+    EntityHandle sceneEntity = world->CreateEntity( "Scene Camera" );
+    sceneEntity->AddComponent<Transform>();
+    Camera& sceneCamera = sceneEntity->AddComponent<Camera>();
+    world->Simulate();
+    sceneCamera.SetCurrent();
+    CHECK( Camera::GetMain( world.get() ) == &sceneCamera );
+    const uint32_t sceneIndex = sceneEntity.GetID().Index;
+
+    // Its entity goes: the screen goes back to the fallback, not a dangling camera.
+    world->DestroyEntity( sceneEntity );
+    world->Simulate();
+    CHECK( Camera::GetMain( world.get() ) == &fallback );
+
+    // A new camera in the freed slot (another generation) isn't main by inheritance.
+    EntityHandle reused = world->CreateEntity( "Reused" );
+    reused->AddComponent<Transform>();
+    Camera& reusedCamera = reused->AddComponent<Camera>();
+    world->Simulate();
+    CHECK( reused.GetID().Index == sceneIndex );
+    CHECK( Camera::GetMain( world.get() ) == &fallback );
+    CHECK_FALSE( reusedCamera.IsMain() );
+    reusedCamera.SetCurrent();
+    CHECK( Camera::GetMain( world.get() ) == &reusedCamera );
+
+    // The editor's Stop (Destroy) takes the scene's cameras, not the world's SingletonCamera.
+    SingletonCamera* main = world->FindSingleton<SingletonCamera>();
+    world->Destroy();
+    REQUIRE( world->FindSingleton<SingletonCamera>() == main );
+    CHECK( Camera::GetMain( world.get() ) == &fallback );
+    main->Forget( fallback );
+    CHECK( Camera::GetMain( world.get() ) == nullptr );
+}
+
+
 #if USING( ME_SCRIPTING )
 TEST_CASE( "Scripts: Camera.MakeCurrent switches the main camera, Camera.Main finds its entity (ME-312)" )
 {

@@ -875,3 +875,39 @@ TEST_CASE( "World singletons: a live client world and a replay world tick side b
     live.ClientNet.Shutdown();
     live.ServerNet.Shutdown();
 }
+
+
+TEST_CASE( "World singletons: the editor's Stop (Destroy, then ResetLocalInput) keeps the world's input layout, so a session that outlives Stop still samples the next Play (ME-297)" )
+{
+    InputContext gameplay;
+    gameplay.Name = "Gameplay";
+    InputAction fire;
+    fire.Name = "Fire";
+    fire.Type = InputActionType::Button;
+    fire.Networked = true;
+    gameplay.Actions = { fire };
+    InputActionMap map;
+    map.Contexts = { gameplay };
+    Input devices;
+    devices.GetActions().SetMap( map );
+
+    auto world = std::make_shared<World>();
+    world->IsLoading = false;
+    SingletonInput& input = world->Singleton<SingletonInput>();
+    input.BuildCommandLayout( devices );
+    input.SetActionOverride( input.GetActionIndex( "Fire" ), true );
+    const uint32_t version = input.GetLayoutVersion();
+
+    // EditorApp::StopGame. Engine::Run rebuilds the layout only without an active session, so a
+    // Havana --connect/--server session would sample nothing if Stop lost it.
+    world->Destroy();
+    world->Singleton<SingletonInput>().ResetLocalInput();
+    REQUIRE( world->FindSingleton<SingletonInput>() == &input );
+    CHECK( input.GetLayoutVersion() == version );
+    CHECK( input.HasCommandLayout() );
+    CHECK( input.GetActionIndex( "Fire" ) == 0 );
+    // What the script held went with the play session.
+    InputCommand command;
+    input.SampleCommand( devices, command );
+    CHECK( command.Buttons == 0u );
+}
