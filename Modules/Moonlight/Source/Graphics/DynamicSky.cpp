@@ -5,10 +5,12 @@
 #include "RenderViews.h"
 #include "Utils/BGFXUtils.h"
 #include "optick.h"
+#include "Profiling/ThreadName.h"
 #include <glm/glm.hpp>
 #include <algorithm>
 #include <atomic>
 #include <cmath>
+#include <string>
 
 namespace Moonlight
 {
@@ -387,7 +389,12 @@ namespace Moonlight
             std::vector<std::thread> pool;
             for( int t = 1; t < threads; ++t )
             {
-                pool.emplace_back( work );
+                pool.emplace_back( [&work, t]() {
+                    const std::string name = "Sky Noise " + std::to_string( t );
+                    ME_PROFILE_THREAD( name.c_str() );
+                    OPTICK_EVENT( "DynamicSky::NoiseSlices" );
+                    work();
+                } );
             }
             work();
             for( std::thread& thread : pool )
@@ -683,7 +690,11 @@ namespace Moonlight
         m_blackVolume = bgfx::createTexture3D( 1, 1, 1, false, bgfx::TextureFormat::R8, BGFX_SAMPLER_NONE, bgfx::copy( &black, 1 ) );
 
         // The noise takes a moment; it runs while the scene loads and is waited for on first use.
-        m_noiseThread = std::thread( [this]() { GenerateNoise( m_noise ); } );
+        m_noiseThread = std::thread( [this]() {
+            ME_PROFILE_THREAD( "Sky Noise" );
+            OPTICK_EVENT( "DynamicSky::GenerateNoise" );
+            GenerateNoise( m_noise );
+        } );
     }
 
 

@@ -53,7 +53,7 @@ Every thread the engine starts shows as a named lane in every capture, even whil
 - **The rule:** the first line of a thread function (or a `std::async` lambda) is `ME_PROFILE_THREAD( "Name" )` (`Modules/Dementia/Source/Profiling/ThreadName.h`). It registers the profiler lane for the thread's lifetime (`OPTICK_THREAD` is a scoped object, so it must sit in the thread function's own scope, never in a helper) and names the OS thread for gdb and `top -H` (Linux keeps 15 characters). Wrap the thread's work in an `OPTICK_EVENT` too. New threads, pools and `std::async` calls get both in the same change.
 - **Jobs:** `JobSystem::Execute` puts a zone around every job, named by `ParallelFor( "Name", count, minBatch, fn )`, `Run( counter, fn, "Name" )` or `Submit( ..., "Name" )` (string literals: kept by pointer). An idle worker's wait is a `Worker Sleep` zone.
 - **Linux captures** (`ThirdParty/ChromeTrace/optick.h`, Chrome trace JSON for Perfetto / `chrome://tracing`): registered threads get `thread_name` / `thread_sort_index` metadata and a `Capture` marker at the capture's start, so idle lanes still appear. Order: Main Thread, then lanes in registration order, with numbered names ("Job Worker 1".."N") in numeric order. Threads that exited before the capture started are left out.
-- **Registered today:** Main Thread (`Engine::Init`), Job Worker N, Resource Loader N, Reimport N, File Watcher, Script Runtime Init, Script Build, Nav Bake, Nav Carve, Nav Tile Builder, Scene Read, Save Write, Terrain Preview / Page / Stream / Cook. Threads started by FMOD, .NET and the GPU driver aren't the engine's and don't appear.
+- **Registered today:** Main Thread (`Engine::Init`), Job Worker N, Resource Loader N, Reimport N, File Watcher, Script Runtime Init, Script Build, Nav Bake, Nav Carve, Nav Tile Builder, Sky Noise (and its Sky Noise N helpers), Scene Read, Save Write, Terrain Preview / Page / Stream / Cook. Threads started by FMOD, .NET and the GPU driver aren't the engine's and don't appear.
 
 ### Worker utilization (ME-320)
 
@@ -85,7 +85,7 @@ Every place frame work goes to the job workers (`grep -rn "ParallelFor\|\.Submit
 | `BGFXRenderer::CullShadowCasters` (`Modules/Moonlight/Source/Renderer.cpp:2021`) | `Cull Shadow Casters` | Caster vs. cascade/light frustums per chunk | 1 chunk | runs inline (one chunk) |
 | `NetReplication` (`Source/Net/NetReplication.cpp:333`) | `Net Snapshot Encode` | One snapshot per client from the shared capture (`Settings.UseJobs`, 2+ clients) | 1 client | server only |
 
-A `ParallelFor` with a single batch runs inline on the caller and creates no job. Outside the job system, `DynamicSky` bakes its lookup tables with its own short-lived `std::thread`s (`Modules/Moonlight/Source/Graphics/DynamicSky.cpp:377`, on sky changes, not per frame), and background work (resource loads, scene reads, saves, terrain pages, nav builds, script builds) runs on its own named threads (see *Profiling threads and jobs*; ME-319 moves them onto one background lane).
+A `ParallelFor` with a single batch runs inline on the caller and creates no job. Outside the job system, `DynamicSky` bakes its cloud noise once when the sky is created: the constructor starts a `Sky Noise` thread, and its three slice passes (`ParallelFor` in `DynamicSky.cpp`, not the job system's) each start up to 31 `Sky Noise N` helper threads (hardware threads - 1, next to the job workers), all named lanes with zones. That one-off burst overlaps loading and isn't per frame; it could move onto the job system or the ME-319 background lane. Other background work (resource loads, scene reads, saves, terrain pages, nav builds, script builds) runs on its own named threads (see *Profiling threads and jobs*; ME-319 moves them onto one background lane).
 
 Stays on the main thread every frame:
 
@@ -97,7 +97,7 @@ Stays on the main thread every frame:
 | Navigation crowd | `surface.Crowd->update` (`Source/Cores/NavigationCore.cpp:1543`) | One Detour `dtCrowd::update` per surface; not split into jobs |
 | UI | RmlUi in `RmlUiCore::Update` (`UI Update`) | RmlUi isn't thread-safe and reads script-set models |
 | Audio | `AudioCore` (`Audio` scope) | Listener/emitter updates walk the World; FMOD mixes on its own threads |
-| bgfx submission and `bgfx::frame()` | `BGFXRenderer::Render` (`Render Submit`; `Renderer.cpp:695`) | bgfx runs single-threaded (`bgfx::renderFrame` before `init`), so `frame()` renders on the main thread; FND-12/FND-13 move this |
+| bgfx submission and `bgfx::frame()` | `BGFXRenderer::Render` (`Render Submit`, then `bgfx::frame()` in the `Renderer::Frame` zone) | bgfx runs single-threaded (`bgfx::renderFrame` before `init`), so `frame()` renders on the main thread; FND-12/FND-13 move this |
 
 ### Events
 
