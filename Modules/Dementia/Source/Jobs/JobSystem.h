@@ -5,6 +5,7 @@
 #include <deque>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <thread>
 #include <type_traits>
 #include <utility>
@@ -21,6 +22,32 @@ namespace Jobs
         std::atomic<int32_t> Pending{ 0 };
 
         bool IsDone() const { return Pending.load( std::memory_order_acquire ) == 0; }
+    };
+
+    // Who ran jobs in a frame (ME-320). Lane 0 is the main thread (and any other thread that isn't a
+    // worker: they share it), running ParallelFor's first batch and jobs it picks up while waiting;
+    // lanes 1..N are Job Worker 1..N. A lane kind per entry so another pool (the ME-319 background
+    // lane) can report its own lanes next to these.
+    enum class LaneKind : uint8_t
+    {
+        Main,
+        Worker,
+    };
+
+    struct LaneUtilization
+    {
+        LaneKind Kind = LaneKind::Worker;
+        const char* Name = "";             // stable until the job system shuts down
+        uint64_t BusyNanoseconds = 0;      // wall time running jobs (nested jobs aren't counted twice)
+        uint32_t Jobs = 0;                 // jobs run, nested ones included
+    };
+
+    struct Utilization
+    {
+        std::vector<LaneUtilization> Lanes;
+        // Time the main thread spent inside Wait (ParallelFor's included) with nothing to run: it was
+        // waiting for jobs other threads were running. Waits inside a job aren't counted.
+        uint64_t WaitNanoseconds = 0;
     };
 
     // Work-stealing job system: one queue per thread (callers that aren't workers share queue 0),
@@ -70,6 +97,14 @@ namespace Jobs
             ParallelFor( count, minBatchSize, std::forward<Fn>( fn ), InName );
         }
 
+        // Process-wide instance without starting it (Get() starts it).
+        static JobSystem& GetUnstarted();
+
+        // Copies the utilization counted since the previous call into OutUtilization and zeroes the
+        // counters (FrameStats::EndFrame calls it once a frame on the main thread). Empty lanes when
+        // the system isn't running. Reuses OutUtilization's storage: no allocations once sized.
+        void TakeUtilization( Utilization& OutUtilization );
+
         // Low level: enqueue a raw range job (used by physics task callbacks).
         using RangeFunction = void ( * )( void* context, uint32_t begin, uint32_t end );
         void Submit( Counter& counter, RangeFunction function, void* context, uint32_t begin, uint32_t end, const char* InName = "Job" );
@@ -92,6 +127,29 @@ namespace Jobs
             std::deque<Job> Jobs;
         };
 
+        // One per lane (thread index), written with relaxed atomics: a worker writes only its own.
+        struct alignas( 64 ) LaneCounters
+        {
+            std::atomic<uint64_t> BusyNanoseconds{ 0 };
+            std::atomic<uint32_t> Jobs{ 0 };
+        };
+
+        // Counts one job body run on this thread for its lane: a job, and its time unless it runs
+        // inside another job on this thread (then the outer one's time already covers it).
+        class JobTimer
+        {
+        public:
+            explicit JobTimer( JobSystem& InSystem );
+            ~JobTimer();
+            JobTimer( const JobTimer& ) = delete;
+            JobTimer& operator=( const JobTimer& ) = delete;
+
+        private:
+            JobSystem& m_system;
+            int64_t m_start = 0;
+            bool m_outermost = false;
+        };
+
         void Push( const Job* jobs, size_t count );
         bool TryRunOne( uint32_t threadIndex );
         bool TryPop( uint32_t threadIndex, Job& outJob );
@@ -102,6 +160,9 @@ namespace Jobs
         std::vector<std::thread> m_workers;
         std::unique_ptr<Queue[]> m_queues;
         uint32_t m_queueCount = 0;
+        std::unique_ptr<LaneCounters[]> m_lanes;
+        std::vector<std::string> m_laneNames;
+        std::atomic<uint64_t> m_waitNanoseconds{ 0 };
         std::atomic<int32_t> m_queuedJobs{ 0 };
         std::atomic<bool> m_running{ false };
         std::atomic<bool> m_started{ false };
@@ -183,7 +244,10 @@ namespace Jobs
             Push( jobs, queued );
         }
 
-        fn( 0u, batchSize < count ? batchSize : count );
+        {
+            JobTimer timer( *this );
+            fn( 0u, batchSize < count ? batchSize : count );
+        }
         Wait( counter );
     }
 }

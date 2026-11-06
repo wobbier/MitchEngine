@@ -1,13 +1,19 @@
 #pragma once
 // Per-frame performance numbers for in-engine display (editor stats overlay, profiler window,
-// game debug tools): named CPU scopes recorded on the main thread, frame time history and the
-// renderer's GPU/draw statistics.
+// game debug tools): named CPU scopes recorded on the main thread, frame time history, the
+// renderer's GPU/draw statistics and how busy the job workers were (ME-320).
 //
 //   { ME_STAT_SCOPE( "Physics" ); ... }
 #include <chrono>
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <nlohmann/json_fwd.hpp>
+
+namespace Jobs
+{
+    enum class LaneKind : uint8_t;
+}
 
 class FrameStats
 {
@@ -58,13 +64,40 @@ public:
         std::vector<GpuView> Views;
     };
 
+    // One thread lane's share of the frame's jobs (Jobs::JobSystem::TakeUtilization).
+    struct JobLane
+    {
+        Jobs::LaneKind Kind{};
+        std::string Name;
+        double BusyMilliseconds = 0.0;
+        double Smoothed = 0.0;
+        uint32_t Jobs = 0;
+    };
+
+    // The job system over the last frame (EndFrame to EndFrame).
+    struct JobStats
+    {
+        // Main first, then Job Worker 1..N (another pool's lanes would follow, by kind).
+        std::vector<JobLane> Lanes;
+        uint32_t WorkerCount = 0;
+        uint32_t Jobs = 0;                     // every lane
+        double WorkerBusyMilliseconds = 0.0;   // summed over the workers
+        double MainBusyMilliseconds = 0.0;     // jobs the main thread ran itself
+        uint32_t MainJobs = 0;
+        double WaitMilliseconds = 0.0;         // main thread in Wait/ParallelFor with nothing to run
+        // Exponential moving averages, for readable displays.
+        double SmoothedWorkerBusy = 0.0;
+        double SmoothedWait = 0.0;
+        double SmoothedJobs = 0.0;
+    };
+
     static constexpr size_t kHistory = 240;
 
     // Main thread. Scopes nest; times are wall clock.
     void BeginScope( const char* InName );
     void EndScope();
 
-    // Called by the engine once per frame (after rendering).
+    // Called by the engine once per frame (after rendering). Also takes the job system's counters.
     void EndFrame( double InFrameMilliseconds );
 
     const std::vector<Scope>& GetScopes() const { return m_lastScopes; }
@@ -74,6 +107,12 @@ public:
     double GetFrameMilliseconds() const { return m_frameMilliseconds; }
     double GetSmoothedFrameMilliseconds() const { return m_smoothedFrame; }
     double GetFramesPerSecond() const { return m_smoothedFrame > 0.0 ? 1000.0 / m_smoothedFrame : 0.0; }
+
+    const JobStats& GetJobStats() const { return m_jobs; }
+    // The "Workers" block of profile and perf-report JSON:
+    //   { Count, BusyMs: [per worker], Jobs, WaitMs, MainBusyMs, MainJobs, JobsPerWorker: [...], Utilization }
+    // Utilization = worker busy / (workers * InFrameMilliseconds), 0..1 (0 when no frame time is given).
+    static nlohmann::json ToJson( const JobStats& InStats, double InFrameMilliseconds );
 
     RenderStats& GetRenderStats() { return m_render; }
     const RenderStats& GetRenderStats() const { return m_render; }
@@ -100,6 +139,7 @@ private:
     double m_frameMilliseconds = 0.0;
     double m_smoothedFrame = 0.0;
     RenderStats m_render;
+    JobStats m_jobs;
 };
 
 class ScopedFrameStat

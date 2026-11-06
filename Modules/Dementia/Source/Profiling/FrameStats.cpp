@@ -1,10 +1,22 @@
 #include "FrameStats.h"
+#include "Jobs/JobSystem.h"
+#include "JSON.h"
 #include <algorithm>
 #include <unordered_map>
 
 namespace
 {
     constexpr double kSmoothing = 0.1;
+
+    double Smooth( double InPrevious, double InValue )
+    {
+        return InPrevious <= 0.0 ? InValue : InPrevious + ( InValue - InPrevious ) * kSmoothing;
+    }
+
+    double ToMilliseconds( uint64_t InNanoseconds )
+    {
+        return static_cast<double>( InNanoseconds ) / 1.0e6;
+    }
 }
 
 
@@ -67,9 +79,66 @@ void FrameStats::EndFrame( double InFrameMilliseconds )
     m_lastScopes.swap( m_currentScopes );
     m_currentScopes.clear();
 
+    // The job workers over the same frame. Reads and zeroes the counters: one reader, here.
+    static Jobs::Utilization utilization;
+    Jobs::JobSystem::GetUnstarted().TakeUtilization( utilization );
+    m_jobs.Lanes.resize( utilization.Lanes.size() );
+    m_jobs.WorkerCount = 0;
+    m_jobs.Jobs = 0;
+    m_jobs.WorkerBusyMilliseconds = 0.0;
+    m_jobs.MainBusyMilliseconds = 0.0;
+    m_jobs.MainJobs = 0;
+    for( size_t i = 0; i < utilization.Lanes.size(); ++i )
+    {
+        const Jobs::LaneUtilization& source = utilization.Lanes[i];
+        JobLane& lane = m_jobs.Lanes[i];
+        lane.Kind = source.Kind;
+        if( lane.Name != source.Name )
+        {
+            lane.Name = source.Name;
+        }
+        lane.BusyMilliseconds = ToMilliseconds( source.BusyNanoseconds );
+        lane.Smoothed = Smooth( lane.Smoothed, lane.BusyMilliseconds );
+        lane.Jobs = source.Jobs;
+        m_jobs.Jobs += source.Jobs;
+        if( source.Kind == Jobs::LaneKind::Worker )
+        {
+            ++m_jobs.WorkerCount;
+            m_jobs.WorkerBusyMilliseconds += lane.BusyMilliseconds;
+        }
+        else if( source.Kind == Jobs::LaneKind::Main )
+        {
+            m_jobs.MainBusyMilliseconds += lane.BusyMilliseconds;
+            m_jobs.MainJobs += source.Jobs;
+        }
+    }
+    m_jobs.WaitMilliseconds = ToMilliseconds( utilization.WaitNanoseconds );
+    m_jobs.SmoothedWorkerBusy = Smooth( m_jobs.SmoothedWorkerBusy, m_jobs.WorkerBusyMilliseconds );
+    m_jobs.SmoothedWait = Smooth( m_jobs.SmoothedWait, m_jobs.WaitMilliseconds );
+    m_jobs.SmoothedJobs = Smooth( m_jobs.SmoothedJobs, static_cast<double>( m_jobs.Jobs ) );
+
     m_frameMilliseconds = InFrameMilliseconds;
     m_smoothedFrame = m_smoothedFrame <= 0.0 ? InFrameMilliseconds : m_smoothedFrame + ( InFrameMilliseconds - m_smoothedFrame ) * kSmoothing;
     m_frameHistory[m_historyOffset] = static_cast<float>( InFrameMilliseconds );
     m_gpuHistory[m_historyOffset] = static_cast<float>( m_render.GpuMilliseconds );
     m_historyOffset = ( m_historyOffset + 1 ) % kHistory;
+}
+
+
+json FrameStats::ToJson( const JobStats& InStats, double InFrameMilliseconds )
+{
+    json busy = json::array();
+    json jobsPerWorker = json::array();
+    for( const JobLane& lane : InStats.Lanes )
+    {
+        if( lane.Kind == Jobs::LaneKind::Worker )
+        {
+            busy.push_back( lane.BusyMilliseconds );
+            jobsPerWorker.push_back( lane.Jobs );
+        }
+    }
+    const double capacity = static_cast<double>( InStats.WorkerCount ) * InFrameMilliseconds;
+    return { { "Count", InStats.WorkerCount }, { "BusyMs", busy }, { "Jobs", InStats.Jobs }, { "WaitMs", InStats.WaitMilliseconds },
+        { "MainBusyMs", InStats.MainBusyMilliseconds }, { "MainJobs", InStats.MainJobs }, { "JobsPerWorker", jobsPerWorker },
+        { "Utilization", capacity > 0.0 ? InStats.WorkerBusyMilliseconds / capacity : 0.0 } };
 }

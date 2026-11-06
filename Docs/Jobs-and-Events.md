@@ -55,6 +55,17 @@ Every thread the engine starts shows as a named lane in every capture, even whil
 - **Linux captures** (`ThirdParty/ChromeTrace/optick.h`, Chrome trace JSON for Perfetto / `chrome://tracing`): registered threads get `thread_name` / `thread_sort_index` metadata and a `Capture` marker at the capture's start, so idle lanes still appear. Order: Main Thread, then lanes in registration order, with numbered names ("Job Worker 1".."N") in numeric order. Threads that exited before the capture started are left out.
 - **Registered today:** Main Thread (`Engine::Init`), Job Worker N, Resource Loader N, Reimport N, File Watcher, Script Runtime Init, Script Build, Nav Bake, Nav Carve, Nav Tile Builder, Scene Read, Save Write, Terrain Preview / Page / Stream / Cook. Threads started by FMOD, .NET and the GPU driver aren't the engine's and don't appear.
 
+### Worker utilization (ME-320)
+
+The job system counts who ran jobs, so a frame shows how much of it ran on the workers:
+
+- **Lanes:** lane 0 is `Main` (the main thread, plus any other thread that isn't a worker: they share it) and lanes 1..N are `Job Worker 1..N`. Each lane counts the jobs it ran and its busy time (wall time inside job bodies). A job run inside another job on the same thread (a helping `Wait` in a job) counts as a job, but its time is already inside the outer one, so it isn't counted twice. `ParallelFor`'s first batch, which the caller runs itself, is a job on the caller's lane; a `ParallelFor` small enough for one batch runs inline and isn't counted.
+- **Wait:** time the main thread spends in a top-level `Wait` (`ParallelFor`'s included) minus the jobs it ran meanwhile: how long it sat waiting for the workers. Waits inside a job aren't counted.
+- **Cost:** two `steady_clock` reads per job and relaxed atomic adds into a cache-line-aligned counter per lane (a worker only writes its own). No locks on the job path.
+- **Reading:** `JobSystem::TakeUtilization( Jobs::Utilization& )` copies the counters and zeroes them. `FrameStats::EndFrame` calls it once a frame, so `FrameStats::GetJobStats()` covers exactly one frame: per-lane `BusyMilliseconds`/`Jobs` (and a smoothed value), `WorkerBusyMilliseconds`, `MainBusyMilliseconds`, `MainJobs`, `WaitMilliseconds`, `Jobs`. Other callers of `TakeUtilization` would steal the frame's numbers.
+- **JSON:** `FrameStats::ToJson( stats, frameMs )` is the `Workers` block in the edscript `profile-stop` frames and the `--perf-report`: `{ Count, BusyMs: [per worker], Jobs, WaitMs, MainBusyMs, MainJobs, JobsPerWorker: [...], Utilization }`, where `Utilization` is worker busy / (workers x frame ms).
+- **Other pools:** every lane carries a `Jobs::LaneKind` (`Main`, `Worker`). A pool with its own threads (the ME-319 background lane) adds a kind and appends its lanes; `Count`/`BusyMs` stay the frame workers.
+
 ### Events
 
 ```cpp

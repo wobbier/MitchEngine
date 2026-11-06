@@ -9,14 +9,59 @@ namespace Jobs
     namespace
     {
         thread_local uint32_t s_threadIndex = 0;
+        // Job bodies running on this thread right now (nested jobs run inside a helping Wait).
+        thread_local int s_jobDepth = 0;
+        // This thread's outermost job time so far: Wait subtracts what it ran from its own time.
+        thread_local uint64_t s_busyNanoseconds = 0;
+
+        int64_t NowNanoseconds()
+        {
+            return std::chrono::duration_cast<std::chrono::nanoseconds>( std::chrono::steady_clock::now().time_since_epoch() ).count();
+        }
+    }
+
+
+    JobSystem& JobSystem::GetUnstarted()
+    {
+        static JobSystem instance;
+        return instance;
     }
 
 
     JobSystem& JobSystem::Get()
     {
-        static JobSystem instance;
+        JobSystem& instance = GetUnstarted();
         instance.EnsureStarted();
         return instance;
+    }
+
+
+    JobSystem::JobTimer::JobTimer( JobSystem& InSystem )
+        : m_system( InSystem )
+        , m_outermost( s_jobDepth++ == 0 )
+    {
+        if( m_outermost )
+        {
+            m_start = NowNanoseconds();
+        }
+    }
+
+
+    JobSystem::JobTimer::~JobTimer()
+    {
+        --s_jobDepth;
+        if( !m_system.m_lanes )
+        {
+            return;
+        }
+        LaneCounters& lane = m_system.m_lanes[s_threadIndex < m_system.m_queueCount ? s_threadIndex : 0];
+        lane.Jobs.fetch_add( 1, std::memory_order_relaxed );
+        if( m_outermost )
+        {
+            const uint64_t elapsed = static_cast<uint64_t>( NowNanoseconds() - m_start );
+            s_busyNanoseconds += elapsed;
+            lane.BusyNanoseconds.fetch_add( elapsed, std::memory_order_relaxed );
+        }
     }
 
 
@@ -57,6 +102,15 @@ namespace Jobs
 
         m_queueCount = workerCount + 1;
         m_queues.reset( new Queue[m_queueCount] );
+        m_lanes.reset( new LaneCounters[m_queueCount] );
+        m_waitNanoseconds.store( 0, std::memory_order_relaxed );
+        m_laneNames.clear();
+        m_laneNames.reserve( m_queueCount );
+        m_laneNames.emplace_back( "Main" );
+        for( uint32_t i = 1; i < m_queueCount; ++i )
+        {
+            m_laneNames.push_back( "Job Worker " + std::to_string( i ) );
+        }
         m_running.store( true, std::memory_order_release );
 
         m_workers.reserve( workerCount );
@@ -208,6 +262,7 @@ namespace Jobs
         {
             // Each job's zone, on whichever thread runs it (a worker, or a thread helping in Wait).
             OPTICK_EVENT_DYNAMIC( job.Name ? job.Name : "Job" );
+            JobTimer timer( *this );
             job.Function( job.Context, job.Begin, job.End );
         }
         if( job.DeleteContext )
@@ -235,7 +290,15 @@ namespace Jobs
 
     void JobSystem::Wait( Counter& counter )
     {
+        if( counter.IsDone() )
+        {
+            return;
+        }
         const uint32_t threadIndex = s_threadIndex < m_queueCount ? s_threadIndex : 0;
+        // The main thread's top-level waits count as "waiting on jobs" (less the jobs it ran meanwhile).
+        const bool timeWait = s_threadIndex == 0 && s_jobDepth == 0;
+        const int64_t waitStart = timeWait ? NowNanoseconds() : 0;
+        const uint64_t busyBefore = s_busyNanoseconds;
         int idleSpins = 0;
         while( !counter.IsDone() )
         {
@@ -254,14 +317,41 @@ namespace Jobs
                 std::this_thread::sleep_for( std::chrono::microseconds( 50 ) );
             }
         }
+        if( timeWait )
+        {
+            const uint64_t total = static_cast<uint64_t>( NowNanoseconds() - waitStart );
+            const uint64_t helped = s_busyNanoseconds - busyBefore;
+            m_waitNanoseconds.fetch_add( total > helped ? total - helped : 0, std::memory_order_relaxed );
+        }
+    }
+
+
+    void JobSystem::TakeUtilization( Utilization& OutUtilization )
+    {
+        std::lock_guard<std::mutex> lock( m_startMutex );
+        if( !m_started.load( std::memory_order_acquire ) || !m_lanes )
+        {
+            OutUtilization.Lanes.clear();
+            OutUtilization.WaitNanoseconds = 0;
+            return;
+        }
+        OutUtilization.Lanes.resize( m_queueCount );
+        for( uint32_t i = 0; i < m_queueCount; ++i )
+        {
+            LaneUtilization& lane = OutUtilization.Lanes[i];
+            lane.Kind = i == 0 ? LaneKind::Main : LaneKind::Worker;
+            lane.Name = m_laneNames[i].c_str();
+            lane.BusyNanoseconds = m_lanes[i].BusyNanoseconds.exchange( 0, std::memory_order_relaxed );
+            lane.Jobs = m_lanes[i].Jobs.exchange( 0, std::memory_order_relaxed );
+        }
+        OutUtilization.WaitNanoseconds = m_waitNanoseconds.exchange( 0, std::memory_order_relaxed );
     }
 
 
     void JobSystem::WorkerMain( uint32_t threadIndex )
     {
         s_threadIndex = threadIndex;
-        const std::string threadName = "Job Worker " + std::to_string( threadIndex );
-        ME_PROFILE_THREAD( threadName.c_str() );
+        ME_PROFILE_THREAD( m_laneNames[threadIndex].c_str() );
 
         int idleSpins = 0;
         while( m_running.load( std::memory_order_acquire ) )
