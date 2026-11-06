@@ -163,8 +163,10 @@ void EditorApp::OnUpdate( const UpdateContext& inUpdateContext )
 
         static constexpr int kCaptureFrames = 10;
         static int s_captureFramesLeft = 0;
-        Input& editorInput = GetEngine().GetEditorInput();
-        if( editorInput.WasKeyPressed( KeyCode::F9 ) && s_captureFramesLeft == 0 )
+        // F9 records whether the editor or the playing game has the keyboard: while playing,
+        // the game's Input owns the keys and the editor's sees none of them.
+        const bool f9 = GetEngine().GetEditorInput().WasKeyPressed( KeyCode::F9 ) || GetEngine().GetInput().WasKeyPressed( KeyCode::F9 );
+        if( f9 && s_captureFramesLeft == 0 )
         {
             OPTICK_START_CAPTURE();
             s_captureFramesLeft = kCaptureFrames;
