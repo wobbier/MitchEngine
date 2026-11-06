@@ -1,11 +1,19 @@
 #include "PCH.h"
 #include <doctest/doctest.h>
+#include "Components/Camera.h"
 #include "Components/Networking/NetIdentity.h"
+#include "Components/Networking/SingletonInput.h"
 #include "Components/Transform.h"
+#include "Engine/Input.h"
+#include "Input/InputActions.h"
 #include "Net/NetReplay.h"
 #include "Net/NetReplayPlayback.h"
 #include "Net/NetReplication.h"
 #include "NetHarness.h"
+#if USING( ME_SCRIPTING )
+#include "Scripting/Bindings/BindingContext.h"
+#include "Scripting/Bindings/Systems/Net.bindings.h"
+#endif
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -674,4 +682,196 @@ TEST_CASE( "Replay inspector: a recorded state's Fields unpack into its NetSchem
     CHECK( script == std::vector<uint8_t>{ 0xAB, 0xCD } );
     CHECK( NetReplicationState::Unpack( {}, reflected, script ) == 0 );
     CHECK( script.empty() );
+}
+
+
+// ME-297 (NET-16): per-world state lives in world singletons, so a second world (a killcam's
+// replay world) runs beside the game's without either reading the other's.
+TEST_CASE( "World singletons: a live client world and a replay world tick side by side in one process, each with its own NetCore, input and main camera; neither reads the other's (ME-297)" )
+{
+    using namespace NetHarness;
+    const Recording recording = Record( "TwoWorlds.mreplay" );
+
+    // The live session: a server world and a client world. Its server holds the spinner far from
+    // anywhere the recording has it.
+    NetConditions link;
+    link.LatencyMs = 20.f;
+    link.Seed = 5;
+    Harness live( link, link );
+    PlaceScene( *live.ServerWorld );
+    PlaceScene( *live.ClientWorld );
+    live.ServerWorld->Simulate();
+    live.ServerWorld->Start();
+    const Vector3 liveSpot( 100.f, 0.f, 0.f );
+    EntityHandle liveServerSpinner = Find( *live.ServerWorld, kSpinner );
+    live.OnServerTick = [&]( NetServer& ) { liveServerSpinner->GetComponent<Transform>().SetPosition( liveSpot ); };
+
+    // The replay world, a killcam's: its own NetCore playing the recording (no session).
+    NetCore replayNet;    // before the world
+    auto replayWorld = std::make_shared<World>();
+    replayWorld->IsLoading = false;
+    replayWorld->AddCore( replayNet );
+    PlaceScene( *replayWorld );
+    Scripts replayScripts;      // the recording carries [Replicated] script bytes
+    NetCore::ScriptGlue glue;
+    glue.State = replayScripts.State();
+    replayNet.SetScriptGlue( glue );
+    auto source = std::make_unique<NetReplayFileSource>();
+    REQUIRE_MESSAGE( source->Open( recording.Path.string() ), source->GetError() );
+    std::string error;
+    REQUIRE_MESSAGE( replayNet.StartPlayback( std::move( source ), &error ), error );
+    NetReplayPlayback& playback = *replayNet.GetPlayback();
+    const uint32_t pauseAt = playback.GetFirstTick() + 240;
+    playback.SetPauseAt( pauseAt );
+    playback.Play();
+
+    // Each world's input (SingletonInput) from its own action map: different layouts.
+    auto mapOf = []( const std::vector<std::string>& InNetworked ) {
+        InputContext gameplay;
+        gameplay.Name = "Gameplay";
+        for( const std::string& name : InNetworked )
+        {
+            InputAction action;
+            action.Name = name;
+            action.Type = InputActionType::Button;
+            action.Networked = true;
+            gameplay.Actions.push_back( action );
+        }
+        InputActionMap map;
+        map.Contexts = { gameplay };
+        return map;
+    };
+    Input liveDevices;
+    liveDevices.GetActions().SetMap( mapOf( { "Fire" } ) );
+    Input replayDevices;
+    replayDevices.GetActions().SetMap( mapOf( { "Ability", "Fire" } ) );
+    REQUIRE( live.ClientWorld->FindSingleton<SingletonInput>() == nullptr );
+    live.ClientWorld->Singleton<SingletonInput>().BuildCommandLayout( liveDevices );
+    replayWorld->Singleton<SingletonInput>().BuildCommandLayout( replayDevices );
+    SingletonInput& liveInput = live.ClientWorld->Singleton<SingletonInput>();
+    SingletonInput& replayInput = replayWorld->Singleton<SingletonInput>();
+    REQUIRE( &liveInput != &replayInput );
+    CHECK( liveInput.GetLayoutVersion() != replayInput.GetLayoutVersion() );
+    CHECK( liveInput.GetActionIndex( "Fire" ) == 0 );
+    CHECK( replayInput.GetActionIndex( "Fire" ) == 1 );
+    CHECK( liveInput.GetCommandSchema() != replayInput.GetCommandSchema() );
+    // A bot holds Fire in the live world (Net.Press): the replay world's input never sees it.
+    liveInput.SetActionOverride( liveInput.GetActionIndex( "Fire" ), true );
+
+    // The live client samples its world's input every tick, the way Engine::Run does.
+    live.MakeCommand = [&]( uint32_t ) {
+        SingletonInput& input = live.ClientWorld->Singleton<SingletonInput>();
+        InputCommand command;
+        input.SampleCommand( liveDevices, command );
+        input.RecordLocalCommand( command );
+        return command;
+    };
+    // The replay world ticks on its own 60 Hz frames, interleaved with the live session's in the
+    // same loop.
+    int replayFrames = 0;
+    live.OnMillisecond = [&]( double InNow ) {
+        if( static_cast<int64_t>( InNow * 60.0 ) == static_cast<int64_t>( ( InNow - 0.001 ) * 60.0 ) )
+        {
+            return;
+        }
+        replayNet.Receive( InNow );
+        replayNet.BeginTick();
+        replayNet.EndTick( InNow );
+        replayNet.WriteInterpolated( 1.0 / 60.0 );
+        replayNet.Flush( InNow );
+        replayWorld->Simulate();
+        ++replayFrames;
+    };
+
+    // Each world's main camera (SingletonCamera).
+    auto addCamera = []( World& InWorld, const char* InName ) -> EntityHandle {
+        EntityHandle entity = InWorld.CreateEntity( InName );
+        entity->AddComponent<Transform>();
+        entity->AddComponent<Camera>();
+        return entity;
+    };
+    EntityHandle liveCamera = addCamera( *live.ClientWorld, "Live Camera" );
+    EntityHandle killcam = addCamera( *replayWorld, "Killcam" );
+    killcam->GetComponent<Camera>().SetCurrent();
+
+    live.Start();
+    live.Run( 6.0 );
+
+    // Both ran.
+    REQUIRE( live.ClientNet.GetClient()->GetState() == NetClient::State::Connected );
+    CHECK( replayFrames >= 350 );
+    REQUIRE( playback.IsPaused() );
+    CHECK( replayNet.GetTick() == pauseAt );
+    CHECK( live.ClientNet.GetTick() != replayNet.GetTick() );
+
+    // The replay world is the recording at its tick, untouched by the live session beside it.
+    const NetReplayPlayback::Check check = replayNet.CheckPlayback();
+    for( const std::string& problem : check.Problems )
+    {
+        FAIL_CHECK( problem );
+    }
+    CHECK( check.Passed() );
+    CHECK( check.Matched == recording.Live.at( pauseAt ).Entities.size() );
+    const Vector3 replayed = Find( *replayWorld, kSpinner )->GetComponent<Transform>().GetPosition();
+    CHECK( ( replayed - liveSpot ).Length() > 50.f );
+    // The live client shows its own server's world, not the replay's.
+    const Vector3 shown = Find( *live.ClientWorld, kSpinner )->GetComponent<Transform>().GetPosition();
+    CHECK( ( shown - liveSpot ).Length() < 0.01f );
+
+    // Input: the live world sampled every tick with Fire held; the replay world sampled nothing.
+    REQUIRE( liveInput.HasLocalCommand() );
+    CHECK( liveInput.GetLocalCommand().Buttons == 1u );
+    CHECK( liveInput.GetLocalCommand().Tick > 300u );
+    CHECK_FALSE( replayInput.HasLocalCommand() );
+    CHECK( replayInput.HasCommandLayout() );     // its layout stands, its own
+    CHECK( replayInput.GetActionIndex( "Ability" ) == 0 );
+
+    // Cameras: each world's main camera is its own.
+    CHECK( Camera::GetMain( live.ClientWorld.get() ) == &liveCamera->GetComponent<Camera>() );
+    CHECK( Camera::GetMain( replayWorld.get() ) == &killcam->GetComponent<Camera>() );
+    CHECK( liveCamera->GetComponent<Camera>().IsMain() );
+
+#if USING( ME_SCRIPTING )
+    // C#'s Net reads its script world's: role, tick, layout, the local command, held actions.
+    ScriptEngineAPI api{};
+    Register_NetBindings( api );
+    const WeakPtr<World> previousWorld = ScriptBindings::GetWorld();
+    const uint8_t* fire = reinterpret_cast<const uint8_t*>( "Fire" );
+    int buttons = 0;
+    int previousButtons = 0;
+    float axes[4] = {};
+    float aim[2] = {};
+    double viewTick = 0.0;
+    int tick = 0;
+    {
+        ScriptBindings::WorldScope scope( live.ClientWorld );
+        CHECK( api.Net_GetRole() == 2 );
+        CHECK( api.Net_GetTick() == static_cast<int>( live.ClientNet.GetTick() ) );
+        CHECK( api.Net_GetActionIndex( fire ) == 0 );
+        CHECK( api.Net_GetLayoutVersion() == static_cast<int>( liveInput.GetLayoutVersion() ) );
+        CHECK( ( api.Net_GetLocalCommand( &buttons, &previousButtons, axes, aim, &viewTick, &tick ) & 1 ) == 1 );
+        CHECK( buttons == 1 );
+    }
+    {
+        ScriptBindings::WorldScope scope( replayWorld );
+        CHECK( api.Net_GetRole() == 2 );    // a replay presents like a client
+        CHECK( api.Net_GetTick() == static_cast<int>( pauseAt ) );
+        CHECK( api.Net_GetActionIndex( fire ) == 1 );
+        CHECK( api.Net_GetLayoutVersion() == static_cast<int>( replayInput.GetLayoutVersion() ) );
+        CHECK( ( api.Net_GetLocalCommand( &buttons, &previousButtons, axes, aim, &viewTick, &tick ) & 1 ) == 0 );
+        // Net.Press in the replay world holds its own bit, nothing in the live world's.
+        api.Net_SetActionOverride( api.Net_GetActionIndex( fire ), true );
+        InputCommand sampled;
+        replayInput.SampleCommand( replayDevices, sampled );
+        CHECK( sampled.Buttons == ( 1u << 1 ) );
+    }
+    InputCommand liveSampled;
+    liveInput.SampleCommand( liveDevices, liveSampled );
+    CHECK( liveSampled.Buttons == 1u );
+    ScriptBindings::SetWorld( previousWorld );
+#endif
+
+    replayNet.Shutdown();
+    live.ClientNet.Shutdown();
+    live.ServerNet.Shutdown();
 }
