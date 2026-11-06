@@ -2,7 +2,7 @@
 
 The engine's two cross-cutting runtime services: `Jobs::JobSystem`, a work-stealing job system with counters and `ParallelFor`, and `EventManager`, a typed publish/subscribe bus with immediate and queued delivery. This doc is the **threading rulebook** — what may run on a job and what must stay on the main thread.
 
-> Verified against engine commit dab803a2, 2026-10-08; the physics task bridge against bdfedae8, 2026-10-09; typed `Listen` receivers against 07595696 plus the typed-events change, 2026-10-16.
+> Verified against engine commit dab803a2, 2026-10-08; the "What's threaded today" map against d2c1e6b2, 2026-11-06; the physics task bridge against bdfedae8, 2026-10-09; typed `Listen` receivers against 07595696 plus the typed-events change, 2026-10-16.
 
 ## Overview
 
@@ -66,6 +66,37 @@ The job system counts who ran jobs, so a frame shows how much of it ran on the w
 - **JSON:** `FrameStats::ToJson( stats, frameMs )` is the `Workers` block in the edscript `profile-stop` frames and the `--perf-report`: `{ Count, BusyMs: [per worker], Jobs, WaitMs, MainBusyMs, MainJobs, JobsPerWorker: [...], Utilization }`, where `Utilization` is worker busy / (workers x frame ms).
 - **Editor:** the World/Game View stats overlay adds `Jobs N  Workers X ms  Wait Y ms` (smoothed), and the Profiler panel's "Job workers" section lists every lane's jobs, ms and share of the frame.
 - **Other pools:** every lane carries a `Jobs::LaneKind` (`Main`, `Worker`). A pool with its own threads (the ME-319 background lane) adds a kind and appends its lanes; `Count`/`BusyMs` stay the frame workers.
+
+### What's threaded today (ME-320)
+
+Every place frame work goes to the job workers (`grep -rn "ParallelFor\|\.Submit(" Source Modules`). The last column is a HeroShooter Arena play session (Havana Debug, headless, 32 hardware threads, 120 frames of a Chrome trace): most frames fan out a few hundred jobs of a few microseconds each, about 0.3 ms of worker time in a ~50 ms frame.
+
+| Site | Job name | Runs in parallel | Batching | HeroShooter, per frame |
+|------|----------|------------------|----------|------------------------|
+| `Transform::UpdateAll` (`Source/Components/Transform.cpp:590`), called by `RenderCore` and `ParticleCore` | `Transform::UpdateAll` | Dirty world matrices, one subtree per item: the root frontier is expanded on the main thread until there are ~4 subtrees per thread | 1 subtree | ~115 jobs, ~3.8 us each |
+| Box3D solver (`PhysicsCore::EnqueueTask`, `Source/Cores/PhysicsCore.cpp:281`) | `Physics Task` | Box3D's own task stages (`workerCount` = thread count); the main thread waits in `FinishTask` | 1 Box3D task per job | ~108 jobs, ~0.9 us each (inside `Fixed Update`) |
+| Box2D solver (`Physics2DCore::EnqueueTask`, `Source/Cores/Physics2DCore.cpp:295`) | `Physics2D Task` | Box2D's ranged tasks, split into up to thread-count ranges | `InMinRange` | none (no 2D physics) |
+| `AnimationCore` (`Source/Cores/AnimationCore.cpp:1149`) | `Animation` | Pose sampling per playing animator with bindings | 1 animator | none (no skinned animators) |
+| `ParticleCore` (`Source/Cores/Rendering/ParticleCore.cpp:57`) | `Particles` | Particle simulation per system (textures resolve on the main thread first) | 1 system | none in steady play |
+| `RenderCore` vertex animation (`Source/Cores/Rendering/RenderCore.cpp:663`) | `Render Prep: Vertices` | Vertex-animated meshes, 4096 vertices per item | 1 item | none |
+| `RenderCore` mesh commands (`Source/Cores/Rendering/RenderCore.cpp:717`) | `Render Prep: Mesh Commands` | Per-mesh command build and per-camera visibility flags | 128 meshes | ~1 job (the scene fits one or two batches) |
+| `BGFXRenderer` shadow casters (`Modules/Moonlight/Source/Renderer.cpp:1934`) | `Shadow Caster Chunks` | Shadow-caster lists in 2048-command chunks | 1 chunk | runs inline (one chunk) |
+| `BGFXRenderer::CullShadowCasters` (`Modules/Moonlight/Source/Renderer.cpp:2021`) | `Cull Shadow Casters` | Caster vs. cascade/light frustums per chunk | 1 chunk | runs inline (one chunk) |
+| `NetReplication` (`Source/Net/NetReplication.cpp:333`) | `Net Snapshot Encode` | One snapshot per client from the shared capture (`Settings.UseJobs`, 2+ clients) | 1 client | server only |
+
+A `ParallelFor` with a single batch runs inline on the caller and creates no job. Outside the job system, `DynamicSky` bakes its lookup tables with its own short-lived `std::thread`s (`Modules/Moonlight/Source/Graphics/DynamicSky.cpp:377`, on sky changes, not per frame), and background work (resource loads, scene reads, saves, terrain pages, nav builds, script builds) runs on its own named threads (see *Profiling threads and jobs*; ME-319 moves them onto one background lane).
+
+Stays on the main thread every frame:
+
+| Work | Where | Why |
+|------|-------|-----|
+| C# scripts (`OnUpdate`, `OnFixedUpdate`, `OnLateUpdate`) | `Source/Scripting/ScriptEngine.cpp`, `Game Update` / `Fixed Update` scopes | The .NET calls and the World they touch are single-threaded |
+| Physics body sync, characters, read-back around `b3World_Step` | `Source/Cores/PhysicsCore.cpp` (`SyncBodies`, `b3World_Step` at :1384) | They write the World; only the solver's stages are jobs |
+| Every core's `Update` in order | `World::UpdateLoadedCores` (`Source/Engine/World.cpp:739`) | Cores run one after another; a core may use jobs inside its own update |
+| Navigation crowd | `surface.Crowd->update` (`Source/Cores/NavigationCore.cpp:1543`) | One Detour `dtCrowd::update` per surface; not split into jobs |
+| UI | RmlUi in `RmlUiCore::Update` (`UI Update`) | RmlUi isn't thread-safe and reads script-set models |
+| Audio | `AudioCore` (`Audio` scope) | Listener/emitter updates walk the World; FMOD mixes on its own threads |
+| bgfx submission and `bgfx::frame()` | `BGFXRenderer::Render` (`Render Submit`; `Renderer.cpp:695`) | bgfx runs single-threaded (`bgfx::renderFrame` before `init`), so `frame()` renders on the main thread; FND-12/FND-13 move this |
 
 ### Events
 
