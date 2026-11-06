@@ -535,8 +535,9 @@ void ReplayViewer::Refresh( NetCore& InNet )
             m_trailTick = tick;
         }
     }
-    // The world's script fields, read again for a few frames (a script spawned by a seek starts a frame later).
-    if( m_shown->Refreshes < kRefreshFrames )
+    // The world's script fields, read again for a few frames (a script spawned by a seek starts a frame
+    // later); only while paused (stepping, a jump, a check): playing, the tick changes every frame.
+    if( m_shown->Refreshes < kRefreshFrames && playback->IsPaused() )
     {
         ++m_shown->Refreshes;
         for( const auto& [id, state] : m_shown->Record.State.Entities )

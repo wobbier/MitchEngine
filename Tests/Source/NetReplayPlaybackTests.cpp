@@ -588,3 +588,41 @@ TEST_CASE( "Replay playback: NetCore plays a replay with no session: a client th
     CHECK_FALSE( net.IsActive() );
     CHECK_FALSE( net.IsClient() );
 }
+
+
+TEST_CASE( "Replay inspector: NetSchema::Describe reads recorded field bytes by name against an entity's components, without applying them (ME-316)" )
+{
+    auto world = std::make_shared<World>();
+    world->IsLoading = false;
+    EntityHandle entity = world->CreateEntity();
+    entity->AddComponent<Transform>();
+    Gauge& gauge = entity->AddComponent<Gauge>();
+    gauge.Count = -7;
+    gauge.Level = 2.5f;
+    gauge.Tag = "red";
+    gauge.Lit = true;
+    std::vector<uint8_t> bytes = NetSchema::Write( *entity.Get() );
+    const size_t schemaBytes = bytes.size();
+    // A script's [Replicated] bytes follow in a snapshot's state.
+    bytes.push_back( 0xAB );
+    bytes.push_back( 0xCD );
+    gauge.Count = 0;
+    gauge.Tag = "blue";
+
+    size_t used = 0;
+    const std::vector<NetSchema::FieldValue> values = NetSchema::Describe( *entity.Get(), bytes, &used );
+    REQUIRE( values.size() == 4 );
+    CHECK( values[0].Component == "NetReplayPlaybackTest::Gauge" );
+    CHECK( values[0].Field == "Count" );
+    CHECK( values[0].Value == "-7" );
+    CHECK( values[1].Field == "Level" );
+    CHECK( values[1].Value == "2.5000" );
+    CHECK( values[2].Value == "\"red\"" );
+    CHECK( values[3].Value == "true" );
+    CHECK( used == schemaBytes );
+    // Nothing applied.
+    CHECK( gauge.Count == 0 );
+    CHECK( gauge.Tag == "blue" );
+    CHECK( NetSchema::Describe( *entity.Get(), {}, &used ).empty() );
+    CHECK( used == 0 );
+}
