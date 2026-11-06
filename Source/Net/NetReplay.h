@@ -45,7 +45,9 @@ namespace Jobs
 // first in full, and its first tick names every live NetId, so a chunk decodes alone: seeking
 // decodes one chunk, and the same bytes can go over a network blob channel (ME-323's killcam).
 // A file whose server died has no index: readers scan the chunks instead and stop at the first
-// torn one.
+// torn one. While recording, the open chunk is also written every FlushSeconds as a provisional
+// chunk after the whole ones (an ordinary chunk with fewer ticks, overwritten by the next), so a
+// crash loses about a second, not a whole chunk.
 namespace NetReplayFormat
 {
     // 2: link stats at their resolution (RTT 0.1 ms, loss 0.01%, slack 0.01 tick), sent when they change.
@@ -296,6 +298,15 @@ struct NetReplaySettings
     NetReplayCodec Codec = NetReplayCodec::Deflate;
     // The in-memory ring of the newest ticks (ME-323's killcam reads it). 0: none.
     double RingSeconds = 12.0;
+    // How often the open chunk goes to the file as a provisional "tail" chunk (overwritten by the
+    // next one, or by the whole chunk): a server that dies loses about this much, not a whole
+    // chunk. 0: only whole chunks (a crash loses up to KeyframeInterval ticks).
+    double FlushSeconds = 1.0;
+    // Chunks waiting for the disk past this much of the match: the file stops (failed), the ring
+    // goes on, rather than holding them without end. 0: no limit.
+    double MaxBacklogSeconds = 60.0;
+    // Close waits this long for the last writes before giving the file up (a hung disk); 0: forever.
+    double CloseTimeoutSeconds = 30.0;
 };
 
 
@@ -314,8 +325,10 @@ public:
     // The tick's record (its Entities: the NetIds new or re-owned this tick; a chunk's first tick
     // gets every live one added here).
     void Record( NetReplayTick&& InTick );
-    // The last chunk and the index, then waits for every write. Recording ends.
+    // The last chunk and the index, then waits for every write (up to CloseTimeoutSeconds). Recording ends.
     void Close();
+    // Waits for the writes handed to the lane so far (tests; a tail is on disk after it).
+    void WaitForWrites();
 
     const NetReplayHeader& GetHeader() const { return m_header; }
     const NetReplaySettings& GetSettings() const { return m_settings; }
@@ -323,6 +336,9 @@ public:
     bool IsClosed() const { return m_closed; }
     // The newest ticks, oldest first (RingSeconds of them).
     const std::deque<std::shared_ptr<const NetReplayTick>>& GetRing() const { return m_ring; }
+    // What every live NetId is, as of the newest tick (the ring's ticks carry only what changed,
+    // except each KeyframeInterval-th: a killcam encoder starts its table from this).
+    const std::map<uint32_t, NetReplayEntity>& GetEntities() const { return m_entities; }
     uint64_t GetTicksRecorded() const { return m_ticks; }
     // Written so far (the lane's writes that finished).
     uint64_t GetChunksWritten() const;
@@ -338,6 +354,7 @@ public:
 private:
     struct Writer;
     void SubmitChunk();
+    void SubmitTail();
 
     NetReplayHeader m_header;
     NetReplaySettings m_settings;
@@ -349,6 +366,8 @@ private:
     // What every live NetId is (a chunk's first tick lists them all).
     std::map<uint32_t, NetReplayEntity> m_entities;
     uint64_t m_ticks = 0;
+    uint32_t m_chunkTicks = 0;      // ticks since the last keyframe (the next chunk's start at 0)
+    uint32_t m_flushTicks = 0;      // FlushSeconds in ticks (0: no tails)
     bool m_closed = false;
     bool m_warnedBacklog = false;
 };

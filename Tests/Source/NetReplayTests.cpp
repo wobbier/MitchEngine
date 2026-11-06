@@ -2,12 +2,14 @@
 #include <doctest/doctest.h>
 #include "Components/Networking/NetHitbox.h"
 #include "JSON.h"
+#include "Jobs/BackgroundLane.h"
 #include "Net/NetReplay.h"
 #include "Net/NetReplayDump.h"
 #include "NetHarness.h"
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
+#include <future>
 #include <fstream>
 #include <map>
 #include <random>
@@ -471,6 +473,135 @@ TEST_CASE( "Replay: a file whose server died (no index, a torn last chunk) reads
     CHECK_FALSE( reader.ReadTick( 150, tick ) );
     std::filesystem::remove( path );
     std::filesystem::remove( torn );
+}
+
+TEST_CASE( "Replay: a recording server that dies loses about a second, not a chunk: the open chunk is on disk as a provisional tail (ME-316)" )
+{
+    const std::filesystem::path path = TempFile( "Tail.mreplay" );
+    std::filesystem::remove( path );
+    const std::vector<NetReplayTick> ticks = MakeMatch( 0, 310 );
+    NetReplaySettings settings;
+    settings.KeyframeInterval = 100;
+    settings.FlushSeconds = 0.5;    // every 30 ticks at 60 Hz
+    NetReplayRecorder recorder( MakeHeader(), settings );
+    REQUIRE( recorder.OpenFile( path.string() ) );
+    auto record = [&]( size_t InFrom, size_t InTo ) {
+        for( size_t i = InFrom; i < InTo; ++i )
+        {
+            recorder.Record( NetReplayTick( ticks[i] ) );
+        }
+        recorder.WaitForWrites();
+    };
+    // What a reader finds if the server died now (no index: the chunks are scanned).
+    auto lastOnDisk = [&]( size_t InChunks ) {
+        NetReplayFileSource source;
+        REQUIRE_MESSAGE( source.Open( path.string() ), source.GetError() );
+        CHECK_FALSE( source.HasIndex() );
+        CHECK( source.GetChunkCount() == InChunks );
+        NetReplayReader reader( source );
+        NetReplayTick tick;
+        const uint32_t last = reader.GetLastTick();
+        REQUIRE( reader.ReadTick( last, tick ) );
+        CheckSame( ticks[last], tick );
+        return last;
+    };
+
+    record( 0, 200 );
+    CHECK( lastOnDisk( 2 ) == 199 );
+    record( 200, 230 );                 // 30 ticks into the third chunk: a tail
+    CHECK( lastOnDisk( 3 ) == 229 );
+    record( 230, 265 );                 // the next tail overwrites it
+    CHECK( lastOnDisk( 3 ) == 259 );
+    record( 265, 300 );                 // the whole chunk overwrites the tail
+    CHECK( lastOnDisk( 3 ) == 299 );
+    CHECK( recorder.GetChunksWritten() == 3 );
+    record( 300, 310 );
+    recorder.Close();
+    CHECK_FALSE( recorder.HasFailed() );
+    // Closed: the index after the whole chunks, nothing of a tail left over.
+    CHECK( recorder.GetBytesWritten() == std::filesystem::file_size( path ) );
+    NetReplayFileSource source;
+    REQUIRE( source.Open( path.string() ) );
+    CHECK( source.HasIndex() );
+    REQUIRE( source.GetChunkCount() == 4 );
+    NetReplayReader reader( source );
+    CHECK( reader.GetTickCount() == 310 );
+    for( uint32_t t : { 0u, 150u, 229u, 299u, 309u } )
+    {
+        NetReplayTick tick;
+        REQUIRE( reader.ReadTick( t, tick ) );
+        CheckSame( ticks[t], tick, t % 100 != 0 );
+    }
+    std::filesystem::remove( path );
+}
+
+TEST_CASE( "Replay: a ring-only recorder names every entity only at keyframes, like the file; its table says what each NetId is (ME-316)" )
+{
+    NetReplaySettings settings;
+    settings.KeyframeInterval = 50;
+    settings.RingSeconds = 3.0;
+    NetReplayRecorder recorder( MakeHeader(), settings );
+    for( NetReplayTick& tick : MakeMatch( 0, 140 ) )
+    {
+        recorder.Record( std::move( tick ) );
+    }
+    REQUIRE( recorder.GetRing().size() == 140 );
+    for( const auto& tick : recorder.GetRing() )
+    {
+        INFO( "tick " << tick->Tick );
+        if( tick->Tick % 50 == 0 )
+        {
+            CHECK( tick->Entities.size() == tick->State.Entities.count( 0x10000 + tick->Tick / 100 ) );
+        }
+        else
+        {
+            // Only what appeared this tick (MakeTick names its pickup when it spawns).
+            CHECK( tick->Entities.size() == ( tick->Tick % 100 == 0 ? 1u : 0u ) );
+        }
+    }
+    // Tick 139's live pickup (0x10001, there since 100) is in the table; 0x10000 went at 40.
+    CHECK_FALSE( recorder.GetEntities().count( 0x10000 ) );
+    REQUIRE( recorder.GetEntities().count( 0x10001 ) );
+    CHECK( recorder.GetEntities().at( 0x10001 ).Name == "Pickup" );
+}
+
+TEST_CASE( "Replay: a disk that can't keep up stops the file past MaxBacklogSeconds instead of holding chunks without end (ME-316)" )
+{
+    const std::filesystem::path path = TempFile( "Backlog.mreplay" );
+    std::filesystem::remove( path );
+    NetReplaySettings settings;
+    settings.KeyframeInterval = 1;
+    settings.MaxBacklogSeconds = 2.0 / 60.0;    // two chunks waiting
+    settings.FlushSeconds = 0.0;
+    NetReplayRecorder recorder( MakeHeader(), settings );
+    REQUIRE( recorder.OpenFile( path.string() ) );
+    // A stalled disk: every lane thread is held, so nothing the recorder queues gets written.
+    std::promise<void> release;
+    std::shared_future<void> released = release.get_future().share();
+    Jobs::BackgroundLane& lane = Jobs::BackgroundLane::Get();
+    std::vector<std::future<void>> holds;
+    for( uint32_t i = 0; i < lane.GetThreadCount(); ++i )
+    {
+        holds.push_back( lane.Submit( "Replay test: stalled disk", [released]() { released.wait(); } ) );
+    }
+    for( NetReplayTick& tick : MakeMatch( 0, 6 ) )
+    {
+        recorder.Record( std::move( tick ) );   // a chunk each (interval 1)
+    }
+    CHECK( recorder.HasFailed() );
+    CHECK( recorder.GetError().find( "can't keep up" ) != std::string::npos );
+    // Let go of: not held while the disk is stuck.
+    CHECK( recorder.GetPendingWrites() <= 2 );
+    CHECK( recorder.GetTicksRecorded() == 6 );
+    CHECK( recorder.GetRing().size() == 6 );    // the ring goes on
+    release.set_value();
+    for( std::future<void>& hold : holds )
+    {
+        hold.wait();
+    }
+    recorder.Close();
+    CHECK( recorder.GetChunksWritten() == 0 );
+    std::filesystem::remove( path );
 }
 
 TEST_CASE( "Replay: a server records every tick's capture, commands, joins and lag-compensated shots (with the hitboxes where they were rewound to); the file at tick N is the live capture at tick N (ME-316)" )

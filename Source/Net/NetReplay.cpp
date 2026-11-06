@@ -6,10 +6,12 @@
 #include "Net/NetQuantize.h"
 #include "Net/NetVersion.h"
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <future>
 #include <limits>
 #include <utility>
 
@@ -1027,7 +1029,9 @@ bool NetReplayReader::ForEach( uint32_t InFrom, uint32_t InTo, const std::functi
 struct NetReplayRecorder::Writer
 {
     std::ofstream File;
-    uint64_t Offset = 0;
+    std::string Path;
+    uint64_t Offset = 0;        // the end of the whole chunks (where the next one, or a tail, goes)
+    uint64_t FileEnd = 0;       // the end of what's in the file (a tail may reach past Offset)
     std::vector<std::pair<uint64_t, NetReplayChunk::Info>> Index;
     std::atomic<uint64_t> Chunks{ 0 };
     std::atomic<uint64_t> Bytes{ 0 };
@@ -1049,6 +1053,35 @@ struct NetReplayRecorder::Writer
         Failed.store( true );
         CLog::Log( CLog::LogType::Error, "Replay: " + InWhy + "; the rest of the match isn't written" );
     }
+
+    // InBytes at Offset (over the tail, if one is there); a chunk moves Offset on, a tail doesn't.
+    // Bytes a longer tail left past the end are cut off.
+    bool WriteAt( const std::vector<uint8_t>& InBytes, bool InCommit )
+    {
+        File.seekp( static_cast<std::streamoff>( Offset ) );
+        File.write( reinterpret_cast<const char*>( InBytes.data() ), static_cast<std::streamsize>( InBytes.size() ) );
+        File.flush();
+        if( !File )
+        {
+            return false;
+        }
+        const uint64_t end = Offset + InBytes.size();
+        if( end < FileEnd )
+        {
+            std::error_code error;
+            std::filesystem::resize_file( Path, end, error );
+            if( error )
+            {
+                return false;
+            }
+        }
+        FileEnd = end;
+        if( InCommit )
+        {
+            Offset = end;
+        }
+        return true;
+    }
 };
 
 
@@ -1059,6 +1092,7 @@ NetReplayRecorder::NetReplayRecorder( NetReplayHeader InHeader, const NetReplayS
     m_settings.KeyframeInterval = std::max<uint32_t>( 1, m_settings.KeyframeInterval );
     m_header.KeyframeInterval = m_settings.KeyframeInterval;
     m_header.FormatVersion = NetReplayFormat::kVersion;
+    m_flushTicks = m_settings.FlushSeconds > 0.0 ? static_cast<uint32_t>( std::max( 1.0, std::round( m_settings.FlushSeconds * m_header.TickRate ) ) ) : 0u;
 }
 
 
@@ -1086,7 +1120,9 @@ bool NetReplayRecorder::OpenFile( const std::string& InPath )
         CLog::Log( CLog::LogType::Error, "Replay: can't write " + InPath );
         return false;
     }
+    writer->Path = InPath;
     writer->Offset = header.size();
+    writer->FileEnd = header.size();
     writer->Bytes = header.size();
     m_path = InPath;
     m_writer = std::move( writer );
@@ -1111,8 +1147,11 @@ void NetReplayRecorder::Record( NetReplayTick&& InTick )
     {
         it = InTick.State.Entities.count( it->first ) ? std::next( it ) : m_entities.erase( it );
     }
-    // A chunk's first tick names every live one, so the chunk reads alone.
-    if( m_chunk.empty() )
+    // A chunk's first tick names every live one, so the chunk reads alone (counted apart from
+    // m_chunk: a ring-only recorder has none, and its ticks carry only what changed too).
+    const bool chunkStart = m_chunkTicks == 0;
+    m_chunkTicks = ( m_chunkTicks + 1 ) % m_settings.KeyframeInterval;
+    if( chunkStart )
     {
         InTick.Entities.clear();
         for( const auto& [id, entity] : m_entities )
@@ -1139,7 +1178,39 @@ void NetReplayRecorder::Record( NetReplayTick&& InTick )
         {
             SubmitChunk();
         }
+        else if( m_flushTicks > 0 && m_chunk.size() % m_flushTicks == 0 )
+        {
+            SubmitTail();
+        }
     }
+}
+
+
+void NetReplayRecorder::SubmitTail()
+{
+    // Only when the lane has caught up: a tail never adds to a backlog (the next one will do).
+    if( !m_queue || m_queue->GetPending() > 0 || m_writer->Failed.load() )
+    {
+        return;
+    }
+    // The open chunk so far, as a chunk of its own after the whole ones; the next tail or the
+    // chunk itself overwrites it. A server that dies loses only the ticks since.
+    m_queue->Submit( [writer = m_writer, ticks = m_chunk, codec = m_settings.Codec]() {
+        if( writer->Failed.load() )
+        {
+            return;
+        }
+        std::vector<const NetReplayTick*> pointers;
+        pointers.reserve( ticks.size() );
+        for( const auto& tick : ticks )
+        {
+            pointers.push_back( tick.get() );
+        }
+        if( !writer->WriteAt( NetReplayChunk::Encode( pointers, codec ), false ) )
+        {
+            writer->Fail( "the open chunk didn't write" );
+        }
+    } );
 }
 
 
@@ -1150,10 +1221,26 @@ void NetReplayRecorder::SubmitChunk()
         m_chunk.clear();
         return;
     }
-    if( !m_warnedBacklog && m_queue->GetPending() >= kBacklogWarning )
+    if( m_writer->Failed.load() )
+    {
+        m_chunk.clear();
+        return;
+    }
+    const uint32_t pending = m_queue->GetPending();
+    if( !m_warnedBacklog && pending >= kBacklogWarning )
     {
         m_warnedBacklog = true;
-        CLog::Log( CLog::LogType::Warning, "Replay: " + std::to_string( m_queue->GetPending() ) + " chunks wait to be written (the disk is slow); recording goes on in memory" );
+        CLog::Log( CLog::LogType::Warning, "Replay: " + std::to_string( pending ) + " chunks wait to be written (the disk is slow); recording goes on in memory" );
+    }
+    // Past MaxBacklogSeconds of the match waiting (a hung or failing disk), the file stops: the
+    // queued chunks are let go rather than held without end. The ring goes on.
+    const double backlogSeconds = static_cast<double>( pending ) * m_settings.KeyframeInterval / std::max<uint16_t>( 1, m_header.TickRate );
+    if( m_settings.MaxBacklogSeconds > 0.0 && backlogSeconds >= m_settings.MaxBacklogSeconds )
+    {
+        m_writer->Fail( "the disk can't keep up (" + std::to_string( static_cast<int>( backlogSeconds ) ) + " s of the match wait to be written)" );
+        m_queue->Clear();
+        m_chunk.clear();
+        return;
     }
     // Encode, compress and write on the lane: the ticks are immutable from here.
     m_queue->Submit( [writer = m_writer, ticks = std::exchange( m_chunk, {} ), codec = m_settings.Codec]() {
@@ -1169,17 +1256,15 @@ void NetReplayRecorder::SubmitChunk()
         }
         size_t raw = 0;
         const std::vector<uint8_t> bytes = NetReplayChunk::Encode( pointers, codec, &raw );
-        writer->File.write( reinterpret_cast<const char*>( bytes.data() ), static_cast<std::streamsize>( bytes.size() ) );
-        writer->File.flush();
-        if( !writer->File )
+        const uint64_t offset = writer->Offset;
+        if( !writer->WriteAt( bytes, true ) )
         {
             writer->Fail( "a chunk didn't write" );
             return;
         }
         NetReplayChunk::Info info;
         NetReplayChunk::ReadInfo( bytes.data(), bytes.size(), info );
-        writer->Index.emplace_back( writer->Offset, info );
-        writer->Offset += bytes.size();
+        writer->Index.emplace_back( offset, info );
         writer->RawBytes += raw;
         writer->Bytes += bytes.size();
         ++writer->Chunks;
@@ -1199,7 +1284,7 @@ void NetReplayRecorder::Close()
         return;
     }
     SubmitChunk();
-    m_queue->Submit( [writer = m_writer]() {
+    std::future<void> done = m_queue->Submit( [writer = m_writer]() {
         if( writer->Failed.load() )
         {
             writer->File.close();
@@ -1217,17 +1302,39 @@ void NetReplayRecorder::Close()
         }
         PutU64( index, writer->Offset );
         index.insert( index.end(), std::begin( NetReplayFormat::kTrailer ), std::end( NetReplayFormat::kTrailer ) );
-        writer->File.write( reinterpret_cast<const char*>( index.data() ), static_cast<std::streamsize>( index.size() ) );
+        const bool written = writer->WriteAt( index, true );
         writer->File.close();
-        if( !writer->File )
+        if( !written || !writer->File )
         {
             writer->Fail( "the index didn't write" );
             return;
         }
         writer->Bytes += index.size();
     } );
+    // Bounded: a hung disk mustn't hold the server's shutdown (its report and goodbyes) forever.
+    // (The lane always runs Normal work, and runs it inline once shut down, so this only times out
+    // on a write that doesn't return.)
+    const auto timeout = std::chrono::duration<double>( std::max( 0.0, m_settings.CloseTimeoutSeconds ) );
+    if( m_settings.CloseTimeoutSeconds > 0.0 && done.wait_for( timeout ) != std::future_status::ready )
+    {
+        m_writer->Fail( "the last writes didn't finish in " + std::to_string( static_cast<int>( m_settings.CloseTimeoutSeconds ) ) + " s (the disk hung); the file has no index" );
+        m_queue->Clear();
+        // Its destructor would wait for the hung write: let the lane finish with it whenever it can
+        // (the tasks hold the writer).
+        (void)m_queue.release();
+        return;
+    }
     m_queue->Flush();
     m_queue.reset();
+}
+
+
+void NetReplayRecorder::WaitForWrites()
+{
+    if( m_queue )
+    {
+        m_queue->Flush();
+    }
 }
 
 
