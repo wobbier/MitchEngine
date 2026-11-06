@@ -6,6 +6,7 @@
 #include "Net/NetQuantize.h"
 #include "Net/NetVersion.h"
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstring>
@@ -321,10 +322,39 @@ namespace
         return !InReader.IsOverflowed();
     }
 
-    void WriteShot( BitWriter& InWriter, const NetReplayShot& InShot )
+    bool SameVectorBits( const Vector3& InA, const Vector3& InB )
+    {
+        return SameBits( InA.x, InB.x ) && SameBits( InA.y, InB.y ) && SameBits( InA.z, InB.z );
+    }
+
+    bool SameHitboxes( const std::vector<NetReplayHitbox>& InA, const std::vector<NetReplayHitbox>& InB )
+    {
+        if( InA.size() != InB.size() )
+        {
+            return false;
+        }
+        for( size_t i = 0; i < InA.size(); ++i )
+        {
+            const NetReplayHitbox& a = InA[i];
+            const NetReplayHitbox& b = InB[i];
+            if( a.NetId != b.NetId || a.Name != b.Name || a.Shape != b.Shape || a.Occluder != b.Occluder || !SameVectorBits( a.Position, b.Position )
+                || !SameBits( a.Rotation.x, b.Rotation.x ) || !SameBits( a.Rotation.y, b.Rotation.y ) || !SameBits( a.Rotation.z, b.Rotation.z )
+                || !SameBits( a.Rotation.w, b.Rotation.w ) || !SameBits( a.Radius, b.Radius ) || !SameBits( a.HalfHeight, b.HalfHeight )
+                || !SameVectorBits( a.HalfExtents, b.HalfExtents ) )
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // InEarlier: the tick's shots before this one. Format 3 points at the newest of them with the
+    // same hitboxes rather than repeat them (a pellet, a pierce step, every arrow in flight).
+    void WriteShot( BitWriter& InWriter, const NetReplayShot& InShot, const NetReplayShot* InEarlier, size_t InEarlierCount )
     {
         InWriter.WriteBits( InShot.Client, 8 );
         InWriter.WriteVarUInt( InShot.Shooter );
+        InWriter.WriteVarUInt( InShot.Instigator );
         WriteVector( InWriter, InShot.Origin );
         WriteVector( InWriter, InShot.Direction );
         InWriter.WriteFloat( InShot.Range );
@@ -339,6 +369,21 @@ namespace
         WriteVector( InWriter, InShot.Point );
         InWriter.WriteFloat( InShot.Distance );
         InWriter.WriteVarUInt( InShot.Tested );
+        // 0: the list follows; k: the same as the shot k back.
+        uint64_t sameAs = 0;
+        for( size_t back = 1; back <= InEarlierCount && !InShot.Hitboxes.empty(); ++back )
+        {
+            if( SameHitboxes( InEarlier[InEarlierCount - back].Hitboxes, InShot.Hitboxes ) )
+            {
+                sameAs = back;
+                break;
+            }
+        }
+        InWriter.WriteVarUInt( sameAs );
+        if( sameAs != 0 )
+        {
+            return;
+        }
         InWriter.WriteVarUInt( InShot.Hitboxes.size() );
         for( const NetReplayHitbox& hitbox : InShot.Hitboxes )
         {
@@ -357,10 +402,11 @@ namespace
         }
     }
 
-    bool ReadShot( BitReader& InReader, NetReplayShot& OutShot )
+    bool ReadShot( BitReader& InReader, NetReplayShot& OutShot, const NetReplayShot* InEarlier, size_t InEarlierCount, uint32_t InVersion )
     {
         OutShot.Client = static_cast<uint8_t>( InReader.ReadBits( 8 ) );
         OutShot.Shooter = static_cast<uint32_t>( InReader.ReadVarUInt() );
+        OutShot.Instigator = InVersion >= 3 ? static_cast<uint32_t>( InReader.ReadVarUInt() ) : 0u;
         OutShot.Origin = ReadVector( InReader );
         OutShot.Direction = ReadVector( InReader );
         OutShot.Range = InReader.ReadFloat();
@@ -375,6 +421,19 @@ namespace
         OutShot.Point = ReadVector( InReader );
         OutShot.Distance = InReader.ReadFloat();
         OutShot.Tested = static_cast<uint32_t>( InReader.ReadVarUInt() );
+        if( InVersion >= 3 )
+        {
+            const uint64_t sameAs = InReader.ReadVarUInt();
+            if( sameAs > InEarlierCount || InReader.IsOverflowed() )
+            {
+                return false;
+            }
+            if( sameAs != 0 )
+            {
+                OutShot.Hitboxes = InEarlier[InEarlierCount - sameAs].Hitboxes;
+                return true;
+            }
+        }
         const uint64_t count = InReader.ReadVarUInt();
         if( count > kMaxListCount || InReader.IsOverflowed() )
         {
@@ -399,6 +458,169 @@ namespace
             {
                 return false;
             }
+        }
+        return !InReader.IsOverflowed();
+    }
+
+    uint32_t FloatBits( float InValue )
+    {
+        uint32_t bits = 0;
+        std::memcpy( &bits, &InValue, sizeof( bits ) );
+        return bits;
+    }
+
+    float BitsFloat( uint32_t InBits )
+    {
+        float value = 0.f;
+        std::memcpy( &value, &InBits, sizeof( value ) );
+        return value;
+    }
+
+    // A vector's float bits XORed with the tick before's (lossless): a mover's sign, exponent and
+    // high mantissa rarely change from one tick to the next, so they come out as zeros for deflate.
+    void WriteVectorXor( BitWriter& InWriter, const Vector3& InValue, const Vector3& InPrevious )
+    {
+        InWriter.WriteBits( FloatBits( InValue.x ) ^ FloatBits( InPrevious.x ), 32 );
+        InWriter.WriteBits( FloatBits( InValue.y ) ^ FloatBits( InPrevious.y ), 32 );
+        InWriter.WriteBits( FloatBits( InValue.z ) ^ FloatBits( InPrevious.z ), 32 );
+    }
+
+    Vector3 ReadVectorXor( BitReader& InReader, const Vector3& InPrevious )
+    {
+        const float x = BitsFloat( InReader.ReadBits( 32 ) ^ FloatBits( InPrevious.x ) );
+        const float y = BitsFloat( InReader.ReadBits( 32 ) ^ FloatBits( InPrevious.y ) );
+        const float z = BitsFloat( InReader.ReadBits( 32 ) ^ FloatBits( InPrevious.z ) );
+        return Vector3( x, y, z );
+    }
+
+    // A mover's vectors, in the order of its change mask's bits.
+    std::array<const Vector3*, 5> MoverVectors( const CharacterController::NetState& InState )
+    {
+        return { &InState.Position, &InState.Velocity, &InState.MoveInput, &InState.PendingMove, &InState.GroundNormal };
+    }
+
+    // A mover: each of its vectors (exact float bits) and its [Predicted] bytes when they changed
+    // since the tick before (all of them at a chunk's start); the flags always.
+    void WriteMover( BitWriter& InWriter, const NetReplayMover& InMover, const NetReplayMover* InPrevious )
+    {
+        InWriter.WriteVarUInt( InMover.NetId );
+        const auto vectors = MoverVectors( InMover.State );
+        uint32_t mask = 0;
+        for( size_t i = 0; i < vectors.size(); ++i )
+        {
+            if( !InPrevious || !SameVectorBits( *vectors[i], *MoverVectors( InPrevious->State )[i] ) )
+            {
+                mask |= 1u << i;
+            }
+        }
+        const bool predictedChanged = !InPrevious || InPrevious->Predicted != InMover.Predicted;
+        InWriter.WriteBits( mask, static_cast<int>( vectors.size() ) );
+        InWriter.WriteBool( predictedChanged );
+        for( size_t i = 0; i < vectors.size(); ++i )
+        {
+            if( mask & ( 1u << i ) )
+            {
+                if( InPrevious )
+                {
+                    WriteVectorXor( InWriter, *vectors[i], *MoverVectors( InPrevious->State )[i] );
+                }
+                else
+                {
+                    WriteVector( InWriter, *vectors[i] );
+                }
+            }
+        }
+        InWriter.WriteBool( InMover.State.WantsJump );
+        InWriter.WriteBool( InMover.State.Grounded );
+        if( predictedChanged )
+        {
+            // The same size as the tick before's (a script's fields): XORed with it, so the few bytes
+            // that changed stand among zeros for deflate.
+            const bool xored = InPrevious && InPrevious->Predicted.size() == InMover.Predicted.size();
+            InWriter.WriteBool( xored );
+            if( xored )
+            {
+                std::vector<uint8_t> bytes( InMover.Predicted.size() );
+                for( size_t i = 0; i < bytes.size(); ++i )
+                {
+                    bytes[i] = static_cast<uint8_t>( InMover.Predicted[i] ^ InPrevious->Predicted[i] );
+                }
+                InWriter.WriteBytes( bytes.data(), bytes.size() );
+            }
+            else
+            {
+                InWriter.WriteVarUInt( InMover.Predicted.size() );
+                InWriter.WriteBytes( InMover.Predicted.data(), InMover.Predicted.size() );
+            }
+        }
+    }
+
+    const NetReplayMover* FindMover( const NetReplayTick* InTick, uint32_t InNetId )
+    {
+        if( !InTick )
+        {
+            return nullptr;
+        }
+        // Sorted by NetId.
+        auto it = std::lower_bound( InTick->Movers.begin(), InTick->Movers.end(), InNetId,
+            []( const NetReplayMover& InMover, uint32_t InId ) { return InMover.NetId < InId; } );
+        return it != InTick->Movers.end() && it->NetId == InNetId ? &*it : nullptr;
+    }
+
+    bool ReadMover( BitReader& InReader, NetReplayMover& OutMover, const NetReplayTick* InPrevious )
+    {
+        OutMover.NetId = static_cast<uint32_t>( InReader.ReadVarUInt() );
+        const uint32_t mask = InReader.ReadBits( 5 );
+        const bool predictedChanged = InReader.ReadBool();
+        const NetReplayMover* previous = FindMover( InPrevious, OutMover.NetId );
+        if( ( mask != 0x1Fu || !predictedChanged ) && !previous )
+        {
+            return false;
+        }
+        CharacterController::NetState& state = OutMover.State;
+        std::array<Vector3*, 5> vectors = { &state.Position, &state.Velocity, &state.MoveInput, &state.PendingMove, &state.GroundNormal };
+        for( size_t i = 0; i < vectors.size(); ++i )
+        {
+            if( !( mask & ( 1u << i ) ) )
+            {
+                *vectors[i] = *MoverVectors( previous->State )[i];
+            }
+            else
+            {
+                *vectors[i] = previous ? ReadVectorXor( InReader, *MoverVectors( previous->State )[i] ) : ReadVector( InReader );
+            }
+        }
+        state.WantsJump = InReader.ReadBool();
+        state.Grounded = InReader.ReadBool();
+        if( predictedChanged )
+        {
+            if( InReader.ReadBool() )
+            {
+                if( !previous )
+                {
+                    return false;
+                }
+                OutMover.Predicted.resize( previous->Predicted.size() );
+                InReader.ReadBytes( OutMover.Predicted.data(), OutMover.Predicted.size() );
+                for( size_t i = 0; i < OutMover.Predicted.size(); ++i )
+                {
+                    OutMover.Predicted[i] ^= previous->Predicted[i];
+                }
+            }
+            else
+            {
+                const uint64_t size = InReader.ReadVarUInt();
+                if( size > kMaxChunkBytes || InReader.IsOverflowed() )
+                {
+                    return false;
+                }
+                OutMover.Predicted.resize( static_cast<size_t>( size ) );
+                InReader.ReadBytes( OutMover.Predicted.data(), OutMover.Predicted.size() );
+            }
+        }
+        else
+        {
+            OutMover.Predicted = previous->Predicted;
         }
         return !InReader.IsOverflowed();
     }
@@ -463,10 +685,32 @@ namespace
             WriteClient( InWriter, InTick.Tick, client, previous );
         }
 
-        InWriter.WriteVarUInt( InTick.Shots.size() );
-        for( const NetReplayShot& shot : InTick.Shots )
+        // Sorted by NetId, so the reader finds the tick before's (the recorder's are).
+        std::vector<const NetReplayMover*> movers;
+        movers.reserve( InTick.Movers.size() );
+        for( const NetReplayMover& mover : InTick.Movers )
         {
-            WriteShot( InWriter, shot );
+            movers.push_back( &mover );
+        }
+        std::sort( movers.begin(), movers.end(), []( const NetReplayMover* InA, const NetReplayMover* InB ) { return InA->NetId < InB->NetId; } );
+        InWriter.WriteVarUInt( movers.size() );
+        for( const NetReplayMover* mover : movers )
+        {
+            const NetReplayMover* previous = nullptr;
+            if( InPrevious )
+            {
+                for( const NetReplayMover& candidate : InPrevious->Movers )
+                {
+                    previous = candidate.NetId == mover->NetId ? &candidate : previous;
+                }
+            }
+            WriteMover( InWriter, *mover, previous );
+        }
+
+        InWriter.WriteVarUInt( InTick.Shots.size() );
+        for( size_t i = 0; i < InTick.Shots.size(); ++i )
+        {
+            WriteShot( InWriter, InTick.Shots[i], InTick.Shots.data(), i );
         }
 
         InWriter.WriteVarUInt( InTick.Events.size() );
@@ -478,7 +722,7 @@ namespace
         }
     }
 
-    bool ReadTick( BitReader& InReader, NetReplayTick& OutTick, const NetReplayTick* InPrevious )
+    bool ReadTick( BitReader& InReader, NetReplayTick& OutTick, const NetReplayTick* InPrevious, uint32_t InVersion )
     {
         OutTick.Tick = InPrevious ? InPrevious->Tick + static_cast<uint32_t>( InReader.ReadVarUInt() ) : InReader.ReadBits( 32 );
         OutTick.TicksOwed = static_cast<uint32_t>( InReader.ReadVarUInt() );
@@ -530,15 +774,32 @@ namespace
             }
         }
 
+        if( InVersion >= 3 )
+        {
+            count = InReader.ReadVarUInt();
+            if( count > kMaxListCount || InReader.IsOverflowed() )
+            {
+                return false;
+            }
+            OutTick.Movers.resize( static_cast<size_t>( count ) );
+            for( NetReplayMover& mover : OutTick.Movers )
+            {
+                if( !ReadMover( InReader, mover, InPrevious ) )
+                {
+                    return false;
+                }
+            }
+        }
+
         count = InReader.ReadVarUInt();
         if( count > kMaxListCount || InReader.IsOverflowed() )
         {
             return false;
         }
         OutTick.Shots.resize( static_cast<size_t>( count ) );
-        for( NetReplayShot& shot : OutTick.Shots )
+        for( size_t i = 0; i < OutTick.Shots.size(); ++i )
         {
-            if( !ReadShot( InReader, shot ) )
+            if( !ReadShot( InReader, OutTick.Shots[i], OutTick.Shots.data(), i, InVersion ) )
             {
                 return false;
             }
@@ -645,7 +906,7 @@ bool NetReplayChunk::ReadInfo( const uint8_t* InData, size_t InSize, Info& OutIn
 }
 
 
-bool NetReplayChunk::Decode( const uint8_t* InData, size_t InSize, std::vector<NetReplayTick>& OutTicks, std::string* OutError )
+bool NetReplayChunk::Decode( const uint8_t* InData, size_t InSize, std::vector<NetReplayTick>& OutTicks, std::string* OutError, uint32_t InVersion )
 {
     auto fail = [OutError]( const std::string& InWhy ) {
         if( OutError )
@@ -655,6 +916,11 @@ bool NetReplayChunk::Decode( const uint8_t* InData, size_t InSize, std::vector<N
         return false;
     };
     OutTicks.clear();
+    if( InVersion < NetReplayFormat::kMinVersion || InVersion > NetReplayFormat::kVersion )
+    {
+        return fail( "replay format " + std::to_string( InVersion ) + "; this build reads " + std::to_string( NetReplayFormat::kMinVersion ) + " to "
+            + std::to_string( NetReplayFormat::kVersion ) );
+    }
     Info info;
     if( !ReadInfo( InData, InSize, info ) )
     {
@@ -693,7 +959,7 @@ bool NetReplayChunk::Decode( const uint8_t* InData, size_t InSize, std::vector<N
     OutTicks.resize( static_cast<size_t>( count ) );
     for( size_t i = 0; i < OutTicks.size(); ++i )
     {
-        if( !ReadTick( reader, OutTicks[i], i > 0 ? &OutTicks[i - 1] : nullptr ) )
+        if( !ReadTick( reader, OutTicks[i], i > 0 ? &OutTicks[i - 1] : nullptr, InVersion ) )
         {
             OutTicks.clear();
             return fail( "tick " + std::to_string( i ) + " of the chunk from " + std::to_string( info.FirstTick ) + " won't decode" );
@@ -748,9 +1014,10 @@ bool NetReplayFile::DecodeHeader( const uint8_t* InData, size_t InSize, NetRepla
         return fail( "not a match replay (.mreplay)" );
     }
     const uint32_t version = GetU32( InData + 8 );
-    if( version != NetReplayFormat::kVersion )
+    if( version < NetReplayFormat::kMinVersion || version > NetReplayFormat::kVersion )
     {
-        return fail( "replay format " + std::to_string( version ) + "; this build reads " + std::to_string( NetReplayFormat::kVersion ) );
+        return fail( "replay format " + std::to_string( version ) + "; this build reads " + std::to_string( NetReplayFormat::kMinVersion ) + " to "
+            + std::to_string( NetReplayFormat::kVersion ) );
     }
     const uint32_t size = GetU32( InData + 12 );
     if( InSize < 16 + static_cast<size_t>( size ) )
@@ -963,7 +1230,7 @@ bool NetReplayReader::LoadChunk( size_t InIndex )
         m_error = "chunk " + std::to_string( InIndex ) + " can't be read";
         return false;
     }
-    if( !NetReplayChunk::Decode( m_bytes.data(), m_bytes.size(), m_ticks, &m_error ) )
+    if( !NetReplayChunk::Decode( m_bytes.data(), m_bytes.size(), m_ticks, &m_error, m_source.GetHeader().FormatVersion ) )
     {
         return false;
     }

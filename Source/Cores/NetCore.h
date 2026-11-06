@@ -170,9 +170,10 @@ public:
 
     // Server (NET-8): a ray against the hitboxes as InCommand's player saw them (its ViewTick),
     // blocked by colliders in the present. InShooter and everything under it (a pawn's head
-    // hitbox) are ignored.
+    // hitbox) are ignored. InInstigator: who fired it when InShooter is a projectile sweeping its
+    // flight (the replay attributes the shot to them; none: the shooter fired it).
     LagCompensatedHit LagCompensatedRaycast( const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, const InputCommand& InCommand,
-        const EntityHandle& InShooter = EntityHandle() );
+        const EntityHandle& InShooter = EntityHandle(), const EntityHandle& InInstigator = EntityHandle() );
     // The same ray against the hitboxes where they are now (a client's own view, for impact FX it
     // predicts; offline play), with no rewind: what NET-15's Net.LagCompensatedRaycast does off
     // the server. InShooter and everything under it are ignored.
@@ -186,8 +187,9 @@ public:
     uint32_t GetTick() const { return m_predictor && m_predictor->IsResimulating() ? m_predictor->GetCommand().Tick : m_tick; }
 
     // Match replays (ME-316, NetReplay.h): a server records every tick after its CaptureTick: the
-    // whole capture, each client's command and link, owed and dropped ticks, entity names and
-    // owners, every LagCompensatedRaycast (with the rewound hitboxes), joins and leaves, and
+    // whole capture, each character's mover and [Predicted] state, each client's command and link,
+    // owed and dropped ticks, entity names and owners, every LagCompensatedRaycast (with the
+    // rewound hitboxes and its instigator), joins and leaves, and
     // RecordReplayEvent's. The chunks are written on the background lane. InPath "": the ring
     // only. The header's tick rate and hashes come from the session. False on a client, while
     // recording, or when the file can't be written.
@@ -214,7 +216,7 @@ public:
 private:
     void RecordReplayTick();
     void RecordShot( const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, double InViewTick, const EntityHandle& InShooter,
-        const LagCompensatedHit& InHit );
+        const EntityHandle& InInstigator, const LagCompensatedHit& InHit );
 
     // A client the server no longer has: what the report says about it.
     struct Departure

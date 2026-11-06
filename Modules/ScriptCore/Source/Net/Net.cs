@@ -304,12 +304,20 @@ public static unsafe class Net
     /// FX; only the server's result counts. Shooter: the entity firing (ignored by the ray).
     /// </summary>
     public static NetHit LagCompensatedRaycast(Entity shooter, Vector3 origin, Vector3 direction, float range)
+        => LagCompensatedRaycast(shooter, origin, direction, range, Entity.Null);
+
+    /// <summary>
+    /// The same, for a projectile sweeping its flight: shooter is the projectile (ignored by the ray),
+    /// instigator who fired it. The match replay (ME-316) attributes the shot to the instigator and its
+    /// owner, and counts it as a projectile sweep rather than a trigger pull.
+    /// </summary>
+    public static NetHit LagCompensatedRaycast(Entity shooter, Vector3 origin, Vector3 direction, float range, Entity instigator)
     {
         if (Engine._api.Net_LagCompensatedRaycast == null) return default;
         Entity hit;
         Vector3 point;
         int flags;
-        Engine._api.Net_LagCompensatedRaycast(shooter, &origin, &direction, range, &hit, &point, &flags);
+        Engine._api.Net_LagCompensatedRaycast(shooter, instigator, &origin, &direction, range, &hit, &point, &flags);
         return new NetHit((flags & 1) != 0, hit, point, (flags & 2) != 0, (flags & 4) != 0, (flags & 8) != 0, (flags & 16) != 0);
     }
 

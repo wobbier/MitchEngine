@@ -87,8 +87,10 @@ namespace
         uint64_t Dropped = 0;
         size_t MaxEntities = 0;
         std::map<std::string, uint64_t> Events;
-        uint64_t Shots = 0;
+        uint64_t Shots = 0;         // trigger pulls (and bots'), not projectile sweeps
         uint64_t Hits = 0;
+        uint64_t Sweeps = 0;        // a projectile's per-tick sweeps (format 3: the shot has an instigator)
+        uint64_t SweepHits = 0;
         uint64_t Occluded = 0;
         uint64_t Clamped = 0;
         uint64_t Rejected = 0;
@@ -142,7 +144,7 @@ namespace
 
     bool ShotInvolves( const NetReplayShot& InShot, uint32_t InEntity )
     {
-        return InEntity == 0 || InShot.Shooter == InEntity || InShot.Target == InEntity;
+        return InEntity == 0 || InShot.Shooter == InEntity || InShot.Target == InEntity || ( InShot.Instigator != 0 && InShot.Instigator == InEntity );
     }
 
     std::string CommandText( const InputCommand& InCommand )
@@ -174,6 +176,10 @@ namespace
     std::string ShotText( const NetReplayShot& InShot, const Names& InNames )
     {
         std::string text = Format( "shot client %u %s ", InShot.Client, InNames.Of( InShot.Shooter ).c_str() );
+        if( InShot.Instigator != 0 )
+        {
+            text += "(sweep, fired by " + InNames.Of( InShot.Instigator ) + ") ";
+        }
         if( InShot.Rejected )
         {
             text += "REJECTED (view tick in the future)";
@@ -207,6 +213,7 @@ namespace
         json shot;
         shot["client"] = InShot.Client;
         shot["shooter"] = InShot.Shooter;
+        shot["instigator"] = InShot.Instigator;
         shot["origin"] = VecJson( InShot.Origin );
         shot["direction"] = VecJson( InShot.Direction );
         shot["range"] = InShot.Range;
@@ -387,6 +394,12 @@ bool NetReplayDump::Write( NetReplayReader& InReader, const Options& InOptions, 
                 {
                     continue;
                 }
+                if( shot.Instigator != 0 )
+                {
+                    ++summary.Sweeps;
+                    summary.SweepHits += shot.Hit ? 1 : 0;
+                    continue;
+                }
                 ++summary.Shots;
                 summary.Hits += shot.Hit ? 1 : 0;
                 summary.Occluded += shot.Occluded ? 1 : 0;
@@ -431,6 +444,7 @@ bool NetReplayDump::Write( NetReplayReader& InReader, const Options& InOptions, 
             counts["events"] = summary.Events;
             counts["shots"] = { { "total", summary.Shots }, { "hits", summary.Hits }, { "misses", summary.Shots - summary.Hits }, { "occluded", summary.Occluded },
                 { "clamped", summary.Clamped }, { "rejected", summary.Rejected } };
+            counts["sweeps"] = { { "total", summary.Sweeps }, { "hits", summary.SweepHits } };
             json clients = json::array();
             for( const auto& [id, entry] : summary.Clients )
             {
@@ -488,6 +502,10 @@ bool NetReplayDump::Write( NetReplayReader& InReader, const Options& InOptions, 
             InOut << "\n";
             InOut << Format( "shots %" PRIu64 ": %" PRIu64 " hit, %" PRIu64 " missed (%" PRIu64 " occluded), %" PRIu64 " clamped, %" PRIu64 " rejected\n", summary.Shots,
                 summary.Hits, summary.Shots - summary.Hits, summary.Occluded, summary.Clamped, summary.Rejected );
+            if( summary.Sweeps > 0 )
+            {
+                InOut << Format( "projectile sweeps %" PRIu64 ": %" PRIu64 " hit\n", summary.Sweeps, summary.SweepHits );
+            }
         }
     }
 
@@ -654,6 +672,33 @@ bool NetReplayDump::Write( NetReplayReader& InReader, const Options& InOptions, 
                 if( !states.empty() )
                 {
                     tick["states"] = states;
+                    any = true;
+                }
+                // Characters' movers at full precision (format 3).
+                json movers = json::object();
+                for( const NetReplayMover& mover : InTick.Movers )
+                {
+                    if( InOptions.Entity && mover.NetId != InOptions.Entity )
+                    {
+                        continue;
+                    }
+                    const CharacterController::NetState& state = mover.State;
+                    if( InOptions.Json )
+                    {
+                        movers[std::to_string( mover.NetId )] = { { "position", VecJson( state.Position ) }, { "velocity", VecJson( state.Velocity ) },
+                            { "moveInput", VecJson( state.MoveInput ) }, { "pendingMove", VecJson( state.PendingMove ) }, { "groundNormal", VecJson( state.GroundNormal ) },
+                            { "wantsJump", state.WantsJump }, { "grounded", state.Grounded }, { "predicted", Bytes( mover.Predicted ) } };
+                    }
+                    else
+                    {
+                        InOut << InTick.Tick << " mover " << names.Of( mover.NetId ) << Format( " at (%.6f, %.6f, %.6f)", state.Position.x, state.Position.y, state.Position.z )
+                              << " vel " << Vec( state.Velocity ) << " input " << Vec( state.MoveInput ) << ( state.Grounded ? " grounded" : " airborne" )
+                              << ( state.WantsJump ? " jump" : "" ) << " predicted " << Bytes( mover.Predicted ) << "\n";
+                    }
+                }
+                if( !movers.empty() )
+                {
+                    tick["movers"] = movers;
                     any = true;
                 }
             }

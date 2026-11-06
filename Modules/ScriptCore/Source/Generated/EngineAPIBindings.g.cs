@@ -9,7 +9,7 @@ namespace ScriptCore;
 public unsafe struct EngineAPIBindings
 {
     // The ABI both sides were generated from (C++: kScriptEngineAPIHash).
-    public const ulong AbiHash = 0xCCBC3A94721C1E5CUL;
+    public const ulong AbiHash = 0x4C7C42FE7FC645F5UL;
 
     // Core
     public delegate* unmanaged<byte*, void> Log;
@@ -395,8 +395,10 @@ public unsafe struct EngineAPIBindings
     public delegate* unmanaged<int, byte, void> Input_SetSimulatedKey;
     public delegate* unmanaged<void> Input_ClearSimulatedKeys;
 
-    // Lag-compensated hits (NET-15). Flags: 1 hit, 2 occluded, 4 rejected, 8 clamped, 16 rewound (the server, with the shooter's command)
-    public delegate* unmanaged<Entity, Vector3*, Vector3*, float, Entity*, Vector3*, int*, byte> Net_LagCompensatedRaycast;
+    // Lag-compensated hits (NET-15). Flags: 1 hit, 2 occluded, 4 rejected, 8 clamped, 16 rewound (the server, with the shooter's command).
+
+    // instigator: who fired it when the shooter is a projectile (the match replay's attribution, ME-316); null: the shooter
+    public delegate* unmanaged<Entity, Entity, Vector3*, Vector3*, float, Entity*, Vector3*, int*, byte> Net_LagCompensatedRaycast;
     public delegate* unmanaged<Entity, double> Net_GetCommandViewTick;
     public delegate* unmanaged<int, float> Net_GetRoundTripMs;
 

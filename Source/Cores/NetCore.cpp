@@ -559,12 +559,12 @@ void NetCore::OnRpc( uint8_t InFromClient, BitReader& InReader )
 
 
 LagCompensatedHit NetCore::LagCompensatedRaycast( const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, const InputCommand& InCommand,
-    const EntityHandle& InShooter )
+    const EntityHandle& InShooter, const EntityHandle& InInstigator )
 {
     const LagCompensatedHit hit = m_lagCompensation.Raycast( GetWorld().GetCore<PhysicsCore>(), InOrigin, InDirection, InMaxDistance, InCommand.ViewTick, InShooter );
     if( m_server && IsRecording() )
     {
-        RecordShot( InOrigin, InDirection, InMaxDistance, InCommand.ViewTick, InShooter, hit );
+        RecordShot( InOrigin, InDirection, InMaxDistance, InCommand.ViewTick, InShooter, InInstigator, hit );
     }
     return hit;
 }
@@ -653,13 +653,22 @@ void NetCore::RecordReplayEvent( const std::string& InName, const std::string& I
 
 
 void NetCore::RecordShot( const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, double InViewTick, const EntityHandle& InShooter,
-    const LagCompensatedHit& InHit )
+    const EntityHandle& InInstigator, const LagCompensatedHit& InHit )
 {
     NetReplayShot& shot = m_replayShots.emplace_back();
     if( const NetIdentity* shooter = NetworkedSelfOrAncestor( InShooter ) )
     {
         shot.Shooter = shooter->GetNetId();
         shot.Client = shooter->GetOwner();
+    }
+    // A projectile's sweep: the shot is its instigator's (an unowned arrow would read as a bot's).
+    if( InInstigator && !( InInstigator == InShooter ) )
+    {
+        if( const NetIdentity* instigator = NetworkedSelfOrAncestor( InInstigator ) )
+        {
+            shot.Instigator = instigator->GetNetId();
+            shot.Client = instigator->GetOwner();
+        }
     }
     shot.Origin = InOrigin;
     shot.Direction = InDirection;
@@ -750,6 +759,23 @@ void NetCore::RecordReplayTick()
     for( auto it = m_replayOwners.begin(); it != m_replayOwners.end(); )
     {
         it = tick.State.Entities.count( it->first ) ? std::next( it ) : m_replayOwners.erase( it );
+    }
+    // Every character's mover and [Predicted] state, as OwnerState sends them (full precision).
+    for( const auto& [id, state] : tick.State.Entities )
+    {
+        EntityHandle entity = m_replicationServer->FindEntity( id );
+        const CharacterController* controller = entity ? entity->TryGetComponent<CharacterController>() : nullptr;
+        if( controller == nullptr )
+        {
+            continue;
+        }
+        NetReplayMover& mover = tick.Movers.emplace_back();
+        mover.NetId = id;
+        mover.State = controller->GetNetState();
+        if( m_replicationServer->Scripts.SavePredicted )
+        {
+            m_replicationServer->Scripts.SavePredicted( *entity.Get(), mover.Predicted );
+        }
     }
     tick.Shots = std::exchange( m_replayShots, {} );
     // Events about entities: CaptureTick has given this tick's new ones their NetIds.

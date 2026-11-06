@@ -1,4 +1,5 @@
 #pragma once
+#include "Components/Physics/CharacterController.h"
 #include "Math/Quaternion.h"
 #include "Math/Vector3.h"
 #include "Net/NetCommands.h"
@@ -28,8 +29,10 @@ namespace Jobs
 //   and its link (RTT, loss, command slack, misses, late commands, clock resyncs);
 // - the tick's owed ticks and the backlog the engine dropped before it;
 // - what each NetId is (name, prefab, owner) when it appears or changes owner;
-// - every lag-compensated shot: shooter, ray, view tick, rewind, hit / miss / occluded / clamped,
-//   and the hitboxes as they were rewound;
+// - every networked character's mover at full precision and its [Predicted] script state (what
+//   OwnerState sends the owner: a resimulation starts from it);
+// - every lag-compensated shot: shooter (and who fired it, for a projectile's sweep), ray, view
+//   tick, rewind, hit / miss / occluded / clamped, and the hitboxes as they were rewound;
 // - events: joins and leaves, and whatever the game writes (C#'s Replay.Event: kills, picks).
 //
 // The .mreplay file (little-endian, versioned):
@@ -51,7 +54,11 @@ namespace Jobs
 namespace NetReplayFormat
 {
     // 2: link stats at their resolution (RTT 0.1 ms, loss 0.01%, slack 0.01 tick), sent when they change.
-    constexpr uint32_t kVersion = 2;
+    // 3: movers (CharacterController::NetState + [Predicted] bytes), shot instigators, a shot's
+    //    hitboxes shared with an earlier shot of the tick that had the same ones.
+    // Readers take kMinVersion..kVersion (a chunk decodes with its file's version).
+    constexpr uint32_t kVersion = 3;
+    constexpr uint32_t kMinVersion = 2;
     constexpr char kMagic[8] = { 'M', 'R', 'E', 'P', 'L', 'A', 'Y', '\0' };
     constexpr char kTrailer[8] = { 'M', 'R', 'I', 'N', 'D', 'E', 'X', '\0' };
     constexpr uint32_t kChunkMagic = 0x4B43524Du;   // "MRCK"
@@ -119,8 +126,11 @@ struct NetReplayHitbox
 
 struct NetReplayShot
 {
-    uint8_t Client = 0;         // the shooter's owner (0: the server's own, a bot)
-    uint32_t Shooter = 0;       // NetId (0: not networked)
+    uint8_t Client = 0;         // the owner of whoever fired it (0: the server's own, a bot)
+    uint32_t Shooter = 0;       // NetId (0: not networked): the entity the ray is cast for
+    // Who fired it, when the shooter is a projectile sweeping its flight (0: the shooter itself, a
+    // trigger pull). Client is the instigator's owner then.
+    uint32_t Instigator = 0;
     Vector3 Origin;
     Vector3 Direction;
     float Range = 0.f;
@@ -136,6 +146,15 @@ struct NetReplayShot
     float Distance = 0.f;
     uint32_t Tested = 0;
     std::vector<NetReplayHitbox> Hitboxes;  // every hitbox at the judged tick (not the shooter's)
+};
+
+// A networked character's mover after the tick, at full precision, and its [Predicted] script
+// state: what the server sends the owner (OwnerState) to restore from. A resimulation seeds from it.
+struct NetReplayMover
+{
+    uint32_t NetId = 0;
+    CharacterController::NetState State;
+    std::vector<uint8_t> Predicted;     // NetScriptState::SavePredicted's bytes ("" without scripts)
 };
 
 struct NetReplayEvent
@@ -161,6 +180,7 @@ struct NetReplayTick
     uint32_t TicksDropped = 0;  // backlog the engine dropped since the tick before
     NetSnapshot State;          // State.Tick == Tick
     std::vector<NetReplayClient> Clients;
+    std::vector<NetReplayMover> Movers;     // every networked character's, by NetId (format 3)
     std::vector<NetReplayShot> Shots;
     std::vector<NetReplayEvent> Events;
     // NetIds that appeared or changed owner this tick; a chunk's first tick lists every live one.
@@ -173,7 +193,9 @@ namespace NetReplayChunk
     // One chunk's bytes, header included: the first tick in full, the rest as deltas.
     std::vector<uint8_t> Encode( const std::vector<const NetReplayTick*>& InTicks, NetReplayCodec InCodec, size_t* OutRawBytes = nullptr );
     std::vector<uint8_t> Encode( const std::vector<NetReplayTick>& InTicks, NetReplayCodec InCodec, size_t* OutRawBytes = nullptr );
-    bool Decode( const uint8_t* InData, size_t InSize, std::vector<NetReplayTick>& OutTicks, std::string* OutError = nullptr );
+    // InVersion: the file's (or stream's) format version, kMinVersion..kVersion.
+    bool Decode( const uint8_t* InData, size_t InSize, std::vector<NetReplayTick>& OutTicks, std::string* OutError = nullptr,
+        uint32_t InVersion = NetReplayFormat::kVersion );
 
     struct Info
     {
@@ -193,7 +215,8 @@ namespace NetReplayFile
 {
     // The file's opening: magic, version and the header.
     std::vector<uint8_t> EncodeHeader( const NetReplayHeader& InHeader );
-    // Reads it from InData; OutSize: the bytes it took. False on a bad magic, version or header.
+    // Reads it from InData; OutSize: the bytes it took. False on a bad magic, a version outside
+    // kMinVersion..kVersion, or a bad header.
     bool DecodeHeader( const uint8_t* InData, size_t InSize, NetReplayHeader& OutHeader, size_t& OutSize, std::string* OutError = nullptr );
 }
 

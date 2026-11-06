@@ -1,13 +1,18 @@
 #include "PCH.h"
 #include <doctest/doctest.h>
 #include "Components/Networking/NetHitbox.h"
+#include "Components/Physics/CharacterController.h"
 #include "JSON.h"
 #include "Jobs/BackgroundLane.h"
 #include "Net/NetReplay.h"
+#include "Net/BitStream.h"
 #include "Net/NetReplayDump.h"
+#include "Net/NetVersion.h"
 #include "NetHarness.h"
 #include <algorithm>
 #include <cmath>
+#include <cstring>
+#include <limits>
 #include <filesystem>
 #include <future>
 #include <fstream>
@@ -141,6 +146,38 @@ namespace NetReplayTest
                 hitbox.Occluder = id == 5;
             }
         }
+        // Format 3: movers (two always, one from tick 50 on), one airborne now and then, their
+        // [Predicted] bytes changing every 30 ticks.
+        for( uint32_t id : { 3u, 4u, 5u } )
+        {
+            if( id == 5 && InTick < 50 )
+            {
+                continue;
+            }
+            NetReplayMover& mover = tick.Movers.emplace_back();
+            mover.NetId = id;
+            const float t = static_cast<float>( InTick ) / 60.f;
+            mover.State.Position = Vector3( std::sin( t * id ) * 5.0001f, 1.f + 0.1234567f * ( InTick % 7 ), std::cos( t ) * id );
+            mover.State.Velocity = id == 4 ? Vector3( 0.f, 0.f, 0.f ) : Vector3( std::cos( t * id ) * 5.f, InTick % 40 < 10 ? 3.3333333f : 0.f, -std::sin( t ) );
+            mover.State.MoveInput = Vector3( id == 4 ? 0.f : 1.f, 0.f, 0.f );
+            mover.State.PendingMove = Vector3( 0.f, 0.f, 0.001f * id );
+            mover.State.WantsJump = id == 3 && InTick % 40 == 0;
+            mover.State.Grounded = !( id == 3 && InTick % 40 < 10 );
+            mover.Predicted = { static_cast<uint8_t>( id ), static_cast<uint8_t>( InTick / 30 ) };
+        }
+        if( InTick % 9 == 0 )
+        {
+            // An arrow in flight (Kestrel's): judged against the same hitboxes, fired by #3.
+            NetReplayShot sweep = tick.Shots.front();
+            sweep.Shooter = 0x10000 + InTick / 100;
+            sweep.Instigator = 3;
+            sweep.ViewTick = -1.0;
+            sweep.RewoundTicks = 0.0;
+            sweep.Hit = false;
+            sweep.Target = 0;
+            sweep.TargetPart.clear();
+            tick.Shots.push_back( sweep );
+        }
         if( InTick % 61 == 0 )
         {
             tick.Events.push_back( { "kill", "{\"killer\":\"Alpha\",\"victim\":\"Bravo\",\"hero\":\"Striker\"}", 3 } );
@@ -202,6 +239,7 @@ namespace NetReplayTest
             const NetReplayShot& b = InB.Shots[i];
             CHECK( a.Client == b.Client );
             CHECK( a.Shooter == b.Shooter );
+            CHECK( a.Instigator == b.Instigator );
             CHECK( SameVector( a.Origin, b.Origin ) );
             CHECK( SameVector( a.Direction, b.Direction ) );
             CHECK( a.Range == b.Range );
@@ -230,6 +268,13 @@ namespace NetReplayTest
                 CHECK( SameVector( a.Hitboxes[h].HalfExtents, b.Hitboxes[h].HalfExtents ) );
                 CHECK( a.Hitboxes[h].Occluder == b.Hitboxes[h].Occluder );
             }
+        }
+        REQUIRE( InA.Movers.size() == InB.Movers.size() );
+        for( size_t i = 0; i < InA.Movers.size(); ++i )
+        {
+            CHECK( InA.Movers[i].NetId == InB.Movers[i].NetId );
+            CHECK( InA.Movers[i].State == InB.Movers[i].State );   // bit for bit
+            CHECK( InA.Movers[i].Predicted == InB.Movers[i].Predicted );
         }
         REQUIRE( InA.Events.size() == InB.Events.size() );
         for( size_t i = 0; i < InA.Events.size(); ++i )
@@ -301,6 +346,39 @@ TEST_CASE( "Replay: a chunk round-trips states, commands, net stats, shots and e
         }
     }
 
+    // A shot whose hitboxes match an earlier one of its tick (the sweep here) points at it rather
+    // than repeating them: hitboxes that differ cost their bytes again.
+    std::vector<NetReplayTick> distinct = ticks;
+    size_t sweeps = 0;
+    for( NetReplayTick& tick : distinct )
+    {
+        for( NetReplayShot& shot : tick.Shots )
+        {
+            if( shot.Instigator != 0 )
+            {
+                ++sweeps;
+                for( NetReplayHitbox& hitbox : shot.Hitboxes )
+                {
+                    hitbox.Radius += 0.01f;
+                }
+            }
+        }
+    }
+    size_t distinctRaw = 0;
+    const std::vector<uint8_t> distinctBytes = NetReplayChunk::Encode( distinct, NetReplayCodec::Raw, &distinctRaw );
+    MESSAGE( sweeps << " sweeps: " << raw << " bytes sharing their hitboxes, " << distinctRaw << " with their own" );
+    CHECK( sweeps >= 26 );
+    CHECK( distinctRaw > raw + sweeps * 80 );
+    {
+        std::vector<NetReplayTick> decoded;
+        REQUIRE( NetReplayChunk::Decode( distinctBytes.data(), distinctBytes.size(), decoded ) );
+        REQUIRE( decoded.size() == distinct.size() );
+        for( size_t i = 0; i < distinct.size(); ++i )
+        {
+            CheckSame( distinct[i], decoded[i] );
+        }
+    }
+
     // A flipped byte or a short read is refused, not misread.
     std::vector<uint8_t> torn = deflated;
     torn[NetReplayFormat::kChunkHeaderBytes + torn.size() / 3] ^= 0x40;
@@ -330,6 +408,181 @@ TEST_CASE( "Replay: a chunk round-trips states, commands, net stats, shots and e
     CHECK( read.SceneHash == header.SceneHash );
     CHECK( read.NetSchemaHash == header.NetSchemaHash );
     CHECK_FALSE( NetReplayFile::DecodeHeader( headerBytes.data(), 12, read, size ) );
+}
+
+namespace NetReplayTest
+{
+    // Format 2's chunk, as 29665987 wrote it (no movers, no instigators, every shot's hitboxes in
+    // full; clients left out here): what replays kept from before format 3 hold.
+    void PutU32( std::vector<uint8_t>& InOut, uint32_t InValue )
+    {
+        for( int i = 0; i < 4; ++i )
+        {
+            InOut.push_back( static_cast<uint8_t>( InValue >> ( 8 * i ) ) );
+        }
+    }
+
+    void WriteVector2( BitWriter& InWriter, const Vector3& InValue )
+    {
+        InWriter.WriteFloat( InValue.x );
+        InWriter.WriteFloat( InValue.y );
+        InWriter.WriteFloat( InValue.z );
+    }
+
+    void WriteDouble2( BitWriter& InWriter, double InValue )
+    {
+        uint64_t bits = 0;
+        std::memcpy( &bits, &InValue, sizeof( bits ) );
+        InWriter.WriteBits( static_cast<uint32_t>( bits ), 32 );
+        InWriter.WriteBits( static_cast<uint32_t>( bits >> 32 ), 32 );
+    }
+
+    std::vector<uint8_t> EncodeFormat2Chunk( const std::vector<NetReplayTick>& InTicks )
+    {
+        BitWriter payload;
+        payload.WriteVarUInt( InTicks.size() );
+        const NetReplayTick* previous = nullptr;
+        for( const NetReplayTick& tick : InTicks )
+        {
+            if( previous )
+            {
+                payload.WriteVarUInt( tick.Tick - previous->Tick );
+            }
+            else
+            {
+                payload.WriteBits( tick.Tick, 32 );
+            }
+            payload.WriteVarUInt( tick.TicksOwed );
+            payload.WriteVarUInt( tick.TicksDropped );
+            NetSnapshot sent;
+            NetSnapshotCodec::Write( payload, tick.State, previous ? &previous->State : nullptr, std::numeric_limits<size_t>::max() / 2, sent );
+            payload.WriteVarUInt( tick.Entities.size() );
+            for( const NetReplayEntity& entity : tick.Entities )
+            {
+                payload.WriteVarUInt( entity.NetId );
+                payload.WriteString( entity.Name );
+                payload.WriteString( entity.Prefab );
+                payload.WriteBits( entity.Owner, 8 );
+            }
+            payload.WriteVarUInt( 0 );   // clients
+            payload.WriteVarUInt( tick.Shots.size() );
+            for( const NetReplayShot& shot : tick.Shots )
+            {
+                payload.WriteBits( shot.Client, 8 );
+                payload.WriteVarUInt( shot.Shooter );
+                WriteVector2( payload, shot.Origin );
+                WriteVector2( payload, shot.Direction );
+                payload.WriteFloat( shot.Range );
+                WriteDouble2( payload, shot.ViewTick );
+                WriteDouble2( payload, shot.RewoundTicks );
+                payload.WriteBool( shot.Hit );
+                payload.WriteBool( shot.Occluded );
+                payload.WriteBool( shot.Clamped );
+                payload.WriteBool( shot.Rejected );
+                payload.WriteVarUInt( shot.Target );
+                payload.WriteString( shot.TargetPart );
+                WriteVector2( payload, shot.Point );
+                payload.WriteFloat( shot.Distance );
+                payload.WriteVarUInt( shot.Tested );
+                payload.WriteVarUInt( shot.Hitboxes.size() );
+                for( const NetReplayHitbox& hitbox : shot.Hitboxes )
+                {
+                    payload.WriteVarUInt( hitbox.NetId );
+                    payload.WriteString( hitbox.Name );
+                    payload.WriteBits( hitbox.Shape, 8 );
+                    WriteVector2( payload, hitbox.Position );
+                    payload.WriteFloat( hitbox.Rotation.x );
+                    payload.WriteFloat( hitbox.Rotation.y );
+                    payload.WriteFloat( hitbox.Rotation.z );
+                    payload.WriteFloat( hitbox.Rotation.w );
+                    payload.WriteFloat( hitbox.Radius );
+                    payload.WriteFloat( hitbox.HalfHeight );
+                    WriteVector2( payload, hitbox.HalfExtents );
+                    payload.WriteBool( hitbox.Occluder );
+                }
+            }
+            payload.WriteVarUInt( tick.Events.size() );
+            for( const NetReplayEvent& event : tick.Events )
+            {
+                payload.WriteString( event.Name );
+                payload.WriteString( event.Payload );
+                payload.WriteVarUInt( event.Entity );
+            }
+            previous = &tick;
+        }
+        const std::vector<uint8_t>& raw = payload.GetBytes();
+        std::vector<uint8_t> out;
+        PutU32( out, NetReplayFormat::kChunkMagic );
+        PutU32( out, InTicks.front().Tick );
+        PutU32( out, InTicks.back().Tick );
+        PutU32( out, static_cast<uint32_t>( InTicks.size() ) );
+        out.insert( out.end(), { static_cast<uint8_t>( NetReplayCodec::Raw ), 0, 0, 0 } );
+        PutU32( out, static_cast<uint32_t>( raw.size() ) );
+        PutU32( out, static_cast<uint32_t>( raw.size() ) );
+        const uint64_t checksum = NetVersion::Hash( std::string_view( reinterpret_cast<const char*>( raw.data() ), raw.size() ) );
+        PutU32( out, static_cast<uint32_t>( checksum ) );
+        PutU32( out, static_cast<uint32_t>( checksum >> 32 ) );
+        out.insert( out.end(), raw.begin(), raw.end() );
+        return out;
+    }
+}
+
+TEST_CASE( "Replay: format 3 still reads format 2 replays (kept ones open in a newer ReplayDump) and refuses formats it doesn't know (ME-316)" )
+{
+    // What format 2 could hold: no clients here (their encoding didn't change), no movers, no instigators.
+    std::vector<NetReplayTick> ticks = MakeMatch( 0, 120 );
+    for( NetReplayTick& tick : ticks )
+    {
+        tick.Clients.clear();
+        tick.Movers.clear();
+        for( NetReplayShot& shot : tick.Shots )
+        {
+            shot.Instigator = 0;
+        }
+    }
+    const std::vector<uint8_t> chunk = EncodeFormat2Chunk( ticks );
+    std::vector<NetReplayTick> decoded;
+    std::string error;
+    REQUIRE_MESSAGE( NetReplayChunk::Decode( chunk.data(), chunk.size(), decoded, &error, 2 ), error );
+    REQUIRE( decoded.size() == ticks.size() );
+    for( size_t i = 0; i < ticks.size(); ++i )
+    {
+        CheckSame( ticks[i], decoded[i] );
+    }
+    CHECK_FALSE( NetReplayChunk::Decode( chunk.data(), chunk.size(), decoded, &error, 1 ) );
+    CHECK( error.find( "replay format 1" ) != std::string::npos );
+    CHECK_FALSE( NetReplayChunk::Decode( chunk.data(), chunk.size(), decoded, &error, NetReplayFormat::kVersion + 1 ) );
+
+    // A whole format 2 file (a dead server's: no index), through the file source and the reader.
+    std::vector<uint8_t> file = NetReplayFile::EncodeHeader( MakeHeader() );
+    auto withVersion = [&file]( uint32_t InVersion ) {
+        std::vector<uint8_t> bytes = file;
+        for( int i = 0; i < 4; ++i )
+        {
+            bytes[8 + i] = static_cast<uint8_t>( InVersion >> ( 8 * i ) );
+        }
+        return bytes;
+    };
+    NetReplayHeader header;
+    size_t headerBytes = 0;
+    for( uint32_t refused : { 1u, NetReplayFormat::kVersion + 1 } )
+    {
+        const std::vector<uint8_t> bytes = withVersion( refused );
+        CHECK_FALSE( NetReplayFile::DecodeHeader( bytes.data(), bytes.size(), header, headerBytes, &error ) );
+    }
+    file = withVersion( 2 );
+    file.insert( file.end(), chunk.begin(), chunk.end() );
+    const std::filesystem::path path = TempFile( "Format2.mreplay" );
+    WriteAll( path, file.data(), file.size() );
+    NetReplayFileSource source;
+    REQUIRE_MESSAGE( source.Open( path.string() ), source.GetError() );
+    CHECK( source.GetHeader().FormatVersion == 2 );
+    CHECK( source.GetHeader().Map == "Assets/Scenes/Arena.lvl" );
+    NetReplayReader reader( source );
+    NetReplayTick tick;
+    REQUIRE_MESSAGE( reader.ReadTick( 99, tick ), reader.GetError() );
+    CheckSame( ticks[99], tick );
+    std::filesystem::remove( path );
 }
 
 TEST_CASE( "Replay: the recorder writes chunks on the background lane, and every tick reads back from its keyframe in any order (ME-316)" )
@@ -615,12 +868,21 @@ TEST_CASE( "Replay: a server records every tick's capture, commands, joins and l
     Harness net( toClient, toServer );
     net.Place( 0x7A26E7 );     // the target
     net.Place( 0x5400 );       // the shooter, owned by the client
+    net.Place( 0xA770 );       // its arrow: unowned, sweeping its flight
+    net.Place( 0x2A11 );       // a character (its mover goes in the replay)
     EntityHandle target;
     EntityHandle shooter;
+    EntityHandle arrow;
+    EntityHandle runner;
     net.ServerWorld->ForEachEntity( [&]( Entity& InEntity ) {
         if( InEntity.GetGUID() == 0x7A26E7 ) target = net.ServerWorld->GetEntity( InEntity.GetId() );
         if( InEntity.GetGUID() == 0x5400 ) shooter = net.ServerWorld->GetEntity( InEntity.GetId() );
+        if( InEntity.GetGUID() == 0xA770 ) arrow = net.ServerWorld->GetEntity( InEntity.GetId() );
+        if( InEntity.GetGUID() == 0x2A11 ) runner = net.ServerWorld->GetEntity( InEntity.GetId() );
     } );
+    arrow->GetComponent<Transform>().SetPosition( Vector3( 0.f, 1.f, -20.f ) );
+    CharacterController& runnerMover = runner->AddComponent<CharacterController>();
+    runner->GetComponent<Transform>().SetPosition( Vector3( 0.f, 0.f, 30.f ) );
     target->SetName( "Target" );
     shooter->SetName( "Shooter" );
     NetHitbox& hitbox = target->AddComponent<NetHitbox>();
@@ -653,7 +915,25 @@ TEST_CASE( "Replay: a server records every tick's capture, commands, joins and l
         const EntityHandle self = net.ServerWorld->GetEntity( InShooter.GetId() );
         newestAtShot[net.ServerNet.GetServer()->GetTick()] = net.ServerNet.GetLagCompensation().GetNewestTick();
         shots[net.ServerNet.GetServer()->GetTick()] = net.ServerNet.LagCompensatedRaycast( Vector3( 0.f, 1.f, -10.f ), Vector3( 0.f, 0.f, 1.f ), 100.f, InCommand, self );
+        // The arrow it loosed earlier sweeps a step of its flight: judged now, the shot the shooter's.
+        InputCommand present;
+        present.ViewTick = -1.0;
+        net.ServerNet.LagCompensatedRaycast( Vector3( 0.f, 1.f, -20.f ), Vector3( 0.f, 0.f, 1.f ), 5.f, present, arrow, self );
     } );
+    // The runner's mover, set every tick off the 1/1024 m grid snapshots quantize to, airborne
+    // with a velocity half the time: the replay keeps it exactly.
+    std::map<uint32_t, CharacterController::NetState> moverAt;
+    auto runnerState = []( uint32_t InTick ) {
+        CharacterController::NetState state;
+        const float t = static_cast<float>( InTick ) / 60.f;
+        state.Position = Vector3( std::sin( t ) * 4.00001f, 0.123456789f * static_cast<float>( InTick % 5 ), 30.f + t * 0.3333f );
+        state.Velocity = InTick % 60 < 30 ? Vector3( std::cos( t ) * 4.f, 2.5f - 0.1f * static_cast<float>( InTick % 30 ), 0.3333f ) : Vector3();
+        state.MoveInput = Vector3( 1.f, 0.f, 0.f );
+        state.PendingMove = Vector3( 0.f, 0.f, 0.0001f * static_cast<float>( InTick % 3 ) );
+        state.WantsJump = InTick % 60 == 0;
+        state.Grounded = InTick % 60 >= 30;
+        return state;
+    };
     // The target's x at every tick (the lag-compensation history records it at the tick's end).
     std::map<uint32_t, float> targetX;
     // A networked entity spawned mid-tick, and an event about it in the same tick: CaptureTick gives
@@ -669,6 +949,8 @@ TEST_CASE( "Replay: a server records every tick's capture, commands, joins and l
         const float x = std::sin( static_cast<float>( InServer.GetTick() ) * 0.05f ) * 3.f;
         targetX[InServer.GetTick()] = x;
         target->GetComponent<Transform>().SetPosition( Vector3( x, 1.f, 10.f ) );
+        runnerMover.SetNetState( runnerState( InServer.GetTick() ) );
+        moverAt[InServer.GetTick()] = runnerMover.GetNetState();
         if( !spawned && net.ServerNet.IsRecording() && InServer.GetTick() >= 200 )
         {
             spawned = net.ServerWorld->CreateEntity();
@@ -714,6 +996,7 @@ TEST_CASE( "Replay: a server records every tick's capture, commands, joins and l
     size_t shotsCompared = 0;
     size_t withRoundTrip = 0;
     size_t rewoundAway = 0;
+    size_t moversCompared = 0;
     bool joined = false;
     bool killed = false;
     bool spawnNamed = false;
@@ -738,10 +1021,26 @@ TEST_CASE( "Replay: a server records every tick's capture, commands, joins and l
             withRoundTrip += InTick.Clients[0].RoundTripMs > 60.f ? 1 : 0;
             ++commandsCompared;
         }
+        // The runner's mover after the tick, at full precision (the only character).
+        if( auto it = moverAt.find( InTick.Tick ); it != moverAt.end() )
+        {
+            REQUIRE( InTick.Movers.size() == 1 );
+            CHECK( InTick.Movers[0].NetId == net.ServerNet.GetNetId( *runner.Get() ) );
+            CHECK( InTick.Movers[0].State == it->second );
+            CHECK( InTick.Movers[0].Predicted.empty() );    // no scripts in the harness
+            ++moversCompared;
+        }
         if( auto it = shots.find( InTick.Tick ); it != shots.end() )
         {
-            REQUIRE( InTick.Shots.size() == 1 );
+            REQUIRE( InTick.Shots.size() == 2 );
+            // The sweep: the arrow's ray, the shooter's shot (its client), not a bot's.
+            const NetReplayShot& sweep = InTick.Shots[1];
+            CHECK( sweep.Shooter == net.ServerNet.GetNetId( *arrow.Get() ) );
+            CHECK( sweep.Instigator == net.ServerNet.GetNetId( *shooter.Get() ) );
+            CHECK( sweep.Client == 1 );
+            CHECK( sweep.RewoundTicks == 0.0 );
             const NetReplayShot& shot = InTick.Shots[0];
+            CHECK( shot.Instigator == 0u );
             CHECK( shot.Client == 1 );
             CHECK( shot.Shooter == net.ServerNet.GetNetId( *shooter.Get() ) );
             CHECK( shot.Hit == it->second.Hit );
@@ -795,6 +1094,7 @@ TEST_CASE( "Replay: a server records every tick's capture, commands, joins and l
     CHECK( shotsCompared >= 15 );
     CHECK( shotsCompared == shots.size() );
     CHECK( rewoundAway >= 5 );
+    CHECK( moversCompared >= 300 );
     CHECK( joined );
     CHECK( killed );
     CHECK( spawnNamed );
@@ -854,12 +1154,23 @@ TEST_CASE( "Replay: ReplayDump prints the summary, events, shots and command cha
     const std::string states = dump( { "--replay-dump", path.string(), "--ticks", "100:101", "--entity", "65537", "--states" } );
     CHECK( states.find( "100 state Pickup#65537 at (3.000, 0.500, -2.000)" ) != std::string::npos );
     CHECK( states.find( " state #1 " ) == std::string::npos );
+    // Characters' movers at full precision, with --states.
+    const std::string movers = dump( { "--replay-dump", path.string(), "--ticks", "100:100", "--states" } );
+    CHECK( movers.find( "100 mover #3 at (" ) != std::string::npos );
+    CHECK( movers.find( "100 mover #5 at (" ) != std::string::npos );
+    // A projectile's sweep names who fired it, and isn't counted with the shots.
+    CHECK( text.find( "(sweep, fired by #3)" ) != std::string::npos );
+    CHECK( text.find( "projectile sweeps 45: 0 hit" ) != std::string::npos );
+    const std::string fired = dump( { "--replay-dump", path.string(), "--ticks", "9:9", "--shots", "--entity", "3" } );
+    CHECK( fired.find( "fired by #3" ) != std::string::npos );
 
     const json document = json::parse( dump( { "--replay-dump", path.string(), "--json", "--summary", "--shots", "--ticks", ":20" } ) );
     CHECK( document["header"]["map"] == "Assets/Scenes/Arena.lvl" );
     CHECK( document["header"]["tickRate"] == 60 );
     CHECK( document["summary"]["ticks"] == 21 );
     CHECK( document["summary"]["shots"]["total"] == 3 );
+    CHECK( document["summary"]["sweeps"]["total"] == 3 );
+    CHECK( document["ticks"][0]["shots"][1]["instigator"] == 3 );
     REQUIRE( document["ticks"].size() == 3 );
     CHECK( document["ticks"][0]["tick"] == 0 );
     CHECK( document["ticks"][0]["shots"][0]["hit"] == true );

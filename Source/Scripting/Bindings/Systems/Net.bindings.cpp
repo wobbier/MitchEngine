@@ -202,10 +202,11 @@ static void Eng_Net_GetPredictionStats( int* outCorrections, int* outMatches, in
 
 // NET-15: the server rewinds to the view the shooter's command was sent from (a shooter without
 // one is judged now); a client, or offline play, tests the hitboxes as they are now (for FX).
-static bool Eng_Net_LagCompensatedRaycast( EntityID shooter, const Vector3* origin, const Vector3* direction, float range, EntityID* outEntity, Vector3* outPoint, int* outFlags ) noexcept
+static bool Eng_Net_LagCompensatedRaycast( EntityID shooter, EntityID instigator, const Vector3* origin, const Vector3* direction, float range, EntityID* outEntity, Vector3* outPoint, int* outFlags ) noexcept
 {
     NetCore* net = AnyNet();
     EntityHandle shooterHandle = MakeHandle( shooter );
+    EntityHandle instigatorHandle = MakeHandle( instigator );
     LagCompensatedHit hit;
     bool rewound = false;
     if( net && origin && direction )
@@ -214,7 +215,7 @@ static bool Eng_Net_LagCompensatedRaycast( EntityID shooter, const Vector3* orig
         InputCommand previous;
         if( net->IsActive() && net->IsServer() && shooterHandle && net->GetCommand( *shooterHandle.Get(), command, previous ) )
         {
-            hit = net->LagCompensatedRaycast( *origin, *direction, range, command, shooterHandle );
+            hit = net->LagCompensatedRaycast( *origin, *direction, range, command, shooterHandle, instigatorHandle );
             rewound = true;
         }
         else if( net->IsActive() && net->IsServer() )
@@ -222,7 +223,7 @@ static bool Eng_Net_LagCompensatedRaycast( EntityID shooter, const Vector3* orig
             // No command (a bot): judged at the newest recorded tick, and recorded like any shot (ME-316).
             InputCommand present;
             present.ViewTick = -1.0;
-            hit = net->LagCompensatedRaycast( *origin, *direction, range, present, shooterHandle );
+            hit = net->LagCompensatedRaycast( *origin, *direction, range, present, shooterHandle, instigatorHandle );
         }
         else
         {
