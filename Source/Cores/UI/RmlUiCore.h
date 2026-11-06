@@ -84,6 +84,11 @@ public:
     void ModelSetNumber( const std::string& InModel, const std::string& InKey, double InValue );
     void ModelSetString( const std::string& InModel, const std::string& InKey, const std::string& InValue );
     void ModelRegisterEvent( const std::string& InModel, const std::string& InKey );
+    // ME-312: list keys for data-for, items of number / string fields (setting past the end grows it).
+    void ModelSetListCount( const std::string& InModel, const std::string& InKey, int InCount );
+    int ModelGetListCount( const std::string& InModel, const std::string& InKey ) const;
+    void ModelSetItemNumber( const std::string& InModel, const std::string& InKey, int InIndex, const std::string& InField, double InValue );
+    void ModelSetItemString( const std::string& InModel, const std::string& InKey, int InIndex, const std::string& InField, const std::string& InValue );
     double ModelGetNumber( const std::string& InModel, const std::string& InKey ) const;
     std::string ModelGetString( const std::string& InModel, const std::string& InKey ) const;
     // The model's values as text, by key (the UI designer's Bindings panel).

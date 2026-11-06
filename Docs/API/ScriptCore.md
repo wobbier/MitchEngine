@@ -2128,12 +2128,24 @@ A data event a document raised (UIModel.PollEvent): its name and the arguments R
 - `String(System.Int32)` (method): Argument i as text: a string as itself, a number or bool as written ("2", "true"); "" when missing.
 - `ToString` (method): "name(arg, ...)".
 
+## UIList
+
+A list in a view model (UIModel.List), bound with data-for="row : key": each item is a record of number and string fields ({{ row.name }}, data-if="row.local", "key.size" for the count; it_index is the row's index). Values live engine-side like the model's; only a change redraws, and any change re-evaluates every row of the list.
+
+- `Count` (property): How many items it has. Setting it adds items without fields or drops them from the end.
+- `Key` (field): The list's key in the model.
+- `Model` (field): The model's name.
+- `Set(System.Int32,System.String,System.Boolean)` (method): Sets item index's field to a bool (stored as 1 or 0).
+- `Set(System.Int32,System.String,System.Double)` (method): Sets item index's field to a number; an index past the end grows the list.
+- `Set(System.Int32,System.String,System.String)` (method): Sets item index's field to a string.
+
 ## UIModel
 
 A view model: values RML binds ({{ key }}) and events it raises.
 
 - `GetNumber(System.String)` (method): A number's value (0 when unset).
 - `GetString(System.String)` (method): A string's value ("" when unset).
+- `List(System.String)` (method): A list of records for data-for (ME-312): <div data-for="row : players">{{ row.name }}</div>. Use a key that isn't also a plain value.
 - `Name` (field): The model's name (data-model="name").
 - `On(System.String)` (method): Registers a data-event name the document can raise (data-event-click="name").
 - `PollEvent` (method): The oldest queued event name, or "" when none are waiting.

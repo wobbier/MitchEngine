@@ -19,6 +19,10 @@ namespace ScriptCore;
 ///    hud.On("pick");                        //   &lt;button data-event-click="pick(2)"&gt;
 ///    while (hud.PollEvent(out UIEvent click))
 ///        if (click.Name == "pick") Pick(click.Int(0));
+///
+///    var rows = hud.List("players");        //   &lt;div data-for="row : players"&gt;{{ row.name }}&lt;/div&gt;
+///    rows.Count = players.Count;
+///    for (int i = 0; i &lt; players.Count; ++i) rows.Set(i, "name", players[i].Name);
 /// </code>
 /// </summary>
 public static class UI
@@ -82,6 +86,12 @@ public readonly struct UIModel
     {
         unsafe { fixed (byte* m = Engine.Utf8(Name, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* k = Engine.Utf8(eventName, stackalloc byte[Engine.Utf8StackSize])) Engine._api.UIModel_RegisterEvent(m, k); }
     }
+
+    /// <summary>
+    /// A list of records for data-for (ME-312): &lt;div data-for="row : players"&gt;{{ row.name }}&lt;/div&gt;.
+    /// Use a key that isn't also a plain value.
+    /// </summary>
+    public UIList List(string key) => new UIList(Name, key);
 
     /// <summary>A number's value (0 when unset).</summary>
     public double GetNumber(string key)
@@ -155,6 +165,56 @@ public readonly struct UIModel
             fixed (byte* m = Engine.Utf8(Name, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* b = buffer)
                 length = Engine._api.UIModel_PollEvent(m, b, buffer.Length);
             return length > 0 ? Encoding.UTF8.GetString(buffer, 0, System.Math.Min(length, buffer.Length)) : "";
+        }
+    }
+}
+
+/// <summary>
+/// A list in a view model (UIModel.List), bound with data-for="row : key": each item is a record of
+/// number and string fields ({{ row.name }}, data-if="row.local", "key.size" for the count; it_index
+/// is the row's index). Values live engine-side like the model's; only a change redraws, and any
+/// change re-evaluates every row of the list.
+/// </summary>
+public readonly struct UIList
+{
+    /// <summary>The model's name.</summary>
+    public readonly string Model;
+    /// <summary>The list's key in the model.</summary>
+    public readonly string Key;
+
+    internal UIList(string model, string key)
+    {
+        Model = model;
+        Key = key;
+    }
+
+    /// <summary>How many items it has. Setting it adds items without fields or drops them from the end.</summary>
+    public int Count
+    {
+        get { unsafe { fixed (byte* m = Engine.Utf8(Model, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* k = Engine.Utf8(Key, stackalloc byte[Engine.Utf8StackSize])) return Engine._api.UIModel_GetListCount(m, k); } }
+        set { unsafe { fixed (byte* m = Engine.Utf8(Model, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* k = Engine.Utf8(Key, stackalloc byte[Engine.Utf8StackSize])) Engine._api.UIModel_SetListCount(m, k, value); } }
+    }
+
+    /// <summary>Sets item index's field to a number; an index past the end grows the list.</summary>
+    public void Set(int index, string field, double value)
+    {
+        unsafe
+        {
+            fixed (byte* m = Engine.Utf8(Model, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* k = Engine.Utf8(Key, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* f = Engine.Utf8(field, stackalloc byte[Engine.Utf8StackSize]))
+                Engine._api.UIModel_SetItemNumber(m, k, index, f, value);
+        }
+    }
+
+    /// <summary>Sets item index's field to a bool (stored as 1 or 0).</summary>
+    public void Set(int index, string field, bool value) => Set(index, field, value ? 1.0 : 0.0);
+
+    /// <summary>Sets item index's field to a string.</summary>
+    public void Set(int index, string field, string value)
+    {
+        unsafe
+        {
+            fixed (byte* m = Engine.Utf8(Model, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* k = Engine.Utf8(Key, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* f = Engine.Utf8(field, stackalloc byte[Engine.Utf8StackSize])) fixed (byte* v = Engine.Utf8(value ?? "", stackalloc byte[Engine.Utf8StackSize]))
+                Engine._api.UIModel_SetItemString(m, k, index, f, v);
         }
     }
 }

@@ -9,7 +9,7 @@ namespace ScriptCore;
 public unsafe struct EngineAPIBindings
 {
     // The ABI both sides were generated from (C++: kScriptEngineAPIHash).
-    public const ulong AbiHash = 0x385BF541A14222F9UL;
+    public const ulong AbiHash = 0x6BAE3AA808576220UL;
 
     // Core
     public delegate* unmanaged<byte*, void> Log;
@@ -449,6 +449,14 @@ public unsafe struct EngineAPIBindings
 
     // the JSON array of the arguments of the event UIModel_PollEvent last returned for the model ("[]")
     public delegate* unmanaged<byte*, byte*, int, int> UIModel_GetEventArgs;
+
+    // RmlUi list bindings (ME-312): a model key holding a list of records for data-for="row : players"
+
+    // ({{ row.name }}); item fields are numbers or strings, and setting an item past the end grows the list
+    public delegate* unmanaged<byte*, byte*, int, void> UIModel_SetListCount;
+    public delegate* unmanaged<byte*, byte*, int> UIModel_GetListCount;
+    public delegate* unmanaged<byte*, byte*, int, byte*, double, void> UIModel_SetItemNumber;
+    public delegate* unmanaged<byte*, byte*, int, byte*, byte*, void> UIModel_SetItemString;
 }
 
 // The sizes C++ static_asserts for the structs that cross (checked when the API is bound).

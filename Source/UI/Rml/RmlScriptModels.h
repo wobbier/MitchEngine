@@ -9,6 +9,7 @@
 #include <RmlUi/Core/DataVariable.h>
 #include <RmlUi/Core/TypeConverter.h>
 #include <RmlUi/Core/Variant.h>
+#include <algorithm>
 #include <deque>
 #include <map>
 #include <string>
@@ -21,6 +22,11 @@
 //
 // Events: data-event-click="name" queues "name"; data-event-click="pick(2, 'fast')" queues "pick"
 // with its arguments, evaluated by RmlUi, which PollEvent's caller reads as a JSON array (ME-312).
+//
+// Lists (ME-312): a key can instead hold a list of records for data-for, e.g. a scoreboard:
+//   <div data-for="row : players" data-class-local="row.local">{{ it_index + 1 }} {{ row.name }}</div>
+// Each item's fields are numbers or strings like the model's values; a field an item hasn't set
+// reads as "". "players.size" is the count. Any change re-evaluates the whole list's views.
 // Header-only so the doctests drive it against a bare Rml::Context.
 class RmlScriptModels
 {
@@ -51,6 +57,58 @@ public:
             value.String = InValue;
             value.IsString = true;
             value.Dirty = true;
+        }
+    }
+
+    // A list's item count: new items have no fields, removed ones are dropped from the end.
+    void SetListCount( const std::string& InModel, const std::string& InKey, int InCount )
+    {
+        List& list = m_models[InModel].Lists[InKey];
+        const size_t count = static_cast<size_t>( std::max( InCount, 0 ) );
+        if( list.Items.size() != count )
+        {
+            list.Items.resize( count );
+            list.Dirty = true;
+        }
+    }
+
+    int GetListCount( const std::string& InModel, const std::string& InKey ) const
+    {
+        const auto model = m_models.find( InModel );
+        if( model == m_models.end() )
+        {
+            return 0;
+        }
+        const auto list = model->second.Lists.find( InKey );
+        return list != model->second.Lists.end() ? static_cast<int>( list->second.Items.size() ) : 0;
+    }
+
+    // An item's field; an index past the end grows the list to it. Only a change dirties the list.
+    void SetItemNumber( const std::string& InModel, const std::string& InKey, int InIndex, const std::string& InField, double InValue )
+    {
+        if( Value* value = ItemField( InModel, InKey, InIndex, InField ) )
+        {
+            if( value->IsString || value->Number != InValue || !value->Bound )
+            {
+                value->Number = InValue;
+                value->IsString = false;
+                value->Bound = true;   // set at least once
+                m_models[InModel].Lists[InKey].Dirty = true;
+            }
+        }
+    }
+
+    void SetItemString( const std::string& InModel, const std::string& InKey, int InIndex, const std::string& InField, const std::string& InValue )
+    {
+        if( Value* value = ItemField( InModel, InKey, InIndex, InField ) )
+        {
+            if( !value->IsString || value->String != InValue || !value->Bound )
+            {
+                value->String = InValue;
+                value->IsString = true;
+                value->Bound = true;
+                m_models[InModel].Lists[InKey].Dirty = true;
+            }
         }
     }
 
@@ -87,6 +145,10 @@ public:
         for( const auto& [key, value] : model->second.Values )
         {
             values.emplace_back( key, value.IsString ? "\"" + value.String + "\"" : Rml::ToString( value.Number ) );
+        }
+        for( const auto& [key, list] : model->second.Lists )
+        {
+            values.emplace_back( key, "[" + std::to_string( list.Items.size() ) + " items]" );
         }
         return values;
     }
@@ -174,6 +236,26 @@ public:
                     value.Dirty = false;
                 }
             }
+            for( auto& [key, list] : model.Lists )
+            {
+                if( !list.Bound )
+                {
+                    constructorFor().BindCustomDataVariable( key, Rml::DataVariable( &ListDefinition::Get(), &list ) );
+                    list.Bound = true;
+                    list.Dirty = false;
+                    materialized = true;
+                    continue;
+                }
+                if( list.Dirty )
+                {
+                    if( !handle )
+                    {
+                        handle = InContext.GetDataModel( name ).GetModelHandle();
+                    }
+                    handle.DirtyVariable( key );
+                    list.Dirty = false;
+                }
+            }
             for( auto& [key, bound] : model.Events )
             {
                 if( bound )
@@ -254,6 +336,111 @@ private:
             }
         }
     };
+    // A list item: its fields by name. Field values reuse Value (Bound: set at least once).
+    struct Item
+    {
+        std::map<std::string, Value> Fields;
+    };
+    struct List
+    {
+        std::vector<Item> Items;
+        bool Bound = false;
+        bool Dirty = false;
+    };
+
+    // RmlUi variable definitions over a List: an array of structs of scalars. RmlUi resolves an
+    // address (players[2].name) through them on every evaluation and keeps no item pointers, so the
+    // items may be resized between updates.
+    class FieldDefinition final : public Rml::VariableDefinition
+    {
+    public:
+        FieldDefinition() : VariableDefinition( Rml::DataVariableType::Scalar ) {}
+        static FieldDefinition& Get() { static FieldDefinition definition; return definition; }
+
+        bool Get( void* InPtr, Rml::Variant& OutVariant ) override
+        {
+            if( InPtr )
+            {
+                static_cast<const Value*>( InPtr )->Read( OutVariant );
+            }
+            else
+            {
+                OutVariant = Rml::String();   // a field this item hasn't set
+            }
+            return true;
+        }
+
+        bool Set( void* InPtr, const Rml::Variant& InVariant ) override
+        {
+            if( InPtr )
+            {
+                static_cast<Value*>( InPtr )->Write( InVariant );
+            }
+            return InPtr != nullptr;
+        }
+    };
+
+    class ItemDefinition final : public Rml::VariableDefinition
+    {
+    public:
+        ItemDefinition() : VariableDefinition( Rml::DataVariableType::Struct ) {}
+        static ItemDefinition& Get() { static ItemDefinition definition; return definition; }
+
+        Rml::DataVariable Child( void* InPtr, const Rml::DataAddressEntry& InAddress ) override
+        {
+            Item& item = *static_cast<Item*>( InPtr );
+            const auto field = item.Fields.find( InAddress.name );
+            return Rml::DataVariable( &FieldDefinition::Get(), field != item.Fields.end() ? &field->second : nullptr );
+        }
+
+        Rml::StringList ReflectMemberNames() override
+        {
+            return {};
+        }
+    };
+
+    class ListDefinition final : public Rml::VariableDefinition
+    {
+    public:
+        ListDefinition() : VariableDefinition( Rml::DataVariableType::Array ) {}
+        static ListDefinition& Get() { static ListDefinition definition; return definition; }
+
+        int Size( void* InPtr ) override
+        {
+            return static_cast<int>( static_cast<List*>( InPtr )->Items.size() );
+        }
+
+        Rml::DataVariable Child( void* InPtr, const Rml::DataAddressEntry& InAddress ) override
+        {
+            List& list = *static_cast<List*>( InPtr );
+            const int count = static_cast<int>( list.Items.size() );
+            if( InAddress.index >= 0 && InAddress.index < count )
+            {
+                return Rml::DataVariable( &ItemDefinition::Get(), &list.Items[InAddress.index] );
+            }
+            if( InAddress.name == "size" )
+            {
+                return Rml::MakeLiteralIntVariable( count );
+            }
+            return Rml::DataVariable();
+        }
+    };
+
+    Value* ItemField( const std::string& InModel, const std::string& InKey, int InIndex, const std::string& InField )
+    {
+        if( InIndex < 0 )
+        {
+            return nullptr;
+        }
+        List& list = m_models[InModel].Lists[InKey];
+        if( static_cast<size_t>( InIndex ) >= list.Items.size() )
+        {
+            list.Items.resize( static_cast<size_t>( InIndex ) + 1 );
+            list.Dirty = true;
+        }
+        return &list.Items[InIndex].Fields[InField];
+    }
+
     struct QueuedEvent
     {
         std::string Name;
@@ -262,6 +449,7 @@ private:
     struct Model
     {
         std::map<std::string, Value> Values;
+        std::map<std::string, List> Lists;
         std::map<std::string, bool> Events;   // name -> bound to Rml yet
         std::deque<QueuedEvent> EventQueue;
         std::string LastArgs = "[]";

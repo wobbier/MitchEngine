@@ -9,6 +9,7 @@
 #include "JSON.h"
 #include <RmlUi/Core.h>
 #include <bgfx/bgfx.h>
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 
@@ -171,6 +172,73 @@ TEST_CASE( "RmlUi: script models bind values, and data-event-click arguments rea
     CHECK( models.LastEventArgs( "menu" ) == "[]" );
     CHECK( models.PollEvent( "menu" ).empty() );
     CHECK( models.PollEvent( "nobody" ).empty() );
+    document->Close();
+    rml.Frame();
+}
+
+
+TEST_CASE( "RmlUi: a script list drives data-for rows that grow, change and shrink; a row's click names its index (ME-312)" )
+{
+    RmlUiTest::NoopRml rml;
+    RmlScriptModels models;
+    models.Ensure( "board" );
+    models.SetItemString( "board", "players", 0, "name", "Ada" );
+    models.SetItemNumber( "board", "players", 0, "kills", 3 );
+    models.SetItemString( "board", "players", 1, "name", "Bo" );   // grows to 2; Bo has no kills yet
+    models.RegisterEvent( "board", "pick" );
+    CHECK( models.GetListCount( "board", "players" ) == 2 );
+    CHECK( models.Sync( *rml.Context ) );
+
+    Rml::ElementDocument* document = rml.Context->LoadDocumentFromMemory(
+        "<rml><head><style>body { font-family: Inter; }</style></head><body data-model=\"board\">"
+        "<p id=\"count\">{{ players.size }}</p>"
+        "<div class=\"row\" data-for=\"row : players\" data-event-click=\"pick(it_index)\">{{ row.name }}:{{ row.kills }}</div>"
+        "</body></rml>" );
+    REQUIRE( document != nullptr );
+    document->Show();
+    rml.Frame();
+
+    // The rows data-for made (it keeps its hidden template element, the one with the attribute).
+    const auto rowElements = [&]() {
+        Rml::ElementList elements;
+        document->GetElementsByClassName( elements, "row" );
+        elements.erase( std::remove_if( elements.begin(), elements.end(), []( Rml::Element* InElement ) { return InElement->HasAttribute( "data-for" ); } ), elements.end() );
+        return elements;
+    };
+    const auto rows = [&]() {
+        std::vector<std::string> texts;
+        for( Rml::Element* element : rowElements() )
+        {
+            texts.push_back( element->GetInnerRML() );
+        }
+        return texts;
+    };
+    CHECK( rows() == std::vector<std::string>{ "Ada:3", "Bo:" } );   // an unset field reads ""
+    CHECK( document->GetElementById( "count" )->GetInnerRML() == "2" );
+
+    // Changed fields and a new row redraw.
+    models.SetItemNumber( "board", "players", 1, "kills", 5 );
+    models.SetItemString( "board", "players", 2, "name", "Cy" );
+    models.SetItemNumber( "board", "players", 2, "kills", 0 );
+    CHECK_FALSE( models.Sync( *rml.Context ) );
+    rml.Frame();
+    CHECK( rows() == std::vector<std::string>{ "Ada:3", "Bo:5", "Cy:0" } );
+    CHECK( document->GetElementById( "count" )->GetInnerRML() == "3" );
+
+    // The third row's click carries its index.
+    const Rml::ElementList elements = rowElements();
+    REQUIRE( elements.size() == 3 );
+    elements[2]->Click();
+    CHECK( models.PollEvent( "board" ) == "pick" );
+    CHECK( json::parse( models.LastEventArgs( "board" ) ) == json::array( { 2 } ) );
+
+    // Shrinking drops rows from the end.
+    models.SetListCount( "board", "players", 1 );
+    models.Sync( *rml.Context );
+    rml.Frame();
+    CHECK( rows() == std::vector<std::string>{ "Ada:3" } );
+    CHECK( models.GetListCount( "board", "players" ) == 1 );
+    CHECK( models.GetListCount( "board", "nothing" ) == 0 );
     document->Close();
     rml.Frame();
 }

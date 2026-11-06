@@ -719,6 +719,30 @@ void RmlUiCore::ModelRegisterEvent( const std::string& InModel, const std::strin
 }
 
 
+void RmlUiCore::ModelSetListCount( const std::string& InModel, const std::string& InKey, int InCount )
+{
+    m_models->SetListCount( InModel, InKey, InCount );
+}
+
+
+int RmlUiCore::ModelGetListCount( const std::string& InModel, const std::string& InKey ) const
+{
+    return m_models->GetListCount( InModel, InKey );
+}
+
+
+void RmlUiCore::ModelSetItemNumber( const std::string& InModel, const std::string& InKey, int InIndex, const std::string& InField, double InValue )
+{
+    m_models->SetItemNumber( InModel, InKey, InIndex, InField, InValue );
+}
+
+
+void RmlUiCore::ModelSetItemString( const std::string& InModel, const std::string& InKey, int InIndex, const std::string& InField, const std::string& InValue )
+{
+    m_models->SetItemString( InModel, InKey, InIndex, InField, InValue );
+}
+
+
 double RmlUiCore::ModelGetNumber( const std::string& InModel, const std::string& InKey ) const
 {
     return m_models->GetNumber( InModel, InKey );

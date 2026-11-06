@@ -19,7 +19,7 @@ struct ScriptRaycastHit
 };
 
 // The ABI both sides were generated from (C# checks it: ScriptBridge.GetEngineAPIHash).
-constexpr uint64_t kScriptEngineAPIHash = 0x385BF541A14222F9ULL;
+constexpr uint64_t kScriptEngineAPIHash = 0x6BAE3AA808576220ULL;
 
 // Structs that cross: their layout is part of the ABI (C# checks the same sizes).
 static_assert( sizeof( EntityID ) == 8, "EntityID crosses into C#: its size is part of the script ABI" );
@@ -470,4 +470,12 @@ struct ScriptEngineAPI
 
     // the JSON array of the arguments of the event UIModel_PollEvent last returned for the model ("[]")
     int ( *UIModel_GetEventArgs )( const uint8_t* model, uint8_t* outJson, int size ) noexcept;
+
+    // RmlUi list bindings (ME-312): a model key holding a list of records for data-for="row : players"
+
+    // ({{ row.name }}); item fields are numbers or strings, and setting an item past the end grows the list
+    void ( *UIModel_SetListCount )( const uint8_t* model, const uint8_t* key, int count ) noexcept;
+    int ( *UIModel_GetListCount )( const uint8_t* model, const uint8_t* key ) noexcept;
+    void ( *UIModel_SetItemNumber )( const uint8_t* model, const uint8_t* key, int index, const uint8_t* field, double value ) noexcept;
+    void ( *UIModel_SetItemString )( const uint8_t* model, const uint8_t* key, int index, const uint8_t* field, const uint8_t* value ) noexcept;
 };

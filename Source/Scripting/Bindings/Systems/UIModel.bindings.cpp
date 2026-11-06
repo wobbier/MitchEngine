@@ -133,6 +133,50 @@ static int Eng_UIModel_GetEventArgs( const uint8_t* inModel, uint8_t* outJson, i
     return CopyOut( "[]", outJson, inSize );
 }
 
+static void Eng_UIModel_SetListCount( const uint8_t* inModel, const uint8_t* inKey, int inCount ) noexcept
+{
+#if USING( ME_RMLUI )
+    if( RmlUiCore* core = UiCore() )
+    {
+        core->ModelSetListCount( Text( inModel ), Text( inKey ), inCount );
+    }
+#endif
+}
+
+
+static int Eng_UIModel_GetListCount( const uint8_t* inModel, const uint8_t* inKey ) noexcept
+{
+#if USING( ME_RMLUI )
+    if( RmlUiCore* core = UiCore() )
+    {
+        return core->ModelGetListCount( Text( inModel ), Text( inKey ) );
+    }
+#endif
+    return 0;
+}
+
+
+static void Eng_UIModel_SetItemNumber( const uint8_t* inModel, const uint8_t* inKey, int inIndex, const uint8_t* inField, double inValue ) noexcept
+{
+#if USING( ME_RMLUI )
+    if( RmlUiCore* core = UiCore() )
+    {
+        core->ModelSetItemNumber( Text( inModel ), Text( inKey ), inIndex, Text( inField ), inValue );
+    }
+#endif
+}
+
+
+static void Eng_UIModel_SetItemString( const uint8_t* inModel, const uint8_t* inKey, int inIndex, const uint8_t* inField, const uint8_t* inValue ) noexcept
+{
+#if USING( ME_RMLUI )
+    if( RmlUiCore* core = UiCore() )
+    {
+        core->ModelSetItemString( Text( inModel ), Text( inKey ), inIndex, Text( inField ), Text( inValue ) );
+    }
+#endif
+}
+
 static bool Eng_UI_SetDocumentVisible( const uint8_t* inEntityName, int inMode ) noexcept
 {
 #if USING( ME_RMLUI )
@@ -182,6 +226,10 @@ void Register_UIModelBindings( ScriptEngineAPI& inAPI )
     inAPI.UIModel_GetString     = Eng_UIModel_GetString;
     inAPI.UIModel_PollEvent     = Eng_UIModel_PollEvent;
     inAPI.UIModel_GetEventArgs  = Eng_UIModel_GetEventArgs;
+    inAPI.UIModel_SetListCount  = Eng_UIModel_SetListCount;
+    inAPI.UIModel_GetListCount  = Eng_UIModel_GetListCount;
+    inAPI.UIModel_SetItemNumber = Eng_UIModel_SetItemNumber;
+    inAPI.UIModel_SetItemString = Eng_UIModel_SetItemString;
     inAPI.UI_SetDocumentVisible = Eng_UI_SetDocumentVisible;
     inAPI.UI_IsDocumentVisible  = Eng_UI_IsDocumentVisible;
 }

@@ -21,7 +21,7 @@ Two UI systems coexist. **RmlUi** renders the game's HTML/CSS UI (`UIDocument` c
 | `Source/UI/Rml/RmlRenderInterface.*` | RmlUi on bgfx: compiled geometry, premultiplied alpha, scissor, transforms, stencil clip masks |
 | `Source/UI/Rml/RmlInterfaces.*` | System (time, cursor, string table) and VFS file interfaces |
 | `Source/UI/Rml/RmlInput.*` | Engine key codes to RmlUi key identifiers and characters |
-| `Source/UI/Rml/RmlScriptModels.h` | The script view models' store: values, queued data events with their arguments, binding into the context (`RmlUiCore::Model*` forward to it) |
+| `Source/UI/Rml/RmlScriptModels.h` | The script view models' store: values, lists for `data-for`, queued data events with their arguments, binding into the context (`RmlUiCore::Model*` forward to it) |
 | `Source/Scripting/Bindings/Systems/UIModel.bindings.cpp` + `Modules/ScriptCore/Source/Core/UI.cs` | `UI.Model(...)`, the C# view-model API |
 | `Modules/Havana/Source/Editor/UIAutomation.cpp` | The `ui-click`, `ui-assert-text`, `ui-assert-focused`, `input-press`, `ui-set-text-scale`, `ui-set-language` edscript commands |
 | `Assets/Shaders/UI/Rml.*` | Document shaders; `Assets/Shaders/UI.*` is the composite |
@@ -93,7 +93,16 @@ Three levels, simplest first:
 
    Event arguments (ME-312) are evaluated by RmlUi (literals, model values, `ev.` fields) and reach the script as a JSON array (`ModelLastEventArgs`, read by `UIEvent`): numbers, strings and bools keep their type, anything else arrives as its text. One registered event name serves every button.
 
-   Values are numbers or strings (bools are 0/1) and live engine-side (`RmlUiCore::Model*`), so C# hot reloads keep the rendered state. Documents that loaded before their model reload once when it materializes (the `UI: rebound` log). Lists aren't bindable yet: write repeated elements out (see `Assets/UI/Drive/Slots.rml`).
+   Values are numbers or strings (bools are 0/1) and live engine-side (`RmlUiCore::Model*`), so C# hot reloads keep the rendered state. Documents that loaded before their model reload once when it materializes (the `UI: rebound` log). Lists (ME-312) bind with `data-for`: `hud.List("players")` is a list of records whose fields are numbers or strings, `rows.Count = n` sizes it and `rows.Set(i, "name", value)` fills it (an index past the end grows it):
+
+   ```html
+   <div data-for="row : players" data-class-local="row.local" data-event-click="pick(it_index)">
+       {{ it_index + 1 }}. {{ row.name }} {{ row.kills }}
+   </div>
+   <p data-if="players.size == 0">Nobody yet</p>
+   ```
+
+   A field an item hasn't set reads as `""`. Only a change dirties the list, and then every row of it re-evaluates. A list key can't also be a plain value.
    Settings need no model either: `RmlSettings` (`Source/UI/Rml/RmlSettings.h`) keeps attributed elements current whenever the player settings or a rebind change. `data-setting-text="Audio.Music"` (with `data-format="percent|scale|onoff"`) shows a value, `data-setting-selected="Graphics.Quality|Low"` and `data-window-mode="borderless"` set the `selected` class, and `data-binding="Jump|0"` shows a binding's control. At load it fills `data-options="quality"` / `"languages"` with choice buttons and `data-controls` with a row per action of the game input. While a rebind waits (and on the frame it ends) the documents get no keys, buttons or gamepad navigation.
 3. **C++** uses the same store (`GetEngine().RmlUi->ModelSetNumber(...)`, `ModelPollEvent(...)`), or `GetContext()` for raw RmlUi.
 

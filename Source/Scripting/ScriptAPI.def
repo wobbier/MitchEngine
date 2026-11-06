@@ -429,3 +429,10 @@ void Camera_GetMain( Entity* outId )
 ## RmlUi data-event arguments (ME-312): data-event-click="pick(2, 'fast')" queues "pick"; this is
 ## the JSON array of the arguments of the event UIModel_PollEvent last returned for the model ("[]")
 int UIModel_GetEventArgs( cstr model, byte* outJson, int size )
+
+## RmlUi list bindings (ME-312): a model key holding a list of records for data-for="row : players"
+## ({{ row.name }}); item fields are numbers or strings, and setting an item past the end grows the list
+void UIModel_SetListCount( cstr model, cstr key, int count )
+int UIModel_GetListCount( cstr model, cstr key )
+void UIModel_SetItemNumber( cstr model, cstr key, int index, cstr field, double value )
+void UIModel_SetItemString( cstr model, cstr key, int index, cstr field, cstr value )
