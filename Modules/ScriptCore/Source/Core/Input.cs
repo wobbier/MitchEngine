@@ -522,7 +522,9 @@ public static unsafe class Input
     public static Vector2 MousePosition { get { Vector2 v; Engine._api.Input_GetMousePosition(&v); return v; } }
 
     /// <summary>
-    /// Locks and hides the cursor so the mouse only reports motion (FPS-style look).
+    /// Locks and hides the cursor so the mouse only reports motion (FPS-style look). Esc always
+    /// frees it (the game still sees the key); setting this to true again, or a left click on the
+    /// game while it's still true, locks it again. An unlocked cursor can leave the window.
     /// </summary>
     public static bool MouseCaptured
     {

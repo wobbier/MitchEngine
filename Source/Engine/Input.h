@@ -462,8 +462,16 @@ public:
     // I hate this
     KeyCode GetLastKeyPressed();
 
+    // The game asks for a locked cursor (C# Input.MouseCaptured). A new request (false -> true)
+    // also takes back a cursor that Esc freed.
     void SetMouseCapture( bool Capture );
     bool IsMouseCaptured() const { return WantsToCaptureMouse; }
+    // The cursor is locked now: this input has the keyboard and mouse, the game asked for the lock,
+    // and Esc hasn't freed it since. Only a locked cursor is hidden, in relative mode and held in
+    // its window; an unlocked one moves freely, in and out of the window.
+    bool IsCursorLocked() const { return CaptureInput && WantsToCaptureMouse && !m_cursorFreed; }
+    // This input holds the pointer in its window (SDL window grab) right now.
+    bool IsCursorConfined() const { return m_cursorConfined; }
     void SetMouseOffset( const Vector2& InOffset );
     // Editor: where the Game View draws the game's image (ImGui's absolute coordinates, so an
     // undocked view works too), its drawn size, and game pixels per screen pixel on each axis.
@@ -566,8 +574,12 @@ private:
 
     // Applies the cursor state (relative mode, confinement, visibility) this input asks for.
     void UpdateCursor();
+    // The pointer is over the game: the editor Game View's image, or anywhere in a game window.
+    bool IsPointerOnGame() const;
     // What this input has applied to SDL, so it only undoes its own changes.
     bool m_relativeMode = false;
+    // Esc freed a locked cursor; cleared by a new lock request, Resume, or a click in the window.
+    bool m_cursorFreed = false;
     bool m_cursorConfined = false;
     bool m_cursorHidden = false;
     SDL_Window* m_cursorWindow = nullptr;

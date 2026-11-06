@@ -987,7 +987,7 @@ Keys, the mouse and the project's input actions (Engine/Docs/Input.md).
 - `IsActionPressed(System.String)` (method): Whether an action is held.
 - `IsContextEnabled(System.String)` (method): Whether a context is on (a context the map doesn't have counts as on).
 - `IsKeyDown(ScriptCore.KeyCode)` (method): Whether a key is held (the real keyboard; simulated keys reach actions only).
-- `MouseCaptured` (property): Locks and hides the cursor so the mouse only reports motion (FPS-style look).
+- `MouseCaptured` (property): Locks and hides the cursor so the mouse only reports motion (FPS-style look). Esc always frees it (the game still sees the key); setting this to true again, or a left click on the game while it's still true, locks it again. An unlocked cursor can leave the window.
 - `MouseDelta` (property): Mouse motion this frame in pixels (+Y up).
 - `MousePosition` (property): The mouse in the game's pixels, from the top left (in the editor: of the game view).
 - `Player(System.Int32)` (method): A local player's input by index (0 = the default player).

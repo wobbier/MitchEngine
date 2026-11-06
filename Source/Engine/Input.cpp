@@ -54,6 +54,8 @@ void Input::Pause()
 void Input::Resume()
 {
     CaptureInput = true;
+    // Handing the input back (a click in the editor's Game View) hands the cursor back too.
+    m_cursorFreed = false;
     UpdateCursor();
 }
 
@@ -85,22 +87,12 @@ void Input::Update()
         // Captured look always uses SDL's relative motion, including an embedded Game View.
         // Absolute position + a per-frame warp loses motion at window edges and can include
         // asynchronous warp events in the next frame's delta.
-        const bool inRegionWindow = m_cursorWindow && SDL_GetMouseFocus() == m_cursorWindow && SDL_GetKeyboardFocus() == m_cursorWindow;
         // Relative mode can hide the pointer or report a different hover window. Keyboard
         // focus anywhere in this application's windows is sufficient while gameplay owns input.
-        if( m_cursorWindow && WantsToCaptureMouse && !SDL_GetKeyboardFocus() )
+        // An unlocked cursor is left alone: no warps, it may leave the Game View and the window.
+        if( m_cursorWindow && IsCursorLocked() && !SDL_GetKeyboardFocus() )
         {
             RelativeMousePosition = Vector2();
-        }
-        else if( inRegionWindow && !WantsToCaptureMouse )
-        {
-            const int x = std::clamp( mouseX, m_cursorRect.x, m_cursorRect.x + m_cursorRect.w - 1 );
-            const int y = std::clamp( mouseY, m_cursorRect.y, m_cursorRect.y + m_cursorRect.h - 1 );
-            if( x != mouseX || y != mouseY )
-            {
-                SDL_WarpMouseInWindow( m_cursorWindow, x, y );
-                MousePosition = Vector2( x, y );
-            }
         }
     }
 
@@ -120,6 +112,27 @@ void Input::Update()
     for( size_t key = 0; key < m_simulatedKeys.size(); ++key )
     {
         m_devices.Keys[key] |= m_simulatedKeys[key];
+    }
+
+    // Esc always frees a locked cursor, whatever the game does with the key (it still sees the
+    // press). A left click on the game takes it back while the game still wants it locked.
+    if( CaptureInput )
+    {
+        const bool escape = m_devices.Keys[SDL_SCANCODE_ESCAPE] && !m_previousDevices.Keys[SDL_SCANCODE_ESCAPE];
+        const uint32_t left = SDL_BUTTON( SDL_BUTTON_LEFT );
+        const bool click = ( m_devices.MouseButtons & left ) && !( m_previousDevices.MouseButtons & left );
+        if( escape && IsCursorLocked() )
+        {
+            m_cursorFreed = true;
+            RelativeMousePosition = Vector2();
+            m_devices.MouseDelta = Vector2();
+            UpdateCursor();
+        }
+        else if( click && m_cursorFreed && WantsToCaptureMouse && IsPointerOnGame() )
+        {
+            m_cursorFreed = false;
+            UpdateCursor();
+        }
     }
 
     if( m_actionAsset && m_actionAsset->Version != m_actionVersion )
@@ -468,8 +481,28 @@ KeyCode Input::GetLastKeyPressed()
 
 void Input::SetMouseCapture( bool Capture )
 {
+    if( Capture && !WantsToCaptureMouse )
+    {
+        m_cursorFreed = false;
+    }
     WantsToCaptureMouse = Capture;
     UpdateCursor();
+}
+
+
+bool Input::IsPointerOnGame() const
+{
+    int x = 0;
+    int y = 0;
+    SDL_GetMouseState( &x, &y );
+    if( m_cursorWindow )
+    {
+        // The editor's Game View: its image, in the window that shows it.
+        return SDL_GetMouseFocus() == m_cursorWindow && x >= m_cursorRect.x && y >= m_cursorRect.y
+            && x < m_cursorRect.x + m_cursorRect.w && y < m_cursorRect.y + m_cursorRect.h;
+    }
+    // A game window: anywhere in it.
+    return SDL_GetMouseFocus() != nullptr;
 }
 
 
@@ -504,7 +537,7 @@ void Input::UpdateCursor()
 {
     // Only the input that is capturing holds the cursor: the editor and the game each own an
     // Input, and stopping the idle one must not undo the other's state.
-    const bool lock = CaptureInput && WantsToCaptureMouse;
+    const bool lock = IsCursorLocked();
     const bool relative = lock;
     if( relative != m_relativeMode )
     {
@@ -524,6 +557,8 @@ void Input::UpdateCursor()
         // SDL_MOUSE_RELATIVE_MODE_WARP=1 from the environment to try warp mode on a machine.
         SDL_SetRelativeMouseMode( relative ? SDL_TRUE : SDL_FALSE );
         m_relativeMode = SDL_GetRelativeMouseMode() == SDL_TRUE;
+        // Motion from before the lock isn't look.
+        SDL_GetRelativeMouseState( nullptr, nullptr );
         if( CommandLine::Has( "--log-mouse" ) )
         {
             const char* warp = SDL_GetHint( SDL_HINT_MOUSE_RELATIVE_MODE_WARP );
@@ -531,9 +566,10 @@ void Input::UpdateCursor()
         }
     }
 
-    // Relative mode owns captured motion; an uncaptured cursor stays inside the view region.
-    // (SDL_SetWindowMouseRect would be tighter, but its X11 pointer barriers can fail fatally.)
-    const bool confine = CaptureInput && m_cursorWindow;
+    // Only a locked cursor is held in the window (relative mode owns its motion); an unlocked one
+    // (a paused game's menu) can leave it. (SDL_SetWindowMouseRect would be tighter, but its X11
+    // pointer barriers can fail fatally.)
+    const bool confine = lock && m_cursorWindow;
     if( confine != m_cursorConfined && m_cursorWindow )
     {
         SDL_SetWindowGrab( m_cursorWindow, confine ? SDL_TRUE : SDL_FALSE );
