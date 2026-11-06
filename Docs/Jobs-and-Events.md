@@ -15,6 +15,7 @@ The engine's two cross-cutting runtime services: `Jobs::JobSystem`, a work-steal
 | Path | Role |
 |------|------|
 | `Modules/Dementia/Source/Jobs/JobSystem.h` / `Modules/Dementia/Source/Jobs/JobSystem.cpp` | `Jobs::JobSystem`, `Jobs::Counter`, `ParallelFor`, `Submit` |
+| `Modules/Dementia/Source/Profiling/ThreadName.h` | `ME_PROFILE_THREAD`: a thread's profiler lane and OS name |
 | `Source/Cores/PhysicsCore.cpp` | `PhysicsCore::EnqueueTask` / `FinishTask`: Box3D's solver tasks run as jobs (`Docs/Physics.md`) |
 | `Modules/Dementia/Source/Events/Event.h` | `Event<T>` CRTP: `GetEventId`, `Fire`, `Queue` |
 | `Modules/Dementia/Source/Events/EventManager.h` / `Modules/Dementia/Source/Events/EventManager.cpp` | Receiver registry, dispatch, the cross-thread queue |
@@ -44,6 +45,15 @@ jobs.Wait( counter );   // runs other jobs while waiting
 - `Run` heap-allocates the callable (use it for coarse tasks).
 - `Submit( counter, fn, context, begin, end )` enqueues a raw range job (for C-style task callbacks).
 - `Engine::GetJobSystem()` returns the same instance; `Engine::Shutdown` stops the workers.
+
+### Profiling threads and jobs (ME-321)
+
+Every thread the engine starts shows as a named lane in every capture, even while idle:
+
+- **The rule:** the first line of a thread function (or a `std::async` lambda) is `ME_PROFILE_THREAD( "Name" )` (`Modules/Dementia/Source/Profiling/ThreadName.h`). It registers the profiler lane for the thread's lifetime (`OPTICK_THREAD` is a scoped object, so it must sit in the thread function's own scope, never in a helper) and names the OS thread for gdb and `top -H` (Linux keeps 15 characters). Wrap the thread's work in an `OPTICK_EVENT` too. New threads, pools and `std::async` calls get both in the same change.
+- **Jobs:** `JobSystem::Execute` puts a zone around every job, named by `ParallelFor( "Name", count, minBatch, fn )`, `Run( counter, fn, "Name" )` or `Submit( ..., "Name" )` (string literals: kept by pointer). An idle worker's wait is a `Worker Sleep` zone.
+- **Linux captures** (`ThirdParty/ChromeTrace/optick.h`, Chrome trace JSON for Perfetto / `chrome://tracing`): registered threads get `thread_name` / `thread_sort_index` metadata and a `Capture` marker at the capture's start, so idle lanes still appear. Order: Main Thread, then lanes in registration order, with numbered names ("Job Worker 1".."N") in numeric order. Threads that exited before the capture started are left out.
+- **Registered today:** Main Thread (`Engine::Init`), Job Worker N, Resource Loader N, Reimport N, File Watcher, Script Runtime Init, Script Build, Nav Bake, Nav Carve, Nav Tile Builder, Scene Read, Save Write, Terrain Preview / Page / Stream / Cook. Threads started by FMOD, .NET and the GPU driver aren't the engine's and don't appear.
 
 ### Events
 

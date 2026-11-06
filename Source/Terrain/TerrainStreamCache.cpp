@@ -1,4 +1,5 @@
 #include "PCH.h"
+#include <Profiling/ThreadName.h>
 #include "TerrainStreamCache.h"
 #include <algorithm>
 #include <chrono>
@@ -306,6 +307,8 @@ namespace TerrainData
                 try
                 {
                     m_job = std::async( std::launch::async, [archive, loader, coord, generation]() {
+                        ME_PROFILE_THREAD( "Terrain Stream" );
+                        OPTICK_EVENT( "TerrainStreamCache::LoadTile" );
                         Completion result; result.Coordinate = coord; result.Request = generation;
                         try { if( !loader( *archive, coord, result.Tile, result.Error ) ) result.Tile.reset(); }
                         catch( const std::exception& e ) { result.Error = e.what(); }

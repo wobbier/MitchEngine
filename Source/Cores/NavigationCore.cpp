@@ -1,4 +1,5 @@
 #include "PCH.h"
+#include <Profiling/ThreadName.h>
 #include "Core/WorkStatus.h"
 #include "NavigationCore.h"
 #include "Components/Graphics/Mesh.h"
@@ -830,7 +831,11 @@ bool NavigationCore::Bake( NavMeshSurface& InSurface, bool InAsync )
     };
     if( InAsync )
     {
-        job->Thread = std::thread( std::move( run ) );
+        job->Thread = std::thread( [run = std::move( run )]() mutable {
+            ME_PROFILE_THREAD( "Nav Bake" );
+            OPTICK_EVENT( "NavMesh Bake" );
+            run();
+        } );
     }
     else
     {
@@ -1134,6 +1139,8 @@ void NavigationCore::StartCarves()
         auto job = std::make_unique<BakeJob>();
         BakeJob* raw = job.get();
         job->Thread = std::thread( [raw, input = std::move( input ), settings = record.CarveSettings, grid = std::move( grid ), tiles = std::move( tiles )]() {
+            ME_PROFILE_THREAD( "Nav Carve" );
+            OPTICK_EVENT( "NavMesh Carve" );
             NavBuildOptions options;
             options.Cancel = &raw->Cancel;
             options.Grid = &grid;

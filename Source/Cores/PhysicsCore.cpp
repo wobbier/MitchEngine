@@ -1,4 +1,5 @@
 #include "PCH.h"
+#include <Profiling/ThreadName.h>
 #include "PhysicsCore.h"
 #include "Components/Graphics/Mesh.h"
 #include "Components/Graphics/Terrain.h"
@@ -470,7 +471,11 @@ const std::vector<void*>* PhysicsCore::GetTerrainMeshes( std::shared_ptr<const T
                 m_terrainCookSource = tile;
                 try
                 {
-                    m_terrainCook = std::async( std::launch::async, [tile]() { return TerrainPhysics::Cook( *tile ); } );
+                    m_terrainCook = std::async( std::launch::async, [tile]() {
+                        ME_PROFILE_THREAD( "Terrain Cook" );
+                        OPTICK_EVENT( "TerrainPhysics::Cook" );
+                        return TerrainPhysics::Cook( *tile );
+                    } );
                     if( CommandLine::GetFloat( "--frame-time", 0 ) > 0 ) m_terrainCook.wait();
                 }
                 catch( const std::exception& e )

@@ -1,4 +1,5 @@
 #include "PCH.h"
+#include <Profiling/ThreadName.h>
 #include "TerrainStreamCache.h"
 #include <algorithm>
 #include <bit>
@@ -202,6 +203,8 @@ namespace TerrainData
                 auto& entry = m_pages[task.PageID]; entry.Active = entry.Loading = true; entry.Request = ++m_request; entry.LastDemand = frame;
                 const auto archive = m_archive; const auto generation = entry.Request; const auto pageID = task.PageID;
                 try { m_job = std::async( std::launch::async, [archive, coord, generation, pageID]() {
+                    ME_PROFILE_THREAD( "Terrain Page" );
+                    OPTICK_EVENT( "TerrainPagedCache::ReadCoverage" );
                     Completion result; result.Coordinate = coord; result.Request = generation; result.Coverage = true; result.CoverageID = pageID;
                     try { if( archive->Hierarchical ) ReadHierarchyCoverage( *archive, pageID, result.Page, result.Error ); else ReadStreamCoverage( *archive, coord, result.Page, result.Error ); }
                     catch( const std::exception& e ) { result.Error = e.what(); } return result;
@@ -216,7 +219,7 @@ namespace TerrainData
                 if( found != m_entries.end() || m_job.valid() || !allowLoad || !m_stats.CoverageReady || !fits( m_tileCost.CpuBytes * limits.Instances, 0 ) ) continue;
                 auto& entry = m_entries[coord]; entry.Active = entry.Loading = true; entry.Request = ++m_request; entry.LastDemand = frame;
                 const auto archive = m_archive; const auto loader = m_loader; const auto generation = entry.Request;
-                try { m_job = std::async( std::launch::async, [archive, loader, coord, generation]() { Completion result; result.Coordinate = coord; result.Request = generation; try { if( !loader( *archive, coord, result.Tile, result.Error ) ) result.Tile.reset(); } catch( const std::exception& e ) { result.Error = e.what(); } return result; } ); }
+                try { m_job = std::async( std::launch::async, [archive, loader, coord, generation]() { ME_PROFILE_THREAD( "Terrain Page" ); OPTICK_EVENT( "TerrainPagedCache::LoadTile" ); Completion result; result.Coordinate = coord; result.Request = generation; try { if( !loader( *archive, coord, result.Tile, result.Error ) ) result.Tile.reset(); } catch( const std::exception& e ) { result.Error = e.what(); } return result; } ); }
                 catch( const std::exception& e ) { entry.Active = entry.Loading = false; entry.Failed = true; m_stats.Error = e.what(); ++m_stats.Failed; }
                 changed = true; Measure(); continue;
             }

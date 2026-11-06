@@ -1,4 +1,5 @@
 #include "PCH.h"
+#include <Profiling/ThreadName.h>
 #include "SaveGames.h"
 #include "CLog.h"
 #include "Components/Scripting/ScriptComponent.h"
@@ -214,6 +215,8 @@ bool SaveGames::Save( const std::string& InSlot, const std::string& InName )
     const std::string directory = GetSlotDirectory( InSlot );
     m_writingSlot = InSlot;
     m_write = std::async( std::launch::async, [directory, meta, world = std::move( worldData )]() {
+        ME_PROFILE_THREAD( "Save Write" );
+        OPTICK_EVENT( "SaveGames::WriteSlot" );
         return WriteSlot( directory, meta, world );
     } );
     // The frame the save was taken on, written by the renderer at the end of this frame.

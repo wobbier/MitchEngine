@@ -1,4 +1,5 @@
 #include "PCH.h"
+#include <Profiling/ThreadName.h>
 #include "ScriptEngine.h"
 #include "ScriptHost.h"
 #include "Engine/QuitSignals.h"
@@ -465,6 +466,8 @@ void ScriptEngine::StartInitAsync()
         return;
     }
     gInitThread = std::thread( []() {
+        ME_PROFILE_THREAD( "Script Runtime Init" );
+        OPTICK_EVENT( "ScriptEngine::StartRuntime" );
         const int result = StartRuntime();
         std::lock_guard<std::mutex> lock( gInitMutex );
         gInitResult = result;
@@ -613,6 +616,8 @@ void ScriptEngine::RequestReload()
     gBuildRunning = true;
     gBuildDone = false;
     gBuildThread = std::thread( []() {
+        ME_PROFILE_THREAD( "Script Build" );
+        OPTICK_EVENT( "ScriptEngine::BuildScripts" );
         // ED-14: the editor's status shows the build while it runs.
         WorkStatus::Scope status( "Building scripts" );
         std::string log;

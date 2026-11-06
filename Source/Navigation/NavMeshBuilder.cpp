@@ -1,4 +1,5 @@
 #include "PCH.h"
+#include <Profiling/ThreadName.h>
 #include "NavMeshBuilder.h"
 
 #include "Recast.h"
@@ -647,7 +648,11 @@ NavBuildResult BuildNavMesh( const NavBuildInput& InInput, const NavBuildSetting
     std::vector<std::thread> threads;
     for( unsigned int i = 1; i < threadCount; ++i )
     {
-        threads.emplace_back( worker );
+        threads.emplace_back( [&worker]() {
+            ME_PROFILE_THREAD( "Nav Tile Builder" );
+            OPTICK_EVENT( "NavMesh Tiles" );
+            worker();
+        } );
     }
     worker();
     for( std::thread& thread : threads )
