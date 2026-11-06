@@ -7,6 +7,7 @@
 #include <functional>
 #include <map>
 #include <set>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -46,6 +47,27 @@ struct NetScriptState
     // Appends the entity's [Predicted] script bytes, if it has any.
     std::function<void( Entity&, std::vector<uint8_t>& )> SavePredicted;
 };
+
+// An entity's state as the server captures it (NET-3): its quantized world pose and its fields
+// (NetSchema bytes, then its C# [Replicated] bytes when InScripts can write them). A replay viewer
+// captures what it shows the same way to check it against the recording (ME-316).
+namespace NetReplicationState
+{
+    NetEntityState Capture( Entity& InEntity, const NetScriptState* InScripts = nullptr );
+}
+
+// The server's replication messages (type byte first), as NetReplicationServer sends them and
+// NetReplicationClient reads them; a match replay's playback (ME-316) writes the same ones.
+namespace NetReplicationMessages
+{
+    void WriteSpawn( BitWriter& InWriter, uint32_t InNetId, uint8_t InOwner, const std::string& InPrefab, const NetEntityState& InPose );
+    void WriteDespawn( BitWriter& InWriter, uint32_t InNetId );
+    void WriteOwner( BitWriter& InWriter, uint32_t InNetId, uint8_t InOwner );
+    // InPreviousSent: the snapshot sent before this one (< 0: none), so a client that has it knows
+    // nothing changed in between. The rest is NetSnapshotCodec::Write's.
+    void WriteSnapshot( BitWriter& InWriter, int64_t InPreviousSent, const NetSnapshot& InCurrent, const NetSnapshot* InBaseline, size_t InByteBudget,
+        NetSnapshot& OutSent, const std::set<uint32_t>* InOnly = nullptr );
+}
 
 // How the server shares out each client's bandwidth (NET-13).
 struct NetReplicationSettings
@@ -148,6 +170,9 @@ public:
     NetScriptState Scripts;
 
     NetReplicationClient( World& InWorld, NetClient& InClient );
+    // Without a session (ME-316 match replay playback): messages come from Deliver, and the render
+    // tick from DriveRenderTick, not a server.
+    explicit NetReplicationClient( World& InWorld );
 
     void AssignStaticIds();
     // Once a frame: advances the interpolation clock and poses every mirrored entity.
@@ -182,6 +207,24 @@ public:
     // Back to following the server's snapshots (ownership moved away).
     void ClearPredicted( uint32_t InNetId ) { m_predicted.erase( InNetId ); }
 
+    // ME-316 playback: a server message (its type byte first) as if it came off the wire, through
+    // the same handlers (spawn, despawn, owner, snapshot decode, RPCs).
+    void Deliver( const std::vector<uint8_t>& InMessage, bool InReliable );
+    // Shows entities at exactly this (fractional) server tick from now on: no delay, no steering,
+    // no extrapolation. < 0: back to the server-driven clock.
+    void DriveRenderTick( double InTick ) { m_drivenTick = InTick; }
+    double GetDrivenRenderTick() const { return m_drivenTick; }
+    // Forgets every sample and decoded snapshot (entities stay bound): the next snapshot must be
+    // whole, and may be older than the last one (a replay seeking back).
+    void ResetHistory();
+    // The bound NetIds.
+    const std::map<uint32_t, EntityHandle>& GetEntities() const { return m_entities; }
+    // The sample an entity's fields came from at the last Update (its pose is that sample's when
+    // the render tick is a whole tick that has one): null when it wasn't shown.
+    const NetEntityState* GetShownState( uint32_t InNetId ) const;
+    // The tick of that sample (0 when none).
+    uint32_t GetShownTick( uint32_t InNetId ) const;
+
 private:
     struct Sample
     {
@@ -196,9 +239,10 @@ private:
     void Bind( uint32_t InId, EntityHandle InEntity );
 
     World& m_world;
-    NetClient& m_client;
+    NetClient* m_client = nullptr;     // null: playback (ME-316)
     std::map<uint32_t, EntityHandle> m_entities;
     std::map<uint32_t, std::deque<Sample>> m_samples;
+    std::map<uint32_t, Sample> m_shown;     // what each entity showed at the last Update
     std::set<uint32_t> m_predicted;
     std::deque<NetSnapshot> m_snapshots;    // decoded, newest last, up to kReceivedHistory
     bool m_hasSnapshot = false;
@@ -209,5 +253,6 @@ private:
     double m_delay = 2.0;
     double m_settleSeconds = 0.0;
     double m_minRenderTick = -1.0;
+    double m_drivenTick = -1.0;
     bool m_extrapolating = false;
 };

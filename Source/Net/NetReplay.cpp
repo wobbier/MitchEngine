@@ -1266,6 +1266,20 @@ bool NetReplayReader::ReadTick( uint32_t InTick, NetReplayTick& OutTick )
 }
 
 
+uint32_t NetReplayReader::GetKeyframeTick( uint32_t InTick ) const
+{
+    for( size_t i = 0; i < m_source.GetChunkCount(); ++i )
+    {
+        const NetReplayChunk::Info& info = m_source.GetChunkInfo( i );
+        if( InTick >= info.FirstTick && InTick <= info.LastTick )
+        {
+            return info.FirstTick;
+        }
+    }
+    return InTick;
+}
+
+
 bool NetReplayReader::ForEach( uint32_t InFrom, uint32_t InTo, const std::function<bool( const NetReplayTick& )>& InFn )
 {
     for( size_t i = 0; i < m_source.GetChunkCount(); ++i )

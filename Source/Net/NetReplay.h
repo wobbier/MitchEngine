@@ -298,6 +298,9 @@ public:
 
     // The record of InTick; false when the replay doesn't have it (or its chunk won't decode).
     bool ReadTick( uint32_t InTick, NetReplayTick& OutTick );
+    // The first tick of the chunk holding InTick (its keyframe, which names every live NetId);
+    // InTick when no chunk has it.
+    uint32_t GetKeyframeTick( uint32_t InTick ) const;
     // InFn for every recorded tick in [InFrom, InTo], in order, until it returns false. False when
     // a chunk wouldn't decode.
     bool ForEach( uint32_t InFrom, uint32_t InTo, const std::function<bool( const NetReplayTick& )>& InFn );

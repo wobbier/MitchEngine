@@ -141,6 +141,50 @@ namespace
 }
 
 
+void NetReplicationMessages::WriteSpawn( BitWriter& InWriter, uint32_t InNetId, uint8_t InOwner, const std::string& InPrefab, const NetEntityState& InPose )
+{
+    InWriter.WriteBits( NetMessage::Spawn, 8 );
+    InWriter.WriteVarUInt( InNetId );
+    InWriter.WriteBits( InOwner, 8 );
+    InWriter.WriteString( InPrefab );
+    WritePose( InWriter, InPose );
+}
+
+
+void NetReplicationMessages::WriteDespawn( BitWriter& InWriter, uint32_t InNetId )
+{
+    InWriter.WriteBits( NetMessage::Despawn, 8 );
+    InWriter.WriteVarUInt( InNetId );
+}
+
+
+void NetReplicationMessages::WriteOwner( BitWriter& InWriter, uint32_t InNetId, uint8_t InOwner )
+{
+    InWriter.WriteBits( NetMessage::Owner, 8 );
+    InWriter.WriteVarUInt( InNetId );
+    InWriter.WriteBits( InOwner, 8 );
+}
+
+
+void NetReplicationMessages::WriteSnapshot( BitWriter& InWriter, int64_t InPreviousSent, const NetSnapshot& InCurrent, const NetSnapshot* InBaseline,
+    size_t InByteBudget, NetSnapshot& OutSent, const std::set<uint32_t>* InOnly )
+{
+    InWriter.WriteBits( NetMessage::Snapshot, 8 );
+    InWriter.WriteBool( InPreviousSent >= 0 );
+    if( InPreviousSent >= 0 )
+    {
+        InWriter.WriteBits( static_cast<uint32_t>( InPreviousSent ), 32 );
+    }
+    NetSnapshotCodec::Write( InWriter, InCurrent, InBaseline, InByteBudget, OutSent, InOnly );
+}
+
+
+NetEntityState NetReplicationState::Capture( Entity& InEntity, const NetScriptState* InScripts )
+{
+    return ::Capture( InEntity, InScripts );
+}
+
+
 NetReplicationServer::NetReplicationServer( World& InWorld, NetServer& InServer )
     : m_world( InWorld )
     , m_server( InServer )
@@ -210,11 +254,7 @@ EntityHandle NetReplicationServer::FindEntity( uint32_t InNetId ) const
 void NetReplicationServer::WriteSpawn( BitWriter& InWriter, uint32_t InId, Entity& InEntity ) const
 {
     const NetIdentity& identity = InEntity.GetComponent<NetIdentity>();
-    InWriter.WriteBits( NetMessage::Spawn, 8 );
-    InWriter.WriteVarUInt( InId );
-    InWriter.WriteBits( identity.m_owner, 8 );
-    InWriter.WriteString( identity.Prefab );
-    WritePose( InWriter, Capture( InEntity ) );
+    NetReplicationMessages::WriteSpawn( InWriter, InId, identity.m_owner, identity.Prefab, Capture( InEntity ) );
 }
 
 
@@ -253,8 +293,7 @@ void NetReplicationServer::CaptureTick( uint32_t InTick )
         if( !it->second || !it->second->HasComponent<NetIdentity>() )
         {
             BitWriter despawn;
-            despawn.WriteBits( NetMessage::Despawn, 8 );
-            despawn.WriteVarUInt( it->first );
+            NetReplicationMessages::WriteDespawn( despawn, it->first );
             for( const auto& client : m_server.GetClients() )
             {
                 if( client->Accepted )
@@ -280,9 +319,7 @@ void NetReplicationServer::CaptureTick( uint32_t InTick )
         if( owner != told )
         {
             BitWriter message;
-            message.WriteBits( NetMessage::Owner, 8 );
-            message.WriteVarUInt( id );
-            message.WriteBits( owner, 8 );
+            NetReplicationMessages::WriteOwner( message, id, owner );
             for( const auto& client : m_server.GetClients() )
             {
                 if( client->Accepted )
@@ -444,14 +481,9 @@ void NetReplicationServer::Prepare( uint8_t InClient, ClientState& InState ) con
     }
 
     BitWriter writer;
-    writer.WriteBits( NetMessage::Snapshot, 8 );
-    writer.WriteBool( InState.HasSent );
-    if( InState.HasSent )
-    {
-        writer.WriteBits( InState.LastSentTick, 32 );
-    }
     NetSnapshot sent;
-    NetSnapshotCodec::Write( writer, view, baseline, kSnapshotBudget, sent, &selected );
+    NetReplicationMessages::WriteSnapshot( writer, InState.HasSent ? static_cast<int64_t>( InState.LastSentTick ) : -1, view, baseline, kSnapshotBudget, sent,
+        &selected );
 
     // Unchanged since the last one sent: skip it (a keep-alive now and then keeps acks moving).
     if( InState.HasSent && !InState.Sent.empty() && InState.Sent.back().Entities == sent.Entities && m_current.Tick - InState.LastSentTick < kKeepAliveTicks )
@@ -516,8 +548,7 @@ void NetReplicationServer::OnClientAccepted( NetServer::Client& InClient )
         if( m_entities.find( id ) == m_entities.end() )
         {
             BitWriter despawn;
-            despawn.WriteBits( NetMessage::Despawn, 8 );
-            despawn.WriteVarUInt( id );
+            NetReplicationMessages::WriteDespawn( despawn, id );
             m_server.Send( InClient, despawn, true );
         }
     }
@@ -534,9 +565,7 @@ void NetReplicationServer::OnClientAccepted( NetServer::Client& InClient )
         if( id < kFirstDynamicId && owner != m_sentOwners.end() && owner->second != 0 )
         {
             BitWriter message;
-            message.WriteBits( NetMessage::Owner, 8 );
-            message.WriteVarUInt( id );
-            message.WriteBits( owner->second, 8 );
+            NetReplicationMessages::WriteOwner( message, id, owner->second );
             m_server.Send( InClient, message, true );
         }
     }
@@ -594,9 +623,51 @@ void NetReplicationServer::OnPacket( NetServer::Client& InClient )
 
 NetReplicationClient::NetReplicationClient( World& InWorld, NetClient& InClient )
     : m_world( InWorld )
-    , m_client( InClient )
+    , m_client( &InClient )
 {
-    m_client.OnMessage = [this]( uint8_t InType, BitReader& InReader, bool InReliable ) { OnMessage( InType, InReader, InReliable ); };
+    m_client->OnMessage = [this]( uint8_t InType, BitReader& InReader, bool InReliable ) { OnMessage( InType, InReader, InReliable ); };
+}
+
+
+NetReplicationClient::NetReplicationClient( World& InWorld )
+    : m_world( InWorld )
+{
+}
+
+
+void NetReplicationClient::Deliver( const std::vector<uint8_t>& InMessage, bool InReliable )
+{
+    BitReader reader( InMessage );
+    const uint8_t type = static_cast<uint8_t>( reader.ReadBits( 8 ) );
+    if( !reader.IsOverflowed() )
+    {
+        OnMessage( type, reader, InReliable );
+    }
+}
+
+
+void NetReplicationClient::ResetHistory()
+{
+    m_samples.clear();
+    m_shown.clear();
+    m_snapshots.clear();
+    m_hasSnapshot = false;
+    m_newest = 0;
+    m_clockStarted = false;
+}
+
+
+const NetEntityState* NetReplicationClient::GetShownState( uint32_t InNetId ) const
+{
+    auto it = m_shown.find( InNetId );
+    return it != m_shown.end() ? &it->second.State : nullptr;
+}
+
+
+uint32_t NetReplicationClient::GetShownTick( uint32_t InNetId ) const
+{
+    auto it = m_shown.find( InNetId );
+    return it != m_shown.end() ? it->second.Tick : 0;
 }
 
 
@@ -732,6 +803,7 @@ void NetReplicationClient::OnDespawn( BitReader& InReader )
     }
     m_entities.erase( it );
     m_samples.erase( id );
+    m_shown.erase( id );
     m_predicted.erase( id );
 }
 
@@ -789,12 +861,12 @@ void NetReplicationClient::OnSnapshot( BitReader& InReader )
 
 void NetReplicationClient::BeforeFlush()
 {
-    if( m_hasSnapshot )
+    if( m_hasSnapshot && m_client )
     {
         BitWriter ack;
         ack.WriteBits( NetMessage::SnapshotAck, 8 );
         ack.WriteBits( m_newest, 32 );
-        m_client.Send( ack, false );
+        m_client->Send( ack, false );
     }
 }
 
@@ -805,28 +877,40 @@ void NetReplicationClient::Update( double InFrameSeconds )
     {
         return;
     }
-    // The newest tick the server has told us about (every packet says), minus the delay.
-    const double latest = std::max<double>( m_client.GetServerTick(), m_newest );
-    const double target = latest - m_delay;
-    const double ticks = InFrameSeconds * m_client.GetTickRate();
-    if( !m_clockStarted || std::abs( target - m_renderTick ) > 6.0 )
+    // Playback (ME-316) shows exactly the tick it's at: no delay, no steering, no extrapolation.
+    const bool driven = m_drivenTick >= 0.0 || !m_client;
+    double maxAheadTicks = 0.0;
+    if( driven )
     {
-        m_renderTick = target;
+        m_renderTick = std::max( 0.0, m_drivenTick );
         m_clockStarted = true;
+        m_extrapolating = false;
     }
     else
     {
-        // Steer gently towards the target so motion stays smooth.
-        m_renderTick += ticks * ( 1.0 + std::clamp( ( target - m_renderTick ) * 0.1, -0.1, 0.1 ) );
-    }
-    // High ping (NET-15): never show the world further back than the server will rewind a shot.
-    const double maxAheadTicks = MaxExtrapolationSeconds * m_client.GetTickRate();
-    m_extrapolating = m_minRenderTick >= 0.0 && m_renderTick < m_minRenderTick;
-    if( m_extrapolating )
-    {
-        // No further than the extrapolation cap past the newest sample: the view tick sent with
-        // commands stays what was really shown, and the server judges anything older at its cap.
-        m_renderTick = std::min( m_minRenderTick, latest + maxAheadTicks );
+        // The newest tick the server has told us about (every packet says), minus the delay.
+        const double latest = std::max<double>( m_client->GetServerTick(), m_newest );
+        const double target = latest - m_delay;
+        const double ticks = InFrameSeconds * m_client->GetTickRate();
+        if( !m_clockStarted || std::abs( target - m_renderTick ) > 6.0 )
+        {
+            m_renderTick = target;
+            m_clockStarted = true;
+        }
+        else
+        {
+            // Steer gently towards the target so motion stays smooth.
+            m_renderTick += ticks * ( 1.0 + std::clamp( ( target - m_renderTick ) * 0.1, -0.1, 0.1 ) );
+        }
+        // High ping (NET-15): never show the world further back than the server will rewind a shot.
+        maxAheadTicks = MaxExtrapolationSeconds * m_client->GetTickRate();
+        m_extrapolating = m_minRenderTick >= 0.0 && m_renderTick < m_minRenderTick;
+        if( m_extrapolating )
+        {
+            // No further than the extrapolation cap past the newest sample: the view tick sent with
+            // commands stays what was really shown, and the server judges anything older at its cap.
+            m_renderTick = std::min( m_minRenderTick, latest + maxAheadTicks );
+        }
     }
 
     // Adaptive delay: running past the samples of something that moves means it's too short.
@@ -890,6 +974,7 @@ void NetReplicationClient::Update( double InFrameSeconds )
             starved = true;
         }
         Apply( *entity->second.Get(), position, rotation );
+        m_shown[id] = *before;
         UnpackFields( before->State.Fields, reflected, script );
         NetSchema::Read( *entity->second.Get(), reflected );
         if( !script.empty() && Scripts.ReadReplicated )
@@ -897,7 +982,11 @@ void NetReplicationClient::Update( double InFrameSeconds )
             Scripts.ReadReplicated( *entity->second.Get(), script, false );
         }
     }
-    if( starved )
+    if( driven )
+    {
+        // The playback's clock: no delay to adapt.
+    }
+    else if( starved )
     {
         m_delay = std::min( m_delay + 0.25, 8.0 );
         m_settleSeconds = 0.0;
