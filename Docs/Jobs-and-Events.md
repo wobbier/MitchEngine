@@ -64,6 +64,7 @@ The job system counts who ran jobs, so a frame shows how much of it ran on the w
 - **Cost:** two `steady_clock` reads per job and relaxed atomic adds into a cache-line-aligned counter per lane (a worker only writes its own). No locks on the job path.
 - **Reading:** `JobSystem::TakeUtilization( Jobs::Utilization& )` copies the counters and zeroes them. `FrameStats::EndFrame` calls it once a frame, so `FrameStats::GetJobStats()` covers exactly one frame: per-lane `BusyMilliseconds`/`Jobs` (and a smoothed value), `WorkerBusyMilliseconds`, `MainBusyMilliseconds`, `MainJobs`, `WaitMilliseconds`, `Jobs`. Other callers of `TakeUtilization` would steal the frame's numbers.
 - **JSON:** `FrameStats::ToJson( stats, frameMs )` is the `Workers` block in the edscript `profile-stop` frames and the `--perf-report`: `{ Count, BusyMs: [per worker], Jobs, WaitMs, MainBusyMs, MainJobs, JobsPerWorker: [...], Utilization }`, where `Utilization` is worker busy / (workers x frame ms).
+- **Editor:** the World/Game View stats overlay adds `Jobs N  Workers X ms  Wait Y ms` (smoothed), and the Profiler panel's "Job workers" section lists every lane's jobs, ms and share of the frame.
 - **Other pools:** every lane carries a `Jobs::LaneKind` (`Main`, `Worker`). A pool with its own threads (the ME-319 background lane) adds a kind and appends its lanes; `Count`/`BusyMs` stay the frame workers.
 
 ### Events

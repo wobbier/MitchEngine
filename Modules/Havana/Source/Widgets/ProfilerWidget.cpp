@@ -82,6 +82,38 @@ void ProfilerWidget::Render()
 		}
 	}
 
+	// ME-320: who ran the frame's jobs. Bars are each lane's share of the frame.
+	const FrameStats::JobStats& jobs = stats.GetJobStats();
+	if (ImGui::CollapsingHeader("Job workers (smoothed)", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		ImGui::Text("%u workers | %.0f jobs | busy %.2f ms | main ran %u (%.2f ms) | main waited %.2f ms", jobs.WorkerCount, jobs.SmoothedJobs,
+			jobs.SmoothedWorkerBusy, jobs.MainJobs, jobs.MainBusyMilliseconds, jobs.SmoothedWait);
+		if (!jobs.Lanes.empty() && ImGui::BeginTable("##JobLanes", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_ScrollY,
+			ImVec2(0.f, ImGuiTheme::Em(12.f))))
+		{
+			ImGui::TableSetupScrollFreeze(0, 1);
+			ImGui::TableSetupColumn("Lane", ImGuiTableColumnFlags_WidthStretch);
+			ImGui::TableSetupColumn("Jobs", ImGuiTableColumnFlags_WidthFixed, ImGuiTheme::Em(3.5f));
+			ImGui::TableSetupColumn("ms", ImGuiTableColumnFlags_WidthFixed, ImGuiTheme::Em(4.f));
+			ImGui::TableSetupColumn("% frame", ImGuiTableColumnFlags_WidthFixed, ImGuiTheme::Em(6.5f));
+			ImGui::TableHeadersRow();
+			const double frame = std::max(stats.GetSmoothedFrameMilliseconds(), 0.001);
+			for (const FrameStats::JobLane& lane : jobs.Lanes)
+			{
+				ImGui::TableNextRow();
+				ImGui::TableSetColumnIndex(0);
+				ImGui::TextUnformatted(lane.Name.c_str());
+				ImGui::TableSetColumnIndex(1);
+				ImGui::Text("%u", lane.Jobs);
+				ImGui::TableSetColumnIndex(2);
+				ImGui::Text("%.3f", lane.Smoothed);
+				ImGui::TableSetColumnIndex(3);
+				ImGui::ProgressBar(static_cast<float>(std::clamp(lane.Smoothed / frame, 0.0, 1.0)), ImVec2(-1.f, 0.f));
+			}
+			ImGui::EndTable();
+		}
+	}
+
 	if (ImGui::CollapsingHeader("GPU views", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		if (render.Views.empty())
