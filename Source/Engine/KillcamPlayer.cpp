@@ -252,6 +252,8 @@ void KillcamPlayer::Start( World& InLive, const NetKillcamReceiver& InKillcam )
         if( m_populate && !m_populate( *replay, error ) )
         {
             fail( error.empty() ? "the replay world couldn't be made" : error );
+            // What it made goes inside its own scope (scripts' OnDestroy).
+            world.Destroy();
             return;
         }
         world.IsLoading = false;

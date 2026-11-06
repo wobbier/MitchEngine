@@ -9,6 +9,7 @@
 #include "Renderer.h"
 #include "Mathf.h"
 #include "Components/Graphics/PostProcess.h"
+#include <utility>
 
 CameraCore::CameraCore() : Base( ComponentFilter().Requires<Camera>().Requires<Transform>() )
 {
