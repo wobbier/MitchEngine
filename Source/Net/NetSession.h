@@ -213,6 +213,11 @@ public:
     // the usual wait), whose misses therefore didn't grow the slack target. Shorter gaps' misses
     // do (NET-14).
     uint64_t GetOutageCount() const { return m_outages; }
+    // This client's own hitches (ME-313): frames that sent their commands well past the usual
+    // interval, a burst of ticks made late. The server's misses on those ticks are the hitch's, not
+    // the link's, and don't grow the slack target (a link spike's do).
+    uint64_t GetHitchCount() const { return m_hitches; }
+    uint64_t GetHitchMisses() const { return m_hitchMisses; }
 
 private:
     struct Report
@@ -235,6 +240,8 @@ private:
     void NoteReport( const Report& InReport );
     // The newest report of a Receive: the clock, and the misses due to grow the target.
     void Steer( const Report& InReport );
+    // Of the gap InReport ends, the misses on the newest hitch's burst (its own, not the link's).
+    uint64_t TakeHitchMisses( const Report& InReport );
     // Whether the server had stopped hearing this client when it sent InReport.
     bool IsStalled( const Report& InReport ) const;
     // How long the server normally waits between this client's commands, at most (seconds).
@@ -261,6 +268,9 @@ private:
     bool m_hasLastCommand = false;
     double m_lastCommandSentAt = -1.0;
     double m_sendInterval = 0.0;    // smoothed seconds between packets with new commands
+    // Gaps sampled into m_sendInterval (counted to kHitchAfterSamples): it starts from 0.
+    static constexpr int kHitchAfterSamples = 20;
+    int m_sendSamples = 0;
     // The link's round-trip deviation before this Receive's packets: a burst of late packets (a
     // latency spike) inflates it, and must not loosen the stall check on the very reports it held.
     double m_jitterBefore = 0.0;
@@ -281,6 +291,19 @@ private:
     uint64_t m_dueMisses = 0;
     bool m_inOutage = false;
     uint64_t m_outages = 0;
+    // The server tick the last report's misses ran to, and the one the gap's run from (its misses
+    // are on the ticks after it, up to the newest report's).
+    uint32_t m_missesTick = 0;
+    uint32_t m_gapFrom = 0;
+    // The newest hitch's burst, ticks [m_hitchFirst, m_hitchLast], until the gap it caused ends
+    // (the server heard them). m_frameFirstTick: the first tick made since the last packet with
+    // commands went out.
+    bool m_hasHitch = false;
+    uint32_t m_hitchFirst = 0;
+    uint32_t m_hitchLast = 0;
+    uint32_t m_frameFirstTick = 0;
+    uint64_t m_hitches = 0;
+    uint64_t m_hitchMisses = 0;
     bool m_stalled = false;
     uint64_t m_stalls = 0;
     uint64_t m_stalledReports = 0;

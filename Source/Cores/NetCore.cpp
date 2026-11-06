@@ -630,6 +630,8 @@ bool NetCore::WriteReport( const std::string& InPath, double InNow ) const
         report["Resyncs"] = m_client->GetClock().GetResyncCount();
         report["Stalls"] = m_client->GetStallCount();
         report["Outages"] = m_client->GetOutageCount();
+        report["Hitches"] = m_client->GetHitchCount();
+        report["HitchMisses"] = m_client->GetHitchMisses();
         report["Connection"] = StatsJson( m_client->GetConnection().GetStats(), connectedSeconds );
         report["SnapshotsReceived"] = m_replicationClient->GetSnapshotsReceived();
         const double span = m_lastSnapshotAt - m_firstSnapshotAt;
@@ -832,6 +834,8 @@ void NetCore::OnEditorInspect()
         ImGui::Text( "Slack %.2f (target %.2f), dilation %+.1f%%, %d resyncs, %llu stalls, %llu outages", m_client->GetServerSlack(), m_client->GetClock().GetTargetSlack(),
             m_client->GetClock().GetDilation() * 100.f, m_client->GetClock().GetResyncCount(), static_cast<unsigned long long>( m_client->GetStallCount() ),
             static_cast<unsigned long long>( m_client->GetOutageCount() ) );
+        ImGui::Text( "Own hitches: %llu (%llu misses, not counted against the link)", static_cast<unsigned long long>( m_client->GetHitchCount() ),
+            static_cast<unsigned long long>( m_client->GetHitchMisses() ) );
         ImGui::Text( "%zu mirrored, render tick %.1f (delay %.2f)", m_replicationClient->GetEntityCount(), m_replicationClient->GetRenderTick(), m_replicationClient->GetDelayTicks() );
         if( m_predictor )
         {

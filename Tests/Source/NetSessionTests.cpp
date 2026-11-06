@@ -203,6 +203,7 @@ namespace
         uint64_t ExtraMissesFirstSecond = 0;
         uint64_t Stalls = 0;
         uint64_t Outages = 0;
+        uint64_t Hitches = 0;           // the client's own (ME-313): none, the link went
         bool Connected = false;
         // The second client, from the cut to the end.
         int PeerResyncs = 0;
@@ -289,6 +290,7 @@ namespace
         report.Resyncs = client.GetClock().GetResyncCount() - resyncsBefore;
         report.Stalls = client.GetStallCount() - stallsBefore;
         report.Outages = client.GetOutageCount() - outagesBefore;
+        report.Hitches = client.GetHitchCount();
         report.TargetAfter = client.GetClock().GetTargetSlack();
         // The first commands sent after the return reach the server a client frame, the latency
         // and its jitter, and a tick later at most.
@@ -1059,6 +1061,7 @@ TEST_CASE( "Net: after a link outage up, down or both ways, the clock holds stil
             // is neither.
             CHECK( report.Stalls == ( c.Up ? 1u : 0u ) );
             CHECK( report.Outages == ( c.Up ? 1u : 0u ) );
+            CHECK( report.Hitches == 0u );
             CHECK( report.SettleSeconds <= 0.25 );
             CHECK( report.ExtraMisses == 0 );
             // No command older than the steady state's (a tick of rounding).
@@ -1125,6 +1128,7 @@ TEST_CASE( "Net: outages hold the clock at 20 and 30 fps and at 128 Hz, and a se
             CHECK( report.Stalls >= ( c.Outage.Down ? 0u : 1u ) );
             CHECK( report.Stalls <= 2u );
             CHECK( report.Outages == 1u );
+            CHECK( report.Hitches == 0u );
             if( lossy )
             {
                 // At 20 or 30 fps, or 128 Hz, a lossy link misses now and then anyway (a lost packet is
@@ -1164,12 +1168,18 @@ TEST_CASE( "Net: a client that hitches comes back without a resync when it catch
     // a second or more of late commands, each a miss that grew the target, until it was deep
     // enough to resync anyway (to 7 ticks after 0.18 s, easing back over 20 s). Behind by more
     // than BehindTicks, it jumps at once.
+    // Shorter hitches, caught up in full, leave gaps a deeper buffer would have covered, but
+    // they're the client's own (ME-313): it knows it sent late, and the server's misses on the
+    // ticks it made late don't grow the target (they took it to 4, 6 and 8 for 0.05, 0.1 and
+    // 0.15-0.17 s, easing back over 20 s and more). Nor does the round trip of a packet it read
+    // late (it took the jitter floor, and the target, to 2 after 0.05 s).
     struct Case
     {
         int CatchUp;
         double Hitch;
     };
-    for( const Case c : { Case{ 1000, 0.3 }, Case{ 1000, 1.0 }, Case{ 8, 0.18 }, Case{ 8, 0.2 }, Case{ 8, 0.25 }, Case{ 8, 0.3 }, Case{ 8, 1.0 } } )
+    for( const Case c : { Case{ 1000, 0.05 }, Case{ 1000, 0.1 }, Case{ 1000, 0.15 }, Case{ 1000, 0.17 }, Case{ 8, 0.05 }, Case{ 8, 0.1 }, Case{ 8, 0.15 },
+             Case{ 1000, 0.3 }, Case{ 1000, 1.0 }, Case{ 8, 0.18 }, Case{ 8, 0.2 }, Case{ 8, 0.25 }, Case{ 8, 0.3 }, Case{ 8, 1.0 } } )
     {
         const int catchUp = c.CatchUp;
         const double hitch = c.Hitch;
@@ -1201,13 +1211,22 @@ TEST_CASE( "Net: a client that hitches comes back without a resync when it catch
         const double staleBefore = probe.WorstStaleMs( hitchAt - 5.0, hitchAt );
         const float deepest = probe.MaxTarget( hitchAt, net.Now() + 1.0 );
         MESSAGE( "hitch " << hitch << " s, catch-up " << catchUp << " ticks: " << resyncs << " resyncs, " << client.GetStallCount() << " stalls, "
-            << client.GetOutageCount() << " outages, settled " << settled << " s after, misses " << probe.Misses( hitchAt, freshAt ) << " own + " << late
+            << client.GetOutageCount() << " outages, " << client.GetHitchCount() << " hitches (" << client.GetHitchMisses() << " misses its own), settled " << settled << " s after, misses " << probe.Misses( hitchAt, freshAt ) << " own + " << late
             << " late (" << after << " after 0.1 s), worst stale " << stale << " ms (before " << staleBefore << "), target " << targetBefore << " -> "
             << client.GetClock().GetTargetSlack() << " (deepest " << deepest << ")" );
+        // Past MaxSlack and the usual wait (0.18 s and more), the gap is an outage.
+        const bool outage = hitch > 0.175;
         CHECK( client.GetState() == NetClient::State::Connected );
-        CHECK( resyncs == ( catchUp > 100 ? 0 : 1 ) );
-        CHECK( client.GetStallCount() == 1 );
-        CHECK( client.GetOutageCount() == 1 );
+        CHECK( resyncs == ( catchUp > 100 || !outage ? 0 : 1 ) );
+        // 0.05 s is inside the usual wait: no stall.
+        CHECK( client.GetStallCount() == ( hitch > 0.075 ? 1u : 0u ) );
+        CHECK( client.GetOutageCount() == ( outage ? 1u : 0u ) );
+        // The client saw its own hitch, and every miss of a short one was its own.
+        CHECK( client.GetHitchCount() == 1 );
+        if( !outage )
+        {
+            CHECK( client.GetHitchMisses() == probe.Misses( hitchAt, net.Now() + 1.0 ) );
+        }
         // A jump of 4 ticks or less the server's smoothed slack follows over 10 ticks or so (it
         // takes a bigger one at once).
         CHECK( settled <= ( catchUp < 100 && hitch < 0.25 ? 0.35 : 0.25 ) );
@@ -1665,6 +1684,8 @@ TEST_CASE( "Net: periodic latency spikes cost misses once or twice, then the ada
         CHECK( client.GetState() == NetClient::State::Connected );
         CHECK( client.GetClock().GetResyncCount() == resyncsBefore );
         CHECK( client.GetOutageCount() == outagesBefore );
+        // The link's spikes aren't the client's own hitches (ME-313): their misses grow the target.
+        CHECK( client.GetHitchCount() == 0u );
         // The first spike or two cost what the buffer didn't cover; then it covers them.
         CHECK( perSpike[0] > 0u );
         CHECK( worstLater <= 2u );

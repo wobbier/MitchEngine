@@ -15,7 +15,7 @@ namespace
     // A packet handled long after this end last sent waited on it (a hitch, a breakpoint): when it
     // really arrived is unknown, so it says nothing about the round trip. Long: past this, or three
     // of this end's usual gaps between packets (a slow end sends seldom, and must still sample).
-    constexpr double kMaxRoundTripWait = 0.1;
+    constexpr double kMaxRoundTripWait = 0.05;
     constexpr double kRoundTripWaitGaps = 3.0;
     // A gap between packets counts this much at most towards the usual one (a hitch's is no guide).
     constexpr double kMaxSendGapSample = 0.5;

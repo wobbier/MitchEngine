@@ -585,6 +585,9 @@ void NetClient::NoteReport( const Report& InReport )
     const uint64_t misses = m_hasMissReport && InReport.Misses > m_lastMisses ? InReport.Misses - m_lastMisses : 0;
     m_hasMissReport = true;
     m_lastMisses = std::max( m_lastMisses, InReport.Misses );
+    // They're on the server's ticks since the last report's, to this one's.
+    const uint32_t missesFrom = m_missesTick;
+    m_missesTick = InReport.ServerTick;
     if( !InReport.HasCommands )
     {
         return;
@@ -624,6 +627,10 @@ void NetClient::NoteReport( const Report& InReport )
     const double usual = GetUsualWait();
     const double tick = 1.0 / static_cast<double>( std::max<uint16_t>( m_tickRate, 1 ) );
     const double limit = usual + m_clock.GetSettings().MaxSlack * tick;
+    if( m_gapMisses == 0 )
+    {
+        m_gapFrom = missesFrom;
+    }
     m_gapMisses += misses;
     if( !m_inOutage && ( InReport.Waited > limit || ( static_cast<double>( m_gapMisses ) + m_clock.GetTargetSlack() ) * tick > limit ) )
     {
@@ -639,10 +646,32 @@ void NetClient::NoteReport( const Report& InReport )
         // The server hears this client again (a newer command, just now): the gap, if any, ended,
         // and a buffer that much deeper would have covered it. (A newest that moved long ago, from
         // a packet already on its way when the gap began, doesn't end it.)
-        m_dueMisses += m_gapMisses;
+        m_dueMisses += m_gapMisses - TakeHitchMisses( InReport );
         m_gapMisses = 0;
         m_inOutage = false;
     }
+}
+
+
+uint64_t NetClient::TakeHitchMisses( const Report& InReport )
+{
+    if( !m_hasHitch )
+    {
+        return 0;
+    }
+    // The gap's misses are on the server's ticks after m_gapFrom, up to the report's, one a tick
+    // at most: as many as fall on the hitch's burst are its own (made late; a deeper buffer would
+    // have covered them, but only by holding every command that much longer from then on).
+    const int64_t from = std::max<int64_t>( static_cast<int64_t>( m_gapFrom ) + 1, m_hitchFirst );
+    const int64_t to = std::min<int64_t>( InReport.ServerTick, m_hitchLast );
+    const uint64_t own = std::min<uint64_t>( m_gapMisses, static_cast<uint64_t>( std::max<int64_t>( 0, to - from + 1 ) ) );
+    m_hitchMisses += own;
+    // The server has heard the burst: the hitch's gap is over.
+    if( InReport.Newest >= m_hitchFirst )
+    {
+        m_hasHitch = false;
+    }
+    return own;
 }
 
 
@@ -684,6 +713,7 @@ void NetClient::Steer( const Report& InReport )
         m_hasResyncSequence = false;
         m_gapMisses = 0;
         m_inOutage = false;
+        m_hasHitch = false;
         return;
     }
     // The buffer grows to cover them (NET-14).
@@ -716,6 +746,10 @@ void NetClient::SubmitCommand( InputCommand InCommand )
             filler.Tick = tick;
             m_commands.push_back( filler );
         }
+    }
+    if( !m_newCommand )
+    {
+        m_frameFirstTick = InCommand.Tick;
     }
     m_commands.push_back( InCommand );
     m_lastCommand = InCommand;
@@ -756,7 +790,20 @@ void NetClient::Flush( double InNow )
         // quarter second at most: it's no guide to the usual.)
         if( m_lastCommandSentAt >= 0.0 )
         {
+            // This client hitched (ME-313): its commands since the last went out over two ticks
+            // past the usual interval, a burst made late. The server's misses on those ticks are
+            // the hitch's, not the link's. (Once the usual is known: it starts from 0, and a slow
+            // client's first gaps aren't hitches.)
+            const double tick = 1.0 / static_cast<double>( std::max<uint16_t>( m_tickRate, 1 ) );
+            if( m_state == State::Connected && m_sendSamples >= kHitchAfterSamples && InNow - m_lastCommandSentAt > std::max( tick, m_sendInterval ) + 2.0 * tick )
+            {
+                m_hasHitch = true;
+                m_hitchFirst = m_frameFirstTick;
+                m_hitchLast = m_lastCommand.Tick;
+                ++m_hitches;
+            }
             m_sendInterval += ( std::clamp( InNow - m_lastCommandSentAt, 0.0, 0.25 ) - m_sendInterval ) * 0.1;
+            m_sendSamples += m_sendSamples < kHitchAfterSamples ? 1 : 0;
         }
         m_lastCommandSentAt = InNow;
     }
