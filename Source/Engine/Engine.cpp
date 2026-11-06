@@ -983,6 +983,11 @@ void Engine::Run()
                 GameWorld->Simulate();
             }
 
+            // NET-7: gameplay is done with the frame, so the predicted pawn is drawn where its
+            // smoothed correction puts it (render-only: undone after Render) for audio, cameras and
+            // render prep.
+            Net->BeginPresentation();
+
             // Audio (after gameplay and animation moved this frame's listener and sources)
             {
                 ME_STAT_SCOPE( "Audio" );
@@ -1081,6 +1086,7 @@ void Engine::Run()
                 DebugDraw::EndFrame( updateContext.GetUnscaledDeltaTime() );
                 m_game->PostRender();
             }
+            Net->EndPresentation();
             FrameStats::Get().EndFrame( std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - frameStartTime ).count() );
             HardwareBudget::Get().Update();
             PlayerSettings::Get().Update();

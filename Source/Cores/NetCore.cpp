@@ -1195,6 +1195,7 @@ bool NetCore::WriteReport( const std::string& InPath, double InNow ) const
 
 void NetCore::Shutdown()
 {
+    EndPresentation();
     StopRecording();
     m_recorder.reset();
     m_playback.reset();
@@ -1220,6 +1221,7 @@ void NetCore::Shutdown()
 
 void NetCore::Receive( double InNow )
 {
+    EndPresentation();
     m_lastNow = InNow;
     if( !IsActive() )
     {
@@ -1259,6 +1261,7 @@ void NetCore::Receive( double InNow )
 
 void NetCore::BeginTick( uint32_t InTicksOwed )
 {
+    EndPresentation();
     if( m_playback )
     {
         m_tick = m_playback->GetTick();
@@ -1381,6 +1384,46 @@ void NetCore::WriteInterpolated( double InFrameSeconds )
             m_predictor->UpdateSmoothing( InFrameSeconds );
         }
     }
+}
+
+
+void NetCore::BeginPresentation()
+{
+    EndPresentation();
+    if( !m_client || !m_predictor || !m_predictor->GetPawn() )
+    {
+        return;
+    }
+    const Vector3 offset = m_predictor->GetVisualOffset();
+    Transform* transform = offset.IsZero() ? nullptr : m_predictor->GetPawn()->TryGetComponent<Transform>();
+    if( !transform )
+    {
+        return;
+    }
+    m_presentation.Active = true;
+    m_presentation.Pawn = m_predictor->GetPawn();
+    m_presentation.Simulated = transform->GetPosition();
+    transform->SetWorldPosition( transform->GetWorldPosition() + offset );
+    m_presentation.Presented = transform->GetPosition();
+}
+
+
+void NetCore::EndPresentation()
+{
+    if( !m_presentation.Active )
+    {
+        return;
+    }
+    m_presentation.Active = false;
+    Transform* transform = m_presentation.Pawn ? m_presentation.Pawn->TryGetComponent<Transform>() : nullptr;
+    // Back to the simulated pose bit for bit (the local position, so a parent's matrix can't round
+    // it), unless something moved it meanwhile.
+    const Vector3* now = transform ? &transform->GetPosition() : nullptr;
+    if( now && now->x == m_presentation.Presented.x && now->y == m_presentation.Presented.y && now->z == m_presentation.Presented.z )
+    {
+        transform->SetPosition( m_presentation.Simulated );
+    }
+    m_presentation.Pawn = EntityHandle();
 }
 
 

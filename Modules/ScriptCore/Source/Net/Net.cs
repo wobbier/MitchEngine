@@ -258,10 +258,12 @@ public static unsafe class Net
     }
 
     /// <summary>
-    /// A client's predicted pawn: where to draw it relative to its simulated pose (Transform), the
-    /// rest of a correction being smoothed out (gone in about 100 ms). Draw its meshes, or put the
-    /// camera, at the Transform plus this. Corrections over 2 m (a teleport, a respawn) snap, so
-    /// it's zero then. Zero for anything else, on the server and offline.
+    /// A client's predicted pawn: where it's drawn relative to its simulated pose (Transform), the
+    /// rest of a correction being smoothed out (gone in about 100 ms). The engine draws the pawn and
+    /// everything under it (meshes, an attached camera, audio sources) there itself, after the late
+    /// update; scripts always read the simulated pose. Add this to place something from the pawn's
+    /// pose yourself (a camera that isn't its child, an effect). Corrections over 2 m (a teleport, a
+    /// respawn) snap, so it's zero then. Zero for anything else, on the server and offline.
     /// </summary>
     public static Vector3 VisualOffset(Entity pawn)
     {

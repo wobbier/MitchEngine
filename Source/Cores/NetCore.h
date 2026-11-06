@@ -162,6 +162,16 @@ public:
     // After the frame's physics poses: the client shows mirrored entities interpolated (NET-3).
     void WriteInterpolated( double InFrameSeconds );
     double GetClockScale() const;
+    // The predicted pawn's visual offset (NET-7), for presentation only. BeginPresentation adds it to
+    // the pawn's Transform once gameplay is done with the frame (after the late update), so its
+    // children (meshes, an attached camera, audio sources), audio, cameras and render prep draw it
+    // where it was before a correction, gliding to where it is; EndPresentation puts the simulated
+    // pose back, exactly, once the frame has rendered. Gameplay, physics and the network never see
+    // the offset (Receive and BeginTick end a presentation left open). A Transform moved in between
+    // (the editor) keeps the move.
+    void BeginPresentation();
+    void EndPresentation();
+    bool IsPresenting() const { return m_presentation.Active; }
     // A server never drops ticks to catch up: every client's commands need simulating.
     bool KeepsBacklog() const { return IsServer(); }
 
@@ -284,6 +294,14 @@ private:
     NetPredictor::CommandHandler m_commandHandler;
     std::unique_ptr<NetPredictor> m_predictor;
     NetLagCompensation m_lagCompensation;
+    // BeginPresentation's pawn, its simulated local position and the one presented.
+    struct Presentation
+    {
+        bool Active = false;
+        EntityHandle Pawn;
+        Vector3 Simulated;
+        Vector3 Presented;
+    } m_presentation;
     uint32_t m_tick = 0;
     INetTransport* m_transport = nullptr;
     ScriptGlue m_glue;

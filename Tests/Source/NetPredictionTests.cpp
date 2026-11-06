@@ -200,7 +200,11 @@ TEST_CASE( "Net: at 150 ms RTT a walk/jump course predicts with 0 corrections; a
         Step( serverPhysics, *net.ServerWorld );
         serverStates[InServer.GetTick()] = serverPawn->GetComponent<CharacterController>().GetNetState();
     };
-    net.OnClientTick = [&]( NetCore& ) { Step( clientPhysics, *net.ClientWorld ); };
+    std::map<uint32_t, CharacterController::NetState> clientStates;   // after each predicted tick
+    net.OnClientTick = [&]( NetCore& InNet ) {
+        Step( clientPhysics, *net.ClientWorld );
+        clientStates[InNet.GetTick()] = clientPawn->GetComponent<CharacterController>().GetNetState();
+    };
     net.Start();
     net.ClientNet.Predict( clientPawn );
     NetPredictor& predictor = *net.ClientNet.GetPredictor();
@@ -219,9 +223,36 @@ TEST_CASE( "Net: at 150 ms RTT a walk/jump course predicts with 0 corrections; a
     knockbackTick = static_cast<int>( net.ServerNet.GetServer()->GetTick() ) + 5;
     std::vector<float> offsetsAfter;
     bool corrected = false;
+    // Each frame as the engine presents it (NET-7): the simulated pose, then the pawn as drawn
+    // (BeginPresentation, after gameplay), then the simulated pose back (EndPresentation).
+    struct Shown
+    {
+        Vector3 Simulated;
+        Vector3 Drawn;
+        bool Restored = false;      // EndPresentation put the simulated pose back to the bit
+    };
+    std::vector<Shown> shown;
+    size_t correctionFrame = 0;
+    uint32_t correctedTick = 0;     // the pawn's newest tick on that frame, and its state
+    CharacterController::NetState correctedState;
+    Transform& clientTransform = clientPawn->GetComponent<Transform>();
     net.OnClientFrame = [&]( NetClient& ) {
+        Shown frame;
+        frame.Simulated = clientTransform.GetWorldPosition();
+        net.ClientNet.BeginPresentation();
+        frame.Drawn = clientTransform.GetWorldPosition();
+        net.ClientNet.EndPresentation();
+        const Vector3 after = clientTransform.GetWorldPosition();
+        frame.Restored = after.x == frame.Simulated.x && after.y == frame.Simulated.y && after.z == frame.Simulated.z;
+        shown.push_back( frame );
         if( predictor.GetCorrectionCount() > 0 )
         {
+            if( !corrected )
+            {
+                correctionFrame = shown.size() - 1;
+                correctedTick = clientStates.rbegin()->first;
+                correctedState = clientPawn->GetComponent<CharacterController>().GetNetState();
+            }
             corrected = true;
             offsetsAfter.push_back( predictor.GetVisualOffset().Length() );
         }
@@ -248,6 +279,37 @@ TEST_CASE( "Net: at 150 ms RTT a walk/jump course predicts with 0 corrections; a
     CHECK( knocked.Resimulated.size() > 5 );   // a round trip of ticks at 150 ms
     MESSAGE( "knockback at tick " << knocked.Tick << ": " << knocked.Describe() << "; " << knocked.Resimulated.size() << " ticks resimulated" );
     CHECK( knocked.Authoritative == serverStates[knocked.Tick] );
+
+    // Presented (NET-7): the simulated pawn is the server's at once, the drawn one glides. On the
+    // frame the correction came, the pawn's newest tick is exactly the server's state for that tick
+    // and its Transform (outside the presentation) is that state; the drawn pawn never moves more
+    // than 1/6 of the correction in a frame beyond the simulated pawn's own motion (100 ms of
+    // smoothing at 60 frames a second), and the simulated pose comes back bit for bit every frame.
+    REQUIRE( correctionFrame > 0 );
+    CHECK( correctedState == serverStates[correctedTick] );
+    CHECK( clientStates[correctedTick] == correctedState );
+    CHECK( ( shown[correctionFrame].Simulated - correctedState.Position ).Length() == 0.f );
+    CHECK( ( shown[correctionFrame].Drawn - shown[correctionFrame].Simulated ).Length() > 0.1f );
+    const float jump = knocked.PresentJump.Length();
+    float worstStep = 0.f;
+    size_t restored = 0;
+    for( size_t i = correctionFrame; i < shown.size(); ++i )
+    {
+        // The simulated pawn's own motion this frame: what it moved, less the correction's jump.
+        const Vector3 motion = shown[i].Simulated - shown[i - 1].Simulated - ( i == correctionFrame ? knocked.PresentJump : Vector3() );
+        worstStep = std::max( worstStep, ( shown[i].Drawn - shown[i - 1].Drawn - motion ).Length() );
+    }
+    for( const Shown& frame : shown )
+    {
+        restored += frame.Restored ? 1 : 0;
+    }
+    MESSAGE( "presented: a " << jump * 1000.f << " mm correction, the drawn pawn's biggest step beyond its motion " << worstStep * 1000.f << " mm (1/6: " << jump / 6.f * 1000.f
+        << " mm)" );
+    CHECK( jump > 0.1f );
+    CHECK( worstStep <= jump / 6.f + 1e-4f );
+    CHECK( worstStep > jump / 7.f );   // it did glide: in steps, not all at once nor not at all
+    CHECK( restored == shown.size() );
+    CHECK_FALSE( net.ClientNet.IsPresenting() );
 
     // Exported (on the background lane), read back, and run again offline in a world of its own
     // with the same level: the client's prediction for the tick comes out again bit for bit (the
