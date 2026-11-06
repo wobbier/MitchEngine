@@ -522,6 +522,13 @@ void Havana::NewFrame()
         ImGui::PopStyleVar( 3 );
         ImGuiID dockspace_id = ImGui::GetID( "MyDockspace" );
         ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
+        // Maximize On Play covers the dock with the Game View: keep the layout but hide every
+        // panel docked in it, so none of them draws (or, the World View, renders its camera)
+        // unseen behind the game. Panels floating in their own windows stay.
+        if( GameSceneView && GameSceneView->MaximizeOnPlay )
+        {
+            dockspace_flags |= ImGuiDockNodeFlags_KeepAliveOnly;
+        }
         {
             OPTICK_EVENT( "Dockspace Create", Optick::Category::UI );
             ImGui::DockSpace( dockspace_id, ImVec2( 0.0f, 0.0f ), dockspace_flags );
