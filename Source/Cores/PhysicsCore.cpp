@@ -278,7 +278,7 @@ void* PhysicsCore::EnqueueTask( void* InTask, void* InTaskContext, void* InUserC
     Jobs::JobSystem::Get().Submit( slot.Counter, []( void* context, uint32_t, uint32_t ) {
         PhysicsTask* job = static_cast<PhysicsTask*>( context );
         reinterpret_cast<b3TaskCallback*>( job->Task )( job->Context );
-    }, &slot, 0, 1 );
+    }, &slot, 0, 1, "Physics Task" );
     return &slot;
 }
 

@@ -296,7 +296,7 @@ void* Physics2DCore::EnqueueTask( void* InTask, int InItemCount, int InMinRange,
             PhysicsTask* job = static_cast<PhysicsTask*>( context );
             // Worker indices are 0 (the stepping thread) .. thread count - 1, as Box2D expects.
             reinterpret_cast<b2TaskCallback*>( job->Task )( static_cast<int>( rangeBegin ), static_cast<int>( rangeEnd ), Jobs::JobSystem::GetCurrentThreadIndex(), job->Context );
-        }, &slot, static_cast<uint32_t>( begin ), static_cast<uint32_t>( end ) );
+        }, &slot, static_cast<uint32_t>( begin ), static_cast<uint32_t>( end ), "Physics2D Task" );
     }
     return &slot;
 }

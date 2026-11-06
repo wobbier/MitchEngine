@@ -587,7 +587,7 @@ void Transform::UpdateAll( World& InWorld )
         frontier.swap( next );
     }
 
-    jobs.ParallelFor( static_cast<uint32_t>( frontier.size() ), 1, [&frontier]( uint32_t begin, uint32_t end ) {
+    jobs.ParallelFor( "Transform::UpdateAll", static_cast<uint32_t>( frontier.size() ), 1, [&frontier]( uint32_t begin, uint32_t end ) {
         for( uint32_t i = begin; i < end; ++i )
         {
             UpdateSubtree( *frontier[i].Node, frontier[i].ParentChanged );

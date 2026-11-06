@@ -1146,7 +1146,7 @@ void AnimationCore::Advance( float InDeltaSeconds )
         }
     }
 
-    Jobs::JobSystem::Get().ParallelFor( static_cast<uint32_t>( active.size() ), 1, [&active]( uint32_t begin, uint32_t end ) {
+    Jobs::JobSystem::Get().ParallelFor( "Animation", static_cast<uint32_t>( active.size() ), 1, [&active]( uint32_t begin, uint32_t end ) {
         for( uint32_t i = begin; i < end; ++i )
         {
             SamplePose( *active[i] );

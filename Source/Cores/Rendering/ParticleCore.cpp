@@ -54,7 +54,7 @@ void ParticleCore::Update( const UpdateContext& inUpdateContext )
     }
 
     const float dt = inUpdateContext.GetDeltaTime();
-    engine.GetJobSystem().ParallelFor( static_cast<uint32_t>( entities.size() ), 1, [&]( uint32_t begin, uint32_t end ) {
+    engine.GetJobSystem().ParallelFor( "Particles", static_cast<uint32_t>( entities.size() ), 1, [&]( uint32_t begin, uint32_t end ) {
         for( uint32_t i = begin; i < end; ++i )
         {
             Entity& entity = entities[i];

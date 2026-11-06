@@ -1931,7 +1931,7 @@ void BGFXRenderer::GatherShadowCasters()
     }
     m_shadowCasterChunkCount = chunkCount;
     m_shadowCasterChunkOffsets.resize( chunkCount );
-    Jobs::JobSystem::Get().ParallelFor( chunkCount, 1, [this, commandCount]( uint32_t InBegin, uint32_t InEnd ) {
+    Jobs::JobSystem::Get().ParallelFor( "Shadow Caster Chunks", chunkCount, 1, [this, commandCount]( uint32_t InBegin, uint32_t InEnd ) {
         for( uint32_t chunk = InBegin; chunk < InEnd; ++chunk )
         {
             std::vector<ShadowCaster>& casters = m_shadowCasterChunks[chunk];
@@ -2018,7 +2018,7 @@ void BGFXRenderer::CullShadowCasters( const Frustum* InFrustums, uint32_t InCoun
     OPTICK_EVENT( "Renderer::CullShadowCasters" );
     m_shadowCasterViews.assign( m_shadowCasterCount, 0u );
     const uint32_t count = std::min<uint32_t>( InCount, 32u );
-    Jobs::JobSystem::Get().ParallelFor( m_shadowCasterChunkCount, 1, [this, InFrustums, count]( uint32_t InBegin, uint32_t InEnd ) {
+    Jobs::JobSystem::Get().ParallelFor( "Cull Shadow Casters", m_shadowCasterChunkCount, 1, [this, InFrustums, count]( uint32_t InBegin, uint32_t InEnd ) {
         for( uint32_t chunk = InBegin; chunk < InEnd; ++chunk )
         {
             const std::vector<ShadowCaster>& casters = m_shadowCasterChunks[chunk];

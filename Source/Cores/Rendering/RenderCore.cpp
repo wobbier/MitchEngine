@@ -660,7 +660,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                 vertexJobs.push_back( { &mesh, begin, std::min( begin + 4096, count ), AABB() } );
         }
     }
-    engine.GetJobSystem().ParallelFor( static_cast<uint32_t>( vertexJobs.size() ), 1,
+    engine.GetJobSystem().ParallelFor( "Render Prep: Vertices", static_cast<uint32_t>( vertexJobs.size() ), 1,
         [&]( uint32_t begin, uint32_t end ) {
             OPTICK_EVENT( "Vertex Animation" );
             for( uint32_t i = begin; i < end; ++i )
@@ -714,7 +714,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         cam.VisibleFlags.resize( items.size() );
     }
 
-    engine.GetJobSystem().ParallelFor( static_cast<uint32_t>( items.size() ), 128, [&]( uint32_t batchBegin, uint32_t batchEnd )
+    engine.GetJobSystem().ParallelFor( "Render Prep: Mesh Commands", static_cast<uint32_t>( items.size() ), 128, [&]( uint32_t batchBegin, uint32_t batchEnd )
             {
                 OPTICK_CATEGORY( "Mesh Job", Optick::Category::Debug );
                 for( uint32_t entIndex = batchBegin; entIndex < batchEnd; ++entIndex )

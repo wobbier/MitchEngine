@@ -330,7 +330,7 @@ void NetReplicationServer::PrepareSnapshots()
     };
     if( Settings.UseJobs && clients.size() > 1 )
     {
-        Jobs::JobSystem::Get().ParallelFor( static_cast<uint32_t>( clients.size() ), 1, prepare );
+        Jobs::JobSystem::Get().ParallelFor( "Net Snapshot Encode", static_cast<uint32_t>( clients.size() ), 1, prepare );
     }
     else
     {
