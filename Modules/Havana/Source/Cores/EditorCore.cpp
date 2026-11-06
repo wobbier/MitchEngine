@@ -8,6 +8,7 @@
 #include <Havana.h>
 #include <Events/HavanaEvents.h>
 #include <optick.h>
+#include <Profiling/FrameStats.h>
 #include <World/Scene.h>
 #include <Utils/EditorConfig.h>
 #include "Events/EditorEvents.h"
@@ -213,6 +214,7 @@ void EditorCore::SaveCameraState()
 void EditorCore::Update( const UpdateContext& inUpdateContext )
 {
     OPTICK_CATEGORY( "EditorCore::Update", Optick::Category::UI );
+    ME_STAT_SCOPE( "Editor Core" );
 
     if( FirstUpdate )
     {
@@ -283,7 +285,10 @@ void EditorCore::Update( const UpdateContext& inUpdateContext )
     overlays.GridOffset = config.GetPreference<float>( "Scene.GridOffset", 0.f );
     overlays.ShowGizmos = config.GetPreference<bool>( "Scene.ShowGizmos", true );
     overlays.ShowSelection = config.GetPreference<bool>( "Scene.ShowSelection", true );
-    SceneTools::DrawOverlays( EditorCameraTransform->GetPosition(), overlays );
+    {
+        ME_STAT_SCOPE( "Editor Overlays" );
+        SceneTools::DrawOverlays( EditorCameraTransform->GetPosition(), overlays );
+    }
 }
 
 
