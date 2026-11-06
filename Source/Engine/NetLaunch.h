@@ -27,6 +27,22 @@ class ConditionedTransport;
 //   --record-replay [file]   server: record the match (ME-316) to file (user://Replays/<UTC time>.mreplay
 //                            when omitted; user:// paths go to the user folder, a bare file name to
 //                            user://Replays/, other relative paths to the working directory). Read it with --replay-dump
+//
+// Match replay playback (ME-316 phase 2), in a client build (the Player), with no session:
+//   --replay file            play a replay into the loaded scene (it must be the scene it was recorded on:
+//                            --scene when it isn't the startup one); user:// paths and bare names found
+//                            under user://Replays/ work too. Plays from the first tick
+//   --replay-start-tick N    start at tick N
+//   --replay-paused          start paused
+//   --replay-pause-at N      pause when playing reaches tick N
+//   --replay-speed X         0.1 to 4
+//   --replay-loop A:B        play ticks A to B over and over
+//   --replay-check           once paused at --replay-pause-at (or the start, paused), check the world
+//                            against the recording (NetCore::CheckPlayback), log every entity, and quit:
+//                            exit code 1 when anything differs (headless tests)
+// The console's "replay" command (play, pause, step, seek, speed, loop, pause-at, check, info) drives it
+// too (the edscript "console replay ..." and --console "replay ..."), and game-tools builds draw a
+// Replay window (Space play / pause, Left / Right step, Shift for 10).
 class NetLaunch
 {
 public:
@@ -49,6 +65,11 @@ public:
     bool Update( NetCore& InNet );
     // Before the engine shuts down: the report, goodbyes, the session ends.
     void Shutdown( NetCore& InNet, double InNow );
+
+    // --replay was given (ME-316).
+    static bool IsReplaying();
+    // Game-tools builds with ImGui: the Replay window while a replay plays.
+    void DrawReplayControls( NetCore& InNet );
 
     // Networked input actions (NET-6, InputAction::Networked), sorted by name: buttons take the
     // command's bits in that order, Value / Vector2 actions its 4 axes. Built before Start.
@@ -100,6 +121,15 @@ private:
     std::string m_reportPath;
     // Starts the match replay if the command line asks (a server; logged either way).
     void StartRecording( NetCore& InNet );
+    // --replay: opens the file and starts the playback with the --replay-* options.
+    bool StartReplay( NetCore& InNet );
+    // The console's "replay" command (registered once).
+    void RegisterReplayCommands( NetCore& InNet );
+    // --replay-check, once the playhead rests where it was asked to: false when the world differs.
+    bool RunReplayCheck( NetCore& InNet );
+    bool m_replayCheck = false;
+    int m_replayCheckWait = 0;          // frames paused on the tick before checking (spawns settle)
+    bool m_replayChecked = false;
     std::string m_error;
     bool m_requested = false;
     bool m_exitWhenEmpty = false;

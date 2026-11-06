@@ -1054,6 +1054,8 @@ void Engine::Run()
 #if USING( ME_IMGUI )
                 // PLAY-10: ~ opens the developer console.
                 DevConsole::Get().UpdateAndDraw( GetInput().WasKeyPressed( KeyCode::Tilde ) );
+                // ME-316: the Replay window while Player --replay plays.
+                m_netLaunch.DrawReplayControls( *Net );
                 if( CommandLine::Has( "--budget-hud" ) )
                 {
                     // Top right. ImGui positions are in screen space (multi-viewport), so offset from the window.

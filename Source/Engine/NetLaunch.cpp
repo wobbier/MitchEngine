@@ -8,6 +8,8 @@
 #include "Net/NetTransport.h"
 #include "Net/NetVersion.h"
 #include "Net/UdpTransport.h"
+#include "Components/Transform.h"
+#include "Engine/DevConsole.h"
 #include "Engine/Engine.h"
 #include "Engine/Input.h"
 #include "Engine/Project.h"
@@ -17,6 +19,9 @@
 #include "Window/IWindow.h"
 #if USING( ME_SCRIPTING )
 #include "Scripting/ScriptNet.h"
+#endif
+#if USING( ME_IMGUI ) && !USING( ME_EDITOR )
+#include <imgui.h>
 #endif
 #include <algorithm>
 #include <cmath>
@@ -158,7 +163,13 @@ NetLaunch::~NetLaunch() = default;
 
 bool NetLaunch::IsRequested()
 {
-    return IsHosting() || CommandLine::Has( "--connect" );
+    return IsHosting() || CommandLine::Has( "--connect" ) || IsReplaying();
+}
+
+
+bool NetLaunch::IsReplaying()
+{
+    return CommandLine::Has( "--replay" );
 }
 
 
@@ -167,7 +178,7 @@ bool NetLaunch::IsHosting()
 #if USING( ME_HEADLESS )
     // A dedicated server has nothing else to do: a shipped one (Build Game's Server profile) hosts
     // on the default port when started with no arguments.
-    return !CommandLine::Has( "--connect" );
+    return !CommandLine::Has( "--connect" ) && !IsReplaying();
 #else
     return CommandLine::Has( "--server" );
 #endif
@@ -210,6 +221,16 @@ bool NetLaunch::Start( NetCore& InNet, uint16_t InTickRate, IWindow* InWindow, c
 #if USING( ME_SCRIPTING )
     InNet.SetScriptGlue( MakeScriptNetGlue() );
 #endif
+    if( IsReplaying() )
+    {
+        if( host || CommandLine::Has( "--connect" ) )
+        {
+            m_error = "--replay plays without a session: drop --server / --connect";
+            Say( CLog::LogType::Error, "Net: " + m_error );
+            return false;
+        }
+        return StartReplay( InNet );
+    }
 
     NetAddress server = 0;
     uint16_t port = 0;
@@ -291,6 +312,21 @@ bool NetLaunch::Update( NetCore& InNet )
     if( !m_error.empty() )
     {
         return true;
+    }
+    if( NetReplayPlayback* playback = InNet.GetPlayback() )
+    {
+        // --replay-check: once the playhead rests on its tick (and a few frames have let what it
+        // spawned settle), check and quit.
+        if( m_replayCheck && !m_replayChecked && playback->IsPaused() && playback->GetPauseAt() < 0 )
+        {
+            if( ++m_replayCheckWait >= 3 )
+            {
+                m_replayChecked = true;
+                RunReplayCheck( InNet );
+                return true;
+            }
+        }
+        return false;
     }
     if( NetServer* server = InNet.GetServer() )
     {
@@ -568,6 +604,374 @@ void NetLaunch::StartRecording( NetCore& InNet )
     {
         Say( CLog::LogType::Error, "Net: can't record the match replay to " + path );
     }
+}
+
+
+namespace
+{
+    // A replay path: user:// to the user folder; a bare name that isn't here is looked for under
+    // user://Replays/ (where --record-replay puts them).
+    std::string ResolveReplayPath( std::string InPath )
+    {
+        namespace fs = std::filesystem;
+        std::error_code error;
+        if( InPath.rfind( VFS::kUserScheme, 0 ) == 0 )
+        {
+            InPath = VFS::Get().GetUserRoot() + "/" + InPath.substr( std::string( VFS::kUserScheme ).size() );
+        }
+        else if( !fs::exists( InPath, error ) && !fs::path( InPath ).has_parent_path() )
+        {
+            const std::string replays = VFS::Get().GetUserRoot() + "/Replays/" + InPath;
+            if( fs::exists( replays, error ) )
+            {
+                InPath = replays;
+            }
+        }
+        return fs::absolute( InPath, error ).lexically_normal().generic_string();
+    }
+
+    std::string Status( const NetReplayPlayback& InPlayback )
+    {
+        char speed[16];
+        std::snprintf( speed, sizeof( speed ), "%.2gx", InPlayback.GetSpeed() );
+        std::string text = "tick " + std::to_string( InPlayback.GetTick() ) + " (" + std::to_string( InPlayback.GetFirstTick() ) + "-"
+            + std::to_string( InPlayback.GetLastTick() ) + "), " + ( InPlayback.IsPaused() ? "paused" : "playing" ) + " at " + speed;
+        if( InPlayback.IsLooping() )
+        {
+            text += ", looping " + std::to_string( InPlayback.GetLoopFrom() ) + "-" + std::to_string( InPlayback.GetLoopTo() );
+        }
+        if( InPlayback.GetPauseAt() >= 0 )
+        {
+            text += ", pausing at " + std::to_string( InPlayback.GetPauseAt() );
+        }
+        return text;
+    }
+
+    // "A:B" -> the two ticks; false when it isn't that.
+    bool ParseRange( const std::string& InText, uint32_t& OutFrom, uint32_t& OutTo )
+    {
+        const size_t colon = InText.find( ':' );
+        if( colon == std::string::npos || colon == 0 || colon + 1 >= InText.size() )
+        {
+            return false;
+        }
+        char* end = nullptr;
+        const unsigned long from = std::strtoul( InText.c_str(), &end, 10 );
+        if( end != InText.c_str() + colon )
+        {
+            return false;
+        }
+        const unsigned long to = std::strtoul( InText.c_str() + colon + 1, &end, 10 );
+        if( *end != '\0' )
+        {
+            return false;
+        }
+        OutFrom = static_cast<uint32_t>( from );
+        OutTo = static_cast<uint32_t>( to );
+        return true;
+    }
+}
+
+
+bool NetLaunch::StartReplay( NetCore& InNet )
+{
+    const std::string path = ResolveReplayPath( CommandLine::GetString( "--replay" ) );
+    auto source = std::make_unique<NetReplayFileSource>();
+    if( !source->Open( path ) )
+    {
+        m_error = "--replay " + path + ": " + source->GetError();
+        Say( CLog::LogType::Error, "Net: " + m_error );
+        return false;
+    }
+    const NetReplayHeader header = source->GetHeader();
+    const bool indexed = source->HasIndex();
+    std::string error;
+    if( !InNet.StartPlayback( std::move( source ), &error ) )
+    {
+        m_error = "--replay " + path + ": " + error;
+        Say( CLog::LogType::Error, "Net: " + m_error );
+        return false;
+    }
+    NetReplayPlayback& playback = *InNet.GetPlayback();
+    const std::string scene = GetEngine().CurrentScene ? GetEngine().CurrentScene->FilePath.GetLocalPathString() : std::string();
+    if( !header.Map.empty() && !scene.empty() && header.Map != scene )
+    {
+        Say( CLog::LogType::Warning, "Replay: recorded on " + header.Map + ", playing in " + scene + " (their networked entities match)" );
+    }
+    Say( CLog::LogType::Info, "Replay: playing " + path + ": ticks " + std::to_string( playback.GetFirstTick() ) + "-" + std::to_string( playback.GetLastTick() ) + " at "
+        + std::to_string( playback.GetTickRate() ) + " Hz, recorded " + header.RecordedAt + " on " + ( header.Map.empty() ? std::string( "?" ) : header.Map )
+        + ( indexed ? "" : " (no index: its server never closed it)" ) );
+
+    if( CommandLine::Has( "--replay-speed" ) )
+    {
+        playback.SetSpeed( CommandLine::GetFloat( "--replay-speed", 1.f ) );
+    }
+    if( CommandLine::Has( "--replay-loop" ) )
+    {
+        uint32_t from = 0;
+        uint32_t to = 0;
+        if( !ParseRange( CommandLine::GetString( "--replay-loop" ), from, to ) )
+        {
+            m_error = "--replay-loop " + CommandLine::GetString( "--replay-loop" ) + ": expected A:B (ticks)";
+            Say( CLog::LogType::Error, "Net: " + m_error );
+            return false;
+        }
+        playback.SetLoop( from, to );
+        playback.Seek( playback.GetLoopFrom() );
+    }
+    if( CommandLine::Has( "--replay-start-tick" ) )
+    {
+        playback.Seek( CommandLine::GetInt( "--replay-start-tick", 0 ) );
+    }
+    if( CommandLine::Has( "--replay-pause-at" ) )
+    {
+        playback.SetPauseAt( CommandLine::GetInt( "--replay-pause-at", -1 ) );
+        // Already there (or past it): show it, paused.
+        if( playback.GetPauseAt() <= static_cast<int64_t>( playback.GetTick() ) )
+        {
+            playback.Seek( static_cast<double>( playback.GetPauseAt() ) );
+            playback.SetPauseAt( -1 );
+        }
+    }
+    const bool paused = CommandLine::Has( "--replay-paused" ) || ( CommandLine::Has( "--replay-pause-at" ) && playback.GetPauseAt() < 0 );
+    if( !paused )
+    {
+        playback.Play();
+    }
+    m_replayCheck = CommandLine::Has( "--replay-check" );
+    if( m_replayCheck && !paused && playback.GetPauseAt() < 0 )
+    {
+        Say( CLog::LogType::Warning, "Replay: --replay-check checks where it pauses: give --replay-pause-at or --replay-paused" );
+    }
+    RegisterReplayCommands( InNet );
+    ShowRole( "replay" );
+    return true;
+}
+
+
+bool NetLaunch::RunReplayCheck( NetCore& InNet )
+{
+    const NetReplayPlayback::Check check = InNet.CheckPlayback();
+    const NetReplayPlayback* playback = InNet.GetPlayback();
+    // Every recorded entity where the world has it (tools read these lines).
+    if( playback && playback->GetRecord() )
+    {
+        for( const auto& [id, state] : playback->GetRecord()->State.Entities )
+        {
+            auto entity = playback->GetEntityTable().find( id );
+            const std::string name = entity != playback->GetEntityTable().end() ? entity->second.Name : std::string();
+            EntityHandle handle = InNet.FindEntity( id );
+            const Vector3 at = handle && handle->HasComponent<Transform>() ? handle->GetComponent<Transform>().GetWorldPosition() : state.GetPosition();
+            char line[256];
+            std::snprintf( line, sizeof( line ), "Replay: tick %u entity %u %s at (%.4f, %.4f, %.4f) owner %u", check.Tick, id, name.empty() ? "-" : name.c_str(), at.x, at.y, at.z,
+                entity != playback->GetEntityTable().end() ? entity->second.Owner : 0u );
+            Say( CLog::LogType::Info, line );
+        }
+    }
+    for( const std::string& problem : check.Problems )
+    {
+        Say( CLog::LogType::Error, "Replay: check: " + problem );
+    }
+    if( check.Passed() )
+    {
+        Say( CLog::LogType::Info, "Replay: check passed at tick " + std::to_string( check.Tick ) + ": " + std::to_string( check.Matched ) + " of " + std::to_string( check.Entities )
+            + " entities are the recording" );
+        return true;
+    }
+    m_error = "replay check failed at tick " + std::to_string( check.Tick ) + ": " + std::to_string( check.Problems.size() ) + " problem(s), " + std::to_string( check.Matched ) + " of "
+        + std::to_string( check.Entities ) + " entities match";
+    Say( CLog::LogType::Error, "Replay: " + m_error );
+    return false;
+}
+
+
+void NetLaunch::RegisterReplayCommands( NetCore& InNet )
+{
+    static bool registered = false;
+    if( registered )
+    {
+        return;
+    }
+    registered = true;
+    NetCore* net = &InNet;
+    DevConsole::Get().Register( "replay",
+        "the replay playing (--replay): replay [play|pause|toggle|step [n]|seek <tick>|speed <x>|loop <a> <b>|loop off|pause-at <tick>|check|info]",
+        [net]( const std::vector<std::string>& InArgs ) -> std::string {
+            NetReplayPlayback* playback = net->GetPlayback();
+            if( !playback )
+            {
+                return "no replay is playing (start the Player with --replay <file>)";
+            }
+            const std::string verb = InArgs.empty() ? std::string() : InArgs[0];
+            auto number = [&InArgs]( size_t InIndex, double InDefault ) {
+                return InArgs.size() > InIndex ? std::atof( InArgs[InIndex].c_str() ) : InDefault;
+            };
+            if( verb == "play" )
+            {
+                playback->Play();
+            }
+            else if( verb == "pause" )
+            {
+                playback->Pause();
+            }
+            else if( verb == "toggle" )
+            {
+                playback->TogglePause();
+            }
+            else if( verb == "step" )
+            {
+                playback->Step( static_cast<int64_t>( number( 1, 1.0 ) ) );
+            }
+            else if( verb == "seek" )
+            {
+                if( InArgs.size() < 2 )
+                {
+                    return "replay seek <tick>";
+                }
+                playback->Seek( number( 1, 0.0 ) );
+            }
+            else if( verb == "speed" )
+            {
+                playback->SetSpeed( number( 1, 1.0 ) );
+            }
+            else if( verb == "loop" )
+            {
+                if( InArgs.size() == 2 && InArgs[1] == "off" )
+                {
+                    playback->ClearLoop();
+                }
+                else if( InArgs.size() >= 3 )
+                {
+                    playback->SetLoop( static_cast<uint32_t>( number( 1, 0.0 ) ), static_cast<uint32_t>( number( 2, 0.0 ) ) );
+                }
+                else
+                {
+                    return "replay loop <from> <to> | replay loop off";
+                }
+            }
+            else if( verb == "pause-at" )
+            {
+                playback->SetPauseAt( static_cast<int64_t>( number( 1, -1.0 ) ) );
+            }
+            else if( verb == "check" )
+            {
+                const NetReplayPlayback::Check check = net->CheckPlayback();
+                std::string out = check.Passed() ? "check passed at tick " + std::to_string( check.Tick ) + ": " + std::to_string( check.Matched ) + " entities"
+                                                 : "check FAILED at tick " + std::to_string( check.Tick );
+                for( const std::string& problem : check.Problems )
+                {
+                    out += "\n  " + problem;
+                }
+                return out;
+            }
+            else if( verb == "info" )
+            {
+                const NetReplayHeader& header = playback->GetHeader();
+                return header.Product + ", recorded " + header.RecordedAt + " on " + header.Map + " at " + std::to_string( header.TickRate ) + " Hz\n  engine " + header.EngineCommit
+                    + ", game " + header.GameCommit + "\n  " + header.CommandLine;
+            }
+            else if( !verb.empty() )
+            {
+                return "unknown: replay " + verb + " (help replay)";
+            }
+            return Status( *playback );
+        } );
+}
+
+
+void NetLaunch::DrawReplayControls( NetCore& InNet )
+{
+#if USING( ME_IMGUI ) && !USING( ME_EDITOR ) && USING( ME_GAME_TOOLS )
+    NetReplayPlayback* playback = InNet.GetPlayback();
+    if( !playback || playback->IsEmpty() )
+    {
+        return;
+    }
+    // Keys, unless a text field has them.
+    if( !ImGui::GetIO().WantTextInput )
+    {
+        const int step = ImGui::GetIO().KeyShift ? 10 : 1;
+        if( ImGui::IsKeyPressed( ImGuiKey_Space, false ) )
+        {
+            playback->TogglePause();
+        }
+        if( ImGui::IsKeyPressed( ImGuiKey_RightArrow ) )
+        {
+            playback->Step( step );
+        }
+        if( ImGui::IsKeyPressed( ImGuiKey_LeftArrow ) )
+        {
+            playback->Step( -step );
+        }
+    }
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos( ImVec2( viewport->Pos.x + 10.f, viewport->Pos.y + viewport->Size.y - 10.f ), ImGuiCond_FirstUseEver, ImVec2( 0.f, 1.f ) );
+    ImGui::SetNextWindowSize( ImVec2( std::min( 720.f, viewport->Size.x - 20.f ), 0.f ), ImGuiCond_FirstUseEver );
+    if( ImGui::Begin( "Replay" ) )
+    {
+        if( ImGui::Button( playback->IsPaused() ? "Play" : "Pause" ) )
+        {
+            playback->TogglePause();
+        }
+        for( const int delta : { -10, -1, 1, 10 } )
+        {
+            ImGui::SameLine();
+            const std::string label = ( delta > 0 ? "+" : "" ) + std::to_string( delta );
+            if( ImGui::Button( label.c_str() ) )
+            {
+                playback->Step( delta );
+            }
+        }
+        ImGui::SameLine();
+        float speed = static_cast<float>( playback->GetSpeed() );
+        ImGui::SetNextItemWidth( 140.f );
+        if( ImGui::SliderFloat( "Speed", &speed, static_cast<float>( NetReplayPlayback::kMinSpeed ), static_cast<float>( NetReplayPlayback::kMaxSpeed ), "%.2fx",
+                ImGuiSliderFlags_Logarithmic ) )
+        {
+            playback->SetSpeed( speed );
+        }
+        int tick = static_cast<int>( playback->GetTick() );
+        ImGui::SetNextItemWidth( -1.f );
+        if( ImGui::SliderInt( "##Tick", &tick, static_cast<int>( playback->GetFirstTick() ), static_cast<int>( playback->GetLastTick() ), "tick %d" ) )
+        {
+            playback->Seek( tick );
+        }
+        bool looping = playback->IsLooping();
+        if( ImGui::Checkbox( "Loop", &looping ) )
+        {
+            looping ? playback->SetLoop( playback->GetLoopFrom(), playback->GetLoopTo() ) : playback->ClearLoop();
+        }
+        ImGui::SameLine();
+        int range[2] = { static_cast<int>( playback->GetLoopFrom() ), static_cast<int>( playback->GetLoopTo() ) };
+        ImGui::SetNextItemWidth( 220.f );
+        if( ImGui::DragInt2( "##LoopRange", range, 1.f, static_cast<int>( playback->GetFirstTick() ), static_cast<int>( playback->GetLastTick() ) ) )
+        {
+            playback->SetLoop( static_cast<uint32_t>( std::max( 0, range[0] ) ), static_cast<uint32_t>( std::max( 0, range[1] ) ) );
+            if( !looping )
+            {
+                playback->ClearLoop();
+            }
+        }
+        ImGui::SameLine();
+        const double seconds = ( playback->GetTime() - playback->GetFirstTick() ) / playback->GetTickRate();
+        ImGui::Text( "%.2f s", seconds );
+        // The tick's own record: events and shots (phase 3 draws them).
+        if( const NetReplayTick* record = playback->GetRecord() )
+        {
+            for( const NetReplayEvent& event : record->Events )
+            {
+                ImGui::TextWrapped( "event %s %s", event.Name.c_str(), event.Payload.c_str() );
+            }
+            for( const NetReplayShot& shot : record->Shots )
+            {
+                ImGui::Text( "shot client %u from #%u: %s", shot.Client, shot.Shooter, shot.Hit ? ( "HIT #" + std::to_string( shot.Target ) + " " + shot.TargetPart ).c_str() : "miss" );
+            }
+        }
+    }
+    ImGui::End();
+#else
+    (void)InNet;
+#endif
 }
 
 
