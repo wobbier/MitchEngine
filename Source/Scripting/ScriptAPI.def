@@ -442,3 +442,8 @@ void UIModel_SetItemString( cstr model, cstr key, int index, cstr field, cstr va
 ## its name, a payload (JSON by convention) and the entity it's about (Entity.Null: none); whether it records
 void Replay_Event( cstr name, cstr payload, Entity id )
 bool Replay_IsRecording()
+
+## Match replay playback (ME-316 phase 2): whether this process plays a replay (Player --replay; the
+## world follows it, networked scripts present it), and the tick it shows (-1 when none plays)
+bool Replay_IsPlaying()
+int Replay_GetTick()

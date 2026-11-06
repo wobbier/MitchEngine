@@ -435,8 +435,9 @@ bool NetCore::GetCommand( Entity& InEntity, InputCommand& OutCommand, InputComma
 bool NetCore::SimulatesLocally( Entity& InEntity ) const
 {
     // Not in the session (no NetIdentity, or a client-side copy that never got a NetId): local.
+    // A replay viewer simulates none of the networked ones (ME-316).
     const NetIdentity* identity = InEntity.TryGetComponent<NetIdentity>();
-    if( !m_client || !identity || identity->GetNetId() == 0 )
+    if( !IsClient() || !identity || identity->GetNetId() == 0 )
     {
         return true;
     }
@@ -479,7 +480,7 @@ EntityHandle NetCore::FindEntity( uint32_t InNetId ) const
     {
         return m_replicationServer->FindEntity( InNetId );
     }
-    return m_client ? m_replicationClient->FindEntity( InNetId ) : EntityHandle();
+    return m_replicationClient ? m_replicationClient->FindEntity( InNetId ) : EntityHandle();
 }
 
 
@@ -605,6 +606,65 @@ bool NetCore::StartRecording( const std::string& InPath, NetReplayHeader InHeade
         }
     }
     return true;
+}
+
+
+bool NetCore::StartPlayback( std::unique_ptr<INetReplaySource> InSource, std::string* OutError )
+{
+    auto fail = [OutError]( const std::string& InWhy ) {
+        if( OutError )
+        {
+            *OutError = InWhy;
+        }
+        return false;
+    };
+    if( IsActive() )
+    {
+        return fail( "a session or a replay is running already" );
+    }
+    if( !InSource || InSource->GetChunkCount() == 0 )
+    {
+        return fail( "the replay has no ticks" );
+    }
+    const NetReplayHeader& header = InSource->GetHeader();
+    const NetVersion version = MakeVersion();
+    if( header.SceneHash != 0 && header.SceneHash != version.Scene )
+    {
+        return fail( "the replay was recorded on another scene (" + ( header.Map.empty() ? std::string( "unnamed" ) : header.Map )
+            + "): its placed networked entities aren't this world's" );
+    }
+    if( header.NetSchemaHash != 0 && header.NetSchemaHash != NetSchema::Hash() )
+    {
+        CLog::Log( CLog::LogType::Warning, "Replay: recorded with other replicated C++ fields (NetSchema); their values may not read back" );
+    }
+    if( header.ScriptSchemaHash != 0 && header.ScriptSchemaHash != version.ScriptSchema )
+    {
+        CLog::Log( CLog::LogType::Warning, "Replay: recorded with other scripts or input actions; script fields may not read back" );
+    }
+    m_closed = false;
+    m_replaySource = std::move( InSource );
+    m_replicationClient = std::make_unique<NetReplicationClient>( GetWorld() );
+    m_replicationClient->Scripts = m_glue.State;
+    m_replicationClient->AssignStaticIds();
+    // The viewer owns nothing: owner changes reach NetIdentity, never a predictor.
+    m_replicationClient->OnOwnerChanged = [this]( uint32_t InNetId, uint8_t InOwner ) { OnOwnerChanged( InNetId, InOwner ); };
+    m_playback = std::make_unique<NetReplayPlayback>( *m_replaySource, *m_replicationClient );
+    m_lagCompensation.SetTickRate( m_playback->GetTickRate() );
+    m_tick = m_playback->GetTick();
+    m_playbackError.clear();
+    return true;
+}
+
+
+NetReplayPlayback::Check NetCore::CheckPlayback() const
+{
+    if( !m_playback )
+    {
+        NetReplayPlayback::Check check;
+        check.Problems.push_back( "no replay is playing" );
+        return check;
+    }
+    return m_playback->CheckWorld( &m_glue.State );
 }
 
 
@@ -939,6 +999,18 @@ bool NetCore::WriteReport( const std::string& InPath, double InNow ) const
             report["Replay"] = replay;
         }
     }
+    else if( m_playback )
+    {
+        report["Role"] = "replay";
+        report["TickRate"] = m_playback->GetTickRate();
+        report["Tick"] = m_playback->GetTick();
+        report["FirstTick"] = m_playback->GetFirstTick();
+        report["LastTick"] = m_playback->GetLastTick();
+        report["TicksFed"] = m_playback->GetTicksFed();
+        report["Rebuilds"] = m_playback->GetRebuilds();
+        report["Mirrored"] = m_replicationClient->GetEntityCount();
+        report["Error"] = m_playback->GetError();
+    }
     else if( m_client )
     {
         const double connectedAt = m_client->GetConnectedAt();
@@ -995,6 +1067,9 @@ void NetCore::Shutdown()
 {
     StopRecording();
     m_recorder.reset();
+    m_playback.reset();
+    m_replaySource.reset();
+    m_playbackError.clear();
     m_closed = false;
     m_predictor.reset();
     m_replicationServer.reset();
@@ -1024,7 +1099,10 @@ void NetCore::Receive( double InNow )
     {
         m_startedAt = InNow;
     }
-    m_transport->Update( InNow );
+    if( m_transport )
+    {
+        m_transport->Update( InNow );
+    }
     if( m_server )
     {
         m_server->Receive( InNow );
@@ -1051,6 +1129,10 @@ void NetCore::Receive( double InNow )
 
 void NetCore::BeginTick( uint32_t InTicksOwed )
 {
+    if( m_playback )
+    {
+        m_tick = m_playback->GetTick();
+    }
     if( m_server )
     {
         m_tick = m_server->GetTick();
@@ -1135,6 +1217,18 @@ void NetCore::Flush( double InNow )
 
 void NetCore::WriteInterpolated( double InFrameSeconds )
 {
+    if( m_playback )
+    {
+        // The playhead moves, the replay's messages go in, then the client poses the world.
+        if( !m_playback->Update( InFrameSeconds ) && m_playbackError != m_playback->GetError() )
+        {
+            m_playbackError = m_playback->GetError();
+            CLog::Log( CLog::LogType::Error, "Replay: " + m_playbackError );
+        }
+        m_replicationClient->Update( InFrameSeconds );
+        m_tick = m_playback->GetTick();
+        return;
+    }
     if( m_client && m_client->GetState() == NetClient::State::Connected )
     {
         m_replicationClient->Update( InFrameSeconds );

@@ -19,6 +19,17 @@ public static unsafe class Replay
     public static bool IsRecording => Engine._api.Replay_IsRecording != null && Engine._api.Replay_IsRecording() != 0;
 
     /// <summary>
+    /// Whether this process plays a replay back (a Player started with --replay file.mreplay). The world follows
+    /// the recording, Net.IsClient is true and networked scripts present rather than simulate. Nothing is
+    /// owned or predicted here (Net.LocalClientId is 0), so a game hides its "connecting" UI and its own
+    /// player's view when this is set.
+    /// </summary>
+    public static bool IsPlaying => Engine._api.Replay_IsPlaying != null && Engine._api.Replay_IsPlaying() != 0;
+
+    /// <summary>The recorded server tick the replay shows (-1 when none plays).</summary>
+    public static int Tick => Engine._api.Replay_GetTick != null ? Engine._api.Replay_GetTick() : -1;
+
+    /// <summary>
     /// An event at the current tick: a short name (up to 64 bytes) and a payload (JSON by convention,
     /// up to 4000 bytes; longer is cut). Nothing unless recording.
     /// </summary>

@@ -415,6 +415,21 @@ static bool Eng_Replay_IsRecording() noexcept
 }
 
 
+// C#'s Replay.IsPlaying / Replay.Tick (ME-316 phase 2): a replay viewer's playhead.
+static bool Eng_Replay_IsPlaying() noexcept
+{
+    NetCore* net = Net();
+    return net && net->IsPlayback();
+}
+
+
+static int Eng_Replay_GetTick() noexcept
+{
+    NetCore* net = Net();
+    return net && net->IsPlayback() ? static_cast<int>( net->GetPlayback()->GetTick() ) : -1;
+}
+
+
 void Register_NetBindings( ScriptEngineAPI& inAPI )
 {
     // Scripts can add it by name (World.Instantiate + AddComponent("NetIdentity")) and query it.
@@ -445,6 +460,8 @@ void Register_NetBindings( ScriptEngineAPI& inAPI )
     inAPI.Net_GetVisualOffset = &Eng_Net_GetVisualOffset;
     inAPI.Replay_Event = &Eng_Replay_Event;
     inAPI.Replay_IsRecording = &Eng_Replay_IsRecording;
+    inAPI.Replay_IsPlaying = &Eng_Replay_IsPlaying;
+    inAPI.Replay_GetTick = &Eng_Replay_GetTick;
 }
 
 #endif

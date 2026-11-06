@@ -19,7 +19,7 @@ struct ScriptRaycastHit
 };
 
 // The ABI both sides were generated from (C# checks it: ScriptBridge.GetEngineAPIHash).
-constexpr uint64_t kScriptEngineAPIHash = 0x4C7C42FE7FC645F5ULL;
+constexpr uint64_t kScriptEngineAPIHash = 0x016ED9952C7B53D5ULL;
 
 // Structs that cross: their layout is part of the ABI (C# checks the same sizes).
 static_assert( sizeof( EntityID ) == 8, "EntityID crosses into C#: its size is part of the script ABI" );
@@ -486,4 +486,10 @@ struct ScriptEngineAPI
     // its name, a payload (JSON by convention) and the entity it's about (Entity.Null: none); whether it records
     void ( *Replay_Event )( const uint8_t* name, const uint8_t* payload, EntityID id ) noexcept;
     bool ( *Replay_IsRecording )() noexcept;
+
+    // Match replay playback (ME-316 phase 2): whether this process plays a replay (Player --replay; the
+
+    // world follows it, networked scripts present it), and the tick it shows (-1 when none plays)
+    bool ( *Replay_IsPlaying )() noexcept;
+    int ( *Replay_GetTick )() noexcept;
 };

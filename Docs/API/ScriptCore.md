@@ -1455,6 +1455,7 @@ NET-6: the session from scripts. Without a session (offline play, the editor) Ro
 - `IsResimulating` (property): True while the client replays its commands after a correction: skip effects and sounds.
 - `IsServer` (property): Whether this peer is the server.
 - `LagCompensatedRaycast(ScriptCore.Entity,Vector3,Vector3,System.Single)` (method): NET-15: a shot judged the way its shooter saw it. On the server the hitboxes (NetHitbox) are rewound to the view the shooter's command was sent from (Command.ViewTick, capped at the rewind window: Clamped), and present-day colliders and rewound occluders still block it. On a client (or offline) it tests the hitboxes as they are now: the predicted hit, for impact FX; only the server's result counts. Shooter: the entity firing (ignored by the ray).
+- `LagCompensatedRaycast(ScriptCore.Entity,Vector3,Vector3,System.Single,ScriptCore.Entity)` (method): The same, for a projectile sweeping its flight: shooter is the projectile (ignored by the ray), instigator who fired it. The match replay (ME-316) attributes the shot to the instigator and its owner, and counts it as a projectile sweep rather than a trigger pull.
 - `LocalClientId` (property): This client's id (1-255); 0 on the server and offline.
 - `LocalCommand` (property): The local player's command for this fixed step: what a pawn simulates with when there's no session (offline play, the editor's Play) through the same code as online. Offline it's sampled every fixed step from the networked input actions (with Net.Press and the aim from Net.SetAim), axes as the server would read them, Tick counting the steps; Valid while any action is networked (or Press / SetAim holds something), and WasPressed compares with the step before. The editor's Stop releases Press holds and the aim. On a client: its predicted pawn's command (a replayed tick's while resimulating), or before it has one, the command it sends. On the server: Valid is false (it has no local player).
 - `Matches` (property): Predicted ticks that matched the server.
@@ -1717,6 +1718,17 @@ Matches the engine's ScriptRaycastHit.
 
 Shown greyed out; the value can't be edited in the inspector (it still saves and loads).
 
+
+## Replay
+
+Match replays (ME-316): a server started with --record-replay records every tick of the match (every networked entity, each client's command and link, lag-compensated shots). Replay.Event adds the game's own moments at the current tick (kills, picks, damage, respawns), so a replay dump (
+
+- `Event(System.String,System.String)` (method): An event at the current tick: a short name (up to 64 bytes) and a payload (JSON by convention, up to 4000 bytes; longer is cut). Nothing unless recording.
+- `Event(System.String,System.String,ScriptCore.Entity)` (method): An event about an entity (its NetId goes in the replay; --entity filters on it). Nothing unless recording.
+- `IsPlaying` (property): Whether this process plays a replay back (a Player started with --replay file.mreplay). The world follows the recording, Net.IsClient is true and networked scripts present rather than simulate. Nothing is owned or predicted here (Net.LocalClientId is 0), so a game hides its "connecting" UI and its own player's view when this is set.
+- `IsRecording` (property): Whether this process records a match replay (a server with --record-replay).
+- `Quote(System.String)` (method): A JSON string literal for a payload: quotes, backslashes and control characters escaped.
+- `Tick` (property): The recorded server tick the replay shows (-1 when none plays).
 
 ## ReplicatedAttribute
 

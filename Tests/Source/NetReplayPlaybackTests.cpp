@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <map>
 #include <random>
 #include <string>
@@ -441,4 +442,103 @@ TEST_CASE( "Replay playback: seeking anywhere (back, forward, across keyframes, 
     CHECK_FALSE( check.Passed() );
     REQUIRE( check.Problems.size() == 1 );
     CHECK( check.Problems[0].find( "not in the world" ) != std::string::npos );
+}
+
+TEST_CASE( "Replay playback: NetCore plays a replay with no session: a client that presents (no prediction, networked scripts don't simulate), the frame hooks move the playhead, another scene is refused (ME-316)" )
+{
+    const Recording recording = Record( "PlaybackCore.mreplay" );
+    auto open = [&recording]() {
+        auto source = std::make_unique<NetReplayFileSource>();
+        REQUIRE_MESSAGE( source->Open( recording.Path.string() ), source->GetError() );
+        return source;
+    };
+
+    // Another scene: its placed NetIds wouldn't line up.
+    {
+        NetCore other;
+        auto world = std::make_shared<World>();
+        world->IsLoading = false;
+        world->AddCore( other );
+        EntityHandle lone = world->CreateEntityWithGUID( kStill );
+        lone->AddComponent<Transform>();
+        lone->AddComponent<NetIdentity>();
+        std::string error;
+        CHECK_FALSE( other.StartPlayback( open(), &error ) );
+        CHECK( error.find( "another scene" ) != std::string::npos );
+        CHECK_FALSE( other.IsActive() );
+    }
+
+    Scripts script;
+    NetCore net;    // before the world
+    auto world = std::make_shared<World>();
+    world->IsLoading = false;
+    world->AddCore( net );
+    PlaceScene( *world );
+    EntityHandle prop = world->CreateEntity();     // not networked: simulates as ever
+    prop->AddComponent<Transform>();
+    NetCore::ScriptGlue glue;
+    glue.State = script.State();
+    net.SetScriptGlue( glue );
+    std::string error;
+    REQUIRE_MESSAGE( net.StartPlayback( open(), &error ), error );
+    CHECK_FALSE( net.StartPlayback( open(), &error ) );     // one at a time
+    CHECK( net.IsActive() );
+    CHECK( net.IsPlayback() );
+    CHECK( net.IsClient() );
+    CHECK_FALSE( net.IsServer() );
+    CHECK_FALSE( net.IsSessionLive() );     // nothing to hold script reloads for
+    CHECK_FALSE( net.GetClient() );
+    CHECK_FALSE( net.StartRecording( ( recording.Path.string() + ".again" ) ) );
+    NetReplayPlayback& playback = *net.GetPlayback();
+    const uint32_t first = playback.GetFirstTick();
+    CHECK( playback.IsPaused() );
+
+    // Frames the way Engine::Run drives NetCore, playing to a pause-at tick.
+    playback.SetPauseAt( first + 300 );
+    playback.Play();
+    double now = 0.0;
+    for( int frame = 0; frame < 400 && !playback.IsPaused(); ++frame )
+    {
+        now += 1.0 / 60.0;
+        net.Receive( now );
+        net.BeginTick();
+        net.EndTick( now );
+        net.WriteInterpolated( 1.0 / 60.0 );
+        net.Flush( now );
+        world->Simulate();
+    }
+    CHECK( playback.IsPaused() );
+    CHECK( net.GetTick() == first + 300 );
+    const NetReplayPlayback::Check check = net.CheckPlayback();
+    for( const std::string& problem : check.Problems )
+    {
+        FAIL_CHECK( problem );
+    }
+    CHECK( check.Passed() );
+    CHECK( check.Matched == recording.Live.at( first + 300 ).Entities.size() );
+
+    // Presentation: nothing predicted, networked entities don't simulate, the rest does; the
+    // entity the recording gave client 1 is its owner here too.
+    EntityHandle spinner = net.FindEntity( 2 );
+    REQUIRE( spinner );
+    CHECK( spinner->GetComponent<NetIdentity>().GetOwner() == 1 );
+    CHECK_FALSE( net.IsPredicted( *spinner.Get() ) );
+    CHECK_FALSE( net.GetPredictor() );
+    CHECK_FALSE( net.SimulatesLocally( *spinner.Get() ) );
+    CHECK( net.SimulatesLocally( *prop.Get() ) );
+    InputCommand command;
+    InputCommand previous;
+    CHECK_FALSE( net.GetCommand( *spinner.Get(), command, previous ) );
+
+    // The report says it's a replay.
+    const std::filesystem::path report = TempFile( "PlaybackReport.json" );
+    REQUIRE( net.WriteReport( report.string(), now ) );
+    {
+        std::ifstream in( report );
+        const std::string text( ( std::istreambuf_iterator<char>( in ) ), std::istreambuf_iterator<char>() );
+        CHECK( text.find( "\"replay\"" ) != std::string::npos );
+    }
+    net.Shutdown();
+    CHECK_FALSE( net.IsActive() );
+    CHECK_FALSE( net.IsClient() );
 }

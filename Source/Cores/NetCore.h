@@ -4,6 +4,7 @@
 #include "Net/NetLagCompensation.h"
 #include "Net/NetPrediction.h"
 #include "Net/NetReplay.h"
+#include "Net/NetReplayPlayback.h"
 #include "Net/NetReplication.h"
 #include "Net/NetSession.h"
 #include <map>
@@ -127,13 +128,15 @@ public:
     // The session so far as JSON (role, connection, timeouts, snapshot rates): true when written.
     bool WriteReport( const std::string& InPath, double InNow ) const;
 
-    bool IsActive() const { return m_server || m_client; }
+    bool IsActive() const { return m_server || m_client || m_playback; }
     // A session is under way (ME-311): hosting until Close, or a client connecting or connected.
     // A client whose session ended (left, rejected, timed out, disconnected by the server) isn't,
     // though it stays IsActive (readable) until Shutdown; nor is anything after Close.
     bool IsSessionLive() const;
     bool IsServer() const { return m_server != nullptr; }
-    bool IsClient() const { return m_client != nullptr; }
+    // A client of a server, or a replay viewer (ME-316): the world follows replicated state, and
+    // networked scripts present it rather than simulate it.
+    bool IsClient() const { return m_client != nullptr || m_playback != nullptr; }
     NetServer* GetServer() { return m_server.get(); }
     NetClient* GetClient() { return m_client.get(); }
     NetReplicationServer* GetReplicationServer() { return m_replicationServer.get(); }
@@ -209,6 +212,21 @@ public:
     // Engine::Run: backlog ticks it dropped (they never run); the next recorded tick says so.
     void NoteDroppedTicks( uint32_t InTicks ) { m_ticksDropped += InTicks; }
 
+    // Match replay playback (ME-316 phase 2, NetReplayPlayback.h): plays InSource into this world
+    // through the client's replication path, with no session: every networked entity follows the
+    // recording (nothing is predicted), networked scripts present rather than simulate (IsClient),
+    // and the frame's WriteInterpolated moves the playhead (paused at the first tick to begin with).
+    // GetTick is the tick shown. False when a session or playback is running, the replay is empty,
+    // or it was recorded on another scene (its placed NetIds wouldn't match; OutError says why).
+    // A different NetSchema or script schema only warns: fields may not decode.
+    bool StartPlayback( std::unique_ptr<INetReplaySource> InSource, std::string* OutError = nullptr );
+    bool IsPlayback() const { return m_playback != nullptr; }
+    NetReplayPlayback* GetPlayback() { return m_playback.get(); }
+    const NetReplayPlayback* GetPlayback() const { return m_playback.get(); }
+    // The world against the recording at the tick shown (NetReplayPlayback::CheckWorld, with the
+    // script glue's [Replicated] bytes).
+    NetReplayPlayback::Check CheckPlayback() const;
+
 #if USING( ME_EDITOR )
     void OnEditorInspect() final;
 #endif
@@ -282,6 +300,10 @@ private:
     std::map<uint8_t, uint64_t> m_replayMisses;     // client -> its misses at the last recorded tick
     uint32_t m_ticksOwed = 0;
     uint32_t m_ticksDropped = 0;
+    // ME-316 playback: the source, then what reads it (destroyed first).
+    std::unique_ptr<INetReplaySource> m_replaySource;
+    std::unique_ptr<NetReplayPlayback> m_playback;
+    std::string m_playbackError;    // logged once
 };
 
 ME_REGISTER_CORE( NetCore )

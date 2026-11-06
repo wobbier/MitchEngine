@@ -439,6 +439,8 @@ Exit codes: 0, 1 when the file can't be read, 2 for a bad option. A file without
 - **Check (`CheckWorld`):** at a whole tick, every recorded entity is in the world, the sample the client showed is the recorded `NetEntityState` bit for bit, and the world re-captured the server's way (`NetReplicationState::Capture`: pose quantized, `NetSchema` bytes, script bytes) has the same position and fields exactly and the same rotation within 0.002 rad (decoding and re-encoding the smallest three can land a step over); nothing in the world the recording doesn't have.
 - No engine globals: the source, the client and the world are the caller's, so a replay world of its own (ME-297, the killcam) is a move.
 
+**In `NetCore`:** `StartPlayback( source )` plays a replay into the core's world with no session. It refuses while a session or playback runs, an empty replay, and a replay recorded on another scene (the header's scene hash against this world's placed `NetIdentity` entities: the static NetIds wouldn't line up); another `NetSchema` or script schema only warns. Then `IsActive`, `IsClient` and `IsPlayback` are true (`IsServer`, `IsSessionLive` and `GetClient` aren't): the viewer is a client that **presents**. `SimulatesLocally` is false for every networked entity, so their fixed-step scripts don't run and the recorded `[Replicated]` fields drive them; nothing is owned, predicted or commanded (`GetCommand` is false), owner changes only reach `NetIdentity`. Non-networked entities and scripts run as ever. `WriteInterpolated` moves the playhead and poses the world; `GetTick` (C#'s `Net.Tick`) is the tick shown; `CheckPlayback` is `CheckWorld` with the script glue's bytes; `WriteReport` says `"Role": "replay"`; `Shutdown` ends it. **C#:** `Replay.IsPlaying` and `Replay.Tick` (-1 when none plays): a game hides its "connecting" UI and its own player's view when playing (`Net.LocalClientId` is 0).
+
 ### UDP and dedicated servers (NET-5)
 
 **`UdpTransport`:**
@@ -649,6 +651,7 @@ The session starts after the scene loads, because the handshake hashes the scene
 
 - **Every tick N, one step at a time:** what the client showed and the world re-captured are the server's live `CaptureTick` at N (449 ticks; one rebuild, the rest one delta each), the spawned and destroyed entities come and go on their ticks, the owner change arrives, the destroyed placed entity is gone.
 - **Seeking:** 60 ticks in a shuffled order across chunks, including the spawn's and the despawn's ticks and the ones either side, each exactly the live capture; step back and forth; half speed shows the midpoint between two ticks; 4× feeds four deltas a frame without a rebuild; pause-at stops on its tick; a loop stays in its range; the end pauses on the last tick; seeking back before the placed entity's destruction fails the check with "not in the world".
+- **In `NetCore`:** a world with only one of the placed entities is refused ("another scene"); the right one plays through the engine's frame hooks to a pause-at tick 300 ticks in, where `CheckPlayback` matches every entity; a second `StartPlayback` and `StartRecording` are refused; the viewer is a client, not a live session, predicts nothing, the networked entity owned by client 1 is owned by 1 there too and doesn't simulate locally (a non-networked one does), and the report's role is `replay`.
 
 ## How to Extend
 
