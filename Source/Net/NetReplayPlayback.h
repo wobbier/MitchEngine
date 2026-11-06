@@ -84,8 +84,9 @@ public:
     // The world against the recording at the tick shown (call after the client's Update, paused on a
     // whole tick): each recorded entity's state as the server would capture it from the world now
     // (NetReplicationState::Capture with InScripts), and the sample the client showed, compared with
-    // the recorded state. Positions and fields must match exactly; a re-captured rotation within one
-    // step of its 12-bit grid (decoding and encoding the smallest three can land a step over).
+    // the recorded state. Positions, fields and the owner (NetIdentity against the recording's) must
+    // match exactly; a re-captured rotation within one step of its 12-bit grid (decoding and
+    // encoding the smallest three can land a step over).
     struct Check
     {
         uint32_t Tick = 0;

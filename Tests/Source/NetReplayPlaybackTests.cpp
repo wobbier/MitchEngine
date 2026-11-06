@@ -266,6 +266,12 @@ namespace NetReplayPlaybackTest
                 CHECK( captured.Fields == state.Fields );
                 CHECK( Quaternion::Angle( captured.GetRotation(), state.GetRotation() ) < 2e-3f );
             }
+            // Owners: the spinner is the server's until OwnedAt, client 1's after (seeking back across
+            // OwnedAt hands it back).
+            if( EntityHandle spinner = Client.FindEntity( 2 ); spinner && tick != InRecording.OwnedAt )
+            {
+                CHECK( spinner->GetComponent<NetIdentity>().GetOwner() == ( tick > InRecording.OwnedAt ? 1u : 0u ) );
+            }
         }
     };
 }
@@ -424,6 +430,17 @@ TEST_CASE( "Replay playback: seeking anywhere (back, forward, across keyframes, 
     playback.Seek( 160 );
     viewer.Frame();
     viewer.ExpectLive( recording );
+    // A world whose owner isn't the recording's fails the check (and says whose).
+    {
+        NetIdentity& identity = viewer.Client.FindEntity( 2 )->GetComponent<NetIdentity>();
+        REQUIRE( identity.GetOwner() == 0 );
+        identity.SetOwner( 1 );
+        const NetReplayPlayback::Check wrong = playback.CheckWorld( &viewer.Client.Scripts );
+        CHECK_FALSE( wrong.Passed() );
+        REQUIRE( wrong.Problems.size() == 1 );
+        CHECK( wrong.Problems[0].find( "owner 1, recorded 0" ) != std::string::npos );
+        identity.SetOwner( 0 );
+    }
 
     // Past the end: it stops at the last tick.
     playback.Seek( playback.GetLastTick() - 2 );

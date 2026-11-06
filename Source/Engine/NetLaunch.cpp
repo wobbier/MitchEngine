@@ -8,6 +8,7 @@
 #include "Net/NetTransport.h"
 #include "Net/NetVersion.h"
 #include "Net/UdpTransport.h"
+#include "Components/Networking/NetIdentity.h"
 #include "Components/Transform.h"
 #include "Engine/DevConsole.h"
 #include "Engine/Engine.h"
@@ -810,9 +811,11 @@ bool NetLaunch::RunReplayCheck( NetCore& InNet )
             const std::string name = entity != playback->GetEntityTable().end() ? entity->second.Name : std::string();
             EntityHandle handle = InNet.FindEntity( id );
             const Vector3 at = handle && handle->HasComponent<Transform>() ? handle->GetComponent<Transform>().GetWorldPosition() : state.GetPosition();
+            // The world's owner (its NetIdentity), not the recording's: the check compares the two.
+            const NetIdentity* identity = handle ? handle->TryGetComponent<NetIdentity>() : nullptr;
             char line[256];
             std::snprintf( line, sizeof( line ), "Replay: tick %u entity %u %s at (%.4f, %.4f, %.4f) owner %u", check.Tick, id, name.empty() ? "-" : name.c_str(), at.x, at.y, at.z,
-                entity != playback->GetEntityTable().end() ? entity->second.Owner : 0u );
+                identity ? static_cast<unsigned>( identity->GetOwner() ) : 0u );
             Say( CLog::LogType::Info, line );
         }
     }

@@ -368,6 +368,13 @@ NetReplayPlayback::Check NetReplayPlayback::CheckWorld( const NetScriptState* In
             check.Problems.push_back( label + ": fields differ from byte " + std::to_string( at ) + " (" + std::to_string( captured.Fields.size() ) + " bytes, recorded "
                 + std::to_string( recorded.Fields.size() ) + ")" );
         }
+        // Who owns it: the recording's owner as of this tick (the spawns and owner changes fed).
+        auto entry = m_table.find( id );
+        const NetIdentity* identity = bound->second->TryGetComponent<NetIdentity>();
+        if( entry != m_table.end() && identity && identity->GetOwner() != entry->second.Owner )
+        {
+            check.Problems.push_back( label + ": owner " + std::to_string( identity->GetOwner() ) + ", recorded " + std::to_string( entry->second.Owner ) );
+        }
         check.Matched += check.Problems.size() == problems ? 1 : 0;
     }
     // Nothing more in the world than the recording has.
