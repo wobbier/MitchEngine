@@ -644,7 +644,7 @@ namespace
     };
 }
 
-TEST_CASE( "ECS: World singletons are per world, made on first use, and never saved with the scene (NET-16)" )
+TEST_CASE( "ECS: World singletons are per world, made on first use, never saved with the scene, and outlive scene loads (NET-16)" )
 {
     std::shared_ptr<World> a = std::make_shared<World>();
     std::shared_ptr<World> b = std::make_shared<World>();
@@ -675,4 +675,12 @@ TEST_CASE( "ECS: World singletons are per world, made on first use, and never sa
     const std::string text = saved.dump();
     CHECK( text.find( "Visible" ) != std::string::npos );
     CHECK( text.find( "World Singletons" ) == std::string::npos );
+
+    // A scene load (Unload) clears the scene's entities, not the world's singletons (ME-297).
+    a->Unload();
+    REQUIRE( a->FindSingleton<SingletonClock>() != nullptr );
+    CHECK( a->FindSingleton<SingletonClock>()->Ticks == 6 );
+    int visible = 0;
+    a->ForEachEntity( [&]( Entity& InEntity ) { visible += a->IsSingletonEntity( InEntity.GetId() ) ? 0 : 1; } );
+    CHECK( visible == 0 );
 }

@@ -101,6 +101,9 @@ Entity* World::GetSingletonHolder( bool InCreate )
     m_loadingScene = previousScene;
     m_singletonEntity = holder.GetID();
     m_hasSingletonEntity = true;
+    // Singletons are the world's, not a scene's: a scene load (Unload) keeps them (ME-297). The
+    // sampled input's layout, a script's held actions, the main camera's fallback all outlive it.
+    m_records[m_singletonEntity.Index].DestroyOnLoad = false;
     return GetEntityRaw( m_singletonEntity );
 }
 
