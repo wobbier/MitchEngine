@@ -5,7 +5,10 @@
 #include "RenderViews.h"
 #include "Utils/BGFXUtils.h"
 #include "optick.h"
-#include "Profiling/ThreadName.h"
+#include "Jobs/BackgroundLane.h"
+#include "CLog.h"
+#include "Core/CommandLine.h"
+#include <chrono>
 #include <glm/glm.hpp>
 #include <algorithm>
 #include <atomic>
@@ -375,32 +378,13 @@ namespace Moonlight
             return static_cast<uint8_t>( std::clamp( InValue, 0.f, 1.f ) * 255.f + 0.5f );
         }
 
+        // The noise slices on the background lane (ME-319): the noise task works through them while
+        // free lane threads help. Never the job workers: a slice takes milliseconds and would land in
+        // a frame's job waits during loading.
         template<typename Fn>
         void ParallelFor( int InCount, const Fn& InFn )
         {
-            const int threads = std::clamp( static_cast<int>( std::thread::hardware_concurrency() ), 1, 32 );
-            std::atomic<int> next{ 0 };
-            auto work = [&]() {
-                for( int i = next++; i < InCount; i = next++ )
-                {
-                    InFn( i );
-                }
-            };
-            std::vector<std::thread> pool;
-            for( int t = 1; t < threads; ++t )
-            {
-                pool.emplace_back( [&work, t]() {
-                    const std::string name = "Sky Noise " + std::to_string( t );
-                    ME_PROFILE_THREAD( name.c_str() );
-                    OPTICK_EVENT( "DynamicSky::NoiseSlices" );
-                    work();
-                } );
-            }
-            work();
-            for( std::thread& thread : pool )
-            {
-                thread.join();
-            }
+            Jobs::BackgroundLane::Get().ParallelFor( "DynamicSky::NoiseSlices", static_cast<uint32_t>( InCount ), [&InFn]( uint32_t i ) { InFn( static_cast<int>( i ) ); } );
         }
 
         // Trilinear/bilinear lookups matching the GPU's linear filtering with wrapping.
@@ -690,19 +674,23 @@ namespace Moonlight
         m_blackVolume = bgfx::createTexture3D( 1, 1, 1, false, bgfx::TextureFormat::R8, BGFX_SAMPLER_NONE, bgfx::copy( &black, 1 ) );
 
         // The noise takes a moment; it runs while the scene loads and is waited for on first use.
-        m_noiseThread = std::thread( [this]() {
-            ME_PROFILE_THREAD( "Sky Noise" );
+        // Normal priority: the first frame with clouds waits for it.
+        m_noiseTask = Jobs::BackgroundLane::Get().Submit( "Sky Noise", [this]() {
             OPTICK_EVENT( "DynamicSky::GenerateNoise" );
+            const auto start = std::chrono::steady_clock::now();
             GenerateNoise( m_noise );
+            const double ms = std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - start ).count();
+            CLog::Log( CLog::LogType::Debug, "DynamicSky: cloud noise generated in " + std::to_string( static_cast<int>( ms ) ) + " ms" );
         } );
     }
 
 
     DynamicSky::~DynamicSky()
     {
-        if( m_noiseThread.joinable() )
+        // The task writes m_noise: it must finish before the sky goes.
+        if( m_noiseTask.valid() )
         {
-            m_noiseThread.join();
+            m_noiseTask.wait();
         }
         if( !IsGpuAlive() )
         {
@@ -732,10 +720,25 @@ namespace Moonlight
         {
             return true;
         }
-        if( m_noiseThread.joinable() )
+        if( m_noiseTask.valid() )
         {
+            // Still generating (it takes ~0.25 s on the lane in Release, ~1 s in Debug): draw without
+            // clouds until it's done rather than stall the frame; the environment key changes when
+            // they appear, so the sky probe recaptures. Repeatable runs (--frame-time) wait, so a
+            // capture after N frames always has them.
+            if( m_noiseTask.wait_for( std::chrono::seconds( 0 ) ) != std::future_status::ready && CommandLine::GetFloat( "--frame-time", 0 ) <= 0 )
+            {
+                return false;
+            }
             OPTICK_EVENT( "DynamicSky::WaitForCloudNoise" );
-            m_noiseThread.join();
+            try
+            {
+                m_noiseTask.get();
+            }
+            catch( const std::exception& e )
+            {
+                CLog::Log( CLog::LogType::Warning, std::string( "DynamicSky: cloud noise failed: " ) + e.what() );
+            }
         }
         if( m_noise.Shape.empty() || m_noise.Detail.empty() || m_noise.Weather.empty() )
         {

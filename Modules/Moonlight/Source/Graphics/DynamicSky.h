@@ -5,7 +5,7 @@
 #include "bgfx/bgfx.h"
 #include "bx/math.h"
 #include <cstdint>
-#include <thread>
+#include <future>
 #include <vector>
 
 namespace Moonlight
@@ -119,8 +119,8 @@ namespace Moonlight
         bgfx::FrameBufferHandle m_skyViewBuffer = BGFX_INVALID_HANDLE;
         float m_lutAerosol = -1.f;          // what the transmittance/multiple scattering tables hold
 
-        // Cloud noise: generated on a worker thread, uploaded on first use.
-        std::thread m_noiseThread;
+        // Cloud noise: generated on the background lane (ME-319), uploaded on first use.
+        std::future<void> m_noiseTask;
         Noise m_noise;
         bool m_noiseReady = false;
         bgfx::TextureHandle m_shapeTexture = BGFX_INVALID_HANDLE;

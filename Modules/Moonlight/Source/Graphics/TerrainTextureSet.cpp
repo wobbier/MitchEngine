@@ -8,47 +8,23 @@
 #include <deque>
 #include <functional>
 #include <mutex>
-#include <thread>
+#include "Jobs/BackgroundLane.h"
+#include "optick.h"
 
 namespace Moonlight
 {
     namespace
     {
+        // Packing runs one set at a time, in request order, on the background lane (ME-319; it was
+        // its own unnamed thread). Low: long CPU work never holds up a scene read or a write. At exit
+        // the sets not started yet are dropped, as before.
         class PackingQueue
         {
         public:
-            PackingQueue() : Worker( [this] {
-                for( ;; )
-                {
-                    std::function<void()> task;
-                    {
-                        std::unique_lock lock( Mutex ); Ready.wait( lock, [this] { return Stopping || !Tasks.empty(); } );
-                        if( Tasks.empty() ) return;
-                        task = std::move( Tasks.front() ); Tasks.pop_front();
-                    }
-                    task();
-                }
-            } ) {}
-            ~PackingQueue()
-            {
-                { std::lock_guard lock( Mutex ); Stopping = true; Tasks.clear(); }
-                Ready.notify_one(); Worker.join();
-            }
-            template<class Fn> auto Submit( Fn fn )
-            {
-                using Result = decltype( fn() );
-                auto task = std::make_shared<std::packaged_task<Result()>>( std::move( fn ) );
-                auto future = task->get_future();
-                { std::lock_guard lock( Mutex ); Tasks.push_back( [task] { ( *task )(); } ); }
-                Ready.notify_one(); return future;
-            }
-            static PackingQueue& Get() { static PackingQueue queue; return queue; }
+            ~PackingQueue() { Queue.Clear(); }
+            static Jobs::SerialQueue& Get() { static PackingQueue queue; return queue.Queue; }
         private:
-            std::mutex Mutex;
-            std::condition_variable Ready;
-            std::deque<std::function<void()>> Tasks;
-            bool Stopping = false;
-            std::thread Worker;
+            Jobs::SerialQueue Queue{ "Terrain Texture Pack", Jobs::BackgroundPriority::Low };
         };
     }
 
@@ -92,6 +68,7 @@ namespace Moonlight
         options.Directory = CommandLine::GetString( "--terrain-texture-cache-dir", options.Directory.generic_string() );
         options.Enabled = !CommandLine::Has( "--no-terrain-texture-cache" );
         m_work = PackingQueue::Get().Submit( [paths = m_paths, layout = m_layout, cancel = m_cancel, options = std::move( options )] {
+            OPTICK_EVENT( "TerrainTextureSet::Pack" );
             Result result; if( cancel->load() ) return result;
             result.Success = LoadOrPackTerrainTextures( paths, layout, options, result.Data, result.Error, result.Cache ); return result;
         } );
