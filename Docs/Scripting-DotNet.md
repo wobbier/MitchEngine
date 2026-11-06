@@ -143,7 +143,7 @@ The API is 120 functions (`ScriptAPI.def`). Strings cross as UTF-8 `byte*`, enti
 | Logging | `Debug.Log/Warning/Error` |
 | Debug draw | `Debug.DrawLine/DrawSphere(…, duration)` |
 | Time | `Time.DeltaTime` (scaled), `UnscaledDeltaTime`, `FixedDeltaTime`, `TimeScale` (get/set), `RealTime` (wall clock) |
-| Scripts | `Scripts.All<T>()` (every live script that is or implements T, in creation order; `foreach` allocates nothing, `CopyTo(list)` to keep or sort), `Scripts.First<T>(match)`, `Scripts.Count<T>()`: no game-side static registries to rebuild after a hot reload (ME-312) |
+| Scripts | `Scripts.All<T>()` (every live script that is or implements T, in creation order; `foreach` allocates nothing, `CopyTo(list)` to keep or sort; listed from creation, so a script spawned this frame or on a never-activated entity is there before its OnStart, and deactivating a started script's entity destroys it), `Scripts.First<T>(match)`, `Scripts.Count<T>()`: no game-side static registries to rebuild after a hot reload (ME-312) |
 | Entity | `IsAlive`, `Name`, `Active`, `Destroy()`, `Has/Add/GetComponent<T>`, and `HasComponent(name)` / `AddComponent(name)` for any registered component (the binding registry falls back to the engine's component registry); `Children`, `Guid`, `Layer`. `Query.WithComponent(name)` / `Query.Named(name)` return every match |
 | Transform | Local `Position`/`Rotation`/`Scale`; `WorldPosition`; `Forward`/`Right`/`Up`; `LookAt`, `LookDirection(forward, up)`; `Parent` |
 | World | `CreateEntity`, `Find(name)` (any depth), `Instantiate(prefab, parent)`, `LoadScene(path)` (queued to the end of the frame), `LoadSceneAdditive(path, async = true)` / `UnloadScene(id)` / `GetSceneState(id)` (`Docs/Serialization-and-Scenes.md`) |

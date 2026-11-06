@@ -14,9 +14,16 @@ namespace ScriptCore;
 ///
 /// T is a script class or any interface or base class scripts implement. Scripts are visited in the
 /// order they were created (a hot reload keeps it), which is the same on every peer that created
-/// them in the same order. Every live script is included, also on inactive entities and on entities
-/// destroyed this frame (they leave at the end of the frame, after OnDestroy). Scripts created while
-/// iterating are visited by the next loop, not this one.
+/// them in the same order. Scripts created while iterating are visited by the next loop, not this one.
+///
+/// "Live" means created, not started, so it isn't quite a registry filled in OnStart:
+/// - a script is listed from its creation, before its OnStart: one instantiated this frame (it starts
+///   before the next update) or one on an entity inactive since the scene loaded (it starts when the
+///   entity activates) still has whatever OnStart sets at its default (null references);
+/// - scripts on entities destroyed this frame stay listed until the end of the frame;
+/// - deactivating a started script's entity destroys the script (OnDestroy): it's gone from All, and
+///   reactivating creates a new one from its saved fields, last in the order.
+/// Guard on what OnStart sets (or set it in field initializers) when a loop can meet a fresh script.
 /// </summary>
 public static class Scripts
 {
