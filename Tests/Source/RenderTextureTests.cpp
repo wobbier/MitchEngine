@@ -7,6 +7,12 @@
 #include "Materials/StandardMaterial.h"
 #include "Tools/Cook/Cooker.h"
 #include "VFS/VFS.h"
+#if USING( ME_SCRIPTING )
+#include "Components/Transform.h"
+#include "Engine/World.h"
+#include "Scripting/Bindings/BindingContext.h"
+#include "Scripting/Bindings/Components/Camera.bindings.h"
+#endif
 #include <filesystem>
 #include <fstream>
 #include <set>
@@ -223,6 +229,57 @@ TEST_CASE( "Render textures: a feed camera fills its target and never takes the 
     CHECK_FALSE( main.RendersToTexture() );
     Camera::CurrentCamera = nullptr;
 }
+
+
+#if USING( ME_SCRIPTING )
+TEST_CASE( "Scripts: Camera.MakeCurrent switches the main camera, Camera.Main finds its entity (ME-312)" )
+{
+    RenderTextureTest::CurrentCameraScope scope;   // before the world: its cameras go first
+    auto world = std::make_shared<World>();
+    world->IsLoading = false;
+    const WeakPtr<World> previousWorld = ScriptBindings::GetWorld();
+    ScriptBindings::SetWorld( world );
+    ScriptEngineAPI api{};
+    Register_CameraBindings( api );
+
+    EntityHandle first = world->CreateEntity( "First" );
+    first->AddComponent<Transform>();
+    Camera& firstCamera = first->AddComponent<Camera>();
+    EntityHandle second = world->CreateEntity( "Second" );
+    second->AddComponent<Transform>();
+    Camera& secondCamera = second->AddComponent<Camera>();
+    EntityHandle plain = world->CreateEntity( "Plain" );
+    world->Simulate();
+
+    // The first camera to start takes the screen.
+    CHECK( Camera::CurrentCamera == &firstCamera );
+    CHECK( api.Camera_IsCurrent( first.GetID() ) );
+    CHECK_FALSE( api.Camera_IsCurrent( second.GetID() ) );
+    EntityID main;
+    api.Camera_GetMain( &main );
+    CHECK( main == first.GetID() );
+
+    CHECK( api.Camera_MakeCurrent( second.GetID() ) );
+    CHECK( Camera::CurrentCamera == &secondCamera );
+    CHECK( api.Camera_IsCurrent( second.GetID() ) );
+    CHECK_FALSE( api.Camera_IsCurrent( first.GetID() ) );
+    api.Camera_GetMain( &main );
+    CHECK( main == second.GetID() );
+
+    // No Camera: refused, nothing changes.
+    CHECK_FALSE( api.Camera_MakeCurrent( plain.GetID() ) );
+    CHECK_FALSE( api.Camera_IsCurrent( plain.GetID() ) );
+    CHECK( Camera::CurrentCamera == &secondCamera );
+
+    // A main camera that isn't in the script world (the editor's, another world's) is no entity.
+    Camera loose;
+    Camera::CurrentCamera = &loose;
+    api.Camera_GetMain( &main );
+    CHECK( main == EntityID() );
+    Camera::CurrentCamera = &secondCamera;
+    ScriptBindings::SetWorld( previousWorld );
+}
+#endif
 
 
 TEST_CASE( "Materials: a UV offset round-trips and keeps instance batches apart" )

@@ -9,7 +9,7 @@ namespace ScriptCore;
 public unsafe struct EngineAPIBindings
 {
     // The ABI both sides were generated from (C++: kScriptEngineAPIHash).
-    public const ulong AbiHash = 0x7A2E491150AEBF70UL;
+    public const ulong AbiHash = 0xFC2D082D6FDDB103UL;
 
     // Core
     public delegate* unmanaged<byte*, void> Log;
@@ -437,6 +437,13 @@ public unsafe struct EngineAPIBindings
     // and gets OnDisable. Get: 1 / 0, -1 when the entity has no such component.
     public delegate* unmanaged<Entity, byte*, int> Component_GetEnabled;
     public delegate* unmanaged<Entity, byte*, byte, byte> Component_SetEnabled;
+
+    // The main camera (ME-312): the one the screen and the UI show (a render-texture camera made
+
+    // main renders to the screen). GetMain writes Entity.Null when the main camera isn't in the script world.
+    public delegate* unmanaged<Entity, byte> Camera_IsCurrent;
+    public delegate* unmanaged<Entity, byte> Camera_MakeCurrent;
+    public delegate* unmanaged<Entity*, void> Camera_GetMain;
 }
 
 // The sizes C++ static_asserts for the structs that cross (checked when the API is bound).

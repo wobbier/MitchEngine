@@ -397,6 +397,9 @@ The entity's Camera: projection, clipping, render scaling and screen rays.
 - `DynamicResolution` (property): Lowers RenderScale automatically when frames run long, and raises it back when there's headroom.
 - `Far` (property): The far clipping distance in metres.
 - `FieldOfView` (property): CS-5 e: projection. FieldOfView is the vertical angle in degrees: the engine's reflected "FieldOfView" field, the one the projection is built from (the hidden legacy "Zoom" field is read by nothing).
+- `IsCurrent` (property): Whether this is the main camera (see Main).
+- `Main` (property): The main camera (ME-312): the one the screen, the UI and 3D audio follow, or null when it isn't in the script world (the editor's own camera, between scenes). A scene picks it with the camera's "Make Current"; MakeCurrent switches it at runtime.
+- `MakeCurrent` (method): Makes this the main camera: the screen shows it from the next frame (a camera with a TargetTexture renders to the screen while it's main). False when the entity has no Camera.
 - `Near` (property): The near clipping distance in metres.
 - `OrthographicSize` (property): Half the view height in metres, for an orthographic camera.
 - `OutputSize` (property): The pixels it renders (its output size times its viewport rect).

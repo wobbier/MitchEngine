@@ -53,6 +53,41 @@ static void Eng_Camera_ClearClipPlane( EntityID inId ) noexcept
 }
 
 
+// ME-312: the main camera (Camera::CurrentCamera), which scenes set with "IsCurrent" and the
+// inspector with Make Current.
+static bool Eng_Camera_IsCurrent( EntityID inId ) noexcept
+{
+    EntityHandle handle = MakeHandle( inId );
+    Camera* camera = handle ? handle->TryGetComponent<Camera>() : nullptr;
+    return camera && camera->IsCurrent();
+}
+
+
+static bool Eng_Camera_MakeCurrent( EntityID inId ) noexcept
+{
+    EntityHandle handle = MakeHandle( inId );
+    Camera* camera = handle ? handle->TryGetComponent<Camera>() : nullptr;
+    if( !camera )
+    {
+        return false;
+    }
+    camera->SetCurrent();
+    return true;
+}
+
+
+static void Eng_Camera_GetMain( EntityID* outId ) noexcept
+{
+    *outId = EntityID();
+    const Camera* camera = Camera::CurrentCamera;
+    // The editor's default camera has no entity; a camera of another world isn't the script's.
+    if( camera && camera->Parent && camera->Parent.GetWorld() == ScriptBindings::GetWorld().lock().get() )
+    {
+        *outId = camera->Parent.GetID();
+    }
+}
+
+
 // Gives the mesh a PortalMaterial showing the camera's view (keeping a PortalMaterial it already
 // has, with its tint) and sizes the camera to match the main camera.
 static bool Eng_Mesh_ShowCameraView( EntityID inId, EntityID inCamera ) noexcept
@@ -115,6 +150,9 @@ void Register_CameraBindings( ScriptEngineAPI& inAPI )
     inAPI.Camera_SetClearColor = Eng_Camera_SetClearColor;
     inAPI.Camera_SetClipPlane = Eng_Camera_SetClipPlane;
     inAPI.Camera_ClearClipPlane = Eng_Camera_ClearClipPlane;
+    inAPI.Camera_IsCurrent = Eng_Camera_IsCurrent;
+    inAPI.Camera_MakeCurrent = Eng_Camera_MakeCurrent;
+    inAPI.Camera_GetMain = Eng_Camera_GetMain;
     inAPI.Mesh_ShowCameraView = Eng_Mesh_ShowCameraView;
     inAPI.Mesh_SetPortalSlice = Eng_Mesh_SetPortalSlice;
 }

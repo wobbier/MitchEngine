@@ -19,7 +19,7 @@ struct ScriptRaycastHit
 };
 
 // The ABI both sides were generated from (C# checks it: ScriptBridge.GetEngineAPIHash).
-constexpr uint64_t kScriptEngineAPIHash = 0x7A2E491150AEBF70ULL;
+constexpr uint64_t kScriptEngineAPIHash = 0xFC2D082D6FDDB103ULL;
 
 // Structs that cross: their layout is part of the ABI (C# checks the same sizes).
 static_assert( sizeof( EntityID ) == 8, "EntityID crosses into C#: its size is part of the script ABI" );
@@ -458,4 +458,11 @@ struct ScriptEngineAPI
     // and gets OnDisable. Get: 1 / 0, -1 when the entity has no such component.
     int ( *Component_GetEnabled )( EntityID id, const uint8_t* component ) noexcept;
     bool ( *Component_SetEnabled )( EntityID id, const uint8_t* component, bool enabled ) noexcept;
+
+    // The main camera (ME-312): the one the screen and the UI show (a render-texture camera made
+
+    // main renders to the screen). GetMain writes Entity.Null when the main camera isn't in the script world.
+    bool ( *Camera_IsCurrent )( EntityID id ) noexcept;
+    bool ( *Camera_MakeCurrent )( EntityID id ) noexcept;
+    void ( *Camera_GetMain )( EntityID* outId ) noexcept;
 };

@@ -419,3 +419,9 @@ bool Input_IsContextEnabled( int player, cstr context )
 ## and gets OnDisable. Get: 1 / 0, -1 when the entity has no such component.
 int Component_GetEnabled( Entity id, cstr component )
 bool Component_SetEnabled( Entity id, cstr component, bool enabled )
+
+## The main camera (ME-312): the one the screen and the UI show (a render-texture camera made
+## main renders to the screen). GetMain writes Entity.Null when the main camera isn't in the script world.
+bool Camera_IsCurrent( Entity id )
+bool Camera_MakeCurrent( Entity id )
+void Camera_GetMain( Entity* outId )

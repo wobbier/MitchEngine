@@ -3,6 +3,31 @@ namespace ScriptCore;
 /// <summary>The entity's Camera: projection, clipping, render scaling and screen rays.</summary>
 public class Camera : Component
 {
+    /// <summary>
+    /// The main camera (ME-312): the one the screen, the UI and 3D audio follow, or null when it
+    /// isn't in the script world (the editor's own camera, between scenes). A scene picks it with
+    /// the camera's "Make Current"; MakeCurrent switches it at runtime.
+    /// </summary>
+    public static Camera? Main
+    {
+        get { unsafe { Entity e; Engine._api.Camera_GetMain(&e); return e.GetComponent<Camera>(); } }
+    }
+
+    /// <summary>Whether this is the main camera (see Main).</summary>
+    public bool IsCurrent
+    {
+        get { unsafe { return Engine._api.Camera_IsCurrent(Entity) != 0; } }
+    }
+
+    /// <summary>
+    /// Makes this the main camera: the screen shows it from the next frame (a camera with a
+    /// TargetTexture renders to the screen while it's main). False when the entity has no Camera.
+    /// </summary>
+    public bool MakeCurrent()
+    {
+        unsafe { return Engine._api.Camera_MakeCurrent(Entity) != 0; }
+    }
+
     /// <summary>The background color when the camera clears to a color (linear RGB).</summary>
     public Vector3 ClearColor
     {
