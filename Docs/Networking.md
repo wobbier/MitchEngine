@@ -65,7 +65,7 @@ The editor tooling (NET-7) comes next.
 | `Source/Window/NullWindow.h` | The headless build's window: a size and SDL's event loop (Ctrl+C / SIGTERM close it) |
 | `Tools/RunNetSmoke.py` | The two-process smoke test (below) |
 | `Tools/RunNetLocal.py` | A server plus N client windows on this machine, for playing and debugging (below) |
-| `Modules/ScriptCore/Source/Net/` | C#: the `[Replicated]` / `[Predicted]` / `[ServerRpc]` / `[ClientRpc]` attributes, `INetScript`, `NetWriter` / `NetReader`, `Net`, and `NetBridge.cs` (the entry points C++ calls) |
+| `Modules/ScriptCore/Source/Net/` | C#: the `[Replicated]` / `[Predicted]` / `[ServerRpc]` / `[ClientRpc]` attributes, `INetScript`, `NetWriter` / `NetReader`, `Net`, `Replay` (ME-316 events) and `NetBridge.cs` (the entry points C++ calls) |
 | `Modules/ScriptCore/Generators/NetGenerator.cs` | The NET-6 generator |
 | `Source/Scripting/ScriptNet.h`, `Bindings/Systems/Net.bindings.cpp` | `NetCore::ScriptGlue` over C# scripts, and the `Net_*` slots C# calls |
 | `Tests/Source/NetTests.cpp`, `NetSessionTests.cpp`, `NetHarness.h` | The proofs (below). The harness runs a server world and a client world in one process at 1 ms resolution |
@@ -402,6 +402,8 @@ The server's ground truth for a whole match, for debugging after the fact: one r
 - a NetId's name, prefab and owner the first tick it's seen and whenever its owner changes;
 - every `LagCompensatedRaycast` of the tick (C#'s `Net.LagCompensatedRaycast` on the server goes through it, with or without a command), with the hitboxes at the tick it was judged at, the shooter's own left out; a hitbox on a child (a Head) names its nearest networked ancestor;
 - `net.joined` / `net.left` events (`{"client":N}`, with the `reason` for a leave; the clients already there when recording starts count as joined), and `RecordReplayEvent( name, payload, netId )`'s.
+
+**From C#** (`Modules/ScriptCore/Source/Net/Replay.cs`): `Replay.Event( name, payload )` and `Replay.Event( name, payload, entity )` add the game's own moments (kills, picks, damage, respawns) at the current tick, `entity`'s NetId with them (what `--entity` filters on); `Replay.IsRecording` says whether this process records; `Replay.Quote( text )` makes a JSON string literal for a payload. Off the recording server (a client, offline, a server without `--record-replay`) they do nothing, so gameplay calls them unconditionally.
 
 `StopRecording` (and `Shutdown`) writes the rest and logs `Replay: wrote <path>: N ticks (S s) in C chunks, X KB (Y KB before deflate)`. The server's `--net-report` gains a `Replay` block (path, ticks, chunks, bytes, raw bytes, error).
 

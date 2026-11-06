@@ -9,7 +9,7 @@ namespace ScriptCore;
 public unsafe struct EngineAPIBindings
 {
     // The ABI both sides were generated from (C++: kScriptEngineAPIHash).
-    public const ulong AbiHash = 0x6BAE3AA808576220UL;
+    public const ulong AbiHash = 0xCCBC3A94721C1E5CUL;
 
     // Core
     public delegate* unmanaged<byte*, void> Log;
@@ -457,6 +457,12 @@ public unsafe struct EngineAPIBindings
     public delegate* unmanaged<byte*, byte*, int> UIModel_GetListCount;
     public delegate* unmanaged<byte*, byte*, int, byte*, double, void> UIModel_SetItemNumber;
     public delegate* unmanaged<byte*, byte*, int, byte*, byte*, void> UIModel_SetItemString;
+
+    // Match replays (ME-316): an event into the server's replay at this tick (nothing unless it records):
+
+    // its name, a payload (JSON by convention) and the entity it's about (Entity.Null: none); whether it records
+    public delegate* unmanaged<byte*, byte*, Entity, void> Replay_Event;
+    public delegate* unmanaged<byte> Replay_IsRecording;
 }
 
 // The sizes C++ static_asserts for the structs that cross (checked when the API is bound).

@@ -436,3 +436,8 @@ void UIModel_SetListCount( cstr model, cstr key, int count )
 int UIModel_GetListCount( cstr model, cstr key )
 void UIModel_SetItemNumber( cstr model, cstr key, int index, cstr field, double value )
 void UIModel_SetItemString( cstr model, cstr key, int index, cstr field, cstr value )
+
+## Match replays (ME-316): an event into the server's replay at this tick (nothing unless it records):
+## its name, a payload (JSON by convention) and the entity it's about (Entity.Null: none); whether it records
+void Replay_Event( cstr name, cstr payload, Entity id )
+bool Replay_IsRecording()

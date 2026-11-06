@@ -19,7 +19,7 @@ struct ScriptRaycastHit
 };
 
 // The ABI both sides were generated from (C# checks it: ScriptBridge.GetEngineAPIHash).
-constexpr uint64_t kScriptEngineAPIHash = 0x6BAE3AA808576220ULL;
+constexpr uint64_t kScriptEngineAPIHash = 0xCCBC3A94721C1E5CULL;
 
 // Structs that cross: their layout is part of the ABI (C# checks the same sizes).
 static_assert( sizeof( EntityID ) == 8, "EntityID crosses into C#: its size is part of the script ABI" );
@@ -478,4 +478,10 @@ struct ScriptEngineAPI
     int ( *UIModel_GetListCount )( const uint8_t* model, const uint8_t* key ) noexcept;
     void ( *UIModel_SetItemNumber )( const uint8_t* model, const uint8_t* key, int index, const uint8_t* field, double value ) noexcept;
     void ( *UIModel_SetItemString )( const uint8_t* model, const uint8_t* key, int index, const uint8_t* field, const uint8_t* value ) noexcept;
+
+    // Match replays (ME-316): an event into the server's replay at this tick (nothing unless it records):
+
+    // its name, a payload (JSON by convention) and the entity it's about (Entity.Null: none); whether it records
+    void ( *Replay_Event )( const uint8_t* name, const uint8_t* payload, EntityID id ) noexcept;
+    bool ( *Replay_IsRecording )() noexcept;
 };

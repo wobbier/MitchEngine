@@ -394,6 +394,26 @@ static void Eng_Net_GetVisualOffset( EntityID id, Vector3* outOffset ) noexcept
 }
 
 
+// C#'s Replay (ME-316): game events into the server's match replay.
+static void Eng_Replay_Event( const uint8_t* name, const uint8_t* payload, EntityID id ) noexcept
+{
+    NetCore* net = Net();
+    if( !net || !net->IsRecording() || !name )
+    {
+        return;
+    }
+    EntityHandle entity = MakeHandle( id );
+    net->RecordReplayEvent( reinterpret_cast<const char*>( name ), payload ? reinterpret_cast<const char*>( payload ) : "", entity ? net->GetNetId( *entity.Get() ) : 0u );
+}
+
+
+static bool Eng_Replay_IsRecording() noexcept
+{
+    NetCore* net = Net();
+    return net && net->IsRecording();
+}
+
+
 void Register_NetBindings( ScriptEngineAPI& inAPI )
 {
     // Scripts can add it by name (World.Instantiate + AddComponent("NetIdentity")) and query it.
@@ -422,6 +442,8 @@ void Register_NetBindings( ScriptEngineAPI& inAPI )
     inAPI.Net_GetLayoutVersion = &Eng_Net_GetLayoutVersion;
     inAPI.Net_GetLocalCommand = &Eng_Net_GetLocalCommand;
     inAPI.Net_GetVisualOffset = &Eng_Net_GetVisualOffset;
+    inAPI.Replay_Event = &Eng_Replay_Event;
+    inAPI.Replay_IsRecording = &Eng_Replay_IsRecording;
 }
 
 #endif
