@@ -1031,6 +1031,12 @@ void NetLaunch::Shutdown( NetCore& InNet, double InNow )
         m_error = "--replay-check never ran: the replay never rested on its tick";
         Say( CLog::LogType::Error, "Replay: " + m_error );
     }
+    // So does --resim-check: cut short (a signal, --frames, a timeout) it has no verdict, not 0.
+    if( CommandLine::Has( "--resim-check" ) && IsReplaying() && m_error.empty() && ( !m_viewer || m_viewer->GetExitCode() < 0 ) )
+    {
+        m_error = "--resim-check never finished: the run ended before every character was checked";
+        Say( CLog::LogType::Error, "Replay: " + m_error );
+    }
     // The replay ends with the match: its last chunk and index are written before the report
     // (which counts them) and the goodbyes.
     InNet.StopRecording();

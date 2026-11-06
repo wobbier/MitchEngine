@@ -44,7 +44,8 @@ class NetCore;
 //                              --replay-check checks, or once it rests there without one
 //   --resim-check [A:B]        the resim check for every player's character over A..B (all of it by
 //                              default), logged ("Resim: ..."), then quit: exit 0 when every one
-//                              matches, 3 when a tick diverges, 1 when none could run
+//                              matches, 3 when a tick diverges, 1 when any couldn't be checked (or
+//                              the run ended before the check did: NetLaunch::Shutdown)
 //   --replay-camera MODE       game, free, follow:NETID or pov:NETID
 //   --replay-overlays LIST     what to draw in the world: shots,hitboxes,trails (default all; none)
 class ReplayViewer

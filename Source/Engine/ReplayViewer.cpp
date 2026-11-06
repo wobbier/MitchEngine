@@ -717,6 +717,7 @@ void ReplayViewer::StepResimCheck( NetCore& InNet, std::string& OutError, bool& 
         diverged += result.Ran() && result.Diverged() ? 1 : 0;
         ticks += result.Ticks;
     }
+    const size_t unchecked = m_resimResults.size() - ran;
     if( ran == 0 )
     {
         OutError = "--resim-check: no character could be resimulated";
@@ -724,10 +725,16 @@ void ReplayViewer::StepResimCheck( NetCore& InNet, std::string& OutError, bool& 
     }
     else
     {
-        m_exitCode = diverged ? 3 : 0;
-        Say( diverged ? CLog::LogType::Warning : CLog::LogType::Info,
-            Format( "Resim: %zu of %zu character(s) resimulated (%llu ticks): %s", ran, m_resimResults.size(), static_cast<unsigned long long>( ticks ),
-                diverged ? Format( "%zu diverge", diverged ).c_str() : "every tick matches the recording" ) );
+        // A character that couldn't be checked fails the check (1): 0 promises every one matched.
+        m_exitCode = unchecked ? 1 : diverged ? 3 : 0;
+        std::string outcome = diverged ? Format( "%zu diverge", diverged ) : std::string( "every tick matches the recording" );
+        if( unchecked )
+        {
+            outcome += Format( "; %zu couldn't be checked", unchecked );
+            OutError = Format( "--resim-check: %zu of %zu character(s) couldn't be checked", unchecked, m_resimResults.size() );
+        }
+        Say( diverged || unchecked ? CLog::LogType::Warning : CLog::LogType::Info,
+            Format( "Resim: %zu of %zu character(s) resimulated (%llu ticks): %s", ran, m_resimResults.size(), static_cast<unsigned long long>( ticks ), outcome.c_str() ) );
     }
     if( !m_reportPath.empty() )
     {
