@@ -663,7 +663,10 @@ void Engine::Run()
     // ME-323 phase 3: killcams the session receives play into a replay world of their own.
     m_killcam.SetPopulate( [this]( KillcamPlayer::ReplayWorld& InReplay, std::string& OutError ) { return PopulateKillcamWorld( InReplay, OutError ); } );
     m_killcamCapturePath = CommandLine::GetString( "--killcam-capture" );
-    m_killcamCaptureAt = std::max( 0.f, CommandLine::GetFloat( "--killcam-capture-at", 2.f ) );
+    // "death": the kill as the killer saw it; negative: that long before it; else seconds in.
+    m_killcamCaptureAtKill = CommandLine::GetString( "--killcam-capture-at" ) == "death";
+    m_killcamCaptureAt = m_killcamCaptureAtKill ? 0.0 : CommandLine::GetFloat( "--killcam-capture-at", 2.f );
+    m_killcamCaptureAtKill = m_killcamCaptureAtKill || m_killcamCaptureAt < 0.0;
 #if USING( ME_EDITOR )
     // Havana's Game View picks its camera itself: killcams arrive (Net.Killcam) but don't play there yet.
     m_killcam.GetSettings().AutoPlay = false;
@@ -1696,23 +1699,30 @@ void Engine::UpdateKillcam( const UpdateContext& InContext )
     ModelRenderer->SetPresented( replay == nullptr );
     AudioThread->SetListenerWorld( replay );
 
-    // --killcam-capture: what the screen shows that far into the first killcam.
+    // --killcam-capture: what the screen shows that far into the first killcam (every killcam's, a file each,
+    // when the path has "{id}"), or at (before) the kill as the killer saw it: its tick at the death tick.
     const KillcamPlayer::Status& status = m_killcam.GetStatus();
-    if( replay && !m_killcamCaptured && !m_killcamCapturePath.empty() && status.Elapsed >= m_killcamCaptureAt )
+    const size_t idAt = m_killcamCapturePath.find( "{id}" );
+    const bool due = m_killcamCaptureAtKill ? status.HasView && status.KillerTick >= static_cast<double>( status.DeathTick ) + m_killcamCaptureAt * status.TickRate
+                                            : status.Elapsed >= m_killcamCaptureAt;
+    if( replay && !m_killcamCapturePath.empty() && status.Id != m_killcamCapturedId && ( m_killcamCapturedId == 0 || idAt != std::string::npos ) && due )
     {
-        m_killcamCaptured = true;
-        NewRenderer->RequestScreenshot( m_killcamCapturePath );
+        m_killcamCapturedId = status.Id;
+        std::string path = m_killcamCapturePath;
+        if( idAt != std::string::npos )
+        {
+            path.replace( idAt, 4, std::to_string( status.Id ) );
+        }
+        NewRenderer->RequestScreenshot( path );
         std::ostringstream line;
         line.precision( 2 );
         line << std::fixed << "Net: killcam " << status.Id << " capture at tick " << status.Tick << " (" << status.Elapsed << " s in): the replay world presented";
-        EntityHandle killer = m_killcam.GetNet()->FindEntity( status.KillerNetId );
-        if( status.HasView && killer )
+        const std::string view = m_killcam.DescribeView();
+        if( !view.empty() )
         {
-            const Vector3 at = killer->GetComponent<Transform>().GetWorldPosition();
-            line << ", the camera at killer #" << status.KillerNetId << "'s eye (" << status.Eye.x << ", " << status.Eye.y << ", " << status.Eye.z << ") aiming yaw " << status.Yaw
-                 << " pitch " << status.Pitch << ", the killer at (" << at.x << ", " << at.y << ", " << at.z << ")";
+            line << ", " << view;
         }
-        line << " -> " << m_killcamCapturePath;
+        line << " -> " << path;
         CLog::Log( CLog::LogType::Info, line.str() );
     }
 }

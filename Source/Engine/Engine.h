@@ -199,10 +199,12 @@ private:
     AutomationRunner m_automation;
     NetLaunch m_netLaunch;
     KillcamPlayer m_killcam;
-    // --killcam-capture PNG [--killcam-capture-at S]: a screenshot that far into the first killcam.
+    // --killcam-capture PNG [--killcam-capture-at S|death]: a screenshot that far into the first killcam (each
+    // killcam's when PNG has "{id}"), or at the kill as the killer saw it ("death"; S < 0: that long before).
     std::string m_killcamCapturePath;
     double m_killcamCaptureAt = 2.0;
-    bool m_killcamCaptured = false;
+    bool m_killcamCaptureAtKill = false;
+    uint32_t m_killcamCapturedId = 0;
     // The scene file a client session's killcams load into their replay worlds, read and parsed on the
     // background lane once per scene (UpdateKillcam), then copied for each.
     std::string m_killcamLevelPath;

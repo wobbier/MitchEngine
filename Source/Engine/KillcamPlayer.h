@@ -11,6 +11,9 @@
 class BaseCore;
 class NetCore;
 class NetKillcamReceiver;
+class NetKillcamSource;
+class NetReplayReader;
+struct NetReplayTick;
 class World;
 
 // A killcam started or ended on the victim's side (ME-323 phase 3). Fired by the KillcamPlayer on the
@@ -93,6 +96,52 @@ public:
     // the player starts it afterwards. False with OutError: the killcam fails.
     using Populate = std::function<bool( ReplayWorld& InWorld, std::string& OutError )>;
 
+    // The killer's view (ME-343): the net aim convention (yaw about +Y, 0 looking down +Z and 90 down +X;
+    // pitch up from level, in degrees) as a direction, and where a world point lands in a view from InEye
+    // along that aim with a vertical field of view (degrees) and a width / height aspect: X and Y run -1..1
+    // across the frame (X right, Y up), Depth along the view; Inside when it's in front and in the frame.
+    struct ViewPoint
+    {
+        float X = 0.f;
+        float Y = 0.f;
+        float Depth = 0.f;
+        bool Inside = false;
+    };
+    static Vector3 AimDirection( float InYawDegrees, float InPitchDegrees );
+    static ViewPoint Project( const Vector3& InEye, float InYawDegrees, float InPitchDegrees, float InFieldOfView, float InAspect, const Vector3& InPoint );
+
+    // What the killer saw (ME-343). A client shows the others at its view tick (interpolated, some ticks
+    // behind the tick it predicts its own pawn at and aims in; its commands carry it, and lag compensation
+    // rewinds shots to it), so the world at a time T was on the killer's screen while its client was at the
+    // tick whose command's view tick reached T: its eye and aim then are the killer's view of T.
+    // A killer's tick: its client's command (aim, view tick) and its pawn's recorded position.
+    struct KillerSample
+    {
+        uint32_t Tick = 0;
+        bool HasAim = false;
+        float Yaw = 0.f;
+        float Pitch = 0.f;
+        double ViewTick = -1.0;     // < 0: none (an old recording's)
+        bool HasPosition = false;   // the killer is in the tick's state
+        Vector3 Position;
+    };
+    struct KillerView
+    {
+        double Tick = 0.0;          // the killer's tick (fractional: between two)
+        bool HasAim = false;
+        float Yaw = 0.f;
+        float Pitch = 0.f;
+        bool HasPosition = false;
+        Vector3 Position;
+    };
+    // The killer's view of world time InTime from InSamples (consecutive ticks, ascending): between the first
+    // sample whose view tick reaches InTime and the one before it (by view tick; aim the short way round,
+    // positions straight); a sample without a view tick counts as its own tick. Before the first sample's view
+    // tick: the first sample; past the last one's: the last (the killer's last command, the kill).
+    static KillerView FindKillerView( const std::vector<KillerSample>& InSamples, double InTime );
+    // InTick as a KillerSample for the killer InKillerNetId of client InClient.
+    static KillerSample MakeKillerSample( const NetReplayTick& InTick, uint8_t InClient, uint32_t InKillerNetId );
+
     KillcamPlayer() = default;
     ~KillcamPlayer();
     KillcamPlayer( const KillcamPlayer& ) = delete;
@@ -136,11 +185,24 @@ public:
         // has a camera entity to move), for logs and captures. Eye / Yaw / Pitch: the killer's view,
         // placed or not.
         bool HasView = false;
+        // The killer's tick the view is from (ME-343): ahead of Tick by its client's interpolation delay (the
+        // killer's command whose view tick is Tick), Tick for a bot's; it reaches DeathTick at the kill.
+        double KillerTick = 0.0;
+        Vector3 KillerAt;           // the killer's origin then
         Vector3 Eye;
         float Yaw = 0.f;
         float Pitch = 0.f;
+        // The victim in that view (ME-343), while the replay world has it: its origin, and where that lands
+        // in the frame (the main camera's field of view and aspect).
+        bool HasVictim = false;
+        Vector3 VictimAt;
+        ViewPoint VictimView;
     };
     const Status& GetStatus() const { return m_status; }
+    // The killer's view this frame as a log line's words: "the camera at killer #k's eye (x, y, z) aiming yaw Y
+    // pitch P, the killer at (x, y, z), the victim #v at (x, y, z) on screen at (x, y) N m away" (or "off screen",
+    // "behind the camera", "not in the world"); empty without a view.
+    std::string DescribeView() const;
 
     struct Stats
     {
@@ -160,6 +222,9 @@ private:
     void Start( World& InLive, const NetKillcamReceiver& InKillcam );
     void End( const std::string& InReason );
     void PlaceView();
+    // m_samples from the tick before InTime as far as the killer's view of InTime needs (to the death tick,
+    // and what the stream has so far).
+    void ReadSamples( double InTime );
     void Fire( bool InStarted, const std::string& InReason );
     void Bind( World& InLive );
 
@@ -172,5 +237,10 @@ private:
     Stats m_stats;
     double m_held = 0.0;            // seconds on the death tick, complete
     double m_stalled = 0.0;         // seconds waiting on a chunk, now
+    bool m_deathShown = false;      // the kill's view was logged
+    // The killer's ticks ahead of the playhead (ME-343), read from the stream with a reader of their own.
+    std::unique_ptr<NetKillcamSource> m_aheadSource;
+    std::unique_ptr<NetReplayReader> m_ahead;
+    std::vector<KillerSample> m_samples;
     bool m_skipRequested = false;
 };

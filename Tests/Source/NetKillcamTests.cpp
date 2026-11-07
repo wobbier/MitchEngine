@@ -1369,11 +1369,39 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
     }
 #endif
 
-    // The killer's view: the replay world's camera at its eye (1.6 m: no CharacterController here),
-    // looking along its client's recorded aim at the tick shown.
+    // The killer's view (ME-343): the replay world's camera at its eye (1.6 m: no CharacterController here)
+    // looking along its client's recorded aim, both from the killer's tick that was looking at the tick shown:
+    // the one whose command's view tick (the others on its screen, its interpolation delay behind) reaches it.
     REQUIRE( status.HasView );
-    const Vector3 killerAt = replayKiller->GetComponent<Transform>().GetWorldPosition();
-    CHECK( ( status.Eye - ( killerAt + Vector3( 0.f, 1.6f, 0.f ) ) ).Length() < 1e-4f );
+    {
+        NetReplayReader& reader = replayNet.GetPlayback()->GetReader();
+        const uint32_t before = static_cast<uint32_t>( std::floor( status.KillerTick ) );
+        NetReplayTick from, to;
+        REQUIRE( reader.ReadTick( before, from ) );
+        REQUIRE( reader.ReadTick( before + 1, to ) );
+        const NetReplayClient* fromClient = from.Clients.empty() ? nullptr : &from.Clients[0];
+        const NetReplayClient* toClient = to.Clients.empty() ? nullptr : &to.Clients[0];
+        REQUIRE( fromClient );
+        REQUIRE( toClient );
+        INFO( "tick shown " << status.Tick << ", the killer's " << status.KillerTick << " (view ticks " << fromClient->Command.ViewTick << " .. " << toClient->Command.ViewTick << ")" );
+        // Ahead of the tick shown by the killer's interpolation delay (150 ms RTT: several ticks), and
+        // between the two ticks whose view ticks are either side of it.
+        CHECK( status.KillerTick > status.Tick + 2.0 );
+        CHECK( status.KillerTick < status.Tick + 30.0 );
+        CHECK( fromClient->Command.ViewTick <= status.Tick + 1e-6 );
+        CHECK( toClient->Command.ViewTick >= status.Tick - 1e-6 );
+        // The eye at the killer's recorded position then, not its pawn's in the world shown.
+        const float alpha = static_cast<float>( status.KillerTick - before );
+        const Vector3 fromAt = from.State.Entities.at( status.KillerNetId ).GetPosition();
+        const Vector3 toAt = to.State.Entities.at( status.KillerNetId ).GetPosition();
+        const Vector3 killerAt = fromAt + ( toAt - fromAt ) * alpha;
+        CHECK( ( status.KillerAt - killerAt ).Length() < 1e-3f );
+        CHECK( ( status.Eye - ( killerAt + Vector3( 0.f, 1.6f, 0.f ) ) ).Length() < 1e-3f );
+        CHECK( std::abs( status.Pitch - ( fromClient->Command.Pitch + ( toClient->Command.Pitch - fromClient->Command.Pitch ) * alpha ) ) < 0.01f );
+        float delta = std::fmod( std::abs( status.Yaw - fromClient->Command.Yaw ), 360.f );
+        delta = std::min( delta, 360.f - delta );
+        CHECK( delta <= 3.01f );    // between that tick's aim and the next's (it turns 3 degrees a tick)
+    }
     Camera* view = Camera::GetMain( &replay );
     REQUIRE( view );
     REQUIRE( view->Parent );
@@ -1393,16 +1421,6 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
     CHECK( replayBody.GetWorld() == &replay );
     CHECK_FALSE( replayBody->GetComponent<Model>().IsEnabled() );
     CHECK( liveBody->GetComponent<Model>().IsEnabled() );
-    {
-        const NetReplayTick* record = replayNet.GetPlayback()->GetRecord();
-        REQUIRE( record );
-        REQUIRE( record->Clients.size() == 1 );
-        const float recordedYaw = record->Clients[0].Command.Yaw;
-        float delta = std::fmod( std::abs( status.Yaw - recordedYaw ), 360.f );
-        delta = std::min( delta, 360.f - delta );
-        CHECK( delta <= 3.01f );    // between this tick's aim and the next's (it turns 3 degrees a tick)
-        CHECK( std::abs( status.Pitch - record->Clients[0].Command.Pitch ) < 0.1f );
-    }
 
     // Tick for tick, the replay world is the ring as the killer's client had it: walk the playback over
     // every tick of the killcam (the live session waits, it's the same instant) and check the world at
@@ -1717,4 +1735,135 @@ TEST_CASE( "Net: a killcam that outruns its stream holds on the last tick in, st
     CHECK( player.GetLastSeenId() == 0 );
     CHECK( player.GetStats().Started == 2 );
     net.OnMillisecond = nullptr;
+}
+
+
+TEST_CASE( "Killcam: the killer's view: the net aim as the camera's front, a point's place in the frame, and the killer's tick that looked at a time (ME-343)" )
+{
+    // The net aim convention: yaw about +Y, 0 down +Z, 90 down +X; pitch up from level.
+    const auto near = []( const Vector3& InA, const Vector3& InB ) { return ( InA - InB ).Length() < 1e-4f; };
+    CHECK( near( KillcamPlayer::AimDirection( 0.f, 0.f ), Vector3( 0.f, 0.f, 1.f ) ) );
+    CHECK( near( KillcamPlayer::AimDirection( 90.f, 0.f ), Vector3( 1.f, 0.f, 0.f ) ) );
+    CHECK( near( KillcamPlayer::AimDirection( 180.f, 0.f ), Vector3( 0.f, 0.f, -1.f ) ) );
+    CHECK( near( KillcamPlayer::AimDirection( 0.f, 90.f ), Vector3( 0.f, 1.f, 0.f ) ) );
+    CHECK( near( KillcamPlayer::AimDirection( 270.f, -45.f ), Vector3( -0.70710678f, -0.70710678f, 0.f ) ) );
+
+    // A camera put at an eye looking along an aim (as PlaceView does) has that front, the level quarter turn
+    // as its right and Project's up as its up: Project's frame is the camera's.
+    for( const auto& aim : { std::pair<float, float>{ 0.f, 0.f }, { 122.7f, -18.5f }, { 311.f, 40.f }, { 212.3f, -39.6f } } )
+    {
+        INFO( "yaw " << aim.first << " pitch " << aim.second );
+        auto world = std::make_shared<World>();
+        world->IsLoading = false;
+        EntityHandle camera = world->CreateEntity( "Camera" );
+        Transform& transform = camera->AddComponent<Transform>();
+        const Vector3 eye( -9.05f, 3.05f, -2.5f );
+        transform.SetWorldPosition( eye );
+        transform.LookAt( eye + KillcamPlayer::AimDirection( aim.first, aim.second ) );
+        const Vector3 front = transform.Front().Normalized();
+        CHECK( near( front, KillcamPlayer::AimDirection( aim.first, aim.second ) ) );
+        // A point ahead, up and to the right of the view lands up and right in the frame, as far ahead as it is.
+        const Vector3 right = KillcamPlayer::AimDirection( aim.first + 90.f, 0.f );
+        const Vector3 up = front.Cross( right );
+        CHECK( std::abs( up.Dot( front ) ) < 1e-4f );
+        CHECK( up.Dot( Vector3( 0.f, 1.f, 0.f ) ) > 0.f );
+        const KillcamPlayer::ViewPoint point = KillcamPlayer::Project( eye, aim.first, aim.second, 90.f, 2.f, eye + front * 10.f + right * 5.f + up * 2.5f );
+        CHECK( point.Inside );
+        CHECK( std::abs( point.Depth - 10.f ) < 1e-3f );
+        CHECK( std::abs( point.X - 0.25f ) < 1e-4f );   // 5 m right at 10 m: half of the half width (10 x tan 45 x 2)
+        CHECK( std::abs( point.Y - 0.25f ) < 1e-4f );   // 2.5 m up: a quarter of the half height
+    }
+    {
+        // Centre, edges and behind; a 75-degree view (HeroShooter's) at 16:9.
+        const Vector3 eye( 1.f, 2.f, 3.f );
+        const float half = std::tan( 37.5f * 3.14159265f / 180.f );
+        KillcamPlayer::ViewPoint point = KillcamPlayer::Project( eye, 90.f, 0.f, 75.f, 16.f / 9.f, eye + Vector3( 6.f, 0.f, 0.f ) );
+        CHECK( point.Inside );
+        CHECK( std::abs( point.X ) < 1e-5f );
+        CHECK( std::abs( point.Y ) < 1e-5f );
+        point = KillcamPlayer::Project( eye, 90.f, 0.f, 75.f, 16.f / 9.f, eye + Vector3( 6.f, 6.f * half * 0.99f, 0.f ) );
+        CHECK( point.Inside );
+        CHECK( point.Y > 0.98f );
+        point = KillcamPlayer::Project( eye, 90.f, 0.f, 75.f, 16.f / 9.f, eye + Vector3( 6.f, 0.f, -6.f * half * 16.f / 9.f * 1.01f ) );
+        CHECK_FALSE( point.Inside );    // off the right edge (looking down +X, -Z is right)
+        CHECK( point.X > 1.f );
+        point = KillcamPlayer::Project( eye, 90.f, 0.f, 75.f, 16.f / 9.f, eye + Vector3( -0.75f, -0.75f, 0.f ) );
+        CHECK_FALSE( point.Inside );    // behind the eye
+        CHECK( point.Depth < 0.f );
+    }
+
+    // The killer's ticks 100..130: its client 12.5 ticks behind (its view tick), walking down +X 0.1 m a
+    // tick, turning 3 degrees a tick through north (345 at tick 100: 0 at 105).
+    std::vector<KillcamPlayer::KillerSample> samples;
+    for( uint32_t tick = 100; tick <= 130; ++tick )
+    {
+        KillcamPlayer::KillerSample sample;
+        sample.Tick = tick;
+        sample.HasAim = true;
+        sample.Yaw = std::fmod( 345.f + ( tick - 100 ) * 3.f, 360.f );
+        sample.Pitch = -10.f + ( tick - 100 ) * 0.5f;
+        sample.ViewTick = tick - 12.5;
+        sample.HasPosition = true;
+        sample.Position = Vector3( tick * 0.1f, 1.f, -2.f );
+        samples.push_back( sample );
+    }
+    // The world at tick 92 was on its screen between ticks 104 (view 91.5) and 105 (92.5).
+    KillcamPlayer::KillerView view = KillcamPlayer::FindKillerView( samples, 92.0 );
+    CHECK( std::abs( view.Tick - 104.5 ) < 1e-9 );
+    REQUIRE( view.HasAim );
+    CHECK( std::abs( view.Yaw - 358.5f ) < 1e-3f );      // 357 to 0 the short way round
+    CHECK( std::abs( view.Pitch - ( -10.f + 4.5f * 0.5f ) ) < 1e-4f );
+    REQUIRE( view.HasPosition );
+    CHECK( near( view.Position, Vector3( 10.45f, 1.f, -2.f ) ) );
+    // On a view tick exactly: that tick. Before the first sample's view: the first; past the last's: the
+    // last (the killer's last command: the kill).
+    CHECK( std::abs( KillcamPlayer::FindKillerView( samples, 107.5 ).Tick - 120.0 ) < 1e-9 );
+    CHECK( KillcamPlayer::FindKillerView( samples, 50.0 ).Tick == 100.0 );
+    view = KillcamPlayer::FindKillerView( samples, 125.0 );
+    CHECK( view.Tick == 130.0 );
+    CHECK( std::abs( view.Yaw - std::fmod( 345.f + 90.f, 360.f ) ) < 1e-3f );
+    // An old recording's commands have no view tick: the tick itself.
+    for( KillcamPlayer::KillerSample& sample : samples )
+    {
+        sample.ViewTick = -1.0;
+    }
+    CHECK( std::abs( KillcamPlayer::FindKillerView( samples, 110.25 ).Tick - 110.25 ) < 1e-9 );
+    // A tick without the killer's aim or position (a gap in the state) takes them from its neighbour.
+    samples[11].HasAim = false;
+    samples[11].HasPosition = false;
+    view = KillcamPlayer::FindKillerView( samples, 110.25 );
+    REQUIRE( view.HasAim );
+    CHECK( std::abs( view.Yaw - samples[10].Yaw ) < 1e-4f );
+    CHECK( near( view.Position, samples[10].Position ) );
+    CHECK_FALSE( KillcamPlayer::FindKillerView( {}, 3.0 ).HasAim );
+
+    // A recorded tick as a sample: its client's command and the killer's state.
+    NetReplayTick tick;
+    tick.Tick = 812;
+    NetReplayClient other;
+    other.Id = 1;
+    other.Command.HasAim = true;
+    other.Command.Yaw = 10.f;
+    NetReplayClient killer;
+    killer.Id = 2;
+    killer.Command.HasAim = true;
+    killer.Command.Yaw = 5.72f;
+    killer.Command.Pitch = -4.61f;
+    killer.Command.ViewTick = 797.75;
+    tick.Clients = { other, killer };
+    NetEntityState state;
+    state.SetPose( Vector3( -5.5f, 0.895f, 3.25f ), Quaternion() );
+    tick.State.Entities[65539] = state;
+    KillcamPlayer::KillerSample sample = KillcamPlayer::MakeKillerSample( tick, 2, 65539 );
+    CHECK( sample.Tick == 812 );
+    CHECK( sample.HasAim );
+    CHECK( sample.Yaw == 5.72f );
+    CHECK( sample.Pitch == -4.61f );
+    CHECK( sample.ViewTick == 797.75 );
+    REQUIRE( sample.HasPosition );
+    CHECK( ( sample.Position - Vector3( -5.5f, 0.895f, 3.25f ) ).Length() < 2e-3f );
+    sample = KillcamPlayer::MakeKillerSample( tick, 3, 65540 );
+    CHECK_FALSE( sample.HasAim );
+    CHECK_FALSE( sample.HasPosition );
+    CHECK( sample.ViewTick < 0.0 );
 }
