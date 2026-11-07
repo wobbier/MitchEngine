@@ -122,8 +122,10 @@ namespace MeWidgets::Graph
     void Wedge( ImDrawList* InDrawList, ImVec2 InApex, float InDirection, float InInnerHalf, float InOuterHalf, float InRadius, ImU32 InColor );
     // A handle on an arc around InApex at InRadius, dragged around it: InOutDegrees is the half
     // angle, clamped to InMin..InMax. Same item rules as DragHandle.
-    // InSide (+1 or -1) picks the side of the axis the handle sits on.
-    bool AngleHandle( const char* InLabel, ImVec2 InApex, float InDirection, float InSide, float InRadius, double& InOutDegrees, double InMin, double InMax, ImU32 InColor = 0 );
+    // InSide (+1 or -1) picks the side of the axis the handle sits on. InShownScale scales what
+    // the handle shows, reports and rounds to (2: a full angle such as a field of view, dragged
+    // by its half angle).
+    bool AngleHandle( const char* InLabel, ImVec2 InApex, float InDirection, float InSide, float InRadius, double& InOutDegrees, double InMin, double InMax, ImU32 InColor = 0, double InShownScale = 1.0 );
 
     // ---- Shared by the widgets built on graphs --------------------------------------------
     // The ID DragHandle( InLabel ) gets inside Begin( InGraphId ), for widgets that need to know

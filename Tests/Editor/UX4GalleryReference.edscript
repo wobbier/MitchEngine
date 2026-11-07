@@ -10,3 +10,8 @@ imgui-click Widget Gallery/Reset
 wait 5
 panel-screenshot Widget Gallery | .tmp/UX4-Gallery.png
 assert-images .tmp/UX4-Gallery.png | Engine/Tests/Editor/Reference/WidgetGallery.png | same | 0.002
+# The camera widgets (UX-6) below the fold: scrolled into view, then captured.
+imgui-hover Widget Gallery/Focus Band
+wait 5
+panel-screenshot Widget Gallery | .tmp/UX4-Gallery-Camera.png
+assert-images .tmp/UX4-Gallery-Camera.png | Engine/Tests/Editor/Reference/WidgetGalleryCamera.png | same | 0.002

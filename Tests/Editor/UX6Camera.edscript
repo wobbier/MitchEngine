@@ -1,0 +1,107 @@
+# UX-6: camera and lens widgets drive Camera and PostProcess like a person would: lens primes, a
+# typed focal length and the frustum wedge's FOV handle set the vertical field of view (fov =
+# 2 atan(h / 2f) on the PostProcess sensor height); render scale detents under a live resolution
+# readout; the iris dial's stops and drag (third stops); the focus bar's handle. One undo step each.
+# Havana --scene Assets/Scenes/Tests/DepthOfFieldTest.lvl --frame-time 0.0166667 --editor-exec Engine/Tests/Editor/UX6Camera.edscript
+wait 25
+select Main Camera
+wait 5
+
+# Focal length: 20 degrees on the 24 mm sensor is a 68 mm lens.
+imgui-assert-value Camera/Lens | 68.06 mm
+imgui-click Camera/Lens/50 mm
+assert-field Main Camera | Camera.FieldOfView | 26.99 ~ 0.01
+imgui-assert-value Camera/Lens | 50 mm
+undo
+assert-field Main Camera | Camera.FieldOfView | 20
+redo
+assert-field Main Camera | Camera.FieldOfView | 26.99 ~ 0.01
+imgui-type Camera/Focal Length | 35 mm
+assert-field Main Camera | Camera.FieldOfView | 37.85 ~ 0.01
+imgui-assert-value Camera/Focal Length | 35 mm
+undo
+assert-field Main Camera | Camera.FieldOfView | 26.99 ~ 0.01
+# The FOV handle on the wedge's upper edge: dragged up, the view widens (whole degrees).
+imgui-drag Camera/Lens/FOV | 0 -20
+assert-field Main Camera | Camera.FieldOfView | 42 ~ 0.5
+imgui-assert-value Camera/Lens/FOV | 42°
+imgui-assert-value Camera/Focal Length | 31.26 mm ~ 0.1
+undo
+assert-field Main Camera | Camera.FieldOfView | 26.99 ~ 0.01
+
+# Render scale: the readout is the internal size of the Game View's (939 x 281 headless).
+imgui-assert-value Camera/Resolution | 939 x 281 of 939 x 281
+imgui-click Camera/Resolution/50%
+assert-field Main Camera | Camera.RenderScale | 0.5
+imgui-assert-value Camera/Resolution | 470 x 141 of 939 x 281
+undo
+assert-field Main Camera | Camera.RenderScale | 1
+redo
+assert-field Main Camera | Camera.RenderScale | 0.5
+
+# Aperture
+imgui-click PostProcess/Iris/2.8
+assert-field Main Camera | PostProcess.DoFAperture | 2.8
+imgui-assert-value PostProcess/Iris | f/2.8
+undo
+assert-field Main Camera | PostProcess.DoFAperture | 1
+redo
+assert-field Main Camera | PostProcess.DoFAperture | 2.8
+# Dragging along the row from f/2.8 scrubs in log space and lands on a third stop.
+imgui-drag PostProcess/Iris/2.8 | 30 0
+assert-field Main Camera | PostProcess.DoFAperture | 4.5
+imgui-assert-value PostProcess/Iris | f/4.5
+undo
+assert-field Main Camera | PostProcess.DoFAperture | 2.8
+
+# Focus: a 50 mm lens at f/2.8 focused at 8 m keeps 6.31 m to 10.9 m sharp (c = 0.03 mm);
+# the hyperfocal distance is 29.8 m.
+imgui-assert-value PostProcess/Focus Band | 6.31 m to 10.9 m
+imgui-assert-value PostProcess/Focus Band/Hyperfocal | 29.8 m
+imgui-drag PostProcess/Focus Band/Focus | -40 0
+assert-field Main Camera | PostProcess.DoFFocusDistance | 2.01 ~ 0.05
+imgui-assert-value PostProcess/Focus Band | 1.89 m to 2.15 m
+imgui-assert-value PostProcess/Focus Distance | 2.01 m
+undo
+assert-field Main Camera | PostProcess.DoFFocusDistance | 8
+redo
+assert-field Main Camera | PostProcess.DoFFocusDistance | 2.01 ~ 0.05
+undo
+# H focuses at the hyperfocal distance: sharp from half of it to infinity.
+imgui-click PostProcess/Focus Band/Hyperfocal
+assert-field Main Camera | PostProcess.DoFFocusDistance | 29.9
+imgui-assert-value PostProcess/Focus Band | 14.9 m to infinity
+undo
+assert-field Main Camera | PostProcess.DoFFocusDistance | 8
+
+# The sensor height comes from the PostProcess: on a 12 mm sensor the same view is a 25 mm lens.
+set PostProcess.DoFSensorHeight 12
+wait 3
+imgui-assert-value Camera/Focal Length | 25 mm
+imgui-click Camera/Lens/50 mm
+assert-field Main Camera | Camera.FieldOfView | 13.69 ~ 0.01
+undo
+set PostProcess.DoFSensorHeight 24
+wait 3
+
+# Captures to look at.
+wait 30
+imgui-hover Camera/Lens
+panel-screenshot Properties | .tmp/UX6-Lens.png
+imgui-hover Camera/Resolution
+panel-screenshot Properties | .tmp/UX6-RenderScale.png
+imgui-hover PostProcess/Iris
+panel-screenshot Properties | .tmp/UX6-Aperture.png
+
+# Orthographic cameras have no lens.
+set Camera.Projection "Orthographic"
+wait 3
+imgui-assert-item Camera/Lens | false
+imgui-assert-item Camera/Focal Length | false
+
+# A second, full-viewport camera reads the Game View size it would get once current (its own
+# OutputSize is only kept up to date for the main camera).
+create SecondCamera
+add-component Camera
+wait 3
+imgui-assert-value Camera/Resolution | 939 x 281 of 939 x 281

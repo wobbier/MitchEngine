@@ -553,17 +553,18 @@ namespace MeWidgets::Graph
         }
     }
 
-    bool AngleHandle( const char* InLabel, ImVec2 InApex, float InDirection, float InSide, float InRadius, double& InOutDegrees, double InMin, double InMax, ImU32 InColor )
+    bool AngleHandle( const char* InLabel, ImVec2 InApex, float InDirection, float InSide, float InRadius, double& InOutDegrees, double InMin, double InMax, ImU32 InColor, double InShownScale )
     {
         ImGuiWindow* window = ImGui::GetCurrentWindow();
         const ImGuiID id = window->GetID( InLabel );
         const float side = InSide < 0.f ? -1.f : 1.f;
         const float radians = static_cast<float>( InOutDegrees ) * kPi / 180.f;
         const ImVec2 pos = ArcPoint( InApex, InDirection, side * radians, InRadius );
+        const double scale = InShownScale > 0.0 ? InShownScale : 1.0;
         const HandleInput input = HandleItem( id, pos, nullptr );
         if( !input.Visible )
         {
-            Describe( id, InLabel, FormatValue( Unit::Degrees, InOutDegrees ) );
+            Describe( id, InLabel, FormatValue( Unit::Degrees, InOutDegrees * scale ) );
             return false;
         }
         bool changed = false;
@@ -582,13 +583,14 @@ namespace MeWidgets::Graph
             {
                 degrees = InOutDegrees >= ( InMin + InMax ) * 0.5 ? InMax : InMin;
             }
-            // Whole degrees unless Shift asks for finer.
-            const double value = GImGui->IO.KeyShift ? std::round( degrees * 10.0 ) / 10.0 : std::round( degrees );
+            // Whole (shown) degrees unless Shift asks for finer.
+            const double steps = GImGui->IO.KeyShift ? 10.0 : 1.0;
+            const double value = std::clamp( std::round( degrees * scale * steps ) / ( steps * scale ), InMin, InMax );
             if( value != InOutDegrees )
             {
                 const bool limit = ( value <= InMin || value >= InMax ) && InOutDegrees > InMin && InOutDegrees < InMax;
                 const double detents[] = { 15.0, 30.0, 45.0, 60.0, 75.0 };
-                if( limit || CrossedDetent( InOutDegrees, value, detents, 5 ) )
+                if( limit || CrossedDetent( InOutDegrees * scale, value * scale, detents, 5 ) )
                 {
                     Juice::Tick( id, pos );
                 }
@@ -597,7 +599,7 @@ namespace MeWidgets::Graph
                 ImGui::MarkItemEdited( id );
             }
         }
-        const std::string shown = FormatValue( Unit::Degrees, InOutDegrees );
+        const std::string shown = FormatValue( Unit::Degrees, InOutDegrees * scale );
         const ImVec2 drawn = ArcPoint( InApex, InDirection, side * static_cast<float>( InOutDegrees ) * kPi / 180.f, InRadius );
         DrawHandle( id, drawn, InColor, input, std::string( ItemLog::VisibleLabel( InLabel ) ) + " " + shown );
         Describe( id, InLabel, shown );

@@ -5,6 +5,7 @@
 #include <Widgets/Juice.h>
 #include <Widgets/Color.h>
 #include <Widgets/LightWidgets.h>
+#include <Widgets/CameraWidgets.h>
 #include <Utils/HavanaUtils.h>
 #include <ImGuiTheme.h>
 #include <imgui.h>
@@ -86,6 +87,22 @@ namespace
         return samples;
     }
 
+    // Camera widgets (UX-6) with fixed samples: a full-frame 50 mm lens at f/2.8 focused at 8 m,
+    // rendering at 75% of 1920 x 1080.
+    struct CameraSamples
+    {
+        double Fov = MeWidgets::Lens::VerticalFov( 50.0, MeWidgets::Lens::kFullFrameHeight );
+        double RenderScale = 0.75;
+        double Aperture = 2.8;
+        double Focus = 8.0;
+    };
+
+    CameraSamples& Cameras()
+    {
+        static CameraSamples samples;
+        return samples;
+    }
+
     const MeWidgets::Reference kSampleRungs[] = {
         { "Candle", 0.1, "A candle flame" },
         { "Bulb", 1.0, "A household bulb" },
@@ -118,6 +135,7 @@ void WidgetGalleryWidget::ResetSamples()
 		sample.Value = sample.Start;
 	}
 	Lights() = LightSamples();
+	Cameras() = CameraSamples();
 	MeWidgets::Juice::Reset();
 }
 
@@ -191,6 +209,16 @@ void WidgetGalleryWidget::Render()
 	MeWidgets::ReferenceLadder( "Reference", light.Intensity, intensity, kSampleRungs, IM_ARRAYSIZE( kSampleRungs ), "Looks-like references, not photometric" );
 	MeWidgets::ConeWedge( "Cone", light.Inner, light.Outer, light.Color );
 	MeWidgets::FalloffGraph( "Falloff", light.Range, MakeSpec( Unit::Meters, 0.01, 1000.0, true, 10.0 ), light.Color );
+
+	ImGui::SeparatorText( "Camera widgets" );
+	CameraSamples& camera = Cameras();
+	const double sensor = MeWidgets::Lens::kFullFrameHeight;
+	const char* sensorNote = "full frame";
+	MeWidgets::FocalLengthRow( "Focal Length", camera.Fov, sensor, sensorNote );
+	MeWidgets::LensWedge( "Lens", camera.Fov, sensor, sensorNote );
+	MeWidgets::RenderScaleBar( "Resolution", camera.RenderScale, 1920, 1080, nullptr, "a sample 1920 x 1080 output" );
+	MeWidgets::ApertureDial( "Iris", camera.Aperture );
+	MeWidgets::FocusBar( "Focus Band", camera.Focus, MeWidgets::Lens::FocalLength( camera.Fov, sensor ), camera.Aperture, sensor, "the lens above" );
 	ImGui::End();
 }
 
