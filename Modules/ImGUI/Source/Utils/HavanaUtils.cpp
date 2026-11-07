@@ -3,6 +3,7 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <ImGuiTheme.h>
+#include "Widgets/ItemLog.h"
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -67,7 +68,9 @@ float HavanaUtils::Label( const std::string& Name, float customWidth )
     const ImVec2 textPos( start.x, start.y + window->DC.CurrLineTextBaseOffset );
     const ImRect bb( textPos, ImVec2( textPos.x + labelWidth, textPos.y + textSize.y ) );
     ImGui::ItemSize( ImVec2( labelWidth, textSize.y ), 0.f );
-    if( ImGui::ItemAdd( bb, window->GetID( Name.c_str() ) ) )
+    const bool visible = ImGui::ItemAdd( bb, window->GetID( Name.c_str() ) );
+    MeWidgets::ItemLog::MarkRowLabel( Name.c_str() );
+    if( visible )
     {
         ImGui::RenderTextEllipsis( window->DrawList, bb.Min, bb.Max, bb.Max.x, bb.Max.x, Name.c_str(), nullptr, &textSize );
         if( textSize.x > labelWidth && ImGui::IsItemHovered() )
@@ -135,6 +138,13 @@ bool HavanaUtils::DragAxes( const char* InId, float* InOutValues, int InCount, f
         }
         ImGui::SetNextItemWidth( width );
         changed |= ImGui::DragFloat( "##axis", &InOutValues[i], InSpeed, 0.f, 0.f, InFormat );
+        if( MeWidgets::ItemLog::IsEnabled() )
+        {
+            char value[64];
+            std::snprintf( value, sizeof( value ), InFormat, InOutValues[i] );
+            MeWidgets::ItemLog::SetLastItemValue( value );
+            MeWidgets::ItemLog::SetLastItemLabel( kAxisNames[std::min( i, 3 )] );
+        }
         if( OutActive && ImGui::IsItemActive() )
         {
             *OutActive = true;

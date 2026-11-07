@@ -1,0 +1,45 @@
+# UX-1: drive inspector widgets the way a person does (found by label), assert what they show, crop a panel.
+# Havana --scene Assets/Scenes/Tests/LightingTest.lvl --editor-exec Engine/Tests/Editor/UX1ImGuiDriver.edscript
+wait 20
+create DriverProbe
+add-component Light
+select DriverProbe
+wait 5
+imgui-assert-item Transform/Position:label
+imgui-assert-item Light/No Such Field | false
+imgui-assert-value Transform/Position/X | 0
+
+# A 40 px scrub on a drag field (speed 0.1) moves it by 4, as one undo step.
+imgui-scrub Transform/Position/X | 40
+assert-field DriverProbe | Transform.Position | [4,0,0]
+imgui-assert-value Transform/Position/X | 4
+undo
+assert-field DriverProbe | Transform.Position | [0,0,0]
+redo
+assert-field DriverProbe | Transform.Position | [4,0,0]
+
+# Shift scrubs ten times faster; @n picks the nth match (Y is the row's second axis).
+imgui-scrub Transform/Position@2 | 8 | shift
+assert-field DriverProbe | Transform.Position | [4,8,0]
+
+# Typed entry: Ctrl+click, select all, type, Enter. Works on drags and sliders alike.
+imgui-type Transform/Position/Z | 2.5
+assert-field DriverProbe | Transform.Position | [4,8,2.5]
+imgui-type Light/Intensity | 7
+assert-field DriverProbe | Light.Intensity | 7
+imgui-assert-value Light/Intensity | 7
+undo
+assert-field DriverProbe | Light.Intensity | 1
+
+# Clicks reach fields scrolled out of view (Cast Shadows sits below the fold).
+imgui-assert-value Light/Cast Shadows | false
+imgui-click Light/Cast Shadows
+assert-field DriverProbe | Light.CastShadows | true
+imgui-assert-value Light/Cast Shadows | true
+
+# A drag on a slider: the value follows the pointer.
+imgui-drag Light/Intensity | -400 0
+assert-field DriverProbe | Light.Intensity | 0
+
+panel-screenshot Properties | .tmp/UX1-Properties.png
+assert-file .tmp/UX1-Properties.png

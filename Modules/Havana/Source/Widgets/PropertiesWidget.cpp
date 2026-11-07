@@ -21,6 +21,7 @@
 #include "World/SceneSerializer.h"
 #include <Utils/HavanaUtils.h>
 #include <ImGuiTheme.h>
+#include <Widgets/ItemLog.h>
 #include <imgui.h>
 #include <algorithm>
 #include <cctype>
@@ -590,6 +591,7 @@ void PropertiesWidget::DrawComponentGroup(const std::string& typeName, std::vect
 	const bool isTransform = typeName == "Transform";
 	const float headerLabelX = ImGui::GetCursorPosX() + ImGui::GetTreeNodeToLabelSpacing();
 	const bool open = ImGui::CollapsingHeader("##header", isTransform ? nullptr : &keep, ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowOverlap);
+	MeWidgets::ItemLog::MarkSection(typeName.c_str());
 	DrawComponentContextMenu(typeName, instances);
 
 	// Enabled toggle + name drawn over the header.
@@ -701,6 +703,7 @@ void PropertiesWidget::DrawComponentGroup(const std::string& typeName, std::vect
 		ImGuiTheme::SectionGap();
 	}
 	ImGui::PopID();
+	MeWidgets::ItemLog::EndSection();
 
 	if (!keep)
 	{

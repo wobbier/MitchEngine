@@ -33,6 +33,7 @@
 #include "Widgets/Terrain/TerrainAutomation.h"
 #include "Editor/UIAutomation.h"
 #include "Editor/RenderTextureAutomation.h"
+#include "Editor/ImGuiAutomation.h"
 #include "Widgets/Tree/TreeAutomation.h"
 #include "Widgets/ShaderGraph/ShaderGraphPreview.h"
 #include "Components/Audio/AudioSource.h"
@@ -285,6 +286,7 @@ void EditorAutomation::Tick( EditorApp& InApp )
     {
         return;
     }
+    ImGuiAutomation::Tick();
     if( m_recordProfile )
     {
         const auto& stats = FrameStats::Get();
@@ -524,6 +526,22 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         else
         {
             Fail( command + ": bad arguments" );
+        }
+    }
+    else if( ImGuiAutomation::Handles( command ) )
+    {
+        // imgui-click / imgui-drag / imgui-scrub / imgui-type / imgui-hover / imgui-assert-value /
+        // imgui-assert-item / imgui-dump / panel-screenshot (usage in ImGuiAutomation.h)
+        std::string error;
+        bool retry = false;
+        if( !ImGuiAutomation::Execute( command, args, error, retry ) )
+        {
+            Fail( command + ": " + error );
+        }
+        else if( retry )
+        {
+            // Gestures spread over frames: run this line again next frame.
+            --m_nextLine;
         }
     }
     else if( command.rfind( "rtt-", 0 ) == 0 )

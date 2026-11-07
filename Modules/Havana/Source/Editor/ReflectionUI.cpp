@@ -14,6 +14,7 @@
 #include "Utils/CommonUtils.h"
 #include "Selection.h"
 #include <Utils/HavanaUtils.h>
+#include <Widgets/ItemLog.h>
 #include <ImGuiTheme.h>
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -76,6 +77,66 @@ namespace ReflectionUI
 
         bool DrawValue( const char* InLabel, const FieldInfo* InField, const ValueOps& InOps, void* InValue, bool InMixed );
 
+        // Tells editor automation what a scalar field's widget shows (imgui-assert-value).
+        void ReportValue( const FieldInfo* InField, const ValueOps& InOps, const void* InValue )
+        {
+            if( !MeWidgets::ItemLog::IsEnabled() )
+            {
+                return;
+            }
+            // Widgets that show something other than the stored number report it themselves.
+            if( InField && ( InField->Has( FieldFlags::Asset ) || ( InField->ChoiceName && InField->ChoiceCount > 0 ) ) )
+            {
+                return;
+            }
+            if( InField && InField->Has( FieldFlags::Angle ) && InOps.Type == PropertyType::Float )
+            {
+                char degrees[64];
+                std::snprintf( degrees, sizeof( degrees ), "%.1f", *static_cast<const float*>( InValue ) * kRadToDeg );
+                MeWidgets::ItemLog::SetLastItemValue( degrees );
+                return;
+            }
+            char text[64] = {};
+            switch( InOps.Type )
+            {
+            case PropertyType::Bool:
+                MeWidgets::ItemLog::SetLastItemValue( *static_cast<const bool*>( InValue ) ? "true" : "false" );
+                return;
+            case PropertyType::Float:
+                std::snprintf( text, sizeof( text ), "%.6g", *static_cast<const float*>( InValue ) );
+                break;
+            case PropertyType::Double:
+                std::snprintf( text, sizeof( text ), "%.9g", *static_cast<const double*>( InValue ) );
+                break;
+            case PropertyType::Int:
+            case PropertyType::UInt:
+            {
+                int64_t value = 0;
+                std::memcpy( &value, InValue, std::min<size_t>( InOps.IntBytes, sizeof( value ) ) );
+                if( InOps.Type == PropertyType::Int && InOps.IntBytes < sizeof( value ) && ( value >> ( InOps.IntBytes * 8 - 1 ) ) & 1 )
+                {
+                    value |= ~( ( int64_t( 1 ) << ( InOps.IntBytes * 8 ) ) - 1 );
+                }
+                std::snprintf( text, sizeof( text ), "%lld", static_cast<long long>( value ) );
+                break;
+            }
+            case PropertyType::String:
+                MeWidgets::ItemLog::SetLastItemValue( *static_cast<const std::string*>( InValue ) );
+                return;
+            case PropertyType::Enum:
+            {
+                const EnumInfo* info = InOps.GetEnumInfo();
+                const int64_t current = InOps.GetEnum( InValue );
+                const char* name = info ? info->ToName( current ) : nullptr;
+                MeWidgets::ItemLog::SetLastItemValue( name ? std::string( name ) : std::to_string( current ) );
+                return;
+            }
+            default:
+                return;
+            }
+            MeWidgets::ItemLog::SetLastItemValue( text );
+        }
+
         bool DrawFloat( const char* InLabel, const FieldInfo* InField, float& InOutValue )
         {
             const float speed = InField ? InField->Speed : 0.1f;
@@ -134,7 +195,9 @@ namespace ReflectionUI
                 preview = static_cast<int64_t>( value ) >= 0 && static_cast<int>( value ) < InField.ChoiceCount ? InField.ChoiceName( static_cast<int>( value ) ) : std::to_string( value );
             }
 
-            if( ImGui::BeginCombo( InLabel, preview.c_str() ) )
+            const bool open = ImGui::BeginCombo( InLabel, preview.c_str() );
+            MeWidgets::ItemLog::SetLastItemValue( preview );
+            if( open )
             {
                 if( InField.ChoiceMask )
                 {
@@ -226,6 +289,7 @@ namespace ReflectionUI
             const float gap = ImGuiTheme::InnerGap();
             ImGui::SetNextItemWidth( std::max( ImGui::CalcItemWidth() - ImGuiTheme::IconButtonsWidth( 2 ), ImGuiTheme::Em( 2.f ) ) );
             changed |= ImGui::InputTextWithHint( "##path", "None", &InOutPath, ImGuiInputTextFlags_EnterReturnsTrue );
+            MeWidgets::ItemLog::SetLastItemValue( InOutPath );
             if( ImGui::BeginDragDropTarget() )
             {
                 if( ImGui::AcceptDragDropPayload( AssetDescriptor::kDragAndDropPayload ) )
@@ -556,6 +620,7 @@ namespace ReflectionUI
                 ImGui::TextDisabled( "<%s>", ToString( InOps.Type ) );
                 break;
             }
+            ReportValue( InField, InOps, InValue );
 
             ImGui::PopItemFlag();
             ImGui::PopID();
