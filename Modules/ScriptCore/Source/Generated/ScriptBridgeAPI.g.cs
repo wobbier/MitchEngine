@@ -19,7 +19,7 @@ public unsafe struct ScriptBridgeAPI
     // Script types and instances
     public delegate* unmanaged<int> GetScriptCount;
     public delegate* unmanaged<int, byte*, int, void> GetScriptName;
-    public delegate* unmanaged<byte*, Entity, int> CreateScript;
+    public delegate* unmanaged<byte*, Entity, int, int> CreateScript;
     public delegate* unmanaged<int, int> IsHandleAlive;
     public delegate* unmanaged<int, byte*, int, void> GetHandleTypeName;
 
@@ -63,7 +63,7 @@ public unsafe struct ScriptBridgeAPI
 public static partial class ScriptBridge
 {
     // The bridge manifest this ScriptCore was generated from (C++: kScriptBridgeAPIHash).
-    public const ulong BridgeHash = 0x80FF9A3D4C87993EUL;
+    public const ulong BridgeHash = 0x625986BB4B020759UL;
 
     // Fills every entry point. Assigning each method to its typed field is the check: one whose
     // signature drifts from ScriptBridge.def doesn't compile. -1: built from another manifest;

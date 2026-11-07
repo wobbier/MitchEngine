@@ -18,7 +18,7 @@ void GetEngineAPIHash( ulong* outHash )
 ## Script types and instances
 int GetScriptCount()
 void GetScriptName( int index, byte* outName, int size )
-int CreateScript( cstr typeName, Entity entity )
+int CreateScript( cstr typeName, Entity entity, int world )
 int IsHandleAlive( int handle )
 void GetHandleTypeName( int handle, byte* outName, int size )
 

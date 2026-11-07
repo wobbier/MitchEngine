@@ -40,9 +40,10 @@ public sealed class ExecutionOrderAttribute : Attribute
 /// [ReplayWorld] get an instance there (the rest of the scene's and the spawned prefabs' scripts are
 /// left out, so their OnStart / OnDestroy never touch the game's state), and they get OnStart,
 /// OnUpdate and OnLateUpdate, never OnFixedUpdate: the recording drives every networked entity and
-/// their [Replicated] fields. Their engine calls act on the replay world. Static state is shared with
-/// the live world's scripts, and so is Scripts.All: check Net.Killcam.InReplayWorld before touching
-/// either.
+/// their [Replicated] fields. Their engine calls act on the replay world, and Scripts.All and
+/// Entity.GetScript see that world's scripts (ME-343). Static fields, EventBus handlers and the
+/// scheduler (timers, tweens, awaits) are still shared with the live world's scripts: check
+/// Net.Killcam.InReplayWorld before touching a static, and present from OnUpdate, not a timer.
 ///   [ReplayWorld] public class Nameplate : Script { ... }
 /// </summary>
 [AttributeUsage(AttributeTargets.Class, Inherited = true)]

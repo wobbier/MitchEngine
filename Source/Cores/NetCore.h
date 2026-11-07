@@ -137,6 +137,10 @@ public:
     bool WriteReport( const std::string& InPath, double InNow ) const;
 
     bool IsActive() const { return m_server || m_client || m_playback; }
+    // This session's id, unique in the process (Host, Connect and StartPlayback each start a new one; 0 when
+    // inactive; ME-343): C#'s predicted-event ledger (Net.Events) is kept per session, so each world's (and each
+    // killcam played into a kept replay world) is its own.
+    uint32_t GetSessionId() const { return m_sessionId; }
     // A session is under way (ME-311): hosting until Close, or a client connecting or connected.
     // A client whose session ended (left, rejected, timed out, disconnected by the server) isn't,
     // though it stays IsActive (readable) until Shutdown; nor is anything after Close.
@@ -419,6 +423,8 @@ private:
     KillcamStats m_killcamStats;
     // Client.
     NetKillcamReceiver m_killcam;
+    uint32_t m_sessionId = 0;
+    void NewSessionId();
 };
 
 ME_REGISTER_CORE( NetCore )

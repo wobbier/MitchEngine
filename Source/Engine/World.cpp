@@ -1,4 +1,5 @@
 #include "PCH.h"
+#include <atomic>
 #include "Profiling/FrameStats.h"
 #include "Engine/World.h"
 #include "ECS/Core.h"
@@ -38,6 +39,8 @@ namespace
 
 World::World()
 {
+    static std::atomic<uint32_t> s_nextId{ 1 };
+    m_id = s_nextId.fetch_add( 1, std::memory_order_relaxed );
     m_pools.resize( kMaxComponentTypes );
     // The singletons' holder exists from the start (ME-297): Singleton<T>() then only adds a
     // component, so its first use can't grow the entity records under a caller's Entity&.

@@ -17,6 +17,12 @@ public static unsafe class Engine
 
     internal static void Bind(EngineAPIBindings api) => _api = api;
 
+    /// <summary>
+    /// ME-343: the id of the world this script call acts on (a killcam's replay world for a [ReplayWorld] script there,
+    /// else the game world), unique in the process; 0 without one. Scripts.All and Entity.GetScript keep to it.
+    /// </summary>
+    public static int WorldId => _api.World_GetId != null ? _api.World_GetId() : 0;
+
     /// <summary>Logs a message with the caller's file, line and member (Debug.Log calls it).</summary>
     public static void Log(string msg,
         [CallerMemberName] string member = "",
@@ -79,18 +85,31 @@ public static partial class ScriptBridge
     private static readonly Dictionary<int, IGameScript> Instances = new();
 
     // GAME-7: live scripts by type, for Entity.GetScript and the starter kit's lookups. A scan
-    // (nothing keeps its own list, so hot reloads leave no references behind).
+    // (nothing keeps its own list, so hot reloads leave no references behind). ME-343: in the caller's
+    // world only (an Entity is an index and generation in one world: a replay world's can be the
+    // live world's too).
     internal static T? FindScript<T>(Entity entity) where T : class
     {
-        foreach (var instance in Instances.Values)
+        int world = Engine.WorldId;
+        foreach (var pair in Instances)
         {
-            if (instance is Script script && script.Entity == entity && instance is T match)
+            if (pair.Value is Script script && script.Entity == entity && pair.Value is T match && InWorld(pair.Key, world))
             {
                 return match;
             }
         }
         return null;
     }
+
+    // ME-343: the world each script was created in (World.GetId on the engine side), by handle.
+    private static readonly Dictionary<int, int> _handleWorld = new();
+
+    // Whether the script behind a handle lives in world (Engine.WorldId); 0 (no world known) matches any.
+    internal static bool InWorld(int handle, int world) =>
+        world == 0 || !_handleWorld.TryGetValue(handle, out int own) || own == 0 || own == world;
+
+    // The world a script lives in (0: unknown).
+    internal static int WorldOf(int handle) => _handleWorld.TryGetValue(handle, out int own) ? own : 0;
 
     internal static ScriptSet<T> AllScripts<T>() where T : class => Scripts.All<T>();
 
@@ -444,6 +463,11 @@ public static partial class ScriptBridge
                 ReportException($"Reload('{typeName}', handle={handle})", ex);
             }
         }
+        // Dropped handles forget their world.
+        foreach (var handle in new List<int>(_handleWorld.Keys))
+        {
+            if (!Instances.ContainsKey(handle)) _handleWorld.Remove(handle);
+        }
         GC.Collect();
         GC.WaitForPendingFinalizers();
         // Earlier reloads' contexts should be gone by now too (edit mode has no scheduler ticks).
@@ -505,7 +529,7 @@ public static partial class ScriptBridge
     }
 
     [UnmanagedCallersOnly]
-    public static unsafe int CreateScript(byte* inTypeName, Entity inEntity)
+    public static unsafe int CreateScript(byte* inTypeName, Entity inEntity, int inWorld)
     {
         var name = ReadUtf8(inTypeName);
         try
@@ -535,6 +559,7 @@ public static partial class ScriptBridge
             int handle = _nextHandle++;
             Instances[handle] = instance;
             _handleOrder.Add(handle);
+            if (inWorld != 0) _handleWorld[handle] = inWorld;
             return handle;
         }
         catch (Exception ex)
@@ -817,6 +842,7 @@ public static partial class ScriptBridge
             // a throwing OnDestroy still has to release the handle, or it leaks forever.
             Instances.Remove(handle);
             _handleOrder.Remove(handle);
+            _handleWorld.Remove(handle);
         }
     }
 

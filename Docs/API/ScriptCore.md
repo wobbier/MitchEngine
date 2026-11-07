@@ -723,6 +723,7 @@ Low-level engine access: logging and time. Most scripts use Debug, Time and the 
 - `Log(System.String,System.String,System.String,System.Int32)` (method): Logs a message with the caller's file, line and member (Debug.Log calls it).
 - `Utf8(System.String,System.Span{System.Byte})` (method): Encodes a string NUL-terminated into the caller's stack buffer for an engine call; only strings that don't fit allocate.
 - `Utf8StackSize` (field): The stack buffer for Utf8, in bytes: fixed (byte* p = Engine.Utf8(name, stackalloc byte[Engine.Utf8StackSize])) _api.X(p); allocates nothing for strings that fit (ME-300).
+- `WorldId` (property): ME-343: the id of the world this script call acts on (a killcam's replay world for a [ReplayWorld] script there, else the game world), unique in the process; 0 without one. Scripts.All and Entity.GetScript keep to it.
 
 ## Entity
 
@@ -1492,6 +1493,7 @@ NET-6: the session from scripts. Without a session (offline play, the editor) Ro
 - `RoundTripMsTo(System.Int32)` (method): Server: the round trip to one client, in ms.
 - `SendKillcam(ScriptCore.Entity,ScriptCore.Entity,System.Single)` (method): Server: sends the victim's owner a killcam (ME-323), the last
 - `SendRpc(ScriptCore.Entity,System.Int32,System.Int32,System.ReadOnlySpan{System.Byte},ScriptCore.INetScript)` (method): Generated RPC stubs call this. kind: 0 to the server, 1 to the owner, 2 to every client. Offline both sides are local, and an RPC addressed to the side we're on runs here directly.
+- `SessionId` (property): ME-343: the id of the script world's net session (unique in the process: a new one for each host, connect, and replay or killcam played; 0 when there's none). Net.Events keeps a ledger per session.
 - `SetAim(System.Single,System.Single)` (method): The local player's absolute aim (NET-15), sent with every command until cleared: degrees, yaw about +Y (0 down +Z, 90 down +X), pitch up from level. Set it from where the view looks each frame; the pawn's script reads Net.Command(Entity).Yaw / Pitch / AimDirection in OnFixedUpdate on both sides, so a predicted shot and the server's aim the same way.
 - `SetOwner(ScriptCore.Entity,System.Int32)` (method): Server: hands an entity to a client, which then predicts it (0: back to the server).
 - `Tick` (property): The simulation tick being run (a past one while resimulating).
@@ -1582,6 +1584,15 @@ ME-291: the predicted events a client has presented, by (entity, tick, event), s
 - `Clear` (method): Forgets every event.
 - `Count` (property): How many events it remembers.
 - `TryPresent(ScriptCore.Entity,System.Int32,System.Int32)` (method): True the first time (present it now), false for a repeat.
+
+## NetEventLedgers
+
+ME-343: NetEventLedgers by net session (Net.SessionId): the session asked for most recently first; past MaxSessions the one asked for least recently goes (a session that ended, a killcam played out).
+
+- `Clear` (method): Forgets every session's.
+- `Count` (property): How many sessions have a ledger.
+- `For(System.Int32)` (method): The session's ledger (made on first use).
+- `MaxSessions` (field): How many sessions' ledgers are kept.
 
 ## NetHit
 
@@ -1776,7 +1787,7 @@ Match replays (ME-316): a server started with --record-replay records every tick
 
 ## ReplayWorldAttribute
 
-ME-323: the script also runs in replay worlds (a killcam's: Net.Killcam.InReplayWorld), for presentation only. A replay world plays a recording beside the live world; only scripts marked [ReplayWorld] get an instance there (the rest of the scene's and the spawned prefabs' scripts are left out, so their OnStart / OnDestroy never touch the game's state), and they get OnStart, OnUpdate and OnLateUpdate, never OnFixedUpdate: the recording drives every networked entity and their [Replicated] fields. Their engine calls act on the replay world. Static state is shared with the live world's scripts, and so is Scripts.All: check Net.Killcam.InReplayWorld before touching either. [ReplayWorld] public class Nameplate : Script { ... }
+ME-323: the script also runs in replay worlds (a killcam's: Net.Killcam.InReplayWorld), for presentation only. A replay world plays a recording beside the live world; only scripts marked [ReplayWorld] get an instance there (the rest of the scene's and the spawned prefabs' scripts are left out, so their OnStart / OnDestroy never touch the game's state), and they get OnStart, OnUpdate and OnLateUpdate, never OnFixedUpdate: the recording drives every networked entity and their [Replicated] fields. Their engine calls act on the replay world, and Scripts.All and Entity.GetScript see that world's scripts (ME-343). Static fields, EventBus handlers and the scheduler (timers, tweens, awaits) are still shared with the live world's scripts: check Net.Killcam.InReplayWorld before touching a static, and present from OnUpdate, not a timer. [ReplayWorld] public class Nameplate : Script { ... }
 
 
 ## ReplicatedAttribute
@@ -1910,7 +1921,7 @@ The script classes the game's and mods' assemblies define.
 
 The live scripts (ME-312), so a game doesn't keep its own static registry of them (which a hot reload empties and every OnStart / OnReload / OnDestroy has to maintain):
 
-- `All1` (method): Every live script that is (or implements) T, in creation order; a struct enumerable, no allocation.
+- `All1` (method): Every live script that is (or implements) T in the caller's world, in creation order; a struct enumerable, no allocation.
 - `Count1` (method): How many live scripts are (or implement) T.
 - `First1` (method): The first live script that is (or implements) T, or null.
 - `First1(System.Predicate{0})` (method): The first live script that is (or implements) T and matches, or null.
@@ -1927,7 +1938,7 @@ simple JSON serialization for script state, using the same field reflection as t
 The live scripts that are T (Scripts.All): foreach over it allocates nothing. CopyTo fills a list to keep, sort or change the world while walking.
 
 - `CopyTo(System.Collections.Generic.List{0})` (method): Clears the list, then adds every match in creation order.
-- `GetEnumerator` (method): For foreach.
+- `GetEnumerator` (method): For foreach: the scripts of the world the loop runs in (Engine.WorldId).
 
 ## ScriptSet`1.Enumerator
 

@@ -567,11 +567,21 @@ public static unsafe class Net
     }
 
     /// <summary>
+    /// ME-343: the id of the script world's net session (unique in the process: a new one for each host, connect, and
+    /// replay or killcam played; 0 when there's none). Net.Events keeps a ledger per session.
+    /// </summary>
+    public static int SessionId => Engine._api.Net_GetSessionId != null ? Engine._api.Net_GetSessionId() : 0;
+
+    /// <summary>
     /// The RPC id PredictedEvent's server copies travel under (C++: kPredictedEventRpcId).
     /// </summary>
     public const int PredictedEventRpcId = 0x3FFFFFFF;
 
-    internal static readonly NetEventLedger Events = new();
+    // ME-291's ledger of the predicted events presented, one per session (ME-343): each world's (a killcam's replay
+    // world beside the live one) and each killcam played into a kept replay world has its own, so ticks and entity
+    // ids that repeat across them never collide. The few most recent are kept.
+    internal static readonly NetEventLedgers EventLedgers = new();
+    internal static NetEventLedger Events => EventLedgers.For(SessionId);
 
     internal static void ReceivePredictedEvent(Script script, ReadOnlySpan<byte> data)
     {
@@ -652,13 +662,52 @@ public static unsafe class Net
     // Hot reload: script code changed, so forget the lookups and warnings.
     internal static void ResetCaches()
     {
-        Events.Clear();
+        EventLedgers.Clear();
         _actionIndices.Clear();
         _axisIndices.Clear();
         _actionIndicesRole = -1;
         _actionIndicesLayout = -1;
         _warned.Clear();
     }
+}
+
+
+/// <summary>
+/// ME-343: NetEventLedgers by net session (Net.SessionId): the session asked for most recently first; past
+/// MaxSessions the one asked for least recently goes (a session that ended, a killcam played out).
+/// </summary>
+public sealed class NetEventLedgers
+{
+    /// <summary>How many sessions' ledgers are kept.</summary>
+    public const int MaxSessions = 4;
+
+    private readonly List<(int Session, NetEventLedger Ledger)> _ledgers = new();
+
+    /// <summary>How many sessions have a ledger.</summary>
+    public int Count => _ledgers.Count;
+
+    /// <summary>The session's ledger (made on first use).</summary>
+    public NetEventLedger For(int session)
+    {
+        for (int i = 0; i < _ledgers.Count; ++i)
+        {
+            if (_ledgers[i].Session != session) continue;
+            var found = _ledgers[i];
+            if (i != 0)
+            {
+                _ledgers.RemoveAt(i);
+                _ledgers.Insert(0, found);
+            }
+            return found.Ledger;
+        }
+        var ledger = new NetEventLedger();
+        _ledgers.Insert(0, (session, ledger));
+        if (_ledgers.Count > MaxSessions) _ledgers.RemoveAt(_ledgers.Count - 1);
+        return ledger;
+    }
+
+    /// <summary>Forgets every session's.</summary>
+    public void Clear() => _ledgers.Clear();
 }
 
 

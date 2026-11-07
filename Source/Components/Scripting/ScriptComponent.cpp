@@ -54,7 +54,7 @@ void ScriptComponent::EnsureCreated()
             return;
         }
     }
-    m_dotnetHandle = ScriptEngine::CreateScript( ScriptName, Parent.GetID() );
+    m_dotnetHandle = ScriptEngine::CreateScript( ScriptName, Parent.GetID(), Parent.GetWorld() ? Parent.GetWorld()->GetId() : 0u );
     m_started = false;
     if( m_dotnetHandle >= 0 )
     {

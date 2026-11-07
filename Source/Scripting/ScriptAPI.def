@@ -465,3 +465,9 @@ void Net_SkipKillcam()
 ## SingletonKillcam (set it on the live world: the killer's eye in its killcams); < 0: the engine's guess
 void Net_SetKillcamEyeHeight( float height )
 float Net_GetKillcamEyeHeight()
+
+## Worlds (ME-343): the script world's id (unique in the process, from 1; 0 without one) and its NetCore's session
+## id (unique in the process, a new one for each Host, Connect and replay or killcam played; 0 when none), so C#
+## keeps what it holds per world per world (Scripts.All, Entity.GetScript) and its predicted-event ledger per session
+int World_GetId()
+int Net_GetSessionId()

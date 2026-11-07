@@ -864,9 +864,9 @@ void ScriptEngine::SetWorld( WeakPtr<World> inWorld )
     ScriptBindings::SetWorld( inWorld );
 }
 
-int ScriptEngine::CreateScript( const std::string& inName, EntityID inEntity )
+int ScriptEngine::CreateScript( const std::string& inName, EntityID inEntity, uint32_t inWorld )
 {
-    return gDotnetAPI.CreateScript( reinterpret_cast<const uint8_t*>( inName.c_str() ), inEntity );
+    return gDotnetAPI.CreateScript( reinterpret_cast<const uint8_t*>( inName.c_str() ), inEntity, static_cast<int>( inWorld ) );
 }
 
 std::string ScriptEngine::GetFieldsJson( int inHandle, bool InIncludeSaveFields )

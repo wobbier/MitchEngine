@@ -9,7 +9,7 @@ namespace ScriptCore;
 public unsafe struct EngineAPIBindings
 {
     // The ABI both sides were generated from (C++: kScriptEngineAPIHash).
-    public const ulong AbiHash = 0x1B4445FB65A954C4UL;
+    public const ulong AbiHash = 0x8C3A59A745AD55A9UL;
 
     // Core
     public delegate* unmanaged<byte*, void> Log;
@@ -495,6 +495,14 @@ public unsafe struct EngineAPIBindings
     // SingletonKillcam (set it on the live world: the killer's eye in its killcams); < 0: the engine's guess
     public delegate* unmanaged<float, void> Net_SetKillcamEyeHeight;
     public delegate* unmanaged<float> Net_GetKillcamEyeHeight;
+
+    // Worlds (ME-343): the script world's id (unique in the process, from 1; 0 without one) and its NetCore's session
+
+    // id (unique in the process, a new one for each Host, Connect and replay or killcam played; 0 when none), so C#
+
+    // keeps what it holds per world per world (Scripts.All, Entity.GetScript) and its predicted-event ledger per session
+    public delegate* unmanaged<int> World_GetId;
+    public delegate* unmanaged<int> Net_GetSessionId;
 }
 
 // The sizes C++ static_asserts for the structs that cross (checked when the API is bound).

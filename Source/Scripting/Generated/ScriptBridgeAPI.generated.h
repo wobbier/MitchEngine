@@ -5,7 +5,7 @@
 #include "ScriptEngineAPI.generated.h"
 
 // The managed entry points, filled in one call by ScriptCore's ScriptBridge.GetBridge (ME-299).
-constexpr uint64_t kScriptBridgeAPIHash = 0x80FF9A3D4C87993EULL;
+constexpr uint64_t kScriptBridgeAPIHash = 0x625986BB4B020759ULL;
 
 struct ScriptBridgeAPI
 {
@@ -19,7 +19,7 @@ struct ScriptBridgeAPI
     // Script types and instances
     int ( *GetScriptCount )() = nullptr;
     void ( *GetScriptName )( int index, uint8_t* outName, int size ) = nullptr;
-    int ( *CreateScript )( const uint8_t* typeName, EntityID entity ) = nullptr;
+    int ( *CreateScript )( const uint8_t* typeName, EntityID entity, int world ) = nullptr;
     int ( *IsHandleAlive )( int handle ) = nullptr;
     void ( *GetHandleTypeName )( int handle, uint8_t* outName, int size ) = nullptr;
 

@@ -24,10 +24,13 @@ namespace ScriptCore;
 /// - deactivating a started script's entity destroys the script (OnDestroy): it's gone from All, and
 ///   reactivating creates a new one from its saved fields, last in the order.
 /// Guard on what OnStart sets (or set it in field initializers) when a loop can meet a fresh script.
+///
+/// Per world (ME-343): a script lists the scripts of its own world, so a [ReplayWorld] script in a
+/// killcam's replay world sees that world's copies and the live world's scripts never see them.
 /// </summary>
 public static class Scripts
 {
-    /// <summary>Every live script that is (or implements) T, in creation order; a struct enumerable, no allocation.</summary>
+    /// <summary>Every live script that is (or implements) T in the caller's world, in creation order; a struct enumerable, no allocation.</summary>
     public static ScriptSet<T> All<T>() where T : class => default;
 
     /// <summary>The first live script that is (or implements) T, or null.</summary>
@@ -71,8 +74,8 @@ public static class Scripts
 /// </summary>
 public readonly struct ScriptSet<T> where T : class
 {
-    /// <summary>For foreach.</summary>
-    public Enumerator GetEnumerator() => new Enumerator(ScriptBridge.HandleOrder.Count);
+    /// <summary>For foreach: the scripts of the world the loop runs in (Engine.WorldId).</summary>
+    public Enumerator GetEnumerator() => new Enumerator(ScriptBridge.HandleOrder.Count, Engine.WorldId);
 
     /// <summary>Clears the list, then adds every match in creation order.</summary>
     public void CopyTo(List<T> list)
@@ -88,12 +91,14 @@ public readonly struct ScriptSet<T> where T : class
     public struct Enumerator
     {
         private readonly int end;
+        private readonly int world;
         private int index;
         private T? current;
 
-        internal Enumerator(int count)
+        internal Enumerator(int count, int world)
         {
             end = count;
+            this.world = world;
             index = -1;
             current = null;
         }
@@ -107,7 +112,7 @@ public readonly struct ScriptSet<T> where T : class
             var order = ScriptBridge.HandleOrder;
             while (++index < end && index < order.Count)
             {
-                if (ScriptBridge.TryGetInstance(order[index], out var instance) && instance is T match)
+                if (ScriptBridge.TryGetInstance(order[index], out var instance) && instance is T match && ScriptBridge.InWorld(order[index], world))
                 {
                     current = match;
                     return true;

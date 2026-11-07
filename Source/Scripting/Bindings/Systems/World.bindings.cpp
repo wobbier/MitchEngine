@@ -86,8 +86,17 @@ static bool Eng_World_IsLoadingScene() noexcept
 }
 
 
+// ME-343: the script world's id (World::GetId), so C# keeps per-world state per world.
+static int Eng_World_GetId() noexcept
+{
+    SharedPtr<World> world = ScriptBindings::GetWorld().lock();
+    return world ? static_cast<int>( world->GetId() ) : 0;
+}
+
+
 void Register_WorldBindings( ScriptEngineAPI& inAPI )
 {
+    inAPI.World_GetId = Eng_World_GetId;
     inAPI.World_LoadSceneAsync = Eng_World_LoadSceneAsync;
     inAPI.World_GetLoadProgress = Eng_World_GetLoadProgress;
     inAPI.World_IsLoadingScene = Eng_World_IsLoadingScene;

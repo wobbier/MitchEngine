@@ -19,7 +19,7 @@ struct ScriptRaycastHit
 };
 
 // The ABI both sides were generated from (C# checks it: ScriptBridge.GetEngineAPIHash).
-constexpr uint64_t kScriptEngineAPIHash = 0x1B4445FB65A954C4ULL;
+constexpr uint64_t kScriptEngineAPIHash = 0x8C3A59A745AD55A9ULL;
 
 // Structs that cross: their layout is part of the ABI (C# checks the same sizes).
 static_assert( sizeof( EntityID ) == 8, "EntityID crosses into C#: its size is part of the script ABI" );
@@ -516,4 +516,12 @@ struct ScriptEngineAPI
     // SingletonKillcam (set it on the live world: the killer's eye in its killcams); < 0: the engine's guess
     void ( *Net_SetKillcamEyeHeight )( float height ) noexcept;
     float ( *Net_GetKillcamEyeHeight )() noexcept;
+
+    // Worlds (ME-343): the script world's id (unique in the process, from 1; 0 without one) and its NetCore's session
+
+    // id (unique in the process, a new one for each Host, Connect and replay or killcam played; 0 when none), so C#
+
+    // keeps what it holds per world per world (Scripts.All, Entity.GetScript) and its predicted-event ledger per session
+    int ( *World_GetId )() noexcept;
+    int ( *Net_GetSessionId )() noexcept;
 };

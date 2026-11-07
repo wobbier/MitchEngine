@@ -65,7 +65,8 @@ public:
     // active world
     static void        SetWorld( WeakPtr<World> inWorld );
 
-    static int         CreateScript( const std::string& inName, EntityID inEntity );
+    // InWorld: the entity's World::GetId (ME-343: C#'s Scripts.All and Entity.GetScript keep to a world); 0 unknown.
+    static int         CreateScript( const std::string& inName, EntityID inEntity, uint32_t inWorld );
 
     // public-field serialization; InIncludeSaveFields adds non-public [Save] fields (save games)
     static std::string GetFieldsJson( int inHandle, bool InIncludeSaveFields = false );

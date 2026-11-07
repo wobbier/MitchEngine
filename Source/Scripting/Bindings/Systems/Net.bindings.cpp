@@ -562,6 +562,14 @@ static float Eng_Net_GetKillcamEyeHeight() noexcept
 }
 
 
+// ME-343: the script world's session (C#'s Net.SessionId: Net.Events keeps a ledger per session).
+static int Eng_Net_GetSessionId() noexcept
+{
+    NetCore* net = Net();
+    return net ? static_cast<int>( net->GetSessionId() ) : 0;
+}
+
+
 void Register_NetBindings( ScriptEngineAPI& inAPI )
 {
     // Scripts can add it by name (World.Instantiate + AddComponent("NetIdentity")) and query it.
@@ -600,6 +608,7 @@ void Register_NetBindings( ScriptEngineAPI& inAPI )
     inAPI.Net_SkipKillcam = &Eng_Net_SkipKillcam;
     inAPI.Net_SetKillcamEyeHeight = &Eng_Net_SetKillcamEyeHeight;
     inAPI.Net_GetKillcamEyeHeight = &Eng_Net_GetKillcamEyeHeight;
+    inAPI.Net_GetSessionId = &Eng_Net_GetSessionId;
 }
 
 #endif

@@ -1387,6 +1387,13 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
     CHECK_FALSE( net.ClientWorld->Singleton<SingletonKillcam>().InReplayWorld );
     CHECK_FALSE( replayNet.IsSessionLive() );
     CHECK( replayNet.IsPlayback() );
+    // ME-343: each world its own id, each world's session its own (C# keys Scripts.All and Net.Events by them).
+    CHECK( replay.GetId() != net.ClientWorld->GetId() );
+    CHECK( replay.GetId() != 0 );
+    const uint32_t firstReplaySession = replayNet.GetSessionId();
+    CHECK( firstReplaySession != 0 );
+    CHECK( firstReplaySession != net.ClientNet.GetSessionId() );
+    CHECK( net.ClientNet.GetSessionId() != net.ServerNet.GetSessionId() );
 #if USING( ME_SCRIPTING )
     // C#'s Net.Killcam: in the live world, one plays; in the replay world, one plays and it's that world.
     // Killer and Victim are each world's own entities.
@@ -1416,6 +1423,11 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
             CHECK( api.Net_GetKillcamPlayback( &id, &killerId, &victimId, &tick, &firstTick, &deathTick, &elapsed, &duration ) == 3 );
             CHECK( api.Net_GetKillcam( &idHere, &progress, &killerHere, &victimHere ) );
             CHECK( api.Net_GetRole() == 2 );    // the replay world presents like a client
+            CHECK( api.Net_GetSessionId() == static_cast<int>( firstReplaySession ) );
+        }
+        {
+            ScriptBindings::WorldScope scope( net.ClientWorld );
+            CHECK( api.Net_GetSessionId() == static_cast<int>( net.ClientNet.GetSessionId() ) );
         }
         CHECK( idHere == 1 );
         CHECK( killerHere == replayKiller->GetId() );
@@ -1615,6 +1627,9 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
     REQUIRE( player.IsPlaying() );
     CHECK( player.GetStatus().Id == 2 );
     CHECK( player.GetWorld() == kept );
+    // The kept world's next killcam is a session of its own (ME-343: C#'s Net.Events starts empty for it).
+    CHECK( player.GetNet()->GetSessionId() != firstReplaySession );
+    CHECK( player.GetNet()->GetSessionId() != 0 );
     net.Run( 0.5 );
     killTick = net.ServerNet.GetServer()->GetTick() + 2;
     ringAtKill.clear();

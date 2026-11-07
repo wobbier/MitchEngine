@@ -1,5 +1,6 @@
 #include "PCH.h"
 #include "Cores/NetCore.h"
+#include <atomic>
 #include "Mods/Mods.h"
 #include "Components/Networking/NetHitbox.h"
 #include "Components/Networking/NetIdentity.h"
@@ -225,6 +226,7 @@ bool NetCore::Host( INetTransport& InTransport, uint16_t InTickRate )
         return false;
     }
     m_closed = false;
+    NewSessionId();
     m_transport = &InTransport;
     m_server = std::make_unique<NetServer>( InTransport, MakeVersion(), InTickRate );
     m_server->SetTimeout( m_timeout );
@@ -270,6 +272,7 @@ bool NetCore::Connect( INetTransport& InTransport, NetAddress InServer, const Ne
         return false;
     }
     m_closed = false;
+    NewSessionId();
     m_transport = &InTransport;
     m_client = std::make_unique<NetClient>( InTransport, InServer, MakeVersion(), InClock );
     m_client->SetTimeout( m_timeout );
@@ -700,6 +703,7 @@ bool NetCore::StartPlayback( std::unique_ptr<INetReplaySource> InSource, std::st
         CLog::Log( CLog::LogType::Warning, "Replay: recorded with other scripts or input actions; script fields may not read back" );
     }
     m_closed = false;
+    NewSessionId();
     m_replaySource = std::move( InSource );
     m_replicationClient = std::make_unique<NetReplicationClient>( GetWorld() );
     m_replicationClient->Scripts = m_glue.State;
@@ -1583,9 +1587,17 @@ bool NetCore::WriteReport( const std::string& InPath, double InNow ) const
 }
 
 
+void NetCore::NewSessionId()
+{
+    static std::atomic<uint32_t> s_next{ 1 };
+    m_sessionId = s_next.fetch_add( 1, std::memory_order_relaxed );
+}
+
+
 void NetCore::Shutdown()
 {
     EndPresentation();
+    m_sessionId = 0;
     StopRecording();
     m_recorder.reset();
     m_killcams.clear();

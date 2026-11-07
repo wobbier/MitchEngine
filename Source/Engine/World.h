@@ -126,6 +126,10 @@ public:
     // live world. Only script classes marked [ReplayWorld] get instances in it, and they run
     // presentation only (ScriptCore::SetPresentationOnly).
     bool IsReplayWorld = false;
+    // This World object's id, unique in the process (from 1, never reused; ME-343): C# keys what it keeps
+    // per world by it (Scripts.All, Entity.GetScript), since an Entity's Index / Generation is only one
+    // world's.
+    uint32_t GetId() const { return m_id; }
 
     // ------------------------------------------------------------------ Cores
     template <typename TCore>
@@ -209,6 +213,7 @@ private:
     std::size_t m_aliveCount = 0;
     std::unordered_map<uint64_t, uint32_t> m_guidToIndex;
     uint16_t m_loadingScene = 0;
+    uint32_t m_id = 0;
     // The singletons' hidden entity (Singleton<T>).
     Entity* GetSingletonHolder( bool InCreate );
     EntityID m_singletonEntity;
