@@ -19,6 +19,7 @@
 #include "Core/FrameRenderData.h"
 #include "AutomationRunner.h"
 #include "NetLaunch.h"
+#include "ControlChannel.h"
 #include "KillcamPlayer.h"
 #include "Resource/FileWatcher.h"
 #include "ScriptReloadGate.h"
@@ -198,6 +199,8 @@ public:
 private:
     AutomationRunner m_automation;
     NetLaunch m_netLaunch;
+    // --control-stdin (NET-7): console lines from the process that started this one (the editor's PIE).
+    ControlChannel m_control;
     KillcamPlayer m_killcam;
     // --killcam-capture PNG [--killcam-capture-at S|death]: a screenshot that far into the first killcam (each
     // killcam's when PNG has "{id}"), or at the kill as the killer saw it ("death"; S < 0: that long before).

@@ -23,6 +23,8 @@
 #include "World/Scene.h"
 #include "Window/IWindow.h"
 #if USING( ME_SCRIPTING )
+#include "Components/Scripting/ScriptComponent.h"
+#include "Scripting/ScriptEngine.h"
 #include "Scripting/ScriptNet.h"
 #endif
 #if USING( ME_IMGUI ) && !USING( ME_EDITOR )
@@ -971,6 +973,120 @@ namespace
         return out;
     }
 
+    // "net field <entity> <Component.Field...>" (NET-7: the editor's assert-net-field asks a PIE child):
+    // the value this world has, as JSON {"ok": true, "value": ...} or {"ok": false, "error": "..."}.
+    // Component is a C++ component's type name (its saved fields, as the scene file has them) or a
+    // C# script's class name (its public fields, [Replicated] ones included); ".N" indexes arrays.
+    std::string FieldQuery( NetCore& InNet, const std::string& InEntity, const std::string& InPath )
+    {
+        json out;
+        out["ok"] = false;
+        const size_t dot = InPath.find( '.' );
+        EntityHandle entity = InNet.GetWorld().FindEntityByName( InEntity );
+        if( !entity )
+        {
+            out["error"] = "no entity named " + InEntity;
+            return out.dump();
+        }
+        if( dot == std::string::npos || dot == 0 || dot + 1 >= InPath.size() )
+        {
+            out["error"] = "expected Component.Field, got " + InPath;
+            return out.dump();
+        }
+        const std::string type = InPath.substr( 0, dot );
+        std::string pointer = "/" + InPath.substr( dot + 1 );
+        std::replace( pointer.begin(), pointer.end(), '.', '/' );
+        json state;
+        if( BaseComponent* component = entity->GetComponentByName( type ) )
+        {
+            component->Serialize( state );
+        }
+#if USING( ME_SCRIPTING )
+        else if( ScriptComponent* script = entity->TryGetComponent<ScriptComponent>(); script && script->GetScriptName() == type && script->GetHandle() >= 0 )
+        {
+            state = json::parse( ScriptEngine::GetFieldsJson( script->GetHandle() ), nullptr, false );
+        }
+#endif
+        else
+        {
+            out["error"] = InEntity + " has no " + type;
+            return out.dump();
+        }
+        try
+        {
+            out["value"] = state.at( json::json_pointer( pointer ) );
+            out["ok"] = true;
+        }
+        catch( ... )
+        {
+            out["error"] = InEntity + " " + type + " has no " + InPath.substr( dot + 1 );
+        }
+        return out.dump( -1, ' ', false, json::error_handler_t::replace );
+    }
+
+    // "net timeline [from] [to]" (NET-7: the editor's assert-net-mispredict asks a PIE child): the
+    // predicted pawn's misprediction timeline as JSON: the newest reconciled tick, the ticks in
+    // [from, to] (the whole timeline when omitted) that were corrections or the initial sync, each
+    // record's position / velocity deltas, and the totals.
+    std::string TimelineQuery( NetCore& InNet, const std::vector<std::string>& InArgs )
+    {
+        json out;
+        const NetPredictor* predictor = InNet.GetPredictor();
+        out["predicting"] = predictor != nullptr;
+        out["corrections"] = json::array();
+        out["initialSync"] = json::array();
+        out["records"] = json::array();
+        if( !predictor )
+        {
+            return out.dump();
+        }
+        uint32_t newest = 0;
+        const bool reconciled = predictor->GetNewestReconciled( newest );
+        out["newest"] = reconciled ? json( newest ) : json();
+        out["correctionCount"] = predictor->GetCorrectionCount();
+        out["matchCount"] = predictor->GetMatchCount();
+        out["initialSyncCount"] = predictor->GetInitialSyncCount();
+        if( !reconciled )
+        {
+            return out.dump();
+        }
+        const uint32_t span = predictor->GetTimelineTicks();
+        uint32_t from = newest + 1 >= span ? newest + 1 - span : 0;
+        uint32_t to = newest;
+        if( InArgs.size() > 1 )
+        {
+            from = std::max( from, static_cast<uint32_t>( std::strtoul( InArgs[1].c_str(), nullptr, 10 ) ) );
+        }
+        if( InArgs.size() > 2 )
+        {
+            to = std::min( to, static_cast<uint32_t>( std::strtoul( InArgs[2].c_str(), nullptr, 10 ) ) );
+        }
+        out["from"] = from;
+        out["to"] = to;
+        for( uint32_t tick = from; tick <= to && from <= to; ++tick )
+        {
+            const NetPredictOutcome outcome = predictor->GetOutcome( tick );
+            if( outcome == NetPredictOutcome::Correction )
+            {
+                out["corrections"].push_back( tick );
+            }
+            else if( outcome == NetPredictOutcome::InitialSync )
+            {
+                out["initialSync"].push_back( tick );
+            }
+        }
+        for( const NetMispredictRecord& record : predictor->GetMispredicts() )
+        {
+            if( record.Tick < from || record.Tick > to )
+            {
+                continue;
+            }
+            out["records"].push_back( { { "tick", record.Tick }, { "initialSync", record.InitialSync }, { "positionMm", record.PositionDelta().Length() * 1000.f },
+                { "velocity", record.VelocityDelta().Length() }, { "describe", record.Describe() } } );
+        }
+        return out.dump( -1, ' ', false, json::error_handler_t::replace );
+    }
+
     // Where the Net Debugger and the console export mispredictions.
     std::string MispredictFolder()
     {
@@ -1011,8 +1127,9 @@ void NetLaunch::RegisterNetCommands( NetCore& InNet )
     NetCore* net = &InNet;
     NetLaunch* self = this;
     DevConsole::Get().Register( "net",
-        "the client session (NET-7): net [status|debugger [on|off]|mispredicts|export [tick]|shots|bandwidth|overlays [on|off]] (export: the newest misprediction, or the "
-        "tick's, to .tmp/Net/Mispredict_<tick>.json; shots: the last shots against the server's results; bandwidth: the entities taking the most snapshot bytes)",
+        "the client session (NET-7): net [status|debugger [on|off]|mispredicts|export [tick]|shots|bandwidth|overlays [on|off]|field <entity> <Component.Field>|timeline [from] [to]] "
+        "(export: the newest misprediction, or the tick's, to .tmp/Net/Mispredict_<tick>.json; shots: the last shots against the server's results; bandwidth: the entities taking "
+        "the most snapshot bytes; field and timeline answer in JSON, for tools: a field's value in this world, the misprediction timeline's corrections)",
         [net, self]( const std::vector<std::string>& InArgs ) -> std::string {
             const std::string verb = InArgs.empty() ? std::string( "status" ) : InArgs[0];
             if( verb == "status" )
@@ -1051,6 +1168,18 @@ void NetLaunch::RegisterNetCommands( NetCore& InNet )
                         + std::to_string( record.Resimulated.size() ) + " ticks resimulated";
                 }
                 return out;
+            }
+            if( verb == "field" )
+            {
+                if( InArgs.size() < 3 )
+                {
+                    return R"({"ok": false, "error": "net field <entity> <Component.Field>"})";
+                }
+                return FieldQuery( *net, InArgs[1], InArgs[2] );
+            }
+            if( verb == "timeline" )
+            {
+                return TimelineQuery( *net, InArgs );
             }
             if( verb == "shots" )
             {

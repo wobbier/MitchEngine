@@ -660,6 +660,7 @@ void Engine::Run()
     // networked entities. One tick per fixed step.
     GameWorld->Singleton<SingletonInput>().BuildCommandLayout( GetInput() );
     m_netLaunch.Start( *Net, static_cast<uint16_t>( std::lround( 1.0 / m_fixedTimeStep ) ), GameWindow, engineConfig.GetValue( "Title" ) );
+    m_control.Init();
     // ME-323 phase 3: killcams the session receives play into a replay world of their own.
     m_killcam.SetPopulate( [this]( KillcamPlayer::ReplayWorld& InReplay, std::string& OutError ) { return PopulateKillcamWorld( InReplay, OutError ); } );
     m_killcamCapturePath = CommandLine::GetString( "--killcam-capture" );
@@ -707,6 +708,12 @@ void Engine::Run()
         {
             OPTICK_EVENT( "EventManager", Optick::Category::Cloth );
             EventManager::GetInstance().FirePendingEvents();
+        }
+        // Console lines from the process driving this one (--control-stdin: the editor's PIE); its
+        // pipe closing quits.
+        if( m_control.IsActive() && m_control.Poll() && !m_forceQuit )
+        {
+            Quit( true );
         }
         // Network packets in (handshakes, commands, server reports) before the frame simulates.
         Net->Receive( NetSeconds() );
