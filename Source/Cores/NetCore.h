@@ -312,19 +312,29 @@ public:
     // own report (it counts for a client that asks whatever this says). Retail builds ignore it.
     void SetDebug( const NetDebugSubscription& InDebug );
     const NetDebugSubscription& GetDebug() const { return m_debug; }
+    // Server: whether clients' Net Debuggers may subscribe at all (NetDebug::kClientsAllowedByDefault:
+    // Debug and editor builds; a Release server's --net-debug-clients). Turning it off drops the
+    // subscribers there are.
+    void SetDebugClientsAllowed( bool InAllowed );
+    bool AreDebugClientsAllowed() const { return m_debugClientsAllowed; }
     // Client: its shots and the server's word on them.
     const NetShotLedger& GetShotLedger() const { return m_shotLedger; }
     // Client: the newest top-bandwidth report the server sent (names filled in from this world;
     // Tick 0: none yet), and how many came.
     const NetBandwidthReport& GetBandwidthReport() const { return m_bandwidthReport; }
     uint64_t GetBandwidthReportsReceived() const { return m_bandwidthReports; }
+    // Client: the shot-result bundles (blobs) the server sent.
+    uint64_t GetShotBundlesReceived() const { return m_shotBundles; }
     // Server: what the debug messages have cost.
     struct DebugStats
     {
-        uint64_t ShotResults = 0;           // sent
-        uint64_t ShotResultsTrimmed = 0;    // sent with hitboxes left off to fit a message
+        uint64_t ShotResults = 0;           // sent (in bundles)
+        uint64_t ShotResultsDropped = 0;    // past NetDebug::kMaxPendingShotBytes waiting, or refused by the blob channel
+        uint64_t ShotBundles = 0;           // blobs of results sent
+        uint64_t ShotBundleBytes = 0;
         uint64_t BandwidthReports = 0;
         uint64_t Subscriptions = 0;         // NetDebugSubscribe messages taken
+        uint64_t Refused = 0;               // ... and refused (clients not allowed)
     };
     const DebugStats& GetDebugStats() const { return m_debugStats; }
     // The InNow of the newest Receive (the clock the ledger's times are on).
@@ -457,28 +467,34 @@ private:
     // NET-7 debugging.
     void OnDebugSubscribe( uint8_t InClient, BitReader& InReader );
     void OnDebugMessage( BitReader& InReader );
-    // Server: the shot's result to its shooter's client, when that client asked for shots.
+    // Server: the shot's result for its shooter's client, when that client asked for shots (queued
+    // for its next bundle, which UpdateDebug sends).
     void SendShotResult( const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, const InputCommand& InCommand, const EntityHandle& InShooter,
         const LagCompensatedHit& InHit );
     // Client: one of its predicted pawn's shots (InPresent: the frame of hitboxes it was tested against).
     void NotePredictedShot( const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, const EntityHandle& InShooter, const LagCompensatedHit& InHit,
         const NetLagCompensation& InPresent );
-    // Server (EndTick): bandwidth windows to the clients that asked, once a second each.
+    // Server (EndTick): the shot bundles, and bandwidth windows to the clients that asked, once a second each.
     void UpdateDebug();
     // Server: whether snapshots are counted per entity (m_debug, or a client asking).
     void UpdateAccounting();
     NetDebugSubscription m_debug;
     NetDebugSubscription m_debugAsked;      // client: what the server was last asked for
+    bool m_debugClientsAllowed = NetDebug::kClientsAllowedByDefault;
     struct DebugSubscriber
     {
         NetDebugSubscription Wants;
         uint32_t WindowStart = 0;           // the tick its bandwidth window began
+        std::vector<NetShotResult> PendingShots;    // for the next bundle
+        size_t PendingBytes = 0;
+        uint32_t ShotBlob = 0;              // the bundle on its way (0: none)
     };
     std::map<uint8_t, DebugSubscriber> m_debugSubscribers;
     DebugStats m_debugStats;
     NetShotLedger m_shotLedger;
     NetBandwidthReport m_bandwidthReport;
     uint64_t m_bandwidthReports = 0;
+    uint64_t m_shotBundles = 0;
     bool m_inTick = false;                  // client: between BeginTick and EndTick
 };
 

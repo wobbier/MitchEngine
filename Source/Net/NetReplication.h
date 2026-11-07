@@ -90,6 +90,9 @@ struct NetReplicationSettings
     // NET-7's top-bandwidth view: count every snapshot sent bit by bit, per entity (off: nothing
     // is counted; NetCore turns it on for a server's --net-report and for clients that ask).
     bool AccountEntities = false;
+    // ... keeping an entry per NetId until there are more than this (and twice the live entities):
+    // then the despawned ones' fold into one count.
+    size_t MaxAccountedEntities = 1024;
 
     // The view rule: whether a client's snapshots take an entity InDistance from its viewer (a
     // killcam, ME-323, applies it from the killer's pawn).
@@ -134,15 +137,21 @@ public:
     uint64_t GetSnapshotsSent() const { return m_snapshotsSent; }
 
     // NET-7 (Settings.AccountEntities): each entity's bits in the snapshots sent while counting, every
-    // client's; with GetOverheadBits (headers, gone lists, padding) they sum to GetAccountedBytes * 8.
+    // client's; with GetDespawnedBits and GetOverheadBits (headers, gone lists, padding) they sum to
+    // GetAccountedBytes * 8. Past Settings.MaxAccountedEntities ids (and twice the live ones), the
+    // gone ones' counts fold into GetDespawnedBits (a long match's projectiles would otherwise keep an
+    // entry each, forever).
     const std::map<uint32_t, uint64_t>& GetEntityBits() const { return m_entityBits; }
+    uint64_t GetDespawnedBits() const { return m_despawnedBits; }
     uint64_t GetOverheadBits() const { return m_overheadBits; }
     uint64_t GetAccountedBytes() const { return m_accountedBytes; }
     // The name the entity had when it was first counted ("" when it never was).
     std::string GetEntityName( uint32_t InNetId ) const;
-    // One client's counts since the last call (or since it joined), its InTop entities most first,
-    // then starts over. InSeconds: how long that was (for the rates).
+    // One client's counts since the last call, its InTop entities most first, then starts over.
+    // InSeconds: how long that was (for the rates). A client's window is only counted once this has
+    // been called for it (its Net Debugger asked for bandwidth), until CloseBandwidthWindow.
     NetBandwidthReport TakeBandwidthWindow( uint8_t InClient, size_t InTop, double InSeconds );
+    void CloseBandwidthWindow( uint8_t InClient );
 
 private:
     struct ClientState
@@ -165,6 +174,7 @@ private:
         // client's counts since its last bandwidth window.
         std::vector<std::pair<uint32_t, uint32_t>> PreparedEntityBits;
         bool PreparedCounted = false;
+        bool WindowOpen = false;
         std::map<uint32_t, uint64_t> WindowBits;
         uint64_t WindowBytes = 0;
         uint64_t WindowOverheadBits = 0;
@@ -196,6 +206,7 @@ private:
     uint64_t m_snapshotsSent = 0;
     std::map<uint32_t, uint64_t> m_entityBits;
     std::map<uint32_t, std::string> m_entityNames;
+    uint64_t m_despawnedBits = 0;
     uint64_t m_overheadBits = 0;
     uint64_t m_accountedBytes = 0;
 };

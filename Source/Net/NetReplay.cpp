@@ -829,9 +829,13 @@ void NetReplayShots::Write( BitWriter& InWriter, const NetReplayShot& InShot )
 }
 
 
-bool NetReplayShots::Read( BitReader& InReader, NetReplayShot& OutShot )
+bool NetReplayShots::Read( BitReader& InReader, NetReplayShot& OutShot, uint32_t InVersion )
 {
-    return ReadShot( InReader, OutShot, nullptr, 0, NetReplayFormat::kVersion ) && !InReader.IsOverflowed();
+    if( InVersion < NetReplayFormat::kMinVersion || InVersion > NetReplayFormat::kVersion )
+    {
+        return false;
+    }
+    return ReadShot( InReader, OutShot, nullptr, 0, InVersion ) && !InReader.IsOverflowed();
 }
 
 

@@ -30,6 +30,9 @@ class ReplayViewer;
 //                            shot against the server's result, the top-bandwidth entities, world overlays
 //   --net-debug              client: what the Net Debugger shows (shots, bandwidth) without its window, in
 //                            the report ("Shots", "TopEntities"); a server: count snapshot bytes per entity
+//   --net-debug-clients      server, Release builds: take clients' Net Debugger subscriptions (shot results
+//                            carry hitbox poses a client may not otherwise see; Debug and editor servers
+//                            take them by default, Retail never)
 //   --net-exit-when-empty    server: quit once its last client has gone (smoke tests)
 //   --record-replay [file]   server: record the match (ME-316) to file as well as the ring (below)
 //                            (user://Replays/<UTC time>.mreplay when omitted; user:// paths go to the user folder,

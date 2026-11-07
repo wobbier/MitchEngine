@@ -15,19 +15,23 @@ class BitWriter;
 //   shows: Shots and / or Bandwidth. It asks once connected and again whenever that changes.
 // - Shots: for each lag-compensated ray its pawn fires with a command (NetCore::LagCompensatedRaycast
 //   for an entity the client owns, not a projectile's sweep), the server sends the client its
-//   judgement (NetMessage::NetDebug, kind Shot, reliable): the command's tick, the shot as the replay
-//   records it (hit or miss, the point, the view tick and how far it rewound, the target) with the
+//   judgement: the command's tick, the shot as the replay records it (hit or miss, the point, the view tick and how far it rewound, the target) with the
 //   rewound poses of the target's hitboxes (or, on a miss, of whatever networked entity the ray
 //   passed nearest within kNearMissMetres), and the same hitboxes where they were live. The client
 //   records its own shots from its predicted pawn (NetCore::PresentRaycast inside a tick, not while
 //   resimulating) and pairs each result with the one it predicted (NetShotLedger): green for its
-//   view, yellow / blue for the server's, drawn for kShowSeconds.
+//   view, yellow / blue for the server's, drawn for kShowSeconds. The results ride the blob channel
+//   (ME-323), which only ever takes the room live traffic leaves: a shotgun's ten results in one
+//   tick must never push a snapshot or the owner state out of a packet, as reliable messages at the
+//   head of the stream would. Each client has at most one bundle on its way (NetDebugMessages::
+//   EncodeShots: every result judged since the last one), the rest wait, up to kMaxPendingShotBytes.
 // - Bandwidth: once a second the server sends the client the entities that took the most of its
 //   snapshot bytes over that second (NetMessage::NetDebug, kind Bandwidth), counted bit by bit by
 //   the snapshot writer (NetSnapshotCodec::Write's per-entity accounting).
 //
 // Retail builds compile it out: their servers ignore a subscription and their clients never send
-// one (NetDebug::kAvailable).
+// one (NetDebug::kAvailable). Other servers take one only when allowed (kClientsAllowedByDefault,
+// NetCore::SetDebugClientsAllowed): a refused client is told nothing and gets nothing.
 namespace NetDebug
 {
 #if USING( ME_RETAIL )
@@ -35,6 +39,10 @@ namespace NetDebug
 #else
     constexpr bool kAvailable = true;
 #endif
+    // Whether a server takes a client's subscription unless told (NetCore::SetDebugClientsAllowed):
+    // a result carries hitbox poses (a near miss's, live ones) a client may not otherwise see, so only
+    // Debug and editor builds share them by default; a Release server needs --net-debug-clients.
+    constexpr bool kClientsAllowedByDefault = kAvailable && ( USING( ME_DEBUG ) || USING( ME_EDITOR ) );
     // A shot's result and the overlays drawn for it stay this long.
     constexpr double kShowSeconds = 2.0;
     // A miss names the networked entity the ray passed nearest, this close.
@@ -43,10 +51,19 @@ namespace NetDebug
     constexpr size_t kMaxHitboxes = 6;
     // Entities a bandwidth report names.
     constexpr size_t kTopEntities = 8;
+    // A client's results waiting behind the bundle on its way: past this, newer ones are dropped
+    // (NetCore::DebugStats::ShotResultsDropped; the client settles them as client-only).
+    constexpr size_t kMaxPendingShotBytes = 64 * 1024;
+    // The most results one bundle reads (a bigger count is a bad blob).
+    constexpr size_t kMaxBundleShots = 4096;
+    // A shot bundle's first bytes, then its own version. Its shots are in the replay chunks' encoding
+    // (NetReplayShots), so the bundle names the replay format version it wrote them with.
+    constexpr char kShotBundleMagic[4] = { 'N', 'D', 'B', 'G' };
+    constexpr uint8_t kShotBundleVersion = 1;
 
+    // NetMessage::NetDebug's kinds (1, the shot result, was a reliable message until protocol 11).
     enum Kind : uint8_t
     {
-        Shot = 1,
         Bandwidth = 2,
     };
 }
@@ -91,12 +108,21 @@ namespace NetDebugMessages
 {
     // Each with its type byte first.
     void WriteSubscribe( BitWriter& InWriter, const NetDebugSubscription& InSubscription );
-    void WriteShot( BitWriter& InWriter, const NetShotResult& InResult );
     void WriteBandwidth( BitWriter& InWriter, const NetBandwidthReport& InReport );
     // After the type byte.
     bool ReadSubscribe( BitReader& InReader, NetDebugSubscription& OutSubscription );
-    // OutKind says which of the two it filled.
-    bool ReadDebug( BitReader& InReader, uint8_t& OutKind, NetShotResult& OutShot, NetBandwidthReport& OutBandwidth );
+    // OutKind: NetDebug::Bandwidth (the only kind there is).
+    bool ReadDebug( BitReader& InReader, uint8_t& OutKind, NetBandwidthReport& OutBandwidth );
+
+    // One result, in a bundle (InReplayVersion: the replay format its shot is in).
+    void WriteShot( BitWriter& InWriter, const NetShotResult& InResult );
+    bool ReadShot( BitReader& InReader, NetShotResult& OutResult, uint32_t InReplayVersion );
+    // A shot bundle, the blob the server sends a shooter: kShotBundleMagic, kShotBundleVersion, the
+    // replay format version, then the results. Decoding refuses another magic or bundle version, a
+    // replay format this build can't read (outside NetReplayFormat::kMinVersion..kVersion) or a cut.
+    std::vector<uint8_t> EncodeShots( const std::vector<NetShotResult>& InResults );
+    bool IsShotBundle( const uint8_t* InData, size_t InSize );
+    bool DecodeShots( const uint8_t* InData, size_t InSize, std::vector<NetShotResult>& OutResults );
 }
 
 // A shot the client fired from its predicted pawn, as its own world saw it.

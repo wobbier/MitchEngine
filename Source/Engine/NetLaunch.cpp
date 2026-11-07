@@ -309,6 +309,12 @@ bool NetLaunch::Start( NetCore& InNet, uint16_t InTickRate, IWindow* InWindow, c
     InNet.SetDebug( WantedDebug( InNet ) );
     if( host )
     {
+        // NET-7: Debug and editor servers share shot results and bandwidth with clients' Net
+        // Debuggers by default; a Release server only when told.
+        if( CommandLine::Has( "--net-debug-clients" ) )
+        {
+            InNet.SetDebugClientsAllowed( true );
+        }
         InNet.Host( *transport, InTickRate );
         Say( CLog::LogType::Info, "Net: hosting on UDP port " + std::to_string( m_socket->GetPort() ) + " at " + std::to_string( InTickRate ) + " Hz" + conditioned );
         ShowRole( "server :" + std::to_string( m_socket->GetPort() ) );

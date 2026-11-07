@@ -305,6 +305,7 @@ LagCompensatedHit NetLagCompensation::Raycast( PhysicsCore* InPhysics, const Vec
         result.Clamped = true;
     }
     result.RewoundTicks = newest - viewTick;
+    result.JudgedTick = viewTick;
     const float length = InDirection.Length();
     if( length < 1e-9f )
     {

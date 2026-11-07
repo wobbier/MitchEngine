@@ -56,7 +56,9 @@ namespace NetReplayFormat
     // 2: link stats at their resolution (RTT 0.1 ms, loss 0.01%, slack 0.01 tick), sent when they change.
     // 3: movers (CharacterController::NetState + [Predicted] bytes), shot instigators, a shot's
     //    hitboxes shared with an earlier shot of the tick that had the same ones.
-    // Readers take kMinVersion..kVersion (a chunk decodes with its file's version).
+    // Readers take kMinVersion..kVersion (a chunk decodes with its file's version). The NET-7 shot
+    // bundles (NetDebug.h) carry shots in this encoding and name the version they wrote: a client
+    // refuses a bundle from a server of a format it can't read.
     constexpr uint32_t kVersion = 3;
     constexpr uint32_t kMinVersion = 2;
     constexpr char kMagic[8] = { 'M', 'R', 'E', 'P', 'L', 'A', 'Y', '\0' };
@@ -212,11 +214,13 @@ namespace NetReplayChunk
 }
 
 // One shot alone, in the chunks' encoding (its whole hitbox list, never a reference to an earlier
-// shot): the shooter's debug message (NET-7, NetDebug.h) carries the server's judgement this way.
+// shot): the shooter's debug bundle (NET-7, NetDebug.h) carries the server's judgement this way,
+// naming the version it wrote (kVersion) so a reader of another format version refuses it instead
+// of misreading it. InVersion: the version it was written with, kMinVersion..kVersion.
 namespace NetReplayShots
 {
     void Write( BitWriter& InWriter, const NetReplayShot& InShot );
-    bool Read( BitReader& InReader, NetReplayShot& OutShot );
+    bool Read( BitReader& InReader, NetReplayShot& OutShot, uint32_t InVersion = NetReplayFormat::kVersion );
 }
 
 namespace NetReplayFile

@@ -42,7 +42,7 @@ namespace NetMessage
         Rpc = 21,           // NET-6: a C# [ServerRpc] / [ClientRpc] call (reliable)
         Owner = 22,         // NET-6: who owns a networked entity now (reliable)
         KillcamCancel = 23, // ME-343: the victim stops killcam N (Skip): the server cancels its blobs (reliable, client -> server; protocol 9)
-        NetDebug = 24,      // NET-7: the server's word for a client's Net Debugger: a shot's result, the top-bandwidth entities (reliable; protocol 10; NetDebug.h)
+        NetDebug = 24,      // NET-7: the server's word for a client's Net Debugger: the top-bandwidth entities (reliable; protocol 10; shot results go as blobs since 11; NetDebug.h)
         NetDebugSubscribe = 25, // NET-7: what a client's Net Debugger wants sent (reliable, client -> server; protocol 10)
     };
 }

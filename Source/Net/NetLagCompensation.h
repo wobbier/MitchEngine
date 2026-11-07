@@ -22,6 +22,7 @@ struct LagCompensatedHit
     float Distance = 0.f;
     bool Occluded = false;      // a collider, or a rewound occluder hitbox, was in the way (Entity is still the hitbox it hid)
     double RewoundTicks = 0.0;
+    double JudgedTick = -1.0;   // the (fractional) recorded tick the hitboxes were tested at, after the cap (< 0: rejected)
     int Tested = 0;             // hitboxes rewound and tested against the ray (after the broadphase)
 };
 

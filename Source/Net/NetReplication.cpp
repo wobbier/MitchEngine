@@ -634,7 +634,10 @@ void NetReplicationServer::OnPacket( NetServer::Client& InClient )
             {
                 counted += bits;
                 m_entityBits[id] += bits;
-                state.WindowBits[id] += bits;
+                if( state.WindowOpen )
+                {
+                    state.WindowBits[id] += bits;
+                }
                 if( auto known = m_entityNames.find( id ); known == m_entityNames.end() )
                 {
                     auto entity = m_entities.find( id );
@@ -645,10 +648,44 @@ void NetReplicationServer::OnPacket( NetServer::Client& InClient )
             const uint64_t overhead = total >= counted ? total - counted : 0;
             m_overheadBits += overhead;
             m_accountedBytes += state.Prepared.size();
-            state.WindowOverheadBits += overhead;
-            state.WindowBytes += state.Prepared.size();
+            if( state.WindowOpen )
+            {
+                state.WindowOverheadBits += overhead;
+                state.WindowBytes += state.Prepared.size();
+            }
+            // Bounded: the gone entities' counts fold into one (only past twice the live ones too, so
+            // a big world isn't swept every packet).
+            if( m_entityBits.size() > std::max( Settings.MaxAccountedEntities, m_entities.size() * 2 ) )
+            {
+                for( auto it = m_entityBits.begin(); it != m_entityBits.end(); )
+                {
+                    if( m_entities.count( it->first ) )
+                    {
+                        ++it;
+                        continue;
+                    }
+                    m_despawnedBits += it->second;
+                    m_entityNames.erase( it->first );
+                    it = m_entityBits.erase( it );
+                }
+            }
         }
     }
+}
+
+
+void NetReplicationServer::CloseBandwidthWindow( uint8_t InClient )
+{
+    auto client = m_clients.find( InClient );
+    if( client == m_clients.end() )
+    {
+        return;
+    }
+    ClientState& state = client->second;
+    state.WindowOpen = false;
+    state.WindowBits.clear();
+    state.WindowBytes = 0;
+    state.WindowOverheadBits = 0;
 }
 
 
@@ -670,6 +707,7 @@ NetBandwidthReport NetReplicationServer::TakeBandwidthWindow( uint8_t InClient, 
         return report;
     }
     ClientState& state = client->second;
+    state.WindowOpen = true;
     report.SnapshotBytes = state.WindowBytes;
     report.OverheadBits = state.WindowOverheadBits;
     std::vector<std::pair<uint64_t, uint32_t>> ranked;

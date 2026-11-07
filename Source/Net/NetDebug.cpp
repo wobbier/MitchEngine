@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 
 namespace
 {
@@ -68,8 +69,6 @@ bool NetDebugMessages::ReadSubscribe( BitReader& InReader, NetDebugSubscription&
 
 void NetDebugMessages::WriteShot( BitWriter& InWriter, const NetShotResult& InResult )
 {
-    InWriter.WriteBits( NetMessage::NetDebug, 8 );
-    InWriter.WriteBits( NetDebug::Shot, 8 );
     InWriter.WriteBits( InResult.CommandTick, 32 );
     NetReplayShots::Write( InWriter, InResult.Shot );
     InWriter.WriteVarUInt( InResult.Live.size() );
@@ -77,6 +76,81 @@ void NetDebugMessages::WriteShot( BitWriter& InWriter, const NetShotResult& InRe
     {
         WriteHitbox( InWriter, hitbox );
     }
+}
+
+
+bool NetDebugMessages::ReadShot( BitReader& InReader, NetShotResult& OutResult, uint32_t InReplayVersion )
+{
+    OutResult = NetShotResult();
+    OutResult.CommandTick = InReader.ReadBits( 32 );
+    if( !NetReplayShots::Read( InReader, OutResult.Shot, InReplayVersion ) || OutResult.Shot.Hitboxes.size() > NetDebug::kMaxHitboxes )
+    {
+        return false;
+    }
+    const uint64_t live = InReader.ReadVarUInt();
+    if( live > NetDebug::kMaxHitboxes || InReader.IsOverflowed() )
+    {
+        return false;
+    }
+    OutResult.Live.resize( static_cast<size_t>( live ) );
+    for( NetReplayHitbox& hitbox : OutResult.Live )
+    {
+        if( !ReadHitbox( InReader, hitbox ) )
+        {
+            return false;
+        }
+    }
+    return !InReader.IsOverflowed();
+}
+
+
+std::vector<uint8_t> NetDebugMessages::EncodeShots( const std::vector<NetShotResult>& InResults )
+{
+    BitWriter writer;
+    writer.WriteBytes( NetDebug::kShotBundleMagic, sizeof( NetDebug::kShotBundleMagic ) );
+    writer.WriteBits( NetDebug::kShotBundleVersion, 8 );
+    writer.WriteBits( NetReplayFormat::kVersion, 8 );
+    writer.WriteVarUInt( InResults.size() );
+    for( const NetShotResult& result : InResults )
+    {
+        WriteShot( writer, result );
+    }
+    return writer.GetBytes();
+}
+
+
+bool NetDebugMessages::IsShotBundle( const uint8_t* InData, size_t InSize )
+{
+    return InData && InSize >= sizeof( NetDebug::kShotBundleMagic ) && std::memcmp( InData, NetDebug::kShotBundleMagic, sizeof( NetDebug::kShotBundleMagic ) ) == 0;
+}
+
+
+bool NetDebugMessages::DecodeShots( const uint8_t* InData, size_t InSize, std::vector<NetShotResult>& OutResults )
+{
+    OutResults.clear();
+    if( !IsShotBundle( InData, InSize ) )
+    {
+        return false;
+    }
+    BitReader reader( InData + sizeof( NetDebug::kShotBundleMagic ), InSize - sizeof( NetDebug::kShotBundleMagic ) );
+    const uint32_t version = reader.ReadBits( 8 );
+    const uint32_t replayVersion = reader.ReadBits( 8 );
+    const uint64_t count = reader.ReadVarUInt();
+    if( reader.IsOverflowed() || version != NetDebug::kShotBundleVersion || replayVersion < NetReplayFormat::kMinVersion || replayVersion > NetReplayFormat::kVersion
+        || count > NetDebug::kMaxBundleShots )
+    {
+        return false;
+    }
+    OutResults.resize( static_cast<size_t>( count ) );
+    for( NetShotResult& result : OutResults )
+    {
+        if( !ReadShot( reader, result, replayVersion ) )
+        {
+            OutResults.clear();
+            return false;
+        }
+    }
+    return true;
 }
 
 
@@ -97,32 +171,9 @@ void NetDebugMessages::WriteBandwidth( BitWriter& InWriter, const NetBandwidthRe
 }
 
 
-bool NetDebugMessages::ReadDebug( BitReader& InReader, uint8_t& OutKind, NetShotResult& OutShot, NetBandwidthReport& OutBandwidth )
+bool NetDebugMessages::ReadDebug( BitReader& InReader, uint8_t& OutKind, NetBandwidthReport& OutBandwidth )
 {
     OutKind = static_cast<uint8_t>( InReader.ReadBits( 8 ) );
-    if( OutKind == NetDebug::Shot )
-    {
-        OutShot = NetShotResult();
-        OutShot.CommandTick = InReader.ReadBits( 32 );
-        if( !NetReplayShots::Read( InReader, OutShot.Shot ) || OutShot.Shot.Hitboxes.size() > NetDebug::kMaxHitboxes )
-        {
-            return false;
-        }
-        const uint64_t live = InReader.ReadVarUInt();
-        if( live > NetDebug::kMaxHitboxes || InReader.IsOverflowed() )
-        {
-            return false;
-        }
-        OutShot.Live.resize( static_cast<size_t>( live ) );
-        for( NetReplayHitbox& hitbox : OutShot.Live )
-        {
-            if( !ReadHitbox( InReader, hitbox ) )
-            {
-                return false;
-            }
-        }
-        return !InReader.IsOverflowed();
-    }
     if( OutKind == NetDebug::Bandwidth )
     {
         OutBandwidth = NetBandwidthReport();

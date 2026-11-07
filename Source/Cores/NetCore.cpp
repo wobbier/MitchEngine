@@ -206,6 +206,43 @@ namespace
         return best;
     }
 
+    // NET-7: the poses of InShown's hitboxes a debug shot carries, at most NetDebug::kMaxHitboxes, the
+    // one struck (InStruck: hit, or what hid it) first so a target with more parts never loses it.
+    std::vector<const NetLagCompensation::HitboxPose*> ShownPoses( const std::vector<NetLagCompensation::HitboxPose>& InPoses, uint32_t InShown,
+        const EntityHandle& InStruck, const EntityHandle& InShooter )
+    {
+        std::vector<const NetLagCompensation::HitboxPose*> shown;
+        if( InShown == 0 )
+        {
+            return shown;
+        }
+        for( const NetLagCompensation::HitboxPose& pose : InPoses )
+        {
+            if( IsSelfOrUnder( pose.Entity, InShooter ) )
+            {
+                continue;
+            }
+            const NetIdentity* owner = NetworkedSelfOrAncestor( pose.Entity );
+            if( !owner || owner->GetNetId() != InShown )
+            {
+                continue;
+            }
+            if( InStruck && pose.Entity == InStruck )
+            {
+                shown.insert( shown.begin(), &pose );
+            }
+            else
+            {
+                shown.push_back( &pose );
+            }
+        }
+        if( shown.size() > NetDebug::kMaxHitboxes )
+        {
+            shown.resize( NetDebug::kMaxHitboxes );
+        }
+        return shown;
+    }
+
     std::string Cut( const std::string& InText, size_t InMax )
     {
         if( InText.size() <= InMax )
@@ -407,6 +444,7 @@ bool NetCore::Connect( INetTransport& InTransport, NetAddress InServer, const Ne
     // NET-7: asked for again once this session is connected.
     m_debugAsked = NetDebugSubscription();
     m_shotLedger.Reset();
+    m_shotBundles = 0;
     m_bandwidthReport = NetBandwidthReport();
     m_bandwidthReports = 0;
     // Killcams (ME-323) come as blobs.
@@ -1018,8 +1056,7 @@ void NetCore::RecordShot( const Vector3& InOrigin, const Vector3& InDirection, f
         return;
     }
     // The hitboxes as the shot was judged against them (all of them, not only the broadphase's).
-    const double judged = static_cast<double>( m_lagCompensation.GetNewestTick() ) - InHit.RewoundTicks;
-    for( const NetLagCompensation::HitboxPose& pose : m_lagCompensation.GetPosesAt( judged ) )
+    for( const NetLagCompensation::HitboxPose& pose : m_lagCompensation.GetPosesAt( InHit.JudgedTick ) )
     {
         if( IsSelfOrUnder( pose.Entity, InShooter ) )
         {
@@ -1326,6 +1363,22 @@ void NetCore::UpdateKillcams()
 
 void NetCore::OnBlob( std::vector<uint8_t>& InData )
 {
+    // NET-7: the server's results for this client's shots.
+    if( NetDebugMessages::IsShotBundle( InData.data(), InData.size() ) )
+    {
+        std::vector<NetShotResult> results;
+        if( !NetDebug::kAvailable || !NetDebugMessages::DecodeShots( InData.data(), InData.size(), results ) )
+        {
+            CLog::Log( CLog::LogType::Warning, "Net: a shot-result bundle from the server doesn't read (another engine's net debug or replay format?)" );
+            return;
+        }
+        for( NetShotResult& result : results )
+        {
+            m_shotLedger.AddResult( std::move( result ), m_lastNow );
+        }
+        ++m_shotBundles;
+        return;
+    }
     const uint32_t before = m_killcam.GetId();
     const bool wasComplete = m_killcam.IsComplete();
     switch( m_killcam.Accept( InData.data(), InData.size() ) )
@@ -1430,6 +1483,24 @@ void NetCore::SetDebug( const NetDebugSubscription& InDebug )
 }
 
 
+void NetCore::SetDebugClientsAllowed( bool InAllowed )
+{
+    m_debugClientsAllowed = NetDebug::kAvailable && InAllowed;
+    if( !m_debugClientsAllowed && !m_debugSubscribers.empty() )
+    {
+        for( const auto& [id, subscriber] : m_debugSubscribers )
+        {
+            if( m_replicationServer )
+            {
+                m_replicationServer->CloseBandwidthWindow( id );
+            }
+        }
+        m_debugSubscribers.clear();
+        UpdateAccounting();
+    }
+}
+
+
 void NetCore::UpdateAccounting()
 {
     if( !m_replicationServer )
@@ -1452,7 +1523,18 @@ void NetCore::OnDebugSubscribe( uint8_t InClient, BitReader& InReader )
     {
         return;
     }
+    if( !m_debugClientsAllowed )
+    {
+        if( wants.Any() && m_debugStats.Refused++ == 0 )
+        {
+            CLog::Log( CLog::LogType::Info, "Net: client " + std::to_string( InClient )
+                + "'s Net Debugger asked for shots / bandwidth; this server doesn't share them (--net-debug-clients allows it)" );
+        }
+        return;
+    }
     ++m_debugStats.Subscriptions;
+    auto known = m_debugSubscribers.find( InClient );
+    const bool hadBandwidth = known != m_debugSubscribers.end() && known->second.Wants.Bandwidth;
     if( !wants.Any() )
     {
         m_debugSubscribers.erase( InClient );
@@ -1460,13 +1542,17 @@ void NetCore::OnDebugSubscribe( uint8_t InClient, BitReader& InReader )
     else
     {
         DebugSubscriber& subscriber = m_debugSubscribers[InClient];
-        // A bandwidth window starts now: what was counted before isn't its.
+        // A bandwidth window starts now (counting for this client from here on).
         if( wants.Bandwidth && !subscriber.Wants.Bandwidth )
         {
             subscriber.WindowStart = m_server->GetTick();
             m_replicationServer->TakeBandwidthWindow( InClient, 0, 0.0 );
         }
         subscriber.Wants = wants;
+    }
+    if( hadBandwidth && !wants.Bandwidth )
+    {
+        m_replicationServer->CloseBandwidthWindow( InClient );
     }
     UpdateAccounting();
     CLog::Log( CLog::LogType::Info, std::string( "Net: client " ) + std::to_string( InClient ) + "'s Net Debugger asks for" + ( wants.Shots ? " shots" : "" )
@@ -1483,43 +1569,22 @@ void NetCore::SendShotResult( const Vector3& InOrigin, const Vector3& InDirectio
     {
         return;
     }
-    NetServer::Client* client = nullptr;
-    for( const auto& candidate : m_server->GetClients() )
-    {
-        if( candidate->Id == subscriber->first && candidate->Accepted )
-        {
-            client = candidate.get();
-        }
-    }
-    if( !client )
-    {
-        return;
-    }
     NetShotResult result;
     result.CommandTick = InCommand.Tick;
     result.Shot = MakeShot( InOrigin, InDirection, InMaxDistance, InCommand.ViewTick, InShooter, EntityHandle(), InHit );
     if( !InHit.Rejected )
     {
-        // The target's hitboxes (or the near miss's) as the shot was judged against them, and live.
-        const double newest = static_cast<double>( m_lagCompensation.GetNewestTick() );
-        const std::vector<NetLagCompensation::HitboxPose> judged = m_lagCompensation.GetPosesAt( newest - InHit.RewoundTicks );
-        const std::vector<NetLagCompensation::HitboxPose> live = m_lagCompensation.GetPosesAt( newest );
+        // The target's hitboxes (or the near miss's) as the shot was judged against them (the very
+        // tick the raycast tested), and live.
+        const std::vector<NetLagCompensation::HitboxPose> judged = m_lagCompensation.GetPosesAt( InHit.JudgedTick );
+        const std::vector<NetLagCompensation::HitboxPose> live = m_lagCompensation.GetPosesAt( static_cast<double>( m_lagCompensation.GetNewestTick() ) );
         const uint32_t shown = PickShownEntity( judged, InOrigin, InDirection, InMaxDistance, result.Shot.Target, InShooter );
-        for( const NetLagCompensation::HitboxPose& pose : judged )
+        for( const NetLagCompensation::HitboxPose* pose : ShownPoses( judged, shown, InHit.Entity, InShooter ) )
         {
-            if( shown == 0 || result.Shot.Hitboxes.size() >= NetDebug::kMaxHitboxes || IsSelfOrUnder( pose.Entity, InShooter ) )
-            {
-                continue;
-            }
-            const NetIdentity* owner = NetworkedSelfOrAncestor( pose.Entity );
-            if( !owner || owner->GetNetId() != shown )
-            {
-                continue;
-            }
-            result.Shot.Hitboxes.push_back( ToReplayHitbox( pose ) );
+            result.Shot.Hitboxes.push_back( ToReplayHitbox( *pose ) );
             for( const NetLagCompensation::HitboxPose& now : live )
             {
-                if( now.Entity == pose.Entity )
+                if( now.Entity == pose->Entity )
                 {
                     result.Live.push_back( ToReplayHitbox( now ) );
                     break;
@@ -1527,30 +1592,17 @@ void NetCore::SendShotResult( const Vector3& InOrigin, const Vector3& InDirectio
             }
         }
     }
-    BitWriter message;
-    NetDebugMessages::WriteShot( message, result );
-    bool trimmed = false;
-    while( message.GetByteCount() > NetConnection::kMaxMessageBytes && ( !result.Shot.Hitboxes.empty() || !result.Live.empty() ) )
+    // Queued for the client's next bundle (UpdateDebug), never ahead of its live traffic.
+    BitWriter measure;
+    NetDebugMessages::WriteShot( measure, result );
+    DebugSubscriber& to = subscriber->second;
+    if( to.PendingBytes + measure.GetByteCount() > NetDebug::kMaxPendingShotBytes )
     {
-        if( !result.Live.empty() )
-        {
-            result.Live.pop_back();
-        }
-        if( !result.Shot.Hitboxes.empty() )
-        {
-            result.Shot.Hitboxes.pop_back();
-        }
-        message.Clear();
-        NetDebugMessages::WriteShot( message, result );
-        trimmed = true;
+        ++m_debugStats.ShotResultsDropped;
+        return;
     }
-    if( message.GetByteCount() > NetConnection::kMaxMessageBytes )
-    {
-        return;     // a target part named past reason
-    }
-    m_server->Send( *client, message, true );
-    ++m_debugStats.ShotResults;
-    m_debugStats.ShotResultsTrimmed += trimmed ? 1 : 0;
+    to.PendingBytes += measure.GetByteCount();
+    to.PendingShots.push_back( std::move( result ) );
 }
 
 
@@ -1590,12 +1642,9 @@ void NetCore::NotePredictedShot( const Vector3& InOrigin, const Vector3& InDirec
     }
     const std::vector<NetLagCompensation::HitboxPose> poses = InPresent.GetPosesAt( 0.0 );
     const uint32_t shown = PickShownEntity( poses, InOrigin, InDirection, InMaxDistance, shot.Target, InShooter );
-    for( const NetLagCompensation::HitboxPose& pose : poses )
+    for( const NetLagCompensation::HitboxPose* pose : ShownPoses( poses, shown, InHit.Entity, InShooter ) )
     {
-        if( shown != 0 && shot.Hitboxes.size() < NetDebug::kMaxHitboxes && !IsSelfOrUnder( pose.Entity, InShooter ) && GetNetIdOrAncestor( pose.Entity ) == shown )
-        {
-            shot.Hitboxes.push_back( ToReplayHitbox( pose ) );
-        }
+        shot.Hitboxes.push_back( ToReplayHitbox( *pose ) );
     }
     m_shotLedger.AddPredicted( std::move( shot ), m_lastNow );
 }
@@ -1604,17 +1653,12 @@ void NetCore::NotePredictedShot( const Vector3& InOrigin, const Vector3& InDirec
 void NetCore::OnDebugMessage( BitReader& InReader )
 {
     uint8_t kind = 0;
-    NetShotResult shot;
     NetBandwidthReport bandwidth;
-    if( !NetDebug::kAvailable || !NetDebugMessages::ReadDebug( InReader, kind, shot, bandwidth ) )
+    if( !NetDebug::kAvailable || !NetDebugMessages::ReadDebug( InReader, kind, bandwidth ) )
     {
         return;
     }
-    if( kind == NetDebug::Shot )
-    {
-        m_shotLedger.AddResult( std::move( shot ), m_lastNow );
-    }
-    else if( kind == NetDebug::Bandwidth )
+    if( kind == NetDebug::Bandwidth )
     {
         for( NetEntityBytes& entity : bandwidth.Top )
         {
@@ -1637,21 +1681,56 @@ void NetCore::UpdateDebug()
     const uint32_t rate = std::max<uint32_t>( 1, m_server->GetTickRate() );
     for( auto& [id, subscriber] : m_debugSubscribers )
     {
+        NetServer::Client* client = nullptr;
+        for( const auto& candidate : m_server->GetClients() )
+        {
+            if( candidate->Id == id && candidate->Accepted )
+            {
+                client = candidate.get();
+            }
+        }
+        if( !client )
+        {
+            continue;
+        }
+        // Shots: every result since the last bundle, once that one has landed (one on its way at a
+        // time: a burst waits as one bundle instead of taking the channel's slots from a killcam).
+        if( subscriber.ShotBlob != 0 )
+        {
+            bool onItsWay = false;
+            for( const NetBlobProgress& progress : client->Connection->GetBlobProgress() )
+            {
+                onItsWay = onItsWay || ( progress.Outgoing && progress.Id == subscriber.ShotBlob );
+            }
+            subscriber.ShotBlob = onItsWay ? subscriber.ShotBlob : 0;
+        }
+        if( subscriber.ShotBlob == 0 && !subscriber.PendingShots.empty() )
+        {
+            const std::vector<uint8_t> bundle = NetDebugMessages::EncodeShots( subscriber.PendingShots );
+            subscriber.ShotBlob = m_server->SendBlob( *client, bundle );
+            if( subscriber.ShotBlob != 0 )
+            {
+                ++m_debugStats.ShotBundles;
+                m_debugStats.ShotBundleBytes += bundle.size();
+                m_debugStats.ShotResults += subscriber.PendingShots.size();
+            }
+            else
+            {
+                m_debugStats.ShotResultsDropped += subscriber.PendingShots.size();
+            }
+            subscriber.PendingShots.clear();
+            subscriber.PendingBytes = 0;
+        }
+        // Bandwidth: the window, once a second.
         if( !subscriber.Wants.Bandwidth || tick - subscriber.WindowStart < rate )
         {
             continue;
         }
-        for( const auto& client : m_server->GetClients() )
-        {
-            if( client->Id == id && client->Accepted )
-            {
-                const NetBandwidthReport report = m_replicationServer->TakeBandwidthWindow( id, NetDebug::kTopEntities, static_cast<double>( tick - subscriber.WindowStart ) / rate );
-                BitWriter message;
-                NetDebugMessages::WriteBandwidth( message, report );
-                m_server->Send( *client, message, true );
-                ++m_debugStats.BandwidthReports;
-            }
-        }
+        const NetBandwidthReport report = m_replicationServer->TakeBandwidthWindow( id, NetDebug::kTopEntities, static_cast<double>( tick - subscriber.WindowStart ) / rate );
+        BitWriter message;
+        NetDebugMessages::WriteBandwidth( message, report );
+        m_server->Send( *client, message, true );
+        ++m_debugStats.BandwidthReports;
         subscriber.WindowStart = tick;
     }
 }
@@ -1846,13 +1925,14 @@ bool NetCore::WriteReport( const std::string& InPath, double InNow ) const
         if( m_replicationServer->GetAccountedBytes() > 0 )
         {
             json accounting;
-            uint64_t entityBits = 0;
+            uint64_t entityBits = m_replicationServer->GetDespawnedBits();
             for( const auto& [id, bits] : m_replicationServer->GetEntityBits() )
             {
                 entityBits += bits;
             }
             accounting["AccountedBytes"] = m_replicationServer->GetAccountedBytes();
-            accounting["EntityBits"] = entityBits;
+            accounting["EntityBits"] = entityBits;     // the despawned ones' too
+            accounting["DespawnedBits"] = m_replicationServer->GetDespawnedBits();
             accounting["OverheadBits"] = m_replicationServer->GetOverheadBits();
             accounting["Entities"] = m_replicationServer->GetEntityBits().size();
             report["SnapshotAccounting"] = accounting;
@@ -1866,8 +1946,12 @@ bool NetCore::WriteReport( const std::string& InPath, double InNow ) const
         json debug;
         debug["Subscribers"] = m_debugSubscribers.size();
         debug["Subscriptions"] = m_debugStats.Subscriptions;
+        debug["Refused"] = m_debugStats.Refused;
+        debug["ClientsAllowed"] = m_debugClientsAllowed;
         debug["ShotResults"] = m_debugStats.ShotResults;
-        debug["ShotResultsTrimmed"] = m_debugStats.ShotResultsTrimmed;
+        debug["ShotResultsDropped"] = m_debugStats.ShotResultsDropped;
+        debug["ShotBundles"] = m_debugStats.ShotBundles;
+        debug["ShotBundleBytes"] = m_debugStats.ShotBundleBytes;
         debug["BandwidthReports"] = m_debugStats.BandwidthReports;
         report["NetDebug"] = debug;
     }
@@ -1955,6 +2039,7 @@ bool NetCore::WriteReport( const std::string& InPath, double InNow ) const
             shots["ClientOnly"] = totals.ClientOnly;
             shots["ServerOnly"] = totals.ServerOnly;
             shots["Pending"] = m_shotLedger.GetPendingCount();
+            shots["Bundles"] = m_shotBundles;
             shots["Agreement"] = totals.Paired > 0 ? static_cast<double>( totals.Agreed ) / static_cast<double>( totals.Paired ) : 0.0;
             shots["MeanPointDeltaMm"] = totals.PointPairs > 0 ? totals.SumPointDelta / static_cast<double>( totals.PointPairs ) * 1000.0 : 0.0;
             shots["MaxPointDeltaMm"] = totals.MaxPointDelta * 1000.0;
@@ -2041,6 +2126,7 @@ void NetCore::Shutdown()
     m_debugStats = DebugStats();
     m_debugAsked = NetDebugSubscription();
     m_shotLedger.Reset();
+    m_shotBundles = 0;
     m_bandwidthReport = NetBandwidthReport();
     m_bandwidthReports = 0;
     m_inTick = false;
