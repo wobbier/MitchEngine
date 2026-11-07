@@ -457,7 +457,7 @@ bool Net_GetKillcam( int* outId, float* outProgress, Entity* outKiller, Entity* 
 ## Killcam playback (ME-323 phase 3): the killcam playing into its replay world. Flags: 1 one plays, 2 the script
 ## world is its replay world. Its id, the killer's and victim's NetIds, the tick shown, its first and death ticks, the
 ## seconds played and how long it plays (the last one's when none plays); Skip ends it at the engine's next killcam
-## update (the same frame for a live world's script)
+## update (the same frame for a live world's script), or with none playing lets the newest received go before it plays
 int Net_GetKillcamPlayback( int* outId, int* outKillerId, int* outVictimId, float* outTick, int* outFirstTick, int* outDeathTick, float* outElapsed, float* outDuration )
 void Net_SkipKillcam()
 

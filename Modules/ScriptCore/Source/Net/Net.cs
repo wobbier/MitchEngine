@@ -439,7 +439,8 @@ public static unsafe class Net
         public static float Elapsed { get { Playback(out var p); return p.Elapsed; } }
         /// <summary>Seconds it plays: its ticks at the tick rate, then a second on the death.</summary>
         public static float Duration { get { Playback(out var p); return p.Duration; } }
-        /// <summary>Ends the killcam playing: the screen switches back to the live world (this frame from a live world's script, the next from the replay world's).</summary>
+        /// <summary>Ends the killcam playing: the screen switches back to the live world (this frame from a live world's script, the next from the replay world's).
+        /// With none playing, the newest killcam received that hasn't played yet (still arriving) never plays. Either way its download stops.</summary>
         public static void Skip()
         {
             if (Engine._api.Net_SkipKillcam != null) Engine._api.Net_SkipKillcam();

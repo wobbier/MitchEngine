@@ -166,8 +166,10 @@ public:
 
     void SetPopulate( Populate InPopulate ) { m_populate = std::move( InPopulate ); }
     // Builds the replay world now, for InLive's killcams, if there's none yet (ME-343): ahead of the first
-    // death, so that one doesn't pay for it (Engine: once its scene's read ahead). A build that failed isn't
-    // tried again here until Release (a killcam still tries). True when the world is there.
+    // death, so that one doesn't pay for it (Engine: once its scene's read ahead). It builds (or tries) once
+    // until Release: a world thrown away later (it lost a placed entity, or didn't fit a stream), or a build
+    // that failed, is left to the next killcam, so live play never pays for a build. True when the world is
+    // there.
     bool Prepare( World& InLive );
     // Ends whatever plays ("stopped") and destroys the replay world: a scene load (the next scene's
     // killcams need its world), the session's end, shutdown.
@@ -180,8 +182,10 @@ public:
     void Update( World& InLive, double InFrameSeconds );
     // Ends the killcam playing (C#'s Net.Killcam.Skip) at the start of the next Update, which in the
     // engine is later the same frame for a live world's script: the replay world goes then (never while
-    // its own scripts are running, which may be what asked).
-    void Skip() { m_skipRequested = m_playing; }
+    // its own scripts are running, which may be what asked). With none playing, it lets the newest killcam
+    // received go before it plays (ME-343: one still on its way, its first chunk not in or AutoPlay off): it
+    // never plays and its download stops. Nothing to skip: nothing happens.
+    void Skip() { m_skipRequested = true; }
     // Ends whatever plays ("stopped"): a scene load, the session's end, shutdown.
     void Stop();
 
@@ -258,6 +262,8 @@ public:
         uint64_t WorldsBuilt = 0;
         uint64_t WorldsReused = 0;
         uint64_t WorldsDiscarded = 0;
+        // Killcams let go by Skip before they played (ME-343), not in Skipped.
+        uint64_t SkippedUnplayed = 0;
     };
     const Stats& GetStats() const { return m_stats; }
     // The newest killcam id looked at this session (0: none; it starts over when the session does).
@@ -284,6 +290,8 @@ private:
     // The killer's shot at the death tick nearest the view's aim (Status::HasShot ...).
     void FindKillShot();
     void Fire( bool InStarted, const std::string& InReason );
+    // Stops the download of killcam InId if it's InLive's newest, not yet whole (ME-343).
+    void CancelDownload( World* InLive, uint32_t InId );
     void Bind( World& InLive );
 
     Settings m_settings;
@@ -294,7 +302,10 @@ private:
     WeakPtr<World> m_builtFor;          // the live world it was built for
     std::vector<uint64_t> m_built;      // its entities as built (EntityID values, sorted)
     std::vector<std::pair<uint64_t, uint8_t>> m_hidden;    // the killer's parts hidden: entity, 1 Mesh 2 Model 4 TextRenderer
-    bool m_buildFailed = false;         // Prepare doesn't try again until Release
+    bool m_prepared = false;            // Prepare has built (or tried): it doesn't again until Release
+    // A world built afresh refused a stream too (ME-343): a refusal is the streams' (an additive scene, a
+    // recording of another), so the kept world's no longer builds another, until Release.
+    bool m_freshRefused = false;
     WeakPtr<World> m_live;
     uint32_t m_lastSeen = 0;        // the newest killcam id looked at (started, or failed), this session
     Status m_status;

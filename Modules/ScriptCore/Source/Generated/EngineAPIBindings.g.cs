@@ -486,7 +486,7 @@ public unsafe struct EngineAPIBindings
 
     // seconds played and how long it plays (the last one's when none plays); Skip ends it at the engine's next killcam
 
-    // update (the same frame for a live world's script)
+    // update (the same frame for a live world's script), or with none playing lets the newest received go before it plays
     public delegate* unmanaged<int*, int*, int*, float*, int*, int*, float*, float*, int> Net_GetKillcamPlayback;
     public delegate* unmanaged<void> Net_SkipKillcam;
 

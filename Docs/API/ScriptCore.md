@@ -1518,7 +1518,7 @@ Client: the newest killcam the server sent (ME-323). It arrives a chunk at a tim
 - `PlayingId` (property): The id of the killcam playing, or of the last one played (0: none yet); Id is the newest received, which can be a newer one than this.
 - `Progress` (property): How much of the newest one is here, 0..1 (1 once received).
 - `Received` (property): Whether the newest one is here whole.
-- `Skip` (method): Ends the killcam playing: the screen switches back to the live world (this frame from a live world's script, the next from the replay world's).
+- `Skip` (method): Ends the killcam playing: the screen switches back to the live world (this frame from a live world's script, the next from the replay world's). With none playing, the newest killcam received that hasn't played yet (still arriving) never plays. Either way its download stops.
 - `Started` (event): A killcam started playing (EventBus KillcamStarted; a script's handler goes with it).
 - `Tick` (property): The tick the killcam shows (fractional between ticks), from FirstTick to DeathTick.
 - `Victim` (property): The victim in this world (Entity.Null when it isn't here any more).

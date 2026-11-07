@@ -1202,9 +1202,23 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
     };
     EntityHandle liveBody = addBody( *net.ClientWorld );
     EntityHandle replayBody;
-    player.SetPopulate( [&]( KillcamPlayer::ReplayWorld& InReplay, std::string& ) {
+    // ME-343 review: 1, the replay world can't be made (no scene); 2, it has a placed networked entity the recording's
+    // scene hasn't (an additive scene's), so StartPlayback refuses every stream.
+    int populateMode = 0;
+    player.SetPopulate( [&]( KillcamPlayer::ReplayWorld& InReplay, std::string& OutError ) {
         ++populated;
+        if( populateMode == 1 )
+        {
+            OutError = "there's no scene file to play it in";
+            return false;
+        }
         placePawns( *InReplay.Instance, false );
+        if( populateMode == 2 )
+        {
+            EntityHandle extra = InReplay.Instance->CreateEntityWithGUID( 0x7A3E99 );
+            extra->AddComponent<Transform>();
+            extra->AddComponent<NetIdentity>();
+        }
         replayBody = addBody( *InReplay.Instance );
         EntityHandle camera = InReplay.Instance->CreateEntity( "Killcam Camera" );
         camera->AddComponent<Transform>();
@@ -1715,6 +1729,139 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
     CHECK_FALSE( player.IsPlaying() );
     CHECK( player.GetKeptWorld() == nullptr );
     CHECK( player.GetStats().WorldsBuilt == 2 );
+
+    // ME-343 review. Each kill from here: the server sends killcam InId; true once the player has looked at it.
+    player.GetSettings().KeepWorld = true;
+    auto kill = [&]( uint32_t InId ) {
+        killTick = net.ServerNet.GetServer()->GetTick() + 2;
+        ringAtKill.clear();
+        for( int i = 0; i < 300 && player.GetLastSeenId() != InId; ++i )
+        {
+            net.Run( 0.01 );
+        }
+        return player.GetLastSeenId() == InId;
+    };
+    const KillcamPlayer::Stats& stats = player.GetStats();
+
+    // Skip with none playing lets the newest go before it plays (its first chunk in, AutoPlay off here; on a slow
+    // link, not in yet): it never plays and its download stops. With nothing new to skip, Skip does nothing.
+    player.GetSettings().AutoPlay = false;
+    killTick = net.ServerNet.GetServer()->GetTick() + 2;
+    ringAtKill.clear();
+    for( int i = 0; i < 300 && !( arriving.GetId() == 5 && arriving.GetChunksReady() > 0 ); ++i )
+    {
+        net.Run( 0.01 );
+    }
+    REQUIRE( arriving.GetId() == 5 );
+    REQUIRE_FALSE( arriving.IsComplete() );
+    CHECK( player.GetLastSeenId() != 5 );
+    uint64_t cancelledSoFar = net.ServerNet.GetKillcamStats().CancelledByClient;
+    player.Skip();
+    player.Update( *net.ClientWorld, 1.0 / 60.0 );
+    CHECK( stats.SkippedUnplayed == 1 );
+    CHECK( player.GetLastSeenId() == 5 );
+    CHECK( arriving.IsCancelled() );
+    player.Skip();
+    player.Update( *net.ClientWorld, 1.0 / 60.0 );
+    CHECK( stats.SkippedUnplayed == 1 );
+    player.GetSettings().AutoPlay = true;
+    net.Run( 0.5 );
+    CHECK_FALSE( player.IsPlaying() );
+    CHECK( stats.Started == 4 );
+    CHECK( net.ServerNet.GetKillcamStats().CancelledByClient == cancelledSoFar + 1 );
+    CHECK_FALSE( arriving.IsComplete() );
+
+    // A killcam that can't start (its world can't be made) stops its download too, and is never tried again; Prepare
+    // tries once, so no frame of live play builds after it.
+    populateMode = 1;
+    player.Release();
+    int populatedSoFar = populated;
+    CHECK_FALSE( player.Prepare( *net.ClientWorld ) );
+    CHECK_FALSE( player.Prepare( *net.ClientWorld ) );
+    CHECK( populated == populatedSoFar + 1 );
+    uint64_t failedSoFar = stats.Failed;
+    cancelledSoFar = net.ServerNet.GetKillcamStats().CancelledByClient;
+    REQUIRE( kill( 6 ) );
+    CHECK_FALSE( player.IsPlaying() );
+    CHECK( stats.Failed == failedSoFar + 1 );
+    CHECK( populated == populatedSoFar + 2 );
+    CHECK( arriving.IsCancelled() );
+    net.Run( 0.3 );
+    CHECK( net.ServerNet.GetKillcamStats().CancelledByClient == cancelledSoFar + 1 );
+    CHECK_FALSE( player.Prepare( *net.ClientWorld ) );
+    CHECK( populated == populatedSoFar + 2 );
+    CHECK( stats.Started == 4 );
+
+    // A stream no world fits (StartPlayback refuses it: the world has a placed networked entity the recording hasn't).
+    // The kept world refuses it, so one is built afresh (WorldsDiscarded); that refuses it too, so the streams are
+    // what don't fit: it's kept, the next killcam builds nothing, and both stop their downloads.
+    populateMode = 2;
+    player.Release();
+    populatedSoFar = populated;
+    const uint64_t builtSoFar = stats.WorldsBuilt;
+    const uint64_t discardedSoFar = stats.WorldsDiscarded;
+    REQUIRE( player.Prepare( *net.ClientWorld ) );
+    failedSoFar = stats.Failed;
+    cancelledSoFar = net.ServerNet.GetKillcamStats().CancelledByClient;
+    REQUIRE( kill( 7 ) );
+    CHECK_FALSE( player.IsPlaying() );
+    CHECK( stats.Failed == failedSoFar + 1 );
+    CHECK( stats.WorldsDiscarded == discardedSoFar + 1 );
+    CHECK( stats.WorldsBuilt == builtSoFar + 2 );
+    CHECK( populated == populatedSoFar + 2 );
+    CHECK( arriving.IsCancelled() );
+    REQUIRE( player.GetKeptWorld() != nullptr );
+    CHECK( player.Prepare( *net.ClientWorld ) );
+    CHECK( populated == populatedSoFar + 2 );
+    net.Run( 0.3 );
+    CHECK( net.ServerNet.GetKillcamStats().CancelledByClient == cancelledSoFar + 1 );
+    REQUIRE( kill( 8 ) );
+    CHECK_FALSE( player.IsPlaying() );
+    CHECK( stats.Failed == failedSoFar + 2 );
+    CHECK( stats.WorldsDiscarded == discardedSoFar + 1 );
+    CHECK( stats.WorldsBuilt == builtSoFar + 2 );
+    CHECK( populated == populatedSoFar + 2 );
+    CHECK( arriving.IsCancelled() );
+    net.Run( 0.3 );
+    CHECK( net.ServerNet.GetKillcamStats().CancelledByClient == cancelledSoFar + 2 );
+    CHECK( stats.Started == 4 );
+
+    // A kept world that loses an entity it was built with during a killcam (here the killer's body; a placed networked
+    // entity the stream destroys alike) can't be made whole: it's thrown away as the killcam ends, Prepare doesn't
+    // build it again in live play, and the next killcam builds one as built.
+    populateMode = 0;
+    player.Release();
+    REQUIRE( player.Prepare( *net.ClientWorld ) );
+    World* const second = player.GetKeptWorld();
+    REQUIRE( second != nullptr );
+    const size_t secondEntities = second->GetEntityCount();
+    const uint64_t builtBefore = stats.WorldsBuilt;
+    const uint64_t discardedBefore = stats.WorldsDiscarded;
+    REQUIRE( kill( 9 ) );
+    REQUIRE( player.IsPlaying() );
+    CHECK( player.GetStatus().WorldKept );
+    REQUIRE( replayBody );
+    second->DestroyEntity( replayBody );
+    net.Run( 0.05 );
+    REQUIRE( player.IsPlaying() );
+    player.Skip();
+    player.Update( *net.ClientWorld, 1.0 / 60.0 );
+    CHECK_FALSE( player.IsPlaying() );
+    CHECK( stats.WorldsDiscarded == discardedBefore + 1 );
+    CHECK( player.GetKeptWorld() == nullptr );
+    populatedSoFar = populated;
+    CHECK_FALSE( player.Prepare( *net.ClientWorld ) );
+    CHECK( populated == populatedSoFar );
+    REQUIRE( kill( 10 ) );
+    REQUIRE( player.IsPlaying() );
+    CHECK_FALSE( player.GetStatus().WorldKept );
+    CHECK( stats.WorldsBuilt == builtBefore + 1 );
+    CHECK( populated == populatedSoFar + 1 );
+    player.Skip();
+    player.Update( *net.ClientWorld, 1.0 / 60.0 );
+    CHECK_FALSE( player.IsPlaying() );
+    REQUIRE( player.GetKeptWorld() != nullptr );
+    CHECK( player.GetKeptWorld()->GetEntityCount() == secondEntities );
 }
 
 

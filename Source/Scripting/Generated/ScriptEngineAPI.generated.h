@@ -507,7 +507,7 @@ struct ScriptEngineAPI
 
     // seconds played and how long it plays (the last one's when none plays); Skip ends it at the engine's next killcam
 
-    // update (the same frame for a live world's script)
+    // update (the same frame for a live world's script), or with none playing lets the newest received go before it plays
     int ( *Net_GetKillcamPlayback )( int* outId, int* outKillerId, int* outVictimId, float* outTick, int* outFirstTick, int* outDeathTick, float* outElapsed, float* outDuration ) noexcept;
     void ( *Net_SkipKillcam )() noexcept;
 

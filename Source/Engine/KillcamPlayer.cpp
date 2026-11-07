@@ -371,9 +371,21 @@ void KillcamPlayer::Update( World& InLive, double InFrameSeconds )
     Bind( InLive );
     NetCore* live = InLive.GetCore<NetCore>();
     const NetKillcamReceiver* killcam = live && live->GetClient() ? &live->GetKillcam() : nullptr;
-    if( std::exchange( m_skipRequested, false ) && m_playing )
+    if( std::exchange( m_skipRequested, false ) )
     {
-        End( "skipped" );
+        if( m_playing )
+        {
+            End( "skipped" );
+        }
+        // None playing: the newest received, not yet played (still arriving, or AutoPlay off), is let go (ME-343).
+        else if( killcam && killcam->GetId() != 0 && killcam->GetId() != m_lastSeen && live->IsSessionLive() )
+        {
+            m_lastSeen = killcam->GetId();
+            ++m_stats.SkippedUnplayed;
+            CLog::Log( CLog::LogType::Info, "Net: killcam " + std::to_string( m_lastSeen ) + " skipped before it played (" + std::to_string( killcam->GetChunksReady() ) + " of "
+                + std::to_string( killcam->GetChunkCount() ) + " chunks in)" );
+            CancelDownload( &InLive, m_lastSeen );
+        }
     }
     // No session, no killcams: the kept world goes too (the next session may be another scene, other scripts).
     if( m_replay && ( !live || !live->IsSessionLive() ) )
@@ -493,9 +505,11 @@ void KillcamPlayer::Start( World& InLive, const NetKillcamReceiver& InKillcam )
     m_held = 0.0;
     m_stalled = 0.0;
     m_deathShown = false;
+    // One that can't play stops coming too (ME-343): it's never tried again (m_lastSeen has it).
     auto fail = [&]( const std::string& InWhy ) {
         ++m_stats.Failed;
         CLog::Log( CLog::LogType::Warning, "Net: killcam " + std::to_string( m_status.Id ) + " can't play: " + InWhy );
+        CancelDownload( &InLive, m_status.Id );
     };
 
     const auto began = std::chrono::steady_clock::now();
@@ -518,9 +532,10 @@ void KillcamPlayer::Start( World& InLive, const NetKillcamReceiver& InKillcam )
         m_replay->Net->SetCommandSchema( live->GetCommandSchema() );
     }
     bool started = StartPlayback( InKillcam, error );
-    if( !started && kept )
+    if( !started && kept && !m_freshRefused )
     {
         // The kept world doesn't fit this stream (its placed networked entities aren't the recording's): a fresh one.
+        // Once a fresh one hasn't fitted either, the streams are what don't fit, and no world is built for them.
         CLog::Log( CLog::LogType::Warning, "Net: killcam " + std::to_string( m_status.Id ) + ": the kept replay world doesn't fit it (" + error + "); building another" );
         ++m_stats.WorldsDiscarded;
         DestroyWorld();
@@ -539,8 +554,13 @@ void KillcamPlayer::Start( World& InLive, const NetKillcamReceiver& InKillcam )
     }
     if( !started )
     {
+        // A refused stream leaves the world as it was (StartPlayback changes nothing then): it's kept for the next.
+        m_freshRefused = m_freshRefused || !kept;
         fail( error );
-        DestroyWorld();
+        if( !m_settings.KeepWorld )
+        {
+            DestroyWorld();
+        }
         return;
     }
     if( kept )
@@ -589,19 +609,21 @@ bool KillcamPlayer::Prepare( World& InLive )
     if( m_replay && !m_playing && m_builtFor.lock().get() != &InLive )
     {
         DestroyWorld();
+        m_prepared = false;
     }
     if( m_replay )
     {
         return true;
     }
-    if( m_buildFailed || !m_settings.KeepWorld )
+    // Once a session: a world gone since is the next killcam's to build, never a frame of live play's.
+    if( m_prepared || !m_settings.KeepWorld )
     {
         return false;
     }
+    m_prepared = true;
     std::string error;
     if( !Build( InLive, error ) )
     {
-        m_buildFailed = true;
         CLog::Log( CLog::LogType::Warning, "Net: the killcam replay world can't be built ahead: " + ( error.empty() ? std::string( "the replay world couldn't be made" ) : error ) );
         return false;
     }
@@ -755,7 +777,8 @@ void KillcamPlayer::Release()
         End( "stopped", false );
     }
     DestroyWorld();
-    m_buildFailed = false;
+    m_prepared = false;
+    m_freshRefused = false;
 }
 
 
@@ -778,11 +801,7 @@ void KillcamPlayer::End( const std::string& InReason, bool InKeep )
     if( InReason != "played" && InReason != "replaced" )
     {
         SharedPtr<World> live = m_live.lock();
-        NetCore* net = live ? live->GetCore<NetCore>() : nullptr;
-        if( net && net->GetKillcam().GetId() == m_status.Id )
-        {
-            net->CancelKillcamDownload();
-        }
+        CancelDownload( live.get(), m_status.Id );
     }
     {
         ME_STAT_SCOPE( "Killcam Reset" );
@@ -805,6 +824,16 @@ void KillcamPlayer::End( const std::string& InReason, bool InKeep )
     CLog::Log( InReason.rfind( "failed", 0 ) == 0 ? CLog::LogType::Warning : CLog::LogType::Info,
         "Net: killcam " + std::to_string( m_status.Id ) + " ended (" + InReason + ") after " + Seconds( m_status.Elapsed ) + " s at tick " + std::to_string( static_cast<uint32_t>( m_status.Tick ) ) );
     Fire( false, InReason );
+}
+
+
+void KillcamPlayer::CancelDownload( World* InLive, uint32_t InId )
+{
+    NetCore* net = InLive ? InLive->GetCore<NetCore>() : nullptr;
+    if( net && InId != 0 && net->GetKillcam().GetId() == InId )
+    {
+        net->CancelKillcamDownload();
+    }
 }
 
 

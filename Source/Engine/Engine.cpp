@@ -1683,7 +1683,8 @@ void Engine::UpdateKillcam( const UpdateContext& InContext )
             m_killcamLevelRead = Jobs::BackgroundLane::Get().Submit( "Killcam Scene Read", [path]() { return SceneStreaming::ReadScene( path ); } );
         }
         // ME-343: once the read has landed, the replay world is built (on a frame with no death in it) and kept for
-        // the session's killcams; a death before then builds it.
+        // the session's killcams; a death before then builds it. Prepare builds once a session: a world thrown away
+        // later is the next killcam's to build, never a frame of live play's.
         else if( !m_killcam.GetKeptWorld() && !m_killcam.IsPlaying()
             && ( !m_killcamLevelRead.valid() || m_killcamLevelRead.wait_for( std::chrono::seconds( 0 ) ) == std::future_status::ready ) )
         {
