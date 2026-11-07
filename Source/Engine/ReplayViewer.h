@@ -1,4 +1,6 @@
 #pragma once
+#include "ECS/EntityHandle.h"
+#include "Engine/KillcamPlayer.h"
 #include "Math/Vector3.h"
 #include "Net/NetReplay.h"
 #include "Net/NetReplayResim.h"
@@ -148,6 +150,18 @@ private:
     // A reader of its own (the tick before, trails, resim spans): the playback keeps its chunk.
     std::unique_ptr<NetReplayFileSource> m_source;
     std::unique_ptr<NetReplayReader> m_reader;
+    // The POV camera's (ME-343): a player's eye and aim from its tick whose view tick is the tick shown (what its
+    // screen had then, as a killcam shows it), read ahead of the playhead by a reader of their own.
+    std::unique_ptr<NetReplayFileSource> m_povSource;
+    std::unique_ptr<NetReplayReader> m_povReader;
+    std::vector<KillcamPlayer::KillerSample> m_povSamples;
+    uint32_t m_povTarget = 0;
+    uint8_t m_povClient = 0;
+    // Its own meshes, models and text, hidden while it's the POV (its eye is ahead of its body by that delay):
+    // shown again when the camera leaves it.
+    std::vector<EntityHandle> m_povHidden;
+    void HidePovTarget( Transform& InBody );
+    void ShowPovTarget();
 
     // The tick shown and the one before it, as recorded and as the world has them.
     std::unique_ptr<Shown> m_shown;

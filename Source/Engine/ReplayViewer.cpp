@@ -2,7 +2,11 @@
 #include "Engine/ReplayViewer.h"
 #include "CLog.h"
 #include "Components/Camera.h"
+#include "Components/Graphics/Mesh.h"
+#include "Components/Graphics/Model.h"
+#include "Components/Graphics/TextRenderer.h"
 #include "Components/Networking/NetIdentity.h"
+#include "Components/Networking/SingletonKillcam.h"
 #include "Components/Physics/CharacterController.h"
 #include "Components/Transform.h"
 #include "Core/CommandLine.h"
@@ -940,8 +944,77 @@ void ReplayViewer::SetCamera( CameraMode InMode, uint32_t InNetId )
 }
 
 
+void ReplayViewer::HidePovTarget( Transform& InBody )
+{
+    std::vector<Transform*> pending = { &InBody };
+    while( !pending.empty() )
+    {
+        Transform* transform = pending.back();
+        pending.pop_back();
+        if( Entity* entity = transform->Parent.Get() )
+        {
+            bool hid = false;
+            if( Mesh* mesh = entity->TryGetComponent<Mesh>(); mesh && mesh->IsEnabled() )
+            {
+                mesh->SetEnabled( false );
+                hid = true;
+            }
+            if( Model* model = entity->TryGetComponent<Model>(); model && model->IsEnabled() )
+            {
+                model->SetEnabled( false );
+                hid = true;
+            }
+            if( TextRenderer* text = entity->TryGetComponent<TextRenderer>(); text && text->IsEnabled() )
+            {
+                text->SetEnabled( false );
+                hid = true;
+            }
+            if( hid )
+            {
+                m_povHidden.push_back( transform->Parent );
+            }
+        }
+        for( Transform* child : transform->GetChildren() )
+        {
+            pending.push_back( child );
+        }
+    }
+}
+
+
+void ReplayViewer::ShowPovTarget()
+{
+    // What it hid (a component disabled since by something else is turned back on too: the POV's only).
+    for( EntityHandle& entity : m_povHidden )
+    {
+        if( !entity )
+        {
+            continue;
+        }
+        if( Mesh* mesh = entity->TryGetComponent<Mesh>() )
+        {
+            mesh->SetEnabled( true );
+        }
+        if( Model* model = entity->TryGetComponent<Model>() )
+        {
+            model->SetEnabled( true );
+        }
+        if( TextRenderer* text = entity->TryGetComponent<TextRenderer>() )
+        {
+            text->SetEnabled( true );
+        }
+    }
+    m_povHidden.clear();
+}
+
+
 void ReplayViewer::UpdateCamera( NetCore& InNet, float InDeltaSeconds )
 {
+    // A POV's target shows again once the camera leaves it.
+    if( !m_povHidden.empty() && ( m_camera != CameraMode::Pov || m_cameraTarget != m_povTarget ) )
+    {
+        ShowPovTarget();
+    }
     // The replay world's main camera (ME-297).
     Camera* main = Camera::GetMain( &InNet.GetWorld() );
     if( m_camera == CameraMode::Game || !main || !main->Parent )
@@ -1026,9 +1099,55 @@ void ReplayViewer::UpdateCamera( NetCore& InNet, float InDeltaSeconds )
     }
     else
     {
-        // Its eyes: near the top of its capsule.
+        // What a player's screen had at the tick shown (ME-343, as its killcams show it): its eye and aim from its
+        // tick whose command's view tick that is (the others on its screen, its interpolation delay behind), not
+        // the tick shown's own (1-42 degrees off what it was aiming at). A bot's: where it is and faces.
+        Vector3 origin = at;
+        uint8_t owner = 0;
+        if( m_shown )
+        {
+            auto named = m_shown->Table.find( m_cameraTarget );
+            owner = named != m_shown->Table.end() ? named->second.Owner : 0;
+        }
+        const NetReplayPlayback* playback = InNet.GetPlayback();
+        if( owner != 0 && playback )
+        {
+            if( !m_povReader )
+            {
+                m_povSource = std::make_unique<NetReplayFileSource>();
+                if( m_povSource->Open( m_path ) )
+                {
+                    m_povReader = std::make_unique<NetReplayReader>( *m_povSource );
+                }
+            }
+            if( m_povTarget != m_cameraTarget || m_povClient != owner )
+            {
+                m_povSamples.clear();
+                m_povTarget = m_cameraTarget;
+                m_povClient = owner;
+            }
+            if( m_povReader )
+            {
+                KillcamPlayer::ReadKillerSamples( *m_povReader, owner, m_cameraTarget, playback->GetFirstTick(), playback->GetLastTick(), playback->GetTickRate(), playback->GetTime(),
+                    m_povSamples );
+                const KillcamPlayer::KillerView view = KillcamPlayer::FindKillerView( m_povSamples, playback->GetTime() );
+                if( view.HasPosition )
+                {
+                    origin = view.Position;
+                }
+                if( view.HasAim )
+                {
+                    yaw = view.Yaw;
+                    pitch = view.Pitch;
+                }
+            }
+        }
+        HidePovTarget( *transform );
+        // Its eyes: where the game puts them (C#'s Net.Killcam.EyeHeight), else near the top of its capsule.
+        const SingletonKillcam* game = InNet.GetWorld().FindSingleton<SingletonKillcam>();
         const CharacterController* controller = target->TryGetComponent<CharacterController>();
-        const Vector3 eye = at + Vector3( 0.f, controller ? controller->Height * 0.5f - 0.15f : 1.6f, 0.f );
+        const float height = game && game->EyeHeight >= 0.f ? game->EyeHeight : controller ? controller->Height * 0.5f - 0.15f : 1.6f;
+        const Vector3 eye = origin + Vector3( 0.f, height, 0.f );
         camera->SetWorldPosition( eye );
         camera->LookAt( eye + AimDirection( yaw, pitch ) );
     }
