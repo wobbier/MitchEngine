@@ -9,7 +9,7 @@ namespace ScriptCore;
 public unsafe struct EngineAPIBindings
 {
     // The ABI both sides were generated from (C++: kScriptEngineAPIHash).
-    public const ulong AbiHash = 0x112204E8256171C4UL;
+    public const ulong AbiHash = 0x1B4445FB65A954C4UL;
 
     // Core
     public delegate* unmanaged<byte*, void> Log;
@@ -489,6 +489,12 @@ public unsafe struct EngineAPIBindings
     // update (the same frame for a live world's script)
     public delegate* unmanaged<int*, int*, int*, float*, int*, int*, float*, float*, int> Net_GetKillcamPlayback;
     public delegate* unmanaged<void> Net_SkipKillcam;
+
+    // Killcam eye (ME-343): where the game puts its eye above a pawn's origin, in metres, on the script world's
+
+    // SingletonKillcam (set it on the live world: the killer's eye in its killcams); < 0: the engine's guess
+    public delegate* unmanaged<float, void> Net_SetKillcamEyeHeight;
+    public delegate* unmanaged<float> Net_GetKillcamEyeHeight;
 }
 
 // The sizes C++ static_asserts for the structs that cross (checked when the API is bound).

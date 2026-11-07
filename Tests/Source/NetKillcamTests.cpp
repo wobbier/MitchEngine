@@ -1119,11 +1119,36 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
             controller->SetMoveInput( Vector3( InCommand.Axes[0], 0.f, InCommand.Axes[1] ) );
         }
     };
-    net.ServerNet.SetCommandHandler( drive );
+    // The game's eye (ME-343, C#'s Net.Killcam.EyeHeight on the live world): the killcam's eye and the shot's origin.
+    constexpr float kEyeHeight = 1.5f;
+    net.ClientWorld->Singleton<SingletonKillcam>().EyeHeight = kEyeHeight;
+    uint32_t killTick = 0;
+    net.ServerNet.SetCommandHandler( [&]( Entity& InEntity, const InputCommand& InCommand ) {
+        drive( InEntity, InCommand );
+        // The kill: the killer's own lag-compensated shot from its eye along its aim, recorded at the death tick.
+        if( killTick != 0 && net.ServerNet.GetTick() == killTick && InEntity.GetGUID() == kKillerGuid && InCommand.HasAim )
+        {
+            const Vector3 eye = InEntity.GetComponent<Transform>().GetWorldPosition() + Vector3( 0.f, kEyeHeight, 0.f );
+            net.ServerNet.LagCompensatedRaycast( eye, KillcamPlayer::AimDirection( InCommand.Yaw, InCommand.Pitch ), 50.f, InCommand, killer );
+        }
+    } );
     net.ClientNet.SetCommandHandler( drive );
     Peer* killerPeer = nullptr;
+    // The last second before the kill the killer stands and aims at the victim as its screen shows it (its
+    // interpolated world, at its command's view tick): the killcam's view of the kill must have it at the crosshair.
+    bool aimAtVictim = false;
     net.MakeCommand = [&]( uint32_t InTick ) {
         InputCommand command;
+        if( killerPeer && net.Making == &killerPeer->Net && aimAtVictim )
+        {
+            EntityHandle self = find( *killerPeer->GameWorld, kKillerGuid );
+            EntityHandle target = find( *killerPeer->GameWorld, kVictimGuid );
+            const Vector3 to = target->GetComponent<Transform>().GetWorldPosition() - ( self->GetComponent<Transform>().GetWorldPosition() + Vector3( 0.f, kEyeHeight, 0.f ) );
+            command.HasAim = true;
+            command.Yaw = std::atan2( to.x, to.z ) * 180.f / 3.14159265f;
+            command.Pitch = std::asin( std::clamp( to.y / std::max( to.Length(), 1e-4f ), -1.f, 1.f ) ) * 180.f / 3.14159265f;
+            return command;
+        }
         if( killerPeer && net.Making == &killerPeer->Net )
         {
             command.Axes[0] = 0.3f * std::sin( InTick * 0.02f );
@@ -1142,7 +1167,6 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
         }
         return command;
     };
-    uint32_t killTick = 0;
     std::vector<std::shared_ptr<const NetReplayTick>> ringAtKill;
     std::map<uint32_t, NetReplayEntity> ringEntitiesAtKill;
     net.OnServerTick = [&]( NetServer& InServer ) {
@@ -1194,6 +1218,11 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
     bool shownOnlyRose = true;
     bool beyondArrived = false;
     World* replaySeen = nullptr;
+    // ME-343: every frame, until the killer's tick reaches the kill, its view is of the tick shown (streaming too:
+    // the playback waits where the killer's last tick in was looking); from there it holds the kill's.
+    bool inStep = true;
+    bool heldOnKill = true;
+    uint64_t inStepFrames = 0;
     net.OnMillisecond = [&]( double InNow ) {
         if( static_cast<int64_t>( InNow * 60.0 ) == static_cast<int64_t>( ( InNow - 0.001 ) * 60.0 ) )
         {
@@ -1202,6 +1231,16 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
         player.Update( *net.ClientWorld, 1.0 / 60.0 );
         if( player.IsPlaying() )
         {
+            const KillcamPlayer::Status& now = player.GetStatus();
+            if( now.KillerTick < now.DeathTick )
+            {
+                inStep = inStep && now.HasView && std::abs( now.KillerViewTick - now.Tick ) < 1e-6 && now.KillerTick > now.Tick;
+                ++inStepFrames;
+            }
+            else
+            {
+                heldOnKill = heldOnKill && now.KillerTick == static_cast<double>( now.DeathTick );
+            }
             ++playingFrames;
             replaySeen = player.GetWorld();
             const NetReplayPlayback& playback = *player.GetNet()->GetPlayback();
@@ -1264,7 +1303,9 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
         return counts;
     };
     const Counts before = count();
-    net.Run( 4.0 );
+    net.Run( 3.0 );
+    aimAtVictim = true;
+    net.Run( 1.0 );
     const Counts baseline = count();
     const double baselineRate = static_cast<double>( baseline.Snapshots - before.Snapshots ) / ( baseline.At - before.At );
     const size_t liveEntities = net.ClientWorld->GetEntityCount();
@@ -1303,6 +1344,9 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
     CHECK( status.Elapsed > 1.9 );
     CHECK( shownOnlyRose );
     CHECK_FALSE( beyondArrived );
+    CHECK( inStep );
+    CHECK( inStepFrames > 100 );
+    MESSAGE( player.GetStats().StalledFrames << " frames held for the stream (" << inStepFrames << " with the killer's view in step)" );
     REQUIRE( events.size() == 1 );
     CHECK( events[0].Type == KillcamEvent::Kind::Started );
     CHECK( events[0].Source == net.ClientWorld.get() );
@@ -1369,8 +1413,7 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
     }
 #endif
 
-    // The killer's view (ME-343): the replay world's camera at its eye (1.6 m: no CharacterController here)
-    // looking along its client's recorded aim, both from the killer's tick that was looking at the tick shown:
+    // The killer's view (ME-343): the replay world's camera at its eye (the game's 1.5 m) looking along its client's recorded aim, both from the killer's tick that was looking at the tick shown:
     // the one whose command's view tick (the others on its screen, its interpolation delay behind) reaches it.
     REQUIRE( status.HasView );
     {
@@ -1396,7 +1439,7 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
         const Vector3 toAt = to.State.Entities.at( status.KillerNetId ).GetPosition();
         const Vector3 killerAt = fromAt + ( toAt - fromAt ) * alpha;
         CHECK( ( status.KillerAt - killerAt ).Length() < 1e-3f );
-        CHECK( ( status.Eye - ( killerAt + Vector3( 0.f, 1.6f, 0.f ) ) ).Length() < 1e-3f );
+        CHECK( ( status.Eye - ( killerAt + Vector3( 0.f, kEyeHeight, 0.f ) ) ).Length() < 1e-3f );
         CHECK( std::abs( status.Pitch - ( fromClient->Command.Pitch + ( toClient->Command.Pitch - fromClient->Command.Pitch ) * alpha ) ) < 0.01f );
         float delta = std::fmod( std::abs( status.Yaw - fromClient->Command.Yaw ), 360.f );
         delta = std::min( delta, 360.f - delta );
@@ -1440,6 +1483,7 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
     std::map<uint32_t, NetEntityState> held;
     uint32_t walked = 0;
     size_t statesChecked = 0;
+    bool killSeen = false;
     for( size_t i = 0; i < ringAtKill.size(); ++i )
     {
         const NetReplayTick& original = *ringAtKill[i];
@@ -1474,16 +1518,43 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
         CHECK( playback.GetRecord()->State.Entities == held );
         statesChecked += check.Matched;
         ++walked;
+        // The killer's view of the kill (ME-343), the first tick it's there: the victim at the crosshair, where the
+        // killer aimed at it through its interpolation; the eye and aim the killer's own shot's.
+        const KillcamPlayer::Status& now = player.GetStatus();
+        if( !killSeen && now.KillerTick >= now.DeathTick )
+        {
+            killSeen = true;
+            MESSAGE( "the killer's view of the kill at tick " << now.Tick << ": " << player.DescribeView() );
+            CHECK( now.KillerTick == static_cast<double>( now.DeathTick ) );
+            CHECK( now.Tick < now.DeathTick - 2.0 );     // the world as the killer saw it: its interpolation delay before the death
+            REQUIRE( now.HasView );
+            REQUIRE( now.HasVictim );
+            CHECK( now.VictimView.Inside );
+            CHECK( now.VictimView.Depth > 5.f );
+            CHECK( std::abs( now.VictimView.X ) < 0.1f );
+            CHECK( std::abs( now.VictimView.Y ) < 0.1f );
+            CHECK( player.GetStats().DeathViews == 1 );
+            REQUIRE( now.HasShot );
+            CHECK( std::abs( now.Eye.y - now.ShotOrigin.y ) < 0.01f );
+            CHECK( ( now.Eye - now.ShotOrigin ).Length() < 0.05f );
+            CHECK( now.ShotDirection.Dot( KillcamPlayer::AimDirection( now.Yaw, now.Pitch ) ) > 0.99999f );
+        }
     }
+    CHECK( killSeen );
+    CHECK( player.GetStatus().KillerTick == static_cast<double>( player.GetStatus().DeathTick ) );
+    CHECK( player.GetStats().DeathViews == 1 );
     MESSAGE( walked << " ticks walked, " << statesChecked << " entity states in the replay world checked against the ring; " << player.GetStats().StalledFrames << " frames waited on a chunk" );
     CHECK( walked == 480 );
     CHECK( statesChecked > 480 * 20 );
 
-    // On the death tick it holds, then ends: the replay world goes at once.
+    // On the death tick it holds, then ends: the replay world goes at once. The kill's view held to the end.
+    heldOnKill = true;
     for( int i = 0; i < 200 && player.IsPlaying(); ++i )
     {
         net.Run( 0.01 );
     }
+    CHECK( heldOnKill );
+    CHECK( player.GetStats().DeathViews == 1 );
     CHECK_FALSE( player.IsPlaying() );
     CHECK( player.GetWorld() == nullptr );
     REQUIRE( events.size() == 2 );
@@ -1563,7 +1634,7 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
 }
 
 
-TEST_CASE( "Net: a killcam that outruns its stream holds on the last tick in, still playing, and goes on when the next chunk lands; one whose stream stops ends (failed) after MaxStallSeconds; a session's end starts the killcam ids over (ME-323 phase 3)" )
+TEST_CASE( "Net: a killcam that outruns its stream holds on the last tick in, still playing, and goes on when the next chunk lands; one whose stream stops ends (failed) after MaxStallSeconds; a player's waits where the killer's last tick in was looking (ME-343); a session's end starts the killcam ids over (ME-323 phase 3)" )
 {
     // A bot kills client 1's pawn. Killcams of 3 s in chunks of 10 ticks: the first goes alone, the rest
     // once it's acked, so cutting the server -> client link as the victim starts playing leaves it 10
@@ -1632,6 +1703,13 @@ TEST_CASE( "Net: a killcam that outruns its stream holds on the last tick in, st
     std::vector<std::string> heldProblems;
     uint32_t heldAt = 0;
     double shownAfterHeld = 0.0;
+    // A player's killcam (step 3, ME-343): each frame held, at the view tick of the killer's last tick in (before
+    // that tick: its view of anything later hasn't arrived), and every frame before the kill, the killer's view of
+    // the tick shown.
+    int heldPlayerFrames = 0;
+    bool heldInView = true;
+    bool playerInStep = true;
+    uint64_t playerFrames = 0;
     net.OnMillisecond = [&]( double InNow ) {
         if( static_cast<int64_t>( InNow * 60.0 ) == static_cast<int64_t>( ( InNow - 0.001 ) * 60.0 ) )
         {
@@ -1651,6 +1729,23 @@ TEST_CASE( "Net: a killcam that outruns its stream holds on the last tick in, st
         const NetReplayMemorySource& source = *net.ClientNet.GetKillcam().GetSource();
         const uint32_t readable = source.GetChunkInfo( source.GetChunkCount() - 1 ).LastTick;
         beyondArrived = beyondArrived || playback.GetTick() > readable;
+        const KillcamPlayer::Status& now = player.GetStatus();
+        if( now.KillerClient != 0 )
+        {
+            if( now.KillerTick < now.DeathTick )
+            {
+                playerInStep = playerInStep && std::abs( now.KillerViewTick - now.Tick ) < 1e-6;
+                ++playerFrames;
+            }
+            if( player.GetStats().StalledFrames > stalledSeen )
+            {
+                stalledSeen = player.GetStats().StalledFrames;
+                ++heldPlayerFrames;
+                heldInView = heldInView && !playback.IsPaused() && playback.IsStreaming() && now.Tick < static_cast<double>( readable ) - 2.0
+                    && std::abs( now.Tick - playback.GetHoldAt() ) < 1e-9 && std::abs( now.KillerTick - readable ) < 1e-9 && readable < now.DeathTick;
+            }
+            return;
+        }
         if( player.GetStats().StalledFrames > stalledSeen )
         {
             stalledSeen = player.GetStats().StalledFrames;
@@ -1728,12 +1823,63 @@ TEST_CASE( "Net: a killcam that outruns its stream holds on the last tick in, st
     CHECK( player.GetStats().Started == 2 );
     CHECK( player.GetLastSeenId() == 2 );
 
-    // 3. The session ends: the ids it saw were its server's, so the next session's are all new.
+    // 3. A player kills (ME-343): its view of a tick is its client's tick whose command's view tick that is, its
+    // interpolation delay further on in the stream. Cut as it starts, the killcam holds at the view tick of the
+    // killer's last tick in, not on that tick (where the killer's view of it hasn't come); the link back, it goes on.
+    chunking.ChunkTicks = 30;
+    net.ServerNet.SetKillcamSettings( chunking );
+    player.GetSettings().MaxStallSeconds = 3.0;
+    Peer& peer = net.AddClient( Link( 50.f, 0.f, 0.f, 3245 ), [&]( World& InWorld ) {
+        EntityHandle placed = InWorld.CreateEntityWithGUID( kVictimGuid );
+        placed->AddComponent<Transform>();
+        placed->AddComponent<NetIdentity>();
+        InWorld.Simulate();
+        InWorld.Start();
+    } );
+    net.MakeCommand = [&]( uint32_t InTick ) {
+        InputCommand command;
+        if( net.Making == &peer.Net )
+        {
+            command.HasAim = true;
+            command.Yaw = static_cast<float>( ( InTick * 3 ) % 360 );
+            command.Pitch = -4.f;
+        }
+        return command;
+    };
+    net.Run( 1.0 );
+    REQUIRE( peer.Net.GetClient()->GetState() == NetClient::State::Connected );
+    REQUIRE( peer.Net.GetClient()->GetClientId() == 2 );
+    EntityHandle shooter = net.ServerWorld->CreateEntity();
+    shooter->SetName( "Shooter" );
+    shooter->AddComponent<Transform>().SetPosition( Vector3( -4.f, 0.f, 2.f ) );
+    shooter->AddComponent<NetIdentity>().SetOwner( 2 );
+    net.Run( 3.0 );
+    cutAt = -1.0;
+    stalledSeen = player.GetStats().StalledFrames;
+    REQUIRE( net.ServerNet.SendKillcam( victim, shooter, 2.0 ) );
+    REQUIRE( runUntil( [&]() { return player.IsPlaying(); }, 2.0 ) );
+    CHECK( player.GetStatus().Id == 3 );
+    CHECK( player.GetStatus().KillerClient == 2 );
+    REQUIRE( runUntil( [&]() { return heldPlayerFrames >= 30; }, 2.0 ) );
+    CHECK( player.IsPlaying() );
+    CHECK( heldInView );
+    CHECK( playerInStep );
+    CHECK_FALSE( net.ClientNet.GetKillcam().IsComplete() );
+    MESSAGE( "a player's killcam held " << heldPlayerFrames << " frames at tick " << player.GetStatus().Tick << ", the killer's last tick in " << player.GetStatus().KillerTick );
+    net.ServerLink.SetConditions( open );
+    REQUIRE( runUntil( [&]() { return !player.IsPlaying(); }, 6.0 ) );
+    REQUIRE( events.size() == 6 );
+    CHECK( events[5].Reason == "played" );
+    CHECK( heldInView );
+    CHECK( playerInStep );
+    CHECK( playerFrames > 60 );
+
+    // 4. The session ends: the ids it saw were its server's, so the next session's are all new.
     net.ClientNet.GetClient()->Disconnect( net.Now() );
     net.Run( 0.1 );
     CHECK_FALSE( net.ClientNet.IsSessionLive() );
     CHECK( player.GetLastSeenId() == 0 );
-    CHECK( player.GetStats().Started == 2 );
+    CHECK( player.GetStats().Started == 3 );
     net.OnMillisecond = nullptr;
 }
 
@@ -1810,6 +1956,7 @@ TEST_CASE( "Killcam: the killer's view: the net aim as the camera's front, a poi
     // The world at tick 92 was on its screen between ticks 104 (view 91.5) and 105 (92.5).
     KillcamPlayer::KillerView view = KillcamPlayer::FindKillerView( samples, 92.0 );
     CHECK( std::abs( view.Tick - 104.5 ) < 1e-9 );
+    CHECK( std::abs( view.ViewTick - 92.0 ) < 1e-9 );     // the tick it was looking at: the one asked about
     REQUIRE( view.HasAim );
     CHECK( std::abs( view.Yaw - 358.5f ) < 1e-3f );      // 357 to 0 the short way round
     CHECK( std::abs( view.Pitch - ( -10.f + 4.5f * 0.5f ) ) < 1e-4f );
@@ -1821,6 +1968,7 @@ TEST_CASE( "Killcam: the killer's view: the net aim as the camera's front, a poi
     CHECK( KillcamPlayer::FindKillerView( samples, 50.0 ).Tick == 100.0 );
     view = KillcamPlayer::FindKillerView( samples, 125.0 );
     CHECK( view.Tick == 130.0 );
+    CHECK( view.ViewTick == 117.5 );    // held: looking at an earlier tick than the one asked about
     CHECK( std::abs( view.Yaw - std::fmod( 345.f + 90.f, 360.f ) ) < 1e-3f );
     // An old recording's commands have no view tick: the tick itself.
     for( KillcamPlayer::KillerSample& sample : samples )

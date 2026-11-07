@@ -444,6 +444,13 @@ public static unsafe class Net
         {
             if (Engine._api.Net_SkipKillcam != null) Engine._api.Net_SkipKillcam();
         }
+        /// <summary>Where the game puts its eye above a pawn's origin, in metres: the killer's eye in its killcams (ME-343).
+        /// Set it from the live world (a pawn's OnStart); below 0 (the default): the engine's guess, the CharacterController's top less 0.15 m.</summary>
+        public static float EyeHeight
+        {
+            get => Engine._api.Net_GetKillcamEyeHeight != null ? Engine._api.Net_GetKillcamEyeHeight() : -1f;
+            set { if (Engine._api.Net_SetKillcamEyeHeight != null) Engine._api.Net_SetKillcamEyeHeight(value); }
+        }
 
         /// <summary>A killcam started playing (EventBus KillcamStarted; a script's handler goes with it).</summary>
         public static event Action<KillcamStarted> Started

@@ -545,6 +545,23 @@ static void Eng_Net_SkipKillcam() noexcept
 }
 
 
+static void Eng_Net_SetKillcamEyeHeight( float height ) noexcept
+{
+    if( SharedPtr<World> world = ScriptBindings::GetWorld().lock() )
+    {
+        world->Singleton<SingletonKillcam>().EyeHeight = std::isfinite( height ) && height >= 0.f ? height : -1.f;
+    }
+}
+
+
+static float Eng_Net_GetKillcamEyeHeight() noexcept
+{
+    SharedPtr<World> world = ScriptBindings::GetWorld().lock();
+    const SingletonKillcam* singleton = world ? world->FindSingleton<SingletonKillcam>() : nullptr;
+    return singleton ? singleton->EyeHeight : -1.f;
+}
+
+
 void Register_NetBindings( ScriptEngineAPI& inAPI )
 {
     // Scripts can add it by name (World.Instantiate + AddComponent("NetIdentity")) and query it.
@@ -581,6 +598,8 @@ void Register_NetBindings( ScriptEngineAPI& inAPI )
     inAPI.Net_GetKillcam = &Eng_Net_GetKillcam;
     inAPI.Net_GetKillcamPlayback = &Eng_Net_GetKillcamPlayback;
     inAPI.Net_SkipKillcam = &Eng_Net_SkipKillcam;
+    inAPI.Net_SetKillcamEyeHeight = &Eng_Net_SetKillcamEyeHeight;
+    inAPI.Net_GetKillcamEyeHeight = &Eng_Net_GetKillcamEyeHeight;
 }
 
 #endif

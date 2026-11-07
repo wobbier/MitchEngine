@@ -75,7 +75,9 @@ public:
         double MaxStallSeconds = 3.0;
         // The replay world's main camera at the killer's eye along its recorded aim.
         bool KillerView = true;
-        // The eye above the killer's origin; < 0: its CharacterController's top less 0.15 m (1.6 m without one).
+        // The eye above the killer's origin; < 0: the live world's SingletonKillcam::EyeHeight (C#'s
+        // Net.Killcam.EyeHeight: where the game puts its eye), else its CharacterController's top less 0.15 m
+        // (1.6 m without one).
         float EyeHeight = -1.f;
         // The killer's own meshes, models and text hidden in the killer's view.
         bool HideKiller = true;
@@ -128,6 +130,7 @@ public:
     struct KillerView
     {
         double Tick = 0.0;          // the killer's tick (fractional: between two)
+        double ViewTick = 0.0;      // the world tick it was looking at (InTime, unless InTime is outside the samples' view ticks)
         bool HasAim = false;
         float Yaw = 0.f;
         float Pitch = 0.f;
@@ -141,6 +144,12 @@ public:
     static KillerView FindKillerView( const std::vector<KillerSample>& InSamples, double InTime );
     // InTick as a KillerSample for the killer InKillerNetId of client InClient.
     static KillerSample MakeKillerSample( const NetReplayTick& InTick, uint8_t InClient, uint32_t InKillerNetId );
+    // InOutSamples for FindKillerView( InOutSamples, InTime ): from the tick before InTime as far as the first tick
+    // whose view tick passes it (its client's interpolation delay ahead), no further than InLast, what InReader has,
+    // or two seconds at InTickRate; ticks before InFirst aren't read. Kept between calls while InTime moves on (a
+    // move back reads again). The killcam's read-ahead, and the replay viewer's POV camera.
+    static void ReadKillerSamples( NetReplayReader& InReader, uint8_t InClient, uint32_t InKillerNetId, uint32_t InFirst, uint32_t InLast, uint16_t InTickRate, double InTime,
+        std::vector<KillerSample>& InOutSamples );
 
     KillcamPlayer() = default;
     ~KillcamPlayer();
@@ -188,6 +197,9 @@ public:
         // The killer's tick the view is from (ME-343): ahead of Tick by its client's interpolation delay (the
         // killer's command whose view tick is Tick), Tick for a bot's; it reaches DeathTick at the kill.
         double KillerTick = 0.0;
+        // The world tick that view was looking at: Tick, except while the killer's tick is held at the kill
+        // (from its view tick to the death) or before the stream's first view tick.
+        double KillerViewTick = 0.0;
         Vector3 KillerAt;           // the killer's origin then
         Vector3 Eye;
         float Yaw = 0.f;
@@ -197,6 +209,11 @@ public:
         bool HasVictim = false;
         Vector3 VictimAt;
         ViewPoint VictimView;
+        // The killer's own shot at the death tick nearest its aim (ME-343; not a projectile's), once the view
+        // reaches the kill: where the game fired from and along, against the eye and aim the view has.
+        bool HasShot = false;
+        Vector3 ShotOrigin;
+        Vector3 ShotDirection;
     };
     const Status& GetStatus() const { return m_status; }
     // The killer's view this frame as a log line's words: "the camera at killer #k's eye (x, y, z) aiming yaw Y
@@ -213,6 +230,7 @@ public:
         uint64_t Stopped = 0;
         uint64_t Failed = 0;
         uint64_t StalledFrames = 0;     // frames spent waiting on a chunk, all killcams
+        uint64_t DeathViews = 0;        // killcams whose view reached the kill (one "death view" line each)
     };
     const Stats& GetStats() const { return m_stats; }
     // The newest killcam id looked at this session (0: none; it starts over when the session does).
@@ -225,6 +243,11 @@ private:
     // m_samples from the tick before InTime as far as the killer's view of InTime needs (to the death tick,
     // and what the stream has so far).
     void ReadSamples( double InTime );
+    // While chunks are still coming: the world tick the killer's last tick in was looking at (the playback
+    // holds there, so the killer's view of what it shows is in); < 0: no hold (a bot's, or the death is in).
+    double EdgeViewTick();
+    // The killer's shot at the death tick nearest the view's aim (Status::HasShot ...).
+    void FindKillShot();
     void Fire( bool InStarted, const std::string& InReason );
     void Bind( World& InLive );
 
@@ -242,5 +265,7 @@ private:
     std::unique_ptr<NetKillcamSource> m_aheadSource;
     std::unique_ptr<NetReplayReader> m_ahead;
     std::vector<KillerSample> m_samples;
+    uint32_t m_edgeTick = 0;        // the last tick in when m_edgeView was read
+    double m_edgeView = -1.0;
     bool m_skipRequested = false;
 };

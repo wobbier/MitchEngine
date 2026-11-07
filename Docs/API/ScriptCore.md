@@ -1506,12 +1506,14 @@ Client: the newest killcam the server sent (ME-323). It arrives a chunk at a tim
 - `Duration` (property): Seconds it plays: its ticks at the tick rate, then a second on the death.
 - `Elapsed` (property): Seconds it has played.
 - `Ended` (event): A killcam ended: played, skipped, replaced, stopped or failed (EventBus KillcamEnded; a script's handler goes with it).
+- `EyeHeight` (property): Where the game puts its eye above a pawn's origin, in metres: the killer's eye in its killcams (ME-343). Set it from the live world (a pawn's OnStart); below 0 (the default): the engine's guess, the CharacterController's top less 0.15 m.
 - `FirstTick` (property): The killcam's first tick.
 - `Id` (property): The newest one's id (from 1; 0: none yet). A new id is a new killcam.
 - `InReplayWorld` (property): This script runs in a killcam's replay world ([ReplayWorld] scripts): present, don't touch the game's state.
 - `IsPlaying` (property): A killcam is playing (the screen shows its replay world).
 - `Killer` (property): The killer in this world (Entity.Null when it isn't here any more).
 - `KillerId` (property): The killer's NetId (Net.GetNetId) in the killcam playing, or the last one played (0: none yet).
+- `PlayingId` (property): The id of the killcam playing, or of the last one played (0: none yet); Id is the newest received, which can be a newer one than this.
 - `Progress` (property): How much of the newest one is here, 0..1 (1 once received).
 - `Received` (property): Whether the newest one is here whole.
 - `Skip` (method): Ends the killcam playing: the screen switches back to the live world (this frame from a live world's script, the next from the replay world's).

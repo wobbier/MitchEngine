@@ -45,7 +45,12 @@ public:
     // as at the end of any replay. A source only ever grows at its end.
     void SetStreaming( bool InStreaming ) { m_streaming = InStreaming; }
     bool IsStreaming() const { return m_streaming; }
-    // Frames a streaming playback spent held on its last tick, waiting for the next chunk.
+    // ME-343: a streaming playback also waits at InTick when that comes before its last tick (< 0: only
+    // the last tick), held there still playing as on the last tick; once it isn't streaming, it plays on.
+    // A killcam waits where the killer's last tick in was looking, so its view of the world shown is in.
+    void SetHoldAt( double InTick ) { m_holdAt = InTick; }
+    double GetHoldAt() const { return m_holdAt; }
+    // Frames a streaming playback spent held on its last tick (or its hold), waiting for the next chunk.
     uint64_t GetStalledFrames() const { return m_stalledFrames; }
     uint16_t GetTickRate() const;
 
@@ -146,6 +151,7 @@ private:
     NetReplayTick m_nextRecord;
     bool m_hasNextRecord = false;
     bool m_streaming = false;
+    double m_holdAt = -1.0;
     size_t m_chunks = 0;
     uint64_t m_stalledFrames = 0;
     std::string m_error;

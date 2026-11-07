@@ -142,9 +142,12 @@ bool NetReplayPlayback::Update( double InFrameSeconds )
         m_error = "the replay has no ticks";
         return false;
     }
-    if( !m_paused && InFrameSeconds > 0.0 && m_streaming && m_time >= m_last )
+    // Where it may play to: the last tick there is, or a streaming one's hold before it.
+    const double edge = m_streaming && m_holdAt >= 0.0 ? std::min( std::max( m_holdAt, static_cast<double>( m_first ) ), static_cast<double>( m_last ) )
+                                                       : static_cast<double>( m_last );
+    if( !m_paused && InFrameSeconds > 0.0 && m_streaming && m_time >= edge )
     {
-        // Waiting for the next chunk: held on the last tick there is, still playing.
+        // Waiting for the next chunk: held on the last tick there is (or the hold), still playing.
         ++m_stalledFrames;
     }
     else if( !m_paused && InFrameSeconds > 0.0 )
@@ -161,9 +164,9 @@ bool NetReplayPlayback::Update( double InFrameSeconds )
         {
             m_time = m_loopFrom;
         }
-        else if( m_time >= m_last )
+        else if( m_time >= edge )
         {
-            m_time = m_last;
+            m_time = edge;
             // A source still streaming has more coming: hold here, playing.
             m_paused = !m_streaming;
         }

@@ -18,4 +18,7 @@ public:
 
     KillcamPlayer* Player = nullptr;
     bool InReplayWorld = false;
+    // ME-343: where the game puts its eye above a pawn's origin (C#'s Net.Killcam.EyeHeight, set on the live
+    // world): the killer's eye in its killcams. < 0: the engine's guess (KillcamPlayer::Settings::EyeHeight).
+    float EyeHeight = -1.f;
 };

@@ -129,6 +129,7 @@ KillcamPlayer::KillerView KillcamPlayer::FindKillerView( const std::vector<Kille
         alpha = span > 0.0 ? static_cast<float>( std::clamp( ( InTime - key( *from ) ) / span, 0.0, 1.0 ) ) : 1.f;
     }
     view.Tick = from->Tick + ( static_cast<double>( to->Tick ) - from->Tick ) * alpha;
+    view.ViewTick = key( *from ) + ( key( *to ) - key( *from ) ) * alpha;
     // Each part from both ticks when both have it, else from the one that does.
     if( from->HasAim && to->HasAim )
     {
@@ -178,35 +179,102 @@ KillcamPlayer::KillerSample KillcamPlayer::MakeKillerSample( const NetReplayTick
 }
 
 
-void KillcamPlayer::ReadSamples( double InTime )
+void KillcamPlayer::ReadKillerSamples( NetReplayReader& InReader, uint8_t InClient, uint32_t InKillerNetId, uint32_t InFirst, uint32_t InLast, uint16_t InTickRate, double InTime,
+    std::vector<KillerSample>& InOutSamples )
 {
-    if( !m_ahead )
+    const uint32_t whole = static_cast<uint32_t>( std::max( 0.0, std::floor( InTime ) ) );
+    const uint32_t from = whole > InFirst ? whole - 1 : InFirst;
+    // Moved back (a seek): read from there again.
+    if( !InOutSamples.empty() && InOutSamples.front().Tick > from )
+    {
+        InOutSamples.clear();
+    }
+    InOutSamples.erase( InOutSamples.begin(), std::find_if( InOutSamples.begin(), InOutSamples.end(), [from]( const KillerSample& InSample ) { return InSample.Tick >= from; } ) );
+    if( InReader.IsEmpty() )
     {
         return;
     }
-    const uint32_t whole = static_cast<uint32_t>( std::max( 0.0, std::floor( InTime ) ) );
-    const uint32_t from = whole > m_status.FirstTick ? whole - 1 : m_status.FirstTick;
-    m_samples.erase( m_samples.begin(), std::find_if( m_samples.begin(), m_samples.end(), [from]( const KillerSample& InSample ) { return InSample.Tick >= from; } ) );
     // As far as the first tick whose view tick passes InTime (a few ticks of its client's interpolation
-    // delay), no further than the death, what's in, or two seconds.
-    const uint32_t last = std::min( { m_status.DeathTick, m_ahead->GetLastTick(), whole + 2 * static_cast<uint32_t>( m_status.TickRate ) } );
-    uint32_t next = m_samples.empty() ? from : m_samples.back().Tick + 1;
+    // delay), no further than InLast, what's in, or two seconds.
+    const uint32_t last = std::min( { InLast, InReader.GetLastTick(), whole + 2 * static_cast<uint32_t>( InTickRate ) } );
+    uint32_t next = InOutSamples.empty() ? from : InOutSamples.back().Tick + 1;
     NetReplayTick tick;
     while( next <= last )
     {
-        if( !m_samples.empty() && m_samples.back().Tick > whole )
+        if( !InOutSamples.empty() && InOutSamples.back().Tick > whole )
         {
-            const KillerSample& newest = m_samples.back();
+            const KillerSample& newest = InOutSamples.back();
             if( ( newest.ViewTick >= 0.0 ? newest.ViewTick : static_cast<double>( newest.Tick ) ) > InTime + 1.0 )
             {
                 break;
             }
         }
-        if( m_ahead->ReadTick( next, tick ) )
+        if( InReader.ReadTick( next, tick ) )
         {
-            m_samples.push_back( MakeKillerSample( tick, m_status.KillerClient, m_status.KillerNetId ) );
+            InOutSamples.push_back( MakeKillerSample( tick, InClient, InKillerNetId ) );
         }
         ++next;
+    }
+}
+
+
+void KillcamPlayer::ReadSamples( double InTime )
+{
+    if( m_ahead )
+    {
+        ReadKillerSamples( *m_ahead, m_status.KillerClient, m_status.KillerNetId, m_status.FirstTick, m_status.DeathTick, m_status.TickRate, InTime, m_samples );
+    }
+}
+
+
+double KillcamPlayer::EdgeViewTick()
+{
+    if( !m_ahead || m_status.KillerClient == 0 || m_ahead->IsEmpty() )
+    {
+        return -1.0;
+    }
+    const uint32_t last = m_ahead->GetLastTick();
+    if( last >= m_status.DeathTick )
+    {
+        return -1.0;
+    }
+    if( last != m_edgeTick )
+    {
+        // Once per chunk that lands: the last tick in, read for its command's view tick.
+        m_edgeTick = last;
+        NetReplayTick tick;
+        const KillerSample sample = m_ahead->ReadTick( last, tick ) ? MakeKillerSample( tick, m_status.KillerClient, m_status.KillerNetId ) : KillerSample();
+        m_edgeView = sample.ViewTick >= 0.0 ? sample.ViewTick : static_cast<double>( last );
+    }
+    return m_edgeView;
+}
+
+
+void KillcamPlayer::FindKillShot()
+{
+    m_status.HasShot = false;
+    NetReplayTick tick;
+    if( !m_ahead || !m_ahead->ReadTick( m_status.DeathTick, tick ) )
+    {
+        return;
+    }
+    const Vector3 aim = AimDirection( m_status.Yaw, m_status.Pitch );
+    float best = -2.f;
+    for( const NetReplayShot& shot : tick.Shots )
+    {
+        // Its own trigger pull (a projectile's sweep starts somewhere else).
+        if( shot.Shooter != m_status.KillerNetId || shot.Instigator != 0 || shot.Direction.LengthSquared() <= 0.f )
+        {
+            continue;
+        }
+        const float along = shot.Direction.Normalized().Dot( aim );
+        if( along > best )
+        {
+            best = along;
+            m_status.HasShot = true;
+            m_status.ShotOrigin = shot.Origin;
+            m_status.ShotDirection = shot.Direction.Normalized();
+        }
     }
 }
 
@@ -340,6 +408,9 @@ void KillcamPlayer::Update( World& InLive, double InFrameSeconds )
     const bool same = killcam && killcam->GetId() == m_status.Id;
     m_status.Complete = !same || killcam->IsComplete();
     playback.SetStreaming( !m_status.Complete );
+    // A player's killcam still streaming waits where the killer's last tick in was looking (ME-343): its view
+    // of a tick past that hasn't arrived.
+    playback.SetHoldAt( m_status.Complete ? -1.0 : EdgeViewTick() );
     const uint64_t stalledBefore = playback.GetStalledFrames();
     {
 #if USING( ME_SCRIPTING )
@@ -359,10 +430,27 @@ void KillcamPlayer::Update( World& InLive, double InFrameSeconds )
     PlaceView();
     // The killer's view of the kill (its tick reaches the death: the command that killed): where the victim was
     // in it (MatchSmoke checks it's on screen).
+    // And the killer's own shot then, against that eye and aim (MatchSmoke checks the eye is where the game fires from).
     if( !m_deathShown && m_status.HasView && m_status.KillerTick >= m_status.DeathTick )
     {
         m_deathShown = true;
-        CLog::Log( CLog::LogType::Info, "Net: killcam " + std::to_string( m_status.Id ) + " death view at tick " + Seconds( m_status.Tick ) + ": " + DescribeView() );
+        ++m_stats.DeathViews;
+        FindKillShot();
+        std::ostringstream shot;
+        shot.precision( 2 );
+        shot << std::fixed;
+        if( m_status.HasShot )
+        {
+            const Vector3 off = m_status.Eye - m_status.ShotOrigin;
+            const float along = std::clamp( m_status.ShotDirection.Dot( AimDirection( m_status.Yaw, m_status.Pitch ) ), -1.f, 1.f );
+            shot << "; its shot from (" << m_status.ShotOrigin.x << ", " << m_status.ShotOrigin.y << ", " << m_status.ShotOrigin.z << "): the eye " << off.y << " m above it, "
+                 << Vector3( off.x, 0.f, off.z ).Length() << " m beside it, the aim " << std::acos( along ) * 180.f / kPi << " degrees off it";
+        }
+        else
+        {
+            shot << "; no shot of its own at the death tick";
+        }
+        CLog::Log( CLog::LogType::Info, "Net: killcam " + std::to_string( m_status.Id ) + " death view at tick " + Seconds( m_status.Tick ) + ": " + DescribeView() + shot.str() );
     }
 
     if( !playback.GetError().empty() )
@@ -451,6 +539,8 @@ void KillcamPlayer::Start( World& InLive, const NetKillcamReceiver& InKillcam )
     }
     // The killer's view reads its ticks ahead of the playhead from the same stream.
     m_samples.clear();
+    m_edgeTick = 0;
+    m_edgeView = -1.0;
     m_aheadSource = std::make_unique<NetKillcamSource>( InKillcam.GetSource() );
     m_ahead = std::make_unique<NetReplayReader>( *m_aheadSource );
     NetReplayPlayback& playback = *replay->Net->GetPlayback();
@@ -550,12 +640,14 @@ void KillcamPlayer::PlaceView()
     float pitch = 0.f;
     Vector3 origin = body->GetWorldPosition();
     m_status.KillerTick = playback->GetTime();
+    m_status.KillerViewTick = playback->GetTime();
     bool aimed = false;
     if( m_status.KillerClient != 0 )
     {
         ReadSamples( playback->GetTime() );
         const KillerView view = FindKillerView( m_samples, playback->GetTime() );
         m_status.KillerTick = view.Tick;
+        m_status.KillerViewTick = view.ViewTick;
         if( view.HasPosition )
         {
             origin = view.Position;
@@ -572,8 +664,19 @@ void KillcamPlayer::PlaceView()
         const Vector3 forward = body->GetWorldRotation() * Vector3( 0.f, 0.f, 1.f );
         yaw = std::atan2( forward.x, forward.z ) * 180.f / kPi;
     }
-    const CharacterController* controller = killer->TryGetComponent<CharacterController>();
-    const float eyeHeight = m_settings.EyeHeight >= 0.f ? m_settings.EyeHeight : controller ? controller->Height * 0.5f - 0.15f : 1.6f;
+    // The eye: the settings', the game's (C#'s Net.Killcam.EyeHeight, on the live world), else the engine's guess.
+    float eyeHeight = m_settings.EyeHeight;
+    if( eyeHeight < 0.f )
+    {
+        SharedPtr<World> live = m_live.lock();
+        const SingletonKillcam* game = live ? live->FindSingleton<SingletonKillcam>() : nullptr;
+        eyeHeight = game ? game->EyeHeight : -1.f;
+    }
+    if( eyeHeight < 0.f )
+    {
+        const CharacterController* controller = killer->TryGetComponent<CharacterController>();
+        eyeHeight = controller ? controller->Height * 0.5f - 0.15f : 1.6f;
+    }
     const Vector3 eye = origin + Vector3( 0.f, eyeHeight, 0.f );
     m_status.KillerAt = origin;
     m_status.Eye = eye;

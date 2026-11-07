@@ -460,3 +460,8 @@ bool Net_GetKillcam( int* outId, float* outProgress, Entity* outKiller, Entity* 
 ## update (the same frame for a live world's script)
 int Net_GetKillcamPlayback( int* outId, int* outKillerId, int* outVictimId, float* outTick, int* outFirstTick, int* outDeathTick, float* outElapsed, float* outDuration )
 void Net_SkipKillcam()
+
+## Killcam eye (ME-343): where the game puts its eye above a pawn's origin, in metres, on the script world's
+## SingletonKillcam (set it on the live world: the killer's eye in its killcams); < 0: the engine's guess
+void Net_SetKillcamEyeHeight( float height )
+float Net_GetKillcamEyeHeight()

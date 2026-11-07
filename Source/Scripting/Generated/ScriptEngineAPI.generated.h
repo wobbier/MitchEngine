@@ -19,7 +19,7 @@ struct ScriptRaycastHit
 };
 
 // The ABI both sides were generated from (C# checks it: ScriptBridge.GetEngineAPIHash).
-constexpr uint64_t kScriptEngineAPIHash = 0x112204E8256171C4ULL;
+constexpr uint64_t kScriptEngineAPIHash = 0x1B4445FB65A954C4ULL;
 
 // Structs that cross: their layout is part of the ABI (C# checks the same sizes).
 static_assert( sizeof( EntityID ) == 8, "EntityID crosses into C#: its size is part of the script ABI" );
@@ -510,4 +510,10 @@ struct ScriptEngineAPI
     // update (the same frame for a live world's script)
     int ( *Net_GetKillcamPlayback )( int* outId, int* outKillerId, int* outVictimId, float* outTick, int* outFirstTick, int* outDeathTick, float* outElapsed, float* outDuration ) noexcept;
     void ( *Net_SkipKillcam )() noexcept;
+
+    // Killcam eye (ME-343): where the game puts its eye above a pawn's origin, in metres, on the script world's
+
+    // SingletonKillcam (set it on the live world: the killer's eye in its killcams); < 0: the engine's guess
+    void ( *Net_SetKillcamEyeHeight )( float height ) noexcept;
+    float ( *Net_GetKillcamEyeHeight )() noexcept;
 };
