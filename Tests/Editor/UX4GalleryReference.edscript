@@ -1,0 +1,12 @@
+# UX-4: the Widget Gallery matches its reference capture (juice Off, samples reset, so the picture
+# is static). After a deliberate look change, refresh the reference by copying .tmp/UX4-Gallery.png
+# over Engine/Tests/Editor/Reference/WidgetGallery.png.
+# Havana --scene Assets/Scenes/Tests/LightingTest.lvl --frame-time 0.0166667 --editor-exec Engine/Tests/Editor/UX4GalleryReference.edscript
+wait 20
+preference Appearance.Juice | "Off"
+show-window Widget Gallery
+wait 5
+imgui-click Widget Gallery/Reset
+wait 5
+panel-screenshot Widget Gallery | .tmp/UX4-Gallery.png
+assert-images .tmp/UX4-Gallery.png | Engine/Tests/Editor/Reference/WidgetGallery.png | same | 0.002

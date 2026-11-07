@@ -9,33 +9,33 @@
 ME_REFLECT_ENUM( CapsuleDirection2D, { { "Vertical", CapsuleDirection2D::Vertical }, { "Horizontal", CapsuleDirection2D::Horizontal } } )
 
 #define ME_COLLIDER2D_FIELDS()                                                                                            \
-    ME_FIELD( Offset );                                                                                                   \
+    ME_FIELD( Offset ).Unit( Reflection::Unit::Meters );                                                                   \
     ME_FIELD( IsTrigger ).Tooltip( "Report overlaps without colliding" );                                                  \
     ME_FIELD( Friction ).Range( 0.f, 2.f ).Category( "Material" );                                                         \
     ME_FIELD( Restitution ).Range( 0.f, 1.f ).Category( "Material" ).Tooltip( "Bounciness" );                             \
-    ME_FIELD( Density ).Range( 0.f, 100000.f ).Category( "Material" ).Tooltip( "Used when the Rigidbody2D's Mass is 0" );
+    ME_FIELD( Density ).Range( 0.f, 100000.f ).Log().SoftRange( 0.f, 10000.f ).Category( "Material" ).Tooltip( "Used when the Rigidbody2D's Mass is 0" );
 
 ME_REFLECT_BEGIN( BoxCollider2D )
-    ME_FIELD( Size );
-    ME_FIELD( EdgeRadius ).Range( 0.f, 10.f );
+    ME_FIELD( Size ).Unit( Reflection::Unit::Meters );
+    ME_FIELD( EdgeRadius ).Range( 0.f, 10.f ).Unit( Reflection::Unit::Meters ).SoftRange( 0.f, 1.f );
     ME_COLLIDER2D_FIELDS()
 ME_REFLECT_END()
 
 ME_REFLECT_BEGIN( CircleCollider2D )
-    ME_FIELD( Radius ).Range( 0.001f, 1000.f );
+    ME_FIELD( Radius ).Range( 0.001f, 1000.f ).Unit( Reflection::Unit::Meters ).Log().SoftRange( 0.01f, 50.f );
     ME_COLLIDER2D_FIELDS()
 ME_REFLECT_END()
 
 ME_REFLECT_BEGIN( CapsuleCollider2D )
-    ME_FIELD( Radius ).Range( 0.001f, 1000.f );
-    ME_FIELD( Height ).Range( 0.001f, 1000.f ).Tooltip( "End to end, including the caps" );
+    ME_FIELD( Radius ).Range( 0.001f, 1000.f ).Unit( Reflection::Unit::Meters ).Log().SoftRange( 0.01f, 50.f );
+    ME_FIELD( Height ).Range( 0.001f, 1000.f ).Unit( Reflection::Unit::Meters ).Log().SoftRange( 0.01f, 50.f ).Tooltip( "End to end, including the caps" );
     ME_FIELD( Direction );
     ME_COLLIDER2D_FIELDS()
 ME_REFLECT_END()
 
 ME_REFLECT_BEGIN( PolygonCollider2D )
     ME_FIELD( Points ).Tooltip( "Local XY outline; collides as its convex hull (at most 8 vertices)" );
-    ME_FIELD( EdgeRadius ).Range( 0.f, 10.f );
+    ME_FIELD( EdgeRadius ).Range( 0.f, 10.f ).Unit( Reflection::Unit::Meters ).SoftRange( 0.f, 1.f );
     ME_COLLIDER2D_FIELDS()
 ME_REFLECT_END()
 

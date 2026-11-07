@@ -12,12 +12,12 @@ ME_REFLECT_ENUM( TextAnchor, { { "Top", TextAnchor::Top }, { "Middle", TextAncho
 ME_REFLECT_BEGIN( TextRenderer )
     ME_FIELD( Text ).Tooltip( "UTF-8; \\n breaks lines" );
     ME_FIELD( Font ).Tooltip( "A .ttf or .otf; empty = the engine's Inter" );
-    ME_FIELD( Size ).Range( 0.001f, 1000.f ).Speed( 0.01f ).Tooltip( "Line height in world units" );
-    ME_FIELD( LineSpacing ).Range( 0.1f, 10.f ).Speed( 0.01f );
+    ME_FIELD( Size ).Range( 0.001f, 1000.f ).Speed( 0.01f ).Unit( Reflection::Unit::Meters ).Log().SoftRange( 0.01f, 100.f ).Tooltip( "Line height in world units" );
+    ME_FIELD( LineSpacing ).Range( 0.1f, 10.f ).Speed( 0.01f ).Unit( Reflection::Unit::Multiplier );
     ME_FIELD( Alignment );
     ME_FIELD( Anchor ).Tooltip( "Which part of the block sits on the entity: its top, middle or bottom" );
     ME_FIELD( Color ).Color();
-    ME_FIELD( Opacity ).Range( 0.f, 1.f ).Speed( 0.01f );
+    ME_FIELD( Opacity ).Range( 0.f, 1.f ).Speed( 0.01f ).Unit( Reflection::Unit::Percent );
     ME_FIELD( Billboard ).Tooltip( "Turn to face the main camera (damage numbers, name tags)" );
     ME_FIELD( Lit ).Tooltip( "Shaded by the scene's lights like a lit sprite" );
     ME_FIELD( SortingLayer ).Category( "Sorting" ).Display( "Sorting Layer" );

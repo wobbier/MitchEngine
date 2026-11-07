@@ -4,13 +4,13 @@
 #include <cmath>
 
 ME_REFLECT_BEGIN( CameraSway )
-    ME_FIELD( PositionAmplitude ).Display( "Position Amplitude (m)" ).Speed( 0.001f )
+    ME_FIELD( PositionAmplitude ).Speed( 0.001f ).Unit( Reflection::Unit::Meters )
         .Tooltip( "Maximum sideways, vertical and forward drift in the camera's local axes" );
-    ME_FIELD( RotationAmplitude ).Display( "Rotation Amplitude (deg)" ).Speed( 0.01f )
+    ME_FIELD( RotationAmplitude ).Speed( 0.01f ).Unit( Reflection::Unit::Degrees )
         .Tooltip( "Maximum pitch, yaw and roll around the camera's local axes" );
-    ME_FIELD( Frequency ).Display( "Frequency (Hz)" ).Range( 0.f, 5.f ).Speed( 0.01f )
+    ME_FIELD( Frequency ).Range( 0.f, 5.f ).Speed( 0.01f ).Unit( Reflection::Unit::Hertz ).Log()
         .Tooltip( "Base sway speed; lower values feel like a slow breeze. Zero freezes the motion" );
-    ME_FIELD( Handheld ).Range( 0.f, 1.f ).Speed( 0.01f )
+    ME_FIELD( Handheld ).Range( 0.f, 1.f ).Speed( 0.01f ).Unit( Reflection::Unit::Percent )
         .Tooltip( "Blend in faster, small hand movements; zero gives only slow drift" );
 ME_REFLECT_END()
 

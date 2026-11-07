@@ -5,17 +5,17 @@
 #include "Physics/Box3DUtils.h"
 
 ME_REFLECT_BEGIN( CharacterController )
-    ME_FIELD( Center );
-    ME_FIELD( Radius ).Range( 0.05f, 10.f );
-    ME_FIELD( Height ).Range( 0.1f, 20.f ).Tooltip( "End to end, including the caps" );
-    ME_FIELD( MaxSpeed ).Category( "Movement" ).Range( 0.f, 100.f );
-    ME_FIELD( Acceleration ).Category( "Movement" ).Range( 0.f, 500.f );
-    ME_FIELD( AirControl ).Category( "Movement" ).Range( 0.f, 1.f );
-    ME_FIELD( JumpHeight ).Category( "Movement" ).Range( 0.f, 20.f );
-    ME_FIELD( GravityScale ).Category( "Movement" ).Range( 0.f, 10.f );
-    ME_FIELD( SlopeLimit ).Category( "Collision" ).Range( 0.f, 89.f ).Tooltip( "Steeper surfaces count as walls" );
-    ME_FIELD( GroundSnap ).Category( "Collision" ).Range( 0.f, 2.f ).Tooltip( "Follow the ground down steps and slopes" );
-    ME_FIELD( PushStrength ).Category( "Collision" ).Range( 0.f, 20.f );
+    ME_FIELD( Center ).Unit( Reflection::Unit::Meters );
+    ME_FIELD( Radius ).Range( 0.05f, 10.f ).Unit( Reflection::Unit::Meters ).SoftRange( 0.1f, 2.f );
+    ME_FIELD( Height ).Range( 0.1f, 20.f ).Unit( Reflection::Unit::Meters ).SoftRange( 0.5f, 4.f ).Tooltip( "End to end, including the caps" );
+    ME_FIELD( MaxSpeed ).Category( "Movement" ).Range( 0.f, 100.f ).Unit( Reflection::Unit::MetersPerSecond ).SoftRange( 0.f, 20.f );
+    ME_FIELD( Acceleration ).Category( "Movement" ).Range( 0.f, 500.f ).Unit( Reflection::Unit::MetersPerSecondSq ).Log();
+    ME_FIELD( AirControl ).Category( "Movement" ).Range( 0.f, 1.f ).Unit( Reflection::Unit::Percent );
+    ME_FIELD( JumpHeight ).Category( "Movement" ).Range( 0.f, 20.f ).Unit( Reflection::Unit::Meters ).SoftRange( 0.f, 5.f );
+    ME_FIELD( GravityScale ).Category( "Movement" ).Range( 0.f, 10.f ).Unit( Reflection::Unit::Multiplier );
+    ME_FIELD( SlopeLimit ).Category( "Collision" ).Range( 0.f, 89.f ).Unit( Reflection::Unit::Degrees ).Tooltip( "Steeper surfaces count as walls" );
+    ME_FIELD( GroundSnap ).Category( "Collision" ).Range( 0.f, 2.f ).Unit( Reflection::Unit::Meters ).Tooltip( "Follow the ground down steps and slopes" );
+    ME_FIELD( PushStrength ).Category( "Collision" ).Range( 0.f, 20.f ).Unit( Reflection::Unit::Multiplier ).SoftRange( 0.f, 5.f );
 ME_REFLECT_END()
 
 

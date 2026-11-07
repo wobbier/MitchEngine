@@ -1,0 +1,511 @@
+# UX-4: every unit-tagged field shows its default in its unit (the metadata pass). One entity per
+# component; each field is found by its inspector label and must read exactly as the unit formats it.
+# Havana --scene Assets/Scenes/Tests/LightingTest.lvl --editor-exec Engine/Tests/Editor/UX4UnitLabels.edscript
+wait 20
+
+create ProbeAnimator
+add-component Animator
+select ProbeAnimator
+wait 3
+inspector-assert-shows Animator.Speed | 1
+imgui-assert-value Animator/Speed | 1×
+
+create ProbeAudioReverbZone
+add-component AudioReverbZone
+select ProbeAudioReverbZone
+wait 3
+inspector-assert-shows AudioReverbZone.MinDistance | 1
+imgui-assert-value AudioReverbZone/Min Distance | 5 m
+inspector-assert-shows AudioReverbZone.MaxDistance | 1
+imgui-assert-value AudioReverbZone/Max Distance | 15 m
+
+create ProbeAudioSource
+add-component AudioSource
+select ProbeAudioSource
+wait 3
+inspector-assert-shows AudioSource.Volume | 1
+imgui-assert-value AudioSource/Volume | 0.0 dB
+inspector-assert-shows AudioSource.Pitch | 1
+imgui-assert-value AudioSource/Pitch | 0 st
+inspector-assert-shows AudioSource.OcclusionAmount | 1
+imgui-assert-value AudioSource/Occlusion Amount | 60%
+inspector-assert-shows AudioSource.ReverbMix | 1
+imgui-assert-value AudioSource/Reverb Mix | 100%
+inspector-assert-shows AudioSource.MinDistance | 1
+imgui-assert-value AudioSource/Min Distance | 1 m
+inspector-assert-shows AudioSource.MaxDistance | 1
+imgui-assert-value AudioSource/Max Distance | 50 m
+inspector-assert-shows AudioSource.DopplerLevel | 1
+imgui-assert-value AudioSource/Doppler Level | 1×
+
+create ProbeBoxCollider2D
+add-component BoxCollider2D
+select ProbeBoxCollider2D
+wait 3
+inspector-assert-shows BoxCollider2D.EdgeRadius | 1
+imgui-assert-value BoxCollider2D/Edge Radius | 0 m
+
+create ProbeCamera
+add-component Camera
+select ProbeCamera
+wait 3
+inspector-assert-shows Camera.FieldOfView | 1
+imgui-assert-value Camera/Field of View | 60°
+inspector-assert-shows Camera.OrthographicSize | 1
+imgui-assert-value Camera/Orthographic Size | 5 m
+inspector-assert-shows Camera.Near | 1
+imgui-assert-value Camera/Near Clip | 0.1 m
+inspector-assert-shows Camera.Far | 1
+imgui-assert-value Camera/Far Clip | 1000 m
+inspector-assert-shows Camera.UpdateInterval | 1
+imgui-assert-value Camera/Update Interval | 1 frames
+inspector-assert-shows Camera.RenderScale | 1
+# "Render Scale" is also the category tree above it.
+imgui-assert-value Camera/Render Scale/Render Scale | 100%
+inspector-assert-shows Camera.UpscaleSharpness | 1
+imgui-assert-value Camera/Sharpness | 50%
+inspector-assert-shows Camera.DynamicMinScale | 1
+imgui-assert-value Camera/Minimum Scale | 50%
+inspector-assert-shows Camera.DynamicTargetMs | 1
+imgui-assert-value Camera/Target GPU ms | 16.6 ms
+
+create ProbeCameraSway
+add-component CameraSway
+select ProbeCameraSway
+wait 3
+inspector-assert-shows CameraSway.Frequency | 1
+imgui-assert-value CameraSway/Frequency | 0.18 Hz
+inspector-assert-shows CameraSway.Handheld | 1
+imgui-assert-value CameraSway/Handheld | 15%
+
+create ProbeCapsuleCollider
+add-component CapsuleCollider
+select ProbeCapsuleCollider
+wait 3
+inspector-assert-shows CapsuleCollider.Radius | 1
+imgui-assert-value CapsuleCollider/Radius | 0.5 m
+inspector-assert-shows CapsuleCollider.Height | 1
+imgui-assert-value CapsuleCollider/Height | 2 m
+
+create ProbeCapsuleCollider2D
+add-component CapsuleCollider2D
+select ProbeCapsuleCollider2D
+wait 3
+inspector-assert-shows CapsuleCollider2D.Radius | 1
+imgui-assert-value CapsuleCollider2D/Radius | 0.5 m
+inspector-assert-shows CapsuleCollider2D.Height | 1
+imgui-assert-value CapsuleCollider2D/Height | 2 m
+
+create ProbeCharacterController
+add-component CharacterController
+select ProbeCharacterController
+wait 3
+inspector-assert-shows CharacterController.Radius | 1
+imgui-assert-value CharacterController/Radius | 0.4 m
+inspector-assert-shows CharacterController.Height | 1
+imgui-assert-value CharacterController/Height | 1.8 m
+inspector-assert-shows CharacterController.MaxSpeed | 1
+imgui-assert-value CharacterController/Max Speed | 6 m/s
+inspector-assert-shows CharacterController.Acceleration | 1
+imgui-assert-value CharacterController/Acceleration | 40 m/s²
+inspector-assert-shows CharacterController.AirControl | 1
+imgui-assert-value CharacterController/Air Control | 30%
+inspector-assert-shows CharacterController.JumpHeight | 1
+imgui-assert-value CharacterController/Jump Height | 1.2 m
+inspector-assert-shows CharacterController.GravityScale | 1
+imgui-assert-value CharacterController/Gravity Scale | 1×
+inspector-assert-shows CharacterController.SlopeLimit | 1
+imgui-assert-value CharacterController/Slope Limit | 50°
+inspector-assert-shows CharacterController.GroundSnap | 1
+imgui-assert-value CharacterController/Ground Snap | 0.25 m
+inspector-assert-shows CharacterController.PushStrength | 1
+imgui-assert-value CharacterController/Push Strength | 1×
+
+create ProbeCharacterController2D
+add-component CharacterController2D
+select ProbeCharacterController2D
+wait 3
+inspector-assert-shows CharacterController2D.Radius | 1
+imgui-assert-value CharacterController2D/Radius | 0.3 m
+inspector-assert-shows CharacterController2D.Height | 1
+imgui-assert-value CharacterController2D/Height | 1.6 m
+inspector-assert-shows CharacterController2D.MaxSpeed | 1
+imgui-assert-value CharacterController2D/Max Speed | 7 m/s
+inspector-assert-shows CharacterController2D.Acceleration | 1
+imgui-assert-value CharacterController2D/Acceleration | 60 m/s²
+inspector-assert-shows CharacterController2D.AirControl | 1
+imgui-assert-value CharacterController2D/Air Control | 50%
+inspector-assert-shows CharacterController2D.JumpHeight | 1
+imgui-assert-value CharacterController2D/Jump Height | 2 m
+inspector-assert-shows CharacterController2D.GravityScale | 1
+imgui-assert-value CharacterController2D/Gravity Scale | 1×
+inspector-assert-shows CharacterController2D.CoyoteTime | 1
+imgui-assert-value CharacterController2D/Coyote Time | 0.1 s
+inspector-assert-shows CharacterController2D.SlopeLimit | 1
+imgui-assert-value CharacterController2D/Slope Limit | 50°
+inspector-assert-shows CharacterController2D.GroundSnap | 1
+imgui-assert-value CharacterController2D/Ground Snap | 0.2 m
+inspector-assert-shows CharacterController2D.PushStrength | 1
+imgui-assert-value CharacterController2D/Push Strength | 1×
+
+create ProbeCircleCollider2D
+add-component CircleCollider2D
+select ProbeCircleCollider2D
+wait 3
+inspector-assert-shows CircleCollider2D.Radius | 1
+imgui-assert-value CircleCollider2D/Radius | 0.5 m
+
+create ProbeDecal
+add-component Decal
+select ProbeDecal
+wait 3
+inspector-assert-shows Decal.Opacity | 1
+imgui-assert-value Decal/Opacity | 100%
+inspector-assert-shows Decal.EmissiveIntensity | 1
+imgui-assert-value Decal/Emissive Intensity | 0×
+inspector-assert-shows Decal.AngleFade | 1
+imgui-assert-value Decal/Angle Fade | 70°
+inspector-assert-shows Decal.AngleFadeWidth | 1
+imgui-assert-value Decal/Angle Fade Width | 20°
+
+create ProbeFlyingCamera
+add-component FlyingCamera
+select ProbeFlyingCamera
+wait 3
+inspector-assert-shows FlyingCamera.FlyingSpeed | 1
+imgui-assert-value FlyingCamera/Flying Speed | 5 m/s
+inspector-assert-shows FlyingCamera.SpeedModifier | 1
+imgui-assert-value FlyingCamera/Speed Modifier | 4×
+
+create ProbeLight
+add-component Light
+select ProbeLight
+wait 3
+inspector-assert-shows Light.Intensity | 1
+imgui-assert-value Light/Intensity | 1×
+inspector-assert-shows Light.Length | 1
+imgui-assert-value Light/Bar Length | 1.2 m
+inspector-assert-shows Light.Radius | 1
+imgui-assert-value Light/Bar Radius | 0.025 m
+inspector-assert-shows Light.RectangleWidth | 1
+imgui-assert-value Light/Rectangle Width | 2 m
+inspector-assert-shows Light.RectangleHeight | 1
+imgui-assert-value Light/Rectangle Height | 1 m
+inspector-assert-shows Light.ShadowBias | 1
+imgui-assert-value Light/Shadow Bias | 0.5 texels
+inspector-assert-shows Light.ShadowNormalBias | 1
+imgui-assert-value Light/Shadow Normal Bias | 2.5 texels
+inspector-assert-shows Light.ShadowDistance | 1
+imgui-assert-value Light/Shadow Distance | 80 m
+
+create ProbeLookAtIK
+add-component LookAtIK
+select ProbeLookAtIK
+wait 3
+inspector-assert-shows LookAtIK.Weight | 1
+imgui-assert-value LookAtIK/Weight | 100%
+inspector-assert-shows LookAtIK.MaxAngle | 1
+imgui-assert-value LookAtIK/Max Angle | 90°
+
+create ProbeNavMeshAgent
+add-component NavMeshAgent
+select ProbeNavMeshAgent
+wait 3
+inspector-assert-shows NavMeshAgent.Speed | 1
+imgui-assert-value NavMeshAgent/Speed | 3.5 m/s
+inspector-assert-shows NavMeshAgent.Acceleration | 1
+imgui-assert-value NavMeshAgent/Acceleration | 8 m/s²
+inspector-assert-shows NavMeshAgent.AngularSpeed | 1
+imgui-assert-value NavMeshAgent/Angular Speed | 360°/s
+inspector-assert-shows NavMeshAgent.StoppingDistance | 1
+imgui-assert-value NavMeshAgent/Stopping Distance | 0 m
+inspector-assert-shows NavMeshAgent.Radius | 1
+imgui-assert-value NavMeshAgent/Radius | 0.5 m
+inspector-assert-shows NavMeshAgent.Height | 1
+imgui-assert-value NavMeshAgent/Height | 2 m
+inspector-assert-shows NavMeshAgent.BaseOffset | 1
+imgui-assert-value NavMeshAgent/Base Offset | 0 m
+inspector-assert-shows NavMeshAgent.LinkJumpHeight | 1
+imgui-assert-value NavMeshAgent/Link Jump Height | 1 m
+
+create ProbeNavMeshLink
+add-component NavMeshLink
+select ProbeNavMeshLink
+wait 3
+inspector-assert-shows NavMeshLink.Radius | 1
+imgui-assert-value NavMeshLink/Radius | 0.5 m
+
+create ProbeNavMeshObstacle
+add-component NavMeshObstacle
+select ProbeNavMeshObstacle
+wait 3
+inspector-assert-shows NavMeshObstacle.MoveThreshold | 1
+imgui-assert-value NavMeshObstacle/Move Threshold | 0.1 m
+inspector-assert-shows NavMeshObstacle.CarveDelay | 1
+imgui-assert-value NavMeshObstacle/Carve Delay | 0.25 s
+
+create ProbeNavMeshSurface
+add-component NavMeshSurface
+select ProbeNavMeshSurface
+wait 3
+inspector-assert-shows NavMeshSurface.AgentRadius | 1
+imgui-assert-value NavMeshSurface/Agent Radius | 0.5 m
+inspector-assert-shows NavMeshSurface.AgentHeight | 1
+imgui-assert-value NavMeshSurface/Agent Height | 2 m
+inspector-assert-shows NavMeshSurface.AgentMaxClimb | 1
+imgui-assert-value NavMeshSurface/Agent Max Climb | 0.5 m
+inspector-assert-shows NavMeshSurface.AgentMaxSlope | 1
+imgui-assert-value NavMeshSurface/Agent Max Slope | 45°
+inspector-assert-shows NavMeshSurface.CellSize | 1
+imgui-assert-value NavMeshSurface/Cell Size | 0 m
+inspector-assert-shows NavMeshSurface.CellHeight | 1
+imgui-assert-value NavMeshSurface/Cell Height | 0 m
+inspector-assert-shows NavMeshSurface.EdgeMaxLength | 1
+imgui-assert-value NavMeshSurface/Edge Max Length | 12 m
+
+create ProbeOccluderFade
+add-component OccluderFade
+select ProbeOccluderFade
+wait 3
+inspector-assert-shows OccluderFade.Radius | 1
+imgui-assert-value OccluderFade/Radius | 0.3 m
+inspector-assert-shows OccluderFade.Amount | 1
+imgui-assert-value OccluderFade/Amount | 80%
+inspector-assert-shows OccluderFade.FadeSeconds | 1
+imgui-assert-value OccluderFade/Fade Seconds | 0.2 s
+
+create ProbeOutline
+add-component Outline
+select ProbeOutline
+wait 3
+inspector-assert-shows Outline.Width | 1
+imgui-assert-value Outline/Width | 0.02 m
+
+create ProbeParticleSystem
+add-component ParticleSystem
+select ProbeParticleSystem
+wait 3
+inspector-assert-shows ParticleSystem.Duration | 1
+imgui-assert-value ParticleSystem/Duration | 5 s
+inspector-assert-shows ParticleSystem.EmissionRate | 1
+imgui-assert-value ParticleSystem/Emission Rate | 30 Hz
+inspector-assert-shows ParticleSystem.ShapeRadius | 1
+imgui-assert-value ParticleSystem/Shape Radius | 0.25 m
+inspector-assert-shows ParticleSystem.ConeAngle | 1
+imgui-assert-value ParticleSystem/Cone Angle | 20°
+inspector-assert-shows ParticleSystem.StartAlpha | 1
+imgui-assert-value ParticleSystem/Start Alpha | 100%
+inspector-assert-shows ParticleSystem.Intensity | 1
+imgui-assert-value ParticleSystem/Intensity | 2×
+inspector-assert-shows ParticleSystem.EndSize | 1
+imgui-assert-value ParticleSystem/End Size | 0.5×
+inspector-assert-shows ParticleSystem.EndAlpha | 1
+imgui-assert-value ParticleSystem/End Alpha | 0%
+inspector-assert-shows ParticleSystem.FadeIn | 1
+imgui-assert-value ParticleSystem/Fade In | 10%
+inspector-assert-shows ParticleSystem.Gravity | 1
+imgui-assert-value ParticleSystem/Gravity | -0.2×
+inspector-assert-shows ParticleSystem.NoiseFrequency | 1
+imgui-assert-value ParticleSystem/Noise Frequency | 1 /m
+inspector-assert-shows ParticleSystem.SoftParticleDistance | 1
+imgui-assert-value ParticleSystem/Soft Particle Distance | 0.4 m
+
+create ProbePhysicsJoint
+add-component PhysicsJoint
+select ProbePhysicsJoint
+wait 3
+inspector-assert-shows PhysicsJoint.SpringFrequency | 1
+imgui-assert-value PhysicsJoint/Spring Frequency | 4 Hz
+inspector-assert-shows PhysicsJoint.Distance | 1
+imgui-assert-value PhysicsJoint/Distance | 0 m
+inspector-assert-shows PhysicsJoint.BreakForce | 1
+imgui-assert-value PhysicsJoint/Break Force | 0 N
+
+create ProbePhysicsJoint2D
+add-component PhysicsJoint2D
+select ProbePhysicsJoint2D
+wait 3
+inspector-assert-shows PhysicsJoint2D.SpringFrequency | 1
+imgui-assert-value PhysicsJoint2D/Spring Frequency | 4 Hz
+inspector-assert-shows PhysicsJoint2D.Distance | 1
+imgui-assert-value PhysicsJoint2D/Distance | 0 m
+inspector-assert-shows PhysicsJoint2D.BreakForce | 1
+imgui-assert-value PhysicsJoint2D/Break Force | 0 N
+
+create ProbePolygonCollider2D
+add-component PolygonCollider2D
+select ProbePolygonCollider2D
+wait 3
+inspector-assert-shows PolygonCollider2D.EdgeRadius | 1
+imgui-assert-value PolygonCollider2D/Edge Radius | 0 m
+
+create ProbePostProcess
+add-component PostProcess
+select ProbePostProcess
+wait 3
+inspector-assert-shows PostProcess.TemporalSharpness | 1
+imgui-assert-value PostProcess/Temporal Sharpness | 25%
+inspector-assert-shows PostProcess.ExposureCompensation | 1
+imgui-assert-value PostProcess/Exposure Compensation | 0.0 EV
+inspector-assert-shows PostProcess.AutoExposureMinEV | 1
+imgui-assert-value PostProcess/Auto Exposure Min EV | -4.0 EV
+inspector-assert-shows PostProcess.AutoExposureMaxEV | 1
+imgui-assert-value PostProcess/Auto Exposure Max EV | +8.0 EV
+inspector-assert-shows PostProcess.AORadius | 1
+imgui-assert-value PostProcess/AO Radius | 0.5 m
+inspector-assert-shows PostProcess.AOIntensity | 1
+imgui-assert-value PostProcess/AO Intensity | 1×
+inspector-assert-shows PostProcess.DoFFocusDistance | 1
+imgui-assert-value PostProcess/Focus Distance | 8 m
+inspector-assert-shows PostProcess.DoFAperture | 1
+imgui-assert-value PostProcess/Aperture | f/2.8
+inspector-assert-shows PostProcess.DoFSensorHeight | 1
+imgui-assert-value PostProcess/Sensor Height | 24 mm
+inspector-assert-shows PostProcess.DoFMaxBlurRadius | 1
+imgui-assert-value PostProcess/Max Blur Radius (1080p) | 16 px
+inspector-assert-shows PostProcess.DoFSplitFocusDistance | 1
+imgui-assert-value PostProcess/Right Focus Distance | 18 m
+inspector-assert-shows PostProcess.DoFSplitPosition | 1
+imgui-assert-value PostProcess/Split Position | 50%
+inspector-assert-shows PostProcess.DoFSplitFeather | 1
+imgui-assert-value PostProcess/Split Feather | 1.5%
+inspector-assert-shows PostProcess.OutlineThickness | 1
+imgui-assert-value PostProcess/Outline Thickness | 1 px
+inspector-assert-shows PostProcess.FogDensity | 1
+imgui-assert-value PostProcess/Fog Density | 0.02 /m
+inspector-assert-shows PostProcess.FogHeight | 1
+imgui-assert-value PostProcess/Fog Height | 0 m
+inspector-assert-shows PostProcess.FogHeightFalloff | 1
+imgui-assert-value PostProcess/Fog Height Falloff | 0.15 /m
+inspector-assert-shows PostProcess.FogStartDistance | 1
+imgui-assert-value PostProcess/Fog Start Distance | 0 m
+inspector-assert-shows PostProcess.FogMaxOpacity | 1
+imgui-assert-value PostProcess/Fog Max Opacity | 100%
+inspector-assert-shows PostProcess.FogSunIntensity | 1
+imgui-assert-value PostProcess/Fog Sun Intensity | 1×
+inspector-assert-shows PostProcess.VolumetricDistance | 1
+imgui-assert-value PostProcess/Volumetric Distance | 60 m
+inspector-assert-shows PostProcess.Saturation | 1
+imgui-assert-value PostProcess/Saturation | 100%
+inspector-assert-shows PostProcess.Contrast | 1
+imgui-assert-value PostProcess/Contrast | 100%
+inspector-assert-shows PostProcess.LutContribution | 1
+imgui-assert-value PostProcess/LUT Contribution | 100%
+inspector-assert-shows PostProcess.EraVertexSnap | 1
+imgui-assert-value PostProcess/Vertex Snap | 0 px
+inspector-assert-shows PostProcess.EraKuwahara | 1
+imgui-assert-value PostProcess/Painterly (Kuwahara) | 0 px
+inspector-assert-shows PostProcess.EraDither | 1
+imgui-assert-value PostProcess/Dither | 0%
+
+create ProbeRagdoll
+add-component Ragdoll
+select ProbeRagdoll
+wait 3
+inspector-assert-shows Ragdoll.BlendSeconds | 1
+imgui-assert-value Ragdoll/Blend Seconds | 0.4 s
+inspector-assert-shows Ragdoll.RadiusRatio | 1
+imgui-assert-value Ragdoll/Radius Ratio | 20%
+inspector-assert-shows Ragdoll.SwingLimit | 1
+imgui-assert-value Ragdoll/Swing Limit | 45°
+inspector-assert-shows Ragdoll.TotalMass | 1
+imgui-assert-value Ragdoll/Total Mass | 40 kg
+inspector-assert-shows Ragdoll.MinBoneLength | 1
+imgui-assert-value Ragdoll/Min Bone Length | 0.05 m
+
+create ProbeRigidbody
+add-component Rigidbody
+select ProbeRigidbody
+wait 3
+inspector-assert-shows Rigidbody.Mass | 1
+imgui-assert-value Rigidbody/Mass | 1 kg
+inspector-assert-shows Rigidbody.GravityScale | 1
+imgui-assert-value Rigidbody/Gravity Scale | 1×
+
+create ProbeRigidbody2D
+add-component Rigidbody2D
+select ProbeRigidbody2D
+wait 3
+inspector-assert-shows Rigidbody2D.Mass | 1
+imgui-assert-value Rigidbody2D/Mass | 1 kg
+inspector-assert-shows Rigidbody2D.GravityScale | 1
+imgui-assert-value Rigidbody2D/Gravity Scale | 1×
+
+create ProbeSequence
+add-component Sequence
+select ProbeSequence
+wait 3
+inspector-assert-shows Sequence.Speed | 1
+imgui-assert-value Sequence/Speed | 1×
+
+create ProbeSphereCollider
+add-component SphereCollider
+select ProbeSphereCollider
+wait 3
+inspector-assert-shows SphereCollider.Radius | 1
+imgui-assert-value SphereCollider/Radius | 0.5 m
+
+create ProbeSpriteRenderer
+add-component SpriteRenderer
+select ProbeSpriteRenderer
+wait 3
+inspector-assert-shows SpriteRenderer.Opacity | 1
+imgui-assert-value SpriteRenderer/Opacity | 100%
+
+create ProbeTerrain
+add-component Terrain
+select ProbeTerrain
+wait 3
+inspector-assert-shows Terrain.LodPixelError | 1
+imgui-assert-value Terrain/Lod Pixel Error | 2 px
+inspector-assert-shows Terrain.LodHysteresis | 1
+imgui-assert-value Terrain/Lod Hysteresis | 20%
+inspector-assert-shows Terrain.StreamDistance | 1
+imgui-assert-value Terrain/Stream Distance | 384 m
+inspector-assert-shows Terrain.CoverageDistance | 1
+imgui-assert-value Terrain/Coverage Distance | 1024 m
+inspector-assert-shows Terrain.CollisionDistance | 1
+imgui-assert-value Terrain/Collision Distance | 8 m
+inspector-assert-shows Terrain.CollisionPrefetchSeconds | 1
+imgui-assert-value Terrain/Collision Prefetch Seconds | 0.5 s
+inspector-assert-shows Terrain.UploadMilliseconds | 1
+imgui-assert-value Terrain/Upload Milliseconds | 2 ms
+
+create ProbeTerrainFoliage
+add-component TerrainFoliage
+select ProbeTerrainFoliage
+wait 3
+inspector-assert-shows TerrainFoliage.DrawDistance | 1
+imgui-assert-value TerrainFoliage/Draw Distance | 250 m
+
+create ProbeTextRenderer
+add-component TextRenderer
+select ProbeTextRenderer
+wait 3
+inspector-assert-shows TextRenderer.Size | 1
+imgui-assert-value TextRenderer/Size | 0.5 m
+inspector-assert-shows TextRenderer.LineSpacing | 1
+imgui-assert-value TextRenderer/Line Spacing | 1×
+inspector-assert-shows TextRenderer.Opacity | 1
+imgui-assert-value TextRenderer/Opacity | 100%
+
+create ProbeTilemap
+add-component Tilemap
+select ProbeTilemap
+wait 3
+inspector-assert-shows Tilemap.CellSize | 1
+imgui-assert-value Tilemap/Cell Size | 1 m
+
+create ProbeTwoBoneIK
+add-component TwoBoneIK
+select ProbeTwoBoneIK
+wait 3
+inspector-assert-shows TwoBoneIK.Weight | 1
+imgui-assert-value TwoBoneIK/Weight | 100%
+
+create ProbeWindZone
+add-component WindZone
+select ProbeWindZone
+wait 3
+inspector-assert-shows WindZone.GustFrequency | 1
+imgui-assert-value WindZone/Gust Frequency | 0.15 Hz

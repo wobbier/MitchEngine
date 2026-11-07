@@ -49,7 +49,7 @@ ME_REFLECT_END()
 ME_REFLECT_BEGIN( AnimatorState )
     ME_FIELD( Name );
     ME_FIELD( Clip );
-    ME_FIELD( Speed ).Range( -10.f, 10.f );
+    ME_FIELD( Speed ).Range( -10.f, 10.f ).Unit( Reflection::Unit::Multiplier );
     ME_FIELD( Loop );
     ME_FIELD( BlendParameter ).Tooltip( "Float parameter that picks between BlendClips by their thresholds" );
     ME_FIELD( BlendParameterY ).Tooltip( "Second float parameter: a 2D blend over (Threshold, ThresholdY)" );
@@ -60,7 +60,7 @@ ME_REFLECT_END()
 ME_REFLECT_BEGIN( AnimatorLayer )
     ME_FIELD( Name );
     ME_FIELD( DefaultState );
-    ME_FIELD( Weight ).Range( 0.f, 1.f );
+    ME_FIELD( Weight ).Range( 0.f, 1.f ).Unit( Reflection::Unit::Percent );
     ME_FIELD( Mask ).Tooltip( "Bones (with everything below them) this layer drives; empty = all" );
     ME_FIELD( Blending ).Tooltip( "Override replaces the pose below; Additive adds the layer's motion (relative to its state's first frame) on top" );
 ME_REFLECT_END()
@@ -71,13 +71,13 @@ ME_REFLECT_BEGIN( AnimatorTransition )
     ME_FIELD( Parameter );
     ME_FIELD( Condition );
     ME_FIELD( Threshold );
-    ME_FIELD( Duration ).Range( 0.f, 10.f ).Tooltip( "Cross-fade seconds" );
+    ME_FIELD( Duration ).Range( 0.f, 10.f ).Unit( Reflection::Unit::Seconds ).SoftRange( 0.f, 2.f ).Tooltip( "Cross-fade seconds" );
     ME_FIELD( ExitTime ).Range( -1.f, 10.f ).Tooltip( "Normalized time the source state must reach first; -1 = any time" );
 ME_REFLECT_END()
 
 ME_REFLECT_BEGIN( AnimatorEventMarker )
     ME_FIELD( State );
-    ME_FIELD( Time ).Range( 0.f, 1.f );
+    ME_FIELD( Time ).Range( 0.f, 1.f ).Unit( Reflection::Unit::Percent );
     ME_FIELD( Name );
 ME_REFLECT_END()
 
@@ -85,7 +85,7 @@ ME_REFLECT_BEGIN( Animator )
     ME_FIELD( ClipSource ).Tooltip( "Optional model file whose animations to play (shared rigs); default: this entity's Model" );
     ME_FIELD( SpriteClips ).Tooltip( "Flipbook clips (.spriteanim files), each named after its file: they drive this entity's SpriteRenderer" );
     ME_FIELD( DefaultState ).Tooltip( "Empty = the first state (or clip)" );
-    ME_FIELD( Speed ).Range( -10.f, 10.f );
+    ME_FIELD( Speed ).Range( -10.f, 10.f ).Unit( Reflection::Unit::Multiplier );
     ME_FIELD( PlayOnStart );
     ME_FIELD( Parameters ).Category( "State Machine" );
     ME_FIELD( States ).Category( "State Machine" );

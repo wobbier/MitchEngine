@@ -16,16 +16,16 @@
 
 // The collider fields shared by the 2D colliders (Colliders2D.cpp).
 #define ME_TILEMAP_COLLIDER_FIELDS()                                                                                        \
-    ME_FIELD( Offset ).Tooltip( "Shifts the shape in the entity's local XY plane" );                                       \
+    ME_FIELD( Offset ).Unit( Reflection::Unit::Meters ).Tooltip( "Shifts the shape in the entity's local XY plane" );       \
     ME_FIELD( IsTrigger ).Display( "Is Trigger" ).Tooltip( "Report overlaps without colliding" );                         \
     ME_FIELD( Friction ).Range( 0.f, 2.f );                                                                                \
     ME_FIELD( Restitution ).Range( 0.f, 1.f );                                                                             \
-    ME_FIELD( Density ).Range( 0.f, 100.f );
+    ME_FIELD( Density ).Range( 0.f, 100.f ).Log();
 
 ME_REFLECT_BEGIN( Tilemap )
     ME_FIELD( Sheet ).Asset( "SpriteSheet" ).Tooltip( "The .spritesheet the tiles come from" );
     ME_FIELD( Palette ).Tooltip( "Sheet sprite names the cells use; \"@Base\" autotiles from Base_0..Base_15 by the four neighbours (1 up, 2 right, 4 down, 8 left)" );
-    ME_FIELD( CellSize ).Range( 0.01f, 100.f ).Tooltip( "World units per cell" );
+    ME_FIELD( CellSize ).Range( 0.01f, 100.f ).Unit( Reflection::Unit::Meters ).Log().Tooltip( "World units per cell" );
     ME_FIELD( Tint ).Color();
     ME_FIELD( Lit ).Category( "Rendering" );
     ME_FIELD( PointFilter ).Category( "Rendering" ).Display( "Point Filter" );

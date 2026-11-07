@@ -487,15 +487,41 @@ namespace ReflectionUI
             return changed;
         }
 
+        // A vector axis' display format with the field's unit ("%.3f m", "%.2f°"). Units that
+        // convert between stored and shown values (radians, gain, percent) keep the plain format.
+        std::string AxisFormat( const FieldInfo* InField, const char* InBase )
+        {
+            if( !InField )
+            {
+                return InBase;
+            }
+            switch( InField->FieldUnit )
+            {
+            case Reflection::Unit::None:
+            case Reflection::Unit::Radians:
+            case Reflection::Unit::LinearGain:
+            case Reflection::Unit::Percent:
+            case Reflection::Unit::PitchRatio:
+            case Reflection::Unit::FStop:
+                return InBase;
+            case Reflection::Unit::Degrees:
+            case Reflection::Unit::DegreesPerSecond:
+                return std::string( InBase ) + MeWidgets::GetUnitInfo( InField->FieldUnit ).Symbol;
+            default:
+                return std::string( InBase ) + " " + MeWidgets::GetUnitInfo( InField->FieldUnit ).Symbol;
+            }
+        }
+
         bool DrawVector( const char* InLabel, const FieldInfo* InField, const ValueOps& InOps, void* InValue )
         {
+            const std::string axisFormat = AxisFormat( InField, "%.3f" );
             const bool isColor = InField && InField->Has( FieldFlags::Color );
             const ImGuiColorEditFlags colorFlags = ImGuiColorEditFlags_Float | ( InField && InField->Has( FieldFlags::HDR ) ? ImGuiColorEditFlags_HDR : 0 );
             const float speed = InField ? InField->Speed : 0.1f;
             switch( InOps.Type )
             {
             case PropertyType::Vector2:
-                return HavanaUtils::DragAxes( InLabel, &static_cast<Vector2*>( InValue )->x, 2, speed, "%.3f" );
+                return HavanaUtils::DragAxes( InLabel, &static_cast<Vector2*>( InValue )->x, 2, speed, axisFormat.c_str() );
             case PropertyType::Vector3:
             {
                 Vector3& value = *static_cast<Vector3*>( InValue );
@@ -503,7 +529,7 @@ namespace ReflectionUI
                 {
                     return ImGui::ColorEdit3( InLabel, &value.x, colorFlags );
                 }
-                return HavanaUtils::DragAxes( InLabel, &value.x, 3, speed, "%.3f" );
+                return HavanaUtils::DragAxes( InLabel, &value.x, 3, speed, axisFormat.c_str() );
             }
             case PropertyType::Vector4:
             {
@@ -512,7 +538,7 @@ namespace ReflectionUI
                 {
                     return ImGui::ColorEdit4( InLabel, &value.x, colorFlags | ImGuiColorEditFlags_AlphaBar );
                 }
-                return HavanaUtils::DragAxes( InLabel, &value.x, 4, speed, "%.3f" );
+                return HavanaUtils::DragAxes( InLabel, &value.x, 4, speed, axisFormat.c_str() );
             }
             case PropertyType::Quaternion:
             {
@@ -521,7 +547,7 @@ namespace ReflectionUI
                 auto& cache = EulerCache();
                 Vector3 euler = cache.count( id ) ? cache[id] : Quaternion::ToEulerAngles( value );
                 bool active = false;
-                const bool changed = HavanaUtils::DragAxes( InLabel, &euler.x, 3, 0.5f, "%.2f", &active );
+                const bool changed = HavanaUtils::DragAxes( InLabel, &euler.x, 3, 0.5f, "%.2f\xC2\xB0", &active );
                 if( active )
                 {
                     cache[id] = euler;

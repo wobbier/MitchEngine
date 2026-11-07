@@ -7,10 +7,10 @@ ME_REFLECT_ENUM( BodyType, { { "Static", BodyType::Static }, { "Kinematic", Body
 
 ME_REFLECT_BEGIN( Rigidbody )
     ME_FIELD_NAMED( Type, "BodyType" );   // "Type" is the component type in scene JSON
-    ME_FIELD( Mass ).Range( 0.f, 100000.f ).Tooltip( "Kilograms; 0 derives the mass from the colliders' densities" );
-    ME_FIELD( LinearDamping ).Range( 0.f, 100.f );
-    ME_FIELD( AngularDamping ).Range( 0.f, 100.f );
-    ME_FIELD( GravityScale ).Range( -10.f, 10.f );
+    ME_FIELD( Mass ).Range( 0.f, 100000.f ).Unit( Reflection::Unit::Kilograms ).Log().SoftRange( 0.f, 1000.f ).Tooltip( "Kilograms; 0 derives the mass from the colliders' densities" );
+    ME_FIELD( LinearDamping ).Range( 0.f, 100.f ).Log().SoftRange( 0.f, 10.f );
+    ME_FIELD( AngularDamping ).Range( 0.f, 100.f ).Log().SoftRange( 0.f, 10.f );
+    ME_FIELD( GravityScale ).Range( -10.f, 10.f ).Unit( Reflection::Unit::Multiplier );
     ME_FIELD( ContinuousCollision ).Tooltip( "Sweep fast movers so they can't pass through thin geometry (costs more)" );
     ME_FIELD( Interpolate ).Tooltip( "Smooth the rendered pose between fixed physics steps" );
     ME_FIELD( CanSleep );

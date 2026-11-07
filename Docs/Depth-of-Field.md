@@ -8,13 +8,13 @@ effects; its own position and FOV still determine its focus and blur.
 
 | Inspector control | Meaning |
 | --- | --- |
-| Focus Distance (m) | Camera-forward world distance to the sharp plane; drag at 1 mm per pixel, bounded to 0.1–1000 m |
-| Aperture (f-stop) | Lower values increase blur; independent of exposure |
-| Sensor Height (mm) | Filmback height; focal length is inferred from the camera's vertical FOV |
-| Max Blur Radius (1080p px) | Pixel radius at 1080p; scales with height, bounded to 64 actual pixels |
+| Focus Distance | Camera-forward world distance to the sharp plane, in metres; drag at 1 mm per pixel, bounded to 0.1–1000 m |
+| Aperture | f-stop; lower values increase blur; independent of exposure |
+| Sensor Height | Filmback height in millimetres; focal length is inferred from the camera's vertical FOV |
+| Max Blur Radius (1080p) | Pixel radius at 1080p in pixels; scales with height, bounded to 64 actual pixels |
 | Visualize Circle of Confusion | Red in front of focus, green behind, black at focus |
 | Split Diopter | Use the primary focus distance on the left and an independent far focus distance on the right |
-| Right Focus Distance (m) | Camera-forward focus depth for the right side; may be nearer or farther than the primary focus |
+| Right Focus Distance | Camera-forward focus depth for the right side; may be nearer or farther than the primary focus |
 | Split Position / Split Feather | Normalized horizontal boundary and full transition width; zero feather makes a hard split |
 
 Split diopter mode runs the existing layer-aware blur independently for both lenses, then blends

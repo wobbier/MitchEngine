@@ -12,8 +12,8 @@ ME_REFLECT_BEGIN( Decal )
     ME_FIELD( Albedo ).Asset( "Texture" ).Tooltip( "sRGB colour, alpha is coverage; empty projects a solid colour" );
     ME_FIELD( NormalMap ).Asset( "Texture" ).Tooltip( "Tangent-space normals; empty uses the surface normal reconstructed from depth" );
     ME_FIELD( Color ).Color();
-    ME_FIELD( Opacity ).Range( 0.f, 1.f ).Speed( 0.01f );
-    ME_FIELD( Size ).Display( "Size (m)" ).Tooltip( "The projection box: width, height and depth" );
+    ME_FIELD( Opacity ).Unit( Reflection::Unit::Percent ).Range( 0.f, 1.f ).Speed( 0.01f );
+    ME_FIELD( Size ).Unit( Reflection::Unit::Meters ).Tooltip( "The projection box: width, height and depth" );
     ME_FIELD( SortOrder ).Tooltip( "Overlapping decals draw in ascending order (higher lands on top)" );
     ME_FIELD( Graph ).Asset( "ShaderGraph" ).Tooltip( "A Decal shader graph for the projected surface (replaces the textures and surface values)" );
     ME_FIELD( GraphParams ).Display( "Graph Properties" ).Tooltip( "This decal's values for the graph's exposed properties" );
@@ -21,9 +21,9 @@ ME_REFLECT_BEGIN( Decal )
     ME_FIELD( Roughness ).Category( "Surface" ).Range( 0.f, 1.f ).Speed( 0.01f );
     ME_FIELD( NormalStrength ).Category( "Surface" ).Range( 0.f, 4.f ).Speed( 0.01f );
     ME_FIELD( EmissiveColor ).Category( "Surface" ).Color();
-    ME_FIELD( EmissiveIntensity ).Category( "Surface" ).Range( 0.f, 100.f ).Speed( 0.05f );
-    ME_FIELD( AngleFade ).Category( "Fade" ).Range( 0.f, 180.f ).Tooltip( "Surfaces turned further than this from the projection get none of the decal (degrees)" );
-    ME_FIELD( AngleFadeWidth ).Category( "Fade" ).Range( 0.f, 90.f ).Tooltip( "Degrees over which the decal fades out before AngleFade" );
+    ME_FIELD( EmissiveIntensity ).Category( "Surface" ).Unit( Reflection::Unit::Multiplier ).Log().SoftRange( 0.f, 10.f ).Range( 0.f, 100.f ).Speed( 0.05f );
+    ME_FIELD( AngleFade ).Category( "Fade" ).Unit( Reflection::Unit::Degrees ).Range( 0.f, 180.f ).Tooltip( "Surfaces turned further than this from the projection get none of the decal (degrees)" );
+    ME_FIELD( AngleFadeWidth ).Category( "Fade" ).Unit( Reflection::Unit::Degrees ).Range( 0.f, 90.f ).Tooltip( "Degrees over which the decal fades out before AngleFade" );
 ME_REFLECT_END()
 
 
