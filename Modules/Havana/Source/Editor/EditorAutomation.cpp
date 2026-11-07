@@ -1275,6 +1275,21 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             }
         }
     }
+    else if( command == "clipboard" )
+    {
+        // clipboard [1, 2, 3]   (puts the text on the clipboard, as copying it would; UX-11)
+        ImGui::SetClipboardText( args.c_str() );
+    }
+    else if( command == "assert-clipboard" )
+    {
+        // assert-clipboard [4, 0, 0]   (the clipboard holds exactly this text)
+        const char* clipboard = ImGui::GetClipboardText();
+        const std::string actual = clipboard ? clipboard : "";
+        if( actual != args )
+        {
+            Fail( "assert-clipboard: the clipboard holds '" + actual + "', expected '" + args + "'" );
+        }
+    }
     else if( command == "trace-start" )
     {
         OPTICK_START_CAPTURE();

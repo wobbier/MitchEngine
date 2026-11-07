@@ -675,6 +675,9 @@ void PropertiesWidget::DrawComponentGroup(const std::string& typeName, std::vect
 			}
 			if (ReflectionUI::DrawType(*typeInfo, primary, context))
 			{
+				// Edits from outside the group's items (a row's context menu: Reset, Paste) commit
+				// like any other once nothing is held.
+				m_pendingEdits[groupKey] = true;
 				for (const std::string& field : context.ChangedFields)
 				{
 					for (Instance& instance : instances)

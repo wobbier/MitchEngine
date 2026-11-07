@@ -30,8 +30,13 @@ imgui-hover Widget Gallery/Linear Square
 wait 5
 panel-screenshot Widget Gallery | .tmp/UX4-Gallery-Audio.png
 assert-images .tmp/UX4-Gallery-Audio.png | Engine/Tests/Editor/Reference/WidgetGalleryAudio.png | same | 0.002
-# The character widgets (UX-10) at the bottom.
+# The character widgets (UX-10) below them.
 imgui-hover Widget Gallery/Walks Up/Stairs
 wait 5
 panel-screenshot Widget Gallery | .tmp/UX4-Gallery-Character.png
 assert-images .tmp/UX4-Gallery-Character.png | Engine/Tests/Editor/Reference/WidgetGalleryCharacter.png | same | 0.002
+# The transform widgets (UX-11) at the bottom.
+imgui-hover Widget Gallery/Gizmo Mode:label
+wait 5
+panel-screenshot Widget Gallery | .tmp/UX4-Gallery-Transform.png
+assert-images .tmp/UX4-Gallery-Transform.png | Engine/Tests/Editor/Reference/WidgetGalleryTransform.png | same | 0.002

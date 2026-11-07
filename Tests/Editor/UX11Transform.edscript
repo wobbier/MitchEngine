@@ -1,0 +1,173 @@
+# UX-11: transform rows that feel direct. Each vector axis scrubs from its coloured X/Y/Z handle
+# (one undo step per scrub, Shift fine); a uniform-scale lock keeps Scale's proportions; the
+# rotation dials point an axis (wrapping at ±180); a row's label menu resets, copies and pastes
+# it between entities (each one undo step); the gizmo mode pill springs at Full and is static
+# at Off. Dark and light captures.
+# Havana --scene Assets/Scenes/Tests/LightingTest.lvl --frame-time 0.0166667 --editor-exec Engine/Tests/Editor/UX11Transform.edscript
+wait 20
+create Alpha
+create Beta
+select Alpha
+wait 5
+
+# Axis handles: a 30 px scrub on Position's X handle (speed 0.1 m/px) moves X by 3 m, in one step.
+imgui-assert-item Transform/Position/X:axis
+imgui-assert-value Transform/Position/X:axis | 0.000 m
+imgui-scrub Transform/Position/X:axis | 30
+assert-field Alpha | Transform.Position | [3,0,0]
+imgui-assert-value Transform/Position/X | 3.000 m
+undo
+assert-field Alpha | Transform.Position | [0,0,0]
+redo
+assert-field Alpha | Transform.Position | [3,0,0]
+# Shift is fine (a tenth): 20 px on Y's handle is 0.2 m. Undo takes back only that scrub.
+imgui-scrub Transform/Position/Y:axis | 20 | shift
+assert-field Alpha | Transform.Position | [3,0.2,0]
+undo
+assert-field Alpha | Transform.Position | [3,0,0]
+redo
+assert-field Alpha | Transform.Position | [3,0.2,0]
+# The fields keep their names and order: @2 is still Y's field.
+imgui-assert-value Transform/Position@2 | 0.200 m
+imgui-hover Transform/Position/X:axis
+panel-screenshot Properties | .tmp/UX11-Handles.png
+
+# Uniform-scale lock: off by default. Locked, typing X = 4 on a 2 x 1 x 0.5 scale doubles all.
+imgui-assert-value Transform/Scale/Lock | unlocked
+set Transform.Scale [2,1,0.5]
+imgui-click Transform/Scale/Lock
+imgui-assert-value Transform/Scale/Lock | locked
+imgui-type Transform/Scale/X | 4
+assert-field Alpha | Transform.Scale | [4,2,1]
+undo
+assert-field Alpha | Transform.Scale | [2,1,0.5]
+# Proportions come from the start of the gesture, so passing through 0 keeps them: a scrub of
+# X's handle from 2 down through 0 to -2 flips the others, ratios intact.
+imgui-scrub Transform/Scale/X:axis | -80
+assert-field Alpha | Transform.Scale | [-2,-1,-0.5] ~ 0.0001
+undo
+assert-field Alpha | Transform.Scale | [2,1,0.5]
+# A scrub on Z's handle (speed 0.05 /px): Z 0.5 -> 1, the others follow in proportion.
+imgui-scrub Transform/Scale/Z:axis | 10
+assert-field Alpha | Transform.Scale | [4,2,1]
+imgui-hover Transform/Scale/Lock
+panel-screenshot Properties | .tmp/UX11-ScaleLock.png
+# Unlocked, Y edits alone.
+imgui-click Transform/Scale/Lock
+imgui-assert-value Transform/Scale/Lock | unlocked
+imgui-type Transform/Scale/Y | 3
+assert-field Alpha | Transform.Scale | [4,3,1]
+
+# Rotation dials: open them, point Y up-right (45°) in one step.
+imgui-assert-value Transform/Rotation/Dial | closed
+imgui-assert-item Transform/Dials/Y | false
+imgui-click Transform/Rotation/Dial
+wait 2
+imgui-assert-value Transform/Rotation/Dial | open
+imgui-assert-value Transform/Dials/Y | 0°
+imgui-drag Transform/Dials/Y | 30 -30
+imgui-assert-value Transform/Dials/Y | 45°
+imgui-assert-value Transform/Rotation/Y | 45.00°
+assert-field Alpha | Transform.Rotation | [0,0.3826834,0,0.9238795] ~ 0.0001
+undo
+imgui-assert-value Transform/Dials/Y | 0°
+redo
+imgui-assert-value Transform/Dials/Y | 45°
+undo
+# Pointing left and a little down wraps past 180 to -178°; Alt snaps to 15° steps (180°).
+imgui-drag Transform/Dials/Z | -40 1
+imgui-assert-value Transform/Dials/Z | -179°
+imgui-drag Transform/Dials/Z | -40 1 | alt
+imgui-assert-value Transform/Dials/Z | 180°
+undo
+undo
+imgui-drag Transform/Dials/Y | 30 -30
+imgui-hover Transform/Dials/Y
+panel-screenshot Properties | .tmp/UX11-Dials.png
+# Rotation copies the degrees the row shows (no round-trip dust).
+imgui-click Transform/Rotation:label | right
+wait 2
+imgui-click Copy
+wait 2
+assert-clipboard [0, 45, 0]
+
+# Copy Alpha's Position from its label menu, paste it into Beta.
+imgui-click Transform/Position:label | right
+wait 2
+imgui-click Copy
+wait 2
+assert-clipboard [3, 0.2, 0]
+select Beta
+wait 5
+assert-field Beta | Transform.Position | [0,0,0]
+imgui-click Transform/Position:label | right
+wait 2
+panel-screenshot Properties | .tmp/UX11-RowMenu.png
+imgui-click Paste
+wait 2
+assert-field Beta | Transform.Position | [3,0.2,0]
+imgui-assert-value Transform/Position/Y | 0.200 m
+undo
+assert-field Beta | Transform.Position | [0,0,0]
+redo
+assert-field Beta | Transform.Position | [3,0.2,0]
+# Other spellings paste too; text that isn't a vector is refused and changes nothing.
+clipboard 1 2 3
+imgui-click Transform/Scale:label | right
+wait 2
+imgui-click Paste
+wait 2
+assert-field Beta | Transform.Scale | [1,2,3]
+clipboard not a vector
+imgui-click Transform/Position:label | right
+wait 2
+imgui-click Paste
+wait 2
+assert-field Beta | Transform.Position | [3,0.2,0]
+# Reset puts the row back to its default (Scale 1), in one step.
+imgui-click Transform/Scale:label | right
+wait 2
+imgui-click Reset
+wait 2
+assert-field Beta | Transform.Scale | [1,1,1]
+undo
+assert-field Beta | Transform.Scale | [1,2,3]
+imgui-click Transform/Position:label | right
+wait 2
+imgui-click Reset
+wait 2
+assert-field Beta | Transform.Position | [0,0,0]
+assert-field Alpha | Transform.Position | [3,0.2,0]
+
+# Gizmo modes: the pill springs to Universal at Full (two captures differ), and is still at Off.
+# (The view's stats overlay is hidden: its timings change every frame.)
+preference Scene.ShowStats | false
+preference Appearance.Juice | "Full"
+imgui-assert-value World View/Move | active
+imgui-click World View/Universal
+panel-screenshot World View | .tmp/UX11-Pill-A.png
+panel-screenshot World View | .tmp/UX11-Pill-B.png
+assert-images .tmp/UX11-Pill-A.png | .tmp/UX11-Pill-B.png | different
+imgui-assert-value World View/Universal | active
+imgui-assert-value World View/Move | inactive
+wait 60
+imgui-click World View/Rotate
+wait 60
+imgui-assert-value World View/Rotate | active
+panel-screenshot World View | .tmp/UX11-Pill-Rotate.png
+preference Appearance.Juice | "Off"
+imgui-click World View/Scale
+panel-screenshot World View | .tmp/UX11-Pill-Off-A.png
+panel-screenshot World View | .tmp/UX11-Pill-Off-B.png
+assert-images .tmp/UX11-Pill-Off-A.png | .tmp/UX11-Pill-Off-B.png | same
+imgui-click World View/Move
+preference Appearance.Juice | "Full"
+preference Scene.ShowStats | true
+
+# Light theme.
+select Alpha
+wait 5
+preference Appearance.Theme | "Light"
+wait 5
+panel-screenshot Properties | .tmp/UX11-Light.png
+preference Appearance.Theme | "Dark"

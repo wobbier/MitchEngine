@@ -63,6 +63,25 @@ namespace ReflectionUI
     using DecoratorFixUp = std::function<void( void* InInstance, const Reflection::TypeInfo& InType )>;
     void RegisterFieldDecorator( const std::string& InTypeName, const std::string& InFieldName, std::vector<std::string> InFieldsItEdits, FieldDecorator InDecorator, DecoratorFixUp InFixUp );
 
+    // Vector rows (UX-11). Every reflected vector (Vector2/3/4, Quaternion as Euler degrees) row
+    // already scrubs per axis from its coloured X/Y/Z handles ("Transform/Position/X:axis") and
+    // offers Reset / Copy / Paste on a right-click of its label. A field can also ask for:
+    struct VectorRowOptions
+    {
+        // A uniform-scale lock ending the row ("Transform/Scale/Lock"): while it is on, editing
+        // one axis scales the others in proportion. Its state is this editor preference (shared
+        // by every entity). Vector2/3/4 fields.
+        std::string LockPreference;
+        // A dial toggle ending the row ("Transform/Rotation/Dial") whose state is this editor
+        // preference. The row only draws the toggle: a field decorator reads the preference and
+        // draws the dials (TransformInspector). Quaternion fields.
+        std::string DialPreference;
+        // Leave room for a trailing toggle the row doesn't have, so its axes line up with rows
+        // that do (Transform Position beside Rotation's dial and Scale's lock).
+        bool ReserveTrailing = false;
+    };
+    void SetVectorRowOptions( const std::string& InTypeName, const std::string& InFieldName, VectorRowOptions InOptions );
+
     // The unit-field description of a reflected number (unit, ranges, log, default), for
     // decorators that edit numbers.
     MeWidgets::NumberSpec NumberSpecFor( const Reflection::FieldInfo& InField );

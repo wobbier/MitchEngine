@@ -10,6 +10,7 @@
 #include <Widgets/PhysicsWidgets.h>
 #include <Widgets/AudioWidgets.h>
 #include <Widgets/CharacterWidgets.h>
+#include <Widgets/TransformWidgets.h>
 #include <Utils/HavanaUtils.h>
 #include <ImGuiTheme.h>
 #include <imgui.h>
@@ -181,6 +182,23 @@ namespace
         return samples;
     }
 
+    // Transform widgets (UX-11) with fixed samples: a position, a 2 x 1 x 1 scale with the lock
+    // on, a rotation of 30° / -45° / 120° on the dials, the Rotate gizmo mode.
+    struct TransformSamples
+    {
+        float Position[3] = { 1.5f, 0.f, -2.f };
+        float Scale[3] = { 2.f, 1.f, 1.f };
+        bool ScaleLocked = true;
+        float Rotation[3] = { 30.f, -45.f, 120.f };
+        int GizmoMode = 1;
+    };
+
+    TransformSamples& Transforms()
+    {
+        static TransformSamples samples;
+        return samples;
+    }
+
     const MeWidgets::Reference kSampleRungs[] = {
         { "Candle", 0.1, "A candle flame" },
         { "Bulb", 1.0, "A household bulb" },
@@ -218,6 +236,7 @@ void WidgetGalleryWidget::ResetSamples()
 	Physics() = PhysicsSamples();
 	Audio() = AudioSamples();
 	Characters() = CharacterSamples();
+	Transforms() = TransformSamples();
 	MeWidgets::Juice::Reset();
 }
 
@@ -342,6 +361,26 @@ void WidgetGalleryWidget::Render()
 	MeWidgets::PaceStrip( "Pace", character.Speed, MakeSpec( Unit::MetersPerSecond, 0.0, 100.0, false, 6.0 ), 6.0 );
 	MeWidgets::JumpArc( "Jump", character.JumpHeight, MakeSpec( Unit::Meters, 0.0, 20.0, false, 1.2 ), character.Speed, 9.81 );
 	MeWidgets::SlopeWedge( "Walks Up", character.SlopeLimit, MakeSpec( Unit::Degrees, 0.0, 89.0, false, 50.0 ) );
+
+	ImGui::SeparatorText( "Transform widgets" );
+	TransformSamples& transform = Transforms();
+	ImGui::PushID( "Transform" );
+	{
+		ImGui::PushID( "Position" );
+		HavanaUtils::Label( "Position" );
+		const float zero = 0.f;
+		HavanaUtils::DragAxes( "##value", transform.Position, 3, 0.1f, "%.3f m", nullptr, &zero );
+		ImGui::PopID();
+		ImGui::PushID( "Scale" );
+		HavanaUtils::Label( "Scale" );
+		MeWidgets::LockedAxes( "##value", transform.Scale, 3, 0.05f, "%.3f\xC3\x97", transform.ScaleLocked );
+		ImGui::PopID();
+		MeWidgets::AngleDials( "Dials", transform.Rotation, 3 );
+		static const char* const kModes[] = { "Move", "Rotate", "Scale" };
+		HavanaUtils::Label( "Gizmo Mode" );
+		MeWidgets::SpringPill( "GizmoMode", kModes, nullptr, 3, transform.GizmoMode );
+	}
+	ImGui::PopID();
 	ImGui::End();
 }
 
