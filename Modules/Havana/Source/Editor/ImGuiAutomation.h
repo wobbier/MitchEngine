@@ -18,6 +18,10 @@
 //   imgui-assert-item <item> [| true|false]       the item was drawn last frame (or wasn't)
 //   imgui-dump [<filter>]           logs every item drawn last frame (window, section, label, row)
 //   panel-screenshot <window> | <path.png>   the main window's screenshot cropped to that panel
+//                                   (the pointer is parked on the menu bar first: no hovers)
+//   assert-images a.png | b.png | same|different [| fraction]   compares two captures: the share
+//                                   of pixels with a channel off by more than 24 (same: at most
+//                                   fraction, 0 by default; different: more than it, 0.0005)
 namespace ImGuiAutomation
 {
     // Called once per automation tick before commands run.

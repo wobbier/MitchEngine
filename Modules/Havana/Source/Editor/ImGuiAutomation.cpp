@@ -7,6 +7,11 @@
 #include "CLog.h"
 
 #include <SDL.h>
+#include <bimg/decode.h>
+#include <bx/allocator.h>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <algorithm>
@@ -57,6 +62,7 @@ namespace ImGuiAutomation
         {
             uint32_t Baseline = 0;
             int Frames = 0;
+            int Parked = 0;         // frames the pointer has been parked away from panels
             std::string Path;
         };
         ScreenshotWait& PanelShot()
@@ -275,6 +281,61 @@ namespace ImGuiAutomation
             OutSteps.push_back( release );
         }
 
+        struct Image
+        {
+            uint32_t Width = 0;
+            uint32_t Height = 0;
+            std::vector<uint8_t> Rgba;
+        };
+
+        bool LoadImage( const std::string& InPath, Image& OutImage, std::string& OutError )
+        {
+            std::ifstream file( InPath, std::ios::binary );
+            if( !file )
+            {
+                OutError = "can't read " + InPath;
+                return false;
+            }
+            const std::vector<uint8_t> bytes( ( std::istreambuf_iterator<char>( file ) ), std::istreambuf_iterator<char>() );
+            static bx::DefaultAllocator allocator;
+            bimg::ImageContainer* image = bimg::imageParse( &allocator, bytes.data(), static_cast<uint32_t>( bytes.size() ), bimg::TextureFormat::RGBA8 );
+            if( !image )
+            {
+                OutError = "can't decode " + InPath;
+                return false;
+            }
+            OutImage.Width = image->m_width;
+            OutImage.Height = image->m_height;
+            const uint8_t* data = static_cast<const uint8_t*>( image->m_data );
+            OutImage.Rgba.assign( data, data + size_t( image->m_width ) * image->m_height * 4 );
+            bimg::imageFree( image );
+            return true;
+        }
+
+        // The share of pixels whose largest channel difference is above 24 (of 255), as the
+        // screenshot regression counts them.
+        bool ChangedFraction( const Image& InA, const Image& InB, double& OutFraction, std::string& OutError )
+        {
+            if( InA.Width != InB.Width || InA.Height != InB.Height )
+            {
+                OutError = "the images are different sizes";
+                return false;
+            }
+            size_t changed = 0;
+            const size_t pixels = size_t( InA.Width ) * InA.Height;
+            for( size_t i = 0; i < pixels; ++i )
+            {
+                int largest = 0;
+                for( int c = 0; c < 3; ++c )
+                {
+                    largest = std::max( largest, std::abs( int( InA.Rgba[i * 4 + c] ) - int( InB.Rgba[i * 4 + c] ) ) );
+                }
+                changed += largest > 24 ? 1 : 0;
+            }
+            OutFraction = pixels ? double( changed ) / double( pixels ) : 0.0;
+            return true;
+        }
+
         bool NearlyEqualText( const std::string& InActual, const std::string& InExpected, float InTolerance )
         {
             char* actualEnd = nullptr;
@@ -299,7 +360,7 @@ namespace ImGuiAutomation
     {
         return InCommand == "imgui-click" || InCommand == "imgui-drag" || InCommand == "imgui-scrub" || InCommand == "imgui-type"
             || InCommand == "imgui-hover" || InCommand == "imgui-assert-value" || InCommand == "imgui-assert-item"
-            || InCommand == "imgui-dump" || InCommand == "panel-screenshot";
+            || InCommand == "imgui-dump" || InCommand == "panel-screenshot" || InCommand == "assert-images";
     }
 
 
@@ -338,13 +399,14 @@ namespace ImGuiAutomation
 
         // The item log records only once a flow first asks for it (flows that never drive ImGui
         // pay nothing); it needs one drawn frame before there is anything to find.
-        if( InCommand != "panel-screenshot" && !MeWidgets::ItemLog::IsEnabled() )
+        const bool needsItems = InCommand != "panel-screenshot" && InCommand != "assert-images";
+        if( needsItems && !MeWidgets::ItemLog::IsEnabled() )
         {
             MeWidgets::ItemLog::Enable( true );
             OutRetry = true;
             return true;
         }
-        if( InCommand != "panel-screenshot" && MeWidgets::ItemLog::LastFrame().empty() )
+        if( needsItems && MeWidgets::ItemLog::LastFrame().empty() )
         {
             OutRetry = true;
             return true;
@@ -364,6 +426,45 @@ namespace ImGuiAutomation
             return true;
         }
 
+        if( InCommand == "assert-images" )
+        {
+            // assert-images a.png | b.png | same|different [| fraction]
+            if( parts.size() < 3 || ( parts[2] != "same" && parts[2] != "different" ) )
+            {
+                OutError = "usage: assert-images a.png | b.png | same|different [| fraction]";
+                return false;
+            }
+            Image a;
+            Image b;
+            double fraction = 0.0;
+            if( !LoadImage( parts[0], a, OutError ) || !LoadImage( parts[1], b, OutError ) || !ChangedFraction( a, b, fraction, OutError ) )
+            {
+                return false;
+            }
+            const bool wantSame = parts[2] == "same";
+            double limit = wantSame ? 0.0 : 0.0005;
+            if( parts.size() > 3 )
+            {
+                char* end = nullptr;
+                limit = std::strtod( parts[3].c_str(), &end );
+                if( end == parts[3].c_str() || !Trim( end ).empty() || limit < 0.0 || limit > 1.0 )
+                {
+                    OutError = "the fraction must be a number from 0 to 1";
+                    return false;
+                }
+            }
+            const bool same = fraction <= limit;
+            char text[96];
+            std::snprintf( text, sizeof( text ), "%.4f%% of pixels changed (limit %.4f%%)", fraction * 100.0, limit * 100.0 );
+            CLog::Log( CLog::LogType::Info, std::string( "[assert-images] " ) + parts[0] + " vs " + parts[1] + ": " + text );
+            if( same != wantSame )
+            {
+                OutError = std::string( wantSame ? "images differ: " : "images are the same: " ) + text;
+                return false;
+            }
+            return true;
+        }
+
         if( InCommand == "panel-screenshot" )
         {
             ScreenshotWait& wait = PanelShot();
@@ -372,6 +473,11 @@ namespace ImGuiAutomation
                 if( GetEngine().GetRenderer().GetScreenshotCount() > wait.Baseline )
                 {
                     wait.Frames = 0;
+                    if( !std::filesystem::exists( wait.Path ) )
+                    {
+                        OutError = "the screenshot wasn't written to " + wait.Path;
+                        return false;
+                    }
                     return true;
                 }
                 if( --wait.Frames == 0 )
@@ -388,6 +494,19 @@ namespace ImGuiAutomation
                 OutError = "usage: panel-screenshot <window> | <path.png>";
                 return false;
             }
+            // Park the pointer on the main menu bar first, so no hover or tooltip from the last
+            // gesture ends up in the picture.
+            if( wait.Parked < 3 )
+            {
+                const ImGuiViewport* main = ImGui::GetMainViewport();
+                Step park;
+                park.Pos = ImVec2( main->Pos.x + main->Size.x * 0.5f, main->Pos.y + 2.f );
+                ApplyStep( park );
+                ++wait.Parked;
+                OutRetry = true;
+                return true;
+            }
+            wait.Parked = 0;
             ImGuiWindow* window = ImGui::FindWindowByName( query.c_str() );
             if( !window || !window->WasActive )
             {
@@ -416,6 +535,9 @@ namespace ImGuiAutomation
             wait.Baseline = GetEngine().GetRenderer().GetScreenshotCount();
             wait.Frames = 120;
             wait.Path = parts[1];
+            // A stale capture from an earlier run must not pass for this one.
+            std::error_code removeError;
+            std::filesystem::remove( parts[1], removeError );
             GetEngine().GetRenderer().RequestScreenshot( parts[1] );
             OutRetry = true;
             return true;

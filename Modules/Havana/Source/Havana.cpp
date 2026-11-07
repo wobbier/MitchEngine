@@ -43,6 +43,7 @@
 #include "Editor/WidgetRegistry.h"
 #include "Window/IWindow.h"
 #include "Widgets/HistoryWidget.h"
+#include "Widgets/WidgetGalleryWidget.h"
 #include "Widgets/ErrorListWidget.h"
 #include "Widgets/LocalizationWidget.h"
 #include "Widgets/OnboardingWidgets.h"
@@ -143,6 +144,8 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
 
     History.reset( new HistoryWidget() );
     RegisteredWidgets.push_back( History );
+    Gallery.reset( new WidgetGalleryWidget() );
+    RegisteredWidgets.push_back( Gallery );
     ErrorList.reset( new ErrorListWidget() );
     RegisteredWidgets.push_back( ErrorList );
     LocalizationTables.reset( new LocalizationWidget() );
@@ -541,6 +544,7 @@ void Havana::NewFrame()
     AssetBrowser->Render();
     ResourceMonitor->Render();
     History->Render();
+    Gallery->Render();
     ErrorList->Render();
     DrawToasts();
     LocalizationTables->Render();

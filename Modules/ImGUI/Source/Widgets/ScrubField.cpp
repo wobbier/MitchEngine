@@ -1,5 +1,6 @@
 #include "ScrubField.h"
 #include "ItemLog.h"
+#include "Juice.h"
 #include "Utils/HavanaUtils.h"
 #include "ImGuiTheme.h"
 
@@ -95,7 +96,24 @@ namespace MeWidgets
         }
 
         // Applies this frame's mouse movement to an active scrub. Returns true if the value changed.
-        bool UpdateScrub( ImGuiID InId, double& InOutValue, const NumberSpec& InSpec, float InPixelsForSpan, bool InMixed = false )
+        // Where a value sits against its limits and soft range, for detent ticks.
+        int Zone( double InValue, const NumberSpec& InSpec )
+        {
+            double low = 0.0;
+            double high = 0.0;
+            const bool atMin = ( InSpec.HasRange && InValue <= InSpec.Min ) || ( InSpec.HasClamp && InValue <= InSpec.ClampMin );
+            const bool atMax = ( InSpec.HasRange && InValue >= InSpec.Max ) || ( InSpec.HasClamp && InValue >= InSpec.ClampMax );
+            if( atMin ) return -2;
+            if( atMax ) return 2;
+            if( InSpec.HasSoftRange && InSpec.ScaleRange( low, high ) )
+            {
+                return InValue < low ? -1 : InValue > high ? 1 : 0;
+            }
+            return 0;
+        }
+
+        // InFeedbackId: the value box that shows ticks and flashes (the label's scrub feeds it).
+        bool UpdateScrub( ImGuiID InId, double& InOutValue, const NumberSpec& InSpec, float InPixelsForSpan, bool InMixed, ImGuiID InFeedbackId )
         {
             ImGuiContext& g = *GImGui;
             ScrubGesture& gesture = Gesture();
@@ -127,6 +145,11 @@ namespace MeWidgets
             if( next == InOutValue && !InMixed )
             {
                 return false;
+            }
+            // Detents: each snapped step, hitting a limit, crossing the soft range's ends.
+            if( ( g.IO.KeyAlt && next != InOutValue ) || Zone( next, InSpec ) != Zone( InOutValue, InSpec ) )
+            {
+                Juice::Tick( InFeedbackId, g.IO.MousePos );
             }
             InOutValue = next;
             return true;
@@ -223,6 +246,8 @@ namespace MeWidgets
             return false;
         }
         const ImRect bb = g.LastItemData.Rect;
+        // The value box drawn next in this ID scope shows the feedback.
+        const ImGuiID feedbackId = ImGui::GetID( "##value" );
         const bool hovered = ImGui::ItemHoverable( bb, id, g.LastItemData.InFlags );
         bool changed = false;
         if( hovered )
@@ -239,6 +264,9 @@ namespace MeWidgets
                     {
                         InOutValue = reset;
                         changed = true;
+                        Juice::Flash( feedbackId );
+                        Juice::Burst( ImVec2( bb.Max.x, bb.GetCenter().y ), ImGui::GetColorU32( ImGuiTheme::AccentText() ), 12 );
+                        Juice::Play( Juice::Cue::Reset );
                     }
                     Gesture().Raw = InOutValue;
                 }
@@ -248,7 +276,7 @@ namespace MeWidgets
         {
             if( g.IO.MouseDown[ImGuiMouseButton_Left] )
             {
-                changed |= UpdateScrub( id, InOutValue, InSpec, InPixelsForSpan, InMixed );
+                changed |= UpdateScrub( id, InOutValue, InSpec, InPixelsForSpan, InMixed, feedbackId );
             }
             else
             {
@@ -290,18 +318,37 @@ namespace MeWidgets
         bool changed = false;
         TextEntry& entry = Entry();
 
+        // Applies typed text: a change flashes, a refusal shakes and says why.
+        auto commit = [&]() {
+            double parsed = 0.0;
+            std::string error;
+            if( ParseValue( InSpec.FieldUnit, entry.Buffer, parsed, &error ) )
+            {
+                const double next = Constrain( parsed, InSpec );
+                if( next != InOutValue || mixed )
+                {
+                    InOutValue = next;
+                    changed = true;
+                    Juice::Flash( id );
+                    Juice::Play( Juice::Cue::Commit );
+                }
+            }
+            else
+            {
+                entry.ErrorId = id;
+                entry.Error = error;
+                entry.ErrorUntil = g.Time + 2.5;
+                Juice::Shake( id );
+            }
+        };
+
         // Typing that ended without Enter or a click away (Tab, arrow navigation) still applies.
         if( !editing && entry.Id == id )
         {
             entry.Id = 0;
             if( entry.Initial != entry.Buffer && g.ActiveIdPreviousFrame == id )
             {
-                double parsed = 0.0;
-                if( ParseValue( InSpec.FieldUnit, entry.Buffer, parsed ) )
-                {
-                    InOutValue = Constrain( parsed, InSpec );
-                    changed = true;
-                }
+                commit();
             }
         }
 
@@ -329,7 +376,7 @@ namespace MeWidgets
             {
                 if( g.IO.MouseDown[ImGuiMouseButton_Left] )
                 {
-                    changed = UpdateScrub( id, InOutValue, InSpec, width );
+                    changed = UpdateScrub( id, InOutValue, InSpec, width, mixed, id );
                 }
                 else
                 {
@@ -369,23 +416,7 @@ namespace MeWidgets
             }
             if( finished && entry.Initial != entry.Buffer )
             {
-                double parsed = 0.0;
-                std::string error;
-                if( ParseValue( InSpec.FieldUnit, entry.Buffer, parsed, &error ) )
-                {
-                    const double next = Constrain( parsed, InSpec );
-                    if( next != InOutValue || mixed )
-                    {
-                        InOutValue = next;
-                        changed = true;
-                    }
-                }
-                else
-                {
-                    entry.ErrorId = id;
-                    entry.Error = error;
-                    entry.ErrorUntil = g.Time + 2.5;
-                }
+                commit();
             }
             if( changed )
             {
@@ -395,22 +426,48 @@ namespace MeWidgets
             return changed;
         }
 
-        // Frame, fill bar over the (soft) range, then the value in its unit.
+        // Frame, fill bar over the (soft) range, then the value in its unit. Juice: a refused
+        // entry shakes the box, the fill springs to its value, changes flash, detents tick.
         const ImGuiTheme::Palette& palette = ImGuiTheme::ActivePalette();
         const bool active = g.ActiveId == id;
+        const float shake = Juice::ShakeOffset( id );
+        const ImRect box( ImVec2( bb.Min.x + shake, bb.Min.y ), ImVec2( bb.Max.x + shake, bb.Max.y ) );
         const ImU32 frameColor = ImGui::GetColorU32( active ? ImGuiCol_FrameBgActive : hovered ? ImGuiCol_FrameBgHovered : ImGuiCol_FrameBg );
-        ImGui::RenderNavHighlight( bb, id );
-        ImGui::RenderFrame( bb.Min, bb.Max, frameColor, true, style.FrameRounding );
-        const double fill = mixed ? -1.0 : FillFraction( InOutValue, InSpec );
-        if( fill > 0.0 )
+        ImGui::RenderNavHighlight( box, id );
+        ImGui::RenderFrame( box.Min, box.Max, frameColor, true, style.FrameRounding );
+        const double target = mixed ? -1.0 : FillFraction( InOutValue, InSpec );
+        if( target >= 0.0 )
         {
-            const float right = bb.Min.x + static_cast<float>( fill ) * bb.GetWidth();
-            const ImVec4 tint = ImGuiTheme::WithAlpha( palette.Accent, hovered || active ? 0.55f : 0.4f );
-            window->DrawList->AddRectFilled( bb.Min, ImVec2( std::max( right, bb.Min.x + 1.f ), bb.Max.y ), ImGui::GetColorU32( tint ), style.FrameRounding,
-                fill >= 0.999 ? ImDrawFlags_RoundCornersAll : ImDrawFlags_RoundCornersLeft );
+            // Only a value this field just set (typed, reset) springs; scrubs follow the pointer
+            // exactly and outside changes (another entity, undo, play) jump. The spring may
+            // overshoot past either end; the bar stays inside the frame.
+            if( Juice::FlashAmount( id ) <= 0.f )
+            {
+                Juice::Snap( id, static_cast<float>( target ) );
+            }
+            const float fill = std::clamp( Juice::Spring( id, static_cast<float>( target ) ), 0.f, 1.f );
+            if( fill > 0.f )
+            {
+                const float right = box.Min.x + fill * box.GetWidth();
+                const ImVec4 tint = ImGuiTheme::WithAlpha( palette.Accent, hovered || active ? 0.55f : 0.4f );
+                window->DrawList->AddRectFilled( box.Min, ImVec2( std::max( right, box.Min.x + 1.f ), box.Max.y ), ImGui::GetColorU32( tint ), style.FrameRounding,
+                    fill >= 0.999f ? ImDrawFlags_RoundCornersAll : ImDrawFlags_RoundCornersLeft );
+            }
+            const float tick = Juice::TickAmount( id );
+            if( tick > 0.f )
+            {
+                const float x = box.Min.x + fill * box.GetWidth();
+                const float thickness = std::max( 1.f, std::round( ImGui::GetFontSize() / 9.f ) );
+                window->DrawList->AddLine( ImVec2( x, box.Min.y ), ImVec2( x, box.Max.y ), ImGui::GetColorU32( ImGuiTheme::WithAlpha( palette.Text, tick ) ), thickness * 2.f );
+            }
+        }
+        const float flash = Juice::FlashAmount( id );
+        if( flash > 0.f )
+        {
+            window->DrawList->AddRectFilled( box.Min, box.Max, ImGui::GetColorU32( ImGuiTheme::WithAlpha( palette.Hovered, 0.6f * flash ) ), style.FrameRounding );
         }
         const std::string text = mixed ? std::string( "\xE2\x80\x94" ) : Shown( InOutValue, InSpec );
-        ImGui::RenderTextClipped( bb.Min, bb.Max, text.c_str(), nullptr, nullptr, ImVec2( 0.5f, 0.5f ) );
+        ImGui::RenderTextClipped( box.Min, box.Max, text.c_str(), nullptr, nullptr, ImVec2( 0.5f, 0.5f ) );
 
         if( hovered && !active )
         {
@@ -418,7 +475,7 @@ namespace MeWidgets
         }
         if( entry.ErrorId == id && g.Time < entry.ErrorUntil )
         {
-            window->DrawList->AddRect( bb.Min, bb.Max, ImGui::GetColorU32( palette.Error ), style.FrameRounding, 0, std::max( 1.f, std::round( ImGui::GetFontSize() / 9.f ) ) );
+            window->DrawList->AddRect( box.Min, box.Max, ImGui::GetColorU32( palette.Error ), style.FrameRounding, 0, std::max( 1.f, std::round( ImGui::GetFontSize() / 9.f ) ) );
             ImGui::SetTooltip( "%s", entry.Error.c_str() );
         }
         if( changed )
