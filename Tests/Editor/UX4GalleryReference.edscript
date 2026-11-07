@@ -20,3 +20,8 @@ imgui-hover Widget Gallery/Fog Visibility
 wait 5
 panel-screenshot Widget Gallery | .tmp/UX4-Gallery-Post.png
 assert-images .tmp/UX4-Gallery-Post.png | Engine/Tests/Editor/Reference/WidgetGalleryPost.png | same | 0.002
+# The physics widgets (UX-8) below them.
+imgui-hover Widget Gallery/Lock Rotation/Z
+wait 5
+panel-screenshot Widget Gallery | .tmp/UX4-Gallery-Physics.png
+assert-images .tmp/UX4-Gallery-Physics.png | Engine/Tests/Editor/Reference/WidgetGalleryPhysics.png | same | 0.002

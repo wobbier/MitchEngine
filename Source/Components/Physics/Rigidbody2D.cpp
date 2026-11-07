@@ -5,7 +5,7 @@
 
 ME_REFLECT_BEGIN( Rigidbody2D )
     ME_FIELD_NAMED( Type, "BodyType" );   // "Type" is the component type in scene JSON
-    ME_FIELD( Mass ).Range( 0.f, 100000.f ).Unit( Reflection::Unit::Kilograms ).Log().SoftRange( 0.f, 1000.f ).Tooltip( "Kilograms; 0 derives the mass from the colliders' densities" );
+    ME_FIELD( Mass ).Range( 0.f, 100000.f ).Unit( Reflection::Unit::Kilograms ).Log().SoftRange( 0.f, 1000.f ).Default( 1.f ).Tooltip( "Kilograms; 0 derives the mass from the colliders' densities" );
     ME_FIELD( LinearDamping ).Range( 0.f, 100.f ).Log().SoftRange( 0.f, 10.f );
     ME_FIELD( AngularDamping ).Range( 0.f, 100.f ).Log().SoftRange( 0.f, 10.f );
     ME_FIELD( GravityScale ).Range( -10.f, 10.f ).Unit( Reflection::Unit::Multiplier );

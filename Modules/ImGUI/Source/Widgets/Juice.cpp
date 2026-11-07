@@ -33,6 +33,12 @@ namespace MeWidgets::Juice
             double Start = -1.0;
         };
 
+        struct Loop
+        {
+            double Start = 0.0;
+            double Touched = 0.0;
+        };
+
         struct Particle
         {
             ImVec2 Origin;
@@ -54,6 +60,7 @@ namespace MeWidgets::Juice
             std::unordered_map<ImGuiID, Event> Flashes;
             std::unordered_map<ImGuiID, Event> Shakes;
             std::unordered_map<ImGuiID, Event> Ticks;
+            std::unordered_map<ImGuiID, Loop> Loops;
             std::vector<Particle> Particles;
             uint32_t Seed = kSeed;
             std::function<void( Cue )> Player;
@@ -281,6 +288,33 @@ namespace MeWidgets::Juice
         return Strength() * Decay( Get().Ticks, InId, kTickTime );
     }
 
+    float LoopTime( ImGuiID InId, float InPeriod )
+    {
+        EnsureHook();
+        State& state = Get();
+        if( Motion() <= 0.f || InId == 0 || !( InPeriod > 0.f ) )
+        {
+            state.Loops.erase( InId );
+            return -1.f;
+        }
+        auto [entry, created] = state.Loops.try_emplace( InId );
+        if( created )
+        {
+            entry->second.Start = state.Time;
+        }
+        entry->second.Touched = state.Time;
+        return static_cast<float>( std::fmod( std::max( state.Time - entry->second.Start, 0.0 ), static_cast<double>( InPeriod ) ) );
+    }
+
+    void Restart( ImGuiID InId )
+    {
+        auto found = Get().Loops.find( InId );
+        if( found != Get().Loops.end() )
+        {
+            found->second.Start = Get().Time;
+        }
+    }
+
     void Burst( ImVec2 InPos, ImU32 InColor, int InCount )
     {
         EnsureHook();
@@ -351,6 +385,10 @@ namespace MeWidgets::Juice
         {
             it = state.Time - it->second.Touched > kForgetAfter ? state.Springs.erase( it ) : std::next( it );
         }
+        for( auto it = state.Loops.begin(); it != state.Loops.end(); )
+        {
+            it = state.Time - it->second.Touched > kForgetAfter ? state.Loops.erase( it ) : std::next( it );
+        }
         state.Particles.erase( std::remove_if( state.Particles.begin(), state.Particles.end(),
             [&]( const Particle& InParticle ) { return state.Time - InParticle.Start >= kParticleTime; } ), state.Particles.end() );
     }
@@ -392,6 +430,7 @@ namespace MeWidgets::Juice
         state.Flashes.clear();
         state.Shakes.clear();
         state.Ticks.clear();
+        state.Loops.clear();
         state.Particles.clear();
         // Bursts after a reset repeat exactly (screenshot regression).
         state.Seed = kSeed;

@@ -7,6 +7,7 @@
 #include <Widgets/LightWidgets.h>
 #include <Widgets/CameraWidgets.h>
 #include <Widgets/PostWidgets.h>
+#include <Widgets/PhysicsWidgets.h>
 #include <Utils/HavanaUtils.h>
 #include <ImGuiTheme.h>
 #include <imgui.h>
@@ -124,6 +125,24 @@ namespace
         return samples;
     }
 
+    // Physics widgets (UX-8) with fixed samples: a 70 kg body on a rubbery collider, damped a
+    // little, with its Y rotation locked.
+    struct PhysicsSamples
+    {
+        double Mass = 70.0;
+        double Restitution = 0.6;
+        double Friction = 0.6;
+        double LinearDamping = 0.5;
+        bool LockPosition[3] = { false, false, false };
+        bool LockRotation[3] = { false, true, false };
+    };
+
+    PhysicsSamples& Physics()
+    {
+        static PhysicsSamples samples;
+        return samples;
+    }
+
     const MeWidgets::Reference kSampleRungs[] = {
         { "Candle", 0.1, "A candle flame" },
         { "Bulb", 1.0, "A household bulb" },
@@ -158,6 +177,7 @@ void WidgetGalleryWidget::ResetSamples()
 	Lights() = LightSamples();
 	Cameras() = CameraSamples();
 	Posts() = PostSamples();
+	Physics() = PhysicsSamples();
 	MeWidgets::Juice::Reset();
 }
 
@@ -251,6 +271,19 @@ void WidgetGalleryWidget::Render()
 	MeWidgets::LiftGammaGainCurve( "Lift Gamma Gain", post.Lift, post.Gamma, post.Gain, 1.0 );
 	MeWidgets::NumberSpec density = MakeSpec( Unit::PerMeter, 0.0, 0.5, true, 0.02 );
 	MeWidgets::FogVisibilityBar( "Fog Visibility", post.FogDensity, density, 0.0, 1.0, post.FogColor, 0.15 );
+
+	ImGui::SeparatorText( "Physics widgets" );
+	PhysicsSamples& physics = Physics();
+	MeWidgets::NumberSpec mass = MakeSpec( Unit::Kilograms, 0.0, 100000.0, true, 1.0 );
+	MeWidgets::MassLadder( "Weighs Like", physics.Mass, mass, 1.0, true );
+	MeWidgets::BouncePreview( "Bounce", physics.Restitution );
+	MeWidgets::SlideAngleRamp( "Slide Angle", physics.Friction, MakeSpec( Unit::None, 0.0, 2.0, false, 0.6 ) );
+	// Damped every 1/240 s: the editor's 60 Hz fixed step in four substeps.
+	MeWidgets::DampingGraph( "Linear Decay", physics.LinearDamping, MakeSpec( Unit::None, 0.0, 100.0, true, 0.0 ), 1.0 / 240.0, "speed" );
+	const char* const axisNames[] = { "X", "Y", "Z" };
+	const int axes[] = { 0, 1, 2 };
+	MeWidgets::AxisLocks( "Lock Position", physics.LockPosition, axisNames, axes, 3, false );
+	MeWidgets::AxisLocks( "Lock Rotation", physics.LockRotation, axisNames, axes, 3, true );
 	ImGui::End();
 }
 

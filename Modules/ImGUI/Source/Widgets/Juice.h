@@ -52,6 +52,13 @@ namespace MeWidgets::Juice
     void Tick( ImGuiID InId, ImVec2 InPos );
     float TickAmount( ImGuiID InId );
 
+    // A looping animation's clock (a bouncing ball): seconds into the current InPeriod-long loop
+    // for InId, on Juice's time (the fixed step with --frame-time). Negative when motion is off
+    // (juice Off or reduce motion): draw the still picture instead. Restart( InId ) starts the
+    // loop over from 0 (the value it shows changed).
+    float LoopTime( ImGuiID InId, float InPeriod );
+    void Restart( ImGuiID InId );
+
     // Sparks flying out from InPos in InColor (no-op at Off or with reduce motion).
     void Burst( ImVec2 InPos, ImU32 InColor, int InCount = 10 );
     int LiveParticles();
