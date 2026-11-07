@@ -2037,6 +2037,7 @@ bool NetCore::WriteReport( const std::string& InPath, double InNow ) const
             shots["SamePart"] = totals.SamePart;
             shots["Disagreed"] = totals.Disagreed;
             shots["ClientOnly"] = totals.ClientOnly;
+            shots["ClientOnlyTicks"] = totals.ClientOnlyTicks;
             shots["ServerOnly"] = totals.ServerOnly;
             shots["Pending"] = m_shotLedger.GetPendingCount();
             shots["Bundles"] = m_shotBundles;

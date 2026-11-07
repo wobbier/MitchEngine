@@ -622,6 +622,33 @@ TEST_CASE( "Net: a server that doesn't share with clients' Net Debuggers refuses
 }
 
 
+TEST_CASE( "Net: the ledger settles shots with no result as client only, a volley's on one tick counted once (NET-7)" )
+{
+    NetShotLedger ledger;
+    for( int i = 0; i < 10; ++i )
+    {
+        NetPredictedShot pellet;
+        pellet.Tick = 500;
+        pellet.Shooter = 7;
+        pellet.Direction = Vector3( 0.f, 0.f, 1.f );
+        ledger.AddPredicted( pellet, 1.0 );
+    }
+    NetPredictedShot single;
+    single.Tick = 530;
+    single.Shooter = 7;
+    single.Direction = Vector3( 0.f, 0.f, 1.f );
+    ledger.AddPredicted( single, 1.5 );
+    ledger.Update( 1.0 + NetShotLedger::kPendingSeconds * 0.5 );
+    CHECK( ledger.GetPendingCount() == 11 );
+    ledger.Update( 2.0 + NetShotLedger::kPendingSeconds );
+    CHECK( ledger.GetPendingCount() == 0 );
+    CHECK( ledger.GetTotals().ClientOnly == 11 );
+    CHECK( ledger.GetTotals().ClientOnlyTicks == 2 );
+    ledger.Reset();
+    CHECK( ledger.GetTotals().ClientOnlyTicks == 0 );
+}
+
+
 TEST_CASE( "Net: shot results round-trip in a bundle and a bandwidth report in its message; a cut one, or another format's, reads as false (NET-7)" )
 {
     NetShotResult result;

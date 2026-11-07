@@ -338,6 +338,7 @@ void NetShotLedger::Reset()
     m_pending.clear();
     m_recent.clear();
     m_totals = Totals();
+    m_lastClientOnlyTick = 0;
 }
 
 
@@ -366,6 +367,12 @@ void NetShotLedger::Settle( NetShotComparison InComparison )
     else if( InComparison.HasClient )
     {
         ++m_totals.ClientOnly;
+        // A trigger pull's rays (pellets, a sweep) share a tick and settle together.
+        if( m_totals.ClientOnlyTicks == 0 || InComparison.Client.Tick != m_lastClientOnlyTick )
+        {
+            ++m_totals.ClientOnlyTicks;
+            m_lastClientOnlyTick = InComparison.Client.Tick;
+        }
     }
     else
     {

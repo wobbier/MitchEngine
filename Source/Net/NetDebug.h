@@ -181,6 +181,7 @@ public:
         uint64_t SamePart = 0;
         uint64_t Disagreed = 0;
         uint64_t ClientOnly = 0;        // never answered (lost, a server without the debug message)
+        uint64_t ClientOnlyTicks = 0;   // ... the ticks they were fired on (a volley of pellets is one)
         uint64_t ServerOnly = 0;        // the server judged a shot the client didn't predict
         uint64_t PointPairs = 0;        // pairs where both hit
         double SumPointDelta = 0.0;
@@ -209,4 +210,5 @@ private:
     std::deque<Pending> m_pending;
     std::deque<NetShotComparison> m_recent;
     Totals m_totals;
+    uint32_t m_lastClientOnlyTick = 0;
 };
