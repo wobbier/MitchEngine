@@ -35,6 +35,19 @@ namespace ReflectionUI
         constexpr float kRadToDeg = 180.f / 3.14159265f;
         constexpr const char* kEntityPayload = "DND_CHILD_TRANSFORM";
 
+        struct Decorator
+        {
+            std::vector<std::string> Edits;
+            FieldDecorator Draw;
+        };
+
+        // "Type.Field" -> its decorators, in registration order.
+        std::map<std::string, std::vector<Decorator>>& Decorators()
+        {
+            static std::map<std::string, std::vector<Decorator>> decorators;
+            return decorators;
+        }
+
         std::map<std::string, CustomDrawer>& Drawers()
         {
             static std::map<std::string, CustomDrawer> drawers;
@@ -970,18 +983,59 @@ namespace ReflectionUI
                 ImGui::PopID();
             }
 
-            if( changed )
-            {
+            auto markChanged = [&]( const std::string& InField ) {
                 anyChanged = true;
-                InContext.ChangedFields.push_back( field.Name );
+                if( std::find( InContext.ChangedFields.begin(), InContext.ChangedFields.end(), InField ) == InContext.ChangedFields.end() )
+                {
+                    InContext.ChangedFields.push_back( InField );
+                }
                 if( !InContext.Others.empty() )
                 {
-                    const json value = Reflection::GetPathJson( InType, InInstance, field.Name );
+                    const json value = Reflection::GetPathJson( InType, InInstance, InField );
                     for( void* other : InContext.Others )
                     {
-                        Reflection::SetPathJson( InType, other, field.Name, value );
+                        Reflection::SetPathJson( InType, other, InField, value );
                     }
                 }
+            };
+            if( changed )
+            {
+                markChanged( field.Name );
+            }
+
+            // Decorators: extra rows under the field, edits reported like the field's own.
+            const auto decorated = InContext.Filter.empty() ? Decorators().find( InType.Name + "." + field.Name ) : Decorators().end();
+            if( decorated != Decorators().end() )
+            {
+                ImGui::PushID( field.Name.c_str() );
+                ImGui::BeginDisabled( readOnly );
+                for( size_t i = 0; i < decorated->second.size(); ++i )
+                {
+                    const Decorator& decorator = decorated->second[i];
+                    // Snapshot the listed fields so only those the gesture changed are reported and
+                    // copied to the other selected instances (a cone drag may leave Inner alone).
+                    std::vector<json> before;
+                    before.reserve( decorator.Edits.size() );
+                    for( const std::string& edit : decorator.Edits )
+                    {
+                        before.push_back( Reflection::GetPathJson( InType, InInstance, edit ) );
+                    }
+                    ImGui::PushID( static_cast<int>( i ) );
+                    const bool edited = decorator.Draw && decorator.Draw( InInstance, InType );
+                    ImGui::PopID();
+                    if( edited )
+                    {
+                        for( size_t e = 0; e < decorator.Edits.size(); ++e )
+                        {
+                            if( Reflection::GetPathJson( InType, InInstance, decorator.Edits[e] ) != before[e] )
+                            {
+                                markChanged( decorator.Edits[e] );
+                            }
+                        }
+                    }
+                }
+                ImGui::EndDisabled();
+                ImGui::PopID();
             }
         } );
 
@@ -996,6 +1050,22 @@ namespace ReflectionUI
     void RegisterCustomDrawer( const std::string& InCppName, CustomDrawer InDrawer )
     {
         Drawers()[InCppName] = std::move( InDrawer );
+    }
+
+
+    void RegisterFieldDecorator( const std::string& InTypeName, const std::string& InFieldName, std::vector<std::string> InFieldsItEdits, FieldDecorator InDecorator )
+    {
+        Decorators()[InTypeName + "." + InFieldName].push_back( { std::move( InFieldsItEdits ), std::move( InDecorator ) } );
+    }
+
+
+    MeWidgets::NumberSpec NumberSpecFor( const Reflection::FieldInfo& InField )
+    {
+        const json* previous = CurrentDefault();
+        CurrentDefault() = nullptr;
+        MeWidgets::NumberSpec spec = SpecFor( &InField, *InField.Ops );
+        CurrentDefault() = previous;
+        return spec;
     }
 
 

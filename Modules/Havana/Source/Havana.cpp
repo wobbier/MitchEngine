@@ -41,6 +41,7 @@
 #include <Utils/EditorConfig.h>
 #include "HavanaWidget.h"
 #include "Editor/WidgetRegistry.h"
+#include "Editor/Inspectors/LightInspector.h"
 #include "Window/IWindow.h"
 #include "Widgets/HistoryWidget.h"
 #include "Widgets/WidgetGalleryWidget.h"
@@ -210,6 +211,7 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
     actions.Register( { "View.Profiler", "Profiler", "View", 0, 0, [this]() { ShowWidget( "Profiler" ); } } );
     actions.Register( { "View.ErrorList", "Error List", "View", 0, 0, [this]() { ShowWidget( "Error List" ); } } );
     ReflectionUI::RegisterDefaultDrawers();
+    LightInspector::Register();
     actions.Register( { "View.AssetSearch", "Quick Asset Search", "View", ImGuiMod_Shortcut | ImGuiKey_Space, 0, [this]() { AssetBrowser->RequestOverlay( nullptr ); } } );
     // ED-15: the command palette also finds entities, assets, settings and docs.
     actions.SearchProviders.push_back( []( std::vector<EditorActions::PaletteItem>& OutItems ) {

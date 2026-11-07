@@ -20,7 +20,9 @@ Editor builds are gated by `ME_EDITOR` (Sharpmake "Editor" targets, `Docs/Build-
 | `Modules/Havana/Source/Editor/UndoStack.*` | Undo/redo history, transactions, merging, dirty tracking |
 | `Modules/Havana/Source/Editor/EditorOperations.*` | `EditorOps`: undoable create/delete/duplicate/paste/reparent/rename/active/layer/add/remove component/component edits |
 | `Modules/Havana/Source/Editor/EditorActions.*`, `DefaultEditorActions.*` | Action registry, shortcuts, command palette, rebinding |
-| `Modules/Havana/Source/Editor/ReflectionUI.*` | Inspector widgets generated from reflection |
+| `Modules/Havana/Source/Editor/ReflectionUI.*` | Inspector widgets generated from reflection; field decorators |
+| `Modules/Havana/Source/Editor/Inspectors/LightInspector.cpp` | The Light's decorators: temperature bar, intensity references, cone, falloff graph |
+| `Modules/ImGUI/Source/Widgets/Graph.h`, `LightWidgets.h`, `Color.h` | Plot canvases with draggable handles; the light widgets built on them; colour temperature |
 | `Modules/Havana/Source/Editor/PrefabTools.*` | Prefab create/override/apply/revert/unpack |
 | `Modules/Havana/Source/Editor/EditorCameraController.*` | Scene camera navigation |
 | `Modules/Havana/Source/Editor/SceneTools.*` | Bounds, ray picking, grid/selection/gizmo overlays |
@@ -148,6 +150,13 @@ Reflected components get generated UI from `ReflectionUI`, chosen from each fiel
   Edit > Preferences > Appearance > Motion sets **Juice** to Off, Subtle or Full (`Appearance.Juice`, Full by default). At Off the widgets are visually static. **Reduce motion** (`Appearance.ReduceMotion`) keeps the flashes and drops everything that moves. **Sounds** (`Appearance.JuiceSounds`, off by default) turns on the editor's sound cues: tick, reset, commit and refuse. The editor ships no UI sounds yet, so the cues are logged (`[juice] sound cue Tick`). Runs with `--frame-time` animate on that fixed step, so captures of an animation match on every machine.
 - **Widget Gallery** (View > Widget Gallery, `Widgets/WidgetGalleryWidget.cpp`): every kit widget with fixed sample values. **Poke** fires every kind of feedback at once and **Reset** restores the samples. Use it for screenshot regression and for trying the juice levels (`Tests/Editor/UX3Juice.edscript`: two captures differ at Full and Subtle and are identical at Off). `Tests/Editor/UX4GalleryReference.edscript` compares it, with juice Off, against `Tests/Editor/Reference/WidgetGallery.png`. After a deliberate look change, copy the flow's `.tmp/UX4-Gallery.png` over the reference.
 - **Units everywhere** (UX-4): every component's numbers carry their unit, log scale and soft range. Labels no longer repeat the unit ("Range", not "Range (m)"). `UnitMetadataTests` checks the metadata of every reflected component: soft ranges sit inside hard ranges, log fields have usable ranges, defaults are in range, and labels don't repeat units. `Tests/Editor/UX4UnitLabels.edscript` reads each unit-tagged field's default back from the inspector, exactly as it is shown ("10 m", "60°", "-6.0 dB").
+- **Field decorators** (UX-5, `ReflectionUI::RegisterFieldDecorator`): extra rows drawn right under a field, inside the component's group, so a gesture on one is one undo step and its edits reach every selected entity. They are hidden while the field search is active. The **Light** inspector uses them (`Editor/Inspectors/LightInspector.cpp`, widgets in `Modules/ImGUI/Source/Widgets/LightWidgets.h`):
+  - **Temperature** under Color: a bar of blackbody colours from 1000 K to 12000 K (log scale). Click or drag it to set Color to that temperature's sRGB colour, brightest channel 1 (`MeWidgets::ColorTemperature`, Tanner Helland's fit). The arrows under it are presets: Candle 1900 K, Tungsten 2700 K, Halogen 3200 K, Daylight 5600 K, Overcast 6500 K, Shade 7500 K and Blue sky 10000 K. A drag snaps to a preset and ticks as it passes one. When Color lies on the blackbody curve, a marker shows its temperature ("5600 K Daylight"); a colour off the curve shows no marker.
+  - **Reference** under Intensity: a log strip over the soft range with labelled rungs. Local lights get Candle 0.1×, Bulb 1× and Floodlight 8×; directional lights get Moonlight 0.05×, Overcast 1× and Sun 5×. These are looks-like references for the default exposure, not photometric values (the tooltip says so). Click a rung to use it, or drag along the strip to scrub.
+  - **Cone** under the cone angles (spot and rectangle lights only): the beam seen side-on, fully lit inside the inner half angle and feathered to the outer one. Drag the **Inner Cone** and **Outer Cone** handles on its arcs (0..89°, whole degrees, Shift for tenths). Dragging one past the other carries the other along, so inner never exceeds outer. Past horizontal a handle stays at 89°, even carried over the top of the apex.
+  - **Falloff** under Range (every type but directional): the engine's attenuation, `distanceAttenuation` in `Assets/Shaders/Lighting.sh` (inverse square windowed to zero at Range), as log brightness against distance from 0 to 1.2× Range in metres. For bar, box and rectangle lights the curve includes the emitter's near-field softening at its world scale (`Light::BuildCommand`). A faint plain inverse-square curve sits beside it. Drag the **Range** handle on the axis. The axis holds still while you drag, then eases to the new range.
+
+  The widgets are built on `MeWidgets::Graph` (`Widgets/Graph.h`): a plot canvas with linear or log axes, a grid labelled in the axis unit, plotted functions, and draggable handles. Handles are real items. They grow on hover and tick at detents, and automation finds them in the widget's row: `Light/Temperature/Candle`, `Light/Reference/Bulb`, `Light/Cone/Inner Cone`, `Light/Falloff/Range`. The widget itself (`Light/Temperature`) reports what it shows ("5600 K", "off curve"). `Tests/Editor/UX5Lighting.edscript` drives each of them, and `GraphTests.cpp` covers the mapping and colour math.
 - Colours and HDR colours get colour pickers; vectors get axis-coloured drags; quaternions are edited as stable Euler angles.
 - Enums become combos; nested structs and arrays (with +/-) are expanded. Int fields registered with `.Choices( count, nameFn )` become combos of named choices, and `.MaskChoices` makes a multi-select bit mask (navigation areas, layers).
 - Asset paths get drag-drop and a picker; `EntityHandle` fields accept hierarchy drags.
@@ -331,6 +340,25 @@ ME_FIELD( Range ).Unit( Reflection::Unit::Meters ).Log().SoftRange( 0.5f, 50.f )
 - `.Widget( kind )` asks for a bespoke widget.
 
 Leave the unit out of `Display()`: the value shows it.
+
+**Show what a value means under its field** with a field decorator: an extra row right after the field. Register it at editor startup, next to `ReflectionUI::RegisterDefaultDrawers()` in `Havana.cpp` (the Light's are in `Editor/Inspectors/LightInspector.cpp`):
+
+```cpp
+ReflectionUI::RegisterFieldDecorator( "Light", "Range", { "Range" }, []( void* InInstance, const Reflection::TypeInfo& InType ) {
+    Light& light = *static_cast<Light*>( static_cast<BaseComponent*>( InInstance ) );
+    double range = light.Range;
+    const float color[3] = { light.Color.x, light.Color.y, light.Color.z };
+    if( !MeWidgets::FalloffGraph( "Falloff", range, ReflectionUI::NumberSpecFor( *InType.FindField( "Range" ) ), color ) )
+        return false;
+    light.Range = static_cast<float>( range );
+    return true;
+} );
+```
+
+- The third argument lists the fields the decorator may edit. When it returns true, they are marked changed (`OnPropertyChanged`) and copied to the other selected instances.
+- Draw real ImGui items that are active while dragged (`MeWidgets::Graph` handles and canvases are). The component's group then turns the gesture into one undo step.
+- Start the row with `HavanaUtils::Label( "Caption" )`, as the `LightWidgets` do, so it lines up with the fields and automation can scope its parts by the caption.
+- Return false and draw nothing when the decorator doesn't apply (a cone on a point light).
 
 **Lay out editor UI** (inspectors, settings, panels) so it matches the rest at every font size:
 

@@ -336,6 +336,22 @@ namespace MeWidgets::ItemLog
         }
     }
 
+    void SetLastItemRow( std::string_view InRow )
+    {
+        ImGuiContext* context = ImGui::GetCurrentContext();
+        if( !Get().Enabled || !context )
+        {
+            return;
+        }
+        if( Item* item = FindBuilding( context->LastItemData.ID ) )
+        {
+            if( !item->IsRowLabel )
+            {
+                item->Row = std::string( InRow );
+            }
+        }
+    }
+
     void SetLastItemValue( std::string_view InValue )
     {
         if( ImGuiContext* context = ImGui::GetCurrentContext() )

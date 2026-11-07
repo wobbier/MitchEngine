@@ -6,6 +6,7 @@
 #include <vector>
 
 #if USING( ME_EDITOR )
+#include <Widgets/ScrubField.h>
 
 // Inspector UI generated from reflection data. Draws every visible field of a reflected type with a
 // widget chosen from its PropertyType and metadata (ranges, angles, colours, enums, assets, nested
@@ -46,6 +47,20 @@ namespace ReflectionUI
     // InField may be null (array elements).
     using CustomDrawer = std::function<bool( const char* InLabel, const Reflection::FieldInfo* InField, void* InValue )>;
     void RegisterCustomDrawer( const std::string& InCppName, CustomDrawer InDrawer );
+
+    // Field decorators (UX-5): an extra row drawn right after a field of a reflected type, inside
+    // the component's group (so a gesture on it is one undo step), for widgets that show what a
+    // value means (a colour temperature bar under Light.Color, a falloff graph under Light.Range).
+    // InInstance is the reflected object (a component: static_cast it from BaseComponent*). Return
+    // true when the decorator changed any of InFieldsItEdits: they are then reported changed and
+    // copied to the other selected instances like a normal edit. Decorators are skipped while
+    // the inspector's field search is active. Several per field draw in registration order.
+    using FieldDecorator = std::function<bool( void* InInstance, const Reflection::TypeInfo& InType )>;
+    void RegisterFieldDecorator( const std::string& InTypeName, const std::string& InFieldName, std::vector<std::string> InFieldsItEdits, FieldDecorator InDecorator );
+
+    // The unit-field description of a reflected number (unit, ranges, log, default), for
+    // decorators that edit numbers.
+    MeWidgets::NumberSpec NumberSpecFor( const Reflection::FieldInfo& InField );
 
     // Registers the built-in custom drawers (EntityHandle).
     void RegisterDefaultDrawers();

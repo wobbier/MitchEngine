@@ -3,6 +3,8 @@
 #if USING( ME_EDITOR )
 #include <Widgets/ScrubField.h>
 #include <Widgets/Juice.h>
+#include <Widgets/Color.h>
+#include <Widgets/LightWidgets.h>
 #include <Utils/HavanaUtils.h>
 #include <ImGuiTheme.h>
 #include <imgui.h>
@@ -62,6 +64,34 @@ namespace
         return samples;
     }
 
+    // Light widgets (UX-5) with fixed samples.
+    struct LightSamples
+    {
+        float Color[3] = { 1.f, 1.f, 1.f };
+        double Intensity = 1.0;
+        double Inner = 20.0;
+        double Outer = 30.0;
+        double Range = 10.0;
+
+        LightSamples()
+        {
+            const std::array<float, 3> daylight = MeWidgets::ColorTemperature::ToSrgb( 5600.0 );
+            std::copy( daylight.begin(), daylight.end(), Color );
+        }
+    };
+
+    LightSamples& Lights()
+    {
+        static LightSamples samples;
+        return samples;
+    }
+
+    const MeWidgets::Reference kSampleRungs[] = {
+        { "Candle", 0.1, "A candle flame" },
+        { "Bulb", 1.0, "A household bulb" },
+        { "Floodlight", 8.0, "A work light" },
+    };
+
     const char* LevelName( MeWidgets::Juice::Level InLevel )
     {
         switch( InLevel )
@@ -87,6 +117,7 @@ void WidgetGalleryWidget::ResetSamples()
 	{
 		sample.Value = sample.Start;
 	}
+	Lights() = LightSamples();
 	MeWidgets::Juice::Reset();
 }
 
@@ -103,7 +134,7 @@ void WidgetGalleryWidget::Render()
 	{
 		return;
 	}
-	ImGui::SetNextWindowSize( ImVec2( ImGuiTheme::Em( 30.f ), ImGuiTheme::Em( 28.f ) ), ImGuiCond_FirstUseEver );
+	ImGui::SetNextWindowSize( ImVec2( ImGuiTheme::Em( 30.f ), ImGuiTheme::Em( 46.f ) ), ImGuiCond_FirstUseEver );
 	if( !ImGui::Begin( Name.c_str(), &IsOpen ) )
 	{
 		ImGui::End();
@@ -149,6 +180,17 @@ void WidgetGalleryWidget::Render()
 			}
 		}
 	}
+
+	ImGui::SeparatorText( "Light widgets" );
+	LightSamples& light = Lights();
+	MeWidgets::KelvinBar( "Temperature", light.Color );
+	MeWidgets::NumberSpec intensity = MakeSpec( Unit::Multiplier, 0.0, 100.0, true, 1.0 );
+	intensity.HasSoftRange = true;
+	intensity.SoftMin = 0.0;
+	intensity.SoftMax = 10.0;
+	MeWidgets::ReferenceLadder( "Reference", light.Intensity, intensity, kSampleRungs, IM_ARRAYSIZE( kSampleRungs ), "Looks-like references, not photometric" );
+	MeWidgets::ConeWedge( "Cone", light.Inner, light.Outer, light.Color );
+	MeWidgets::FalloffGraph( "Falloff", light.Range, MakeSpec( Unit::Meters, 0.01, 1000.0, true, 10.0 ), light.Color );
 	ImGui::End();
 }
 

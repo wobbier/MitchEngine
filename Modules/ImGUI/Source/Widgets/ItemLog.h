@@ -58,6 +58,9 @@ namespace MeWidgets::ItemLog
     void EndSection();
     // Names an item whose ImGui label is hidden ("##axis" -> "X").
     void SetLastItemLabel( std::string_view InLabel );
+    // Puts the last item in a row (a widget's parts below its row label: a graph's handles, a
+    // bar's presets), so queries can scope it: "Light/Falloff/Range".
+    void SetLastItemRow( std::string_view InRow );
 
     // Items from the last completed frame, in draw order.
     const std::vector<Item>& LastFrame();
