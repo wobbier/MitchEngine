@@ -1,5 +1,6 @@
 #include "PCH.h"
 #include "Engine/ReplayViewer.h"
+#include "Net/NetDebugDraw.h"
 #include "CLog.h"
 #include "Components/Camera.h"
 #include "Components/Graphics/Mesh.h"
@@ -834,6 +835,7 @@ std::vector<ReplayViewer::HitboxView> ReplayViewer::LiveHitboxes( NetCore& InNet
         view.HalfHeight = pose.HalfHeight;
         view.HalfExtents = pose.HalfExtents;
         view.Up = pose.Rotation * Vector3( 0.f, 1.f, 0.f );
+        view.Rotation = pose.Rotation;
         view.Occluder = pose.Occluder;
         views.push_back( view );
     }
@@ -849,22 +851,15 @@ void ReplayViewer::DrawOverlays( NetCore& InNet )
         return;
     }
     const std::vector<HitboxView> live = ( m_drawHitboxes || m_drawShots ) ? LiveHitboxes( InNet ) : std::vector<HitboxView>();
-    auto capsule = []( const Vector3& InPosition, const Vector3& InUp, float InRadius, float InHalfHeight, const Vector4& InColor ) {
-        DebugDraw::Capsule( InPosition - InUp * InHalfHeight, InPosition + InUp * InHalfHeight, InRadius, InColor, 0.f, DebugDraw::NoDepthTest );
+    // The same shapes the client's Net Debugger draws (NetDebugDraw, NET-7).
+    auto drawView = []( const HitboxView& InView, const Vector4& InColor ) {
+        NetDebugDraw::Hitbox( InView.Shape, InView.Position, InView.Rotation, InView.Radius, InView.HalfHeight, InView.HalfExtents, InColor );
     };
     if( m_drawHitboxes )
     {
         for( const HitboxView& view : live )
         {
-            const Vector4 color( 0.85f, 0.85f, 0.85f, 1.f );
-            if( view.Shape == 0 )
-            {
-                capsule( view.Position, view.Up, view.Radius, view.HalfHeight, color );
-            }
-            else
-            {
-                DebugDraw::Box( AABB( view.Position - view.HalfExtents, view.Position + view.HalfExtents ), color, 0.f, DebugDraw::NoDepthTest );
-            }
+            drawView( view, Vector4( 0.85f, 0.85f, 0.85f, 1.f ) );
         }
     }
     if( m_drawShots )
@@ -886,16 +881,7 @@ void ReplayViewer::DrawOverlays( NetCore& InNet )
             for( const NetReplayHitbox& hitbox : shot.Hitboxes )
             {
                 const bool target = shot.Hit && hitbox.NetId == shot.Target && hitbox.Name == shot.TargetPart;
-                const Vector4 color = target ? DebugDraw::Red : DebugDraw::Yellow;
-                const Vector3 up = hitbox.Rotation * Vector3( 0.f, 1.f, 0.f );
-                if( hitbox.Shape == 0 )
-                {
-                    capsule( hitbox.Position, up, hitbox.Radius, hitbox.HalfHeight, color );
-                }
-                else
-                {
-                    DebugDraw::Box( AABB( hitbox.Position - hitbox.HalfExtents, hitbox.Position + hitbox.HalfExtents ), color, 0.f, DebugDraw::NoDepthTest );
-                }
+                NetDebugDraw::Hitbox( hitbox, target ? DebugDraw::Red : NetDebugDraw::kRewound );
                 // Where it is live: the rewind's offset.
                 for( const HitboxView& view : live )
                 {
@@ -904,7 +890,7 @@ void ReplayViewer::DrawOverlays( NetCore& InNet )
                         DebugDraw::Line( hitbox.Position, view.Position, DebugDraw::Cyan, 0.f, DebugDraw::NoDepthTest );
                         if( !m_drawHitboxes )
                         {
-                            capsule( view.Position, view.Up, view.Radius, view.HalfHeight, DebugDraw::Gray );
+                            drawView( view, NetDebugDraw::kLive );
                         }
                     }
                 }

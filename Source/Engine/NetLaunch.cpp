@@ -5,6 +5,7 @@
 #include "Cores/NetCore.h"
 #include "JSON.h"
 #include "Net/NetCommands.h"
+#include "Net/NetDebugDraw.h"
 #include "Net/NetTransport.h"
 #include "Net/NetReplayDump.h"
 #include "Net/NetVersion.h"
@@ -222,6 +223,7 @@ bool NetLaunch::Start( NetCore& InNet, uint16_t InTickRate, IWindow* InWindow, c
     m_reportPath = CommandLine::GetString( "--net-report" );
     m_exitWhenEmpty = CommandLine::Has( "--net-exit-when-empty" );
     m_netDebugger.Open = CommandLine::Has( "--net-debugger" );
+    m_netDebug = CommandLine::Has( "--net-debug" );
     RegisterNetCommands( InNet );
     if( !m_requested )
     {
@@ -304,6 +306,7 @@ bool NetLaunch::Start( NetCore& InNet, uint16_t InTickRate, IWindow* InWindow, c
             + " ms, " + std::to_string( static_cast<int>( conditions.Loss * 100.f + 0.5f ) ) + "% loss)";
     }
 
+    InNet.SetDebug( WantedDebug( InNet ) );
     if( host )
     {
         InNet.Host( *transport, InTickRate );
@@ -325,6 +328,21 @@ bool NetLaunch::Start( NetCore& InNet, uint16_t InTickRate, IWindow* InWindow, c
 }
 
 
+NetDebugSubscription NetLaunch::WantedDebug( NetCore& InNet ) const
+{
+    NetDebugSubscription wanted;
+    if( IsHosting() || InNet.IsServer() )
+    {
+        wanted.Bandwidth = m_netDebug || !m_reportPath.empty();
+    }
+    else
+    {
+        wanted.Shots = wanted.Bandwidth = m_netDebug || m_netDebugger.Open;
+    }
+    return wanted;
+}
+
+
 bool NetLaunch::Update( NetCore& InNet )
 {
     if( !m_requested )
@@ -334,6 +352,11 @@ bool NetLaunch::Update( NetCore& InNet )
     if( !m_error.empty() )
     {
         return true;
+    }
+    // NET-7: the Net Debugger opened or closed (the console) changes what the server is asked for.
+    if( NetDebug::kAvailable && !InNet.IsPlayback() && WantedDebug( InNet ) != InNet.GetDebug() )
+    {
+        InNet.SetDebug( WantedDebug( InNet ) );
     }
     if( NetReplayPlayback* playback = InNet.GetPlayback() )
     {
@@ -868,6 +891,80 @@ namespace
         return out;
     }
 
+    // The shots against the server's results (the console's "net shots", the Net Debugger's summary).
+    std::string ShotsSummary( NetCore& InNet )
+    {
+        const NetShotLedger::Totals& totals = InNet.GetShotLedger().GetTotals();
+        char line[384];
+        std::snprintf( line, sizeof( line ), "shots: %llu predicted, %llu results; %llu of %llu paired agree (%.0f%%, %llu the same part), %llu disagree; %llu client only, %llu server only, %zu waiting; "
+            "hit points %.1f mm apart on average (%.1f at most)", static_cast<unsigned long long>( totals.Predicted ), static_cast<unsigned long long>( totals.Results ),
+            static_cast<unsigned long long>( totals.Agreed ), static_cast<unsigned long long>( totals.Paired ),
+            totals.Paired > 0 ? 100.0 * static_cast<double>( totals.Agreed ) / static_cast<double>( totals.Paired ) : 0.0, static_cast<unsigned long long>( totals.SamePart ),
+            static_cast<unsigned long long>( totals.Disagreed ), static_cast<unsigned long long>( totals.ClientOnly ), static_cast<unsigned long long>( totals.ServerOnly ),
+            InNet.GetShotLedger().GetPendingCount(), totals.PointPairs > 0 ? totals.SumPointDelta / static_cast<double>( totals.PointPairs ) * 1000.0 : 0.0,
+            totals.MaxPointDelta * 1000.0 );
+        return line;
+    }
+
+    std::string ShotsText( NetCore& InNet, size_t InCount )
+    {
+        if( !InNet.GetDebug().Shots )
+        {
+            return "shots aren't being compared (open the Net Debugger, or start with --net-debug)";
+        }
+        std::string out = ShotsSummary( InNet );
+        const auto& recent = InNet.GetShotLedger().GetRecent();
+        for( size_t i = recent.size() > InCount ? recent.size() - InCount : 0; i < recent.size(); ++i )
+        {
+            const NetShotComparison& shot = recent[i];
+            char line[128];
+            std::snprintf( line, sizeof( line ), "\n  tick %u", shot.HasClient ? shot.Client.Tick : shot.Server.CommandTick );
+            out += line;
+            if( shot.HasServer )
+            {
+                std::snprintf( line, sizeof( line ), " (rewound %.2f ticks to %.2f)", shot.Server.Shot.RewoundTicks, shot.Server.Shot.ViewTick );
+                out += line;
+            }
+            out += ": " + shot.Describe();
+        }
+        return out;
+    }
+
+    std::string BandwidthText( NetCore& InNet )
+    {
+        if( InNet.IsServer() )
+        {
+            NetReplicationServer* replication = InNet.GetReplicationServer();
+            if( !replication || replication->GetAccountedBytes() == 0 )
+            {
+                return "the server isn't counting snapshot bytes per entity (--net-report, --net-debug, or a client's Net Debugger turns it on)";
+            }
+            std::string out = std::to_string( replication->GetAccountedBytes() ) + " snapshot bytes counted, " + std::to_string( replication->GetOverheadBits() / 8 )
+                + " of them headers; the most:";
+            for( const NetEntityBytes& entity : InNet.GetTopEntities( NetDebug::kTopEntities, 0.0 ) )
+            {
+                out += "\n  #" + std::to_string( entity.NetId ) + " " + ( entity.Name.empty() ? std::string( "-" ) : entity.Name ) + ": " + std::to_string( entity.Bits / 8 ) + " bytes";
+            }
+            return out;
+        }
+        const NetBandwidthReport& report = InNet.GetBandwidthReport();
+        if( report.Tick == 0 )
+        {
+            return InNet.GetDebug().Bandwidth ? "no bandwidth report from the server yet" : "bandwidth isn't asked for (open the Net Debugger, or start with --net-debug)";
+        }
+        char line[160];
+        std::snprintf( line, sizeof( line ), "the server's snapshots to this client over %.1f s to tick %u: %.2f KB/s (%.0f%% headers); the most:", report.Seconds, report.Tick,
+            report.Seconds > 0.0 ? static_cast<double>( report.SnapshotBytes ) / 1024.0 / report.Seconds : 0.0,
+            report.SnapshotBytes > 0 ? 100.0 * static_cast<double>( report.OverheadBits ) / ( static_cast<double>( report.SnapshotBytes ) * 8.0 ) : 0.0 );
+        std::string out = line;
+        for( const NetEntityBytes& entity : report.Top )
+        {
+            std::snprintf( line, sizeof( line ), "\n  #%u %s: %.1f B/s", entity.NetId, entity.Name.empty() ? "-" : entity.Name.c_str(), entity.BytesPerSecond );
+            out += line;
+        }
+        return out;
+    }
+
     // Where the Net Debugger and the console export mispredictions.
     std::string MispredictFolder()
     {
@@ -908,7 +1005,8 @@ void NetLaunch::RegisterNetCommands( NetCore& InNet )
     NetCore* net = &InNet;
     NetLaunch* self = this;
     DevConsole::Get().Register( "net",
-        "the client session (NET-7): net [status|debugger [on|off]|mispredicts|export [tick]] (export: the newest misprediction, or the tick's, to .tmp/Net/Mispredict_<tick>.json)",
+        "the client session (NET-7): net [status|debugger [on|off]|mispredicts|export [tick]|shots|bandwidth|overlays [on|off]] (export: the newest misprediction, or the "
+        "tick's, to .tmp/Net/Mispredict_<tick>.json; shots: the last shots against the server's results; bandwidth: the entities taking the most snapshot bytes)",
         [net, self]( const std::vector<std::string>& InArgs ) -> std::string {
             const std::string verb = InArgs.empty() ? std::string( "status" ) : InArgs[0];
             if( verb == "status" )
@@ -947,6 +1045,19 @@ void NetLaunch::RegisterNetCommands( NetCore& InNet )
                         + std::to_string( record.Resimulated.size() ) + " ticks resimulated";
                 }
                 return out;
+            }
+            if( verb == "shots" )
+            {
+                return ShotsText( *net, 16 );
+            }
+            if( verb == "bandwidth" )
+            {
+                return BandwidthText( *net );
+            }
+            if( verb == "overlays" )
+            {
+                self->m_netDebugger.DrawOverlays = InArgs.size() > 1 ? InArgs[1] != "off" : !self->m_netDebugger.DrawOverlays;
+                return std::string( "Net Debugger world overlays " ) + ( self->m_netDebugger.DrawOverlays ? "on" : "off" );
             }
             if( verb == "export" )
             {
@@ -1009,6 +1120,65 @@ void NetLaunch::DrawNetDebugger( NetCore& InNet )
         std::snprintf( label, sizeof( label ), "%s #%u: %.1f / %.1f KB%s", blob.Outgoing ? "out" : "in", blob.Id, static_cast<double>( blob.DoneBytes ) / 1024.0,
             static_cast<double>( blob.Size ) / 1024.0, blob.Outgoing && !blob.Started ? " (queued)" : "" );
         ImGui::ProgressBar( blob.Size > 0 ? static_cast<float>( static_cast<double>( blob.DoneBytes ) / static_cast<double>( blob.Size ) ) : 0.f, ImVec2( -1.f, 0.f ), label );
+    }
+
+    // The world overlays (NetDebugDraw): each shot beside the server's result for 2 s, the server ghost.
+    ImGui::Checkbox( "World overlays (shots: client green, server blue / rewound yellow / live grey; server ghost blue)", &m_netDebugger.DrawOverlays );
+    if( m_netDebugger.DrawOverlays )
+    {
+        NetDebugDraw::Shots( InNet.GetShotLedger(), InNet.GetNow() );
+        NetDebugDraw::Ghost( InNet );
+    }
+    // Shots: the client's prediction against the server's lag-compensated result.
+    if( ImGui::CollapsingHeader( "Shots", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        ImGui::TextWrapped( "%s", ShotsSummary( InNet ).c_str() );
+        const auto& recent = InNet.GetShotLedger().GetRecent();
+        if( !recent.empty() && ImGui::BeginTable( "##NetShots", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_ScrollY,
+                ImVec2( 0.f, ImGui::GetTextLineHeightWithSpacing() * 7.f ) ) )
+        {
+            ImGui::TableSetupColumn( "tick" );
+            ImGui::TableSetupColumn( "view tick" );
+            ImGui::TableSetupColumn( "rewound" );
+            ImGui::TableSetupColumn( "client vs server" );
+            ImGui::TableHeadersRow();
+            for( auto it = recent.rbegin(); it != recent.rend(); ++it )
+            {
+                const NetShotComparison& shot = *it;
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::Text( "%u", shot.HasClient ? shot.Client.Tick : shot.Server.CommandTick );
+                ImGui::TableNextColumn();
+                ImGui::Text( "%.2f", shot.HasServer ? shot.Server.Shot.ViewTick : shot.Client.ViewTick );
+                ImGui::TableNextColumn();
+                ImGui::TextUnformatted( shot.HasServer ? ( std::to_string( shot.Server.Shot.RewoundTicks ).substr( 0, 5 ) + ( shot.Server.Shot.Clamped ? " (cap)" : "" ) ).c_str() : "-" );
+                ImGui::TableNextColumn();
+                const ImVec4 color = !shot.HasClient || !shot.HasServer ? ImVec4( 0.7f, 0.7f, 0.7f, 1.f ) : shot.Agrees() ? ImVec4( 0.4f, 0.9f, 0.4f, 1.f ) : ImVec4( 1.f, 0.35f, 0.3f, 1.f );
+                ImGui::TextColored( color, "%s", shot.Describe().c_str() );
+            }
+            ImGui::EndTable();
+        }
+    }
+    // The entities taking the most of this client's snapshot bytes (the server's writer counts them).
+    if( ImGui::CollapsingHeader( "Top bandwidth", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        const NetBandwidthReport& report = InNet.GetBandwidthReport();
+        if( report.Tick == 0 )
+        {
+            ImGui::TextUnformatted( "No report from the server yet (it sends one a second)." );
+        }
+        else
+        {
+            const double total = report.Seconds > 0.0 ? static_cast<double>( report.SnapshotBytes ) / report.Seconds : 0.0;
+            ImGui::Text( "Snapshots %.2f KB/s over %.1f s to tick %u; headers %.0f%%", total / 1024.0, report.Seconds, report.Tick,
+                report.SnapshotBytes > 0 ? 100.0 * static_cast<double>( report.OverheadBits ) / ( static_cast<double>( report.SnapshotBytes ) * 8.0 ) : 0.0 );
+            for( const NetEntityBytes& entity : report.Top )
+            {
+                char label[160];
+                std::snprintf( label, sizeof( label ), "#%u %s: %.0f B/s", entity.NetId, entity.Name.empty() ? "-" : entity.Name.c_str(), entity.BytesPerSecond );
+                ImGui::ProgressBar( total > 0.0 ? static_cast<float>( entity.BytesPerSecond / total ) : 0.f, ImVec2( -1.f, 0.f ), label );
+            }
+        }
     }
     const NetPredictor* predictor = InNet.GetPredictor();
     if( !predictor )

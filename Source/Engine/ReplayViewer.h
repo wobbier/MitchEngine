@@ -116,6 +116,7 @@ private:
         float HalfHeight = 0.f;
         Vector3 HalfExtents;
         Vector3 Up;     // the capsule's axis (rotation * up)
+        Quaternion Rotation;
         bool Occluder = false;
     };
 

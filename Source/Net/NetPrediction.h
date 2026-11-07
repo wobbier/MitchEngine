@@ -143,6 +143,15 @@ public:
     // only the newest kMaxMispredicts keep a record: GetOutcome still names the older ones.
     const std::deque<NetMispredictRecord>& GetMispredicts() const { return m_mispredicts; }
     const NetMispredictRecord* FindMispredict( uint32_t InTick ) const;
+    // The newest tick the server has had its say on, its state then and what this client had
+    // predicted for it (NET-7's server ghost): false before the first.
+    bool GetLastReconciled( uint32_t& OutTick, CharacterController::NetState& OutServer, CharacterController::NetState& OutPredicted ) const
+    {
+        OutTick = m_reconciled;
+        OutServer = m_lastServer;
+        OutPredicted = m_lastPredicted;
+        return m_hasReconciled;
+    }
 
 private:
     struct Frame
@@ -187,6 +196,8 @@ private:
     Vector3 m_visualOffset;
     Vector3 m_offsetAtCorrection;
     double m_smoothingLeft = 0.0;
+    CharacterController::NetState m_lastServer;     // the newest reconciled tick's
+    CharacterController::NetState m_lastPredicted;
     std::vector<TimelineEntry> m_timeline;          // by tick % size
     std::deque<NetMispredictRecord> m_mispredicts;
 };

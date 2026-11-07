@@ -1,5 +1,6 @@
 #pragma once
 #include "Net/NetCommands.h"
+#include "Net/NetDebug.h"
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -22,7 +23,13 @@ class ReplayViewer;
 //   --net-loss f             drop this fraction of this side's packets (0.05, or 5%)
 //   --net-seed n             the conditions' random seed (repeatable runs)
 //   --net-timeout s          seconds of silence before a peer counts as gone (default 10)
-//   --net-report file.json   on exit: the session's summary (NetCore::WriteReport)
+//   --net-report file.json   on exit: the session's summary (NetCore::WriteReport); a server's counts its
+//                            snapshot bytes per entity for it (TopEntities)
+//   --net-debugger           client, game-tools builds: the Net Debugger window (NET-7; the console's
+//                            "net debugger" too): the link, prediction, the misprediction timeline, each
+//                            shot against the server's result, the top-bandwidth entities, world overlays
+//   --net-debug              client: what the Net Debugger shows (shots, bandwidth) without its window, in
+//                            the report ("Shots", "TopEntities"); a server: count snapshot bytes per entity
 //   --net-exit-when-empty    server: quit once its last client has gone (smoke tests)
 //   --record-replay [file]   server: record the match (ME-316) to file as well as the ring (below)
 //                            (user://Replays/<UTC time>.mreplay when omitted; user:// paths go to the user folder,
@@ -120,7 +127,12 @@ private:
         uint64_t BytesOut = 0;
         double KbpsIn = 0.0;
         double KbpsOut = 0.0;
+        bool DrawOverlays = true;   // the shots, the server ghost (NetDebugDraw)
     } m_netDebugger;
+    // --net-debug: the Net Debugger's data (shots, bandwidth) without its window.
+    bool m_netDebug = false;
+    // What the session should ask for / count (NET-7): the Net Debugger's, --net-debug, a server's report.
+    NetDebugSubscription WantedDebug( NetCore& InNet ) const;
     // --replay-check, once the playhead rests where it was asked to: false when the world differs.
     bool RunReplayCheck( NetCore& InNet );
     // The viewer's tools (ME-316 phase 3), while a replay plays.

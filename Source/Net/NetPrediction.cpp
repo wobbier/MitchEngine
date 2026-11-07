@@ -205,6 +205,8 @@ bool NetPredictor::Reconcile( uint32_t InTick, const CharacterController::NetSta
     }
     m_hasReconciled = true;
     m_reconciled = InTick;
+    m_lastServer = InServer;
+    m_lastPredicted = frame.State;
     // Mismatches leave with their tick's place on the timeline, whatever this tick turns out to be.
     PruneMispredicts();
     // Script state is exact (the same code ran on the same inputs); without hooks it isn't compared.

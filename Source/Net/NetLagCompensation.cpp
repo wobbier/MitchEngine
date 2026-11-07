@@ -4,6 +4,7 @@
 #include "Components/Transform.h"
 #include "Cores/PhysicsCore.h"
 #include "Debug/DebugDraw.h"
+#include "Net/NetDebugDraw.h"
 #include "Engine/World.h"
 #include <algorithm>
 #include <cmath>
@@ -378,17 +379,18 @@ LagCompensatedHit NetLagCompensation::Raycast( PhysicsCore* InPhysics, const Vec
     {
         const Vector3 end = InOrigin + direction * ( result.Hit ? nearest : ( occluder >= 0.f ? occluder : InMaxDistance ) );
         DebugDraw::Line( InOrigin, end, result.Hit ? DebugDraw::Green : DebugDraw::Red, 2.f );
+        // The shapes the client's Net Debugger and the replay viewer draw (NetDebugDraw, NET-7): rewound
+        // yellow, live grey, for 2 s.
         auto draw = []( const HitboxPose& InPose, const Vector4& InColor ) {
-            const Vector3 up = InPose.Rotation * Vector3( 0.f, InPose.HalfHeight, 0.f );
-            DebugDraw::Capsule( InPose.Position - up, InPose.Position + up, InPose.Radius, InColor, 2.f );
+            NetDebugDraw::Hitbox( InPose.Shape, InPose.Position, InPose.Rotation, InPose.Radius, InPose.HalfHeight, InPose.HalfExtents, InColor, 2.f );
         };
         for( const HitboxPose& pose : GetPosesAt( viewTick ) )
         {
-            draw( pose, DebugDraw::Yellow );
+            draw( pose, NetDebugDraw::kRewound );
         }
         for( const HitboxPose& pose : GetPosesAt( newest ) )
         {
-            draw( pose, DebugDraw::Gray );
+            draw( pose, NetDebugDraw::kLive );
         }
     }
     return result;
