@@ -91,7 +91,9 @@ namespace MeWidgets::Graph
             if( input.Held && grab.Id == InId )
             {
                 input.Target = ImVec2( g.IO.MousePos.x + grab.Offset.x, g.IO.MousePos.y + grab.Offset.y );
-                input.Moved = g.IO.MouseDelta.x != 0.f || g.IO.MouseDelta.y != 0.f;
+                // Only once the press becomes a drag: a click (or the pointer settling by a
+                // sub-pixel after it) leaves the value alone.
+                input.Moved = ( g.IO.MouseDelta.x != 0.f || g.IO.MouseDelta.y != 0.f ) && ImGui::IsMouseDragging( ImGuiMouseButton_Left );
             }
             if( input.Hovered || input.Held )
             {
@@ -286,7 +288,7 @@ namespace MeWidgets::Graph
         state.Open = true;
 
         const float inset = InFrame.Inset >= 0.f ? InFrame.Inset : ImGuiTheme::Em( 0.25f );
-        const float labels = InFrame.XLabels ? ImGui::GetFontSize() + ImGuiTheme::Em( 0.2f ) : 0.f;
+        const float labels = ( InFrame.XLabels ? ImGui::GetFontSize() + ImGuiTheme::Em( 0.2f ) : 0.f ) + std::max( InFrame.Below, 0.f );
         state.Map.Min = ImVec2( state.Canvas.Min.x + inset, state.Canvas.Min.y + inset );
         state.Map.Max = ImVec2( state.Canvas.Max.x - inset, std::max( state.Canvas.Max.y - inset - labels, state.Canvas.Min.y + inset + 1.f ) );
         state.Map.X = InX;

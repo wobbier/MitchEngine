@@ -6,6 +6,7 @@
 #include <Widgets/Color.h>
 #include <Widgets/LightWidgets.h>
 #include <Widgets/CameraWidgets.h>
+#include <Widgets/PostWidgets.h>
 #include <Utils/HavanaUtils.h>
 #include <ImGuiTheme.h>
 #include <imgui.h>
@@ -103,6 +104,26 @@ namespace
         return samples;
     }
 
+    // Post widgets (UX-7) with fixed samples: the Fog showcase's camera, warmed a little and graded.
+    struct PostSamples
+    {
+        double Exposure = -0.2;
+        int Tonemapper = 1;
+        double Temperature = 0.3;
+        double Tint = -0.1;
+        double Lift = 0.02;
+        double Gamma = 1.1;
+        double Gain = 0.95;
+        double FogDensity = 0.035;
+        float FogColor[3] = { 0.16f, 0.2f, 0.28f };
+    };
+
+    PostSamples& Posts()
+    {
+        static PostSamples samples;
+        return samples;
+    }
+
     const MeWidgets::Reference kSampleRungs[] = {
         { "Candle", 0.1, "A candle flame" },
         { "Bulb", 1.0, "A household bulb" },
@@ -136,6 +157,7 @@ void WidgetGalleryWidget::ResetSamples()
 	}
 	Lights() = LightSamples();
 	Cameras() = CameraSamples();
+	Posts() = PostSamples();
 	MeWidgets::Juice::Reset();
 }
 
@@ -219,6 +241,16 @@ void WidgetGalleryWidget::Render()
 	MeWidgets::RenderScaleBar( "Resolution", camera.RenderScale, 1920, 1080, nullptr, "a sample 1920 x 1080 output" );
 	MeWidgets::ApertureDial( "Iris", camera.Aperture );
 	MeWidgets::FocusBar( "Focus Band", camera.Focus, MeWidgets::Lens::FocalLength( camera.Fov, sensor ), camera.Aperture, sensor, "the lens above" );
+
+	ImGui::SeparatorText( "Post widgets" );
+	PostSamples& post = Posts();
+	MeWidgets::NumberSpec exposure = MakeSpec( Unit::EV, -8.0, 8.0, false, 0.0 );
+	MeWidgets::ExposureLadder( "Lit Like", post.Exposure, exposure );
+	MeWidgets::TonemapCurve( "Tonemap Curve", post.Tonemapper, post.Exposure, false );
+	MeWidgets::WhiteBalancePad( "White Balance", post.Temperature, post.Tint );
+	MeWidgets::LiftGammaGainCurve( "Lift Gamma Gain", post.Lift, post.Gamma, post.Gain, 1.0 );
+	MeWidgets::NumberSpec density = MakeSpec( Unit::PerMeter, 0.0, 0.5, true, 0.02 );
+	MeWidgets::FogVisibilityBar( "Fog Visibility", post.FogDensity, density, 0.0, 1.0, post.FogColor, 0.15 );
 	ImGui::End();
 }
 

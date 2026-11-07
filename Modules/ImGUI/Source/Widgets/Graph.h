@@ -61,6 +61,8 @@ namespace MeWidgets::Graph
         bool Background = true;
         // Gap between the canvas edge and the plot area; < 0: a quarter em.
         float Inset = -1.f;
+        // More room under the plot area (and its X labels) for the widget's own row of markers.
+        float Below = 0.f;
     };
     bool Begin( const char* InId, ImVec2 InSize, const Axis& InX, const Axis& InY, const Frame& InFrame = Frame() );
     // The whole canvas (plot area plus label room), and its item ID (for Juice flashes).

@@ -15,3 +15,8 @@ imgui-hover Widget Gallery/Focus Band
 wait 5
 panel-screenshot Widget Gallery | .tmp/UX4-Gallery-Camera.png
 assert-images .tmp/UX4-Gallery-Camera.png | Engine/Tests/Editor/Reference/WidgetGalleryCamera.png | same | 0.002
+# The post widgets (UX-7) at the bottom.
+imgui-hover Widget Gallery/Fog Visibility
+wait 5
+panel-screenshot Widget Gallery | .tmp/UX4-Gallery-Post.png
+assert-images .tmp/UX4-Gallery-Post.png | Engine/Tests/Editor/Reference/WidgetGalleryPost.png | same | 0.002
