@@ -82,41 +82,67 @@ struct NetConditions
 
 // Wraps a transport and applies NetConditions to what it sends (wrap both ends for a two-way
 // link). Sends are held until due and released by Update, so drive Update every tick.
+//
+// It can condition what arrives too (SetInboundConditions), so one end alone can make a two-way
+// link bad: the editor's listen server (NET-7 PIE) conditions both directions in its own process,
+// and its sliders change them live without touching the client processes. Arrivals are held from
+// the time Update last saw (Update before Receive, as NetCore does) and handed out once due.
 class ConditionedTransport final
     : public INetTransport
 {
 public:
     ConditionedTransport( INetTransport& InInner, const NetConditions& InConditions );
 
-    void SetConditions( const NetConditions& InConditions );
+    // InReseed: restart the random sequence from InConditions.Seed. A live change (a slider
+    // dragged) passes false, so the drops and delays carry on rather than repeat.
+    void SetConditions( const NetConditions& InConditions, bool InReseed = true );
     const NetConditions& GetConditions() const { return m_conditions; }
+    // What arrives (off by default: everything passes straight through). Turning it off hands out
+    // what it was holding at once. Its random sequence is its own (Seed), apart from the sends'.
+    void SetInboundConditions( const NetConditions& InConditions, bool InReseed = true );
+    const NetConditions& GetInboundConditions() const { return m_inbound; }
 
     NetAddress GetAddress() const override { return m_inner.GetAddress(); }
     void Send( NetAddress InTo, const uint8_t* InData, size_t InSize ) override;
-    bool Receive( NetPacket& OutPacket ) override { return m_inner.Receive( OutPacket ); }
+    bool Receive( NetPacket& OutPacket ) override;
     void Update( double InNow ) override;
 
+    // Sends dropped / duplicated, and arrivals dropped / duplicated.
     size_t GetDroppedCount() const { return m_dropped; }
     size_t GetDuplicatedCount() const { return m_duplicated; }
+    size_t GetInboundDroppedCount() const { return m_inboundDropped; }
+    size_t GetInboundDuplicatedCount() const { return m_inboundDuplicated; }
+    // Packets held back either way, not yet due.
+    size_t GetHeldCount() const { return m_held.size() + m_inboundHeld.size(); }
+
+    // Conditions that do anything (a link with all of these zero passes packets straight through).
+    static bool IsActive( const NetConditions& InConditions );
 
 private:
     struct Held
     {
         double Due = 0.0;
         uint64_t Order = 0;
-        NetAddress To = 0;
+        NetAddress To = 0;      // where it goes (sends) / where it came from (arrivals)
         std::vector<uint8_t> Data;
     };
 
-    double NextUnit();
-    void Hold( NetAddress InTo, const uint8_t* InData, size_t InSize );
+    static double NextUnit( uint64_t& InOutRng );
+    static uint64_t SeedOf( const NetConditions& InConditions );
+    void Hold( std::vector<Held>& InOutHeld, const NetConditions& InConditions, uint64_t& InOutRng, NetAddress InAddress, const uint8_t* InData, size_t InSize );
 
     INetTransport& m_inner;
     NetConditions m_conditions;
+    NetConditions m_inbound;
+    bool m_inboundOn = false;
     uint64_t m_rng = 1;
+    uint64_t m_inboundRng = 1;
     double m_now = 0.0;
     uint64_t m_order = 0;
     std::vector<Held> m_held;
+    std::vector<Held> m_inboundHeld;
     size_t m_dropped = 0;
     size_t m_duplicated = 0;
+    size_t m_inboundDropped = 0;
+    size_t m_inboundDuplicated = 0;
 };

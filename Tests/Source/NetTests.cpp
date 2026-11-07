@@ -343,6 +343,106 @@ TEST_CASE( "Net: the round-trip estimate is within 10% of the link's, and stray 
 }
 
 
+TEST_CASE( "Net: one end conditioning what it sends and what it receives makes the whole round trip (the editor's listen server, NET-7)" )
+{
+    // Only A is conditioned, both ways: 50 ms each way is 100 ms of RTT, as 50 on each end would be.
+    NetConditions link;
+    link.LatencyMs = 50.f;
+    link.Loss = 0.05f;
+    link.Seed = 5;
+    Link pair( link, NetConditions() );
+    NetConditions inbound = link;
+    inbound.Seed = 9;
+    pair.A.SetInboundConditions( inbound );
+    for( int tick = 0; tick < 60 * 4; ++tick )
+    {
+        pair.Step();
+    }
+    CHECK( std::abs( pair.ToB.GetStats().RoundTripMs - 100.f ) <= 10.f );
+    CHECK( std::abs( pair.ToA.GetStats().RoundTripMs - 100.f ) <= 10.f );
+    CHECK( pair.A.GetDroppedCount() > 0 );
+    CHECK( pair.A.GetInboundDroppedCount() > 0 );
+    CHECK( pair.B.GetDroppedCount() == 0 );
+
+    // A live change (a slider) takes effect for what arrives next, without restarting the link.
+    NetConditions slower = inbound;
+    slower.LatencyMs = 150.f;
+    slower.Loss = 0.f;
+    pair.A.SetInboundConditions( slower, false );
+    for( int tick = 0; tick < 60 * 4; ++tick )
+    {
+        pair.Step();
+    }
+    CHECK( std::abs( pair.ToB.GetStats().RoundTripMs - 200.f ) <= 20.f );
+
+    // Arrivals alone: each is held its latency from when it came in, in arrival order; losses and
+    // duplicates count; turning it off hands out what's held at once, then passes straight through.
+    LoopbackNetwork network;
+    LoopbackTransport rawA( network, 1 );
+    LoopbackTransport rawB( network, 2 );
+    ConditionedTransport a( rawA, NetConditions() );
+    NetConditions arrive;
+    arrive.LatencyMs = 40.f;
+    arrive.Seed = 3;
+    a.SetInboundConditions( arrive );
+    a.Update( 1.0 );
+    for( uint8_t i = 0; i < 10; ++i )
+    {
+        rawB.Send( 1, &i, 1 );
+    }
+    NetPacket packet;
+    CHECK_FALSE( a.Receive( packet ) );
+    CHECK( a.GetHeldCount() == 10 );
+    a.Update( 1.039 );
+    CHECK_FALSE( a.Receive( packet ) );
+    a.Update( 1.041 );
+    for( uint8_t i = 0; i < 10; ++i )
+    {
+        REQUIRE( a.Receive( packet ) );
+        CHECK( packet.From == 2 );
+        REQUIRE( packet.Data.size() == 1 );
+        CHECK( packet.Data[0] == i );
+    }
+    CHECK_FALSE( a.Receive( packet ) );
+    for( uint8_t i = 0; i < 4; ++i )
+    {
+        rawB.Send( 1, &i, 1 );
+    }
+    CHECK_FALSE( a.Receive( packet ) );
+    a.SetInboundConditions( NetConditions() );
+    int handed = 0;
+    while( a.Receive( packet ) )
+    {
+        CHECK( packet.Data[0] == handed );
+        ++handed;
+    }
+    CHECK( handed == 4 );
+    const uint8_t straight = 7;
+    rawB.Send( 1, &straight, 1 );
+    REQUIRE( a.Receive( packet ) );
+    CHECK( packet.Data[0] == 7 );
+
+    NetConditions lossy;
+    lossy.Loss = 0.5f;
+    lossy.Duplicate = 0.5f;
+    lossy.Seed = 11;
+    a.SetInboundConditions( lossy );
+    for( int i = 0; i < 200; ++i )
+    {
+        const uint8_t byte = static_cast<uint8_t>( i );
+        rawB.Send( 1, &byte, 1 );
+    }
+    int received = 0;
+    while( a.Receive( packet ) )
+    {
+        ++received;
+    }
+    CHECK( a.GetInboundDroppedCount() > 60 );
+    CHECK( a.GetInboundDuplicatedCount() > 20 );
+    CHECK( received == 200 - static_cast<int>( a.GetInboundDroppedCount() ) + static_cast<int>( a.GetInboundDuplicatedCount() ) );
+}
+
+
 TEST_CASE( "Net: a packet is the newest by its sequence however long the link idled, and a reordered one isn't" )
 {
     // Every packet, a keep-alive too, moves the received sequence on, so "newest" never wraps:

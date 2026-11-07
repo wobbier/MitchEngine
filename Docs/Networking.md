@@ -600,7 +600,7 @@ Phases: 1 the blob channel, 2 the ring and encoder, 3 the replay world and prese
   - Winsock on Windows: `PCH.h` includes `winsock2.h` before `Windows.h`, `Ws2_32.lib` links by pragma, and `SIO_UDP_CONNRESET` is off.
   - BSD sockets on Linux and macOS.
 - **Binding:** no `SO_REUSEADDR`, so a second process can't silently share a port.
-- **Conditions:** `--net-lag` and the other `--net-*` options wrap the socket in a `ConditionedTransport`. `NetCore` drives `Update` from `Receive`, `EndTick` and `Flush`, so held packets go out at frame resolution.
+- **Conditions:** `--net-lag` and the other `--net-*` options wrap the socket in a `ConditionedTransport`. `NetCore` drives `Update` from `Receive`, `EndTick` and `Flush`, so held packets go out at frame resolution. A `ConditionedTransport` can condition what arrives as well (`SetInboundConditions`: its own random sequence, arrivals held from the time `Update` last saw, handed out once due, everything held handed out at once when it's turned off), so one end can make the whole link bad: the editor's listen server (NET-7 PIE) conditions both directions in its own process, and `SetConditions( ..., false )` changes either live without restarting the random sequence.
 
 **The Server build** (`CommonTarget.Mode.Server` → `server_<platform>_<optimization>`, e.g. `make -f MitchGame.make Game_EntryPoint config=server_linux_debug` → `.build/Server_linux_Debug/`):
 

@@ -73,53 +73,131 @@ ConditionedTransport::ConditionedTransport( INetTransport& InInner, const NetCon
 }
 
 
-void ConditionedTransport::SetConditions( const NetConditions& InConditions )
+uint64_t ConditionedTransport::SeedOf( const NetConditions& InConditions )
 {
-    m_conditions = InConditions;
-    m_rng = InConditions.Seed != 0 ? InConditions.Seed : 0x9E3779B97F4A7C15ull;
+    return InConditions.Seed != 0 ? InConditions.Seed : 0x9E3779B97F4A7C15ull;
 }
 
 
-double ConditionedTransport::NextUnit()
+bool ConditionedTransport::IsActive( const NetConditions& InConditions )
+{
+    return InConditions.LatencyMs > 0.f || InConditions.JitterMs > 0.f || InConditions.Loss > 0.f || InConditions.Duplicate > 0.f || InConditions.Reorder > 0.f;
+}
+
+
+void ConditionedTransport::SetConditions( const NetConditions& InConditions, bool InReseed )
+{
+    m_conditions = InConditions;
+    if( InReseed )
+    {
+        m_rng = SeedOf( InConditions );
+    }
+}
+
+
+void ConditionedTransport::SetInboundConditions( const NetConditions& InConditions, bool InReseed )
+{
+    m_inbound = InConditions;
+    m_inboundOn = IsActive( InConditions );
+    if( InReseed )
+    {
+        // Apart from the sends' sequence, so the same seed both ways doesn't drop in step.
+        m_inboundRng = SeedOf( InConditions ) ^ 0xD6E8FEB86659FD93ull;
+    }
+    if( !m_inboundOn )
+    {
+        // Off: what was held is due now (Receive hands it out first, in arrival order).
+        for( Held& held : m_inboundHeld )
+        {
+            held.Due = m_now;
+        }
+    }
+}
+
+
+double ConditionedTransport::NextUnit( uint64_t& InOutRng )
 {
     // xorshift64*: the same sequence on every platform (std distributions aren't).
-    m_rng ^= m_rng >> 12;
-    m_rng ^= m_rng << 25;
-    m_rng ^= m_rng >> 27;
-    const uint64_t value = m_rng * 0x2545F4914F6CDD1Dull;
+    InOutRng ^= InOutRng >> 12;
+    InOutRng ^= InOutRng << 25;
+    InOutRng ^= InOutRng >> 27;
+    const uint64_t value = InOutRng * 0x2545F4914F6CDD1Dull;
     return static_cast<double>( value >> 11 ) * ( 1.0 / 9007199254740992.0 );
 }
 
 
-void ConditionedTransport::Hold( NetAddress InTo, const uint8_t* InData, size_t InSize )
+void ConditionedTransport::Hold( std::vector<Held>& InOutHeld, const NetConditions& InConditions, uint64_t& InOutRng, NetAddress InAddress, const uint8_t* InData, size_t InSize )
 {
-    double delayMs = m_conditions.LatencyMs + ( NextUnit() * 2.0 - 1.0 ) * m_conditions.JitterMs;
-    if( NextUnit() < m_conditions.Reorder )
+    double delayMs = InConditions.LatencyMs + ( NextUnit( InOutRng ) * 2.0 - 1.0 ) * InConditions.JitterMs;
+    if( NextUnit( InOutRng ) < InConditions.Reorder )
     {
-        delayMs += m_conditions.ReorderMs;
+        delayMs += InConditions.ReorderMs;
     }
     Held held;
     held.Due = m_now + std::max( delayMs, 0.0 ) / 1000.0;
     held.Order = m_order++;
-    held.To = InTo;
+    held.To = InAddress;
     held.Data.assign( InData, InData + InSize );
-    m_held.push_back( std::move( held ) );
+    InOutHeld.push_back( std::move( held ) );
 }
 
 
 void ConditionedTransport::Send( NetAddress InTo, const uint8_t* InData, size_t InSize )
 {
-    if( NextUnit() < m_conditions.Loss )
+    if( NextUnit( m_rng ) < m_conditions.Loss )
     {
         ++m_dropped;
         return;
     }
-    Hold( InTo, InData, InSize );
-    if( NextUnit() < m_conditions.Duplicate )
+    Hold( m_held, m_conditions, m_rng, InTo, InData, InSize );
+    if( NextUnit( m_rng ) < m_conditions.Duplicate )
     {
         ++m_duplicated;
-        Hold( InTo, InData, InSize );
+        Hold( m_held, m_conditions, m_rng, InTo, InData, InSize );
     }
+}
+
+
+bool ConditionedTransport::Receive( NetPacket& OutPacket )
+{
+    if( m_inboundOn )
+    {
+        // Everything that has arrived goes into the hold, conditioned.
+        NetPacket packet;
+        while( m_inner.Receive( packet ) )
+        {
+            if( NextUnit( m_inboundRng ) < m_inbound.Loss )
+            {
+                ++m_inboundDropped;
+                continue;
+            }
+            Hold( m_inboundHeld, m_inbound, m_inboundRng, packet.From, packet.Data.data(), packet.Data.size() );
+            if( NextUnit( m_inboundRng ) < m_inbound.Duplicate )
+            {
+                ++m_inboundDuplicated;
+                Hold( m_inboundHeld, m_inbound, m_inboundRng, packet.From, packet.Data.data(), packet.Data.size() );
+            }
+        }
+    }
+    // The earliest due (ties in arrival order); held ones go first once conditioning is turned off.
+    size_t best = m_inboundHeld.size();
+    for( size_t i = 0; i < m_inboundHeld.size(); ++i )
+    {
+        const Held& held = m_inboundHeld[i];
+        if( held.Due <= m_now && ( best == m_inboundHeld.size() || held.Due < m_inboundHeld[best].Due
+            || ( held.Due == m_inboundHeld[best].Due && held.Order < m_inboundHeld[best].Order ) ) )
+        {
+            best = i;
+        }
+    }
+    if( best < m_inboundHeld.size() )
+    {
+        OutPacket.From = m_inboundHeld[best].To;
+        OutPacket.Data = std::move( m_inboundHeld[best].Data );
+        m_inboundHeld.erase( m_inboundHeld.begin() + static_cast<std::ptrdiff_t>( best ) );
+        return true;
+    }
+    return !m_inboundOn && m_inner.Receive( OutPacket );
 }
 
 
