@@ -8,6 +8,7 @@
 #include <Widgets/CameraWidgets.h>
 #include <Widgets/PostWidgets.h>
 #include <Widgets/PhysicsWidgets.h>
+#include <Widgets/AudioWidgets.h>
 #include <Utils/HavanaUtils.h>
 #include <ImGuiTheme.h>
 #include <imgui.h>
@@ -143,6 +144,25 @@ namespace
         return samples;
     }
 
+    // Audio widgets (UX-9) with fixed samples: a source at -6 dB with a fixed live level, a fifth
+    // up, mostly 3D, fading inversely from 2 m to 40 m.
+    struct AudioSamples
+    {
+        double Volume = 0.5011872336;
+        double Live = 0.18;
+        double Pitch = 1.4983070769;
+        int Rolloff = 0;
+        double MinDistance = 2.0;
+        double MaxDistance = 40.0;
+        double SpatialBlend = 0.75;
+    };
+
+    AudioSamples& Audio()
+    {
+        static AudioSamples samples;
+        return samples;
+    }
+
     const MeWidgets::Reference kSampleRungs[] = {
         { "Candle", 0.1, "A candle flame" },
         { "Bulb", 1.0, "A household bulb" },
@@ -178,6 +198,7 @@ void WidgetGalleryWidget::ResetSamples()
 	Cameras() = CameraSamples();
 	Posts() = PostSamples();
 	Physics() = PhysicsSamples();
+	Audio() = AudioSamples();
 	MeWidgets::Juice::Reset();
 }
 
@@ -284,6 +305,17 @@ void WidgetGalleryWidget::Render()
 	const int axes[] = { 0, 1, 2 };
 	MeWidgets::AxisLocks( "Lock Position", physics.LockPosition, axisNames, axes, 3, false );
 	MeWidgets::AxisLocks( "Lock Rotation", physics.LockRotation, axisNames, axes, 3, true );
+
+	ImGui::SeparatorText( "Audio widgets" );
+	AudioSamples& audio = Audio();
+	// Its own ID scope: the light widgets above have a "Falloff" too.
+	ImGui::PushID( "Audio" );
+	MeWidgets::LevelMeter( "Level", audio.Volume, MakeSpec( Unit::LinearGain, 0.0, 1.0, false, 1.0 ), audio.Live );
+	MeWidgets::PitchKeyboard( "Keyboard", audio.Pitch, MakeSpec( Unit::PitchRatio, 0.1, 3.0, false, 1.0 ) );
+	MeWidgets::SpatialBlendSlider( "Spatial", audio.SpatialBlend, MakeSpec( Unit::None, 0.0, 1.0, false, 0.0 ) );
+	MeWidgets::RolloffGraph( "Falloff", audio.Rolloff, audio.MinDistance, audio.MaxDistance, MakeSpec( Unit::Meters, 0.0, 1000.0, true, 1.0 ),
+		MakeSpec( Unit::Meters, 0.0, 10000.0, true, 50.0 ), audio.SpatialBlend );
+	ImGui::PopID();
 	ImGui::End();
 }
 

@@ -1,0 +1,183 @@
+# UX-9: the AudioSource's audio widgets driven like a person would, on a new source in the audio
+# test scene. One undo step per gesture; a light-theme check.
+# Havana --scene Assets/Scenes/Tests/AudioTest.lvl --frame-time 0.0166667 --editor-exec Engine/Tests/Editor/UX9Audio.edscript
+# The level meter under Volume (drag to -6 dB, to silence, double-click back to 0 dB), the keyboard
+# under Pitch (click a key for 2^(n/12), drag across keys in whole semitones, Shift for cents,
+# double-click the marker for 0 st), the 2D / 3D slider under Spatial Blend (click the 3D end, click
+# the middle detent, drag) and the falloff graph under Rolloff (drag the Min / Max Distance
+# handles, click a rolloff name).
+wait 20
+create ProbeSpeaker
+add-component AudioSource
+select ProbeSpeaker
+wait 5
+
+# Level: a new source plays at 0 dB (gain 1). Dragging its marker left catches the -6 dB tick.
+imgui-assert-value AudioSource/Level | 0.0 dB
+imgui-assert-value AudioSource/Level/Value | 0.0 dB
+imgui-drag AudioSource/Level/Value | -36 0
+assert-field ProbeSpeaker | AudioSource.Volume | 0.5011872 ~ 0.000001
+imgui-assert-value AudioSource/Level | -6.0 dB
+imgui-assert-value AudioSource/Volume | -6.0 dB
+imgui-hover AudioSource/Level/Value
+panel-screenshot Properties | .tmp/UX9-Level.png
+undo
+assert-field ProbeSpeaker | AudioSource.Volume | 1
+redo
+assert-field ProbeSpeaker | AudioSource.Volume | 0.5011872 ~ 0.000001
+# Double-clicking the marker returns to 0 dB in one step.
+imgui-click AudioSource/Level/Value | double
+assert-field ProbeSpeaker | AudioSource.Volume | 1
+undo
+assert-field ProbeSpeaker | AudioSource.Volume | 0.5011872 ~ 0.000001
+undo
+assert-field ProbeSpeaker | AudioSource.Volume | 1
+# All the way left is silence.
+imgui-drag AudioSource/Level/Value | -300 0
+assert-field ProbeSpeaker | AudioSource.Volume | 0
+imgui-assert-value AudioSource/Level | -inf dB
+undo
+assert-field ProbeSpeaker | AudioSource.Volume | 1
+
+# Keyboard: click the +7 key (a fifth up): pitch 2^(7/12).
+imgui-assert-value AudioSource/Keyboard | 0 st, +0 cents, ×1.000
+imgui-assert-value AudioSource/Keyboard/+7 | +7 st
+imgui-click AudioSource/Keyboard/+7
+assert-field ProbeSpeaker | AudioSource.Pitch | 1.4983071 ~ 0.000001
+imgui-assert-value AudioSource/Keyboard | +7 st, +0 cents, ×1.498
+imgui-assert-value AudioSource/Pitch | +7 st
+imgui-hover AudioSource/Keyboard/+7
+panel-screenshot Properties | .tmp/UX9-Keyboard.png
+undo
+assert-field ProbeSpeaker | AudioSource.Pitch | 1
+redo
+assert-field ProbeSpeaker | AudioSource.Pitch | 1.4983071 ~ 0.000001
+# Dragging from +7 two white keys right lands on +11, in whole semitones.
+imgui-drag AudioSource/Keyboard/+7 | 37 0
+assert-field ProbeSpeaker | AudioSource.Pitch | 1.8877486 ~ 0.000001
+imgui-assert-value AudioSource/Keyboard | +11 st, +0 cents, ×1.888
+undo
+assert-field ProbeSpeaker | AudioSource.Pitch | 1.4983071 ~ 0.000001
+# With Shift the drag lands between keys, in cents.
+imgui-drag AudioSource/Keyboard/+7 | 5 0 | shift
+assert-field ProbeSpeaker | AudioSource.Pitch | 1.5422108 ~ 0.000001
+imgui-assert-value AudioSource/Keyboard | +7 st, +50 cents, ×1.542
+imgui-assert-value AudioSource/Keyboard/Value | +7.5 st
+panel-screenshot Properties | .tmp/UX9-Keyboard-Cents.png
+# A shaky press on the marker (under the drag threshold) leaves the cents alone.
+imgui-drag AudioSource/Keyboard/Value | 3 0
+assert-field ProbeSpeaker | AudioSource.Pitch | 1.5422108 ~ 0.000001
+undo
+assert-field ProbeSpeaker | AudioSource.Pitch | 1.4983071 ~ 0.000001
+# A drag from +2 that ends on D's lower, white-only part, near D#, is still D (the key under the
+# pointer, not the nearest key centre).
+imgui-drag AudioSource/Keyboard/+2 | 7 14
+assert-field ProbeSpeaker | AudioSource.Pitch | 1.1224620 ~ 0.000001
+undo
+assert-field ProbeSpeaker | AudioSource.Pitch | 1.4983071 ~ 0.000001
+# Double-clicking the marker over the keys returns to the clip's own pitch.
+imgui-click AudioSource/Keyboard/Value | double
+assert-field ProbeSpeaker | AudioSource.Pitch | 1
+imgui-assert-value AudioSource/Keyboard | 0 st, +0 cents, ×1.000
+undo
+assert-field ProbeSpeaker | AudioSource.Pitch | 1.4983071 ~ 0.000001
+undo
+assert-field ProbeSpeaker | AudioSource.Pitch | 1
+
+# Spatial: a new source is 2D. Click the 3D end.
+imgui-assert-value AudioSource/Spatial | 2D
+imgui-click AudioSource/Spatial/3D
+assert-field ProbeSpeaker | AudioSource.SpatialBlend | 1
+imgui-assert-value AudioSource/Spatial | 3D
+undo
+assert-field ProbeSpeaker | AudioSource.SpatialBlend | 0
+redo
+assert-field ProbeSpeaker | AudioSource.SpatialBlend | 1
+# A click in the middle of the track catches the centre detent; a drag goes on from there.
+imgui-click AudioSource/Spatial
+assert-field ProbeSpeaker | AudioSource.SpatialBlend | 0.5
+imgui-assert-value AudioSource/Spatial | 50% 3D
+imgui-drag AudioSource/Spatial | 40 0
+assert-field ProbeSpeaker | AudioSource.SpatialBlend | 0.71 ~ 0.0001
+imgui-hover AudioSource/Spatial
+panel-screenshot Properties | .tmp/UX9-Spatial.png
+undo
+assert-field ProbeSpeaker | AudioSource.SpatialBlend | 0.5
+undo
+assert-field ProbeSpeaker | AudioSource.SpatialBlend | 1
+imgui-click AudioSource/Spatial/2D
+assert-field ProbeSpeaker | AudioSource.SpatialBlend | 0
+undo
+assert-field ProbeSpeaker | AudioSource.SpatialBlend | 1
+
+# Falloff: Inverse from 1 m reaches -6 dB at 2 m.
+imgui-assert-value AudioSource/Falloff | Inverse: -6 dB at 2 m
+imgui-assert-value AudioSource/Falloff/Min Distance | 1 m
+imgui-assert-value AudioSource/Falloff/Max Distance | 50 m
+# Dragging Min Distance right (log axis, two significant digits) to 2.1 m moves the -6 dB point
+# to 4.2 m (inverse: min / d).
+imgui-drag AudioSource/Falloff/Min Distance | 27 0
+assert-field ProbeSpeaker | AudioSource.MinDistance | 2.1 ~ 0.000001
+imgui-assert-value AudioSource/Falloff/Min Distance | 2.1 m
+imgui-assert-value AudioSource/Falloff | Inverse: -6 dB at 4.2 m
+imgui-assert-value AudioSource/Min Distance | 2.1 m
+imgui-hover AudioSource/Falloff/Linear Square
+panel-screenshot Properties | .tmp/UX9-Falloff-Min.png
+undo
+assert-field ProbeSpeaker | AudioSource.MinDistance | 1
+redo
+assert-field ProbeSpeaker | AudioSource.MinDistance | 2.1 ~ 0.000001
+undo
+assert-field ProbeSpeaker | AudioSource.MinDistance | 1
+# Dragging Max Distance left to 18 m; released, the axis eases in around it.
+imgui-drag AudioSource/Falloff/Max Distance | -40 0
+assert-field ProbeSpeaker | AudioSource.MaxDistance | 18
+imgui-assert-value AudioSource/Falloff/Max Distance | 18 m
+wait 30
+imgui-hover AudioSource/Falloff/Linear Square
+panel-screenshot Properties | .tmp/UX9-Falloff-Max.png
+undo
+assert-field ProbeSpeaker | AudioSource.MaxDistance | 50
+wait 30
+# Click Linear: silent at Max Distance, -6 dB at 25 m.
+imgui-click AudioSource/Falloff/Linear
+assert-field ProbeSpeaker | AudioSource.Rolloff | "Linear"
+imgui-assert-value AudioSource/Falloff | Linear: -6 dB at 25 m
+imgui-hover AudioSource/Falloff/Linear Square
+panel-screenshot Properties | .tmp/UX9-Falloff-Linear.png
+undo
+assert-field ProbeSpeaker | AudioSource.Rolloff | "Inverse"
+redo
+assert-field ProbeSpeaker | AudioSource.Rolloff | "Linear"
+imgui-click AudioSource/Falloff/Linear Square
+assert-field ProbeSpeaker | AudioSource.Rolloff | "LinearSquare"
+undo
+undo
+assert-field ProbeSpeaker | AudioSource.Rolloff | "Inverse"
+
+# Light theme, juice Off: every audio widget with a value set.
+preference Appearance.Theme | "Light"
+preference Appearance.Juice | "Off"
+wait 5
+imgui-click AudioSource/Keyboard/+7
+imgui-drag AudioSource/Level/Value | -36 0
+assert-field ProbeSpeaker | AudioSource.Volume | 0.5011872 ~ 0.000001
+assert-field ProbeSpeaker | AudioSource.Pitch | 1.4983071 ~ 0.000001
+imgui-hover AudioSource/Keyboard
+panel-screenshot Properties | .tmp/UX9-Light-Level.png
+imgui-click AudioSource/Spatial
+imgui-hover AudioSource/Spatial
+panel-screenshot Properties | .tmp/UX9-Light-Spatial.png
+imgui-click AudioSource/Falloff/Linear
+imgui-hover AudioSource/Falloff/Linear Square
+panel-screenshot Properties | .tmp/UX9-Light-Falloff.png
+undo
+undo
+undo
+undo
+assert-field ProbeSpeaker | AudioSource.Volume | 1
+assert-field ProbeSpeaker | AudioSource.Pitch | 1
+assert-field ProbeSpeaker | AudioSource.Rolloff | "Inverse"
+assert-field ProbeSpeaker | AudioSource.SpatialBlend | 1
+preference Appearance.Theme | "Dark"
+preference Appearance.Juice | "Full"
