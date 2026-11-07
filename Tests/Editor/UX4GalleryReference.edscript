@@ -35,8 +35,13 @@ imgui-hover Widget Gallery/Walks Up/Stairs
 wait 5
 panel-screenshot Widget Gallery | .tmp/UX4-Gallery-Character.png
 assert-images .tmp/UX4-Gallery-Character.png | Engine/Tests/Editor/Reference/WidgetGalleryCharacter.png | same | 0.002
-# The transform widgets (UX-11) at the bottom.
+# The transform widgets (UX-11) below them.
 imgui-hover Widget Gallery/Gizmo Mode:label
 wait 5
 panel-screenshot Widget Gallery | .tmp/UX4-Gallery-Transform.png
 assert-images .tmp/UX4-Gallery-Transform.png | Engine/Tests/Editor/Reference/WidgetGalleryTransform.png | same | 0.002
+# The material widgets (UX-12) at the bottom.
+imgui-hover Widget Gallery/Glow/Swatch
+wait 5
+panel-screenshot Widget Gallery | .tmp/UX4-Gallery-Material.png
+assert-images .tmp/UX4-Gallery-Material.png | Engine/Tests/Editor/Reference/WidgetGalleryMaterial.png | same | 0.002

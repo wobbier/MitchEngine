@@ -33,6 +33,13 @@ namespace MeWidgets
         bool HasDefault = false;
         double Default = 0.0;
         int Decimals = -1;
+        // (UX-12) The hard minimum shows as this text ("Off") instead of a number, and typing the
+        // text sets the minimum: an EV field whose bottom end stands for zero.
+        const char* MinText = nullptr;
+        // (UX-12) Typed entry the field's unit refuses is tried in this unit and converted to
+        // stored units ("4x" into an EV field). Unused when AlternateToStored is null.
+        Unit AlternateUnit = Unit::None;
+        double ( *AlternateToStored )( double ) = nullptr;
 
         // The span scrubs and the bar use, or false when the field is unbounded.
         bool ScaleRange( double& OutMin, double& OutMax ) const;
@@ -55,6 +62,8 @@ namespace MeWidgets
     double ScrubValue( double InRaw, double InPixels, const NumberSpec& InSpec, float InPixelsForSpan );
     // Clamps to the hard range (and any clamp) and rounds integers.
     double Constrain( double InValue, const NumberSpec& InSpec );
+    // Typed entry for a field: its unit, then MinText, then the alternate unit (UX-12).
+    bool ParseTyped( const NumberSpec& InSpec, std::string_view InText, double& OutStored, std::string* OutError = nullptr );
     // Where the fill bar ends, 0..1 (log fields fill in log space).
     double FillFraction( double InValue, const NumberSpec& InSpec );
 }

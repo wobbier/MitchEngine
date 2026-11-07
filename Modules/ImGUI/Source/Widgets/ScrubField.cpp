@@ -6,6 +6,7 @@
 
 #include <imgui_internal.h>
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstring>
 #include <string>
@@ -157,6 +158,10 @@ namespace MeWidgets
 
         std::string Shown( double InValue, const NumberSpec& InSpec )
         {
+            if( InSpec.MinText && InSpec.HasRange && InValue <= InSpec.Min )
+            {
+                return InSpec.MinText;
+            }
             return FormatValue( InSpec.FieldUnit, InValue, InSpec.Integer ? 0 : InSpec.Decimals );
         }
     }
@@ -220,6 +225,41 @@ namespace MeWidgets
             value = std::clamp( value, InSpec.ClampMin, InSpec.ClampMax );
         }
         return value;
+    }
+
+    bool ParseTyped( const NumberSpec& InSpec, std::string_view InText, double& OutStored, std::string* OutError )
+    {
+        if( ParseValue( InSpec.FieldUnit, InText, OutStored, OutError ) )
+        {
+            return true;
+        }
+        if( InSpec.MinText && InSpec.HasRange )
+        {
+            std::string_view text = InText;
+            while( !text.empty() && std::isspace( static_cast<unsigned char>( text.front() ) ) ) text.remove_prefix( 1 );
+            while( !text.empty() && std::isspace( static_cast<unsigned char>( text.back() ) ) ) text.remove_suffix( 1 );
+            const size_t length = std::strlen( InSpec.MinText );
+            bool same = text.size() == length;
+            for( size_t i = 0; same && i < length; ++i )
+            {
+                same = std::tolower( static_cast<unsigned char>( text[i] ) ) == std::tolower( static_cast<unsigned char>( InSpec.MinText[i] ) );
+            }
+            if( same )
+            {
+                OutStored = InSpec.Min;
+                return true;
+            }
+        }
+        double alternate = 0.0;
+        if( InSpec.AlternateToStored && ParseValue( InSpec.AlternateUnit, InText, alternate, nullptr ) )
+        {
+            OutStored = InSpec.AlternateToStored( alternate );
+            if( std::isfinite( OutStored ) || ( InSpec.HasRange && OutStored < 0.0 ) )
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     double FillFraction( double InValue, const NumberSpec& InSpec )
@@ -322,7 +362,7 @@ namespace MeWidgets
         auto commit = [&]() {
             double parsed = 0.0;
             std::string error;
-            if( ParseValue( InSpec.FieldUnit, entry.Buffer, parsed, &error ) )
+            if( ParseTyped( InSpec, entry.Buffer, parsed, &error ) )
             {
                 const double next = Constrain( parsed, InSpec );
                 if( next != InOutValue || mixed )

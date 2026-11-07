@@ -8,6 +8,7 @@
 #include <Widgets/CameraWidgets.h>
 #include <Widgets/PostWidgets.h>
 #include <Widgets/PhysicsWidgets.h>
+#include <Widgets/MaterialWidgets.h>
 #include <Widgets/AudioWidgets.h>
 #include <Widgets/CharacterWidgets.h>
 #include <Widgets/TransformWidgets.h>
@@ -199,6 +200,24 @@ namespace
         return samples;
     }
 
+    // Material widgets (UX-12) with fixed samples: a copper satin metal, bumps a little deeper
+    // than authored, an orange glow at 4x.
+    struct MaterialSamples
+    {
+        float Base[3] = { 0.85f, 0.5f, 0.32f };
+        double Metallic = 0.75;
+        double Roughness = 0.25;
+        double NormalStrength = 1.3;
+        float Emissive[3] = { 1.f, 0.45f, 0.1f };
+        double EmissiveIntensity = 4.0;
+    };
+
+    MaterialSamples& Materials()
+    {
+        static MaterialSamples samples;
+        return samples;
+    }
+
     const MeWidgets::Reference kSampleRungs[] = {
         { "Candle", 0.1, "A candle flame" },
         { "Bulb", 1.0, "A household bulb" },
@@ -237,6 +256,7 @@ void WidgetGalleryWidget::ResetSamples()
 	Audio() = AudioSamples();
 	Characters() = CharacterSamples();
 	Transforms() = TransformSamples();
+	Materials() = MaterialSamples();
 	MeWidgets::Juice::Reset();
 }
 
@@ -380,6 +400,22 @@ void WidgetGalleryWidget::Render()
 		HavanaUtils::Label( "Gizmo Mode" );
 		MeWidgets::SpringPill( "GizmoMode", kModes, nullptr, 3, transform.GizmoMode );
 	}
+	ImGui::PopID();
+
+	ImGui::SeparatorText( "Material widgets" );
+	MaterialSamples& material = Materials();
+	ImGui::PushID( "Material" );
+	MeWidgets::MetalRoughPad( "Surface", material.Metallic, material.Roughness, material.Base );
+	MeWidgets::NumberSpec normal = MakeSpec( Unit::Multiplier, 0.0, 2.0, false, 1.0 );
+	normal.Decimals = 2;
+	MeWidgets::UnitRow( "Normal Strength", material.NormalStrength, normal );
+	MeWidgets::BumpPreview( "Relief", material.NormalStrength, normal, material.Base );
+	double ev = MeWidgets::MaterialMath::IntensityToEV( material.EmissiveIntensity );
+	if( MeWidgets::UnitRow( "Emissive Intensity", ev, MeWidgets::MaterialMath::EmissiveSpec() ) )
+	{
+		material.EmissiveIntensity = MeWidgets::MaterialMath::EVToIntensity( ev );
+	}
+	MeWidgets::EmissiveStrip( "Glow", material.EmissiveIntensity, material.Emissive );
 	ImGui::PopID();
 	ImGui::End();
 }
