@@ -118,6 +118,10 @@ public:
     bool IsResimulating() const { return m_resimulating; }
     // Where the pawn is drawn relative to its simulated pose (the remains of corrections).
     Vector3 GetVisualOffset() const { return m_visualOffset; }
+    // While a correction is smoothed out: the whole offset it started from (the pose drawn before
+    // the correction, less the corrected simulated one); zero once it's done. GetVisualOffset decays
+    // from it to zero.
+    Vector3 GetCorrectionOffset() const { return m_smoothingLeft > 0.0 ? m_offsetAtCorrection : Vector3(); }
     // Mispredictions after the first agreement with the server.
     int GetCorrectionCount() const { return m_corrections; }
     // Before it: the pawn started somewhere the server's had already moved on from (it simulated

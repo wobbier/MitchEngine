@@ -119,13 +119,16 @@ void NetDebugDraw::Ghost( NetCore& InNet )
             DebugDraw::Line( predicted.Position, server.Position, DebugDraw::Red, 0.f, DebugDraw::NoDepthTest );
         }
     }
-    // A correction being smoothed out: where the uncorrected prediction is drawn from.
-    const Vector3 offset = predictor->GetVisualOffset();
-    if( offset.Length() > 0.001f )
+    // A correction being smoothed out: the uncorrected pose (the simulated one plus the whole offset
+    // the correction left, i.e. where the pawn would be drawn had it not been corrected), and a line
+    // from it to where the pawn is drawn now (the simulated pose plus what's left of the offset).
+    const Vector3 correction = predictor->GetCorrectionOffset();
+    if( correction.Length() > 0.001f )
     {
         const Vector3 simulated = controller->GetNetState().Position;
-        capsule( simulated + offset, DebugDraw::Orange );
-        DebugDraw::Line( simulated + offset, simulated, DebugDraw::Orange, 0.f, DebugDraw::NoDepthTest );
+        const Vector3 drawn = simulated + predictor->GetVisualOffset();
+        capsule( simulated + correction, DebugDraw::Orange );
+        DebugDraw::Line( simulated + correction, drawn, DebugDraw::Orange, 0.f, DebugDraw::NoDepthTest );
     }
 #else
     (void)InNet;

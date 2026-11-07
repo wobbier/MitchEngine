@@ -26,9 +26,9 @@ namespace NetDebugDraw
     void Shots( const NetShotLedger& InLedger, double InNow );
 
     // The predicted pawn: the server's state for the newest tick it judged (a blue capsule), what this
-    // client had predicted for that tick (green when they agree, red when not), and while a correction's
-    // visual offset lasts, the uncorrected position it's drawn from (an orange capsule, a line to the
-    // simulated one).
+    // client had predicted for that tick (green when they agree, red when not), and while a correction
+    // is smoothed out, the uncorrected pose (the simulated one plus the whole offset the correction
+    // left: an orange capsule) with a line to where the pawn is drawn now.
     void Ghost( NetCore& InNet );
 
     inline const Vector4 kClient( 0.35f, 0.9f, 0.35f, 1.f );     // green
