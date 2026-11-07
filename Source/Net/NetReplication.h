@@ -1,6 +1,7 @@
 #pragma once
 #include "Components/Physics/CharacterController.h"
 #include "ECS/EntityHandle.h"
+#include "Net/NetDebug.h"
 #include "Net/NetSession.h"
 #include "Net/NetSnapshot.h"
 #include <deque>
@@ -70,7 +71,7 @@ namespace NetReplicationMessages
     // InPreviousSent: the snapshot sent before this one (< 0: none), so a client that has it knows
     // nothing changed in between. The rest is NetSnapshotCodec::Write's.
     void WriteSnapshot( BitWriter& InWriter, int64_t InPreviousSent, const NetSnapshot& InCurrent, const NetSnapshot* InBaseline, size_t InByteBudget,
-        NetSnapshot& OutSent, const std::set<uint32_t>* InOnly = nullptr );
+        NetSnapshot& OutSent, const std::set<uint32_t>* InOnly = nullptr, std::vector<std::pair<uint32_t, uint32_t>>* OutEntityBits = nullptr );
 }
 
 // How the server shares out each client's bandwidth (NET-13).
@@ -86,6 +87,9 @@ struct NetReplicationSettings
     uint32_t BytesPerSecond = 0;
     // Encode each client's snapshot on the job system.
     bool UseJobs = true;
+    // NET-7's top-bandwidth view: count every snapshot sent bit by bit, per entity (off: nothing
+    // is counted; NetCore turns it on for a server's --net-report and for clients that ask).
+    bool AccountEntities = false;
 
     // The view rule: whether a client's snapshots take an entity InDistance from its viewer (a
     // killcam, ME-323, applies it from the killer's pawn).
@@ -129,6 +133,17 @@ public:
     uint64_t GetSnapshotBytes() const { return m_snapshotBytes; }
     uint64_t GetSnapshotsSent() const { return m_snapshotsSent; }
 
+    // NET-7 (Settings.AccountEntities): each entity's bits in the snapshots sent while counting, every
+    // client's; with GetOverheadBits (headers, gone lists, padding) they sum to GetAccountedBytes * 8.
+    const std::map<uint32_t, uint64_t>& GetEntityBits() const { return m_entityBits; }
+    uint64_t GetOverheadBits() const { return m_overheadBits; }
+    uint64_t GetAccountedBytes() const { return m_accountedBytes; }
+    // The name the entity had when it was first counted ("" when it never was).
+    std::string GetEntityName( uint32_t InNetId ) const;
+    // One client's counts since the last call (or since it joined), its InTop entities most first,
+    // then starts over. InSeconds: how long that was (for the rates).
+    NetBandwidthReport TakeBandwidthWindow( uint8_t InClient, size_t InTop, double InSeconds );
+
 private:
     struct ClientState
     {
@@ -146,6 +161,13 @@ private:
         std::vector<uint8_t> Prepared;
         NetSnapshot PreparedSent;
         bool HasPrepared = false;
+        // NET-7: the prepared snapshot's entities and their bits (when counting), and this
+        // client's counts since its last bandwidth window.
+        std::vector<std::pair<uint32_t, uint32_t>> PreparedEntityBits;
+        bool PreparedCounted = false;
+        std::map<uint32_t, uint64_t> WindowBits;
+        uint64_t WindowBytes = 0;
+        uint64_t WindowOverheadBits = 0;
     };
     struct EntityMeta
     {
@@ -172,6 +194,10 @@ private:
     std::unordered_map<uint8_t, ClientState> m_clients;
     uint64_t m_snapshotBytes = 0;
     uint64_t m_snapshotsSent = 0;
+    std::map<uint32_t, uint64_t> m_entityBits;
+    std::map<uint32_t, std::string> m_entityNames;
+    uint64_t m_overheadBits = 0;
+    uint64_t m_accountedBytes = 0;
 };
 
 

@@ -356,7 +356,7 @@ uint64_t NetSchema::Hash()
 
 
 void NetSnapshotCodec::Write( BitWriter& InWriter, const NetSnapshot& InCurrent, const NetSnapshot* InBaseline, size_t InByteBudget, NetSnapshot& OutSent,
-    const std::set<uint32_t>* InOnly )
+    const std::set<uint32_t>* InOnly, std::vector<std::pair<uint32_t, uint32_t>>* OutEntityBits )
 {
     OutSent.Tick = InCurrent.Tick;
     OutSent.Entities.clear();
@@ -412,6 +412,7 @@ void NetSnapshotCodec::Write( BitWriter& InWriter, const NetSnapshot& InCurrent,
             }
             continue;
         }
+        const size_t entryStart = InWriter.GetBitCount();
         InWriter.WriteBool( true );
         InWriter.WriteVarUInt( id - previous );
         previous = id;
@@ -437,6 +438,10 @@ void NetSnapshotCodec::Write( BitWriter& InWriter, const NetSnapshot& InCurrent,
         {
             InWriter.WriteVarUInt( state.Fields.size() );
             InWriter.WriteBytes( state.Fields.data(), state.Fields.size() );
+        }
+        if( OutEntityBits )
+        {
+            OutEntityBits->emplace_back( id, static_cast<uint32_t>( InWriter.GetBitCount() - entryStart ) );
         }
         OutSent.Entities.emplace( id, state );
     }

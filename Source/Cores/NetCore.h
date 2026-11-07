@@ -1,6 +1,7 @@
 #pragma once
 #include "ECS/Core.h"
 #include "Events/Event.h"
+#include "Net/NetDebug.h"
 #include "Net/NetKillcam.h"
 #include "Net/NetLagCompensation.h"
 #include "Net/NetPrediction.h"
@@ -304,6 +305,34 @@ public:
     // afterwards. Its Error says why it couldn't run (no playback, no such character, no physics).
     NetReplayResim::Result ResimulateReplay( uint32_t InNetId, uint32_t InFrom, uint32_t InTo, const NetReplayResim::Settings& InSettings = NetReplayResim::Settings() );
 
+    // Runtime net debugging (NET-7, NetDebug.h). A client: what its Net Debugger wants the server
+    // to send (asked once connected and again whenever it changes); with Shots on, the shots its
+    // predicted pawn fires (PresentRaycast inside a tick, not resimulating) go into the ledger to be
+    // paired with the server's results. A server: Bandwidth counts its snapshots per entity for its
+    // own report (it counts for a client that asks whatever this says). Retail builds ignore it.
+    void SetDebug( const NetDebugSubscription& InDebug );
+    const NetDebugSubscription& GetDebug() const { return m_debug; }
+    // Client: its shots and the server's word on them.
+    const NetShotLedger& GetShotLedger() const { return m_shotLedger; }
+    // Client: the newest top-bandwidth report the server sent (names filled in from this world;
+    // Tick 0: none yet), and how many came.
+    const NetBandwidthReport& GetBandwidthReport() const { return m_bandwidthReport; }
+    uint64_t GetBandwidthReportsReceived() const { return m_bandwidthReports; }
+    // Server: what the debug messages have cost.
+    struct DebugStats
+    {
+        uint64_t ShotResults = 0;           // sent
+        uint64_t ShotResultsTrimmed = 0;    // sent with hitboxes left off to fit a message
+        uint64_t BandwidthReports = 0;
+        uint64_t Subscriptions = 0;         // NetDebugSubscribe messages taken
+    };
+    const DebugStats& GetDebugStats() const { return m_debugStats; }
+    // The InNow of the newest Receive (the clock the ledger's times are on).
+    double GetNow() const { return m_lastNow; }
+    // Server: the InCount entities that took the most snapshot bytes while counting, every client's
+    // (InSeconds: the span, for the rates).
+    std::vector<NetEntityBytes> GetTopEntities( size_t InCount, double InSeconds ) const;
+
 #if USING( ME_EDITOR )
     void OnEditorInspect() final;
 #endif
@@ -425,6 +454,32 @@ private:
     NetKillcamReceiver m_killcam;
     uint32_t m_sessionId = 0;
     void NewSessionId();
+    // NET-7 debugging.
+    void OnDebugSubscribe( uint8_t InClient, BitReader& InReader );
+    void OnDebugMessage( BitReader& InReader );
+    // Server: the shot's result to its shooter's client, when that client asked for shots.
+    void SendShotResult( const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, const InputCommand& InCommand, const EntityHandle& InShooter,
+        const LagCompensatedHit& InHit );
+    // Client: one of its predicted pawn's shots (InPresent: the frame of hitboxes it was tested against).
+    void NotePredictedShot( const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, const EntityHandle& InShooter, const LagCompensatedHit& InHit,
+        const NetLagCompensation& InPresent );
+    // Server (EndTick): bandwidth windows to the clients that asked, once a second each.
+    void UpdateDebug();
+    // Server: whether snapshots are counted per entity (m_debug, or a client asking).
+    void UpdateAccounting();
+    NetDebugSubscription m_debug;
+    NetDebugSubscription m_debugAsked;      // client: what the server was last asked for
+    struct DebugSubscriber
+    {
+        NetDebugSubscription Wants;
+        uint32_t WindowStart = 0;           // the tick its bandwidth window began
+    };
+    std::map<uint8_t, DebugSubscriber> m_debugSubscribers;
+    DebugStats m_debugStats;
+    NetShotLedger m_shotLedger;
+    NetBandwidthReport m_bandwidthReport;
+    uint64_t m_bandwidthReports = 0;
+    bool m_inTick = false;                  // client: between BeginTick and EndTick
 };
 
 ME_REGISTER_CORE( NetCore )

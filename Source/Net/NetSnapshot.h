@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <map>
 #include <set>
+#include <utility>
 #include <vector>
 
 class BaseComponent;
@@ -82,9 +83,11 @@ namespace NetSnapshotCodec
     // InByteBudget is spent; OutSent then holds what the client will actually have (unsent
     // entities keep their baseline state), which is what to delta against later.
     // InOnly (optional): the changed entities allowed in this one; the others wait, like those over
-    // the budget.
+    // the budget. OutEntityBits (optional, NET-7's top-bandwidth view): each entity written and the
+    // bits its entry took, flag to fields; the rest of the message is the header, the gone list and
+    // the end bit.
     void Write( BitWriter& InWriter, const NetSnapshot& InCurrent, const NetSnapshot* InBaseline, size_t InByteBudget, NetSnapshot& OutSent,
-        const std::set<uint32_t>* InOnly = nullptr );
+        const std::set<uint32_t>* InOnly = nullptr, std::vector<std::pair<uint32_t, uint32_t>>* OutEntityBits = nullptr );
     // The baseline must be the one the writer used (its tick is in the message).
     bool Read( BitReader& InReader, const NetSnapshot* InBaseline, NetSnapshot& OutSnapshot );
 }

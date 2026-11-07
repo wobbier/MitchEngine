@@ -823,6 +823,18 @@ namespace
 }
 
 
+void NetReplayShots::Write( BitWriter& InWriter, const NetReplayShot& InShot )
+{
+    WriteShot( InWriter, InShot, nullptr, 0 );
+}
+
+
+bool NetReplayShots::Read( BitReader& InReader, NetReplayShot& OutShot )
+{
+    return ReadShot( InReader, OutShot, nullptr, 0, NetReplayFormat::kVersion ) && !InReader.IsOverflowed();
+}
+
+
 std::vector<uint8_t> NetReplayChunk::Encode( const std::vector<const NetReplayTick*>& InTicks, NetReplayCodec InCodec, size_t* OutRawBytes )
 {
     BitWriter payload;

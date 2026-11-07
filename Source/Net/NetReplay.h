@@ -211,6 +211,14 @@ namespace NetReplayChunk
     bool ReadInfo( const uint8_t* InData, size_t InSize, Info& OutInfo );
 }
 
+// One shot alone, in the chunks' encoding (its whole hitbox list, never a reference to an earlier
+// shot): the shooter's debug message (NET-7, NetDebug.h) carries the server's judgement this way.
+namespace NetReplayShots
+{
+    void Write( BitWriter& InWriter, const NetReplayShot& InShot );
+    bool Read( BitReader& InReader, NetReplayShot& OutShot );
+}
+
 namespace NetReplayFile
 {
     // The file's opening: magic, version and the header.

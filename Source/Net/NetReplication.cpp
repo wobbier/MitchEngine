@@ -167,7 +167,7 @@ void NetReplicationMessages::WriteOwner( BitWriter& InWriter, uint32_t InNetId, 
 
 
 void NetReplicationMessages::WriteSnapshot( BitWriter& InWriter, int64_t InPreviousSent, const NetSnapshot& InCurrent, const NetSnapshot* InBaseline,
-    size_t InByteBudget, NetSnapshot& OutSent, const std::set<uint32_t>* InOnly )
+    size_t InByteBudget, NetSnapshot& OutSent, const std::set<uint32_t>* InOnly, std::vector<std::pair<uint32_t, uint32_t>>* OutEntityBits )
 {
     InWriter.WriteBits( NetMessage::Snapshot, 8 );
     InWriter.WriteBool( InPreviousSent >= 0 );
@@ -175,7 +175,7 @@ void NetReplicationMessages::WriteSnapshot( BitWriter& InWriter, int64_t InPrevi
     {
         InWriter.WriteBits( static_cast<uint32_t>( InPreviousSent ), 32 );
     }
-    NetSnapshotCodec::Write( InWriter, InCurrent, InBaseline, InByteBudget, OutSent, InOnly );
+    NetSnapshotCodec::Write( InWriter, InCurrent, InBaseline, InByteBudget, OutSent, InOnly, OutEntityBits );
 }
 
 
@@ -489,8 +489,10 @@ void NetReplicationServer::Prepare( uint8_t InClient, ClientState& InState ) con
 
     BitWriter writer;
     NetSnapshot sent;
+    InState.PreparedEntityBits.clear();
+    InState.PreparedCounted = Settings.AccountEntities;
     NetReplicationMessages::WriteSnapshot( writer, InState.HasSent ? static_cast<int64_t>( InState.LastSentTick ) : -1, view, baseline, kSnapshotBudget, sent,
-        &selected );
+        &selected, Settings.AccountEntities ? &InState.PreparedEntityBits : nullptr );
 
     // Unchanged since the last one sent: skip it (a keep-alive now and then keeps acks moving).
     if( InState.HasSent && !InState.Sent.empty() && InState.Sent.back().Entities == sent.Entities && m_current.Tick - InState.LastSentTick < kKeepAliveTicks )
@@ -624,7 +626,71 @@ void NetReplicationServer::OnPacket( NetServer::Client& InClient )
         ++m_snapshotsSent;
         ++state.Snapshots;
         state.HasPrepared = false;
+        // NET-7: what each entity's entry took of it, and the rest (header, gone list, end bit, padding).
+        if( state.PreparedCounted )
+        {
+            uint64_t counted = 0;
+            for( const auto& [id, bits] : state.PreparedEntityBits )
+            {
+                counted += bits;
+                m_entityBits[id] += bits;
+                state.WindowBits[id] += bits;
+                if( auto known = m_entityNames.find( id ); known == m_entityNames.end() )
+                {
+                    auto entity = m_entities.find( id );
+                    m_entityNames.emplace( id, entity != m_entities.end() && entity->second ? entity->second->GetName() : std::string() );
+                }
+            }
+            const uint64_t total = static_cast<uint64_t>( state.Prepared.size() ) * 8u;
+            const uint64_t overhead = total >= counted ? total - counted : 0;
+            m_overheadBits += overhead;
+            m_accountedBytes += state.Prepared.size();
+            state.WindowOverheadBits += overhead;
+            state.WindowBytes += state.Prepared.size();
+        }
     }
+}
+
+
+std::string NetReplicationServer::GetEntityName( uint32_t InNetId ) const
+{
+    auto it = m_entityNames.find( InNetId );
+    return it != m_entityNames.end() ? it->second : std::string();
+}
+
+
+NetBandwidthReport NetReplicationServer::TakeBandwidthWindow( uint8_t InClient, size_t InTop, double InSeconds )
+{
+    NetBandwidthReport report;
+    report.Tick = m_current.Tick;
+    report.Seconds = InSeconds;
+    auto client = m_clients.find( InClient );
+    if( client == m_clients.end() )
+    {
+        return report;
+    }
+    ClientState& state = client->second;
+    report.SnapshotBytes = state.WindowBytes;
+    report.OverheadBits = state.WindowOverheadBits;
+    std::vector<std::pair<uint64_t, uint32_t>> ranked;
+    ranked.reserve( state.WindowBits.size() );
+    for( const auto& [id, bits] : state.WindowBits )
+    {
+        ranked.emplace_back( bits, id );
+    }
+    std::sort( ranked.begin(), ranked.end(), []( const auto& InA, const auto& InB ) { return InA.first != InB.first ? InA.first > InB.first : InA.second < InB.second; } );
+    for( size_t i = 0; i < ranked.size() && i < InTop; ++i )
+    {
+        NetEntityBytes& entity = report.Top.emplace_back();
+        entity.NetId = ranked[i].second;
+        entity.Bits = ranked[i].first;
+        entity.BytesPerSecond = InSeconds > 0.0 ? static_cast<double>( entity.Bits ) / 8.0 / InSeconds : 0.0;
+        entity.Name = GetEntityName( entity.NetId );
+    }
+    state.WindowBits.clear();
+    state.WindowBytes = 0;
+    state.WindowOverheadBits = 0;
+    return report;
 }
 
 
