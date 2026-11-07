@@ -1,0 +1,55 @@
+# UX-2: numbers that mean something. Unit fields scrub from the label (log fields in log space),
+# take typed values with units, reset on a label double-click, and each gesture is one undo step.
+# Havana --scene Assets/Scenes/Tests/LightingTest.lvl --editor-exec Engine/Tests/Editor/UX2UnitFields.edscript
+wait 20
+create UnitProbe
+add-component Light
+set Light.LightType "Spot"
+select UnitProbe
+wait 5
+imgui-assert-value Light/Range | 10 m
+imgui-assert-value Light/Inner Cone Angle | 20°
+
+# Scrubbing the label moves the value; one undo puts it back.
+imgui-scrub Light/Range:label | 60
+assert-field UnitProbe | Light.Range | != 10
+undo
+assert-field UnitProbe | Light.Range | 10
+redo
+assert-field UnitProbe | Light.Range | != 10
+
+# Log fields scrub in log space: the same 60 px from 1 m lands far below 10 m's result.
+imgui-type Light/Range | 1
+assert-field UnitProbe | Light.Range | 1
+imgui-scrub Light/Range:label | 60
+assert-field UnitProbe | Light.Range | 2.8 ~ 1.5
+
+# Typed entry converts units and does arithmetic; the hard range still clamps.
+imgui-type Light/Range | 250 cm
+assert-field UnitProbe | Light.Range | 2.5
+imgui-assert-value Light/Range | 2.5 m
+imgui-type Light/Range | 2*3 m
+assert-field UnitProbe | Light.Range | 6
+imgui-type Light/Inner Cone Angle | 0.25 turn
+assert-field UnitProbe | Light.InnerConeAngle | 89
+imgui-assert-value Light/Inner Cone Angle | 89°
+
+# A value of the wrong kind is refused and changes nothing.
+imgui-type Light/Range | 5 kg
+assert-field UnitProbe | Light.Range | 6
+
+# Double-clicking the label restores the default, as one undo step.
+imgui-click Light/Range:label | double
+assert-field UnitProbe | Light.Range | 10
+undo
+assert-field UnitProbe | Light.Range | 6
+redo
+assert-field UnitProbe | Light.Range | 10
+
+# Shift scrubs finer than a plain scrub of the same distance.
+imgui-click Light/Inner Cone Angle:label | double
+assert-field UnitProbe | Light.InnerConeAngle | 20
+imgui-scrub Light/Inner Cone Angle:label | 40 | shift
+assert-field UnitProbe | Light.InnerConeAngle | 20 ~ 3
+
+panel-screenshot Properties | .tmp/UX2-UnitFields.png

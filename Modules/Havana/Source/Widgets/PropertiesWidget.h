@@ -59,6 +59,10 @@ private:
 	// Pre-edit snapshots of the inspected components, keyed by "guid:type".
 	std::unordered_map<std::string, json> m_snapshots;
 	std::unordered_map<std::string, bool> m_pendingEdits;
+	// UX-2: each component type's default values (what double-clicking a field label restores).
+	// Filled at the start of Render, never mid-draw: making them adds and removes a temporary entity.
+	std::unordered_map<std::string, json> m_defaults;
+	std::vector<std::string> m_wantedDefaults;
 	uint64_t m_selectionVersion = 0;
 	uint64_t m_renderCameraGUID = 0; // 0 follows the main camera.
 	char m_nameBuffer[256] = {};

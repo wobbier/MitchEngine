@@ -15,6 +15,7 @@
 #include "Selection.h"
 #include <Utils/HavanaUtils.h>
 #include <Widgets/ItemLog.h>
+#include <Widgets/ScrubField.h>
 #include <ImGuiTheme.h>
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -67,12 +68,164 @@ namespace ReflectionUI
             return AssetType::Unknown;
         }
 
-        void Tooltip( const FieldInfo* InField )
+        void Tooltip( const FieldInfo* InField, const std::string& InHint = std::string() )
         {
-            if( InField && !InField->Tooltip.empty() && ImGui::IsItemHovered( ImGuiHoveredFlags_DelayShort ) )
+            if( !ImGui::IsItemHovered( ImGuiHoveredFlags_DelayShort ) || ImGui::IsItemActive() )
             {
-                ImGui::SetTooltip( "%s", InField->Tooltip.c_str() );
+                return;
             }
+            const std::string text = InField && !InField->Tooltip.empty() ? InField->Tooltip + ( InHint.empty() ? "" : "\n\n" + InHint ) : InHint;
+            if( !text.empty() )
+            {
+                ImGui::SetTooltip( "%s", text.c_str() );
+            }
+        }
+
+        // The default value of the top-level field being drawn (from Context::Defaults).
+        const json*& CurrentDefault()
+        {
+            static const json* current = nullptr;
+            return current;
+        }
+
+        // Numbers drawn as unit fields (UX-2): floats, doubles and integers without named
+        // choices, unless the field asks for a classic slider.
+        bool IsUnitField( const FieldInfo* InField, const ValueOps& InOps )
+        {
+            if( InField && InField->Widget == Reflection::WidgetKind::Slider )
+            {
+                return false;
+            }
+            switch( InOps.Type )
+            {
+            case PropertyType::Float:
+            case PropertyType::Double:
+                return true;
+            case PropertyType::Int:
+            case PropertyType::UInt:
+                // 64-bit integers keep the exact DragScalar: a double can't hold every value.
+                return !( InField && InField->ChoiceName && InField->ChoiceCount > 0 ) && InOps.IntBytes < 8;
+            default:
+                return false;
+            }
+        }
+
+        double ReadNumber( const ValueOps& InOps, const void* InValue )
+        {
+            switch( InOps.Type )
+            {
+            case PropertyType::Float: return *static_cast<const float*>( InValue );
+            case PropertyType::Double: return *static_cast<const double*>( InValue );
+            default:
+            {
+                const size_t bytes = std::min<size_t>( InOps.IntBytes, sizeof( int64_t ) );
+                uint64_t raw = 0;
+                std::memcpy( &raw, InValue, bytes );
+                if( InOps.Type == PropertyType::UInt )
+                {
+                    return static_cast<double>( raw );
+                }
+                if( bytes < 8 && ( raw >> ( bytes * 8 - 1 ) ) & 1 )
+                {
+                    raw |= ~( ( uint64_t( 1 ) << ( bytes * 8 ) ) - 1 );
+                }
+                return static_cast<double>( static_cast<int64_t>( raw ) );
+            }
+            }
+        }
+
+        void WriteNumber( const ValueOps& InOps, void* InValue, double InNumber )
+        {
+            switch( InOps.Type )
+            {
+            case PropertyType::Float: *static_cast<float*>( InValue ) = static_cast<float>( InNumber ); return;
+            case PropertyType::Double: *static_cast<double*>( InValue ) = InNumber; return;
+            default:
+            {
+                const size_t bytes = std::min<size_t>( InOps.IntBytes, sizeof( int64_t ) );
+                const int64_t whole = static_cast<int64_t>( std::llround( InNumber ) );
+                std::memcpy( InValue, &whole, bytes );
+                return;
+            }
+            }
+        }
+
+        MeWidgets::NumberSpec SpecFor( const FieldInfo* InField, const ValueOps& InOps )
+        {
+            MeWidgets::NumberSpec spec;
+            const bool integer = InOps.Type == PropertyType::Int || InOps.Type == PropertyType::UInt;
+            spec.Integer = integer;
+            if( InField )
+            {
+                spec.FieldUnit = InField->FieldUnit;
+                if( spec.FieldUnit == Reflection::Unit::None && InField->Has( FieldFlags::Angle ) )
+                {
+                    spec.FieldUnit = Reflection::Unit::Radians;
+                }
+                spec.HasRange = InField->HasRange;
+                spec.Min = InField->Min;
+                spec.Max = InField->Max;
+                spec.HasSoftRange = InField->HasSoftRange;
+                spec.SoftMin = InField->SoftMin;
+                spec.SoftMax = InField->SoftMax;
+                spec.Log = InField->LogScale;
+                spec.Speed = InField->Speed;
+            }
+            // The 0.1 default speed suits metres; radians and whole numbers want their own.
+            const bool defaultSpeed = !InField || InField->Speed == 0.1f;
+            if( defaultSpeed && spec.FieldUnit == Reflection::Unit::Radians )
+            {
+                spec.Speed = 0.5 * 3.14159265358979 / 180.0;
+            }
+            if( defaultSpeed && integer )
+            {
+                spec.Speed = 0.25;
+            }
+            if( InField && InField->Has( FieldFlags::Drag ) && spec.HasRange )
+            {
+                // .Drag( speed ): the field scrubs at its speed; the range only clamps.
+                spec.HasRange = false;
+                spec.HasClamp = true;
+                spec.ClampMin = InField->Min;
+                spec.ClampMax = InField->Max;
+            }
+            if( integer && !spec.HasRange )
+            {
+                // Whole numbers stay inside their type (a clamp: the scrub keeps its speed).
+                const int bits = static_cast<int>( std::min<size_t>( InOps.IntBytes, 4 ) * 8 );
+                spec.HasClamp = true;
+                if( InOps.Type == PropertyType::UInt )
+                {
+                    spec.ClampMin = 0.0;
+                    spec.ClampMax = std::ldexp( 1.0, bits ) - 1.0;
+                }
+                else
+                {
+                    spec.ClampMin = -std::ldexp( 1.0, bits - 1 );
+                    spec.ClampMax = std::ldexp( 1.0, bits - 1 ) - 1.0;
+                }
+            }
+            if( InField && InField->DefaultCount > 0 )
+            {
+                spec.HasDefault = true;
+                spec.Default = InField->DefaultValue[0];
+            }
+            else if( const json* fallback = CurrentDefault(); fallback && fallback->is_number() )
+            {
+                spec.HasDefault = true;
+                spec.Default = fallback->get<double>();
+            }
+            return spec;
+        }
+
+        std::string ScrubHint( const MeWidgets::NumberSpec& InSpec )
+        {
+            std::string hint = "Drag the label or the value to change it (Shift fine, Ctrl coarse, Alt snaps); click the value to type one";
+            if( InSpec.HasDefault )
+            {
+                hint += "\nDouble-click the label to reset to " + MeWidgets::FormatValue( InSpec.FieldUnit, InSpec.Default, InSpec.Integer ? 0 : -1 );
+            }
+            return hint;
         }
 
         bool DrawValue( const char* InLabel, const FieldInfo* InField, const ValueOps& InOps, void* InValue, bool InMixed );
@@ -85,7 +238,7 @@ namespace ReflectionUI
                 return;
             }
             // Widgets that show something other than the stored number report it themselves.
-            if( InField && ( InField->Has( FieldFlags::Asset ) || ( InField->ChoiceName && InField->ChoiceCount > 0 ) ) )
+            if( IsUnitField( InField, InOps ) || ( InField && ( InField->Has( FieldFlags::Asset ) || ( InField->ChoiceName && InField->ChoiceCount > 0 ) ) ) )
             {
                 return;
             }
@@ -497,6 +650,11 @@ namespace ReflectionUI
         bool DrawFieldsOf( const TypeInfo& InType, void* InInstance )
         {
             Context nested;
+            // A struct field's defaults are the struct's own fields.
+            if( CurrentDefault() && CurrentDefault()->is_object() )
+            {
+                nested.Defaults = CurrentDefault();
+            }
             return DrawType( InType, InInstance, nested );
         }
 
@@ -527,7 +685,20 @@ namespace ReflectionUI
             {
                 ImGui::PushStyleColor( ImGuiCol_Text, ImGuiTheme::WarningText() );
             }
-            HavanaUtils::Label( InLabel );
+            const float valueWidth = HavanaUtils::Label( InLabel );
+            // Numbers scrub from their label too (UX-2), and reset on a double-click.
+            const bool unitField = IsUnitField( InField, InOps );
+            MeWidgets::NumberSpec spec;
+            if( unitField )
+            {
+                spec = SpecFor( InField, InOps );
+                double number = ReadNumber( InOps, InValue );
+                if( MeWidgets::ScrubLastItem( number, spec, valueWidth, InMixed ) )
+                {
+                    WriteNumber( InOps, InValue, number );
+                    changed = true;
+                }
+            }
             if( InMixed )
             {
                 ImGui::PopStyleColor();
@@ -536,7 +707,11 @@ namespace ReflectionUI
                     ImGui::SetTooltip( "Selected entities have different values" );
                 }
             }
-            Tooltip( InField );
+            else
+            {
+                Tooltip( InField, unitField ? ScrubHint( spec ) : std::string() );
+            }
+            ImGui::SetNextItemWidth( valueWidth );
             ImGui::PushItemFlag( ImGuiItemFlags_MixedValue, InMixed );
 
             switch( InOps.Type )
@@ -546,13 +721,29 @@ namespace ReflectionUI
                 break;
             case PropertyType::Int:
             case PropertyType::UInt:
-                changed = DrawInt( "##value", InField, InOps, InValue );
-                break;
             case PropertyType::Float:
-                changed = DrawFloat( "##value", InField, *static_cast<float*>( InValue ) );
-                break;
             case PropertyType::Double:
-                changed = ImGui::DragScalar( "##value", ImGuiDataType_Double, InValue, InField ? InField->Speed : 0.1f );
+                if( unitField )
+                {
+                    double number = ReadNumber( InOps, InValue );
+                    if( MeWidgets::UnitField( "##value", number, spec ) )
+                    {
+                        WriteNumber( InOps, InValue, number );
+                        changed = true;
+                    }
+                }
+                else if( InOps.Type == PropertyType::Float )
+                {
+                    changed |= DrawFloat( "##value", InField, *static_cast<float*>( InValue ) );
+                }
+                else if( InOps.Type == PropertyType::Double )
+                {
+                    changed |= ImGui::DragScalar( "##value", ImGuiDataType_Double, InValue, InField ? InField->Speed : 0.1f );
+                }
+                else
+                {
+                    changed |= DrawInt( "##value", InField, InOps, InValue );
+                }
                 break;
             case PropertyType::String:
             {
@@ -706,7 +897,15 @@ namespace ReflectionUI
             {
                 ImGui::PushStyleColor( ImGuiCol_Text, ImGuiTheme::AccentText() );
             }
+            const json* previousDefault = CurrentDefault();
+            CurrentDefault() = nullptr;
+            if( InContext.Defaults && InContext.Defaults->is_object() )
+            {
+                const auto found = InContext.Defaults->find( field.Name );
+                CurrentDefault() = found != InContext.Defaults->end() ? &*found : nullptr;
+            }
             const bool changed = DrawValue( field.DisplayName.c_str(), &field, *field.Ops, field.Get( owner ), mixed );
+            CurrentDefault() = previousDefault;
             if( overridden )
             {
                 ImGui::PopStyleColor();

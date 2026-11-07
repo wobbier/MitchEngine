@@ -138,8 +138,7 @@ The entity header shows active, name, layer (with Project Settings names) and GU
 
 Reflected components get generated UI from `ReflectionUI`, chosen from each field's `PropertyType` and metadata:
 
-- Ranges become sliders; floating-point fields with `.Drag( speed )` instead use a drag at that
-  sensitivity while retaining their range as bounds. Angles are edited in degrees.
+- Numbers (floats, doubles, integers without named choices) are **unit fields** (UX-2, `MeWidgets::UnitField` in `Modules/ImGUI/Source/Widgets/ScrubField.h`). The value shows in its unit ("10 m", "20°", "-6.0 dB") over a fill bar for its range. Drag the row's label or the value to scrub (Shift fine, Ctrl coarse, Alt snaps to round steps). The range spans the field's width: the soft range when there is one, else the hard range; without either, `Speed` per pixel. Log fields scrub and fill in log space. Click the value (or Ctrl+click, or Space on it) to type: units of the same kind convert ("150 cm", "0.25 turn", "36 km/h", "-6 dB") and `+ - * / ( )` work ("2*3 m"). A value of the wrong kind is refused, with the reason shown for a moment. Double-click the label to reset to the field's `.Default( v )`, or else to a new component's value. Every gesture is one undo step. `.Widget( WidgetKind::Slider )` keeps a classic slider. Angles (`.Angle()`, stored in radians) are shown in degrees.
 - Colours and HDR colours get colour pickers; vectors get axis-coloured drags; quaternions are edited as stable Euler angles.
 - Enums become combos; nested structs and arrays (with +/-) are expanded. Int fields registered with `.Choices( count, nameFn )` become combos of named choices, and `.MaskChoices` makes a multi-select bit mask (navigation areas, layers).
 - Asset paths get drag-drop and a picker; `EntityHandle` fields accept hierarchy drags.
@@ -308,6 +307,20 @@ EditorActions::Get().Register( action );
 **Make an edit undoable**: change the scene through `EditorOps` where an operation exists. Otherwise capture `EditorOps::CaptureComponent` before and after and call `EditorOps::RecordComponentEdit`, or push your own `UndoCommand` that identifies entities by GUID.
 
 **Get an inspector for a component**: reflect its fields (`Docs/ECS.md`). Override `OnEditorInspect` only for extra UI such as buttons or previews.
+
+**Say what a number means** (UX-2) with the field metadata in `Reflection.h`, and the inspector formats, parses and scrubs it to match:
+
+```cpp
+ME_FIELD( Range ).Unit( Reflection::Unit::Meters ).Log().SoftRange( 0.5f, 50.f ).Range( 0.01f, 1000.f );
+```
+
+- `.Unit( u )` names the unit. Most units only change the display: `Meters`, `Millimeters`, `Degrees`, `Kelvin`, `Decibels`, `Kilograms`, `Newtons`, `EV`, `Seconds`, `Milliseconds`, `Hours`, `Hertz`, `Multiplier`, `MetersPerSecond`, `MetersPerSecondSq`, `DegreesPerSecond`, `Pixels`, `FStop`, `Frames`, `Texels`, `PerMeter`. A few convert between what is stored and what is shown: `Radians` (stored radians, shown degrees), `LinearGain` (stored linear, shown dB), `Percent` (stored 0..1), `PitchRatio` (stored ratio, shown semitones).
+- `.Log()` scrubs and fills in log space. A range that starts at 0 is shifted, so 0 stays reachable.
+- `.SoftRange( min, max )` sets the span a scrub across the field covers. `.Range` stays the hard clamp.
+- `.Default( v )` is what double-clicking the label restores.
+- `.Widget( kind )` asks for a bespoke widget.
+
+Leave the unit out of `Display()`: the value shows it.
 
 **Lay out editor UI** (inspectors, settings, panels) so it matches the rest at every font size:
 

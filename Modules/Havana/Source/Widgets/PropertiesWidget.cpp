@@ -108,6 +108,15 @@ void PropertiesWidget::SortComponents(std::vector<BaseComponent*>& components) c
 
 void PropertiesWidget::Render()
 {
+	// Defaults asked for last frame, made before anything is drawn this frame.
+	for (const std::string& typeName : m_wantedDefaults)
+	{
+		if (!m_defaults.count(typeName))
+		{
+			m_defaults[typeName] = EditorOps::GetComponentDefaults(typeName);
+		}
+	}
+	m_wantedDefaults.clear();
 	if (!IsOpen)
 	{
 		return;
@@ -632,6 +641,15 @@ void PropertiesWidget::DrawComponentGroup(const std::string& typeName, std::vect
 			context.Filter = InFilter;
 			std::vector<std::string> drawnFields;
 			context.Drawn = &drawnFields;
+			const auto defaults = m_defaults.find(typeName);
+			if (defaults != m_defaults.end())
+			{
+				context.Defaults = &defaults->second;
+			}
+			else
+			{
+				m_wantedDefaults.push_back(typeName);
+			}
 			for (size_t i = 1; i < instances.size(); ++i)
 			{
 				context.Others.push_back(instances[i].Component);

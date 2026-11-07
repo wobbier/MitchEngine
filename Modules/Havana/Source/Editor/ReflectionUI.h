@@ -30,6 +30,10 @@ namespace ReflectionUI
         std::string Filter;
         // Optional: the top-level fields drawn (editor automation asserts on them).
         std::vector<std::string>* Drawn = nullptr;
+        // Optional (UX-2): the type's default values as JSON (a new instance serialized).
+        // Double-clicking a number's label restores its default from here unless the field
+        // names one with .Default().
+        const json* Defaults = nullptr;
     };
 
     // Draws all fields; returns true when anything changed.
