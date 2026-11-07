@@ -237,6 +237,10 @@ bool NetCore::Host( INetTransport& InTransport, uint16_t InTickRate )
         {
             OnRpc( InClient.Id, InReader );
         }
+        else if( InType == NetMessage::KillcamCancel && InReliable )
+        {
+            OnKillcamCancel( InClient.Id, InReader );
+        }
     };
     // Gameplay hears of a new client once replication has sent it the world.
     m_server->OnClientAccepted = [this, welcome = m_server->OnClientAccepted]( NetServer::Client& InClient ) {
@@ -1260,6 +1264,51 @@ void NetCore::OnBlob( std::vector<uint8_t>& InData )
 }
 
 
+bool NetCore::CancelKillcamDownload()
+{
+    if( !m_client || m_killcam.GetId() == 0 || m_killcam.IsComplete() || m_killcam.IsCancelled() )
+    {
+        return false;
+    }
+    m_killcam.Cancel();
+    if( m_client->GetState() != NetClient::State::Connected )
+    {
+        return false;
+    }
+    BitWriter message;
+    message.WriteBits( NetMessage::KillcamCancel, 8 );
+    message.WriteVarUInt( m_killcam.GetId() );
+    m_client->Send( message, true );
+    CLog::Log( CLog::LogType::Info, "Net: killcam " + std::to_string( m_killcam.GetId() ) + " cancelled with " + std::to_string( m_killcam.GetChunksReceived() ) + " of "
+        + std::to_string( m_killcam.GetChunkCount() ) + " chunks in (" + std::to_string( m_killcam.GetBytesReceived() / 1024 ) + " KB)" );
+    return true;
+}
+
+
+void NetCore::OnKillcamCancel( uint8_t InClient, BitReader& InReader )
+{
+    const uint32_t id = static_cast<uint32_t>( InReader.ReadVarUInt() );
+    if( InReader.IsOverflowed() )
+    {
+        return;
+    }
+    for( auto it = m_killcams.begin(); it != m_killcams.end(); ++it )
+    {
+        if( it->Client == InClient && it->Request.Id == id )
+        {
+            ++m_killcamStats.CancelledByClient;
+            CLog::Log( CLog::LogType::Info, "Net: killcam " + std::to_string( id ) + " for client " + std::to_string( InClient ) + " cancelled by the client: "
+                + std::to_string( it->InFlight.size() ) + " chunks on their way and " + std::to_string( it->Queued.size() ) + " queued dropped"
+                + ( it->Encoding ? " (still encoding)" : "" ) );
+            CancelKillcam( *it );
+            m_killcams.erase( it );
+            return;
+        }
+    }
+    // Already whole (the cancel crossed its last ack), or replaced: nothing left to stop.
+}
+
+
 float NetCore::GetKillcamProgress() const
 {
     if( m_killcam.GetId() == 0 )
@@ -1440,6 +1489,7 @@ bool NetCore::WriteReport( const std::string& InPath, double InNow ) const
         killcams["Completed"] = m_killcamStats.Completed;
         killcams["Failed"] = m_killcamStats.Failed;
         killcams["Cancelled"] = m_killcamStats.Cancelled;
+        killcams["CancelledByClient"] = m_killcamStats.CancelledByClient;
         killcams["Bytes"] = m_killcamStats.Bytes;
         killcams["Ticks"] = m_killcamStats.Ticks;
         killcams["EncodeMs"] = m_killcamStats.EncodeMs;

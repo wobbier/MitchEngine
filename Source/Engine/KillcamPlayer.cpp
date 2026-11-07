@@ -13,11 +13,13 @@
 #include "Engine/World.h"
 #include "Net/NetKillcam.h"
 #include "Net/NetReplayPlayback.h"
+#include "Profiling/FrameStats.h"
 #include "optick.h"
 #if USING( ME_SCRIPTING )
 #include "Scripting/Bindings/BindingContext.h"
 #endif
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <sstream>
 #include <utility>
@@ -319,10 +321,7 @@ KillcamPlayer::ReplayWorld::~ReplayWorld()
 
 KillcamPlayer::~KillcamPlayer()
 {
-    if( m_replay )
-    {
-        End( "stopped" );
-    }
+    Release();
     if( SharedPtr<World> live = m_live.lock() )
     {
         if( SingletonKillcam* singleton = live->FindSingleton<SingletonKillcam>() )
@@ -335,13 +334,13 @@ KillcamPlayer::~KillcamPlayer()
 
 World* KillcamPlayer::GetWorld() const
 {
-    return m_replay ? m_replay->Instance.get() : nullptr;
+    return m_playing ? m_replay->Instance.get() : nullptr;
 }
 
 
 SharedPtr<World> KillcamPlayer::GetWorldPtr() const
 {
-    return m_replay ? m_replay->Instance : SharedPtr<World>();
+    return m_playing ? m_replay->Instance : SharedPtr<World>();
 }
 
 
@@ -372,13 +371,14 @@ void KillcamPlayer::Update( World& InLive, double InFrameSeconds )
     Bind( InLive );
     NetCore* live = InLive.GetCore<NetCore>();
     const NetKillcamReceiver* killcam = live && live->GetClient() ? &live->GetKillcam() : nullptr;
-    if( std::exchange( m_skipRequested, false ) && m_replay )
+    if( std::exchange( m_skipRequested, false ) && m_playing )
     {
         End( "skipped" );
     }
+    // No session, no killcams: the kept world goes too (the next session may be another scene, other scripts).
     if( m_replay && ( !live || !live->IsSessionLive() ) )
     {
-        End( "stopped" );
+        Release();
     }
     // Killcam ids are a server's own (each server process counts from 1, and the receiver starts over at 0
     // on Connect): with no session, or a receiver that has started over, whatever id comes next is new.
@@ -392,13 +392,13 @@ void KillcamPlayer::Update( World& InLive, double InFrameSeconds )
         && live->IsSessionLive() )
     {
         m_lastSeen = killcam->GetId();
-        if( m_replay )
+        if( m_playing )
         {
             End( "replaced" );
         }
         Start( InLive, *killcam );
     }
-    if( !m_replay )
+    if( !m_playing )
     {
         return;
     }
@@ -498,6 +498,121 @@ void KillcamPlayer::Start( World& InLive, const NetKillcamReceiver& InKillcam )
         CLog::Log( CLog::LogType::Warning, "Net: killcam " + std::to_string( m_status.Id ) + " can't play: " + InWhy );
     };
 
+    const auto began = std::chrono::steady_clock::now();
+    // The kept world is another live world's (the player moved on): not this one's scene.
+    if( m_replay && m_builtFor.lock().get() != &InLive )
+    {
+        DestroyWorld();
+    }
+    // The live session's command layout: the recording's version check folds it in with the scripts'.
+    NetCore* live = InLive.GetCore<NetCore>();
+    std::string error;
+    bool kept = m_replay != nullptr;
+    if( !kept && !Build( InLive, error ) )
+    {
+        fail( error.empty() ? "the replay world couldn't be made" : error );
+        return;
+    }
+    if( live )
+    {
+        m_replay->Net->SetCommandSchema( live->GetCommandSchema() );
+    }
+    bool started = StartPlayback( InKillcam, error );
+    if( !started && kept )
+    {
+        // The kept world doesn't fit this stream (its placed networked entities aren't the recording's): a fresh one.
+        CLog::Log( CLog::LogType::Warning, "Net: killcam " + std::to_string( m_status.Id ) + ": the kept replay world doesn't fit it (" + error + "); building another" );
+        ++m_stats.WorldsDiscarded;
+        DestroyWorld();
+        kept = false;
+        error.clear();
+        if( !Build( InLive, error ) )
+        {
+            fail( error.empty() ? "the replay world couldn't be made" : error );
+            return;
+        }
+        if( live )
+        {
+            m_replay->Net->SetCommandSchema( live->GetCommandSchema() );
+        }
+        started = StartPlayback( InKillcam, error );
+    }
+    if( !started )
+    {
+        fail( error );
+        DestroyWorld();
+        return;
+    }
+    if( kept )
+    {
+        ++m_stats.WorldsReused;
+    }
+    m_status.WorldKept = kept;
+    m_status.ReadyMs = std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - began ).count();
+    // The killer's view reads its ticks ahead of the playhead from the same stream.
+    m_samples.clear();
+    m_edgeTick = 0;
+    m_edgeView = -1.0;
+    m_aheadSource = std::make_unique<NetKillcamSource>( InKillcam.GetSource() );
+    m_ahead = std::make_unique<NetReplayReader>( *m_aheadSource );
+    NetReplayPlayback& playback = *m_replay->Net->GetPlayback();
+    playback.SetStreaming( !m_status.Complete );
+    playback.Play();
+    m_status.TickRate = playback.GetTickRate();
+    m_status.Tick = playback.GetTime();
+    m_status.Duration = static_cast<double>( m_status.DeathTick - std::min( m_status.FirstTick, m_status.DeathTick ) ) / m_status.TickRate + m_settings.HoldSeconds;
+    m_playing = true;
+    m_live = InLive.GetSharedPtr();
+    ++m_stats.Started;
+    CLog::Log( CLog::LogType::Info, "Net: killcam " + std::to_string( m_status.Id ) + " playing: killer #" + std::to_string( m_status.KillerNetId ) + ", victim #"
+        + std::to_string( m_status.VictimNetId ) + ", ticks " + std::to_string( m_status.FirstTick ) + "-" + std::to_string( m_status.DeathTick ) + " ("
+        + Seconds( m_status.Duration ) + " s, " + std::to_string( InKillcam.GetChunksReady() ) + " of " + std::to_string( InKillcam.GetChunkCount() ) + " chunks in; "
+        + ( kept ? "the replay world kept" : "the replay world built" ) + ", ready in " + Seconds( m_status.ReadyMs ) + " ms)" );
+    Fire( true, std::string() );
+    PlaceView();
+}
+
+
+bool KillcamPlayer::StartPlayback( const NetKillcamReceiver& InKillcam, std::string& OutError )
+{
+#if USING( ME_SCRIPTING )
+    // Spawns at the first tick create their scripts in the replay world.
+    ScriptBindings::WorldScope scope( m_replay->Instance );
+#endif
+    return m_replay->Net->StartPlayback( std::make_unique<NetKillcamSource>( InKillcam.GetSource() ), &OutError );
+}
+
+
+bool KillcamPlayer::Prepare( World& InLive )
+{
+    Bind( InLive );
+    if( m_replay && !m_playing && m_builtFor.lock().get() != &InLive )
+    {
+        DestroyWorld();
+    }
+    if( m_replay )
+    {
+        return true;
+    }
+    if( m_buildFailed || !m_settings.KeepWorld )
+    {
+        return false;
+    }
+    std::string error;
+    if( !Build( InLive, error ) )
+    {
+        m_buildFailed = true;
+        CLog::Log( CLog::LogType::Warning, "Net: the killcam replay world can't be built ahead: " + ( error.empty() ? std::string( "the replay world couldn't be made" ) : error ) );
+        return false;
+    }
+    return true;
+}
+
+
+bool KillcamPlayer::Build( World& InLive, std::string& OutError )
+{
+    OPTICK_EVENT( "KillcamPlayer::Build" );
+    const auto began = std::chrono::steady_clock::now();
     auto replay = std::make_unique<ReplayWorld>();
     auto net = std::make_unique<NetCore>();
     replay->Net = net.get();
@@ -507,7 +622,6 @@ void KillcamPlayer::Start( World& InLive, const NetKillcamReceiver& InKillcam )
     world.IsReplayWorld = true;
     world.IsLoading = false;
     world.AddCore( *replay->Net );
-    // The live session's command layout: the recording's version check folds it in with the scripts'.
     if( NetCore* live = InLive.GetCore<NetCore>() )
     {
         replay->Net->SetCommandSchema( live->GetCommandSchema() );
@@ -515,73 +629,99 @@ void KillcamPlayer::Start( World& InLive, const NetKillcamReceiver& InKillcam )
     SingletonKillcam& singleton = world.Singleton<SingletonKillcam>();
     singleton.Player = this;
     singleton.InReplayWorld = true;
-    std::string error;
     {
 #if USING( ME_SCRIPTING )
         ScriptBindings::WorldScope scope( replay->Instance );
 #endif
-        if( m_populate && !m_populate( *replay, error ) )
+        if( m_populate && !m_populate( *replay, OutError ) )
         {
-            fail( error.empty() ? "the replay world couldn't be made" : error );
             // What it made goes inside its own scope (scripts' OnDestroy).
             world.Destroy();
-            return;
+            return false;
         }
         world.IsLoading = false;
         world.Simulate();
         world.Start();
-        if( !replay->Net->StartPlayback( std::make_unique<NetKillcamSource>( InKillcam.GetSource() ), &error ) )
-        {
-            fail( error );
-            world.Destroy();
-            return;
-        }
     }
-    // The killer's view reads its ticks ahead of the playhead from the same stream.
-    m_samples.clear();
-    m_edgeTick = 0;
-    m_edgeView = -1.0;
-    m_aheadSource = std::make_unique<NetKillcamSource>( InKillcam.GetSource() );
-    m_ahead = std::make_unique<NetReplayReader>( *m_aheadSource );
-    NetReplayPlayback& playback = *replay->Net->GetPlayback();
-    playback.SetStreaming( !m_status.Complete );
-    playback.Play();
-    m_status.TickRate = playback.GetTickRate();
-    m_status.Tick = playback.GetTime();
-    m_status.Duration = static_cast<double>( m_status.DeathTick - std::min( m_status.FirstTick, m_status.DeathTick ) ) / m_status.TickRate + m_settings.HoldSeconds;
+    // What it was built with: each killcam's spawns (and its scripts' makings) go after it (ResetWorld).
+    m_built.clear();
+    world.ForEachEntity( [this]( Entity& InEntity ) { m_built.push_back( InEntity.GetId().Value() ); } );
+    std::sort( m_built.begin(), m_built.end() );
+    m_hidden.clear();
     m_replay = std::move( replay );
-    m_live = InLive.GetSharedPtr();
-    ++m_stats.Started;
-    CLog::Log( CLog::LogType::Info, "Net: killcam " + std::to_string( m_status.Id ) + " playing: killer #" + std::to_string( m_status.KillerNetId ) + ", victim #"
-        + std::to_string( m_status.VictimNetId ) + ", ticks " + std::to_string( m_status.FirstTick ) + "-" + std::to_string( m_status.DeathTick ) + " ("
-        + Seconds( m_status.Duration ) + " s, " + std::to_string( InKillcam.GetChunksReady() ) + " of " + std::to_string( InKillcam.GetChunkCount() ) + " chunks in)" );
-    Fire( true, std::string() );
-    PlaceView();
+    m_builtFor = InLive.GetSharedPtr();
+    ++m_stats.WorldsBuilt;
+    CLog::Log( CLog::LogType::Info, "Net: killcam replay world built: " + std::to_string( m_built.size() ) + " entities in "
+        + Seconds( std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - began ).count() ) + " ms" );
+    return true;
 }
 
 
-void KillcamPlayer::Stop()
+bool KillcamPlayer::ResetWorld()
 {
-    if( m_replay )
+    OPTICK_EVENT( "KillcamPlayer::ResetWorld" );
+    World& world = *m_replay->Instance;
+    size_t whole = 0;
     {
-        End( "stopped" );
+#if USING( ME_SCRIPTING )
+        // Scripts' OnDestroy run against their own world.
+        ScriptBindings::WorldScope scope( m_replay->Instance );
+#endif
+        m_replay->Net->Shutdown();
+        // What the killcam spawned (and its scripts made) goes; what the world was built with stays.
+        std::vector<EntityHandle> extra;
+        world.ForEachEntity( [&]( Entity& InEntity ) {
+            if( std::binary_search( m_built.begin(), m_built.end(), InEntity.GetId().Value() ) )
+            {
+                ++whole;
+            }
+            else
+            {
+                extra.push_back( world.GetEntity( InEntity.GetId() ) );
+            }
+        } );
+        for( const EntityHandle& entity : extra )
+        {
+            if( entity )
+            {
+                world.DestroyEntity( entity );
+            }
+        }
+        // A placed killer's body comes back (a spawned one's went with it).
+        for( const auto& [id, parts] : m_hidden )
+        {
+            Entity* entity = world.GetEntityRaw( EntityID::FromValue( id ) );
+            if( !entity )
+            {
+                continue;
+            }
+            if( Mesh* mesh = ( parts & 1 ) ? entity->TryGetComponent<Mesh>() : nullptr )
+            {
+                mesh->SetEnabled( true );
+            }
+            if( Model* model = ( parts & 2 ) ? entity->TryGetComponent<Model>() : nullptr )
+            {
+                model->SetEnabled( true );
+            }
+            if( TextRenderer* text = ( parts & 4 ) ? entity->TryGetComponent<TextRenderer>() : nullptr )
+            {
+                text->SetEnabled( true );
+            }
+        }
+        m_hidden.clear();
+        world.Simulate();
     }
+    return whole == m_built.size();
 }
 
 
-void KillcamPlayer::End( const std::string& InReason )
+void KillcamPlayer::DestroyWorld()
 {
     if( !m_replay )
     {
         return;
     }
-    OPTICK_EVENT( "KillcamPlayer::End" );
-    if( InReason == "played" ) ++m_stats.Played;
-    else if( InReason == "skipped" ) ++m_stats.Skipped;
-    else if( InReason == "replaced" ) ++m_stats.Replaced;
-    else if( InReason == "stopped" ) ++m_stats.Stopped;
-    else ++m_stats.Failed;
-    m_skipRequested = false;
+    OPTICK_EVENT( "KillcamPlayer::DestroyWorld" );
     std::unique_ptr<ReplayWorld> replay = std::move( m_replay );
     {
 #if USING( ME_SCRIPTING )
@@ -593,6 +733,71 @@ void KillcamPlayer::End( const std::string& InReason )
         replay->Instance->Destroy();
     }
     replay.reset();
+    m_built.clear();
+    m_hidden.clear();
+    m_builtFor.reset();
+}
+
+
+void KillcamPlayer::Stop()
+{
+    if( m_playing )
+    {
+        End( "stopped" );
+    }
+}
+
+
+void KillcamPlayer::Release()
+{
+    if( m_playing )
+    {
+        End( "stopped", false );
+    }
+    DestroyWorld();
+    m_buildFailed = false;
+}
+
+
+void KillcamPlayer::End( const std::string& InReason, bool InKeep )
+{
+    if( !m_playing )
+    {
+        return;
+    }
+    OPTICK_EVENT( "KillcamPlayer::End" );
+    if( InReason == "played" ) ++m_stats.Played;
+    else if( InReason == "skipped" ) ++m_stats.Skipped;
+    else if( InReason == "replaced" ) ++m_stats.Replaced;
+    else if( InReason == "stopped" ) ++m_stats.Stopped;
+    else ++m_stats.Failed;
+    m_skipRequested = false;
+    m_playing = false;
+    // One that won't be shown stops coming (ME-343): skipped, stopped or failed before its stream was whole. A
+    // replaced one's receiver has the newer already (the server cancelled the older itself).
+    if( InReason != "played" && InReason != "replaced" )
+    {
+        SharedPtr<World> live = m_live.lock();
+        NetCore* net = live ? live->GetCore<NetCore>() : nullptr;
+        if( net && net->GetKillcam().GetId() == m_status.Id )
+        {
+            net->CancelKillcamDownload();
+        }
+    }
+    {
+        ME_STAT_SCOPE( "Killcam Reset" );
+        if( !InKeep || !m_settings.KeepWorld )
+        {
+            DestroyWorld();
+        }
+        else if( !ResetWorld() )
+        {
+            // A placed entity went in the killcam: the next one gets a world as built.
+            ++m_stats.WorldsDiscarded;
+            CLog::Log( CLog::LogType::Info, "Net: killcam " + std::to_string( m_status.Id ) + ": the replay world lost an entity it was built with; it's built again for the next" );
+            DestroyWorld();
+        }
+    }
     m_ahead.reset();
     m_aheadSource.reset();
     m_samples.clear();
@@ -621,7 +826,7 @@ void KillcamPlayer::PlaceView()
 {
     m_status.HasView = false;
     m_status.HasVictim = false;
-    if( !m_replay || !m_settings.KillerView )
+    if( !m_playing || !m_settings.KillerView )
     {
         return;
     }
@@ -693,18 +898,27 @@ void KillcamPlayer::PlaceView()
             pending.pop_back();
             if( Entity* entity = transform->Parent.Get() )
             {
+                uint8_t parts = 0;
                 if( Mesh* mesh = entity->TryGetComponent<Mesh>(); mesh && mesh->IsEnabled() )
                 {
                     mesh->SetEnabled( false );
+                    parts |= 1;
                 }
                 // A compact model draws its parts from the Model itself, not from Mesh entities.
                 if( Model* model = entity->TryGetComponent<Model>(); model && model->IsEnabled() )
                 {
                     model->SetEnabled( false );
+                    parts |= 2;
                 }
                 if( TextRenderer* text = entity->TryGetComponent<TextRenderer>(); text && text->IsEnabled() )
                 {
                     text->SetEnabled( false );
+                    parts |= 4;
+                }
+                // Shown again when the world is reset for the next killcam (a placed killer stays).
+                if( parts != 0 )
+                {
+                    m_hidden.emplace_back( entity->GetId().Value(), parts );
                 }
             }
             for( Transform* child : transform->GetChildren() )

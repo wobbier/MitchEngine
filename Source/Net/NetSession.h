@@ -41,6 +41,7 @@ namespace NetMessage
         OwnerState = 20,
         Rpc = 21,           // NET-6: a C# [ServerRpc] / [ClientRpc] call (reliable)
         Owner = 22,         // NET-6: who owns a networked entity now (reliable)
+        KillcamCancel = 23, // ME-343: the victim stops killcam N (Skip): the server cancels its blobs (reliable, client -> server; protocol 9)
     };
 }
 

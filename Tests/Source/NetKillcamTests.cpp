@@ -1279,6 +1279,19 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
     net.Run( 9.0 );
     CHECK_FALSE( player.IsPlaying() );
     CHECK( populated == 0 );
+    // ME-343: the replay world is built ahead of the first death (Prepare: the engine does it once the scene's read
+    // ahead), off screen until a killcam plays, and kept for every killcam after.
+    REQUIRE( player.Prepare( *net.ClientWorld ) );
+    CHECK( populated == 1 );
+    CHECK( player.Prepare( *net.ClientWorld ) );
+    CHECK( populated == 1 );
+    CHECK_FALSE( player.IsPlaying() );
+    CHECK( player.GetWorld() == nullptr );
+    World* const kept = player.GetKeptWorld();
+    REQUIRE( kept != nullptr );
+    CHECK( kept->IsReplayWorld );
+    const size_t builtEntities = kept->GetEntityCount();
+    CHECK( player.GetStats().WorldsBuilt == 1 );
 
     NetPredictor& predictor = *net.ClientNet.GetPredictor();
     NetServer::Client& onServer = *net.ServerNet.GetServer()->GetClients().front();
@@ -1332,6 +1345,8 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
     REQUIRE( player.IsPlaying() );
     REQUIRE( startedAt > 0.0 );
     CHECK( populated == 1 );
+    CHECK( player.GetWorld() == kept );
+    CHECK( player.GetStatus().WorldKept );
     CHECK( completeAt > startedAt );        // it played before the stream was whole
     const KillcamPlayer::Status status = player.GetStatus();
     CHECK( status.Id == 1 );
@@ -1557,6 +1572,11 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
     CHECK( player.GetStats().DeathViews == 1 );
     CHECK_FALSE( player.IsPlaying() );
     CHECK( player.GetWorld() == nullptr );
+    // Kept (ME-343), as it was built: the killcam's spawns (24 movers) gone, the placed killer's body shown again.
+    CHECK( player.GetKeptWorld() == kept );
+    CHECK( kept->GetEntityCount() == builtEntities );
+    CHECK( replayBody->GetComponent<Model>().IsEnabled() );
+    CHECK( player.GetStats().WorldsDiscarded == 0 );
     REQUIRE( events.size() == 2 );
     CHECK( events[1].Type == KillcamEvent::Kind::Ended );
     CHECK( events[1].Reason == "played" );
@@ -1594,6 +1614,7 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
     }
     REQUIRE( player.IsPlaying() );
     CHECK( player.GetStatus().Id == 2 );
+    CHECK( player.GetWorld() == kept );
     net.Run( 0.5 );
     killTick = net.ServerNet.GetServer()->GetTick() + 2;
     ringAtKill.clear();
@@ -1611,6 +1632,16 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
     CHECK( events[3].Id == 2 );
     CHECK( events[4].Type == KillcamEvent::Kind::Started );
     CHECK( events[4].Id == 3 );
+    // The replaced one's world reset and played the next straight away (ME-343).
+    CHECK( player.GetWorld() == kept );
+    CHECK( player.GetStatus().WorldKept );
+    // Skipped while it still streams (ME-343): the download stops. The receiver takes no more of it and the
+    // server, told, cancels its blobs on their way and queued.
+    const NetKillcamReceiver& arriving = net.ClientNet.GetKillcam();
+    REQUIRE( arriving.GetId() == 3 );
+    REQUIRE_FALSE( arriving.IsComplete() );
+    REQUIRE( net.ServerNet.GetKillcamsPending() == 1 );
+    const uint64_t cancelledBefore = net.ServerNet.GetKillcamStats().CancelledByClient;
 #if USING( ME_SCRIPTING )
     {
         ScriptBindings::WorldScope scope( player.GetWorldPtr() );
@@ -1626,11 +1657,49 @@ TEST_CASE( "Net: the victim plays its killcam into a replay world of its own whi
     CHECK( events[5].Reason == "skipped" );
     CHECK( player.GetStats().Skipped == 1 );
     CHECK( player.GetStats().Started == 3 );
-    CHECK( populated == 3 );
-    // Nothing more to play: the newest has been seen.
-    net.Run( 1.0 );
+    CHECK( arriving.IsCancelled() );
+    const uint32_t chunksAtSkip = arriving.GetChunksReceived();
+    MESSAGE( "killcam 3 skipped with " << chunksAtSkip << " of " << arriving.GetChunkCount() << " chunks in" );
+    // Built once, kept for all three (ME-343).
+    CHECK( populated == 1 );
+    CHECK( player.GetStats().WorldsBuilt == 1 );
+    CHECK( player.GetStats().WorldsReused == 3 );
+    CHECK( player.GetKeptWorld() == kept );
+    CHECK( kept->GetEntityCount() == builtEntities );
+    // Nothing more to play: the newest has been seen. Within a round trip the server has dropped the rest of it
+    // and the link carries none of it after that: no chunk more, no blob of it on its way either side.
+    net.Run( 0.3 );
+    CHECK( net.ServerNet.GetKillcamStats().CancelledByClient == cancelledBefore + 1 );
+    CHECK( net.ServerNet.GetKillcamsPending() == 0 );
+    CHECK( onServer.Connection->GetBlobProgress().empty() );
+    const uint32_t chunksAfterCancel = arriving.GetChunksReceived();
+    net.Run( 1.5 );
     CHECK_FALSE( player.IsPlaying() );
     CHECK( player.GetStats().Started == 3 );
+    CHECK_FALSE( arriving.IsComplete() );
+    CHECK( arriving.GetChunksReceived() == chunksAfterCancel );
+    CHECK( arriving.GetChunksReceived() < arriving.GetChunkCount() );
+    CHECK( net.ClientNet.GetClient()->GetConnection().GetBlobProgress().empty() );
+
+    // ME-343: a player that doesn't keep its world (Settings::KeepWorld off) builds one per killcam and lets it go.
+    player.GetSettings().KeepWorld = false;
+    player.Release();
+    CHECK( player.GetKeptWorld() == nullptr );
+    CHECK_FALSE( player.Prepare( *net.ClientWorld ) );
+    killTick = net.ServerNet.GetServer()->GetTick() + 2;
+    ringAtKill.clear();
+    for( int i = 0; i < 300 && !( player.IsPlaying() && player.GetStatus().Id == 4 ); ++i )
+    {
+        net.Run( 0.01 );
+    }
+    REQUIRE( player.IsPlaying() );
+    CHECK_FALSE( player.GetStatus().WorldKept );
+    CHECK( populated == 2 );
+    player.Skip();
+    player.Update( *net.ClientWorld, 1.0 / 60.0 );
+    CHECK_FALSE( player.IsPlaying() );
+    CHECK( player.GetKeptWorld() == nullptr );
+    CHECK( player.GetStats().WorldsBuilt == 2 );
 }
 
 
@@ -1815,13 +1884,21 @@ TEST_CASE( "Net: a killcam that outruns its stream holds on the last tick in, st
     CHECK( net.Now() - startedAt >= 10.0 / 60.0 + 0.5 - 0.02 );
     CHECK( net.Now() - startedAt < 10.0 / 60.0 + 0.5 + 0.1 );
     CHECK( player.GetStats().StalledFrames > stalledFirst );
-    // Its stream comes in after all: it isn't played again.
+    // Given up on, its download stops (ME-343): the server, told over the link back (still open), drops the rest;
+    // what was on its way when the link comes back is cancelled too, and it isn't played again.
+    CHECK( net.ClientNet.GetKillcam().IsCancelled() );
+    REQUIRE( runUntil( [&]() { return net.ServerNet.GetKillcamsPending() == 0; }, 1.0 ) );
+    CHECK( net.ServerNet.GetKillcamStats().CancelledByClient == 1 );
     net.ServerLink.SetConditions( open );
-    REQUIRE( runUntil( [&]() { return net.ClientNet.GetKillcam().IsComplete(); }, 4.0 ) );
-    net.Run( 0.5 );
+    net.Run( 1.0 );
+    CHECK_FALSE( net.ClientNet.GetKillcam().IsComplete() );
+    CHECK( net.ClientNet.GetClient()->GetConnection().GetBlobProgress().empty() );
     CHECK_FALSE( player.IsPlaying() );
     CHECK( player.GetStats().Started == 2 );
     CHECK( player.GetLastSeenId() == 2 );
+    // The replay world built for the first, kept for the second (ME-343).
+    CHECK( player.GetStats().WorldsBuilt == 1 );
+    CHECK( player.GetStats().WorldsReused == 1 );
 
     // 3. A player kills (ME-343): its view of a tick is its client's tick whose command's view tick that is, its
     // interpolation delay further on in the stream. Cut as it starts, the killcam holds at the view tick of the
@@ -1880,6 +1957,10 @@ TEST_CASE( "Net: a killcam that outruns its stream holds on the last tick in, st
     CHECK_FALSE( net.ClientNet.IsSessionLive() );
     CHECK( player.GetLastSeenId() == 0 );
     CHECK( player.GetStats().Started == 3 );
+    // Its kept replay world goes with the session (ME-343).
+    CHECK( player.GetKeptWorld() == nullptr );
+    CHECK( player.GetStats().WorldsBuilt == 1 );
+    CHECK( player.GetStats().WorldsReused == 2 );
     net.OnMillisecond = nullptr;
 }
 

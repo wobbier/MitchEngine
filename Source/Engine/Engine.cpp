@@ -1084,8 +1084,9 @@ void Engine::Run()
                 Terrains->Update( updateContext );
 #if !USING( ME_HEADLESS )
                 ModelRenderer->Update( updateContext );
-                // Only the presented world's prepares anything (RenderCore::SetPresented).
-                if( RenderCore* replay = m_killcam.IsPlaying() ? m_killcam.GetWorld()->GetCore<RenderCore>() : nullptr )
+                // Only the presented world's prepares anything (RenderCore::SetPresented): a kept replay
+                // world's between killcams only empties its commands, once.
+                if( RenderCore* replay = m_killcam.GetKeptWorld() ? m_killcam.GetKeptWorld()->GetCore<RenderCore>() : nullptr )
                 {
                     replay->Update( updateContext );
                 }
@@ -1291,8 +1292,8 @@ void Engine::Shutdown()
 #endif
     CLog::Log( CLog::LogType::Info, "Shutting down." );
 
-    // A killcam's replay world goes first (its cores share the renderer and the scripts).
-    m_killcam.Stop();
+    // A killcam's replay world goes first (its cores share the renderer and the scripts), kept or playing.
+    m_killcam.Release();
     AudioThread->SetListenerWorld( nullptr );
     // Components get OnDisable/OnDestroy while every engine system is still alive.
     if( GameWorld )
@@ -1544,10 +1545,11 @@ std::string Engine::GetEntityScenePath( const Entity& InEntity ) const
 void Engine::LoadSceneInternal( const std::string& SceneFile, const json* InData )
 {
     OPTICK_EVENT( "Engine::LoadScene" );
-    // A killcam of the old scene can't play on (and its world shares the mesh cache cleared below).
-    // The game world is presented again now, not at the next UpdateKillcam: nothing may keep pointing
-    // into the replay world that just went.
-    m_killcam.Stop();
+    // A killcam of the old scene can't play on, and the kept replay world is the old scene's (and shares
+    // the mesh cache cleared below): it goes, and the next scene's is built for it (ME-343). The game
+    // world is presented again now, not at the next UpdateKillcam: nothing may keep pointing into the
+    // replay world that just went.
+    m_killcam.Release();
     AudioThread->SetListenerWorld( nullptr );
     Cameras->SetPresented( true );
     ModelRenderer->SetPresented( true );
@@ -1680,9 +1682,29 @@ void Engine::UpdateKillcam( const UpdateContext& InContext )
             m_killcamLevel = json();
             m_killcamLevelRead = Jobs::BackgroundLane::Get().Submit( "Killcam Scene Read", [path]() { return SceneStreaming::ReadScene( path ); } );
         }
+        // ME-343: once the read has landed, the replay world is built (on a frame with no death in it) and kept for
+        // the session's killcams; a death before then builds it.
+        else if( !m_killcam.GetKeptWorld() && !m_killcam.IsPlaying()
+            && ( !m_killcamLevelRead.valid() || m_killcamLevelRead.wait_for( std::chrono::seconds( 0 ) ) == std::future_status::ready ) )
+        {
+            ME_STAT_SCOPE( "Killcam Populate" );
+            m_killcam.Prepare( *GameWorld );
+        }
     }
     m_killcam.Update( *GameWorld, InContext.GetDeltaTime() );
     World* replay = m_killcam.GetWorld();
+    // A kept replay world between killcams is off screen: its cameras neither main nor rendering, its meshes out.
+    if( World* kept = m_killcam.GetKeptWorld() )
+    {
+        if( CameraCore* cameras = kept->GetCore<CameraCore>() )
+        {
+            cameras->SetPresented( replay != nullptr );
+        }
+        if( RenderCore* render = kept->GetCore<RenderCore>() )
+        {
+            render->SetPresented( replay != nullptr );
+        }
+    }
     if( replay )
     {
         // Its [ReplayWorld] scripts present it (ScriptCore::SetPresentationOnly).
@@ -1730,13 +1752,19 @@ void Engine::UpdateKillcam( const UpdateContext& InContext )
 
 void Engine::LateUpdateKillcam( const UpdateContext& InContext )
 {
-    World* replay = m_killcam.GetWorld();
-    CameraCore* cameras = replay ? replay->GetCore<CameraCore>() : nullptr;
+    // A kept replay world's cameras update between killcams too, off screen (CameraCore::SetPresented).
+    World* kept = m_killcam.GetKeptWorld();
+    CameraCore* cameras = kept ? kept->GetCore<CameraCore>() : nullptr;
     if( !cameras )
     {
         return;
     }
     cameras->LateUpdate( InContext );
+    World* replay = m_killcam.GetWorld();
+    if( !replay )
+    {
+        return;
+    }
     // The game's UI (RmlUi composites onto the game world's main camera) over the killcam.
     Camera* live = Camera::GetMain( GameWorld.get() );
     Camera* shown = Camera::GetMain( replay );

@@ -257,6 +257,7 @@ public:
         uint64_t Completed = 0;     // every blob acked
         uint64_t Failed = 0;        // nothing to send (the range isn't in the ring), a send refused
         uint64_t Cancelled = 0;     // replaced by a newer one for the client, or the client left
+        uint64_t CancelledByClient = 0;     // the victim stopped it (ME-343: KillcamCancel; its player skipped it, or gave up on it)
         uint64_t Bytes = 0;         // encoded
         uint64_t Ticks = 0;
         double EncodeMs = 0.0;      // on the lane, all of them
@@ -268,6 +269,12 @@ public:
     const NetKillcamReceiver& GetKillcam() const { return m_killcam; }
     // 0..1: the newest killcam's bytes in (blobs whole and on their way); 1 once complete, 0 before any.
     float GetKillcamProgress() const;
+    // Client (ME-343): the newest killcam stops arriving, while it isn't whole: the receiver takes no more
+    // of it (NetKillcamReceiver::Cancel) and the server is told to cancel its blobs, sent or queued
+    // (NetMessage::KillcamCancel, reliable), so the link stops carrying it. False when there's nothing
+    // arriving (none, whole, cancelled already) or no connection. The KillcamPlayer calls it when a
+    // killcam is skipped, stopped or fails before its stream is in.
+    bool CancelKillcamDownload();
 
     // Match replay playback (ME-316 phase 2, NetReplayPlayback.h): plays InSource into this world
     // through the client's replication path, with no session: every networked entity follows the
@@ -404,6 +411,8 @@ private:
     void UpdateKillcams();
     void CancelKillcam( KillcamSend& InSend );
     void OnBlob( std::vector<uint8_t>& InData );
+    // Server: a client's KillcamCancel.
+    void OnKillcamCancel( uint8_t InClient, BitReader& InReader );
     KillcamSettings m_killcamSettings;
     std::vector<KillcamSend> m_killcams;
     uint32_t m_nextKillcamId = 1;

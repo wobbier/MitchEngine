@@ -135,6 +135,10 @@ public:
     };
     Result Accept( const uint8_t* InData, size_t InSize );
     void Reset();
+    // The killcam stops arriving (ME-343: its player skipped it): later chunks of this id are Stale,
+    // what's in stays (a playback reading it keeps its ticks). A newer id starts over as usual.
+    void Cancel() { m_cancelled = m_id != 0 && !IsComplete(); }
+    bool IsCancelled() const { return m_cancelled; }
 
     // 0: none yet.
     uint32_t GetId() const { return m_id; }
@@ -170,6 +174,7 @@ private:
     uint8_t m_killerClient = 0;
     uint32_t m_deathTick = 0;
     uint32_t m_firstTick = 0;
+    bool m_cancelled = false;
     std::shared_ptr<NetReplayMemorySource> m_source;
     std::map<uint16_t, std::vector<uint8_t>> m_waiting;     // chunks ahead of the source
     std::set<uint16_t> m_have;

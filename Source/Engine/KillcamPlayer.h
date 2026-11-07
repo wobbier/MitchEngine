@@ -44,9 +44,12 @@ public:
 // Plays killcams into a replay world of their own (ME-323 phase 3, NET-17).
 //
 // The live world's NetCore receives a killcam (NetKillcamReceiver: the server's ME-316 chunks of the
-// killer's last seconds, streaming in). Once its first chunk is in, the player makes a second World
-// with its own NetCore (and, through Populate, the scene and whatever cores present it: the engine's
-// camera, render and script cores) and plays the stream into it through ME-316's playback path
+// killer's last seconds, streaming in). Once its first chunk is in, the player plays it into a second
+// World with its own NetCore (and, through Populate, the scene and whatever cores present it: the
+// engine's camera, render and script cores). That world is built once (Prepare, ahead of the first
+// death, or at the first killcam) and kept between killcams (ME-343): after each one, what the
+// killcam spawned goes and the world is as it was built, ready for the next (a world that can't be
+// made whole again, a placed entity destroyed, is built afresh). It plays the stream
 // (NetCore::StartPlayback over a NetKillcamSource): nothing is predicted, every entity follows the
 // recording, interpolated, and the playback waits on the last tick there is while chunks are still
 // coming (NetReplayPlayback::SetStreaming). The live world isn't touched: it keeps receiving,
@@ -56,7 +59,9 @@ public:
 // killer's eye looking along the killer's recorded aim (its client's commands, interpolated between
 // ticks; a bot's facing), with the killer's own meshes hidden (first person). It ends once the death
 // tick has shown for HoldSeconds, on Skip, when a newer killcam replaces it, when the session ends
-// (Stop), or when the stream stalls; then the replay world goes, at once.
+// (Stop), or when the stream stalls; then the replay world is reset at once (Release destroys it: a
+// scene load, the session's end). One that ends before its stream is whole stops the download
+// (NetCore::CancelKillcamDownload, ME-343).
 //
 // Presentation (which world the renderer, the audio listener and the screen's camera show) is the
 // owner's: Engine::Run presents the replay world while IsPlaying, the live world otherwise.
@@ -81,6 +86,9 @@ public:
         float EyeHeight = -1.f;
         // The killer's own meshes, models and text hidden in the killer's view.
         bool HideKiller = true;
+        // The replay world kept between killcams, reset after each (ME-343); off: built for each one and
+        // destroyed after it (ME-323's way).
+        bool KeepWorld = true;
     };
 
     // What a replay world is: its cores (declared first: they outlive the world, which is destroyed
@@ -157,6 +165,13 @@ public:
     KillcamPlayer& operator=( const KillcamPlayer& ) = delete;
 
     void SetPopulate( Populate InPopulate ) { m_populate = std::move( InPopulate ); }
+    // Builds the replay world now, for InLive's killcams, if there's none yet (ME-343): ahead of the first
+    // death, so that one doesn't pay for it (Engine: once its scene's read ahead). A build that failed isn't
+    // tried again here until Release (a killcam still tries). True when the world is there.
+    bool Prepare( World& InLive );
+    // Ends whatever plays ("stopped") and destroys the replay world: a scene load (the next scene's
+    // killcams need its world), the session's end, shutdown.
+    void Release();
     Settings& GetSettings() { return m_settings; }
 
     // Every frame, once the live world's frame is simulated (Engine::Run: after its late update, before
@@ -166,15 +181,18 @@ public:
     // Ends the killcam playing (C#'s Net.Killcam.Skip) at the start of the next Update, which in the
     // engine is later the same frame for a live world's script: the replay world goes then (never while
     // its own scripts are running, which may be what asked).
-    void Skip() { m_skipRequested = m_replay != nullptr; }
+    void Skip() { m_skipRequested = m_playing; }
     // Ends whatever plays ("stopped"): a scene load, the session's end, shutdown.
     void Stop();
 
-    bool IsPlaying() const { return m_replay != nullptr; }
+    bool IsPlaying() const { return m_playing; }
     // The replay world while one plays (null otherwise).
     World* GetWorld() const;
     SharedPtr<World> GetWorldPtr() const;
-    NetCore* GetNet() const { return m_replay ? m_replay->Net : nullptr; }
+    NetCore* GetNet() const { return m_playing ? m_replay->Net : nullptr; }
+    // The replay world, playing or kept between killcams (null before it's built and after Release). The
+    // owner keeps a kept one off screen (its cameras and RenderCore not presented).
+    World* GetKeptWorld() const { return m_replay ? m_replay->Instance.get() : nullptr; }
 
     // The killcam playing, or the last one played.
     struct Status
@@ -186,6 +204,10 @@ public:
         uint32_t FirstTick = 0;
         uint32_t DeathTick = 0;
         uint16_t TickRate = 60;
+        // ME-343: it played in the kept replay world (reset after the last), not one built for it; and the
+        // milliseconds to get the world ready (building it, or starting the playback in the kept one).
+        bool WorldKept = false;
+        double ReadyMs = 0.0;
         double Tick = 0.0;          // the tick shown (fractional between ticks)
         double Elapsed = 0.0;       // seconds since it started
         double Duration = 0.0;      // seconds it plays: first tick to the death at its tick rate, then the hold
@@ -231,6 +253,11 @@ public:
         uint64_t Failed = 0;
         uint64_t StalledFrames = 0;     // frames spent waiting on a chunk, all killcams
         uint64_t DeathViews = 0;        // killcams whose view reached the kill (one "death view" line each)
+        // ME-343: replay worlds built (Prepare, or a killcam with none kept), killcams played in a kept one, and
+        // kept ones thrown away because they couldn't be made whole again (or didn't fit a stream).
+        uint64_t WorldsBuilt = 0;
+        uint64_t WorldsReused = 0;
+        uint64_t WorldsDiscarded = 0;
     };
     const Stats& GetStats() const { return m_stats; }
     // The newest killcam id looked at this session (0: none; it starts over when the session does).
@@ -238,7 +265,15 @@ public:
 
 private:
     void Start( World& InLive, const NetKillcamReceiver& InKillcam );
-    void End( const std::string& InReason );
+    // InKeep: reset the world for the next killcam (KeepWorld), else destroy it.
+    void End( const std::string& InReason, bool InKeep = true );
+    // A replay world for InLive (m_replay, m_built): false with OutError when Populate failed.
+    bool Build( World& InLive, std::string& OutError );
+    // Back to how it was built: the playback stopped, what's not of the build destroyed, the killer's body
+    // shown. False when it can't be (a built entity is gone).
+    bool ResetWorld();
+    void DestroyWorld();
+    bool StartPlayback( const NetKillcamReceiver& InKillcam, std::string& OutError );
     void PlaceView();
     // m_samples from the tick before InTime as far as the killer's view of InTime needs (to the death tick,
     // and what the stream has so far).
@@ -253,7 +288,13 @@ private:
 
     Settings m_settings;
     Populate m_populate;
+    // The replay world, kept between killcams (ME-343), and whether a killcam plays in it.
     std::unique_ptr<ReplayWorld> m_replay;
+    bool m_playing = false;
+    WeakPtr<World> m_builtFor;          // the live world it was built for
+    std::vector<uint64_t> m_built;      // its entities as built (EntityID values, sorted)
+    std::vector<std::pair<uint64_t, uint8_t>> m_hidden;    // the killer's parts hidden: entity, 1 Mesh 2 Model 4 TextRenderer
+    bool m_buildFailed = false;         // Prepare doesn't try again until Release
     WeakPtr<World> m_live;
     uint32_t m_lastSeen = 0;        // the newest killcam id looked at (started, or failed), this session
     Status m_status;

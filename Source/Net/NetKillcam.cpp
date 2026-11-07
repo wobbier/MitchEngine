@@ -354,6 +354,10 @@ NetKillcamReceiver::Result NetKillcamReceiver::Accept( const uint8_t* InData, si
     {
         return Result::Stale;
     }
+    if( prefix.Id == m_id && m_cancelled )
+    {
+        return Result::Stale;
+    }
     if( prefix.Id == m_id && ( prefix.Count != m_count || m_have.count( prefix.Index ) ) )
     {
         return prefix.Count != m_count ? bad( "killcam " + std::to_string( m_id ) + "'s chunk count changed" ) : Result::Stale;
