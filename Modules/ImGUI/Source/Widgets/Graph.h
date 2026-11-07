@@ -94,6 +94,15 @@ namespace MeWidgets::Graph
         // The X axis (or whatever the handle is dragged across) runs from this fixed screen
         // mapping while dragging: a handle whose value rescales the axis stays under the pointer.
         bool FreezeAxis = false;
+        // A handle dragged up and down: it shows, reports and ticks on its Y (in the Y axis
+        // unit) instead of its X.
+        bool ReportY = false;
+        // Dragged values are rounded to this many axis units (Shift: a tenth of it); 0 leaves
+        // them free.
+        double Step = 0.0;
+        // Within a third of an em of a detent (on the reported axis) the value sits on it, so
+        // the detents are reachable by pointing; Shift drags past them.
+        bool SnapToDetents = false;
     };
 
     // A draggable point at (*InOutX, *InOutY) inside the current graph; a null Y sits on the

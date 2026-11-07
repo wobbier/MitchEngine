@@ -444,8 +444,10 @@ namespace MeWidgets::Graph
         ImGuiWindow* window = ImGui::GetCurrentWindow();
         const ImGuiID id = window->GetID( InLabel );
         const Mapping& map = state.Map;
+        const bool reportY = InSpec.ReportY && InOutY;
+        auto valueText = [&]() { return reportY ? FormatValue( map.Y.AxisUnit, *InOutY ) : FormatValue( map.X.AxisUnit, *InOutX ); };
         const ImVec2 pos( map.XToScreen( *InOutX ), InOutY ? map.YToScreen( *InOutY ) : map.Max.y );
-        const std::string value = FormatValue( map.X.AxisUnit, *InOutX );
+        const std::string value = valueText();
         const HandleInput input = HandleItem( id, pos, &map );
         if( !input.Visible )
         {
@@ -457,10 +459,42 @@ namespace MeWidgets::Graph
         if( input.Held && input.Moved )
         {
             const Mapping& drag = InSpec.FreezeAxis ? Grabbed().Frozen : map;
-            const double x = std::clamp( drag.XFromScreen( input.Target.x ), InSpec.MinX, InSpec.MaxX );
+            const bool fine = GImGui->IO.KeyShift;
+            const double step = InSpec.Step > 0.0 ? ( fine ? InSpec.Step * 0.1 : InSpec.Step ) : 0.0;
+            auto rounded = [&]( double InValue ) {
+                if( !( step > 0.0 ) )
+                {
+                    return InValue;
+                }
+                const double r = std::round( InValue / step ) * step;
+                return r == 0.0 ? 0.0 : r;
+            };
+            // The reported axis sits on a detent near the pointer (screen distance, either axis).
+            auto snapped = [&]( double InValue, bool InOnY ) {
+                if( !InSpec.SnapToDetents || fine )
+                {
+                    return InValue;
+                }
+                const float reach = ImGuiTheme::Em( 0.33f );
+                const float at = InOnY ? drag.YToScreen( InValue ) : drag.XToScreen( InValue );
+                for( int i = 0; i < InSpec.DetentCount; ++i )
+                {
+                    const float d = InOnY ? drag.YToScreen( InSpec.Detents[i] ) : drag.XToScreen( InSpec.Detents[i] );
+                    if( std::abs( d - at ) <= reach )
+                    {
+                        return InSpec.Detents[i];
+                    }
+                }
+                return InValue;
+            };
+            double x = std::clamp( rounded( drag.XFromScreen( input.Target.x ) ), InSpec.MinX, InSpec.MaxX );
+            if( !reportY )
+            {
+                x = std::clamp( snapped( x, false ), InSpec.MinX, InSpec.MaxX );
+            }
             if( x != *InOutX )
             {
-                if( CrossedDetent( *InOutX, x, InSpec.Detents, InSpec.DetentCount ) )
+                if( !reportY && CrossedDetent( *InOutX, x, InSpec.Detents, InSpec.DetentCount ) )
                 {
                     Juice::Tick( id, pos );
                 }
@@ -469,7 +503,15 @@ namespace MeWidgets::Graph
             }
             if( InOutY )
             {
-                const double y = std::clamp( drag.YFromScreen( input.Target.y ), InSpec.MinY, InSpec.MaxY );
+                double y = std::clamp( rounded( drag.YFromScreen( input.Target.y ) ), InSpec.MinY, InSpec.MaxY );
+                if( reportY )
+                {
+                    y = std::clamp( snapped( y, true ), InSpec.MinY, InSpec.MaxY );
+                    if( CrossedDetent( *InOutY, y, InSpec.Detents, InSpec.DetentCount ) )
+                    {
+                        Juice::Tick( id, pos );
+                    }
+                }
                 changed |= y != *InOutY;
                 *InOutY = y;
             }
@@ -478,7 +520,7 @@ namespace MeWidgets::Graph
         {
             ImGui::MarkItemEdited( id );
         }
-        const std::string shown = FormatValue( map.X.AxisUnit, *InOutX );
+        const std::string shown = valueText();
         const ImVec2 drawn( map.XToScreen( *InOutX ), InOutY ? map.YToScreen( *InOutY ) : map.Max.y );
         DrawHandle( id, drawn, InSpec.Color, input, InSpec.ShowValue ? std::string( ItemLog::VisibleLabel( InLabel ) ) + " " + shown : std::string() );
         Describe( id, InLabel, shown );

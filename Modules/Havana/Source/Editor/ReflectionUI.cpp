@@ -39,6 +39,7 @@ namespace ReflectionUI
         {
             std::vector<std::string> Edits;
             FieldDecorator Draw;
+            DecoratorFixUp FixUp;
         };
 
         // "Type.Field" -> its decorators, in registration order.
@@ -1032,6 +1033,15 @@ namespace ReflectionUI
                                 markChanged( decorator.Edits[e] );
                             }
                         }
+                        // Only the changed fields were copied: restore each other instance's
+                        // invariants against the fields it kept (a capsule's Height >= 2 Radius).
+                        if( decorator.FixUp )
+                        {
+                            for( void* other : InContext.Others )
+                            {
+                                decorator.FixUp( other, InType );
+                            }
+                        }
                     }
                 }
                 ImGui::EndDisabled();
@@ -1055,7 +1065,12 @@ namespace ReflectionUI
 
     void RegisterFieldDecorator( const std::string& InTypeName, const std::string& InFieldName, std::vector<std::string> InFieldsItEdits, FieldDecorator InDecorator )
     {
-        Decorators()[InTypeName + "." + InFieldName].push_back( { std::move( InFieldsItEdits ), std::move( InDecorator ) } );
+        RegisterFieldDecorator( InTypeName, InFieldName, std::move( InFieldsItEdits ), std::move( InDecorator ), nullptr );
+    }
+
+    void RegisterFieldDecorator( const std::string& InTypeName, const std::string& InFieldName, std::vector<std::string> InFieldsItEdits, FieldDecorator InDecorator, DecoratorFixUp InFixUp )
+    {
+        Decorators()[InTypeName + "." + InFieldName].push_back( { std::move( InFieldsItEdits ), std::move( InDecorator ), std::move( InFixUp ) } );
     }
 
 

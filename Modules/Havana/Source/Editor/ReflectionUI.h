@@ -57,6 +57,11 @@ namespace ReflectionUI
     // the inspector's field search is active. Several per field draw in registration order.
     using FieldDecorator = std::function<bool( void* InInstance, const Reflection::TypeInfo& InType )>;
     void RegisterFieldDecorator( const std::string& InTypeName, const std::string& InFieldName, std::vector<std::string> InFieldsItEdits, FieldDecorator InDecorator );
+    // Same, with a fix-up run on each other selected instance after the changed fields are copied
+    // to it, to keep a rule across fields the gesture left alone (UX-10: a capsule's Height never
+    // under 2 x Radius when only one of the two was copied).
+    using DecoratorFixUp = std::function<void( void* InInstance, const Reflection::TypeInfo& InType )>;
+    void RegisterFieldDecorator( const std::string& InTypeName, const std::string& InFieldName, std::vector<std::string> InFieldsItEdits, FieldDecorator InDecorator, DecoratorFixUp InFixUp );
 
     // The unit-field description of a reflected number (unit, ranges, log, default), for
     // decorators that edit numbers.

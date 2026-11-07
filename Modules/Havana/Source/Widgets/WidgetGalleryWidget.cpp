@@ -9,6 +9,7 @@
 #include <Widgets/PostWidgets.h>
 #include <Widgets/PhysicsWidgets.h>
 #include <Widgets/AudioWidgets.h>
+#include <Widgets/CharacterWidgets.h>
 #include <Utils/HavanaUtils.h>
 #include <ImGuiTheme.h>
 #include <imgui.h>
@@ -163,6 +164,23 @@ namespace
         return samples;
     }
 
+    // Character widgets (UX-10) with fixed samples: a 1.8 m capsule of radius 0.4 m running at
+    // 5 m/s, jumping 1.2 m under Earth gravity, walking up 45° slopes.
+    struct CharacterSamples
+    {
+        double Height = 1.8;
+        double Radius = 0.4;
+        double Speed = 5.0;
+        double JumpHeight = 1.2;
+        double SlopeLimit = 45.0;
+    };
+
+    CharacterSamples& Characters()
+    {
+        static CharacterSamples samples;
+        return samples;
+    }
+
     const MeWidgets::Reference kSampleRungs[] = {
         { "Candle", 0.1, "A candle flame" },
         { "Bulb", 1.0, "A household bulb" },
@@ -199,6 +217,7 @@ void WidgetGalleryWidget::ResetSamples()
 	Posts() = PostSamples();
 	Physics() = PhysicsSamples();
 	Audio() = AudioSamples();
+	Characters() = CharacterSamples();
 	MeWidgets::Juice::Reset();
 }
 
@@ -316,6 +335,13 @@ void WidgetGalleryWidget::Render()
 	MeWidgets::RolloffGraph( "Falloff", audio.Rolloff, audio.MinDistance, audio.MaxDistance, MakeSpec( Unit::Meters, 0.0, 1000.0, true, 1.0 ),
 		MakeSpec( Unit::Meters, 0.0, 10000.0, true, 50.0 ), audio.SpatialBlend );
 	ImGui::PopID();
+
+	ImGui::SeparatorText( "Character widgets" );
+	CharacterSamples& character = Characters();
+	MeWidgets::CapsuleSilhouette( "Capsule", character.Height, character.Radius, MakeSpec( Unit::Meters, 0.1, 20.0, false, 1.8 ), MakeSpec( Unit::Meters, 0.05, 10.0, false, 0.4 ), false );
+	MeWidgets::PaceStrip( "Pace", character.Speed, MakeSpec( Unit::MetersPerSecond, 0.0, 100.0, false, 6.0 ), 6.0 );
+	MeWidgets::JumpArc( "Jump", character.JumpHeight, MakeSpec( Unit::Meters, 0.0, 20.0, false, 1.2 ), character.Speed, 9.81 );
+	MeWidgets::SlopeWedge( "Walks Up", character.SlopeLimit, MakeSpec( Unit::Degrees, 0.0, 89.0, false, 50.0 ) );
 	ImGui::End();
 }
 
