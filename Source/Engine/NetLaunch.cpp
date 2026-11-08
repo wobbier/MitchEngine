@@ -351,9 +351,20 @@ NetDebugSubscription NetLaunch::WantedDebug( NetCore& InNet ) const
     }
     else
     {
-        wanted.Shots = wanted.Bandwidth = m_netDebug || m_netDebugger.Open;
+        wanted.Shots = wanted.Bandwidth = m_netDebug || m_netDebugger.Open || IsViewed();
     }
     return wanted;
+}
+
+
+bool NetLaunch::IsViewed() const
+{
+    if( m_netDebugger.ViewedAt < 0.0 )
+    {
+        return false;
+    }
+    const double now = std::chrono::duration<double>( std::chrono::steady_clock::now().time_since_epoch() ).count();
+    return now - m_netDebugger.ViewedAt < kViewedSeconds;
 }
 
 
@@ -445,6 +456,8 @@ bool NetLaunch::Update( NetCore& InNet )
     }
     else if( NetClient* client = InNet.GetClient() )
     {
+        // The Net Debugger's rate in / out (its window and "net view"), from the byte counts.
+        m_netDebugger.Rate.Sample( client->GetConnection().GetStats(), std::chrono::duration<double>( std::chrono::steady_clock::now().time_since_epoch() ).count() );
         const int state = static_cast<int>( client->GetState() );
         if( state != m_lastState )
         {
@@ -905,28 +918,13 @@ namespace
         return out;
     }
 
-    // The shots against the server's results (the console's "net shots", the Net Debugger's summary).
-    std::string ShotsSummary( NetCore& InNet )
-    {
-        const NetShotLedger::Totals& totals = InNet.GetShotLedger().GetTotals();
-        char line[384];
-        std::snprintf( line, sizeof( line ), "shots: %llu predicted, %llu results; %llu of %llu paired agree (%.0f%%, %llu the same part), %llu disagree; %llu client only, %llu server only, %zu waiting; "
-            "hit points %.1f mm apart on average (%.1f at most)", static_cast<unsigned long long>( totals.Predicted ), static_cast<unsigned long long>( totals.Results ),
-            static_cast<unsigned long long>( totals.Agreed ), static_cast<unsigned long long>( totals.Paired ),
-            totals.Paired > 0 ? 100.0 * static_cast<double>( totals.Agreed ) / static_cast<double>( totals.Paired ) : 0.0, static_cast<unsigned long long>( totals.SamePart ),
-            static_cast<unsigned long long>( totals.Disagreed ), static_cast<unsigned long long>( totals.ClientOnly ), static_cast<unsigned long long>( totals.ServerOnly ),
-            InNet.GetShotLedger().GetPendingCount(), totals.PointPairs > 0 ? totals.SumPointDelta / static_cast<double>( totals.PointPairs ) * 1000.0 : 0.0,
-            totals.MaxPointDelta * 1000.0 );
-        return line;
-    }
-
     std::string ShotsText( NetCore& InNet, size_t InCount )
     {
         if( !InNet.GetDebug().Shots )
         {
             return "shots aren't being compared (open the Net Debugger, or start with --net-debug)";
         }
-        std::string out = ShotsSummary( InNet );
+        std::string out = DescribeShotTotals( InNet.GetShotLedger() );
         const auto& recent = InNet.GetShotLedger().GetRecent();
         for( size_t i = recent.size() > InCount ? recent.size() - InCount : 0; i < recent.size(); ++i )
         {
@@ -1133,9 +1131,10 @@ void NetLaunch::RegisterNetCommands( NetCore& InNet )
     NetCore* net = &InNet;
     NetLaunch* self = this;
     DevConsole::Get().Register( "net",
-        "the client session (NET-7): net [status|debugger [on|off]|mispredicts|export [tick]|shots|bandwidth|overlays [on|off]|field <entity> <Component.Field>|timeline [from] [to]] "
+        "the client session (NET-7): net [status|debugger [on|off]|mispredicts|export [tick]|shots|bandwidth|overlays [on|off]|field <entity> <Component.Field>|timeline [from] [to]|view [tick]] "
         "(export: the newest misprediction, or the tick's, to .tmp/Net/Mispredict_<tick>.json; shots: the last shots against the server's results; bandwidth: the entities taking "
-        "the most snapshot bytes; field and timeline answer in JSON, for tools: a field's value in this world, the misprediction timeline's corrections)",
+        "the most snapshot bytes; field, timeline and view answer in JSON, for tools: a field's value in this world, the misprediction timeline's corrections, everything the Net "
+        "Debugger shows with the tick's misprediction record, else the newest)",
         [net, self]( const std::vector<std::string>& InArgs ) -> std::string {
             const std::string verb = InArgs.empty() ? std::string( "status" ) : InArgs[0];
             if( verb == "status" )
@@ -1197,8 +1196,15 @@ void NetLaunch::RegisterNetCommands( NetCore& InNet )
             }
             if( verb == "overlays" )
             {
-                self->m_netDebugger.DrawOverlays = InArgs.size() > 1 ? InArgs[1] != "off" : !self->m_netDebugger.DrawOverlays;
-                return std::string( "Net Debugger world overlays " ) + ( self->m_netDebugger.DrawOverlays ? "on" : "off" );
+                self->m_netDebugger.UI.DrawOverlays = InArgs.size() > 1 ? InArgs[1] != "off" : !self->m_netDebugger.UI.DrawOverlays;
+                return std::string( "Net Debugger world overlays " ) + ( self->m_netDebugger.UI.DrawOverlays ? "on" : "off" );
+            }
+            if( verb == "view" )
+            {
+                // NET-7: Havana's Net Debugger panel asks each PIE child for what its window would show.
+                self->m_netDebugger.ViewedAt = std::chrono::duration<double>( std::chrono::steady_clock::now().time_since_epoch() ).count();
+                const uint32_t detail = InArgs.size() > 1 ? static_cast<uint32_t>( std::strtoul( InArgs[1].c_str(), nullptr, 10 ) ) : 0u;
+                return NetDebuggerView::Capture( *net, self->m_netDebugger.Rate, detail ).ToJson().dump( -1, ' ', false, json::error_handler_t::replace );
             }
             if( verb == "export" )
             {
@@ -1215,280 +1221,34 @@ void NetLaunch::DrawNetDebugger( NetCore& InNet )
 {
 #if USING( ME_IMGUI ) && !USING( ME_EDITOR )
     NetClient* client = InNet.GetClient();
-    if( !m_netDebugger.Open || !client )
+    if( !client )
     {
         return;
     }
-    // The link's rate over the last second, from the connection's byte counts.
-    const NetStats& stats = client->GetConnection().GetStats();
-    const double now = std::chrono::duration<double>( std::chrono::steady_clock::now().time_since_epoch() ).count();
-    if( m_netDebugger.RateAt < 0.0 || stats.BytesReceived < m_netDebugger.BytesIn )
+    // The world overlays (NetDebugDraw): each shot beside the server's result for 2 s, the server
+    // ghost; with the window open, or while a tool views this client (Havana's panel).
+    if( ( m_netDebugger.Open || IsViewed() ) && m_netDebugger.UI.DrawOverlays )
     {
-        m_netDebugger.RateAt = now;
-        m_netDebugger.BytesIn = stats.BytesReceived;
-        m_netDebugger.BytesOut = stats.BytesSent;
+        NetDebugDraw::Shots( InNet.GetShotLedger(), InNet.GetNow() );
+        NetDebugDraw::Ghost( InNet );
     }
-    else if( now - m_netDebugger.RateAt >= 1.0 )
+    if( !m_netDebugger.Open )
     {
-        const double seconds = now - m_netDebugger.RateAt;
-        m_netDebugger.KbpsIn = static_cast<double>( stats.BytesReceived - m_netDebugger.BytesIn ) * 8.0 / 1000.0 / seconds;
-        m_netDebugger.KbpsOut = static_cast<double>( stats.BytesSent - m_netDebugger.BytesOut ) * 8.0 / 1000.0 / seconds;
-        m_netDebugger.RateAt = now;
-        m_netDebugger.BytesIn = stats.BytesReceived;
-        m_netDebugger.BytesOut = stats.BytesSent;
+        return;
     }
-
-    ImGui::SetNextWindowSize( ImVec2( 640.f, 420.f ), ImGuiCond_FirstUseEver );
+    const NetDebuggerView view = NetDebuggerView::Capture( InNet, m_netDebugger.Rate, m_netDebugger.UI.HasSelected ? m_netDebugger.UI.Selected : 0u );
+    m_netDebugger.History.Add( view, std::chrono::duration<double>( std::chrono::steady_clock::now().time_since_epoch() ).count() );
+    ImGui::SetNextWindowSize( ImVec2( 640.f, 520.f ), ImGuiCond_FirstUseEver );
     if( !ImGui::Begin( "Net Debugger", &m_netDebugger.Open ) )
     {
         ImGui::End();
         return;
     }
-    ImGui::Text( "Client #%u, tick %u (%s)", client->GetClientId(), client->GetClock().GetTick(), client->GetState() == NetClient::State::Connected ? "connected" : "not connected" );
-    ImGui::Text( "RTT %.1f ms (+-%.1f), loss %.1f%%, in %.1f kbps, out %.1f kbps", stats.RoundTripMs, stats.RoundTripDeviationMs, stats.PacketLoss * 100.f, m_netDebugger.KbpsIn,
-        m_netDebugger.KbpsOut );
-    ImGui::Text( "Slack %.2f (target %.2f), dilation %+.2f%%, %d resyncs, %llu hitches", client->GetServerSlack(), client->GetClock().GetTargetSlack(),
-        client->GetClock().GetDilation() * 100.f, client->GetClock().GetResyncCount(), static_cast<unsigned long long>( client->GetHitchCount() ) );
-    // The blob channel (ME-323): the counts, and a bar for each blob on its way.
-    ImGui::Text( "Blobs: %llu received, %llu sent (%llu acked), %llu cancelled (%llu by the server); slices %llu sent, %llu resent, %llu duplicate",
-        static_cast<unsigned long long>( stats.BlobsReceived ), static_cast<unsigned long long>( stats.BlobsSent ), static_cast<unsigned long long>( stats.BlobsAcked ),
-        static_cast<unsigned long long>( stats.BlobsCancelled ), static_cast<unsigned long long>( stats.BlobsCancelledByRemote ),
-        static_cast<unsigned long long>( stats.BlobSlicesSent ), static_cast<unsigned long long>( stats.BlobSlicesResent ),
-        static_cast<unsigned long long>( stats.BlobSlicesDuplicate ) );
-    for( const NetBlobProgress& blob : client->GetConnection().GetBlobProgress() )
-    {
-        char label[128];
-        std::snprintf( label, sizeof( label ), "%s #%u: %.1f / %.1f KB%s", blob.Outgoing ? "out" : "in", blob.Id, static_cast<double>( blob.DoneBytes ) / 1024.0,
-            static_cast<double>( blob.Size ) / 1024.0, blob.Outgoing && !blob.Started ? " (queued)" : "" );
-        ImGui::ProgressBar( blob.Size > 0 ? static_cast<float>( static_cast<double>( blob.DoneBytes ) / static_cast<double>( blob.Size ) ) : 0.f, ImVec2( -1.f, 0.f ), label );
-    }
-
-    // The world overlays (NetDebugDraw): each shot beside the server's result for 2 s, the server ghost.
-    ImGui::Checkbox( "World overlays (shots: client green, server blue / rewound yellow / live grey; server ghost blue)", &m_netDebugger.DrawOverlays );
-    if( m_netDebugger.DrawOverlays )
-    {
-        NetDebugDraw::Shots( InNet.GetShotLedger(), InNet.GetNow() );
-        NetDebugDraw::Ghost( InNet );
-    }
-    // Shots: the client's prediction against the server's lag-compensated result.
-    if( ImGui::CollapsingHeader( "Shots", ImGuiTreeNodeFlags_DefaultOpen ) )
-    {
-        ImGui::TextWrapped( "%s", ShotsSummary( InNet ).c_str() );
-        const auto& recent = InNet.GetShotLedger().GetRecent();
-        if( !recent.empty() && ImGui::BeginTable( "##NetShots", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_ScrollY,
-                ImVec2( 0.f, ImGui::GetTextLineHeightWithSpacing() * 7.f ) ) )
-        {
-            ImGui::TableSetupColumn( "tick" );
-            ImGui::TableSetupColumn( "view tick" );
-            ImGui::TableSetupColumn( "rewound" );
-            ImGui::TableSetupColumn( "client vs server" );
-            ImGui::TableHeadersRow();
-            for( auto it = recent.rbegin(); it != recent.rend(); ++it )
-            {
-                const NetShotComparison& shot = *it;
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                ImGui::Text( "%u", shot.HasClient ? shot.Client.Tick : shot.Server.CommandTick );
-                ImGui::TableNextColumn();
-                ImGui::Text( "%.2f", shot.HasServer ? shot.Server.Shot.ViewTick : shot.Client.ViewTick );
-                ImGui::TableNextColumn();
-                ImGui::TextUnformatted( shot.HasServer ? ( std::to_string( shot.Server.Shot.RewoundTicks ).substr( 0, 5 ) + ( shot.Server.Shot.Clamped ? " (cap)" : "" ) ).c_str() : "-" );
-                ImGui::TableNextColumn();
-                const ImVec4 color = !shot.HasClient || !shot.HasServer ? ImVec4( 0.7f, 0.7f, 0.7f, 1.f ) : shot.Agrees() ? ImVec4( 0.4f, 0.9f, 0.4f, 1.f ) : ImVec4( 1.f, 0.35f, 0.3f, 1.f );
-                ImGui::TextColored( color, "%s", shot.Describe().c_str() );
-            }
-            ImGui::EndTable();
-        }
-    }
-    // The entities taking the most of this client's snapshot bytes (the server's writer counts them).
-    if( ImGui::CollapsingHeader( "Top bandwidth", ImGuiTreeNodeFlags_DefaultOpen ) )
-    {
-        const NetBandwidthReport& report = InNet.GetBandwidthReport();
-        if( report.Tick == 0 )
-        {
-            ImGui::TextUnformatted( "No report from the server yet (it sends one a second)." );
-        }
-        else
-        {
-            const double total = report.Seconds > 0.0 ? static_cast<double>( report.SnapshotBytes ) / report.Seconds : 0.0;
-            ImGui::Text( "Snapshots %.2f KB/s over %.1f s to tick %u; headers %.0f%%", total / 1024.0, report.Seconds, report.Tick,
-                report.SnapshotBytes > 0 ? 100.0 * static_cast<double>( report.OverheadBits ) / ( static_cast<double>( report.SnapshotBytes ) * 8.0 ) : 0.0 );
-            for( const NetEntityBytes& entity : report.Top )
-            {
-                char label[160];
-                std::snprintf( label, sizeof( label ), "#%u %s: %.0f B/s", entity.NetId, entity.Name.empty() ? "-" : entity.Name.c_str(), entity.BytesPerSecond );
-                ImGui::ProgressBar( total > 0.0 ? static_cast<float>( entity.BytesPerSecond / total ) : 0.f, ImVec2( -1.f, 0.f ), label );
-            }
-        }
-    }
-    const NetPredictor* predictor = InNet.GetPredictor();
-    if( !predictor )
-    {
-        ImGui::TextUnformatted( "Nothing predicted (no pawn owned)." );
-        ImGui::End();
-        return;
-    }
-    const Vector3 offset = predictor->GetVisualOffset();
-    ImGui::Text( "Prediction: %d corrections, %d matches, %d initial sync; last resim %d ticks in %.3f ms; visual offset %.1f mm", predictor->GetCorrectionCount(),
-        predictor->GetMatchCount(), predictor->GetInitialSyncCount(), predictor->GetLastResimTicks(), predictor->GetLastResimMilliseconds(), offset.Length() * 1000.f );
-
-    // The timeline: the last 10 s of reconciled ticks, one column each (green match, red correction,
-    // grey initial sync, dark not reconciled). Hover for the tick; click a mark to inspect it.
-    uint32_t newest = 0;
-    if( predictor->GetNewestReconciled( newest ) )
-    {
-        const uint32_t span = predictor->GetTimelineTicks();
-        const uint32_t first = newest + 1 >= span ? newest + 1 - span : 0;
-        const float width = std::max( 100.f, ImGui::GetContentRegionAvail().x );
-        const float height = 28.f;
-        const ImVec2 origin = ImGui::GetCursorScreenPos();
-        ImGui::InvisibleButton( "##MispredictTimeline", ImVec2( width, height ) );
-        const bool hovered = ImGui::IsItemHovered();
-        const bool clicked = ImGui::IsItemClicked();
-        ImDrawList* draw = ImGui::GetWindowDrawList();
-        draw->AddRectFilled( origin, ImVec2( origin.x + width, origin.y + height ), IM_COL32( 25, 25, 30, 255 ) );
-        const float perTick = width / static_cast<float>( span );
-        auto xOf = [&]( uint32_t InTick ) { return origin.x + static_cast<float>( InTick - first ) * perTick; };
-        // Every reconciled tick from the timeline itself: under a steady desync only the newest
-        // kMaxMispredicts mismatches keep a record, and the rest must still read red.
-        for( uint32_t tick = first; tick <= newest; ++tick )
-        {
-            const NetPredictOutcome outcome = predictor->GetOutcome( tick );
-            if( outcome == NetPredictOutcome::Match )
-            {
-                draw->AddRectFilled( ImVec2( xOf( tick ), origin.y + height * 0.55f ), ImVec2( xOf( tick ) + std::max( perTick, 1.f ), origin.y + height ), IM_COL32( 60, 170, 80, 255 ) );
-            }
-            else if( outcome == NetPredictOutcome::Correction || outcome == NetPredictOutcome::InitialSync )
-            {
-                const ImU32 color = outcome == NetPredictOutcome::InitialSync ? IM_COL32( 150, 150, 150, 255 ) : IM_COL32( 230, 60, 50, 255 );
-                draw->AddRectFilled( ImVec2( xOf( tick ), origin.y ), ImVec2( xOf( tick ) + std::max( perTick, 1.f ), origin.y + height ), color );
-            }
-        }
-        // The mismatches with a record on top, wide enough to see and click.
-        for( const NetMispredictRecord& record : predictor->GetMispredicts() )
-        {
-            if( record.Tick < first )
-            {
-                continue;
-            }
-            const bool selected = m_netDebugger.HasSelected && m_netDebugger.Selected == record.Tick;
-            const ImU32 color = record.InitialSync ? IM_COL32( 150, 150, 150, 255 ) : selected ? IM_COL32( 255, 220, 60, 255 ) : IM_COL32( 230, 60, 50, 255 );
-            draw->AddRectFilled( ImVec2( xOf( record.Tick ) - 1.f, origin.y ), ImVec2( xOf( record.Tick ) + std::max( perTick, 2.f ), origin.y + height ), color );
-        }
-        if( hovered )
-        {
-            const float mouse = ImGui::GetIO().MousePos.x;
-            const uint32_t tick = first + static_cast<uint32_t>( std::clamp( ( mouse - origin.x ) / perTick, 0.f, static_cast<float>( span - 1 ) ) );
-            // The nearest mismatch within 4 px.
-            const NetMispredictRecord* closest = nullptr;
-            for( const NetMispredictRecord& record : predictor->GetMispredicts() )
-            {
-                if( record.Tick >= first && std::abs( xOf( record.Tick ) - mouse ) <= 4.f && ( !closest || std::abs( xOf( record.Tick ) - mouse ) < std::abs( xOf( closest->Tick ) - mouse ) ) )
-                {
-                    closest = &record;
-                }
-            }
-            static const char* names[] = { "not reconciled", "match", "correction", "initial sync" };
-            ImGui::BeginTooltip();
-            if( closest )
-            {
-                ImGui::Text( "tick %u: %s", closest->Tick, closest->InitialSync ? "initial sync" : "correction" );
-                ImGui::TextUnformatted( closest->Describe().c_str() );
-            }
-            else
-            {
-                const NetPredictOutcome outcome = predictor->GetOutcome( tick );
-                ImGui::Text( "tick %u: %s", tick, names[static_cast<int>( outcome )] );
-                if( ( outcome == NetPredictOutcome::Correction || outcome == NetPredictOutcome::InitialSync ) && !predictor->FindMispredict( tick ) )
-                {
-                    ImGui::Text( "(no record: only the newest %zu mismatches keep one)", NetPredictor::kMaxMispredicts );
-                }
-            }
-            ImGui::EndTooltip();
-            if( clicked && closest )
-            {
-                m_netDebugger.HasSelected = true;
-                m_netDebugger.Selected = closest->Tick;
-            }
-        }
-        ImGui::Text( "ticks %u..%u (%.0f s)", first, newest, NetPredictor::kTimelineSeconds );
-    }
-    else
-    {
-        ImGui::TextUnformatted( "No tick reconciled yet." );
-    }
-
-    // The mark picked (else the newest mismatch): what differed, the commands, export.
-    const NetMispredictRecord* record = m_netDebugger.HasSelected ? predictor->FindMispredict( m_netDebugger.Selected ) : nullptr;
-    if( !record && !predictor->GetMispredicts().empty() )
-    {
-        record = &predictor->GetMispredicts().back();
-    }
-    ImGui::Separator();
-    if( !record )
-    {
-        ImGui::TextUnformatted( "No mispredictions in the last 10 s." );
-        ImGui::End();
-        return;
-    }
-    ImGui::Text( "Tick %u%s: %s", record->Tick, record->InitialSync ? " (initial sync)" : "", record->Describe().c_str() );
-    if( ImGui::BeginTable( "##MispredictFields", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_SizingStretchProp ) )
-    {
-        ImGui::TableSetupColumn( "" );
-        ImGui::TableSetupColumn( "predicted" );
-        ImGui::TableSetupColumn( "server" );
-        ImGui::TableSetupColumn( "delta" );
-        ImGui::TableHeadersRow();
-        auto row = [&]( const char* InName, const Vector3& InPredicted, const Vector3& InServer, float InScale, const char* InUnit ) {
-            const Vector3 delta = InServer - InPredicted;
-            ImGui::TableNextRow();
-            ImGui::TableNextColumn();
-            ImGui::TextUnformatted( InName );
-            ImGui::TableNextColumn();
-            ImGui::Text( "%.4f, %.4f, %.4f", InPredicted.x, InPredicted.y, InPredicted.z );
-            ImGui::TableNextColumn();
-            ImGui::Text( "%.4f, %.4f, %.4f", InServer.x, InServer.y, InServer.z );
-            ImGui::TableNextColumn();
-            ImGui::Text( "%.1f %s", delta.Length() * InScale, InUnit );
-        };
-        row( "position", record->Predicted.Position, record->Authoritative.Position, 1000.f, "mm" );
-        row( "velocity", record->Predicted.Velocity, record->Authoritative.Velocity, 1.f, "m/s" );
-        row( "ground normal", record->Predicted.GroundNormal, record->Authoritative.GroundNormal, 1.f, "" );
-        ImGui::TableNextRow();
-        ImGui::TableNextColumn();
-        ImGui::TextUnformatted( "grounded" );
-        ImGui::TableNextColumn();
-        ImGui::TextUnformatted( record->Predicted.Grounded ? "yes" : "no" );
-        ImGui::TableNextColumn();
-        ImGui::TextUnformatted( record->Authoritative.Grounded ? "yes" : "no" );
-        ImGui::TableNextColumn();
-        ImGui::TextUnformatted( record->Predicted.Grounded == record->Authoritative.Grounded ? "" : "differs" );
-        ImGui::EndTable();
-    }
-    for( const auto& [begin, end] : record->ScriptDiffs )
-    {
-        ImGui::Text( "[Predicted] script bytes %u-%u differ", begin, end - 1 );
-    }
-    ImGui::Text( "%zu ticks resimulated in %.3f ms; the present moved %.1f mm (the visual offset hides it)", record->Resimulated.size(), record->ResimMilliseconds,
-        record->PresentJump.Length() * 1000.f );
-    if( ImGui::Button( "Export" ) )
+    const NetDebuggerActions actions = DrawNetDebuggerView( view, m_netDebugger.UI, &m_netDebugger.History );
+    if( actions.Export )
     {
         bool exported = false;
-        m_netDebugger.LastExport = ExportMispredict( InNet, record->Tick, exported );
-    }
-    if( !m_netDebugger.LastExport.empty() )
-    {
-        ImGui::SameLine();
-        ImGui::TextUnformatted( m_netDebugger.LastExport.c_str() );
-    }
-    if( ImGui::TreeNode( "Commands", "Commands (%zu, from tick %u)", record->Commands.size(), record->Tick ) )
-    {
-        for( const InputCommand& command : record->Commands )
-        {
-            ImGui::Text( "%u: buttons %08x, axes %.3f %.3f %.3f %.3f%s", command.Tick, command.Buttons, command.Axes[0], command.Axes[1], command.Axes[2], command.Axes[3],
-                command.HasAim ? "" : " (no aim)" );
-        }
-        ImGui::TreePop();
+        m_netDebugger.UI.LastExport = ExportMispredict( InNet, actions.ExportTick, exported );
     }
     ImGui::End();
 #else

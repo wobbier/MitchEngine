@@ -5,6 +5,7 @@
 #include "Components/Physics/Colliders.h"
 #include "Core/UpdateContext.h"
 #include "Cores/PhysicsCore.h"
+#include "Engine/NetDebuggerView.h"
 #include "Net/NetPrediction.h"
 #include "NetHarness.h"
 #include <cmath>
@@ -280,6 +281,60 @@ TEST_CASE( "Net: at 150 ms RTT a walk/jump course predicts with 0 corrections; a
     CHECK( knocked.Resimulated.size() > 5 );   // a round trip of ticks at 150 ms
     MESSAGE( "knockback at tick " << knocked.Tick << ": " << knocked.Describe() << "; " << knocked.Resimulated.size() << " ticks resimulated" );
     CHECK( knocked.Authoritative == serverStates[knocked.Tick] );
+
+    // The Net Debugger's view (NetDebuggerView): what the Player's window and Havana's panel both
+    // draw, and the same after the trip through JSON a PIE child's "net view" answer takes.
+    {
+        NetRateMeter rate;
+        const NetDebuggerView view = NetDebuggerView::Capture( net.ClientNet, rate );
+        CHECK( view.Client );
+        CHECK( view.Connected );
+        CHECK( view.RoundTripMs > 100.f );
+        CHECK( view.Predicting );
+        CHECK( view.Corrections == 1 );
+        REQUIRE( view.HasTimeline );
+        CHECK( view.Outcomes.size() == view.Newest - view.First + 1 );
+        CHECK( view.GetOutcome( static_cast<uint32_t>( knockbackTick ) ) == NetPredictOutcome::Correction );
+        CHECK( view.GetOutcome( static_cast<uint32_t>( knockbackTick + 1 ) ) == NetPredictOutcome::Match );
+        CHECK( view.CountOnTimeline( NetPredictOutcome::Correction ) == 1 );
+        REQUIRE( view.Marks.size() == 1 );
+        CHECK( view.Marks[0].Tick == knocked.Tick );
+        CHECK( view.Marks[0].Describe == knocked.Describe() );
+        REQUIRE( view.HasDetail );
+        CHECK( view.Detail.Tick == knocked.Tick );
+        CHECK( view.Detail.Authoritative == knocked.Authoritative );
+        CHECK( view.Detail.Commands == knocked.Commands );
+        NetDebuggerView loaded;
+        std::string error;
+        REQUIRE_MESSAGE( NetDebuggerView::FromJson( json::parse( view.ToJson().dump() ), loaded, &error ), error );
+        CHECK( loaded.ToJson() == view.ToJson() );
+        CHECK( loaded.RoundTripMs == view.RoundTripMs );
+        CHECK( loaded.Outcomes == view.Outcomes );
+        CHECK( loaded.Detail.Predicted == view.Detail.Predicted );
+        CHECK( loaded.Detail.Commands == view.Detail.Commands );
+        CHECK( loaded.Detail.Resimulated.size() == view.Detail.Resimulated.size() );
+        // A cut or hand-edited answer is an error, not a throw.
+        json cut = view.ToJson();
+        cut["prediction"]["timeline"]["outcomes"] = "12";
+        CHECK_FALSE( NetDebuggerView::FromJson( cut, loaded, &error ) );
+        CHECK( error.find( "timeline" ) != std::string::npos );
+        json wrong = view.ToJson();
+        wrong["link"]["rtt"] = "fast";
+        CHECK_FALSE( NetDebuggerView::FromJson( wrong, loaded, &error ) );
+        CHECK_FALSE( NetDebuggerView::FromJson( json( 5 ), loaded, &error ) );
+        CHECK_FALSE( loaded.Client );
+        // A server session has nothing to show, and says so.
+        const NetDebuggerView server = NetDebuggerView::Capture( net.ServerNet, rate );
+        CHECK_FALSE( server.Client );
+        CHECK_FALSE( server.Reason.empty() );
+        // The graphs take a sample at most every quarter second.
+        NetDebuggerHistory history;
+        history.Add( view, 10.0 );
+        history.Add( view, 10.1 );
+        history.Add( view, 10.3 );
+        CHECK( history.Samples.size() == 2 );
+        CHECK( history.Samples.back().RoundTripMs == view.RoundTripMs );
+    }
 
     // Presented (NET-7): the simulated pawn is the server's at once, the drawn one glides. On the
     // frame the correction came, the pawn's newest tick is exactly the server's state for that tick

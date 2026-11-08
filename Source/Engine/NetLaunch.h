@@ -1,5 +1,6 @@
 #pragma once
 #include "Net/NetCommands.h"
+#include "Engine/NetDebuggerView.h"
 #include "Net/NetDebug.h"
 #include <cstdint>
 #include <memory>
@@ -26,8 +27,10 @@ class ReplayViewer;
 //   --net-report file.json   on exit: the session's summary (NetCore::WriteReport); a server's counts its
 //                            snapshot bytes per entity for it (TopEntities)
 //   --net-debugger           client, game-tools builds: the Net Debugger window (NET-7; the console's
-//                            "net debugger" too): the link, prediction, the misprediction timeline, each
-//                            shot against the server's result, the top-bandwidth entities, world overlays
+//                            "net debugger" too): the link and its graphs, prediction, the misprediction
+//                            timeline, each shot against the server's result, the top-bandwidth entities,
+//                            world overlays. The console's "net view [tick]" answers the same as JSON
+//                            (NetDebuggerView), which Havana's Net Debugger panel draws for each PIE child
 //   --net-debug              client: what the Net Debugger shows (shots, bandwidth) without its window, in
 //                            the report ("Shots", "TopEntities"); a server: count snapshot bytes per entity
 //   --net-debug-clients      server, Release builds: take clients' Net Debugger subscriptions (shot results
@@ -123,21 +126,22 @@ private:
     void RegisterReplayCommands( NetCore& InNet );
     // The console's "net" command (registered once): status, debugger, mispredicts, export.
     void RegisterNetCommands( NetCore& InNet );
-    // The Net Debugger's state: open, the mark picked on its timeline, the link's rate over the
-    // last second (sampled from the connection's byte counts).
+    // The Net Debugger's state (NetDebuggerView.h): open, what its window keeps (the mark picked,
+    // the overlays), the link's rate over the last second (sampled every frame from the
+    // connection's byte counts) and its graphs' history; when a tool last asked for the view
+    // ("net view", Havana's Net Debugger panel over --control-stdin).
     struct NetDebuggerState
     {
         bool Open = false;
-        bool HasSelected = false;
-        uint32_t Selected = 0;
-        std::string LastExport;
-        double RateAt = -1.0;
-        uint64_t BytesIn = 0;
-        uint64_t BytesOut = 0;
-        double KbpsIn = 0.0;
-        double KbpsOut = 0.0;
-        bool DrawOverlays = true;   // the shots, the server ghost (NetDebugDraw)
+        NetDebuggerUI UI;
+        NetRateMeter Rate;
+        NetDebuggerHistory History;
+        double ViewedAt = -1.0;
     } m_netDebugger;
+    // A tool asked for the view in the last kViewedSeconds: the session keeps asking the server for
+    // the shots and bandwidth, and the overlays draw, as with the window open.
+    static constexpr double kViewedSeconds = 3.0;
+    bool IsViewed() const;
     // --net-debug: the Net Debugger's data (shots, bandwidth) without its window.
     bool m_netDebug = false;
     // What the session should ask for / count (NET-7): the Net Debugger's, --net-debug, a server's report.
