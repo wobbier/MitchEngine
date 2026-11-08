@@ -241,7 +241,7 @@ static bool Eng_Net_LagCompensatedRaycast( EntityID shooter, EntityID instigator
         }
         else
         {
-            hit = net->PresentRaycast( *origin, *direction, range, shooterHandle );
+            hit = net->PresentRaycast( *origin, *direction, range, shooterHandle, instigatorHandle );
         }
     }
     if( outEntity )
@@ -419,10 +419,11 @@ static void Eng_Net_GetVisualOffset( EntityID id, Vector3* outOffset ) noexcept
 }
 
 
-// C#'s Replay (ME-316): game events into the server's match replay.
+// C#'s Replay (ME-316): game events into the server's match replay, or an offline session's
+// recording (ME-215: no session, so AnyNet).
 static void Eng_Replay_Event( const uint8_t* name, const uint8_t* payload, EntityID id ) noexcept
 {
-    NetCore* net = Net();
+    NetCore* net = AnyNet();
     if( !net || !net->IsRecording() || !name )
     {
         return;
@@ -434,7 +435,7 @@ static void Eng_Replay_Event( const uint8_t* name, const uint8_t* payload, Entit
 
 static bool Eng_Replay_IsRecording() noexcept
 {
-    NetCore* net = Net();
+    NetCore* net = AnyNet();
     return net && net->IsRecording();
 }
 

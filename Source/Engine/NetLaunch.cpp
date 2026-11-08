@@ -229,6 +229,15 @@ bool NetLaunch::Start( NetCore& InNet, uint16_t InTickRate, IWindow* InWindow, c
     RegisterNetCommands( InNet );
     if( !m_requested )
     {
+        // ME-215: a single-player session records as a server's would, with --record-replay.
+        if( CommandLine::Has( "--record-replay" ) )
+        {
+            InNet.SetCommandSchema( InNet.GetWorld().Singleton<SingletonInput>().GetCommandSchema() );
+#if USING( ME_SCRIPTING )
+            InNet.SetScriptGlue( MakeScriptNetGlue() );
+#endif
+            StartRecording( InNet, InTickRate );
+        }
         return true;
     }
     const bool host = IsHosting();
@@ -489,8 +498,9 @@ bool NetLaunch::Update( NetCore& InNet )
 }
 
 
-void NetLaunch::StartRecording( NetCore& InNet )
+void NetLaunch::StartRecording( NetCore& InNet, uint16_t InOfflineTickRate )
 {
+    const bool offline = !InNet.IsServer() && InOfflineTickRate > 0;
     NetReplayHeader header;
     const ProjectSettings& settings = ProjectSettings::Get();
     header.Product = settings.ProductName + " " + settings.ProductVersion;
@@ -499,7 +509,7 @@ void NetLaunch::StartRecording( NetCore& InNet )
     header.Map = GetEngine().CurrentScene ? GetEngine().CurrentScene->FilePath.GetLocalPathString() : std::string();
     header.CommandLine = QuotedCommandLine();
     header.RecordedAt = UtcNow( "%Y-%m-%dT%H:%M:%SZ" );
-    if( !CommandLine::Has( "--record-replay" ) )
+    if( !CommandLine::Has( "--record-replay" ) && !offline )
     {
         // The ring alone (ME-323): what Net.SendKillcam cuts killcams from.
         if( !CommandLine::Has( "--no-replay-ring" ) && InNet.StartRecording( "", header ) )
@@ -527,6 +537,18 @@ void NetLaunch::StartRecording( NetCore& InNet )
     }
     std::error_code error;
     path = std::filesystem::absolute( path, error ).lexically_normal().generic_string();
+    if( offline )
+    {
+        if( InNet.StartOfflineRecording( path, header, InOfflineTickRate ) )
+        {
+            Say( CLog::LogType::Info, "Net: recording the offline session to " + path );
+        }
+        else
+        {
+            Say( CLog::LogType::Error, "Net: can't record the offline session to " + path );
+        }
+        return;
+    }
     if( InNet.StartRecording( path, header ) )
     {
         Say( CLog::LogType::Info, "Net: recording the match replay to " + path );
@@ -1279,6 +1301,8 @@ void NetLaunch::Shutdown( NetCore& InNet, double InNow )
 {
     if( !m_requested )
     {
+        // An offline recording (ME-215) ends with the run: its last chunk and index, logged.
+        InNet.StopRecording();
         return;
     }
     // --replay-check promises an exit code: a check that never ran (the playhead never rested on its

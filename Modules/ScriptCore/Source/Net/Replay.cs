@@ -17,7 +17,8 @@ public static unsafe class Replay
 {
     /// <summary>
     /// Whether this process records: a server with --record-replay, or one keeping the replay ring killcams
-    /// are cut from (every server, unless started with --no-replay-ring). Events go to both.
+    /// are cut from (every server, unless started with --no-replay-ring), or an offline session started with
+    /// --record-replay (a playtest, ME-215). Events go to all of them.
     /// </summary>
     public static bool IsRecording => Engine._api.Replay_IsRecording != null && Engine._api.Replay_IsRecording() != 0;
 

@@ -4,6 +4,7 @@
 #include "Mods/Mods.h"
 #include "Components/Networking/NetHitbox.h"
 #include "Components/Networking/NetIdentity.h"
+#include "Components/Networking/SingletonInput.h"
 #include "Components/Transform.h"
 #include "Cores/PhysicsCore.h"
 #include "Engine/ProjectSettings.h"
@@ -26,6 +27,16 @@
 
 namespace
 {
+    // ME-215: an offline recording's server has no clients; what it would send goes nowhere.
+    class NullTransport final
+        : public INetTransport
+    {
+    public:
+        NetAddress GetAddress() const override { return 1; }
+        void Send( NetAddress, const uint8_t*, size_t ) override {}
+        bool Receive( NetPacket& ) override { return false; }
+    };
+
     // Closing: held-back packets (a conditioned link's latency) go now, the process is ending.
     constexpr double kReleaseEverything = 3600.0;
 
@@ -355,6 +366,8 @@ NetVersion NetCore::MakeVersion()
 
 bool NetCore::Host( INetTransport& InTransport, uint16_t InTickRate )
 {
+    // A session ends an offline recording (ME-215): its capture would be the session's.
+    EndOfflineRecording();
     if( IsActive() )
     {
         return false;
@@ -411,6 +424,8 @@ bool NetCore::Host( INetTransport& InTransport, uint16_t InTickRate )
 
 bool NetCore::Connect( INetTransport& InTransport, NetAddress InServer, const NetClockSettings& InClock )
 {
+    // A session ends an offline recording (ME-215): its capture would be the session's.
+    EndOfflineRecording();
     if( IsActive() )
     {
         return false;
@@ -690,7 +705,7 @@ uint32_t NetCore::GetNetId( Entity& InEntity ) const
 
 EntityHandle NetCore::FindEntity( uint32_t InNetId ) const
 {
-    if( m_server )
+    if( m_server || m_offlineServer )
     {
         return m_replicationServer->FindEntity( InNetId );
     }
@@ -779,7 +794,7 @@ LagCompensatedHit NetCore::LagCompensatedRaycast( const Vector3& InOrigin, const
     const LagCompensatedHit hit = m_lagCompensation.Raycast( GetWorld().GetCore<PhysicsCore>(), InOrigin, InDirection, InMaxDistance, InCommand.ViewTick, InShooter );
     if( m_server && IsRecording() )
     {
-        RecordShot( InOrigin, InDirection, InMaxDistance, InCommand.ViewTick, InShooter, InInstigator, hit );
+        RecordShot( InOrigin, InDirection, InMaxDistance, InCommand.ViewTick, InShooter, InInstigator, hit, m_lagCompensation );
     }
     // NET-7: the shooter's client asked to see what the server made of its shots (a trigger pull,
     // not a projectile's sweep).
@@ -830,6 +845,70 @@ bool NetCore::StartRecording( const std::string& InPath, NetReplayHeader InHeade
 }
 
 
+bool NetCore::StartOfflineRecording( const std::string& InPath, NetReplayHeader InHeader, uint16_t InTickRate, const NetReplaySettings& InSettings, uint8_t InLocalClient )
+{
+    if( IsActive() || IsRecording() || InTickRate == 0 )
+    {
+        return false;
+    }
+    EndOfflineRecording();
+    const NetVersion version = MakeVersion();
+    InHeader.TickRate = InTickRate;
+    InHeader.NetProtocol = version.Protocol;
+    InHeader.BuildHash = version.Build;
+    InHeader.ScriptSchemaHash = version.ScriptSchema;
+    InHeader.SceneHash = version.Scene;
+    InHeader.NetSchemaHash = NetSchema::Hash();
+    auto recorder = std::make_unique<NetReplayRecorder>( std::move( InHeader ), InSettings );
+    if( !InPath.empty() && !recorder->OpenFile( InPath ) )
+    {
+        return false;
+    }
+    m_offlineTransport = std::make_unique<NullTransport>();
+    m_offlineServer = std::make_unique<NetServer>( *m_offlineTransport, version, InTickRate );
+    m_offlineClient = InLocalClient;
+    m_lagCompensation.SetTickRate( InTickRate );
+    m_replicationServer = std::make_unique<NetReplicationServer>( GetWorld(), *m_offlineServer );
+    m_replicationServer->Scripts = m_glue.State;
+    m_replicationServer->AssignStaticIds();
+    m_recorder = std::move( recorder );
+    m_replayShots.clear();
+    m_replayEvents.clear();
+    m_replayOwners.clear();
+    m_replayMisses.clear();
+    m_replayAlwaysRelevant.clear();
+    m_ticksDropped = 0;
+    m_tick = m_offlineServer->GetTick();
+    // The local player is here from the start.
+    json payload;
+    payload["client"] = InLocalClient;
+    payload["offline"] = true;
+    m_replayEvents.push_back( { { "net.joined", payload.dump(), 0 }, EntityHandle() } );
+    return true;
+}
+
+
+void NetCore::EndOfflineRecording()
+{
+    if( !m_offlineServer )
+    {
+        return;
+    }
+    if( IsRecording() )
+    {
+        StopRecording();
+    }
+    // StopRecording ends the capture with the recording; this is for a recording that failed or was stopped.
+    if( m_offlineServer )
+    {
+        m_replicationServer.reset();
+        m_offlineServer.reset();
+        m_offlineTransport.reset();
+        m_offlineInTick = false;
+    }
+}
+
+
 bool NetCore::StartPlayback( std::unique_ptr<INetReplaySource> InSource, std::string* OutError )
 {
     auto fail = [OutError]( const std::string& InWhy ) {
@@ -843,6 +922,7 @@ bool NetCore::StartPlayback( std::unique_ptr<INetReplaySource> InSource, std::st
     {
         return fail( "a session or a replay is running already" );
     }
+    EndOfflineRecording();
     if( !InSource || InSource->GetChunkCount() == 0 )
     {
         return fail( "the replay has no ticks" );
@@ -1021,6 +1101,14 @@ void NetCore::StopRecording()
     }
     m_replayShots.clear();
     m_replayEvents.clear();
+    // An offline recording's capture goes with it (the entities keep their NetIds).
+    if( m_offlineServer )
+    {
+        m_replicationServer.reset();
+        m_offlineServer.reset();
+        m_offlineTransport.reset();
+        m_offlineInTick = false;
+    }
 }
 
 
@@ -1048,7 +1136,7 @@ void NetCore::RecordReplayEvent( const std::string& InName, const std::string& I
 
 
 void NetCore::RecordShot( const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, double InViewTick, const EntityHandle& InShooter,
-    const EntityHandle& InInstigator, const LagCompensatedHit& InHit )
+    const EntityHandle& InInstigator, const LagCompensatedHit& InHit, const NetLagCompensation& InPoses )
 {
     NetReplayShot& shot = m_replayShots.emplace_back( MakeShot( InOrigin, InDirection, InMaxDistance, InViewTick, InShooter, InInstigator, InHit ) );
     if( InHit.Rejected )
@@ -1056,7 +1144,7 @@ void NetCore::RecordShot( const Vector3& InOrigin, const Vector3& InDirection, f
         return;
     }
     // The hitboxes as the shot was judged against them (all of them, not only the broadphase's).
-    for( const NetLagCompensation::HitboxPose& pose : m_lagCompensation.GetPosesAt( InHit.JudgedTick ) )
+    for( const NetLagCompensation::HitboxPose& pose : InPoses.GetPosesAt( InHit.JudgedTick ) )
     {
         if( IsSelfOrUnder( pose.Entity, InShooter ) )
         {
@@ -1069,12 +1157,25 @@ void NetCore::RecordShot( const Vector3& InOrigin, const Vector3& InDirection, f
 
 void NetCore::RecordReplayTick()
 {
+    NetServer* server = RecordingServer();
     NetReplayTick tick;
-    tick.Tick = m_server->GetTick();
+    tick.Tick = server->GetTick();
     tick.TicksOwed = m_ticksOwed;
     tick.TicksDropped = std::exchange( m_ticksDropped, 0u );
     tick.State = m_replicationServer->GetCurrent();
-    for( const auto& client : m_server->GetClients() )
+    // Offline (ME-215): the local player's command, as its client's.
+    if( !m_server )
+    {
+        const SingletonInput& input = GetWorld().Singleton<SingletonInput>();
+        if( input.HasLocalCommand() )
+        {
+            NetReplayClient& record = tick.Clients.emplace_back();
+            record.Id = m_offlineClient;
+            record.Command = input.GetLocalCommand();
+            record.Command.Tick = tick.Tick;
+        }
+    }
+    for( const auto& client : server->GetClients() )
     {
         if( !client->Accepted )
         {
@@ -1760,12 +1861,18 @@ std::vector<NetEntityBytes> NetCore::GetTopEntities( size_t InCount, double InSe
 }
 
 
-LagCompensatedHit NetCore::PresentRaycast( const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, const EntityHandle& InShooter )
+LagCompensatedHit NetCore::PresentRaycast( const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, const EntityHandle& InShooter,
+    const EntityHandle& InInstigator )
 {
     // One recorded frame of the hitboxes as they are, judged at that frame.
     NetLagCompensation present;
     present.Record( GetWorld(), 0 );
     const LagCompensatedHit hit = present.Raycast( GetWorld().GetCore<PhysicsCore>(), InOrigin, InDirection, InMaxDistance, -1.0, InShooter );
+    // ME-215: an offline recording keeps every shot of a tick, as a server's replay does.
+    if( m_offlineInTick && IsRecordingOffline() )
+    {
+        RecordShot( InOrigin, InDirection, InMaxDistance, -1.0, InShooter, InInstigator, hit, present );
+    }
     if( m_client && m_debug.Shots )
     {
         NotePredictedShot( InOrigin, InDirection, InMaxDistance, InShooter, hit, present );
@@ -2190,6 +2297,13 @@ void NetCore::BeginTick( uint32_t InTicksOwed )
     {
         m_tick = m_playback->GetTick();
     }
+    if( m_offlineServer )
+    {
+        // ME-215: an offline recording's tick (C#'s Net.Tick, the shots and events it records).
+        m_tick = m_offlineServer->GetTick();
+        m_ticksOwed = InTicksOwed;
+        m_offlineInTick = true;
+    }
     if( m_server )
     {
         m_tick = m_server->GetTick();
@@ -2242,6 +2356,16 @@ void NetCore::BeginTick( uint32_t InTicksOwed )
 
 void NetCore::EndTick( double InNow )
 {
+    if( m_offlineServer && !m_server )
+    {
+        m_offlineInTick = false;
+        m_replicationServer->CaptureTick( m_offlineServer->GetTick() );
+        if( IsRecording() )
+        {
+            RecordReplayTick();
+        }
+        m_offlineServer->EndTick( InNow );
+    }
     if( m_server )
     {
         m_lagCompensation.Record( GetWorld(), m_server->GetTick() );

@@ -1,6 +1,14 @@
 #include "PCH.h"
 #include <doctest/doctest.h>
 #include "JSON.h"
+#include "Components/Networking/NetHitbox.h"
+#include "Components/Networking/NetIdentity.h"
+#include "Components/Networking/SingletonInput.h"
+#include "Components/Physics/CharacterController.h"
+#include "Components/Transform.h"
+#include "Cores/NetCore.h"
+#include "Engine/World.h"
+#include "Net/NetTransport.h"
 #include "Net/NetReplay.h"
 #include "Net/NetReplayDump.h"
 #include "Net/NetReplayHeatmap.h"
@@ -295,4 +303,197 @@ TEST_CASE( "ReplayDump --heatmap: replays and folders of them into one heatmap's
     CHECK( error.find( "none of the 1" ) != std::string::npos );
     CHECK_FALSE( fs::exists( folder / "none" ) );
     fs::remove_all( folder );
+}
+
+
+TEST_CASE( "Offline recording: a session with no network records like a server, the local command as client 1's and present shots with their instigator; a heatmap reads it (ME-215)" )
+{
+    namespace fs = std::filesystem;
+    NetCore net;    // before the world: it must outlive it
+    std::shared_ptr<World> world = std::make_shared<World>();
+    world->IsLoading = false;
+    world->AddCore( net );
+    auto place = [&]( uint64_t InGuid, const char* InName, const Vector3& InAt ) {
+        EntityHandle entity = world->CreateEntityWithGUID( InGuid );
+        entity->SetName( InName );
+        entity->AddComponent<Transform>().SetPosition( InAt );
+        entity->AddComponent<NetIdentity>();
+        return entity;
+    };
+    // The player's pawn (a character), a target with a hitbox, and the player's rocket.
+    EntityHandle pawn = place( 0x9A11, "Pawn", Vector3( 0.f, 1.f, -10.f ) );
+    CharacterController& mover = pawn->AddComponent<CharacterController>();
+    EntityHandle target = place( 0x7A26, "Target", Vector3( 0.5f, 1.f, 10.5f ) );
+    NetHitbox& hitbox = target->AddComponent<NetHitbox>();
+    hitbox.Radius = 0.4f;
+    hitbox.Height = 1.8f;
+    EntityHandle rocket = place( 0x60C7, "Rocket", Vector3( 0.f, 1.f, 5.f ) );
+    world->Simulate();
+    world->Start();
+
+    const uint64_t scene = net.MakeVersion().Scene;     // the placed networked entities
+    const fs::path path = fs::temp_directory_path() / "MitchEngineOffline.mreplay";
+    fs::remove( path );
+    NetReplayHeader header;
+    header.Map = "Offline";
+    NetReplaySettings settings;
+    settings.KeyframeInterval = 40;
+    REQUIRE( net.StartOfflineRecording( path.string(), header, 60, settings ) );
+    // Nothing about the session changes: gameplay stays offline.
+    CHECK( net.IsRecording() );
+    CHECK( net.IsRecordingOffline() );
+    CHECK_FALSE( net.IsActive() );
+    CHECK_FALSE( net.IsServer() );
+    CHECK_FALSE( net.IsClient() );
+    CHECK_FALSE( net.StartRecording( path.string() + ".server" ) );    // a server's (there's none)
+    CHECK_FALSE( net.StartOfflineRecording( path.string() + ".again", header, 60 ) );
+    CHECK( net.GetNetId( *target.Get() ) != 0u );     // placed: static ids
+    CHECK( net.FindEntity( net.GetNetId( *target.Get() ) ) == target );
+
+    SingletonInput& input = world->Singleton<SingletonInput>();
+    std::map<uint32_t, InputCommand> commands;
+    std::map<uint32_t, CharacterController::NetState> movers;
+    EntityHandle spawned;
+    uint32_t shotTick = 0;
+    uint32_t sweepTick = 0;
+    LagCompensatedHit shotHit;
+    double now = 0.0;
+    for( uint32_t step = 0; step < 100; ++step )
+    {
+        InputCommand command;
+        command.Buttons = step % 10 == 0 ? 1u : 0u;
+        command.Axes = { 0.f, 1.f, 0.f, 0.f };
+        input.RecordLocalCommand( command );
+        net.BeginTick( 0 );
+        const uint32_t tick = net.GetTick();
+        commands[tick] = input.GetLocalCommand();
+        CharacterController::NetState state;
+        state.Position = Vector3( 0.25f * static_cast<float>( step ), 1.f, -10.f );
+        state.Grounded = true;
+        mover.SetNetState( state );
+        movers[tick] = mover.GetNetState();
+        if( step == 30 )
+        {
+            // The player's trigger pull (Net.LagCompensatedRaycast offline): judged as things are.
+            shotTick = tick;
+            shotHit = net.PresentRaycast( Vector3( 0.5f, 1.f, -10.f ), Vector3( 0.f, 0.f, 1.f ), 100.f, pawn );
+            CHECK( shotHit.Hit );
+        }
+        if( step == 50 )
+        {
+            // The rocket's sweep, fired by the pawn.
+            sweepTick = tick;
+            CHECK( net.PresentRaycast( Vector3( 0.5f, 1.f, 5.f ), Vector3( 0.f, 0.f, 1.f ), 10.f, rocket, pawn ).Hit );
+            net.RecordReplayEvent( "kill", "{\"killer\":\"Player\",\"victim\":\"Target\"}", target );
+        }
+        if( step == 60 )
+        {
+            // Spawned mid-recording: its NetId comes with the tick's capture, and the event names it.
+            spawned = world->CreateEntity();
+            spawned->SetName( "Pickup" );
+            spawned->AddComponent<Transform>().SetPosition( Vector3( 3.f, 0.f, 3.f ) );
+            spawned->AddComponent<NetIdentity>();
+            net.RecordReplayEvent( "spawn", "{}", spawned );
+        }
+        world->Simulate();
+        now += 1.0 / 60.0;
+        net.EndTick( now );
+    }
+    // A shot outside a tick isn't the recording's (an editor tool's, a frame's).
+    net.PresentRaycast( Vector3( 0.f, 1.f, -10.f ), Vector3( 0.f, 0.f, 1.f ), 100.f, pawn );
+    CHECK( net.GetNetId( *spawned.Get() ) != 0u );
+    net.StopRecording();
+    CHECK_FALSE( net.IsRecording() );
+    CHECK_FALSE( net.IsRecordingOffline() );
+    REQUIRE( net.GetRecorder() );
+    CHECK_FALSE( net.GetRecorder()->HasFailed() );
+    CHECK( net.GetRecorder()->GetTicksRecorded() == 100 );
+
+    NetReplayFileSource source;
+    REQUIRE_MESSAGE( source.Open( path.string() ), source.GetError() );
+    CHECK( source.GetHeader().TickRate == 60 );
+    CHECK( source.GetHeader().Map == "Offline" );
+    CHECK( source.GetHeader().SceneHash == scene );
+    NetReplayReader reader( source );
+    CHECK( reader.GetTickCount() == 100 );
+    const uint32_t pawnId = net.GetNetId( *pawn.Get() );
+    const uint32_t targetId = net.GetNetId( *target.Get() );
+    const uint32_t rocketId = net.GetNetId( *rocket.Get() );
+    size_t commandsSeen = 0;
+    size_t moversSeen = 0;
+    bool joined = false;
+    bool killed = false;
+    bool spawnNamed = false;
+    std::vector<NetReplayShot> shots;
+    std::map<uint32_t, std::string> names;
+    REQUIRE( reader.ForEach( 0, ~0u, [&]( const NetReplayTick& InTick ) {
+        for( const NetReplayEntity& entity : InTick.Entities )
+        {
+            names[entity.NetId] = entity.Name;
+        }
+        REQUIRE( InTick.Clients.size() == 1 );
+        CHECK( InTick.Clients[0].Id == 1 );
+        CHECK( InTick.Clients[0].Command.Tick == InTick.Tick );
+        CHECK( InTick.Clients[0].Command.Buttons == commands[InTick.Tick].Buttons );
+        CHECK( InTick.Clients[0].Command.Axes == commands[InTick.Tick].Axes );
+        ++commandsSeen;
+        REQUIRE( InTick.Movers.size() == 1 );
+        CHECK( InTick.Movers[0].NetId == pawnId );
+        CHECK( InTick.Movers[0].State == movers[InTick.Tick] );
+        ++moversSeen;
+        CHECK( InTick.State.Entities.count( targetId ) == 1 );
+        shots.insert( shots.end(), InTick.Shots.begin(), InTick.Shots.end() );
+        for( const NetReplayShot& shot : InTick.Shots )
+        {
+            CHECK( ( InTick.Tick == shotTick || InTick.Tick == sweepTick ) );
+        }
+        for( const NetReplayEvent& event : InTick.Events )
+        {
+            joined |= event.Name == "net.joined" && InTick.Tick == reader.GetFirstTick() && event.Payload.find( "\"client\":1" ) != std::string::npos;
+            killed |= event.Name == "kill" && InTick.Tick == sweepTick && event.Entity == targetId;
+            spawnNamed |= event.Name == "spawn" && event.Entity != 0 && event.Entity == net.GetNetId( *spawned.Get() );
+        }
+        return true;
+    } ) );
+    CHECK( commandsSeen == 100 );
+    CHECK( moversSeen == 100 );
+    CHECK( joined );
+    CHECK( killed );
+    CHECK( spawnNamed );
+    CHECK( names[pawnId] == "Pawn" );
+    CHECK( names[net.GetNetId( *spawned.Get() )] == "Pickup" );
+    REQUIRE( shots.size() == 2 );
+    CHECK( shots[0].Shooter == pawnId );
+    CHECK( shots[0].Instigator == 0u );
+    CHECK( shots[0].Hit );
+    CHECK( shots[0].Target == targetId );
+    CHECK( shots[0].Point.z == doctest::Approx( shotHit.Point.z ) );
+    REQUIRE( shots[0].Hitboxes.size() == 1 );     // the target's, as it was judged (the pawn has none)
+    CHECK( shots[0].Hitboxes[0].NetId == targetId );
+    CHECK( shots[1].Shooter == rocketId );
+    CHECK( shots[1].Instigator == pawnId );
+    CHECK( shots[1].Target == targetId );
+
+    // A heatmap of it: the kill is the pawn's (the rocket's instigator), where the pawn stood.
+    NetReplayHeatmap heatmap;
+    std::string error;
+    REQUIRE_MESSAGE( heatmap.AddReplay( reader, path.string(), &error ), error );
+    CHECK( heatmap.GetTotal( Layer::Kills, "hero:Pawn" ) == doctest::Approx( 1.0 ) );
+    CHECK( heatmap.ValueAt( Layer::Kills, movers[sweepTick].Position ) == doctest::Approx( 1.0 ) );
+    CHECK( heatmap.ValueAt( Layer::Deaths, Vector3( 0.5f, 1.f, 10.5f ) ) == doctest::Approx( 1.0 ) );
+    CHECK( heatmap.GetTotal( Layer::Deaths, "hero:Target" ) == doctest::Approx( 1.0 ) );
+    CHECK( heatmap.GetTotal( Layer::Positions ) == doctest::Approx( 100.0 / 60.0 ).epsilon( 0.11 ) );
+
+    // A session ends an offline recording: its file is closed, the session's own capture takes over.
+    REQUIRE( net.StartOfflineRecording( "", header, 60 ) );
+    CHECK( net.IsRecordingOffline() );
+    LoopbackNetwork network;
+    LoopbackTransport transport( network, 1 );
+    REQUIRE( net.Host( transport, 60 ) );
+    CHECK_FALSE( net.IsRecording() );
+    CHECK( net.IsServer() );
+    CHECK( net.GetReplicationServer() != nullptr );
+    CHECK( net.FindEntity( targetId ) == target );
+    net.Shutdown();
+    fs::remove( path );
 }

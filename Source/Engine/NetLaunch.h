@@ -37,7 +37,9 @@ class ReplayViewer;
 //                            carry hitbox poses a client may not otherwise see; Debug and editor servers
 //                            take them by default, Retail never)
 //   --net-exit-when-empty    server: quit once its last client has gone (smoke tests)
-//   --record-replay [file]   server: record the match (ME-316) to file as well as the ring (below)
+//   --record-replay [file]   server: record the match (ME-316) to file as well as the ring (below); with
+//                            neither --server nor --connect (single-player, offline practice), the session
+//                            is recorded all the same (ME-215: NetCore::StartOfflineRecording)
 //                            (user://Replays/<UTC time>.mreplay when omitted; user:// paths go to the user folder,
 //                            a bare file name to user://Replays/, other relative paths to the working directory).
 //                            Read it with --replay-dump
@@ -106,8 +108,10 @@ public:
     // on a host --net-debug-clients. Before Host / Connect.
     static void ApplySessionOptions( NetCore& InNet, bool InHost );
     // After Host: the replay ring killcams are cut from (ME-323; not with --no-replay-ring), and the
-    // match replay's file too with --record-replay (ME-316). Logged either way.
-    static void StartRecording( NetCore& InNet );
+    // match replay's file too with --record-replay (ME-316). Logged either way. With no session and
+    // InOfflineTickRate (the engine's fixed steps per second), --record-replay records the offline
+    // session (ME-215).
+    static void StartRecording( NetCore& InNet, uint16_t InOfflineTickRate = 0 );
 
     // The networked input actions' layout and the local player's command (NET-6) are the world's:
     // SingletonInput (ME-297). Start hands the session the game world's layout hash.

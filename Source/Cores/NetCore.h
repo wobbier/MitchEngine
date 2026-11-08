@@ -203,7 +203,9 @@ public:
     // The same ray against the hitboxes where they are now (a client's own view, for impact FX it
     // predicts; offline play), with no rewind: what NET-15's Net.LagCompensatedRaycast does off
     // the server. InShooter and everything under it are ignored.
-    LagCompensatedHit PresentRaycast( const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, const EntityHandle& InShooter = EntityHandle() );
+    // InInstigator: who fired it, for a projectile's sweep (an offline recording's shot names them, ME-215).
+    LagCompensatedHit PresentRaycast( const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, const EntityHandle& InShooter = EntityHandle(),
+        const EntityHandle& InInstigator = EntityHandle() );
     NetLagCompensation& GetLagCompensation() { return m_lagCompensation; }
     // Smoothed round trip in ms: a client's to its server, or the server's to one client (0
     // without a session or before the first ack).
@@ -223,8 +225,21 @@ public:
     // only. The header's tick rate and hashes come from the session. False on a client, while
     // recording, or when the file can't be written.
     bool StartRecording( const std::string& InPath, NetReplayHeader InHeader = NetReplayHeader(), const NetReplaySettings& InSettings = NetReplaySettings() );
+    // Playtests (ME-215): the same recording with no session at all (single-player, offline practice).
+    // A replication capture of its own (over a transport that sends nothing) gives the networked
+    // entities NetIds and each tick's snapshot, so the file is a server's: ReplayDump, the viewer,
+    // heatmaps and resims read it as one. Each tick records the world's sampled local command
+    // (SingletonInput) as client InLocalClient's, and every PresentRaycast inside a tick as a shot
+    // (with its instigator and the hitboxes it was judged against). Nothing else changes: the core
+    // stays inactive (IsActive, IsServer, IsClient false), so gameplay runs as offline; NetIds are
+    // assigned, owners are whatever the game set (nothing by default). InTickRate: the engine's fixed
+    // steps per second. False while a session, a playback or a recording runs, or when the file can't
+    // be written. Host, Connect and StartPlayback end it first.
+    bool StartOfflineRecording( const std::string& InPath, NetReplayHeader InHeader, uint16_t InTickRate, const NetReplaySettings& InSettings = NetReplaySettings(),
+        uint8_t InLocalClient = 1 );
+    bool IsRecordingOffline() const { return m_offlineServer != nullptr && IsRecording(); }
     // Writes the last chunk and the index and waits (logged); the recorder stays readable until
-    // Shutdown or the next StartRecording. Shutdown stops it too.
+    // Shutdown or the next StartRecording. Shutdown stops it too (an offline recording's capture goes).
     void StopRecording();
     bool IsRecording() const { return m_recorder && !m_recorder->IsClosed(); }
     const NetReplayRecorder* GetRecorder() const { return m_recorder.get(); }
@@ -349,8 +364,9 @@ public:
 
 private:
     void RecordReplayTick();
+    // InPoses: where the shot's hitboxes were judged (the server's history; offline, PresentRaycast's).
     void RecordShot( const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, double InViewTick, const EntityHandle& InShooter,
-        const EntityHandle& InInstigator, const LagCompensatedHit& InHit );
+        const EntityHandle& InInstigator, const LagCompensatedHit& InHit, const NetLagCompensation& InPoses );
 
     // A client the server no longer has: what the report says about it.
     struct Departure
@@ -423,6 +439,15 @@ private:
     std::map<uint32_t, uint8_t> m_replayOwners;     // NetId -> the owner last recorded
     std::map<uint8_t, uint64_t> m_replayMisses;     // client -> its misses at the last recorded tick
     std::map<uint32_t, uint32_t> m_replayAlwaysRelevant;    // NetId -> the last recorded tick it was AlwaysRelevant at (pruned with the ring)
+    // ME-215 offline recording: a server with no clients over a transport that sends nothing, for its
+    // replication capture and tick; never m_server (the core stays inactive).
+    std::unique_ptr<INetTransport> m_offlineTransport;
+    std::unique_ptr<NetServer> m_offlineServer;
+    uint8_t m_offlineClient = 1;
+    bool m_offlineInTick = false;
+    void EndOfflineRecording();
+    // The server the recording's ticks come from: the session's, or the offline one.
+    NetServer* RecordingServer() const { return m_server ? m_server.get() : m_offlineServer.get(); }
     uint32_t m_ticksOwed = 0;
     uint32_t m_ticksDropped = 0;
     // ME-316 playback: the source, then what reads it (destroyed first).
