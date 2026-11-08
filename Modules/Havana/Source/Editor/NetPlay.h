@@ -24,7 +24,14 @@ class UdpTransport;
 // Conditions (lag, jitter, loss, duplicates) apply at the editor's end, both directions
 // (ConditionedTransport::SetInboundConditions): lag is one way, so RTT is twice it, as --net-lag on
 // every process would be. They change live, without touching the children. The editor's own
-// --net-lag / --net-jitter / --net-loss / --net-seed are the starting values.
+// --net-lag / --net-jitter / --net-loss / --net-seed are the starting values: each session seeds
+// both directions from --net-seed (inbound its own sequence), live changes carry the sequences on.
+//
+// The server is set up as a Player --server's would be (NetLaunch::ApplySessionOptions and
+// StartRecording): --net-timeout, --net-debug-clients, the replay ring killcams are cut from and
+// --record-replay. The time scale stays x1 while it hosts (the clients' clocks run on wall time).
+// Each child keeps its user state in <project>/.tmp/PIE/User<N>; an unattended editor's children
+// are --transient (silent, nothing saved).
 //
 // Each child is driven over its stdin (--control-stdin: Engine/ControlChannel.h) and its stdout
 // read back: its log goes to <project>/.tmp/PIE/Client<N>.log and, while ShowClientLogs is on,
@@ -33,8 +40,8 @@ class UdpTransport;
 // each child's stdin: a child quits when its stdin closes. One still running after 3 s gets
 // SIGTERM, after 2 s more SIGKILL. A child dies with the editor however the editor ends: its
 // stdin's other end goes with it, and on Linux PR_SET_PDEATHSIG kills it outright. Every child
-// carries "--pie-editor <editor pid>", so CountChildProcesses can find even one that outlived
-// its editor (it scans /proc).
+// carries "--pie-editor <editor pid>", so CountChildProcesses can find this editor's in /proc (a
+// sanity check after Stop; one left by an editor that died carries that editor's pid).
 //
 // Linux / POSIX only for now: elsewhere Play with clients reports that and stays offline.
 class NetPlay
@@ -103,7 +110,7 @@ public:
     bool TakeReply( int InIndex, uint64_t InId, std::string& OutOutput );
 
     // Processes on this machine started as this editor's PIE children that are still alive (zombies
-    // aside): found in /proc by their --pie-editor <pid>, so one that outlived the editor counts too.
+    // aside): found in /proc by their --pie-editor <this editor's pid>, reaped or not.
     static int CountChildProcesses();
 
     // Havana's toolbar: the Net button and its popup (clients, client arguments, conditions; the
@@ -118,7 +125,8 @@ private:
     void PumpChild( Child& InChild );
     void HandleLine( Child& InChild, const std::string& InLine );
     void ReapChildren( double InNow );
-    void ApplyConditions();
+    // InReseed: the session's start (the seeds); live changes keep the random sequences going.
+    void ApplyConditions( bool InReseed = false );
     std::string FindPlayer() const;
 
     Settings m_settings;

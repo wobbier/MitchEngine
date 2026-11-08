@@ -98,6 +98,14 @@ public:
     // --net-debugger or the console's "net debugger".
     void DrawNetDebugger( NetCore& InNet );
 
+    // A session's options from the command line that every host and client takes, shared with the
+    // editor's PIE listen server (NET-7) so it gets what a Player --server would: --net-timeout, and
+    // on a host --net-debug-clients. Before Host / Connect.
+    static void ApplySessionOptions( NetCore& InNet, bool InHost );
+    // After Host: the replay ring killcams are cut from (ME-323; not with --no-replay-ring), and the
+    // match replay's file too with --record-replay (ME-316). Logged either way.
+    static void StartRecording( NetCore& InNet );
+
     // The networked input actions' layout and the local player's command (NET-6) are the world's:
     // SingletonInput (ME-297). Start hands the session the game world's layout hash.
 
@@ -109,8 +117,6 @@ private:
     std::unique_ptr<UdpTransport> m_socket;
     std::unique_ptr<ConditionedTransport> m_conditioned;
     std::string m_reportPath;
-    // Starts the match replay if the command line asks (a server; logged either way).
-    void StartRecording( NetCore& InNet );
     // --replay: opens the file and starts the playback with the --replay-* options.
     bool StartReplay( NetCore& InNet );
     // The console's "replay" command (registered once).

@@ -336,9 +336,13 @@ void MainMenuWidget::Render()
             float timeScale = GetEngine().GetTimeScale();
             ImGui::SetCursorPosY( ( MainMenuSize.y - ImGui::GetFrameHeight() ) * 0.5f );
             ImGui::SetNextItemWidth( ImGuiTheme::Em( 4.25f ) );
+            // NET-7: the PIE clients run on wall-clock time, so a networked Play stays at x1.
+            const bool netPlay = NetPlay::Get().IsHosting();
+            ImGui::BeginDisabled( netPlay );
             if( ImGui::SliderFloat( "##TimeScale", &timeScale, 0.f, 4.f, "x%.2f" ) ) GetEngine().SetTimeScale( timeScale );
-            ImGui::SetItemTooltip( "Time scale (right-click resets)" );
-            if( ImGui::IsItemClicked( ImGuiMouseButton_Right ) ) GetEngine().SetTimeScale( 1.f );
+            ImGui::EndDisabled();
+            ImGui::SetItemTooltip( netPlay ? "Time scale: x1 while clients play (their clocks run on wall time)" : "Time scale (right-click resets)" );
+            if( !netPlay && ImGui::IsItemClicked( ImGuiMouseButton_Right ) ) GetEngine().SetTimeScale( 1.f );
             if( NetPlay::Get().IsHosting() )
             {
                 ImGui::SetCursorPosY( ( MainMenuSize.y - ImGui::GetFrameHeight() ) * 0.5f );

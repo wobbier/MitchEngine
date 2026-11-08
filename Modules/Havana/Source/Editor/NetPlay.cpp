@@ -9,6 +9,7 @@
 #include "Engine/AutomationRunner.h"
 #include "Engine/DevConsole.h"
 #include "Engine/Engine.h"
+#include "Engine/NetLaunch.h"
 #include "Engine/Project.h"
 #include "Engine/World.h"
 #include "JSON.h"
@@ -171,7 +172,8 @@ void NetPlay::SaveSettings() const
 
 void NetPlay::SetPendingPlay( int InClients, const std::string& InExtraArgs )
 {
-    m_pendingClients = std::clamp( InClients, 0, kMaxClients );
+    // Below 0 clears it (a play-net that didn't start): the settings decide the next Play again.
+    m_pendingClients = InClients < 0 ? -1 : std::min( InClients, kMaxClients );
     m_pendingArgs = InExtraArgs;
 }
 
@@ -269,8 +271,11 @@ bool NetPlay::Start( NetCore& InNet, uint16_t InTickRate, std::string& OutError 
         return fail( "the UDP socket didn't open: " + why );
     }
     m_port = m_socket->GetPort();
-    m_conditioned = std::make_unique<ConditionedTransport>( *m_socket, NetConditions() );
-    ApplyConditions();
+    // Seeded once a session (--net-seed, each direction its own sequence); live changes carry on.
+    m_conditioned = std::make_unique<ConditionedTransport>( *m_socket, m_settings.Conditions );
+    ApplyConditions( true );
+    // What a Player --server gets from the command line too: --net-timeout, --net-debug-clients.
+    NetLaunch::ApplySessionOptions( InNet, true );
     InNet.SetCommandSchema( InNet.GetWorld().Singleton<SingletonInput>().GetCommandSchema() );
 #if USING( ME_SCRIPTING )
     InNet.SetScriptGlue( MakeScriptNetGlue() );
@@ -280,6 +285,14 @@ bool NetPlay::Start( NetCore& InNet, uint16_t InTickRate, std::string& OutError 
         m_conditioned.reset();
         m_socket.reset();
         return fail( "the session didn't start" );
+    }
+    // The replay ring killcams are cut from (ME-323), or --record-replay's file (ME-316), as a Player --server keeps.
+    NetLaunch::StartRecording( InNet );
+    // NET-7: the clients run on wall-clock time; a scaled server would drift past what their clocks dilate.
+    if( GetEngine().GetTimeScale() != 1.f )
+    {
+        BRUH( "PIE: time scale back to x1 while the clients play" );
+        GetEngine().SetTimeScale( 1.f );
     }
     m_net = &InNet;
     m_hosting = true;
@@ -297,6 +310,19 @@ bool NetPlay::Start( NetCore& InNet, uint16_t InTickRate, std::string& OutError 
         std::vector<std::string> args = { player, "--project", root, "--scene", scenePath, "--connect", "127.0.0.1:" + std::to_string( m_port ), "--control-stdin",
             "--pie-editor", std::to_string( getpid() ), "--window-mode", "windowed", "--width", "640", "--height", "360",
             "--window-x", std::to_string( 40 + ( index - 1 ) % 3 * 660 ), "--window-y", std::to_string( 60 + ( index - 1 ) / 3 * 400 ) };
+        if( AutomationRunner::IsUnattendedRun() )
+        {
+            // An unattended editor's (an edscript's) clients are too: silent, the player's saved
+            // settings neither read nor written.
+            args.push_back( "--transient" );
+        }
+        else
+        {
+            // Each client's user state (settings, window, crash reports) on its own: never the
+            // player's, and never the same file as another client's.
+            args.push_back( "--user-dir" );
+            args.push_back( root + "/.tmp/PIE/User" + std::to_string( index ) );
+        }
         args.insert( args.end(), extra.begin(), extra.end() );
         std::string error;
         if( !SpawnChild( index, args, error ) )
@@ -685,7 +711,7 @@ float NetPlay::GetRoundTripMs( int InIndex ) const
 }
 
 
-void NetPlay::ApplyConditions()
+void NetPlay::ApplyConditions( bool InReseed )
 {
     if( !m_conditioned )
     {
@@ -693,8 +719,8 @@ void NetPlay::ApplyConditions()
     }
     NetConditions inbound = m_settings.Conditions;
     inbound.Seed = m_settings.Conditions.Seed + 1;
-    m_conditioned->SetConditions( m_settings.Conditions, false );
-    m_conditioned->SetInboundConditions( inbound, false );
+    m_conditioned->SetConditions( m_settings.Conditions, InReseed );
+    m_conditioned->SetInboundConditions( inbound, InReseed );
 }
 
 

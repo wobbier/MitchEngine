@@ -238,10 +238,7 @@ bool NetLaunch::Start( NetCore& InNet, uint16_t InTickRate, IWindow* InWindow, c
         Say( CLog::LogType::Error, "Net: " + m_error );
         return false;
     }
-    if( CommandLine::Has( "--net-timeout" ) )
-    {
-        InNet.SetTimeout( std::max( 0.1f, CommandLine::GetFloat( "--net-timeout", 10.f ) ) );
-    }
+    ApplySessionOptions( InNet, host );
     // C# state, prediction and RPCs (NET-6), and the command layout both sides must share.
     InNet.SetCommandSchema( InNet.GetWorld().Singleton<SingletonInput>().GetCommandSchema() );
 #if USING( ME_SCRIPTING )
@@ -311,12 +308,6 @@ bool NetLaunch::Start( NetCore& InNet, uint16_t InTickRate, IWindow* InWindow, c
     InNet.SetDebug( WantedDebug( InNet ) );
     if( host )
     {
-        // NET-7: Debug and editor servers share shot results and bandwidth with clients' Net
-        // Debuggers by default; a Release server only when told.
-        if( CommandLine::Has( "--net-debug-clients" ) )
-        {
-            InNet.SetDebugClientsAllowed( true );
-        }
         InNet.Host( *transport, InTickRate );
         Say( CLog::LogType::Info, "Net: hosting on UDP port " + std::to_string( m_socket->GetPort() ) + " at " + std::to_string( InTickRate ) + " Hz" + conditioned );
         ShowRole( "server :" + std::to_string( m_socket->GetPort() ) );
@@ -333,6 +324,21 @@ bool NetLaunch::Start( NetCore& InNet, uint16_t InTickRate, IWindow* InWindow, c
         ShowRole( "connecting to " + UdpTransport::ToString( server ) );
     }
     return true;
+}
+
+
+void NetLaunch::ApplySessionOptions( NetCore& InNet, bool InHost )
+{
+    if( CommandLine::Has( "--net-timeout" ) )
+    {
+        InNet.SetTimeout( std::max( 0.1f, CommandLine::GetFloat( "--net-timeout", 10.f ) ) );
+    }
+    // NET-7: Debug and editor servers share shot results and bandwidth with clients' Net
+    // Debuggers by default; a Release server only when told.
+    if( InHost && CommandLine::Has( "--net-debug-clients" ) )
+    {
+        InNet.SetDebugClientsAllowed( true );
+    }
 }
 
 
