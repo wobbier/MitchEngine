@@ -32,6 +32,14 @@ namespace
         return world ? world->GetCore<NetCore>() : nullptr;
     }
 
+    // The NetCore whose NetIds mean something: a session's, or an offline recording's (ME-215: a playtest's
+    // replay names entities by the ids its capture gives them, so a game's Replay.Event payload can too).
+    NetCore* IdNet()
+    {
+        NetCore* net = AnyNet();
+        return net && ( net->IsActive() || net->IsRecordingOffline() ) ? net : nullptr;
+    }
+
     // The script world's sampled input (ME-297): its networked actions' layout, the local command,
     // what scripts hold and aim. Null without a script world.
     SingletonInput* WorldInput()
@@ -176,7 +184,7 @@ static void Eng_Net_SendRpc( EntityID id, int rpcId, int kind, uint8_t* data, in
 
 static int Eng_Net_GetNetId( EntityID id ) noexcept
 {
-    NetCore* net = Net();
+    NetCore* net = IdNet();
     EntityHandle entity = MakeHandle( id );
     return net && entity ? static_cast<int>( net->GetNetId( *entity.Get() ) ) : 0;
 }
@@ -189,7 +197,7 @@ static void Eng_Net_FindEntity( int netId, EntityID* outId ) noexcept
     {
         return;
     }
-    NetCore* net = Net();
+    NetCore* net = IdNet();
     EntityHandle entity = net && netId > 0 ? net->FindEntity( static_cast<uint32_t>( netId ) ) : EntityHandle();
     *outId = entity ? entity->GetId() : EntityID();
 }
