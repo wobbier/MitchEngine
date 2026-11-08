@@ -36,7 +36,7 @@ Multiplayer follows the Overwatch model: an authoritative server, client predict
   - ownership that reaches clients;
   - the schema in the handshake.
 
-The editor tooling (NET-7) comes next.
+- **NET-7:** debugging and the editor: the misprediction timeline, the Net Debugger in the Player, and Play In Editor over the network (Havana hosts a listen server, starts N child client Players and drives them; live link conditions; edscript `play-net` / `assert-net-*`).
 
 ## Key Files
 
@@ -68,6 +68,9 @@ The editor tooling (NET-7) comes next.
 | `Source/Cores/NetCore.h` | Engine-owned (`Engine::Net`): `Host` / `Connect` / `Close`, `IsActive` (until `Shutdown`) / `IsSessionLive` (until `Close` or the session's end), the frame hooks (they drive the transport's `Update`), the version of its world, `WriteReport` |
 | `Source/Net/UdpTransport.h` | `UdpTransport`: non-blocking IPv4 UDP (BSD sockets / Winsock). Addresses pack `(ip << 16) \| port`; `Resolve( "host:port" )`, `ToString` |
 | `Source/Components/Networking/SingletonInput.h` | A world's sampled input (ME-297, a world singleton): the networked actions' command layout, the local command, `Net.Press` holds and the `Net.SetAim` aim |
+| `Modules/Havana/Source/Editor/NetPlay.h` | Play In Editor over the network (NET-7): the listen server in the editor, the child client Players (started, read, driven over stdin, stopped, reaped), the live link conditions, the toolbar's Net popup |
+| `Modules/Havana/Source/Editor/NetPlayAutomation.h` | The edscript's network commands: `play-net`, `wait-net-connected`, `assert-net-field`, `net-knockback`, `assert-net-mispredict`, `net-condition`, `wait-net-rtt`, `net-control`, `wait-net-children` |
+| `Source/Engine/ControlChannel.h` | `--control-stdin`: a console over stdin, answered on stdout by id, quitting when stdin closes (the PIE children's control channel) |
 | `Source/Engine/NetLaunch.h` | The command line (`--server`, `--connect`, `--net-*`): starts the session after the scene loads, logs it, writes the report, says goodbye on exit |
 | `Source/Engine/ScriptReloadGate.h` | Pauses script hot reload while the process's session is live, and rebuilds what was edited once it ends (ME-311) |
 | `Source/Window/NullWindow.h` | The headless build's window: a size and SDL's event loop (Ctrl+C / SIGTERM close it) |
@@ -284,6 +287,20 @@ HeroShooter: `Tools/MatchSmoke.py --client-args=--net-debugger` passes with the 
 
 **Not covered yet:**
 - Only the pawn's mover and its C# `[Predicted]` fields roll back (NET-6). Other components on it don't.
+
+### Play In Editor over the network (NET-7, `NetPlay.h`)
+
+Havana's toolbar has a **Net** button beside Play and Simulate. Its popup sets how many clients Play starts (0, the default, plays offline), arguments for every client (e.g. `--hero 0 --net-debugger`), whether the clients' logs go in the editor's Log, and the link's conditions; while a networked Play runs it lists each client (pid, client id, the server's RTT to it, its log file) and the conditions stay live. The settings are preferences (`Play.Net*`); unattended runs (edscripts) ignore them and start offline.
+
+- **The listen server is the editor.** With clients asked for, `EditorApp::StartGame` hosts before the world starts (scripts' `OnStart` already see `Net.IsServer`): a `UdpTransport` on 127.0.0.1, any free port, at the engine's tick rate, with the command schema and script glue `NetLaunch` would give it. The editor's game world is the server's and its Game View shows the authoritative world; the engine's server has no local player, so the editor plays nobody (a game that spawns bots on a server, as HeroShooter's `--bots`, reads the editor's command line). Simulate stays offline.
+- **The clients are child processes:** the game Player of the same build (`.build/Game_linux_<Config>/Player` beside `.build/Editor_<Config>/Havana`; `--pie-player <path>` names another), started with `--project <root> --scene <the scene's file> --connect 127.0.0.1:<port> --control-stdin --pie-editor <editor pid>`, a 640x360 window placed apart from the others, and the client arguments. They load the scene from disk, so it must have been saved once (Play refuses a new scene); unsaved changes log a warning, and networked entities that differ are turned away at the handshake. They inherit the editor's environment: an editor under `Tools/Headless.sh` has its children on the same private display with software Vulkan, so a test never opens a window on the desktop. Linux / POSIX only for now (`fork` / `execv`); elsewhere Play with clients says so and doesn't start.
+- **Their output:** each child's stdout and stderr come back through a pipe, read without blocking every frame (`NetPlay::Update`): the whole log goes to `<project>/.tmp/PIE/Client<N>.log`, and each line also to the editor's log as `[client N] <message>` at the type the child logged it with (so an edscript's `wait-log` sees the children's lines). A child's `Net: connected as client #N` line tells the editor its client id.
+- **Driving them:** `NetPlay::SendControl( index, line )` writes `<id> <console line>` to the child's stdin; the child runs it through its console (`--control-stdin`, `ControlChannel`) and answers `[control] <id> <output as a JSON string>`, which `TakeReply` hands back by id. `net field` and `net timeline` answer in JSON for this (above).
+- **Conditions at the editor's end, both directions:** the server's socket is wrapped in a `ConditionedTransport` conditioning what it sends and what it receives (`SetInboundConditions`), so lag is one way and RTT twice it (60 ms is about 120 ms RTT), as `--net-lag` on every process would be. Lag, jitter, loss and duplicates change live (`SetConditions( ..., false )`: the random sequence carries on) without touching the children. The editor's own `--net-lag` / `--net-jitter` / `--net-loss` / `--net-seed` are where they start.
+- **Stop:** the session closes (every client hears the Disconnect: `server closed`) while the world it served is still up, then each child's stdin is closed: a child quits through its own quit path when its stdin closes (`Control: stdin closed; quitting`), and `NetPlay::Update` reaps it (`PIE: client N quit with exit code 0`). One still running 3 s later gets SIGTERM, 2 s after that SIGKILL. Quitting the editor stops them too and waits for them (bounded by the same escalation). If the editor dies outright, its end of each pipe goes with it, and on Linux `PR_SET_PDEATHSIG` kills the children at once. Every child's command line carries `--pie-editor <pid>`, so `NetPlay::CountChildProcesses` finds any that outlived the editor in `/proc`. A Play started while the last one's clients are still quitting is refused.
+- **Edscript** (`NetPlayAutomation.h`, clients by their PIE index, 1 to N in start order): `play-net N [| client args]`; `wait-net-connected N [| frames]` (the server accepted N and each told its client id); `assert-net-field C | entity | Component.Field | value [| frames]` (asks client C's world until it has the value: assert-field's `!=` and `~ tol` forms, a C++ component's saved fields or a C# script's public fields by class name); `net-knockback C | [x, y, z]` (adds that velocity to client C's pawn on the server only: its `CharacterController`, a networked entity it owns; the client couldn't predict it; logged with the server tick it lands on, the tick the next fixed step simulates); `assert-net-mispredict C | N [| tick|knockback] [| frames]` (exactly N corrections on client C's timeline, the whole of it or within 60 ticks of the tick, each at the tick with a position delta, once the client has reconciled past the window); `net-condition lag|jitter|loss|dup V ...`; `wait-net-rtt C | min [max] [| frames]` (the server's RTT to client C); `net-control C | console line` (logs the answer); `wait-net-children N [| frames]` (`CountChildProcesses`).
+
+HeroShooter's `Assets/Scenes/Tests/NetFlows.edscript` runs it headless (Proofs).
 
 ### C# networking (NET-6)
 
@@ -697,8 +714,11 @@ The session starts after the scene loads, because the handshake hashes the scene
 
 ## Proofs
 
+**PIE (NET-7), HeroShooter `Assets/Scenes/Tests/NetFlows.edscript`, headless** (`Tools/Headless.sh .build/Editor_Debug/Havana --project <HeroShooter> --scene Assets/Scenes/Arena.lvl --editor-exec .../NetFlows.edscript`, about 20 s): `play-net 2 | --hero 0` hosts the arena in the editor and starts two game Players; both connect and spawn Striker predicted. `script-set ScoreToWin | 7` on the server's GameMode (a `[Replicated]` C# field, 15 before) reaches both clients' worlds (`assert-net-field`, asked over `--control-stdin`). `net-knockback 1 | [0, 8, 0]` on the server at tick 525 is exactly one correction on client 1's timeline in ticks 465..585, at 525 ("position off 127.9 mm (0, 0.1279, 0), velocity off 7.837 m/s, grounded here, not on the server"), and none on client 2's. `net-condition lag 60` takes the server's RTT to client 1 to 121–131 ms without restarting anything, and `lag 0` back under 50. `stop`: both clients heard `server closed`, quit with exit code 0 within the frame budget, and `/proc` has no process left with the editor's `--pie-editor` pid. Two runs in a row pass. Killing the editor with SIGKILL mid-session took both children with it (`PR_SET_PDEATHSIG`): none left in `/proc` 2 s later.
+
 `NetTests.cpp`:
 
+- **One end conditioning both ways (NET-7, the editor's listen server):** only one end of a link conditioned, sending and receiving, at 50 ms with 5% loss gives 100 ms RTT on both sides (as 50 on each end does), both directions dropping; changed live to 150 ms it reads 200. Arrivals alone are held their latency in arrival order, losses and duplicates are counted (200 sent at 50% loss and 50% duplicates arrive as 200 - dropped + duplicated), and turning it off hands out the held ones at once, then passes straight through.
 - **Bit stream:** round-trips widths of 1–32 bits, VarUInt up to 2⁶⁴−1, float bits, bytes and strings. It flags truncation and refuses a hostile string length.
 - **Quantization:** floats at 4, 10, 16 and 24 bits come back within half a step, vectors at 20 bits, and 500 random rotations at 12 bits (|dot| > 0.99999).
 - **Reliable under a bad link:** 600 messages one way and 150 the other, over 40 ms ± 15 ms with 20% loss, 10% duplicates and 10% reordering, arrive complete, in order and once. Unreliable messages arrive at most once (most of them). The loss estimate reads 10–32%.
@@ -876,6 +896,7 @@ The viewer (ME-316 phase 3):
 
 ## Caveats & Fragility
 
+- **PIE (NET-7):** pausing the editor's Play stops the server's ticks, and a client hears nothing while it's paused: after `--net-timeout` (10 s) the clients time out. The children load the saved scene, not the editor's unsaved edits. The editor's server has no local player. The children are Linux / POSIX only, and are the Player of the editor's own build configuration unless `--pie-player` names one.
 - **Clock:** the connection trusts the clock it's given. Pass the same monotonic `now` to `SendPacket` and `ReceivePacket`.
 - **Reliable window:** a stalled link holds at most 1024 messages in flight. Messages queued beyond that wait in memory, unbounded, until acks free the window.
 - **No encryption or authentication:** the protocol id only filters strays.

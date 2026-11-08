@@ -366,6 +366,25 @@ void EditorAutomation::Tick( EditorApp& InApp )
         m_waitLogFrames = 0;
     }
 
+    if( m_netPoll.Frames > 0 )
+    {
+        std::string detail;
+        const int verdict = m_netPoll.Check ? m_netPoll.Check( detail ) : 1;
+        if( verdict == 0 && --m_netPoll.Frames > 0 )
+        {
+            return;
+        }
+        if( verdict < 0 )
+        {
+            Fail( m_netPoll.What + ": " + detail );
+        }
+        else if( verdict == 0 )
+        {
+            Fail( m_netPoll.What + " timed out: " + detail );
+        }
+        m_netPoll = NetPlayAutomation::Poll();
+    }
+
     // Run lines until one asks to wait a frame (every command waits one frame by default so its
     // effects - sync points, deferred destroys, queued events - settle before the next).
     while( m_nextLine < m_lines.size() )
@@ -400,6 +419,12 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
     {
         std::string error;
         if( !TerrainAutomation::Execute( command, args, error ) ) Fail( command + ": " + error );
+    }
+    else if( NetPlayAutomation::Handles( command ) )
+    {
+        // NET-7 PIE: play-net, wait-net-connected, assert-net-field, net-knockback, assert-net-mispredict, ...
+        std::string error;
+        if( !NetPlayAutomation::Execute( InApp, command, args, m_netPoll, error ) ) Fail( error );
     }
     else if( command.rfind( "ui-", 0 ) == 0 || command == "input-press" )
     {

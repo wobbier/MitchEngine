@@ -2,6 +2,7 @@
 #include <cstdint>
 #include "Dementia.h"
 #include "JSON.h"
+#include "Editor/NetPlayAutomation.h"
 #include <string>
 #include <vector>
 
@@ -44,6 +45,8 @@ private:
     std::string m_waitFieldValue;
     int m_waitFieldFrames = 0;
     int m_waitFileFrames = 0;
+    // The network commands that wait (NET-7 PIE: wait-net-*, assert-net-field, assert-net-mispredict).
+    NetPlayAutomation::Poll m_netPoll;
     // Log message count when the previous command ran: wait-log also sees what that command logged.
     uint64_t m_previousCommandLogCount = 0;
     bool m_lastWasWaitLog = false;     // consecutive wait-logs share one window

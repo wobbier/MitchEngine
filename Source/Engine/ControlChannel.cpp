@@ -5,6 +5,7 @@
 #include "Engine/DevConsole.h"
 #include "JSON.h"
 #include <cctype>
+#include <cstdio>
 #include <cstdlib>
 #include <iostream>
 #if !USING( ME_PLATFORM_WINDOWS )
@@ -31,6 +32,9 @@ bool ControlChannel::Init()
         return false;
     }
     m_active = true;
+    // The driver reads the log off stdout as it happens: a line at a time, not when a pipe's buffer fills.
+    std::fflush( stdout );
+    std::setvbuf( stdout, nullptr, _IOLBF, 0 );
     CLog::Log( CLog::LogType::Info, "Control: reading console lines from stdin (--control-stdin)" );
     return true;
 #endif

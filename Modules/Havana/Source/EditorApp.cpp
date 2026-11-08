@@ -1,4 +1,6 @@
 #include "EditorApp.h"
+#include "Editor/NetPlay.h"
+#include "Cores/NetCore.h"
 #include "Hub/ProjectHub.h"
 #include "Tools/Projects/ProjectLibrary.h"
 #include "ECS/Component.h"
@@ -35,6 +37,7 @@
 #include "Math/Frustrum.h"
 #include "optick.h"
 #include <ctime>
+#include <cmath>
 #include <Math/Quaternion.h>
 #include "Events/HavanaEvents.h"
 #include "Events/EditorEvents.h"
@@ -140,13 +143,16 @@ EditorApp::~EditorApp()
 
 void EditorApp::OnStart()
 {
-
+    // NET-7: Play's network settings (clients, link conditions), after the editor's config loaded.
+    NetPlay::Get().LoadSettings();
 }
 
 
 void EditorApp::OnUpdate( const UpdateContext& inUpdateContext )
 {
     OPTICK_CATEGORY( "EditorApp::OnUpdate", Optick::Category::GameLogic );
+    // NET-7 PIE: the child clients' output and exits.
+    NetPlay::Get().Update();
 
 #if USING( ME_EDITOR )
     {
@@ -287,6 +293,12 @@ void EditorApp::UpdateCameras()
 
 void EditorApp::OnEnd()
 {
+    // NET-7 PIE: no child client outlives the editor.
+    if( GetEngine().Net && NetPlay::Get().IsHosting() )
+    {
+        NetPlay::Get().Stop( *GetEngine().Net );
+    }
+    NetPlay::Get().Shutdown();
     Editor->Save();
     EditorConfig::GetInstance().Save();
     Editor->Destroy();
@@ -378,6 +390,10 @@ void EditorApp::Play()
         return;
     }
     StartGame();
+    if( !m_isGameRunning )
+    {
+        return;     // refused (script errors, a network Play that couldn't start): the editor keeps its input
+    }
     m_isGamePaused = false;
     GetEngine().SetPaused( false );
 
@@ -467,6 +483,18 @@ void EditorApp::StartGame()
         return;
     }
 #endif
+    // NET-7 PIE: with clients asked for, Play hosts a listen server and starts them, before the
+    // world starts (scripts' OnStart must see a server). Simulate stays offline.
+    const bool scriptsSuspended = GetEngine().Scripts && GetEngine().Scripts->IsSuspended();
+    if( !scriptsSuspended && NetPlay::Get().IsWanted() && GetEngine().Net )
+    {
+        std::string error;
+        if( !NetPlay::Get().Start( *GetEngine().Net, static_cast<uint16_t>( std::lround( 1.0 / GetEngine().GetFixedTimeStep() ) ), error ) )
+        {
+            YIKES( "Can't play over the network: " + error );
+            return;
+        }
+    }
     m_playSnapshot = json();
     // Animation previews end, so the snapshot (and play's bind pose) is the authored pose.
     if( GetEngine().Animation )
@@ -523,6 +551,12 @@ void EditorApp::StopGame()
     }
     // ED-9: play-mode values the user chose to keep, read before the world goes.
     const std::vector<EditorOps::ComponentEdit> kept = EditorOps::CapturePlayValues();
+    // NET-7 PIE: goodbyes to the clients and the session closed while the world it served is up;
+    // the children are told to quit (NetPlay::Update reaps them).
+    if( GetEngine().Net )
+    {
+        NetPlay::Get().Stop( *GetEngine().Net );
+    }
     if( GetEngine().GetWorld().lock() )
     {
         GetEngine().GetWorld().lock()->Destroy();

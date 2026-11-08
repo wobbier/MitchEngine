@@ -21,6 +21,7 @@
 #include "Events/EditorEvents.h"
 #include "Widgets/Tree/TreeWidget.h"
 #include <ImGuiTheme.h>
+#include "Editor/NetPlay.h"
 #include "Scripting/ScriptEngine.h"
 #include "Core/WorkStatus.h"
 
@@ -312,6 +313,9 @@ void MainMenuWidget::Render()
             ImGui::SetCursorPosY( ( MainMenuSize.y - iconButtonSize ) * 0.5f );
             if( ImGui::Button( "Simulate", ImVec2( 0.f, iconButtonSize ) ) ) actions.Execute( "Play.Simulate" );
             ImGui::SetItemTooltip( "Play without scripts: physics, animation and particles run" );
+            // NET-7: Play over the network (a listen server here, child client Players).
+            ImGui::SetCursorPosY( ( MainMenuSize.y - iconButtonSize ) * 0.5f );
+            NetPlay::Get().DrawToolbar( false );
             ImGui::SetCursorPosY( menuY );
         }
         else
@@ -335,6 +339,11 @@ void MainMenuWidget::Render()
             if( ImGui::SliderFloat( "##TimeScale", &timeScale, 0.f, 4.f, "x%.2f" ) ) GetEngine().SetTimeScale( timeScale );
             ImGui::SetItemTooltip( "Time scale (right-click resets)" );
             if( ImGui::IsItemClicked( ImGuiMouseButton_Right ) ) GetEngine().SetTimeScale( 1.f );
+            if( NetPlay::Get().IsHosting() )
+            {
+                ImGui::SetCursorPosY( ( MainMenuSize.y - ImGui::GetFrameHeight() ) * 0.5f );
+                NetPlay::Get().DrawToolbar( true );
+            }
             ImGui::SetCursorPosY( menuY );
         }
 
