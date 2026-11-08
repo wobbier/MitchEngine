@@ -43,6 +43,11 @@ namespace MeWidgets::ColorTemperature
 
     bool FromSrgb( const std::array<float, 3>& InSrgb, double& OutKelvin, float InTolerance )
     {
+        return FromSrgbInRange( InSrgb, kMinKelvin, kMaxKelvin, OutKelvin, InTolerance );
+    }
+
+    bool FromSrgbInRange( const std::array<float, 3>& InSrgb, double InMinKelvin, double InMaxKelvin, double& OutKelvin, float InTolerance )
+    {
         const float peak = std::max( { InSrgb[0], InSrgb[1], InSrgb[2] } );
         if( !( peak > 1e-4f ) || !std::isfinite( peak ) )
         {
@@ -51,8 +56,8 @@ namespace MeWidgets::ColorTemperature
         const std::array<float, 3> color = { InSrgb[0] / peak, InSrgb[1] / peak, InSrgb[2] / peak };
         // Coarse search in log temperature, then golden-section refinement around the best sample.
         constexpr int kSamples = 240;
-        const double logMin = std::log( kMinKelvin );
-        const double logMax = std::log( kMaxKelvin );
+        const double logMin = std::log( std::clamp( InMinKelvin, 1000.0, 40000.0 ) );
+        const double logMax = std::log( std::clamp( std::max( InMaxKelvin, InMinKelvin ), 1000.0, 40000.0 ) );
         int best = 0;
         float bestDistance = 1e9f;
         for( int i = 0; i <= kSamples; ++i )

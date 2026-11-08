@@ -3,6 +3,7 @@
 #include "Editor/TilemapPainter.h"
 #include "Editor/SpriteRectGizmo.h"
 #include "Editor/SplineGizmo.h"
+#include "Editor/ColorPicking.h"
 #include "Widgets/Terrain/TerrainWidget.h"
 #include <EditorApp.h>
 #include "Cores/EditorCore.h"
@@ -788,7 +789,9 @@ void SceneViewWidget::Render()
 		IsUsingGuizmo = false;
 		DrawViewCube();
 		const bool cubeOwnsMouse = IsUsingGuizmo;
-		const bool terrainOwnsMouse = ( TerrainWidget::Get() && TerrainWidget::Get()->DrawViewport(*this, m_viewportScreenMin, m_viewportScreenSize) )
+		// The colour popover's eyedropper (UX-14) first: while armed a click samples, not selects.
+		const bool terrainOwnsMouse = ColorPicking::DrawViewport(*this, m_viewportScreenMin, m_viewportScreenSize)
+			|| ( TerrainWidget::Get() && TerrainWidget::Get()->DrawViewport(*this, m_viewportScreenMin, m_viewportScreenSize) )
 			|| TilemapPainter::DrawViewport(*this, m_viewportScreenMin, m_viewportScreenSize)
 			|| SpriteRectGizmo::DrawViewport(*this, m_viewportScreenMin, m_viewportScreenSize)
 			|| SplineGizmo::DrawViewport(*this, m_viewportScreenMin, m_viewportScreenSize);

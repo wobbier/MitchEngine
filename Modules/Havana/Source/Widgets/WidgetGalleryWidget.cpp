@@ -13,6 +13,7 @@
 #include <Widgets/CharacterWidgets.h>
 #include <Widgets/TransformWidgets.h>
 #include <Widgets/ChoiceWidgets.h>
+#include <Widgets/ColorPopover.h>
 #include "Utils/EditorIcons.h"
 #include <Utils/HavanaUtils.h>
 #include <ImGuiTheme.h>
@@ -237,6 +238,21 @@ namespace
         return samples;
     }
 
+    // Colour widgets (UX-14) with fixed samples: an orange LDR colour, an HDR glow at +2 EV and
+    // a translucent tint.
+    struct ColorSamples
+    {
+        float Ldr[3] = { 1.f, 136.f / 255.f, 0.f };
+        float Hdr[3] = { 4.f, 0.8f, 0.2f };
+        float Tint[4] = { 0.25f, 0.6f, 1.f, 0.5f };
+    };
+
+    ColorSamples& Colors()
+    {
+        static ColorSamples samples;
+        return samples;
+    }
+
     void DrawGalleryIcon( ImDrawList* InDrawList, const char* InIcon, const ImVec2& InMin, float InSize, ImU32 InColor )
     {
         EditorIcons::Draw( InDrawList, InIcon, InMin, InSize, InColor );
@@ -282,6 +298,7 @@ void WidgetGalleryWidget::ResetSamples()
 	Transforms() = TransformSamples();
 	Materials() = MaterialSamples();
 	Choices() = ChoiceSamples();
+	Colors() = ColorSamples();
 	MeWidgets::Juice::Reset();
 }
 
@@ -467,6 +484,19 @@ void WidgetGalleryWidget::Render()
 		static const int kAreaBits[] = { 0, 1, 2, 3 };
 		HavanaUtils::Label( "Areas" );
 		MeWidgets::MaskChips( "##areas", kAreas, kAreaBits, 4, choice.Areas, 0b1111 );
+	}
+	ImGui::PopID();
+
+	ImGui::SeparatorText( "Colour widgets" );
+	ColorSamples& color = Colors();
+	ImGui::PushID( "Colour" );
+	{
+		HavanaUtils::Label( "Light Color" );
+		MeWidgets::ColorSwatchPopover( "##ldr", color.Ldr, 3, false, "Light Color" );
+		HavanaUtils::Label( "Glow Color" );
+		MeWidgets::ColorSwatchPopover( "##hdr", color.Hdr, 3, true, "Glow Color" );
+		HavanaUtils::Label( "Tint" );
+		MeWidgets::ColorSwatchPopover( "##tint", color.Tint, 4, false, "Tint" );
 	}
 	ImGui::PopID();
 	ImGui::End();

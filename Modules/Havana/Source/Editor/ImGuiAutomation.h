@@ -28,5 +28,9 @@ namespace ImGuiAutomation
     void Tick();
     bool Execute( const std::string& InCommand, const std::string& InArgs, std::string& OutError, bool& OutRetry );
     bool Handles( const std::string& InCommand );
+    // A real left click (hover, press, release over frames) at an absolute ImGui position, for
+    // commands that aim at something other than an item (click-viewport); InHoverOnly just moves
+    // the pointer there and leaves it. Call it again while OutRetry is set until it's done.
+    bool ClickAt( float InX, float InY, bool InHoverOnly, bool& OutRetry );
 }
 #endif

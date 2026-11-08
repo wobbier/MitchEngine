@@ -369,6 +369,31 @@ namespace ImGuiAutomation
     }
 
 
+    bool ClickAt( float InX, float InY, bool InHoverOnly, bool& OutRetry )
+    {
+        Gesture& gesture = Current();
+        if( gesture.Active )
+        {
+            std::string unused;
+            return Execute( "imgui-click", std::string(), unused, OutRetry );
+        }
+        std::vector<Step> steps;
+        Hover( steps, ImVec2( InX, InY ) );
+        if( !InHoverOnly )
+        {
+            Click( steps, ImVec2( InX, InY ), ImGuiMouseButton_Left, {} );
+        }
+        Begin( std::move( steps ) );
+        ApplyStep( gesture.Steps[gesture.Next++] );
+        OutRetry = gesture.Next < gesture.Steps.size();
+        if( !OutRetry )
+        {
+            gesture.Active = false;
+        }
+        return true;
+    }
+
+
     bool Execute( const std::string& InCommand, const std::string& InArgs, std::string& OutError, bool& OutRetry )
     {
         Gesture& gesture = Current();

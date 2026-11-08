@@ -42,6 +42,7 @@
 #include "HavanaWidget.h"
 #include "Editor/WidgetRegistry.h"
 #include "Editor/Inspectors/LightInspector.h"
+#include "Editor/ColorPicking.h"
 #include "Editor/Inspectors/CameraInspector.h"
 #include "Editor/Inspectors/PostProcessInspector.h"
 #include "Editor/Inspectors/PhysicsInspector.h"
@@ -218,6 +219,7 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
     actions.Register( { "View.ErrorList", "Error List", "View", 0, 0, [this]() { ShowWidget( "Error List" ); } } );
     ReflectionUI::RegisterDefaultDrawers();
     LightInspector::Register();
+    ColorPicking::Install();
     CameraInspector::Register();
     PostProcessInspector::Register();
     PhysicsInspector::Register();

@@ -19,6 +19,7 @@
 #include <Widgets/ScrubField.h>
 #include <Widgets/TransformWidgets.h>
 #include <Widgets/ChoiceWidgets.h>
+#include <Widgets/ColorPopover.h>
 #include <Widgets/Juice.h>
 #include <Utils/EditorConfig.h>
 #include <ImGuiTheme.h>
@@ -792,8 +793,10 @@ namespace ReflectionUI
         bool DrawVector( const char* InLabel, const FieldInfo* InField, const ValueOps& InOps, void* InValue )
         {
             const std::string axisFormat = AxisFormat( InField, "%.3f" );
+            // Colours (UX-14): a swatch that opens the colour popover.
             const bool isColor = InField && InField->Has( FieldFlags::Color );
-            const ImGuiColorEditFlags colorFlags = ImGuiColorEditFlags_Float | ( InField && InField->Has( FieldFlags::HDR ) ? ImGuiColorEditFlags_HDR : 0 );
+            const bool isHdr = InField && InField->Has( FieldFlags::HDR );
+            const char* caption = InField && !InField->DisplayName.empty() ? InField->DisplayName.c_str() : nullptr;
             const float speed = InField ? InField->Speed : 0.1f;
             switch( InOps.Type )
             {
@@ -804,7 +807,7 @@ namespace ReflectionUI
                 Vector3& value = *static_cast<Vector3*>( InValue );
                 if( isColor )
                 {
-                    return ImGui::ColorEdit3( InLabel, &value.x, colorFlags );
+                    return MeWidgets::ColorSwatchPopover( InLabel, &value.x, 3, isHdr, caption );
                 }
                 return DragOrLockAxes( InLabel, &value.x, 3, speed, axisFormat.c_str() );
             }
@@ -813,7 +816,7 @@ namespace ReflectionUI
                 Vector4& value = *static_cast<Vector4*>( InValue );
                 if( isColor )
                 {
-                    return ImGui::ColorEdit4( InLabel, &value.x, colorFlags | ImGuiColorEditFlags_AlphaBar );
+                    return MeWidgets::ColorSwatchPopover( InLabel, &value.x, 4, isHdr, caption );
                 }
                 return DragOrLockAxes( InLabel, &value.x, 4, speed, axisFormat.c_str() );
             }

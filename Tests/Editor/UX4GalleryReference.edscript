@@ -50,6 +50,14 @@ imgui-hover Widget Gallery/Areas/Water
 wait 5
 panel-screenshot Widget Gallery | .tmp/UX4-Gallery-Choice.png
 assert-images .tmp/UX4-Gallery-Choice.png | Engine/Tests/Editor/Reference/WidgetGalleryChoice.png | same | 0.002
+# The colour widgets (UX-14) below them: an LDR swatch, an HDR one at +2 EV and a translucent one.
+imgui-hover Widget Gallery/Tint:label
+wait 5
+panel-screenshot Widget Gallery | .tmp/UX4-Gallery-Color.png
+assert-images .tmp/UX4-Gallery-Color.png | Engine/Tests/Editor/Reference/WidgetGalleryColor.png | same | 0.002
+imgui-assert-value Widget Gallery/Light Color | #FF8800
+imgui-assert-value Widget Gallery/Glow Color | #FF330D +2 EV
+imgui-assert-value Widget Gallery/Tint | #4099FF80
 # Each choice control has its own ID: a click on any of them lands (shared IDs once let only
 # the first control drawn take the click). Then Reset puts the samples back.
 imgui-click Widget Gallery/Joint/Fixed

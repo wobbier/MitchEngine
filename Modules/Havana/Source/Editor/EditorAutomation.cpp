@@ -34,6 +34,7 @@
 #include "Editor/UIAutomation.h"
 #include "Editor/RenderTextureAutomation.h"
 #include "Editor/ImGuiAutomation.h"
+#include "Editor/ColorPicking.h"
 #include "Widgets/Tree/TreeAutomation.h"
 #include "Widgets/ShaderGraph/ShaderGraphPreview.h"
 #include "Components/Audio/AudioSource.h"
@@ -1365,6 +1366,81 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         else
         {
             sceneView->RequestClick( Vector2( static_cast<float>( std::atof( xText.c_str() ) ), static_cast<float>( std::atof( yText.c_str() ) ) ) );
+        }
+    }
+    else if( command == "click-viewport" )
+    {
+        // click-viewport 0.5 0.4   (a real left click on the World View image at that fraction of its size)
+        // click-viewport 0.5 0.4 | hover   (moves the pointer there and leaves it)
+        const size_t bar = args.find( '|' );
+        const std::string point = bar == std::string::npos ? args : Trim( args.substr( 0, bar ) );
+        const std::string mode = bar == std::string::npos ? std::string() : Trim( args.substr( bar + 1 ) );
+        auto [xText, yText] = SplitWord( point );
+        SceneViewWidget* sceneView = InApp.Editor ? InApp.Editor->GetSceneView() : nullptr;
+        if( !sceneView || !sceneView->IsImageShown() )
+        {
+            Fail( "click-viewport: the World View isn't showing" );
+        }
+        else
+        {
+            const Vector2 min = sceneView->GetViewportScreenMin();
+            const Vector2 size = sceneView->GetViewportScreenSize();
+            const float x = min.x + size.x * static_cast<float>( std::atof( xText.c_str() ) );
+            const float y = min.y + size.y * static_cast<float>( std::atof( yText.c_str() ) );
+            bool retry = false;
+            ImGuiAutomation::ClickAt( x, y, mode == "hover", retry );
+            if( retry )
+            {
+                --m_nextLine;
+            }
+        }
+    }
+    else if( command == "assert-viewport-pixel" )
+    {
+        // assert-viewport-pixel 0.5 0.4 | Cube | Light.Color [~ 0.02]   (the World View's displayed colour there equals the colour field's rgb)
+        auto [point, rest] = SplitArgs( args );
+        auto [name, fieldText] = SplitArgs( rest );
+        auto [xText, yText] = SplitWord( point );
+        double tolerance = 0.02;
+        std::string fieldPath = fieldText;
+        if( const size_t tilde = fieldText.find( " ~ " ); tilde != std::string::npos )
+        {
+            tolerance = std::atof( fieldText.c_str() + tilde + 3 );
+            fieldPath = Trim( fieldText.substr( 0, tilde ) );
+        }
+        SceneViewWidget* sceneView = InApp.Editor ? InApp.Editor->GetSceneView() : nullptr;
+        EntityHandle entity = FindEntity( name );
+        std::string type;
+        json::json_pointer pointer;
+        if( !sceneView || !entity || !SplitFieldPath( fieldPath, type, pointer ) )
+        {
+            Fail( "assert-viewport-pixel: bad arguments" );
+        }
+        else
+        {
+            std::array<float, 3> pixel {};
+            std::string error;
+            bool retry = false;
+            if( !ColorPicking::ReadViewportPixel( *sceneView, static_cast<float>( std::atof( xText.c_str() ) ), static_cast<float>( std::atof( yText.c_str() ) ), pixel, error, retry ) )
+            {
+                Fail( "assert-viewport-pixel: " + error );
+            }
+            else if( retry )
+            {
+                --m_nextLine;
+            }
+            else
+            {
+                const json state = EditorOps::CaptureComponent( *entity.Get(), type );
+                const json* actual = Resolve( state, pointer );
+                const json expected = { pixel[0], pixel[1], pixel[2] };
+                CLog::Log( CLog::LogType::Info, "[assert-viewport-pixel] " + std::string( xText ) + " " + yText + " shows " + expected.dump() );
+                json rgb = actual && actual->is_array() && actual->size() >= 3 ? json { ( *actual )[0], ( *actual )[1], ( *actual )[2] } : json();
+                if( rgb.is_null() || !NearlyEqual( rgb, expected, tolerance ) )
+                {
+                    Fail( name + " " + fieldPath + " is " + ( actual ? actual->dump() : std::string( "<missing>" ) ) + ", the World View shows " + expected.dump() );
+                }
+            }
         }
     }
     else if( command == "keep-values" )
