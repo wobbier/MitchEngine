@@ -17,6 +17,7 @@
 #include "Net/NetReplay.h"
 #include "Net/NetReplayDump.h"
 #include "Net/NetReplayHeatmap.h"
+#include "Net/NetReplayTimeline.h"
 #include <sstream>
 #include <filesystem>
 #include <fstream>
@@ -618,4 +619,56 @@ TEST_CASE( "Heatmap overlay: each cell lies on the ground under it (characters i
     CHECK_FALSE( overlay.HasHeatmap() );
     CHECK( overlay.RunCommand( {} ) == "heatmap: none loaded" );
     DebugDraw::Clear();
+}
+
+
+TEST_CASE( "Replay bookmark: the tick, entity, camera and note round-trip, and its replay is found where it was or beside it (ME-215)" )
+{
+    namespace fs = std::filesystem;
+    const fs::path folder = fs::temp_directory_path() / "MitchEngineBookmarks";
+    fs::remove_all( folder );
+    fs::create_directories( folder / "moved" );
+    { std::ofstream( folder / "match.mreplay" ) << "x"; }
+
+    NetReplayBookmark bookmark;
+    bookmark.Replay = ( folder / "match.mreplay" ).generic_string();
+    bookmark.Tick = 6372;
+    bookmark.Entity = 65541;
+    bookmark.Camera = "free";
+    bookmark.HasFreeCamera = true;
+    bookmark.FreePosition = Vector3( 1.5f, 7.25f, -3.f );
+    bookmark.FreeYaw = 123.5f;
+    bookmark.FreePitch = -20.f;
+    bookmark.Note = "the rocket goes through the crate";
+    bookmark.Marker = "kill Solo > Bot Ada [Railgunner#65538]";
+    bookmark.Map = "Assets/Scenes/Arena.lvl";
+    CHECK( NetReplayBookmark::DefaultPath( bookmark.Replay, 6372 ) == ( folder / "match.t6372.mrbookmark" ).generic_string() );
+
+    const std::string path = NetReplayBookmark::DefaultPath( bookmark.Replay, bookmark.Tick );
+    std::string error;
+    REQUIRE_MESSAGE( bookmark.Save( path, &error ), error );
+    NetReplayBookmark read;
+    REQUIRE_MESSAGE( read.Load( path, &error ), error );
+    CHECK( read.ToJson() == bookmark.ToJson() );
+    CHECK( read.Tick == 6372 );
+    CHECK( read.Entity == 65541 );
+    CHECK( read.HasFreeCamera );
+    CHECK( read.FreePosition.y == doctest::Approx( 7.25f ) );
+    CHECK( read.FreeYaw == doctest::Approx( 123.5f ) );
+    CHECK( read.Note == bookmark.Note );
+    CHECK( read.FindReplay( path ) == bookmark.Replay );
+
+    // Moved with its replay: found beside it.
+    fs::rename( folder / "match.mreplay", folder / "moved" / "match.mreplay" );
+    fs::rename( path, folder / "moved" / "bug.mrbookmark" );
+    NetReplayBookmark moved;
+    REQUIRE( moved.Load( ( folder / "moved" / "bug.mrbookmark" ).string(), &error ) );
+    CHECK( moved.FindReplay( ( folder / "moved" / "bug.mrbookmark" ).string() ) == ( folder / "moved" / "match.mreplay" ).generic_string() );
+
+    // Not a bookmark, or one with no replay: refused, the old one kept.
+    CHECK_FALSE( moved.FromJson( json{ { "format", "mheatmap" } }, &error ) );
+    CHECK_FALSE( moved.FromJson( json{ { "format", "mrbookmark" }, { "tick", 3 } }, &error ) );
+    CHECK( error.find( "no replay" ) != std::string::npos );
+    CHECK( moved.Tick == 6372 );
+    fs::remove_all( folder );
 }

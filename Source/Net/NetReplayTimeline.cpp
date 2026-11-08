@@ -3,6 +3,9 @@
 #include "JSON.h"
 #include "optick.h"
 #include <algorithm>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
 #include <cmath>
 #include <limits>
 #include <map>
@@ -343,4 +346,153 @@ int NetReplayTimeline::Neighbour( uint32_t InTick, bool InForward, uint32_t InMa
         }
     }
     return -1;
+}
+
+
+json NetReplayBookmark::ToJson() const
+{
+    json out;
+    out["format"] = "mrbookmark";
+    out["version"] = kFormatVersion;
+    out["replay"] = Replay;
+    out["tick"] = Tick;
+    out["entity"] = Entity;
+    out["camera"] = Camera;
+    if( HasFreeCamera )
+    {
+        out["freeCamera"] = { { "position", { FreePosition.x, FreePosition.y, FreePosition.z } }, { "yaw", FreeYaw }, { "pitch", FreePitch } };
+    }
+    out["note"] = Note;
+    out["marker"] = Marker;
+    out["map"] = Map;
+    out["recordedAt"] = RecordedAt;
+    out["createdAt"] = CreatedAt;
+    return out;
+}
+
+
+bool NetReplayBookmark::FromJson( const json& InJson, std::string* OutError )
+{
+    auto fail = [OutError]( const std::string& InWhy ) {
+        if( OutError )
+        {
+            *OutError = InWhy;
+        }
+        return false;
+    };
+    if( !InJson.is_object() || InJson.value( "format", std::string() ) != "mrbookmark" )
+    {
+        return fail( "not a replay bookmark (\"format\": \"mrbookmark\")" );
+    }
+    if( InJson.value( "version", 0 ) > kFormatVersion )
+    {
+        return fail( "bookmark version " + std::to_string( InJson.value( "version", 0 ) ) + " is newer than this build reads" );
+    }
+    NetReplayBookmark read;
+    try
+    {
+        read.Replay = InJson.value( "replay", std::string() );
+        read.Tick = InJson.value( "tick", 0u );
+        read.Entity = InJson.value( "entity", 0u );
+        read.Camera = InJson.value( "camera", std::string( "game" ) );
+        if( InJson.contains( "freeCamera" ) && InJson["freeCamera"].is_object() )
+        {
+            const json& free = InJson["freeCamera"];
+            const json& position = free.value( "position", json::array() );
+            if( position.is_array() && position.size() == 3 )
+            {
+                read.HasFreeCamera = true;
+                read.FreePosition = Vector3( position[0].get<float>(), position[1].get<float>(), position[2].get<float>() );
+                read.FreeYaw = free.value( "yaw", 0.f );
+                read.FreePitch = free.value( "pitch", 0.f );
+            }
+        }
+        read.Note = InJson.value( "note", std::string() );
+        read.Marker = InJson.value( "marker", std::string() );
+        read.Map = InJson.value( "map", std::string() );
+        read.RecordedAt = InJson.value( "recordedAt", std::string() );
+        read.CreatedAt = InJson.value( "createdAt", std::string() );
+    }
+    catch( const std::exception& InError )
+    {
+        return fail( std::string( "the bookmark doesn't read: " ) + InError.what() );
+    }
+    if( read.Replay.empty() )
+    {
+        return fail( "the bookmark names no replay" );
+    }
+    *this = std::move( read );
+    return true;
+}
+
+
+bool NetReplayBookmark::Save( const std::string& InPath, std::string* OutError ) const
+{
+    std::error_code error;
+    const std::filesystem::path path( InPath );
+    if( path.has_parent_path() )
+    {
+        std::filesystem::create_directories( path.parent_path(), error );
+    }
+    std::ofstream file( InPath, std::ios::binary | std::ios::trunc );
+    file << ToJson().dump( 1 ) << "\n";
+    if( !file )
+    {
+        if( OutError )
+        {
+            *OutError = "can't write " + InPath;
+        }
+        return false;
+    }
+    return true;
+}
+
+
+bool NetReplayBookmark::Load( const std::string& InPath, std::string* OutError )
+{
+    std::ifstream file( InPath, std::ios::binary );
+    if( !file )
+    {
+        if( OutError )
+        {
+            *OutError = "can't read " + InPath;
+        }
+        return false;
+    }
+    std::stringstream text;
+    text << file.rdbuf();
+    const json parsed = json::parse( text.str(), nullptr, false );
+    if( parsed.is_discarded() )
+    {
+        if( OutError )
+        {
+            *OutError = InPath + " isn't JSON";
+        }
+        return false;
+    }
+    return FromJson( parsed, OutError );
+}
+
+
+std::string NetReplayBookmark::FindReplay( const std::string& InBookmarkPath ) const
+{
+    namespace fs = std::filesystem;
+    std::error_code error;
+    if( fs::exists( Replay, error ) )
+    {
+        return Replay;
+    }
+    const fs::path beside = fs::path( InBookmarkPath ).parent_path() / fs::path( Replay ).filename();
+    if( fs::exists( beside, error ) )
+    {
+        return beside.generic_string();
+    }
+    return Replay;
+}
+
+
+std::string NetReplayBookmark::DefaultPath( const std::string& InReplay, uint32_t InTick )
+{
+    const std::filesystem::path replay( InReplay );
+    return ( replay.parent_path() / ( replay.stem().string() + ".t" + std::to_string( InTick ) + kExtension ) ).generic_string();
 }

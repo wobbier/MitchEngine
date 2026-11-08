@@ -51,6 +51,9 @@ class ReplayViewer;
 //   --replay file            play a replay into the loaded scene (it must be the scene it was recorded on:
 //                            --scene when it isn't the startup one); user:// paths and bare names found
 //                            under user://Replays/ work too. Plays from the first tick
+//   --replay-bookmark FILE   (ME-215) a bookmark the viewer exported (.mrbookmark; --replay FILE.mrbookmark too):
+//                            its replay (where it was, else beside the bookmark), resting on its tick, paused,
+//                            its entity selected and its camera
 //   --replay-start-tick N    start at tick N
 //   --replay-paused          start paused
 //   --replay-pause-at N      pause when playing reaches tick N

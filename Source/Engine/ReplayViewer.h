@@ -49,6 +49,11 @@ class NetCore;
 //                              matches, 3 when a tick diverges, 1 when any couldn't be checked (or
 //                              the run ended before the check did: NetLaunch::Shutdown)
 //   --replay-camera MODE       game, free, follow:NETID or pov:NETID
+//   --replay-bookmark FILE     (ME-215) open a bookmark's replay resting on its tick, paused, its entity
+//                              selected and its camera (NetLaunch; --replay FILE.mrbookmark too); the console's
+//                              "replay bookmark [note]" and the Replay window's Bookmark button write one
+//   --replay-bookmark-out FILE  write one where it comes to rest (a marker jump, --replay-check's tick), with
+//                              --replay-bookmark-note TEXT
 //   --replay-overlays LIST     what to draw in the world: shots,hitboxes,trails (default all; none),heatmap
 //   --replay-heatmap [FILE]    (ME-215) a heatmap over the ground (HeatmapOverlay): FILE, a ReplayDump --heatmap
 //                              JSON (many replays), or built from this replay on the background lane
@@ -102,6 +107,13 @@ public:
     // The viewer's view of the tick shown, as the report has it.
     json MakeReport( NetCore& InNet );
     bool WriteReport( NetCore& InNet, const std::string& InPath, std::string& OutError );
+
+    // ME-215 bookmarks (NetReplayBookmark): the tick shown, the inspector's entity and the camera. Export
+    // writes one (InPath "": beside the replay, <stem>.t<tick>.mrbookmark; OutPath: where it went); Apply
+    // takes one's entity and camera (NetLaunch has seeked to its tick).
+    NetReplayBookmark MakeBookmark( NetCore& InNet, const std::string& InNote ) const;
+    bool ExportBookmark( NetCore& InNet, const std::string& InPath, const std::string& InNote, std::string& OutPath, std::string& OutError );
+    void ApplyBookmark( const NetReplayBookmark& InBookmark, const std::string& InPath );
 
     // Null until the background build has finished.
     const NetReplayTimeline* GetTimeline() const { return m_timelineReady ? m_timeline.get() : nullptr; }
@@ -181,6 +193,13 @@ private:
     bool m_drawShots = true;
     bool m_drawHitboxes = true;
     bool m_drawTrails = true;
+    // ME-215: the bookmark this was opened from, the last one exported, and the window's note.
+    std::string m_openedBookmark;
+    std::string m_bookmarkOut;      // --replay-bookmark-out
+    bool m_bookmarkOutWritten = false;
+    bool WriteBookmarkOut( NetCore& InNet, std::string& OutError );
+    std::string m_lastBookmark;
+    char m_bookmarkNote[160] = {};
     // ME-215: a heatmap asked for and not in yet (--replay-check waits), and the group it should show.
     bool m_heatmapPending = false;
     std::string m_heatmapGroup;

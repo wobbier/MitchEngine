@@ -1,4 +1,5 @@
 #pragma once
+#include "JSON.h"
 #include "Net/NetReplay.h"
 #include <atomic>
 #include <cstdint>
@@ -97,4 +98,39 @@ private:
     std::vector<NetReplayClientSeries> m_clients;
     std::vector<uint32_t> m_owed;
     std::vector<uint16_t> m_shots;
+};
+
+
+// A bookmark in a replay (ME-215): a moment to come back to, a bug's exact repro. The viewer exports
+// one ("replay bookmark [note]", the Replay window's Bookmark button) as a small JSON file
+// (.mrbookmark: "format": "mrbookmark"), and Player --replay-bookmark FILE (or --replay FILE.mrbookmark)
+// reopens its replay resting on that tick, paused, the same entity selected and the same camera.
+struct NetReplayBookmark
+{
+    static constexpr const char* kExtension = ".mrbookmark";
+    static constexpr int kFormatVersion = 1;
+
+    std::string Replay;         // the .mreplay (absolute when the viewer writes it)
+    uint32_t Tick = 0;
+    uint32_t Entity = 0;        // the inspector's (0: none)
+    std::string Camera = "game";    // game, free, follow:NETID or pov:NETID
+    bool HasFreeCamera = false;     // a free camera's pose
+    Vector3 FreePosition;
+    float FreeYaw = 0.f;
+    float FreePitch = 0.f;
+    std::string Note;
+    std::string Marker;         // the label of the marker it rested on, if any
+    std::string Map;            // the replay's, so a reader knows which scene to load
+    std::string RecordedAt;     // the replay's
+    std::string CreatedAt;      // UTC, ISO 8601
+
+    json ToJson() const;
+    bool FromJson( const json& InJson, std::string* OutError = nullptr );
+    bool Save( const std::string& InPath, std::string* OutError = nullptr ) const;
+    bool Load( const std::string& InPath, std::string* OutError = nullptr );
+    // The replay it names when that file is there, else one of the same name beside InBookmarkPath
+    // (the two were moved together, or attached to a bug), else the name as written.
+    std::string FindReplay( const std::string& InBookmarkPath ) const;
+    // Where the viewer writes one by default: beside the replay, <replay stem>.t<tick>.mrbookmark.
+    static std::string DefaultPath( const std::string& InReplay, uint32_t InTick );
 };

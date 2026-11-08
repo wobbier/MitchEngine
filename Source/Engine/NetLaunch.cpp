@@ -8,6 +8,7 @@
 #include "Net/NetDebugDraw.h"
 #include "Net/NetTransport.h"
 #include "Net/NetReplayDump.h"
+#include "Net/NetReplayTimeline.h"
 #include "Net/NetVersion.h"
 #include "Net/UdpTransport.h"
 #include "Components/Networking/NetIdentity.h"
@@ -40,6 +41,7 @@
 #include <fstream>
 #include <iostream>
 #include <limits>
+#include <optional>
 
 namespace
 {
@@ -181,7 +183,7 @@ bool NetLaunch::IsReplaying()
 {
     // --replay-dump FILE --resim-check needs the world: it plays FILE like --replay (NetReplayDump
     // leaves it to the engine).
-    return CommandLine::Has( "--replay" ) || ( CommandLine::Has( "--replay-dump" ) && CommandLine::Has( "--resim-check" ) );
+    return CommandLine::Has( "--replay" ) || CommandLine::Has( "--replay-bookmark" ) || ( CommandLine::Has( "--replay-dump" ) && CommandLine::Has( "--resim-check" ) );
 }
 
 
@@ -644,7 +646,23 @@ namespace
 
 bool NetLaunch::StartReplay( NetCore& InNet )
 {
-    const std::string path = ResolveReplayPath( CommandLine::GetString( CommandLine::Has( "--replay" ) ? "--replay" : "--replay-dump" ) );
+    std::string path = ResolveReplayPath( CommandLine::GetString( CommandLine::Has( "--replay" ) ? "--replay" : "--replay-dump" ) );
+    // ME-215: a bookmark (--replay-bookmark FILE, or --replay FILE.mrbookmark) opens its replay on its tick.
+    std::optional<NetReplayBookmark> bookmark;
+    std::string bookmarkPath;
+    if( CommandLine::Has( "--replay-bookmark" ) || std::filesystem::path( path ).extension() == NetReplayBookmark::kExtension )
+    {
+        bookmarkPath = CommandLine::Has( "--replay-bookmark" ) ? ResolveReplayPath( CommandLine::GetString( "--replay-bookmark" ) ) : path;
+        std::string error;
+        bookmark.emplace();
+        if( !bookmark->Load( bookmarkPath, &error ) )
+        {
+            m_error = "--replay-bookmark " + bookmarkPath + ": " + error;
+            Say( CLog::LogType::Error, "Net: " + m_error );
+            return false;
+        }
+        path = bookmark->FindReplay( bookmarkPath );
+    }
     if( CommandLine::Has( "--resim-check" ) && CommandLine::Has( "--replay-check" ) )
     {
         m_error = "--resim-check and --replay-check: one at a time";
@@ -663,7 +681,8 @@ bool NetLaunch::StartReplay( NetCore& InNet )
     std::string error;
     if( !InNet.StartPlayback( std::move( source ), &error ) )
     {
-        m_error = "--replay " + path + ": " + error;
+        m_error = "--replay " + path + ": " + error
+            + ( bookmark && !bookmark->Map.empty() && error.find( "another scene" ) != std::string::npos ? " (the bookmark's map: start with --scene " + bookmark->Map + ")" : "" );
         Say( CLog::LogType::Error, "Net: " + m_error );
         return false;
     }
@@ -705,6 +724,17 @@ bool NetLaunch::StartReplay( NetCore& InNet )
         }
         playback.Seek( start );
     }
+    if( bookmark )
+    {
+        if( bookmark->Tick < playback.GetFirstTick() || bookmark->Tick > playback.GetLastTick() )
+        {
+            m_error = "--replay-bookmark " + bookmarkPath + ": tick " + std::to_string( bookmark->Tick ) + " isn't in the replay (ticks " + std::to_string( playback.GetFirstTick() ) + "-"
+                + std::to_string( playback.GetLastTick() ) + ")";
+            Say( CLog::LogType::Error, "Net: " + m_error );
+            return false;
+        }
+        playback.Seek( bookmark->Tick );
+    }
     m_replayCheck = CommandLine::Has( "--replay-check" );
     if( CommandLine::Has( "--replay-pause-at" ) )
     {
@@ -742,7 +772,7 @@ bool NetLaunch::StartReplay( NetCore& InNet )
     }
     // A marker jump and the resim check move the playhead themselves (ReplayViewer).
     const bool paused = CommandLine::Has( "--replay-paused" ) || ( CommandLine::Has( "--replay-pause-at" ) && playback.GetPauseAt() < 0 )
-        || CommandLine::Has( "--replay-marker" ) || CommandLine::Has( "--resim-check" );
+        || CommandLine::Has( "--replay-marker" ) || CommandLine::Has( "--resim-check" ) || ( bookmark && !CommandLine::Has( "--replay-pause-at" ) );
     if( !paused )
     {
         playback.Play();
@@ -764,6 +794,10 @@ bool NetLaunch::StartReplay( NetCore& InNet )
         m_error = viewerError;
         Say( CLog::LogType::Error, "Net: " + m_error );
         return false;
+    }
+    if( bookmark )
+    {
+        m_viewer->ApplyBookmark( *bookmark, bookmarkPath );
     }
     RegisterReplayCommands( InNet );
     ShowRole( CommandLine::Has( "--resim-check" ) ? "resim check" : "replay" );
@@ -822,7 +856,8 @@ void NetLaunch::RegisterReplayCommands( NetCore& InNet )
     DevConsole::Get().Register( "replay",
         "the replay playing (--replay): replay [play|pause|toggle|step [n]|seek <tick>|speed <x>|loop <a> <b>|loop off|pause-at <tick>|check|info"
         "|markers [kind]|marker <kind> [n]|next [kind]|prev [kind]|inspect [netid]|input|shots|resim [netid] [a:b]|camera game|free|follow <id>|pov <id>"
-        "|overlay shots|hitboxes|trails|heatmap on|off|heatmap [build|layer <l>|group <g>|on|off|load <file>]|report <file>]",
+        "|overlay shots|hitboxes|trails|heatmap on|off|heatmap [build|layer <l>|group <g>|on|off|load <file>]|bookmark [note]|bookmark-to <file> [note]"
+        "|report <file>]",
         [net, self]( const std::vector<std::string>& InArgs ) -> std::string {
             NetReplayPlayback* playback = net->GetPlayback();
             if( !playback )

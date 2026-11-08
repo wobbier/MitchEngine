@@ -34,6 +34,8 @@
 #include <cmath>
 #include <cstdarg>
 #include <cstdio>
+#include <ctime>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -307,6 +309,13 @@ bool ReplayViewer::Configure( NetCore& InNet, std::string& OutError )
         return false;
     }
     m_checkPending = CommandLine::Has( "--replay-check" );
+    // ME-215: a bookmark of where it comes to rest (a tool's way to bookmark a marker).
+    m_bookmarkOut = CommandLine::GetString( "--replay-bookmark-out" );
+    if( CommandLine::Has( "--replay-bookmark-out" ) && ( m_bookmarkOut.empty() || m_bookmarkOut.rfind( "--", 0 ) == 0 ) )
+    {
+        OutError = "--replay-bookmark-out: which file?";
+        return false;
+    }
     if( CommandLine::Has( "--resim-check" ) )
     {
         m_resimCheck = true;
@@ -709,14 +718,36 @@ bool ReplayViewer::Update( NetCore& InNet, std::string& OutError )
             return true;
         }
     }
+    // --replay-bookmark-out: once it rests on its tick, as the report.
+    if( !m_bookmarkOut.empty() && !m_bookmarkOutWritten && !m_resimCheck && !IsSettling() && playback->IsPaused() && playback->GetPauseAt() < 0 && m_shown
+        && m_shown->Refreshes >= kRefreshFrames )
+    {
+        WriteBookmarkOut( InNet, OutError );
+        if( !OutError.empty() )
+        {
+            return true;
+        }
+    }
     DrawOverlays( InNet );
     return done;
+}
+
+
+bool ReplayViewer::WriteBookmarkOut( NetCore& InNet, std::string& OutError )
+{
+    m_bookmarkOutWritten = true;
+    std::string path;
+    return ExportBookmark( InNet, m_bookmarkOut, CommandLine::GetString( "--replay-bookmark-note" ), path, OutError );
 }
 
 
 bool ReplayViewer::OnChecked( NetCore& InNet, std::string& OutError )
 {
     m_checkPending = false;
+    if( !m_bookmarkOut.empty() && !m_bookmarkOutWritten && !WriteBookmarkOut( InNet, OutError ) )
+    {
+        return false;
+    }
     if( m_reportPath.empty() || m_reportWritten )
     {
         return true;
@@ -980,6 +1011,100 @@ void ReplayViewer::DrawOverlays( NetCore& InNet )
 #else
     (void)InNet;
 #endif
+}
+
+
+NetReplayBookmark ReplayViewer::MakeBookmark( NetCore& InNet, const std::string& InNote ) const
+{
+    NetReplayBookmark bookmark;
+    std::error_code error;
+    bookmark.Replay = std::filesystem::absolute( m_path, error ).lexically_normal().generic_string();
+    const NetReplayPlayback* playback = InNet.GetPlayback();
+    bookmark.Tick = playback ? playback->GetTick() : 0u;
+    bookmark.Entity = m_selected;
+    switch( m_camera )
+    {
+    case CameraMode::Free: bookmark.Camera = "free"; break;
+    case CameraMode::Follow: bookmark.Camera = "follow:" + std::to_string( m_cameraTarget ); break;
+    case CameraMode::Pov: bookmark.Camera = "pov:" + std::to_string( m_cameraTarget ); break;
+    default: bookmark.Camera = "game"; break;
+    }
+    if( m_camera == CameraMode::Free && m_freePlaced )
+    {
+        bookmark.HasFreeCamera = true;
+        bookmark.FreePosition = m_freePosition;
+        bookmark.FreeYaw = m_freeYaw;
+        bookmark.FreePitch = m_freePitch;
+    }
+    bookmark.Note = InNote;
+    if( const NetReplayTimeline* timeline = GetTimeline(); timeline && m_jumpMarker >= 0 && static_cast<size_t>( m_jumpMarker ) < timeline->GetMarkers().size()
+        && timeline->GetMarkers()[m_jumpMarker].Tick == bookmark.Tick )
+    {
+        bookmark.Marker = timeline->GetMarkers()[m_jumpMarker].Label;
+    }
+    if( m_source )
+    {
+        bookmark.Map = m_source->GetHeader().Map;
+        bookmark.RecordedAt = m_source->GetHeader().RecordedAt;
+    }
+    const std::time_t now = std::time( nullptr );
+    std::tm utc{};
+#if USING( ME_PLATFORM_WINDOWS )
+    gmtime_s( &utc, &now );
+#else
+    gmtime_r( &now, &utc );
+#endif
+    char text[32] = {};
+    std::strftime( text, sizeof( text ), "%Y-%m-%dT%H:%M:%SZ", &utc );
+    bookmark.CreatedAt = text;
+    return bookmark;
+}
+
+
+bool ReplayViewer::ExportBookmark( NetCore& InNet, const std::string& InPath, const std::string& InNote, std::string& OutPath, std::string& OutError )
+{
+    const NetReplayBookmark bookmark = MakeBookmark( InNet, InNote );
+    std::error_code error;
+    OutPath = InPath.empty() ? NetReplayBookmark::DefaultPath( bookmark.Replay, bookmark.Tick )
+                             : std::filesystem::absolute( InPath, error ).lexically_normal().generic_string();
+    if( !bookmark.Save( OutPath, &OutError ) )
+    {
+        return false;
+    }
+    m_lastBookmark = OutPath;
+    Say( CLog::LogType::Info, Format( "Replay: bookmark at tick %u%s -> %s", bookmark.Tick, bookmark.Note.empty() ? "" : ( " (" + bookmark.Note + ")" ).c_str(), OutPath.c_str() ) );
+    return true;
+}
+
+
+void ReplayViewer::ApplyBookmark( const NetReplayBookmark& InBookmark, const std::string& InPath )
+{
+    m_openedBookmark = InPath;
+    m_selected = InBookmark.Entity;
+    const size_t colon = InBookmark.Camera.find( ':' );
+    const std::string mode = InBookmark.Camera.substr( 0, colon );
+    const uint32_t target = colon == std::string::npos ? 0u : static_cast<uint32_t>( std::strtoul( InBookmark.Camera.c_str() + colon + 1, nullptr, 10 ) );
+    // The command line's --replay-camera wins.
+    if( !CommandLine::Has( "--replay-camera" ) )
+    {
+        if( mode == "free" )
+        {
+            SetCamera( CameraMode::Free );
+            if( InBookmark.HasFreeCamera )
+            {
+                m_freePosition = InBookmark.FreePosition;
+                m_freeYaw = InBookmark.FreeYaw;
+                m_freePitch = InBookmark.FreePitch;
+                m_freePlaced = true;
+            }
+        }
+        else if( ( mode == "follow" || mode == "pov" ) && target != 0 )
+        {
+            SetCamera( mode == "follow" ? CameraMode::Follow : CameraMode::Pov, target );
+        }
+    }
+    Say( CLog::LogType::Info, Format( "Replay: opened bookmark %s: tick %u, entity %u, camera %s%s", InPath.c_str(), InBookmark.Tick, InBookmark.Entity, InBookmark.Camera.c_str(),
+        InBookmark.Note.empty() ? "" : ( ": " + InBookmark.Note ).c_str() ) );
 }
 
 
@@ -1442,6 +1567,7 @@ json ReplayViewer::MakeReport( NetCore& InNet )
     report["camera"] = m_camera == CameraMode::Game ? "game" : m_camera == CameraMode::Free ? "free" : m_camera == CameraMode::Follow ? "follow" : "pov";
     report["cameraTarget"] = m_cameraTarget;
     report["heatmap"] = HeatmapOverlay::Get().Report();
+    report["bookmark"] = { { "opened", m_openedBookmark }, { "exported", m_lastBookmark }, { "selected", m_selected } };
     return report;
 }
 
@@ -1673,6 +1799,27 @@ std::string ReplayViewer::RunCommand( NetCore& InNet, const std::vector<std::str
         else return "replay overlay shots|hitboxes|trails|heatmap on|off";
         return InArgs[1] + ( on ? " on" : " off" );
     }
+    if( verb == "bookmark" || verb == "bookmark-to" )
+    {
+        // ME-215: "replay bookmark [note...]" beside the replay; "replay bookmark-to <file> [note...]".
+        if( verb == "bookmark-to" && InArgs.size() < 2 )
+        {
+            return "replay bookmark-to <file.mrbookmark> [note]";
+        }
+        const size_t first = verb == "bookmark-to" ? 2 : 1;
+        std::string note;
+        for( size_t i = first; i < InArgs.size(); ++i )
+        {
+            note += ( note.empty() ? "" : " " ) + InArgs[i];
+        }
+        std::string path;
+        std::string error;
+        if( !ExportBookmark( InNet, verb == "bookmark-to" ? InArgs[1] : std::string(), note, path, error ) )
+        {
+            return error;
+        }
+        return "bookmark written to " + path;
+    }
     if( verb == "heatmap" )
     {
         // ME-215: "replay heatmap" builds this replay's; the rest is the "heatmap" command's.
@@ -1786,6 +1933,25 @@ void ReplayViewer::DrawReplayWindow( NetCore& InNet )
             bool handled = false;
             RunCommand( InNet, { "next" }, handled );
         }
+        // ME-215: this moment as a bookmark file (a bug's repro), beside the replay.
+        ImGui::SameLine();
+        if( ImGui::Button( "Bookmark" ) )
+        {
+            std::string path;
+            std::string error;
+            if( !ExportBookmark( InNet, std::string(), m_bookmarkNote, path, error ) )
+            {
+                Say( CLog::LogType::Error, "Replay: bookmark: " + error );
+            }
+        }
+        if( ImGui::IsItemHovered() )
+        {
+            ImGui::SetTooltip( "%s", m_lastBookmark.empty() ? "Write this tick, entity and camera to a .mrbookmark beside the replay (Player --replay-bookmark FILE reopens it)"
+                                                           : ( "Last: " + m_lastBookmark ).c_str() );
+        }
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth( 140.f );
+        ImGui::InputTextWithHint( "##BookmarkNote", "bookmark note", m_bookmarkNote, sizeof( m_bookmarkNote ) );
         ImGui::SameLine();
         float speed = static_cast<float>( playback->GetSpeed() );
         ImGui::SetNextItemWidth( 140.f );
