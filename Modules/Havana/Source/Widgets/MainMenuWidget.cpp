@@ -237,22 +237,6 @@ void MainMenuWidget::Render()
             ImGui::EndMenu();
         }
 
-        const std::string workspaceLabel = "Workspace " + std::to_string( Editor->GetActiveWorkspace() );
-        if( ImGui::BeginMenu( workspaceLabel.c_str() ) )
-        {
-            ImGui::TextDisabled( "Layouts and open panels are saved per workspace." );
-            ImGui::Separator();
-            for( int workspace = 1; workspace <= 9; ++workspace )
-            {
-                const std::string id = "Workspace.Select" + std::to_string( workspace );
-                const EditorAction* action = actions.Find( id );
-                const std::string label = "Workspace " + std::to_string( workspace );
-                const std::string shortcut = action ? EditorActions::ShortcutToString( action->Shortcut ) : std::string();
-                if( ImGui::MenuItem( label.c_str(), shortcut.c_str(), workspace == Editor->GetActiveWorkspace() ) ) actions.Execute( id );
-            }
-            ImGui::EndMenu();
-        }
-
         if( ImGui::BeginMenu( "Help" ) )
         {
             // ED-3: the docs, the tour and the release notes (Help.* actions; F1 opens the docs).
@@ -351,8 +335,15 @@ void MainMenuWidget::Render()
             ImGui::SetCursorPosY( menuY );
         }
 
-        const float endOfMenu = ImGui::GetCursorPosX();
         const float buttonWidth = iconButtonSize + iconGap;
+        if( Editor )
+        {
+            // Room for the window buttons and a little of the scene title.
+            ImGui::SetCursorPosX( ImGui::GetCursorPosX() + spacing * 2.f );
+            DrawWorkspaceTabs( iconButtonSize, ImGui::GetWindowWidth() - ImGui::GetCursorPosX() - buttonWidth * 4.f - ImGuiTheme::Em( 14.f ) );
+            ImGui::SetCursorPosY( menuY );
+        }
+        const float endOfMenu = ImGui::GetCursorPosX();
         const float winWidth = ImGui::GetWindowWidth();
         const float controlsLeft = winWidth - buttonWidth * 3.f - iconGap;
         float utilityLeft = controlsLeft;
@@ -537,6 +528,208 @@ void MainMenuWidget::Render()
 Vector2 MainMenuWidget::GetMainMenuSize() const
 {
     return Vector2( MainMenuSize.x, MainMenuSize.y );
+}
+
+void MainMenuWidget::DrawWorkspaceTabs( float InHeight, float InMaxWidth )
+{
+    EditorActions& actions = EditorActions::Get();
+    const std::vector<Havana::Workspace> workspaces = Editor->GetWorkspaces();     // a copy: the menus below change the list
+    const int active = Editor->GetActiveWorkspace();
+    const ImGuiStyle& style = ImGui::GetStyle();
+    const float barY = ImGui::GetCursorPosY();
+    const float tabY = ( MainMenuSize.y - InHeight ) * 0.5f;
+
+    const float plusWidth = ImGui::CalcTextSize( "+" ).x + style.FramePadding.x * 2.f;
+    float stripWidth = plusWidth;
+    for( const Havana::Workspace& workspace : workspaces )
+    {
+        stripWidth += ImGui::CalcTextSize( workspace.Name.c_str() ).x + style.FramePadding.x * 2.f + style.ItemSpacing.x;
+    }
+    const bool compact = stripWidth > InMaxWidth;
+
+    // The rename field stands in for its tab; Enter or clicking away keeps the name, Escape doesn't.
+    const auto drawRename = [this]( const Havana::Workspace& InWorkspace, float InY ) {
+        const bool starting = m_workspaceRenameFocus == InWorkspace.Id;
+        if( starting )
+        {
+            std::snprintf( m_workspaceName, sizeof( m_workspaceName ), "%s", InWorkspace.Name.c_str() );
+            ImGui::SetKeyboardFocusHere();
+            m_workspaceRenameFocus = 0;
+        }
+        ImGui::SetCursorPosY( InY );
+        ImGui::SetNextItemWidth( std::max( ImGuiTheme::Em( 7.f ), ImGui::CalcTextSize( m_workspaceName ).x + ImGuiTheme::Em( 1.5f ) ) );
+        const bool enter = ImGui::InputText( "##WorkspaceName", m_workspaceName, sizeof( m_workspaceName ), ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll );
+        // Escape has already put the old name back in the field. A field that never took focus ends
+        // with the next click elsewhere.
+        if( enter || ImGui::IsItemDeactivated() )
+        {
+            Editor->RenameWorkspace( InWorkspace.Id, m_workspaceName );
+            Editor->RenamingWorkspace = 0;
+        }
+        else if( !starting && !ImGui::IsItemActive() && !ImGui::IsItemHovered() && ImGui::IsMouseClicked( ImGuiMouseButton_Left ) )
+        {
+            Editor->RenamingWorkspace = 0;
+        }
+    };
+    const auto startRename = [this]( int InId ) { Editor->RenamingWorkspace = InId; };
+    // A rename just started (here, or Workspace.Rename from the palette): its field takes focus.
+    if( Editor->RenamingWorkspace != m_workspaceRenaming )
+    {
+        m_workspaceRenaming = Editor->RenamingWorkspace;
+        m_workspaceRenameFocus = m_workspaceRenaming;
+    }
+
+    int moveId = 0, moveTo = -1;
+    if( compact )
+    {
+        const Havana::Workspace* current = Editor->FindWorkspace( active );
+        ImGui::PushID( "WorkspaceTabs" );
+        if( current && Editor->RenamingWorkspace == active )
+        {
+            drawRename( *current, ( MainMenuSize.y - ImGui::GetFrameHeight() ) * 0.5f );
+        }
+        else
+        {
+            ImGui::SetCursorPosY( tabY );
+            const std::string label = ( current ? current->Name : std::string( "Workspace" ) ) + " v";
+            if( ImGui::Button( label.c_str(), ImVec2( 0.f, InHeight ) ) ) ImGui::OpenPopup( "##WorkspaceList" );
+            ImGui::SetItemTooltip( "Workspace (Ctrl+1..9)" );
+        }
+        if( ImGui::BeginPopup( "##WorkspaceList" ) )
+        {
+            for( size_t i = 0; i < workspaces.size(); ++i )
+            {
+                const std::string shortcut = i < 9 ? EditorActions::ShortcutToString( actions.Find( "Workspace.Select" + std::to_string( i + 1 ) )->Shortcut ) : std::string();
+                if( ImGui::MenuItem( workspaces[i].Name.c_str(), shortcut.c_str(), workspaces[i].Id == active ) ) Editor->SwitchWorkspace( workspaces[i].Id );
+            }
+            ImGui::Separator();
+            if( ImGui::MenuItem( "Rename..." ) ) startRename( active );
+            if( ImGui::MenuItem( "Move Left", nullptr, false, Editor->GetWorkspaceIndex( active ) > 0 ) ) Editor->MoveWorkspace( active, Editor->GetWorkspaceIndex( active ) - 1 );
+            if( ImGui::MenuItem( "Move Right", nullptr, false, Editor->GetWorkspaceIndex( active ) + 1 < static_cast<int>( workspaces.size() ) ) ) Editor->MoveWorkspace( active, Editor->GetWorkspaceIndex( active ) + 1 );
+            if( ImGui::BeginMenu( "New Workspace" ) )
+            {
+                if( ImGui::MenuItem( "Duplicate Current" ) ) Editor->NewWorkspace( "" );
+                ImGui::Separator();
+                for( const std::string& name : Havana::GetWorkspaceTemplates() )
+                {
+                    if( ImGui::MenuItem( name.c_str() ) ) Editor->NewWorkspace( name );
+                }
+                ImGui::EndMenu();
+            }
+            if( ImGui::MenuItem( "Reset Layout" ) ) Editor->ResetLayout();
+            if( ImGui::MenuItem( "Delete", nullptr, false, workspaces.size() > 1 ) ) Editor->DeleteWorkspace( active );
+            ImGui::EndPopup();
+        }
+        ImGui::PopID();
+        return;
+    }
+
+    // Opened from inside each tab's PushID, so it's opened by this ID, not by name.
+    const ImGuiID workspaceMenu = ImGui::GetID( "##WorkspaceMenu" );
+    ImGui::PushStyleVar( ImGuiStyleVar_ItemSpacing, ImVec2( style.ItemSpacing.x * 0.5f, 0.f ) );
+    for( size_t i = 0; i < workspaces.size(); ++i )
+    {
+        const Havana::Workspace& workspace = workspaces[i];
+        ImGui::PushID( workspace.Id );
+        if( Editor->RenamingWorkspace == workspace.Id )
+        {
+            drawRename( workspace, ( MainMenuSize.y - ImGui::GetFrameHeight() ) * 0.5f );
+            ImGui::PopID();
+            continue;
+        }
+        const bool selected = workspace.Id == active;
+        ImGui::PushStyleColor( ImGuiCol_Button, selected ? ImGui::GetStyleColorVec4( ImGuiCol_TabActive ) : ImVec4( 0, 0, 0, 0 ) );
+        ImGui::PushStyleColor( ImGuiCol_Text, ImGui::GetStyleColorVec4( selected ? ImGuiCol_Text : ImGuiCol_TextDisabled ) );
+        ImGui::SetCursorPosY( tabY );
+        const bool pressed = ImGui::Button( workspace.Name.c_str(), ImVec2( 0.f, InHeight ) );
+        ImGui::PopStyleColor( 2 );
+        if( ImGui::IsItemActivated() ) m_workspaceTabDragged = false;
+        // Dragged past a neighbour, it swaps with it (the tab stays under the mouse).
+        if( ImGui::IsItemActive() && !ImGui::IsItemHovered() && ImGui::IsMouseDragging( ImGuiMouseButton_Left ) )
+        {
+            const float mouseX = ImGui::GetIO().MousePos.x;
+            const int step = mouseX < ImGui::GetItemRectMin().x ? -1 : mouseX > ImGui::GetItemRectMax().x ? 1 : 0;
+            const int to = static_cast<int>( i ) + step;
+            if( step != 0 && to >= 0 && to < static_cast<int>( workspaces.size() ) )
+            {
+                moveId = workspace.Id;
+                moveTo = to;
+                m_workspaceTabDragged = true;
+            }
+        }
+        if( pressed && !m_workspaceTabDragged ) Editor->SwitchWorkspace( workspace.Id );
+        if( ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked( ImGuiMouseButton_Left ) ) startRename( workspace.Id );
+        if( ImGui::IsItemClicked( ImGuiMouseButton_Right ) )
+        {
+            m_workspaceMenuFor = workspace.Id;
+            ImGui::OpenPopup( workspaceMenu );
+        }
+        if( ImGui::IsItemHovered( ImGuiHoveredFlags_DelayNormal ) && !ImGui::IsItemActive() )
+        {
+            const std::string shortcut = i < 9 ? EditorActions::ShortcutToString( actions.Find( "Workspace.Select" + std::to_string( i + 1 ) )->Shortcut ) : std::string();
+            ImGui::SetTooltip( "%s%s%s (%s layout)\nDrag to reorder, double-click to rename, right-click for more", workspace.Name.c_str(),
+                shortcut.empty() ? "" : "  ", shortcut.c_str(), workspace.Template.c_str() );
+        }
+        ImGui::PopID();
+    }
+    ImGui::PopStyleVar();
+
+    // The tab's menu (one popup for all of them, so it outlives a reorder).
+    if( ImGui::BeginPopup( "##WorkspaceMenu" ) )
+    {
+        const int id = m_workspaceMenuFor;
+        const int index = Editor->GetWorkspaceIndex( id );
+        if( index < 0 )
+        {
+            ImGui::CloseCurrentPopup();
+        }
+        else
+        {
+            ImGui::TextDisabled( "%s", workspaces[index].Name.c_str() );
+            ImGui::Separator();
+            if( ImGui::MenuItem( "Rename" ) ) startRename( id );
+            if( ImGui::MenuItem( "Duplicate" ) )
+            {
+                Editor->SwitchWorkspace( id );
+                Editor->NewWorkspace( "" );
+            }
+            if( ImGui::MenuItem( "Reset Layout" ) )
+            {
+                Editor->SwitchWorkspace( id );
+                Editor->ResetLayout();
+            }
+            ImGui::Separator();
+            if( ImGui::MenuItem( "Move Left", nullptr, false, index > 0 ) ) Editor->MoveWorkspace( id, index - 1 );
+            if( ImGui::MenuItem( "Move Right", nullptr, false, index + 1 < static_cast<int>( workspaces.size() ) ) ) Editor->MoveWorkspace( id, index + 1 );
+            ImGui::Separator();
+            if( ImGui::MenuItem( "Delete", nullptr, false, workspaces.size() > 1 ) ) Editor->DeleteWorkspace( id );
+        }
+        ImGui::EndPopup();
+    }
+
+    ImGui::SetCursorPosY( tabY );
+    ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0, 0, 0, 0 ) );
+    if( ImGui::Button( "+##NewWorkspace", ImVec2( 0.f, InHeight ) ) ) ImGui::OpenPopup( "##NewWorkspace" );
+    ImGui::PopStyleColor();
+    ImGui::SetItemTooltip( "New workspace" );
+    if( ImGui::BeginPopup( "##NewWorkspace" ) )
+    {
+        if( const Havana::Workspace* current = Editor->FindWorkspace( active ) )
+        {
+            const std::string duplicate = "Duplicate " + current->Name;
+            if( ImGui::MenuItem( duplicate.c_str() ) ) Editor->NewWorkspace( "" );
+        }
+        ImGui::Separator();
+        ImGui::TextDisabled( "From a layout" );
+        for( const std::string& name : Havana::GetWorkspaceTemplates() )
+        {
+            if( ImGui::MenuItem( name.c_str() ) ) Editor->NewWorkspace( name );
+        }
+        ImGui::EndPopup();
+    }
+    ImGui::SetCursorPosY( barY );
+
+    if( moveId ) Editor->MoveWorkspace( moveId, moveTo );
 }
 
 #endif

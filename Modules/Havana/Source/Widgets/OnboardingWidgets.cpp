@@ -23,7 +23,7 @@ const std::vector<TourWidget::Step>& TourWidget::GetSteps()
 		{ "Properties", "The selected entity's components. Add Component at the bottom; every field undoes with Ctrl+Z.", "Properties" },
 		{ "Your project's files", "The asset browser. Double-click a scene to open it, drag models and prefabs into the world, create scripts, materials and data assets from + Create.", "Asset Browser" },
 		{ "Messages", "The log: errors from C# scripts and shaders land here, and a click jumps to the file and line.", "Log" },
-		{ "Play", "The play button (or Ctrl+P) runs the scene in the Game View; Stop puts everything back. Ctrl+1..5 switch between the Scene, Animation, Shader, UI and Debug workspaces, and View > Reset Layout tidies one up. Help > Documentation has the rest.", "" },
+		{ "Play", "The play button (or Ctrl+P) runs the scene in the Game View; Stop puts everything back. The tabs beside it are workspaces (Scene, Animation, Shader, UI, Debug, Network; Ctrl+1..9): drag one to reorder, double-click to rename, + adds one, and View > Reset Layout tidies one up. Help > Documentation has the rest.", "" },
 	};
 	return kSteps;
 }

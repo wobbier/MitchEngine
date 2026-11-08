@@ -45,6 +45,15 @@ private:
 	ImVec2 MainMenuSize;
 	Vector2 TitleBarDragPosition;
 	Vector2 TitleBarDragSize;
+	// ED-2: the workspace tabs after the transport controls: click switches, drag reorders,
+	// double-click renames, right-click has the rest, + adds one. Narrower than InMaxWidth or a
+	// single drop-down of them.
+	void DrawWorkspaceTabs( float InHeight, float InMaxWidth );
+	char m_workspaceName[64] = {};
+	int m_workspaceRenameFocus = 0;     // the workspace whose rename field takes focus next frame
+	int m_workspaceMenuFor = 0;
+	int m_workspaceRenaming = 0;
+	bool m_workspaceTabDragged = false;
 	bool ShowDemoWindow = false;
 	bool ShowAboutWindow = false;
 	json AssetDirectory;

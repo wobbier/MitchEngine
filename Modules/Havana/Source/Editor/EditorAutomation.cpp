@@ -14,6 +14,7 @@
 #include "UndoStack.h"
 #include "EditorApp.h"
 #include "Havana.h"
+#include <imgui_internal.h>
 #include "Widgets/AssetBrowser.h"
 #include "Utils/ScriptTemplates.h"
 #include "Mods/Mods.h"
@@ -1219,6 +1220,50 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         {
             Fail( "panel " + name + " is " + ( open == 1 ? "open" : "closed" ) + ", expected " + ( expectedText == "true" ? "open" : "closed" ) );
         }
+    }
+    else if( command.rfind( "workspace", 0 ) == 0 || command == "assert-docked-with" )
+    {
+        // ED-2: workspace-new [<template>]   (blank duplicates the active one)
+        //       workspace-rename <n> | <name>, workspace-move <n> | <to>, workspace-delete <n>   (1-based tab positions)
+        //       workspace-assert <name>,<name>... | <active name>
+        //       assert-docked-with <window> | <window>   (in the same dock node)
+        auto [first, second] = SplitArgs( args );
+        Havana* editor = InApp.Editor.get();
+        const auto at = [&]( const std::string& InIndex ) -> const Havana::Workspace* {
+            const int index = std::atoi( InIndex.c_str() ) - 1;
+            const auto& list = editor->GetWorkspaces();
+            if( index < 0 || index >= static_cast<int>( list.size() ) ) { Fail( command + ": no workspace at " + InIndex ); return nullptr; }
+            return &list[index];
+        };
+        if( !editor ) Fail( command + ": no editor" );
+        else if( command == "workspace-new" ) editor->NewWorkspace( args );
+        else if( command == "workspace-rename" ) { if( const auto* w = at( first ) ) editor->RenameWorkspace( w->Id, second ); }
+        else if( command == "workspace-move" ) { if( const auto* w = at( first ) ) editor->MoveWorkspace( w->Id, std::atoi( second.c_str() ) - 1 ); }
+        else if( command == "workspace-delete" ) { if( const auto* w = at( first ) ) editor->DeleteWorkspace( w->Id ); }
+        else if( command == "workspace-assert" )
+        {
+            std::string names;
+            for( const auto& w : editor->GetWorkspaces() ) names += ( names.empty() ? "" : "," ) + w.Name;
+            const std::string active = editor->GetWorkspaceName( editor->GetActiveWorkspace() );
+            if( names != first ) Fail( "workspaces are " + names + ", expected " + first );
+            else if( !second.empty() && active != second ) Fail( "active workspace is " + active + ", expected " + second );
+        }
+        else if( command == "assert-docked-with" )
+        {
+            ImGuiWindow* a = ImGui::FindWindowByName( first.c_str() );
+            ImGuiWindow* b = ImGui::FindWindowByName( second.c_str() );
+            if( !a || !b ) Fail( "assert-docked-with: no window " + ( a ? second : first ) );
+            else if( !a->DockNode || a->DockNode != b->DockNode )
+            {
+                const auto where = []( ImGuiWindow* InWindow ) {
+                    char text[96];
+                    std::snprintf( text, sizeof( text ), "DockId 0x%08X, node 0x%08X, %s", InWindow->DockId, InWindow->DockNode ? InWindow->DockNode->ID : 0u, InWindow->Active ? "shown" : "hidden" );
+                    return std::string( text );
+                };
+                Fail( first + " (" + where( a ) + ") and " + second + " (" + where( b ) + ") aren't docked together" );
+            }
+        }
+        else Fail( "unknown command " + command );
     }
     else if( command == "build-game" )
     {

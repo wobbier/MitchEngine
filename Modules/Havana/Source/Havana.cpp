@@ -1,4 +1,5 @@
 #include "Havana.h"
+#include <algorithm>
 #include <cstring>
 #include <fstream>
 #include <map>
@@ -312,13 +313,13 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
             }
         }
     } );
-    const ImGuiKey workspaceKeys[] = { ImGuiKey_1, ImGuiKey_2, ImGuiKey_3, ImGuiKey_4, ImGuiKey_5, ImGuiKey_6, ImGuiKey_7, ImGuiKey_8, ImGuiKey_9 };
-    for( int workspace = 1; workspace <= 9; ++workspace )
-    {
-        const std::string id = "Workspace.Select" + std::to_string( workspace );
-        const std::string name = "Workspace " + std::to_string( workspace ) + ( workspace <= 5 ? ": " + GetWorkspaceName( workspace ) : std::string() );
-        actions.Register( { id, name, "Workspace", ImGuiMod_Shortcut | workspaceKeys[workspace - 1], 0, [this, workspace]() { SwitchWorkspace( workspace ); } } );
-    }
+    actions.SearchProviders.push_back( [this]( std::vector<EditorActions::PaletteItem>& OutItems ) {
+        for( const Workspace& workspace : Workspaces )
+        {
+            const int id = workspace.Id;
+            OutItems.push_back( { "Workspace", workspace.Name, [this, id]() { SwitchWorkspace( id ); } } );
+        }
+    } );
 
     actions.Register( { "View.ResetLayout", "Reset Layout", "View", 0, 0, [this]() { ResetLayout(); } } );
     // ED-3: help and onboarding. Docs open in the OS's viewer (unattended runs only log them).
@@ -356,6 +357,14 @@ void Havana::InitUI()
     layoutHook.UserData = this;
     layoutHook.Callback = []( ImGuiContext*, ImGuiContextHook* InHook ) {
         Havana* self = static_cast<Havana*>( InHook->UserData );
+        // A workspace switch loads its layout between frames: loaded mid-frame, windows that haven't
+        // drawn yet that frame come undocked.
+        if( self->m_pendingWorkspaceDock )
+        {
+            const Workspace* workspace = self->FindWorkspace( self->m_pendingWorkspaceDock );
+            self->m_pendingWorkspaceDock = 0;
+            if( workspace ) self->LoadWorkspaceDock( *workspace );
+        }
         if( self->m_resetLayoutPending )
         {
             self->ApplyLayoutReset();
@@ -395,13 +404,22 @@ void Havana::InitUI()
     // panels in workspace 1, like a fresh checkout: a user's own arrangement (a short Game View, a
     // panel floating over the World View) moves or covers what the flows click (ME-307).
     const bool userLayout = !AutomationRunner::IsUnattendedRun();
-    ActiveWorkspace = userLayout ? EditorConfig::GetInstance().GetPreference<int>( "ActiveWorkspace", 1 ) : 1;
-    if( ActiveWorkspace < 1 || ActiveWorkspace > 9 ) ActiveWorkspace = 1;
+    LoadWorkspaceList( userLayout );
+    ActiveWorkspace = userLayout ? EditorConfig::GetInstance().GetPreference<int>( "ActiveWorkspace", Workspaces.front().Id ) : Workspaces.front().Id;
+    if( !FindWorkspace( ActiveWorkspace ) ) ActiveWorkspace = Workspaces.front().Id;
+    RegisterWorkspaceActions();
+    const Workspace& activeWorkspace = *FindWorkspace( ActiveWorkspace );
     const Path activeWorkspaceLayout = GetWorkspaceLayoutPath( ActiveWorkspace );
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     if( userLayout && activeWorkspaceLayout.Exists )
     {
         LoadLayoutFile( activeWorkspaceLayout.FullPath.c_str() );
+    }
+    else if( userLayout && activeWorkspace.Template != "Scene" )
+    {
+        // Built in code before the first frame's DockSpace; nothing loads .tmp/imgui.ini over it.
+        ImGui::LoadIniSettingsFromMemory( "" );
+        m_pendingDockTemplate = activeWorkspace.Template;
     }
     else if( userLayout && EngineConfigFilePath.Exists )
     {
@@ -553,6 +571,23 @@ void Havana::NewFrame()
         }
         {
             OPTICK_EVENT( "Dockspace Create", Optick::Category::UI );
+            // A built layout's first tabs, once their windows have drawn into it (a tab bar picks
+            // the most recently shown window otherwise).
+            for( auto it = m_pendingTabSelections.begin(); it != m_pendingTabSelections.end(); )
+            {
+                ImGuiWindow* window = ImGui::FindWindowByName( it->c_str() );
+                if( window && window->DockNode && window->DockNode->TabBar )
+                {
+                    window->DockNode->TabBar->NextSelectedTabId = window->TabId;
+                    it = m_pendingTabSelections.erase( it );
+                }
+                else ++it;
+            }
+            if( !m_pendingDockTemplate.empty() )
+            {
+                BuildTemplateDock( m_pendingDockTemplate, dockspace_id );
+                m_pendingDockTemplate.clear();
+            }
             ImGui::DockSpace( dockspace_id, ImVec2( 0.0f, 0.0f ), dockspace_flags );
 
             ImGui::End();
@@ -645,12 +680,434 @@ void Havana::StoreWorkspacePanelVisibility( int InWorkspace )
 }
 
 
-std::string Havana::GetWorkspaceName( int InWorkspace )
+namespace
 {
-    static const char* const kNames[] = { "Scene", "Animation", "Shader", "UI", "Debug" };
-    return InWorkspace >= 1 && InWorkspace <= 5 ? kNames[InWorkspace - 1] : "Workspace " + std::to_string( InWorkspace );
+    // Panels a workspace template arranges. The rest (Preferences, Build Game, the tour...) are
+    // dialogs: a workspace switch leaves them as they are.
+    const std::set<std::string> kLayoutPanels = {
+        "Asset Browser", "Log", "Resource Monitor", "World View", "Game View", "Hierarchy", "Properties",
+        "Preview", "History", "Widget Gallery", "Error List", "Localization", "UI Designer", "Sequencer",
+        "Profiler", "Net Debugger", "Terrain", "Shader Graph",
+    };
+
+    // Each template's panels (widget names). Scene is the shipped layout and each panel's startup visibility.
+    const std::map<std::string, std::vector<std::string>> kTemplatePanels = {
+        { "Animation", { "World View", "Game View", "Hierarchy", "Properties", "Preview", "Sequencer" } },
+        { "Shader", { "World View", "Preview", "Properties", "Asset Browser", "Log", "Shader Graph" } },
+        { "UI", { "Game View", "UI Designer", "Localization", "Asset Browser", "Log" } },
+        { "Debug", { "Game View", "World View", "Hierarchy", "Properties", "Log", "Error List", "Profiler", "Resource Monitor" } },
+        { "Network", { "Game View", "World View", "Net Debugger", "Profiler", "Log" } },
+    };
+
+    // A panel's window title, where it isn't the widget's name.
+    std::string PanelWindowTitle( const std::string& InPanel )
+    {
+        return InPanel == "Asset Browser" ? "Asset Directory" : InPanel;
+    }
 }
 
+
+const std::vector<std::string>& Havana::GetWorkspaceTemplates()
+{
+    static const std::vector<std::string> kTemplates = { "Scene", "Animation", "Shader", "UI", "Debug", "Network" };
+    return kTemplates;
+}
+
+
+std::vector<Havana::Workspace> Havana::DefaultWorkspaces()
+{
+    // Ids 1-5 are the old fixed slots (their saved layouts carry over); Network came later.
+    return {
+        { 1, "Scene", "Scene" },
+        { 2, "Animation", "Animation" },
+        { 3, "Shader", "Shader" },
+        { 4, "UI", "UI" },
+        { 5, "Debug", "Debug" },
+        { 10, "Network", "Network" },
+    };
+}
+
+
+const Havana::Workspace* Havana::FindWorkspace( int InId ) const
+{
+    for( const Workspace& workspace : Workspaces )
+    {
+        if( workspace.Id == InId ) return &workspace;
+    }
+    return nullptr;
+}
+
+
+int Havana::GetWorkspaceIndex( int InId ) const
+{
+    for( size_t i = 0; i < Workspaces.size(); ++i )
+    {
+        if( Workspaces[i].Id == InId ) return static_cast<int>( i );
+    }
+    return -1;
+}
+
+
+std::string Havana::GetWorkspaceName( int InId ) const
+{
+    const Workspace* workspace = FindWorkspace( InId );
+    return workspace ? workspace->Name : "Workspace " + std::to_string( InId );
+}
+
+
+void Havana::LoadWorkspaceList( bool InUserLayout )
+{
+    Workspaces.clear();
+    // Unattended runs (editor flows) always get the default set, in order.
+    if( !InUserLayout )
+    {
+        Workspaces = DefaultWorkspaces();
+        return;
+    }
+    const std::vector<std::string>& templates = GetWorkspaceTemplates();
+    json& preferences = EditorConfig::GetInstance().Preferences;
+    const auto list = preferences.find( "WorkspaceList" );
+    if( list != preferences.end() && list->is_array() )
+    {
+        for( const json& entry : *list )
+        {
+            if( !entry.is_object() ) continue;
+            Workspace workspace;
+            try
+            {
+                workspace.Id = entry.value( "Id", 0 );
+                workspace.Name = entry.value( "Name", std::string() );
+                workspace.Template = entry.value( "Template", std::string( "Scene" ) );
+            }
+            catch( ... )
+            {
+                continue;     // a hand-edited entry of the wrong type
+            }
+            if( workspace.Id <= 0 || FindWorkspace( workspace.Id ) ) continue;
+            if( std::find( templates.begin(), templates.end(), workspace.Template ) == templates.end() ) workspace.Template = "Scene";
+            if( workspace.Name.empty() ) workspace.Name = "Workspace " + std::to_string( workspace.Id );
+            Workspaces.push_back( workspace );
+        }
+        if( !Workspaces.empty() ) return;
+    }
+
+    // First run with named workspaces: the old slots 2-5 only ever saved the shipped layout with a
+    // few panels opened (every switch saved them), so they start from their new templates; their files
+    // are kept beside as *.pre-templates.ini. Slot 1 keeps its layout; slots 6-9 that hold one stay.
+    Workspaces = DefaultWorkspaces();
+    json& stored = preferences["Workspaces"];
+    if( !stored.is_object() ) stored = json::object();
+    std::error_code error;
+    for( int slot = 2; slot <= 5; ++slot )
+    {
+        const Path layout = GetWorkspaceLayoutPath( slot );
+        if( layout.Exists )
+        {
+            std::filesystem::rename( layout.FullPath, std::filesystem::path( layout.FullPath ).replace_extension( ".pre-templates.ini" ), error );
+        }
+        stored.erase( std::to_string( slot ) );
+    }
+    for( int slot = 6; slot <= 9; ++slot )
+    {
+        if( GetWorkspaceLayoutPath( slot ).Exists || stored.contains( std::to_string( slot ) ) )
+        {
+            Workspaces.push_back( { slot, "Workspace " + std::to_string( slot ), "Scene" } );
+        }
+    }
+    SaveWorkspaceList();
+}
+
+
+void Havana::SaveWorkspaceList()
+{
+    if( AutomationRunner::IsUnattendedRun() ) return;
+    json list = json::array();
+    for( const Workspace& workspace : Workspaces )
+    {
+        list.push_back( { { "Id", workspace.Id }, { "Name", workspace.Name }, { "Template", workspace.Template } } );
+    }
+    EditorConfig::GetInstance().Preferences["WorkspaceList"] = list;
+    EditorConfig::GetInstance().Save();
+}
+
+
+void Havana::RegisterWorkspaceActions()
+{
+    EditorActions& actions = EditorActions::Get();
+    const ImGuiKey workspaceKeys[] = { ImGuiKey_1, ImGuiKey_2, ImGuiKey_3, ImGuiKey_4, ImGuiKey_5, ImGuiKey_6, ImGuiKey_7, ImGuiKey_8, ImGuiKey_9 };
+    for( int index = 0; index < 9; ++index )
+    {
+        // By position in the tab order, so a reorder moves the shortcut with the tab.
+        const std::string id = "Workspace.Select" + std::to_string( index + 1 );
+        const bool exists = index < static_cast<int>( Workspaces.size() );
+        const std::string name = "Workspace " + std::to_string( index + 1 ) + ( exists ? ": " + Workspaces[index].Name : std::string() );
+        EditorAction action{ id, name, "Workspace", ImGuiMod_Shortcut | workspaceKeys[index], 0, [this, index]() {
+            if( index < static_cast<int>( Workspaces.size() ) ) SwitchWorkspace( Workspaces[index].Id );
+        } };
+        action.IsEnabled = [this, index]() { return index < static_cast<int>( Workspaces.size() ); };
+        action.HideInPalette = !exists;
+        actions.Register( action );
+    }
+    actions.Register( { "Workspace.New", "New Workspace (Duplicate Current)", "Workspace", 0, 0, [this]() { NewWorkspace( "" ); } } );
+    actions.Register( { "Workspace.Rename", "Rename Workspace", "Workspace", 0, 0, [this]() { RenamingWorkspace = ActiveWorkspace; } } );
+    actions.Register( { "Workspace.MoveLeft", "Move Workspace Left", "Workspace", 0, 0, [this]() { MoveWorkspace( ActiveWorkspace, GetWorkspaceIndex( ActiveWorkspace ) - 1 ); } } );
+    actions.Register( { "Workspace.MoveRight", "Move Workspace Right", "Workspace", 0, 0, [this]() { MoveWorkspace( ActiveWorkspace, GetWorkspaceIndex( ActiveWorkspace ) + 1 ); } } );
+    EditorAction remove{ "Workspace.Delete", "Delete Workspace", "Workspace", 0, 0, [this]() { DeleteWorkspace( ActiveWorkspace ); } };
+    remove.IsEnabled = [this]() { return Workspaces.size() > 1; };
+    actions.Register( remove );
+}
+
+
+int Havana::NewWorkspace( const std::string& InTemplate )
+{
+    const Workspace* source = FindWorkspace( ActiveWorkspace );
+    const std::vector<std::string>& templates = GetWorkspaceTemplates();
+    if( !InTemplate.empty() && std::find( templates.begin(), templates.end(), InTemplate ) == templates.end() ) return 0;
+
+    Workspace workspace;
+    for( const Workspace& existing : Workspaces ) workspace.Id = std::max( workspace.Id, existing.Id );
+    ++workspace.Id;
+    workspace.Template = InTemplate.empty() ? ( source ? source->Template : std::string( "Scene" ) ) : InTemplate;
+    // "Animation", then "Animation 2"...
+    const std::string base = InTemplate.empty() && source ? source->Name : workspace.Template;
+    workspace.Name = base;
+    for( int n = 2; std::any_of( Workspaces.begin(), Workspaces.end(), [&workspace]( const Workspace& w ) { return w.Name == workspace.Name; } ); ++n )
+    {
+        workspace.Name = base + " " + std::to_string( n );
+    }
+
+    if( InTemplate.empty() && source && !AutomationRunner::IsUnattendedRun() )
+    {
+        // A copy of the active workspace as it is now: its layout and its open panels.
+        SaveWorkspaceLayout( ActiveWorkspace );
+        std::error_code error;
+        std::filesystem::copy_file( GetWorkspaceLayoutPath( ActiveWorkspace ).FullPath, GetWorkspaceLayoutPath( workspace.Id ).FullPath,
+            std::filesystem::copy_options::overwrite_existing, error );
+        json& stored = EditorConfig::GetInstance().Preferences["Workspaces"];
+        if( stored.is_object() && stored.contains( std::to_string( ActiveWorkspace ) ) )
+        {
+            stored[std::to_string( workspace.Id )] = stored[std::to_string( ActiveWorkspace )];
+        }
+    }
+    const int at = source ? GetWorkspaceIndex( source->Id ) + 1 : static_cast<int>( Workspaces.size() );
+    Workspaces.insert( Workspaces.begin() + at, workspace );
+    SaveWorkspaceList();
+    RegisterWorkspaceActions();
+    SwitchWorkspace( workspace.Id );
+    return workspace.Id;
+}
+
+
+void Havana::RenameWorkspace( int InId, const std::string& InName )
+{
+    const size_t first = InName.find_first_not_of( " \t" );
+    if( first == std::string::npos ) return;
+    const std::string name = InName.substr( first, InName.find_last_not_of( " \t" ) - first + 1 );
+    const int index = GetWorkspaceIndex( InId );
+    if( index < 0 || Workspaces[index].Name == name ) return;
+    Workspaces[index].Name = name;
+    SaveWorkspaceList();
+    RegisterWorkspaceActions();
+}
+
+
+void Havana::MoveWorkspace( int InId, int InIndex )
+{
+    const int from = GetWorkspaceIndex( InId );
+    const int to = std::clamp( InIndex, 0, static_cast<int>( Workspaces.size() ) - 1 );
+    if( from < 0 || from == to ) return;
+    const Workspace moved = Workspaces[from];
+    Workspaces.erase( Workspaces.begin() + from );
+    Workspaces.insert( Workspaces.begin() + to, moved );
+    SaveWorkspaceList();
+    RegisterWorkspaceActions();
+}
+
+
+void Havana::DeleteWorkspace( int InId )
+{
+    const int index = GetWorkspaceIndex( InId );
+    if( index < 0 || Workspaces.size() <= 1 ) return;
+    if( InId == ActiveWorkspace )
+    {
+        SwitchWorkspace( Workspaces[index + 1 < static_cast<int>( Workspaces.size() ) ? index + 1 : index - 1].Id );
+    }
+    std::error_code error;
+    std::filesystem::remove( GetWorkspaceLayoutPath( InId ).FullPath, error );
+    json& stored = EditorConfig::GetInstance().Preferences["Workspaces"];
+    if( stored.is_object() ) stored.erase( std::to_string( InId ) );
+    if( RenamingWorkspace == InId ) RenamingWorkspace = 0;
+    CLog::Log( CLog::LogType::Info, "Layout: deleted workspace " + Workspaces[GetWorkspaceIndex( InId )].Name );
+    Workspaces.erase( Workspaces.begin() + GetWorkspaceIndex( InId ) );
+    SaveWorkspaceList();
+    RegisterWorkspaceActions();
+}
+
+
+void Havana::ApplyTemplatePanels( const std::string& InTemplate )
+{
+    const auto panels = kTemplatePanels.find( InTemplate );
+    if( panels == kTemplatePanels.end() )
+    {
+        // Scene: every panel's startup visibility.
+        for( const auto& widget : RegisteredWidgets )
+        {
+            const auto open = DefaultPanelOpen.find( widget->Name );
+            if( widget.get() != MainMenu.get() && open != DefaultPanelOpen.end() )
+            {
+                widget->IsOpen = open->second;
+            }
+        }
+        if( ShaderGraphs ) ShaderGraphs->IsOpen = false;
+        return;
+    }
+    const auto apply = [&panels]( HavanaWidget& InWidget ) {
+        if( kLayoutPanels.count( InWidget.Name ) )
+        {
+            InWidget.IsOpen = std::find( panels->second.begin(), panels->second.end(), InWidget.Name ) != panels->second.end();
+        }
+    };
+    for( const auto& widget : RegisteredWidgets )
+    {
+        if( widget.get() != MainMenu.get() ) apply( *widget );
+    }
+    if( ShaderGraphs ) apply( *ShaderGraphs );
+}
+
+
+bool Havana::LoadWorkspaceDock( const Workspace& InWorkspace )
+{
+    // Open documents (shader graphs, trees) docked now go to the new layout's middle.
+    m_pendingDockDocuments.clear();
+    for( ImGuiWindow* window : ImGui::GetCurrentContext()->Windows )
+    {
+        if( window->DockNode && !( window->Flags & ImGuiWindowFlags_ChildWindow ) && !kLayoutPanels.count( window->Name ) && std::strcmp( window->Name, "Asset Directory" ) != 0 )
+        {
+            m_pendingDockDocuments.push_back( window->Name );
+        }
+    }
+    ImGui::ClearIniSettings();
+    // Unattended runs start every workspace from its template, whatever a user saved (ME-307).
+    const Path layout = AutomationRunner::IsUnattendedRun() ? Path() : GetWorkspaceLayoutPath( InWorkspace.Id );
+    m_pendingDockTemplate.clear();
+    if( layout.Exists || InWorkspace.Template == "Scene" || !kTemplatePanels.count( InWorkspace.Template ) )
+    {
+        if( layout.Exists ) LoadLayoutFile( layout.FullPath.c_str() );
+        else if( DefaultLayoutFilePath.Exists ) LoadLayoutFile( DefaultLayoutFilePath.FullPath.c_str() );
+        // A full dock rebuild next frame: with panels open and docked, patching the live tree trips
+        // ImGui's tab bar asserts.
+        RequestDockRebuild();
+        m_pendingDockDocuments.clear();
+        return layout.Exists;
+    }
+    m_pendingDockTemplate = InWorkspace.Template;
+    return false;
+}
+
+
+void Havana::BuildTemplateDock( const std::string& InTemplate, unsigned int InDockSpaceId )
+{
+    // Runs before this frame's DockSpace, so no docked window has drawn into the old tree yet.
+    ImGui::DockBuilderRemoveNode( InDockSpaceId );
+    ImGui::DockBuilderAddNode( InDockSpaceId, ImGuiDockNodeFlags_DockSpace );
+    ImGui::DockBuilderSetNodeSize( InDockSpaceId, DockSize );
+
+    ImGuiID center = InDockSpaceId;
+    const auto split = [&center]( ImGuiDir InDir, float InRatio ) { return ImGui::DockBuilderSplitNode( center, InDir, InRatio, nullptr, &center ); };
+    const auto dock = []( const char* InPanel, ImGuiID InNode ) { ImGui::DockBuilderDockWindow( PanelWindowTitle( InPanel ).c_str(), InNode ); };
+    std::vector<std::pair<ImGuiID, std::string>> selected;     // node, the tab shown first (window titles)
+    if( InTemplate == "Animation" )
+    {
+        const ImGuiID bottom = split( ImGuiDir_Down, 0.3f );
+        const ImGuiID left = split( ImGuiDir_Left, 0.18f );
+        ImGuiID right = split( ImGuiDir_Right, 0.24f );
+        const ImGuiID rightBottom = ImGui::DockBuilderSplitNode( right, ImGuiDir_Down, 0.45f, nullptr, &right );
+        dock( "Sequencer", bottom );
+        dock( "Hierarchy", left );
+        dock( "Properties", right );
+        dock( "Preview", rightBottom );
+        dock( "World View", center );
+        dock( "Game View", center );
+        selected.emplace_back( center, "World View" );
+    }
+    else if( InTemplate == "Shader" )
+    {
+        const ImGuiID bottom = split( ImGuiDir_Down, 0.28f );
+        ImGuiID right = split( ImGuiDir_Right, 0.26f );
+        const ImGuiID rightBottom = ImGui::DockBuilderSplitNode( right, ImGuiDir_Down, 0.5f, nullptr, &right );
+        dock( "Asset Browser", bottom );
+        dock( "Log", bottom );
+        dock( "Preview", right );
+        dock( "Properties", rightBottom );
+        // Shader graphs open as tabs beside the World View.
+        dock( "World View", center );
+        selected.emplace_back( bottom, "Asset Directory" );
+    }
+    else if( InTemplate == "UI" )
+    {
+        const ImGuiID bottom = split( ImGuiDir_Down, 0.28f );
+        const ImGuiID right = split( ImGuiDir_Right, 0.34f );
+        dock( "Localization", bottom );
+        dock( "Asset Browser", bottom );
+        dock( "Log", bottom );
+        dock( "UI Designer", right );
+        // The designer previews in the Game View.
+        dock( "Game View", center );
+        selected.emplace_back( bottom, "Localization" );
+    }
+    else if( InTemplate == "Debug" )
+    {
+        const ImGuiID bottom = split( ImGuiDir_Down, 0.36f );
+        ImGuiID left = split( ImGuiDir_Left, 0.18f );
+        const ImGuiID leftBottom = ImGui::DockBuilderSplitNode( left, ImGuiDir_Down, 0.5f, nullptr, &left );
+        ImGuiID right = split( ImGuiDir_Right, 0.26f );
+        const ImGuiID rightBottom = ImGui::DockBuilderSplitNode( right, ImGuiDir_Down, 0.4f, nullptr, &right );
+        dock( "Profiler", bottom );
+        dock( "Resource Monitor", bottom );
+        dock( "Hierarchy", left );
+        dock( "Properties", leftBottom );
+        dock( "Log", right );
+        dock( "Error List", rightBottom );
+        dock( "Game View", center );
+        dock( "World View", center );
+        selected.emplace_back( bottom, "Profiler" );
+        selected.emplace_back( center, "Game View" );
+    }
+    else if( InTemplate == "Network" )
+    {
+        const ImGuiID bottom = split( ImGuiDir_Down, 0.42f );
+        const ImGuiID right = split( ImGuiDir_Right, 0.28f );
+        dock( "Net Debugger", bottom );
+        dock( "Profiler", bottom );
+        dock( "Log", right );
+        dock( "Game View", center );
+        dock( "World View", center );
+        selected.emplace_back( bottom, "Net Debugger" );
+        selected.emplace_back( center, "Game View" );
+    }
+    for( const std::string& document : m_pendingDockDocuments )
+    {
+        ImGui::DockBuilderDockWindow( document.c_str(), center );
+    }
+    m_pendingDockDocuments.clear();
+    // Closed panels still pointing into the old tree reopen as tabs in the middle, not floating.
+    for( ImGuiWindow* window : ImGui::GetCurrentContext()->Windows )
+    {
+        if( window->DockId != 0 && !window->DockNode && !ImGui::DockBuilderGetNode( window->DockId )
+            && !( window->Flags & ( ImGuiWindowFlags_ChildWindow | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_Popup | ImGuiWindowFlags_Tooltip ) ) )
+        {
+            ImGui::DockBuilderDockWindow( window->Name, center );
+        }
+    }
+    ImGui::DockBuilderFinish( InDockSpaceId );
+    m_pendingTabSelections.clear();
+    for( const auto& [node, tab] : selected )
+    {
+        if( ImGuiDockNode* dockNode = ImGui::DockBuilderGetNode( node ) ) dockNode->SelectedTabId = ImHashStr( tab.c_str() );
+        m_pendingTabSelections.push_back( tab );
+    }
+    CLog::Log( CLog::LogType::Info, "Layout: built the " + InTemplate + " layout" );
+}
 
 namespace
 {
@@ -776,6 +1233,7 @@ void Havana::DrawToasts()
 }
 
 
+
 void Havana::RequestDockRebuild()
 {
     ImGuiContext& context = *ImGui::GetCurrentContext();
@@ -803,36 +1261,24 @@ void Havana::ResetLayout()
 
 void Havana::ApplyLayoutReset()
 {
-    // Two frames: first the panels go back to their startup visibility (closing a docked window and
-    // replacing the dock tree in one frame trips ImGui's tab bar asserts), then the layout reloads
-    // and the workspace's own panels open.
+    // Two frames: first the panels go back to the workspace template's visibility (closing a docked
+    // window and replacing the dock tree in one frame trips ImGui's tab bar asserts), then the
+    // template's layout loads.
+    const Workspace* workspace = FindWorkspace( ActiveWorkspace );
+    if( !workspace )
+    {
+        m_resetLayoutPending = false;
+        m_resetLayoutPhase = 0;
+        return;
+    }
     if( m_resetLayoutPhase == 0 )
     {
-        for( const auto& widget : RegisteredWidgets )
-        {
-            const auto open = DefaultPanelOpen.find( widget->Name );
-            if( widget.get() != MainMenu.get() && open != DefaultPanelOpen.end() )
-            {
-                widget->IsOpen = open->second;
-            }
-        }
-        if( ShaderGraphs )
-        {
-            ShaderGraphs->IsOpen = false;
-        }
+        ApplyTemplatePanels( workspace->Template );
         m_resetLayoutPhase = 1;
         return;
     }
     m_resetLayoutPhase = 0;
     m_resetLayoutPending = false;
-    ImGui::ClearIniSettings();
-    if( DefaultLayoutFilePath.Exists )
-    {
-        LoadLayoutFile( DefaultLayoutFilePath.FullPath.c_str() );
-    }
-    // NewFrame rebuilds the dock tree from the loaded settings (patching live nodes in place
-    // leaves the windows docked in them with stale tab bars).
-    RequestDockRebuild();
     std::error_code error;
     std::filesystem::remove( GetWorkspaceLayoutPath( ActiveWorkspace ).FullPath, error );
     json& workspaces = EditorConfig::GetInstance().Preferences["Workspaces"];
@@ -840,46 +1286,27 @@ void Havana::ApplyLayoutReset()
     {
         workspaces.erase( std::to_string( ActiveWorkspace ) );
     }
-    // The workspace's own panels on top of the defaults (Animation opens the Sequencer...).
+    LoadWorkspaceDock( *workspace );
     RestoreWorkspacePanelVisibility( ActiveWorkspace );
     if( !AutomationRunner::IsUnattendedRun() )
     {
         ImGui::SaveIniSettingsToDisk( EngineConfigFilePath.FullPath.c_str() );
         EditorConfig::GetInstance().Save();
     }
-    CLog::Log( CLog::LogType::Info, "Layout: reset workspace " + std::to_string( ActiveWorkspace ) + " (" + GetWorkspaceName( ActiveWorkspace ) + ")" );
+    CLog::Log( CLog::LogType::Info, "Layout: reset workspace " + std::to_string( ActiveWorkspace ) + " (" + workspace->Name + ", " + workspace->Template + " layout)" );
 }
 
 
 void Havana::RestoreWorkspacePanelVisibility( int InWorkspace )
 {
-    // A named workspace nobody has arranged yet opens its subject's panels.
-    static const std::map<int, std::vector<std::string>> kNamedPanels = {
-        { 2, { "Sequencer", "Preview" } },
-        { 3, { "Shader Graph", "Preview" } },
-        { 4, { "Localization", "Preview" } },
-        { 5, { "Profiler", "Resource Monitor", "Log" } },
-    };
     const json& preferences = EditorConfig::GetInstance().Preferences;
     const auto workspace = preferences.find( "Workspaces" );
-    const bool stored = workspace != preferences.end() && workspace->is_object() && workspace->contains( std::to_string( InWorkspace ) );
+    const bool stored = !AutomationRunner::IsUnattendedRun() && workspace != preferences.end() && workspace->is_object() && workspace->contains( std::to_string( InWorkspace ) );
     if( !stored )
     {
-        const auto named = kNamedPanels.find( InWorkspace );
-        const auto openIfNamed = [&named]( HavanaWidget& InWidget ) {
-            if( named != kNamedPanels.end() && std::find( named->second.begin(), named->second.end(), InWidget.Name ) != named->second.end() )
-            {
-                InWidget.IsOpen = true;
-            }
-        };
-        for( const auto& widget : RegisteredWidgets )
-        {
-            openIfNamed( *widget );
-        }
-        if( ShaderGraphs )
-        {
-            openIfNamed( *ShaderGraphs );
-        }
+        // A workspace nobody has arranged yet opens its template's panels.
+        const Workspace* found = FindWorkspace( InWorkspace );
+        ApplyTemplatePanels( found ? found->Template : std::string( "Scene" ) );
         return;
     }
     const auto slot = workspace->find( std::to_string( InWorkspace ) );
@@ -907,26 +1334,23 @@ void Havana::SaveWorkspaceLayout( int InWorkspace )
 }
 
 
-void Havana::SwitchWorkspace( int InWorkspace )
+void Havana::SwitchWorkspace( int InId )
 {
-    if( InWorkspace < 1 || InWorkspace > 9 || InWorkspace == ActiveWorkspace ) return;
+    const Workspace* target = FindWorkspace( InId );
+    if( !target || InId == ActiveWorkspace ) return;
 
     SaveWorkspaceLayout( ActiveWorkspace );
-    const Path target = GetWorkspaceLayoutPath( InWorkspace );
-    ImGui::ClearIniSettings();
-    if( target.Exists ) LoadLayoutFile( target.FullPath.c_str() );
-    else if( DefaultLayoutFilePath.Exists ) LoadLayoutFile( DefaultLayoutFilePath.FullPath.c_str() );
-    // A full dock rebuild next frame: with panels open and docked, patching the live tree trips
-    // ImGui's tab bar asserts (as Reset Layout did).
-    RequestDockRebuild();
-    RestoreWorkspacePanelVisibility( InWorkspace );
-    ActiveWorkspace = InWorkspace;
+    // The panels change now, the layout before the next frame (two steps, as Reset Layout: closing a
+    // docked window and replacing the dock tree in one frame trips ImGui's tab bar asserts).
+    m_pendingWorkspaceDock = InId;
+    RestoreWorkspacePanelVisibility( InId );
+    ActiveWorkspace = InId;
     EditorConfig::GetInstance().SetPreference( "ActiveWorkspace", ActiveWorkspace );
+    RenamingWorkspace = 0;
+    CLog::Log( CLog::LogType::Info, "Layout: workspace " + target->Name );
 
-    // Keep the normal startup layout in sync with the selected workspace.
     if( !AutomationRunner::IsUnattendedRun() )
     {
-        ImGui::SaveIniSettingsToDisk( EngineConfigFilePath.FullPath.c_str() );
         EditorConfig::GetInstance().Save();
     }
 }

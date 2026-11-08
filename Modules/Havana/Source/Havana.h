@@ -73,15 +73,34 @@ public:
 	// -1 when no panel has that title.
 	int IsWidgetOpen(const std::string& name) const;
 	UIDesignerWidget* GetUIDesigner() const { return UIDesigner.get(); }
+	// Personal editor layouts (ED-2), shown as tabs in the title bar. Each workspace has its own dock
+	// layout (.tmp/imgui-workspace-<Id>.ini) and open panels; the outgoing one is saved on a switch.
+	// Ctrl+1..9 select the first nine in tab order. A workspace nobody has arranged yet starts from its
+	// template's layout (Scene is the shipped Assets/Config/imgui.cfg; the rest are built in code).
+	struct Workspace
+	{
+		int Id = 0;             // stable: names its layout file and saved panels
+		std::string Name;
+		std::string Template;   // one of GetWorkspaceTemplates()
+	};
+	const std::vector<Workspace>& GetWorkspaces() const { return Workspaces; }
 	int GetActiveWorkspace() const { return ActiveWorkspace; }
-	// Personal editor layouts. Ctrl+1 through Ctrl+9 select a workspace; the outgoing
-	// workspace is saved automatically so its dock tree and open panels are restored.
-	void SwitchWorkspace( int InWorkspace );
-	// ED-2: the shipped layout (Assets/Config/imgui.cfg) and every panel's startup visibility, for
-	// the active workspace.
+	const Workspace* FindWorkspace( int InId ) const;
+	int GetWorkspaceIndex( int InId ) const;
+	void SwitchWorkspace( int InId );
+	// A new workspace from a template ("" copies the active one: its layout and panels), switched to.
+	int NewWorkspace( const std::string& InTemplate );
+	void RenameWorkspace( int InId, const std::string& InName );
+	// Moves it to InIndex in the tab order (clamped).
+	void MoveWorkspace( int InId, int InIndex );
+	// The last workspace can't go; deleting the active one switches to its neighbour first.
+	void DeleteWorkspace( int InId );
+	// The title bar's tab starts an inline rename (Workspace.Rename, a double-click, the tab's menu).
+	int RenamingWorkspace = 0;
+	static const std::vector<std::string>& GetWorkspaceTemplates();
+	// The active workspace back to its template's layout and panels.
 	void ResetLayout();
-	// "Scene", "Animation", "Shader", "UI", "Debug" for workspaces 1-5, else "Workspace N".
-	static std::string GetWorkspaceName( int InWorkspace );
+	std::string GetWorkspaceName( int InId ) const;
 	// True while the hierarchy or the world view has keyboard focus (scene-editing shortcuts).
 	bool IsSceneContextFocused() const;
 
@@ -103,6 +122,22 @@ private:
 	Path EngineConfigFilePath;
 	Path DefaultLayoutFilePath;
 	int ActiveWorkspace = 1;
+	std::vector<Workspace> Workspaces;
+	// The default set: Scene, Animation, Shader, UI, Debug, Network.
+	static std::vector<Workspace> DefaultWorkspaces();
+	void LoadWorkspaceList( bool InUserLayout );
+	void SaveWorkspaceList();
+	void RegisterWorkspaceActions();
+	// A template's panels open and every other panel closed (Scene: each panel's startup visibility).
+	void ApplyTemplatePanels( const std::string& InTemplate );
+	// Loads the workspace's dock layout: its saved .ini, else its template's (built before the next
+	// frame's DockSpace for the code-built ones). Returns whether a saved layout was loaded.
+	bool LoadWorkspaceDock( const Workspace& InWorkspace );
+	void BuildTemplateDock( const std::string& InTemplate, unsigned int InDockSpaceId );
+	std::string m_pendingDockTemplate;
+	std::vector<std::string> m_pendingDockDocuments;
+	std::vector<std::string> m_pendingTabSelections;
+	int m_pendingWorkspaceDock = 0;     // loaded by the NewFramePre hook
 	// Each panel's visibility before any saved state applied (Reset Layout returns to it).
 	std::map<std::string, bool> DefaultPanelOpen;
 	// Reset Layout runs between frames (an ImGui NewFramePre hook, installed in InitUI).
