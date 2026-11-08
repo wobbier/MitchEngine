@@ -296,6 +296,31 @@ TEST_CASE( "Net: a killcam cut from the replay ring keeps what the killer's clie
     CHECK( receiver.GetKillerClient() == 2 );
     CHECK( receiver.GetDeathTick() == 590 );
     CHECK( receiver.GetFirstTick() == 351 );
+    CHECK( receiver.GetLastTick() == 590 );
+    {
+        // One that runs on past the death: its last tick rides in chunk 0, and its ticks run to it.
+        NetKillcamRequest after = request;
+        after.Id = 8;
+        after.DeathTick = 560;
+        after.LastTick = 590;
+        const NetKillcam::Encoded past = NetKillcam::Encode( after, ring, recorder.GetRingEntities() );
+        REQUIRE( past.Error.empty() );
+        CHECK( past.FirstTick == 351 );
+        CHECK( past.LastTick == 590 );
+        NetKillcamReceiver pastReceiver;
+        for( const auto& blob : past.Blobs )
+        {
+            CHECK( pastReceiver.Accept( blob.data(), blob.size() ) == NetKillcamReceiver::Result::Accepted );
+        }
+        REQUIRE( pastReceiver.IsComplete() );
+        CHECK( pastReceiver.GetDeathTick() == 560 );
+        CHECK( pastReceiver.GetLastTick() == 590 );
+        CHECK( NetReplayReader( *pastReceiver.GetSource() ).GetLastTick() == 590 );
+        // A version-1 stream (it ended on the death) isn't this build's.
+        std::vector<uint8_t> old = past.Blobs[0];
+        old[4] = 1;
+        CHECK( NetKillcamReceiver().Accept( old.data(), old.size() ) == NetKillcamReceiver::Result::Bad );
+    }
     REQUIRE( receiver.GetSource() );
     CHECK( receiver.GetSource()->GetHeader().TickRate == 60 );
     CHECK( receiver.GetSource()->GetHeader().Map == header.Map );
@@ -543,8 +568,8 @@ TEST_CASE( "Net: at 150 ms RTT and 5% loss a kill streams the killer's 8 s to th
 #if USING( ME_SCRIPTING )
             // As C#'s Net.SendKillcam does it; a bot (owned by nobody) has nobody to send one to.
             ScriptBindings::WorldScope scope( net.ServerWorld );
-            CHECK_FALSE( api.Net_SendKillcam( distant->GetId(), killer->GetId(), 8.f ) );
-            REQUIRE( api.Net_SendKillcam( victim->GetId(), killer->GetId(), 8.f ) );
+            CHECK_FALSE( api.Net_SendKillcam( distant->GetId(), killer->GetId(), 8.f, 0.f ) );
+            REQUIRE( api.Net_SendKillcam( victim->GetId(), killer->GetId(), 8.f, 0.f ) );
 #else
             REQUIRE( net.ServerNet.SendKillcam( victim, killer, 8.0 ) );
 #endif
@@ -695,7 +720,7 @@ TEST_CASE( "Net: at 150 ms RTT and 5% loss a kill streams the killer's 8 s to th
         {
             ScriptBindings::WorldScope scope( net.ClientWorld );
             CHECK( api.Net_GetKillcam( &id, &progress, &killerHere, &victimHere ) );
-            CHECK_FALSE( api.Net_SendKillcam( clientPawn->GetId(), clientPawn->GetId(), 8.f ) );   // not the server
+            CHECK_FALSE( api.Net_SendKillcam( clientPawn->GetId(), clientPawn->GetId(), 8.f, 0.f ) );   // not the server
         }
         CHECK( id == 1 );
         CHECK( progress == 1.f );
@@ -2124,6 +2149,115 @@ TEST_CASE( "Net: a killcam that outruns its stream holds on the last tick in, st
     CHECK( player.GetStats().WorldsBuilt == 1 );
     CHECK( player.GetStats().WorldsReused == 2 );
     net.OnMillisecond = nullptr;
+}
+
+
+TEST_CASE( "Net: a killcam sent with seconds after the death waits for them, streams past the death tick, and plays on to its last tick with the short hold" )
+{
+    // A bot kills client 1's pawn; the killcam is 1 s before the death and 0.5 s after it.
+    Harness net( Link( 50.f, 0.f, 0.f, 3251 ), Link( 50.f, 0.f, 0.f, 3252 ) );
+    constexpr uint64_t kVictimGuid = 0x7A3E31;
+    net.Place( kVictimGuid );
+    EntityHandle victim;
+    net.ServerWorld->ForEachEntity( [&]( Entity& InEntity ) {
+        if( InEntity.GetGUID() == kVictimGuid )
+        {
+            victim = net.ServerWorld->GetEntity( InEntity.GetId() );
+        }
+    } );
+    REQUIRE( victim );
+    for( World* world : { net.ServerWorld.get(), net.ClientWorld.get() } )
+    {
+        world->Simulate();
+        world->Start();
+    }
+    EntityHandle killer;
+    bool send = false;
+    uint32_t death = 0;
+    net.OnServerTick = [&]( NetServer& InServer ) {
+        if( killer )
+        {
+            const float t = static_cast<float>( InServer.GetTick() ) / 60.f;
+            killer->GetComponent<Transform>().SetPosition( Vector3( std::sin( t ) * 3.f, 0.f, std::cos( t ) * 3.f ) );
+        }
+        if( std::exchange( send, false ) )
+        {
+            death = InServer.GetTick();
+            REQUIRE( net.ServerNet.SendKillcam( victim, killer, 1.0, 0.5 ) );
+        }
+        net.ServerWorld->Simulate();
+    };
+    NetCore::KillcamSettings chunking;
+    chunking.ChunkTicks = 30;
+    net.ServerNet.SetKillcamSettings( chunking );
+    net.Start();
+    net.Run( 1.0 );
+    REQUIRE( net.ClientNet.GetClient()->GetState() == NetClient::State::Connected );
+    victim->GetComponent<NetIdentity>().SetOwner( 1 );
+    REQUIRE( net.ServerNet.StartRecording( "" ) );
+    killer = net.ServerWorld->CreateEntity();
+    killer->SetName( "Bot" );
+    killer->AddComponent<Transform>();
+    killer->AddComponent<NetIdentity>();
+    net.Run( 3.0 );
+
+    KillcamPlayer player;
+    player.SetPopulate( [&]( KillcamPlayer::ReplayWorld& InReplay, std::string& ) {
+        EntityHandle placed = InReplay.Instance->CreateEntityWithGUID( kVictimGuid );
+        placed->AddComponent<Transform>();
+        placed->AddComponent<NetIdentity>();
+        return true;
+    } );
+    std::vector<KillcamEvent> events;
+    auto listening = EventSubscription::Create<KillcamEvent>( [&]( const KillcamEvent& InEvent ) { events.push_back( InEvent ); } );
+    double shown = 0.0;
+    double startedAt = -1.0;
+    net.OnMillisecond = [&]( double InNow ) {
+        if( static_cast<int64_t>( InNow * 60.0 ) == static_cast<int64_t>( ( InNow - 0.001 ) * 60.0 ) )
+        {
+            return;
+        }
+        player.Update( *net.ClientWorld, 1.0 / 60.0 );
+        if( player.IsPlaying() )
+        {
+            startedAt = startedAt < 0.0 ? InNow : startedAt;
+            shown = std::max( shown, player.GetStatus().Tick );
+        }
+    };
+    auto runUntil = [&]( const std::function<bool()>& InDone, double InSeconds ) {
+        for( int i = 0; i < static_cast<int>( InSeconds * 100.0 ) && !InDone(); ++i )
+        {
+            net.Run( 0.01 );
+        }
+        return InDone();
+    };
+
+    send = true;
+    REQUIRE( runUntil( [&]() { return death != 0; }, 0.5 ) );
+    const double killedAt = net.Now();
+    // Nothing is cut until the half second after the death is recorded.
+    net.Run( 0.4 );
+    CHECK( net.ServerNet.GetKillcamStats().Encoded == 0 );
+    CHECK( net.ClientNet.GetKillcam().GetId() == 0 );
+    CHECK_FALSE( player.IsPlaying() );
+    REQUIRE( runUntil( [&]() { return player.IsPlaying(); }, 1.0 ) );
+    CHECK( startedAt - killedAt >= 0.5 - 0.02 );
+    const NetKillcamReceiver& received = net.ClientNet.GetKillcam();
+    CHECK( received.GetDeathTick() == death );
+    CHECK( received.GetLastTick() == death + 30 );
+    CHECK( received.GetFirstTick() == death - 59 );
+    const KillcamPlayer::Status& status = player.GetStatus();
+    CHECK( status.DeathTick == death );
+    CHECK( status.LastTick == death + 30 );
+    CHECK( status.Duration == doctest::Approx( 89.0 / 60.0 + player.GetSettings().HoldAfterSeconds ) );
+
+    REQUIRE( runUntil( [&]() { return !player.IsPlaying(); }, 3.0 ) );
+    REQUIRE( events.size() == 2 );
+    CHECK( events[1].Reason == "played" );
+    // It played past the kill to its last tick, and held there only HoldAfterSeconds.
+    CHECK( shown == doctest::Approx( static_cast<double>( death + 30 ) ) );
+    CHECK( player.GetStatus().Elapsed == doctest::Approx( player.GetStatus().Duration ).epsilon( 0.05 ) );
+    CHECK( player.GetStatus().Elapsed < 89.0 / 60.0 + player.GetSettings().HoldSeconds );
 }
 
 

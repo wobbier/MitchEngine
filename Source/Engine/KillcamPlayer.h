@@ -57,8 +57,10 @@ public:
 //
 // Each frame Update moves the playhead, poses the replay world, and puts its main camera at the
 // killer's eye looking along the killer's recorded aim (its client's commands, interpolated between
-// ticks; a bot's facing), with the killer's own meshes hidden (first person). It ends once the death
-// tick has shown for HoldSeconds, on Skip, when a newer killcam replaces it, when the session ends
+// ticks; a bot's facing), with the killer's own meshes hidden (first person). It plays on past the
+// death to the stream's last tick when the server sent the seconds after it (NetCore::SendKillcam's
+// InAfterSeconds), the killer's view carrying on from its commands then. It ends once that last tick
+// has shown for HoldSeconds (HoldAfterSeconds for one that ran on past the death), on Skip, when a newer killcam replaces it, when the session ends
 // (Stop), or when the stream stalls; then the replay world is reset at once (Release destroys it: a
 // scene load, the session's end). One that ends before its stream is whole stops the download
 // (NetCore::CancelKillcamDownload, ME-343).
@@ -74,8 +76,10 @@ public:
     {
         // Play each new killcam as soon as its first chunk is in.
         bool AutoPlay = true;
-        // Seconds the death tick stays on screen before the switch back.
+        // Seconds the last tick stays on screen before the switch back: the death's, when the stream ends on it.
         double HoldSeconds = 1.0;
+        // The same for a stream that runs on past the death: its last frame isn't the kill, so it barely holds.
+        double HoldAfterSeconds = 0.2;
         // Seconds the playback may wait on a chunk that doesn't come before it gives up.
         double MaxStallSeconds = 3.0;
         // The replay world's main camera at the killer's eye along its recorded aim.
@@ -207,6 +211,7 @@ public:
         uint8_t KillerClient = 0;   // 0: a bot's
         uint32_t FirstTick = 0;
         uint32_t DeathTick = 0;
+        uint32_t LastTick = 0;      // the stream's: DeathTick, or the last of the seconds after it
         uint16_t TickRate = 60;
         // ME-343: it played in the kept replay world (reset after the last), not one built for it; and the
         // milliseconds to get the world ready (building it, or starting the playback in the kept one).
@@ -214,7 +219,7 @@ public:
         double ReadyMs = 0.0;
         double Tick = 0.0;          // the tick shown (fractional between ticks)
         double Elapsed = 0.0;       // seconds since it started
-        double Duration = 0.0;      // seconds it plays: first tick to the death at its tick rate, then the hold
+        double Duration = 0.0;      // seconds it plays: first tick to the last at its tick rate, then the hold
         bool Complete = false;      // every chunk is in
         // The replay world's main camera was put at the killer's eye this frame (KillerView, and the world
         // has a camera entity to move), for logs and captures. Eye / Yaw / Pitch: the killer's view,
@@ -290,6 +295,8 @@ private:
     // The killer's shot at the death tick nearest the view's aim (Status::HasShot ...).
     void FindKillShot();
     void Fire( bool InStarted, const std::string& InReason );
+    // The hold on the last tick: HoldSeconds when it's the death's, HoldAfterSeconds past it.
+    double HoldSeconds() const { return m_status.LastTick > m_status.DeathTick ? m_settings.HoldAfterSeconds : m_settings.HoldSeconds; }
     // Stops the download of killcam InId if it's InLive's newest, not yet whole (ME-343).
     void CancelDownload( World* InLive, uint32_t InId );
     void Bind( World& InLive );

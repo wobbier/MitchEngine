@@ -1258,7 +1258,7 @@ void NetCore::RecordReplayTick()
 }
 
 
-bool NetCore::SendKillcam( const EntityHandle& InVictim, const EntityHandle& InKiller, double InSeconds )
+bool NetCore::SendKillcam( const EntityHandle& InVictim, const EntityHandle& InKiller, double InSeconds, double InAfterSeconds )
 {
     const NetIdentity* victim = NetworkedSelfOrAncestor( InVictim );
     const NetIdentity* killer = NetworkedSelfOrAncestor( InKiller );
@@ -1266,11 +1266,11 @@ bool NetCore::SendKillcam( const EntityHandle& InVictim, const EntityHandle& InK
     {
         return false;
     }
-    return SendKillcam( victim->GetOwner(), victim->GetNetId(), killer->GetNetId(), InSeconds );
+    return SendKillcam( victim->GetOwner(), victim->GetNetId(), killer->GetNetId(), InSeconds, InAfterSeconds );
 }
 
 
-bool NetCore::SendKillcam( uint8_t InClient, uint32_t InVictimNetId, uint32_t InKillerNetId, double InSeconds )
+bool NetCore::SendKillcam( uint8_t InClient, uint32_t InVictimNetId, uint32_t InKillerNetId, double InSeconds, double InAfterSeconds )
 {
     if( !m_server || !IsRecording() || InClient == 0 || InKillerNetId == 0 || !( InSeconds > 0.0 ) )
     {
@@ -1301,13 +1301,17 @@ bool NetCore::SendKillcam( uint8_t InClient, uint32_t InVictimNetId, uint32_t In
     }
     // This tick (the one being simulated, or the next) is the death: it's cut once it's recorded.
     const uint32_t death = m_server->GetTick();
-    const uint32_t ticks = std::min( ringTicks, static_cast<uint32_t>( std::max( 1.0, std::round( InSeconds * rate ) ) ) );
+    // The seconds after it first (half the ring at most), then those before it in what's left: the oldest
+    // tick must still be in the ring once the last is recorded.
+    const uint32_t after = std::min( ringTicks / 2, static_cast<uint32_t>( std::max( 0.0, std::round( InAfterSeconds * rate ) ) ) );
+    const uint32_t ticks = std::min( std::max<uint32_t>( 1, ringTicks - after ), static_cast<uint32_t>( std::max( 1.0, std::round( InSeconds * rate ) ) ) );
     KillcamSend& send = m_killcams.emplace_back();
     send.Client = InClient;
     send.Request.Id = m_nextKillcamId++;
     send.Request.VictimNetId = InVictimNetId;
     send.Request.KillerNetId = InKillerNetId;
     send.Request.DeathTick = death;
+    send.Request.LastTick = death + after;
     send.Request.FirstTick = death >= ticks - 1 ? death - ( ticks - 1 ) : 0;
     send.Request.ChunkTicks = std::max<uint32_t>( 1, m_killcamSettings.ChunkTicks );
     send.Request.Codec = settings.Codec;
@@ -1348,7 +1352,7 @@ void NetCore::UpdateKillcams()
             it = m_killcams.erase( it );
             continue;
         }
-        // Its death tick is in the ring: cut and encode it on the lane, from the ring's own ticks.
+        // Its last tick (the death's, or the last after it) is in the ring: cut and encode it on the lane, from the ring's own ticks.
         if( !send.Encoding && !send.Streaming )
         {
             if( !m_recorder || !IsRecording() )
@@ -1357,7 +1361,7 @@ void NetCore::UpdateKillcams()
                 it = m_killcams.erase( it );
                 continue;
             }
-            if( newest < send.Request.DeathTick )
+            if( newest < send.Request.LastTick )
             {
                 ++it;
                 continue;
@@ -1374,7 +1378,7 @@ void NetCore::UpdateKillcams()
             ring.reserve( m_recorder->GetRing().size() );
             for( const auto& tick : m_recorder->GetRing() )
             {
-                if( tick->Tick > send.Request.DeathTick )
+                if( tick->Tick > send.Request.LastTick )
                 {
                     break;
                 }
@@ -1406,7 +1410,7 @@ void NetCore::UpdateKillcams()
             m_killcamStats.EncodeMs += encoded.Milliseconds;
             CLog::Log( CLog::LogType::Info, "Net: killcam " + std::to_string( send.Request.Id ) + " for client " + std::to_string( send.Client ) + ": victim #"
                 + std::to_string( send.Request.VictimNetId ) + ", killer #" + std::to_string( send.Request.KillerNetId ) + ", ticks " + std::to_string( encoded.FirstTick )
-                + "-" + std::to_string( encoded.LastTick ) + ", " + std::to_string( encoded.Bytes / 1024 ) + " KB in " + std::to_string( encoded.Blobs.size() )
+                + "-" + std::to_string( encoded.LastTick ) + " (the death at " + std::to_string( send.Request.DeathTick ) + "), " + std::to_string( encoded.Bytes / 1024 ) + " KB in " + std::to_string( encoded.Blobs.size() )
                 + " chunks (" + std::to_string( encoded.RawBytes / 1024 ) + " KB before deflate; encoded in " + std::to_string( static_cast<int>( encoded.Milliseconds + 0.5 ) )
                 + " ms)" );
             send.Queued.assign( std::make_move_iterator( encoded.Blobs.begin() ), std::make_move_iterator( encoded.Blobs.end() ) );
@@ -1492,7 +1496,7 @@ void NetCore::OnBlob( std::vector<uint8_t>& InData )
         {
             CLog::Log( CLog::LogType::Info, "Net: killcam " + std::to_string( m_killcam.GetId() ) + " received: victim #" + std::to_string( m_killcam.GetVictimNetId() )
                 + ", killer #" + std::to_string( m_killcam.GetKillerNetId() ) + ", ticks " + std::to_string( m_killcam.GetFirstTick() ) + "-"
-                + std::to_string( m_killcam.GetDeathTick() ) + ", " + std::to_string( m_killcam.GetBytesReceived() / 1024 ) + " KB in "
+                + std::to_string( m_killcam.GetLastTick() ) + " (the death at " + std::to_string( m_killcam.GetDeathTick() ) + "), " + std::to_string( m_killcam.GetBytesReceived() / 1024 ) + " KB in "
                 + std::to_string( m_killcam.GetChunkCount() ) + " chunks" );
         }
         return;
@@ -2117,6 +2121,7 @@ bool NetCore::WriteReport( const std::string& InPath, double InNow ) const
             killcam["Killer"] = m_killcam.GetKillerNetId();
             killcam["FirstTick"] = m_killcam.GetFirstTick();
             killcam["DeathTick"] = m_killcam.GetDeathTick();
+            killcam["LastTick"] = m_killcam.GetLastTick();
             report["Killcam"] = killcam;
         }
         if( m_predictor )

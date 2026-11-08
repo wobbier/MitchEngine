@@ -404,16 +404,19 @@ public static unsafe class Net
     /// and streamed over the blob channel. The game decides what a kill is. False off the server,
     /// without the ring (a server keeps it unless started with --no-replay-ring), for a victim no client
     /// owns (a bot) or a killer that isn't networked. A newer one for the same player replaces the older.
+    /// <paramref name="afterSeconds"/>: it runs on past the death for that long, the killer's view of what followed
+    /// the kill, and goes once those seconds are recorded (the victim's own death view shows meanwhile).
     /// </summary>
-    public static bool SendKillcam(Entity victim, Entity killer, float seconds = 8f) =>
-        Engine._api.Net_SendKillcam != null && Engine._api.Net_SendKillcam(victim, killer, seconds) != 0;
+    public static bool SendKillcam(Entity victim, Entity killer, float seconds = 8f, float afterSeconds = 0f) =>
+        Engine._api.Net_SendKillcam != null && Engine._api.Net_SendKillcam(victim, killer, seconds, afterSeconds) != 0;
 
     /// <summary>
     /// Client: the newest killcam the server sent (ME-323). It arrives a chunk at a time; a newer one
     /// replaces it. The Player plays each one as soon as its first chunk is in, into a replay world of its
     /// own beside the live one (which keeps its session, prediction and simulation): the screen, the
     /// camera and the audio listener show the killer's eye along its recorded aim until the death tick
-    /// has held a second, then switch straight back. Started and Ended say when; Skip ends one early. The
+    /// has held a second (or, for one sent with seconds after the death, until those have played and held
+    /// a moment), then switch straight back. Started and Ended say when; Skip ends one early. The
     /// game's UI stays over it. Scripts marked [ReplayWorld] run in the replay world too, presentation
     /// only: InReplayWorld tells them which world they're in.
     /// </summary>
@@ -429,15 +432,15 @@ public static unsafe class Net
         public static int KillerId { get { Playback(out var p); return p.KillerId; } }
         /// <summary>The victim's NetId in the killcam playing, or the last one played (0: none yet).</summary>
         public static int VictimId { get { Playback(out var p); return p.VictimId; } }
-        /// <summary>The tick the killcam shows (fractional between ticks), from FirstTick to DeathTick.</summary>
+        /// <summary>The tick the killcam shows (fractional between ticks), from FirstTick to DeathTick (and past it, for one sent with seconds after the death).</summary>
         public static float Tick { get { Playback(out var p); return p.Tick; } }
         /// <summary>The killcam's first tick.</summary>
         public static int FirstTick { get { Playback(out var p); return p.FirstTick; } }
-        /// <summary>The death's tick, the killcam's last.</summary>
+        /// <summary>The death's tick: the killcam's last, unless it was sent with seconds after the death.</summary>
         public static int DeathTick { get { Playback(out var p); return p.DeathTick; } }
         /// <summary>Seconds it has played.</summary>
         public static float Elapsed { get { Playback(out var p); return p.Elapsed; } }
-        /// <summary>Seconds it plays: its ticks at the tick rate, then a second on the death.</summary>
+        /// <summary>Seconds it plays: its ticks at the tick rate, then a second on the death (a moment on its last tick, for one that runs past the death).</summary>
         public static float Duration { get { Playback(out var p); return p.Duration; } }
         /// <summary>Ends the killcam playing: the screen switches back to the live world (this frame from a live world's script, the next from the replay world's).
         /// With none playing, the newest killcam received that hasn't played yet (still arriving) never plays. Either way its download stops.</summary>

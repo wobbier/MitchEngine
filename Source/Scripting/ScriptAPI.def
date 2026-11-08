@@ -451,7 +451,7 @@ int Replay_GetTick()
 ## Killcams (ME-323): the server sends the victim's owner the last seconds before the death as the killer saw
 ## them (false off the server, without the replay ring, for a bot victim or an unnetworked killer); a client's
 ## newest: its id (0: none), 0..1 of it here, the killer and victim in this world (Entity.Null when not here); complete
-bool Net_SendKillcam( Entity victim, Entity killer, float seconds )
+bool Net_SendKillcam( Entity victim, Entity killer, float seconds, float afterSeconds )
 bool Net_GetKillcam( int* outId, float* outProgress, Entity* outKiller, Entity* outVictim )
 
 ## Killcam playback (ME-323 phase 3): the killcam playing into its replay world. Flags: 1 one plays, 2 the script

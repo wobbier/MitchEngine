@@ -267,13 +267,16 @@ public:
     // rest at once when it's acked. A newer killcam for the same client cancels the older.
     // False without a ring, on a client, for an unknown or unaccepted client, a bot victim (owner
     // 0), or a killer that isn't networked. InSeconds is capped to the ring.
+    // InAfterSeconds: the killcam runs on past the death for that long (the killer's view of what
+    // followed the kill), so it's cut once those ticks are recorded too: the victim's own death view
+    // shows meanwhile. Capped to half the ring; InSeconds and it together, to the ring.
     struct KillcamSettings
     {
         uint32_t ChunkTicks = 60;       // a chunk (a blob) every this many ticks
     };
     void SetKillcamSettings( const KillcamSettings& InSettings ) { m_killcamSettings = InSettings; }
-    bool SendKillcam( const EntityHandle& InVictim, const EntityHandle& InKiller, double InSeconds = 8.0 );
-    bool SendKillcam( uint8_t InClient, uint32_t InVictimNetId, uint32_t InKillerNetId, double InSeconds = 8.0 );
+    bool SendKillcam( const EntityHandle& InVictim, const EntityHandle& InKiller, double InSeconds = 8.0, double InAfterSeconds = 0.0 );
+    bool SendKillcam( uint8_t InClient, uint32_t InVictimNetId, uint32_t InKillerNetId, double InSeconds = 8.0, double InAfterSeconds = 0.0 );
     struct KillcamStats
     {
         uint64_t Requested = 0;

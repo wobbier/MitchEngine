@@ -464,10 +464,10 @@ static int Eng_Replay_GetTick() noexcept
 
 
 // C#'s Net.SendKillcam / Net.Killcam (ME-323): the server cuts and streams one; a client's newest.
-static bool Eng_Net_SendKillcam( EntityID victim, EntityID killer, float seconds ) noexcept
+static bool Eng_Net_SendKillcam( EntityID victim, EntityID killer, float seconds, float afterSeconds ) noexcept
 {
     NetCore* net = Net();
-    return net && net->IsServer() && net->SendKillcam( MakeHandle( victim ), MakeHandle( killer ), static_cast<double>( seconds ) );
+    return net && net->IsServer() && net->SendKillcam( MakeHandle( victim ), MakeHandle( killer ), static_cast<double>( seconds ), static_cast<double>( afterSeconds ) );
 }
 
 

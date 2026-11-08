@@ -224,7 +224,7 @@ void KillcamPlayer::ReadSamples( double InTime )
 {
     if( m_ahead )
     {
-        ReadKillerSamples( *m_ahead, m_status.KillerClient, m_status.KillerNetId, m_status.FirstTick, m_status.DeathTick, m_status.TickRate, InTime, m_samples );
+        ReadKillerSamples( *m_ahead, m_status.KillerClient, m_status.KillerNetId, m_status.FirstTick, m_status.LastTick, m_status.TickRate, InTime, m_samples );
     }
 }
 
@@ -236,7 +236,7 @@ double KillcamPlayer::EdgeViewTick()
         return -1.0;
     }
     const uint32_t last = m_ahead->GetLastTick();
-    if( last >= m_status.DeathTick )
+    if( last >= m_status.LastTick )
     {
         return -1.0;
     }
@@ -475,11 +475,11 @@ void KillcamPlayer::Update( World& InLive, double InFrameSeconds )
         End( "failed: the stream stalled at tick " + std::to_string( playback.GetTick() ) );
         return;
     }
-    // Played: the death tick has shown for HoldSeconds.
+    // Played: the last tick has shown for its hold.
     if( m_status.Complete && playback.IsPaused() && playback.GetTick() >= playback.GetLastTick() )
     {
         m_held += InFrameSeconds;
-        if( m_held >= m_settings.HoldSeconds )
+        if( m_held >= HoldSeconds() )
         {
             End( "played" );
         }
@@ -501,6 +501,7 @@ void KillcamPlayer::Start( World& InLive, const NetKillcamReceiver& InKillcam )
     m_status.KillerClient = InKillcam.GetKillerClient();
     m_status.FirstTick = InKillcam.GetFirstTick();
     m_status.DeathTick = InKillcam.GetDeathTick();
+    m_status.LastTick = std::max( InKillcam.GetDeathTick(), InKillcam.GetLastTick() );
     m_status.Complete = InKillcam.IsComplete();
     m_held = 0.0;
     m_stalled = 0.0;
@@ -580,12 +581,13 @@ void KillcamPlayer::Start( World& InLive, const NetKillcamReceiver& InKillcam )
     playback.Play();
     m_status.TickRate = playback.GetTickRate();
     m_status.Tick = playback.GetTime();
-    m_status.Duration = static_cast<double>( m_status.DeathTick - std::min( m_status.FirstTick, m_status.DeathTick ) ) / m_status.TickRate + m_settings.HoldSeconds;
+    m_status.Duration = static_cast<double>( m_status.LastTick - std::min( m_status.FirstTick, m_status.LastTick ) ) / m_status.TickRate + HoldSeconds();
     m_playing = true;
     m_live = InLive.GetSharedPtr();
     ++m_stats.Started;
     CLog::Log( CLog::LogType::Info, "Net: killcam " + std::to_string( m_status.Id ) + " playing: killer #" + std::to_string( m_status.KillerNetId ) + ", victim #"
         + std::to_string( m_status.VictimNetId ) + ", ticks " + std::to_string( m_status.FirstTick ) + "-" + std::to_string( m_status.DeathTick ) + " ("
+        + ( m_status.LastTick > m_status.DeathTick ? "and " + std::to_string( m_status.LastTick - m_status.DeathTick ) + " after the death, " : std::string() )
         + Seconds( m_status.Duration ) + " s, " + std::to_string( InKillcam.GetChunksReady() ) + " of " + std::to_string( InKillcam.GetChunkCount() ) + " chunks in; "
         + ( kept ? "the replay world kept" : "the replay world built" ) + ", ready in " + Seconds( m_status.ReadyMs ) + " ms)" );
     Fire( true, std::string() );

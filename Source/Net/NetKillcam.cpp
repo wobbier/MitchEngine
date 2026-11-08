@@ -71,10 +71,11 @@ std::vector<NetReplayTick> NetKillcam::Filter( const NetKillcamRequest& InReques
         return fail( "the replay ring is empty" );
     }
     const uint32_t first = std::max( InRequest.FirstTick, InRing.front()->Tick );
-    const uint32_t last = std::min( InRequest.DeathTick, InRing.back()->Tick );
+    const uint32_t wanted = std::max( InRequest.DeathTick, InRequest.LastTick );
+    const uint32_t last = std::min( wanted, InRing.back()->Tick );
     if( first > last )
     {
-        return fail( "ticks " + std::to_string( InRequest.FirstTick ) + "-" + std::to_string( InRequest.DeathTick ) + " aren't in the ring ("
+        return fail( "ticks " + std::to_string( InRequest.FirstTick ) + "-" + std::to_string( wanted ) + " aren't in the ring ("
             + std::to_string( InRing.front()->Tick ) + "-" + std::to_string( InRing.back()->Tick ) + ")" );
     }
     // Where the killer stands before it first appears in the range: where it first does.
@@ -302,6 +303,7 @@ NetKillcam::Encoded NetKillcam::Encode( const NetKillcamRequest& InRequest, cons
             PutU8( blob, killerClient );
             PutU32( blob, InRequest.DeathTick );
             PutU32( blob, ticks.front().Tick );
+            PutU32( blob, std::max( InRequest.DeathTick, ticks.back().Tick ) );
             PutU32( blob, static_cast<uint32_t>( headerBytes.size() ) );
             blob.insert( blob.end(), headerBytes.begin(), headerBytes.end() );
         }
@@ -372,6 +374,7 @@ NetKillcamReceiver::Result NetKillcamReceiver::Accept( const uint8_t* InData, si
     uint8_t killerClient = 0;
     uint32_t deathTick = 0;
     uint32_t firstTick = 0;
+    uint32_t lastTick = 0;
     if( prefix.Index == 0 )
     {
         if( size < NetKillcamFormat::kInfoBytes )
@@ -383,7 +386,8 @@ NetKillcamReceiver::Result NetKillcamReceiver::Accept( const uint8_t* InData, si
         killerClient = payload[8];
         deathTick = GetU32( payload + 9 );
         firstTick = GetU32( payload + 13 );
-        const uint32_t headerSize = GetU32( payload + 17 );
+        lastTick = std::max( deathTick, GetU32( payload + 17 ) );
+        const uint32_t headerSize = GetU32( payload + 21 );
         payload += NetKillcamFormat::kInfoBytes;
         size -= NetKillcamFormat::kInfoBytes;
         size_t taken = 0;
@@ -414,6 +418,7 @@ NetKillcamReceiver::Result NetKillcamReceiver::Accept( const uint8_t* InData, si
         m_killer = killer;
         m_killerClient = killerClient;
         m_deathTick = deathTick;
+        m_lastTick = lastTick;
         m_firstTick = firstTick;
         m_source = std::make_shared<NetReplayMemorySource>( std::move( header ) );
     }

@@ -32,7 +32,11 @@
 //
 //   u32 "MRKC", u8 stream version, u32 killcam id, u16 chunk index, u16 chunk count, u32 total bytes
 //   chunk 0 only:  u32 victim NetId, u32 killer NetId, u8 killer's client, u32 death tick,
-//                  u32 first tick, u32 header size, NetReplayFile::EncodeHeader bytes
+//                  u32 first tick, u32 last tick, u32 header size, NetReplayFile::EncodeHeader bytes
+//
+// The last tick is the death's, or later: a killcam can run on past the kill (the killer's seconds
+// after it, NetCore::SendKillcam's InAfterSeconds), so it's cut once those are recorded. Version 2
+// added it; 1 ended on the death.
 //   then the chunk (NetReplayChunk::Encode, header included)
 //
 // The receiver (NetKillcamReceiver) puts chunks into a NetReplayMemorySource in order as they
@@ -40,9 +44,9 @@
 namespace NetKillcamFormat
 {
     constexpr uint32_t kMagic = 0x434B524Du;   // "MRKC"
-    constexpr uint8_t kVersion = 1;
+    constexpr uint8_t kVersion = 2;
     constexpr size_t kPrefixBytes = 17;
-    constexpr size_t kInfoBytes = 21;           // chunk 0's, before the header bytes
+    constexpr size_t kInfoBytes = 25;           // chunk 0's, before the header bytes
     constexpr uint32_t kMaxChunks = 1024;
 }
 
@@ -54,7 +58,8 @@ struct NetKillcamRequest
     uint32_t VictimNetId = 0;
     uint32_t KillerNetId = 0;
     uint32_t FirstTick = 0;
-    uint32_t DeathTick = 0;         // the last tick sent
+    uint32_t DeathTick = 0;         // the kill's
+    uint32_t LastTick = 0;          // the last tick sent: the death's, or after it (below the death: the death's)
     // NET-13's settings (NetReplicationSettings::RelevantRadius; 0: everything is relevant) and the
     // NetIds that are AlwaysRelevant: every one that was at a tick in the ring, destroyed since or
     // not (NetCore keeps them as it records), so a projectile gone before the cut still counts.
@@ -68,7 +73,7 @@ struct NetKillcamRequest
 
 namespace NetKillcam
 {
-    // The killcam's ticks, FirstTick..DeathTick, filtered for the killer (above). InRing: the
+    // The killcam's ticks, FirstTick..LastTick (DeathTick when that's later), filtered for the killer (above). InRing: the
     // recorder's ring, oldest first; InRingEntities: what every NetId was as of its oldest tick
     // (NetReplayRecorder::GetRingEntities). OutError says why it's empty (the range isn't in the
     // ring, the killer is in none of its ticks).
@@ -154,6 +159,8 @@ public:
     uint32_t GetKillerNetId() const { return m_killer; }
     uint8_t GetKillerClient() const { return m_killerClient; }
     uint32_t GetDeathTick() const { return m_deathTick; }
+    // The stream's last tick: the death's, or the last of the seconds after it.
+    uint32_t GetLastTick() const { return m_lastTick; }
     uint32_t GetFirstTick() const { return m_firstTick; }
     // The replay so far (null until chunk 0 is in): an INetReplaySource for NetReplayReader or
     // playback. Kept until the next killcam or Reset.
@@ -173,6 +180,7 @@ private:
     uint32_t m_killer = 0;
     uint8_t m_killerClient = 0;
     uint32_t m_deathTick = 0;
+    uint32_t m_lastTick = 0;
     uint32_t m_firstTick = 0;
     bool m_cancelled = false;
     std::shared_ptr<NetReplayMemorySource> m_source;
