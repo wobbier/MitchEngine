@@ -35,6 +35,7 @@
 
 #if !USING( ME_PLATFORM_WINDOWS )
 #include <cerrno>
+#include <climits>
 #include <csignal>
 #include <fcntl.h>
 #include <sys/syscall.h>
@@ -419,6 +420,8 @@ bool NetPlay::SpawnChild( int InIndex, const std::vector<std::string>& InArgs, s
     close( toChild[0] );
     close( fromChild[1] );
     fcntl( fromChild[0], F_SETFL, fcntl( fromChild[0], F_GETFL, 0 ) | O_NONBLOCK );
+    // A child that stops reading (a breakpoint, SIGSTOP) must never block the editor in SendControl.
+    fcntl( toChild[1], F_SETFL, fcntl( toChild[1], F_GETFL, 0 ) | O_NONBLOCK );
     // A child gone before reading what we wrote must not kill the editor with SIGPIPE.
     signal( SIGPIPE, SIG_IGN );
 
@@ -475,7 +478,9 @@ void NetPlay::HandleLine( Child& InChild, const std::string& InLine )
     {
         InChild.Info.ClientId = std::atoi( message.c_str() + at + connected.size() );
     }
-    if( m_settings.ShowClientLogs && !message.empty() )
+    // The Net Debugger panel's own polling ("net view", 4 times a second) stays in the child's log file.
+    const bool polled = message.rfind( "Console: > net view", 0 ) == 0;
+    if( m_settings.ShowClientLogs && !message.empty() && !polled )
     {
         CLog::Log( type, "[client " + std::to_string( InChild.Info.Index ) + "] " + message );
     }
@@ -884,21 +889,26 @@ uint64_t NetPlay::SendControl( int InIndex, const std::string& InLine )
         }
         const uint64_t id = m_nextControlId++;
         const std::string line = std::to_string( id ) + " " + InLine + "\n";
-        size_t written = 0;
-        while( written < line.size() )
+        // The pipe is non-blocking: a line of at most PIPE_BUF bytes goes in whole or not at all, so
+        // a full pipe (the child not reading) is a refused line, never half of one.
+        if( line.size() > PIPE_BUF )
         {
-            const ssize_t wrote = write( child->StdinFd, line.data() + written, line.size() - written );
-            if( wrote <= 0 )
-            {
-                if( wrote < 0 && errno == EINTR )
-                {
-                    continue;
-                }
-                return 0;
-            }
-            written += static_cast<size_t>( wrote );
+            BRUH( "PIE: a control line for client " + std::to_string( InIndex ) + " is longer than " + std::to_string( PIPE_BUF ) + " bytes" );
+            return 0;
         }
-        return id;
+        for( ;; )
+        {
+            const ssize_t wrote = write( child->StdinFd, line.data(), line.size() );
+            if( wrote == static_cast<ssize_t>( line.size() ) )
+            {
+                return id;
+            }
+            if( wrote < 0 && errno == EINTR )
+            {
+                continue;
+            }
+            return 0;   // EAGAIN: its stdin is full; or it closed
+        }
     }
 #endif
     return 0;

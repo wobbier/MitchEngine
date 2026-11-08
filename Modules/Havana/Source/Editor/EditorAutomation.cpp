@@ -1129,11 +1129,29 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
     else if( command == "assert-file-contains" )
     {
         // assert-file-contains Assets/UI/X.rml | color: #ff3366     (!= text: must not contain it)
+        // assert-file-contains project://.tmp/PIE/Client1.log | ...  (a file under the project's root, outside the VFS)
         auto [path, text] = SplitArgs( args );
         const bool negate = text.rfind( "!=", 0 ) == 0;
         if( negate ) text = Trim( text.substr( 2 ) );
         std::string contents;
-        if( !VFS::Get().ReadText( path, contents ) )
+        const std::string projectPrefix = "project://";
+        bool read = false;
+        if( path.rfind( projectPrefix, 0 ) == 0 )
+        {
+            std::ifstream file( Project::GetRoot() + "/" + path.substr( projectPrefix.size() ), std::ios::binary );
+            read = file.is_open();
+            if( read )
+            {
+                std::ostringstream buffer;
+                buffer << file.rdbuf();
+                contents = buffer.str();
+            }
+        }
+        else
+        {
+            read = VFS::Get().ReadText( path, contents );
+        }
+        if( !read )
         {
             Fail( "assert-file-contains: can't read " + path );
         }

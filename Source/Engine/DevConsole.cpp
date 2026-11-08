@@ -136,7 +136,21 @@ std::vector<std::string> DevConsole::Split( const std::string& InLine )
 }
 
 
-std::string DevConsole::Execute( const std::string& InLine )
+std::string DevConsole::FormatLogLine( const std::string& InLine, const std::string& InOutput, size_t InLogLimit )
+{
+    if( InOutput.empty() )
+    {
+        return "Console: > " + InLine;
+    }
+    if( InOutput.size() > InLogLimit )
+    {
+        return "Console: > " + InLine + " (" + std::to_string( InOutput.size() ) + " bytes)";
+    }
+    return "Console: > " + InLine + "\n" + InOutput;
+}
+
+
+std::string DevConsole::Execute( const std::string& InLine, size_t InLogLimit )
 {
     std::vector<std::string> words = Split( InLine );
     if( words.empty() )
@@ -175,7 +189,7 @@ std::string DevConsole::Execute( const std::string& InLine )
         m_history.erase( m_history.begin(), m_history.begin() + ( m_history.size() - 500 ) );
     }
     m_lastOutput = out;
-    CLog::Log( CLog::LogType::Info, "Console: > " + InLine + ( out.empty() ? "" : "\n" + out ) );
+    CLog::Log( CLog::LogType::Info, FormatLogLine( InLine, out, InLogLimit ) );
     return out;
 }
 

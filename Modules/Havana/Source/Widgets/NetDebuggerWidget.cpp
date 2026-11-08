@@ -84,6 +84,19 @@ bool NetDebuggerWidget::GetClientView( int InIndex, NetDebuggerView& OutView, do
 }
 
 
+bool NetDebuggerWidget::GetLastExport( int InIndex, std::string& OutAnswer, uint32_t& OutTick ) const
+{
+    const auto it = m_clients.find( InIndex );
+    if( it == m_clients.end() || !it->second.HasExport )
+    {
+        return false;
+    }
+    OutAnswer = it->second.UI.LastExport;
+    OutTick = it->second.ExportTick;
+    return true;
+}
+
+
 void NetDebuggerWidget::Poll()
 {
     OPTICK_EVENT( "NetDebuggerWidget::Poll" );
@@ -106,17 +119,13 @@ void NetDebuggerWidget::Poll()
         ClientState& state = m_clients[child.Index];
         if( state.Pid != child.Pid )
         {
-            // Restarted: another process, another client.
+            // Restarted: another process, another client. It starts with its own overlays on: the
+            // panel's setting, when it is off, is sent to it.
             const bool overlays = state.UI.DrawOverlays;
             state = ClientState();
             state.Pid = child.Pid;
             state.UI.DrawOverlays = overlays;
-        }
-        // Answers that came too late, taken so they don't pile up.
-        for( auto it = state.StaleIds.begin(); it != state.StaleIds.end(); )
-        {
-            std::string late;
-            it = play.TakeReply( child.Index, *it, late ) ? state.StaleIds.erase( it ) : it + 1;
+            state.OverlaysPending = overlays != NetDebuggerUI().DrawOverlays;
         }
         if( !child.Running )
         {
@@ -147,9 +156,9 @@ void NetDebuggerWidget::Poll()
             }
             else if( now - state.AskedAt > kViewTimeout )
             {
-                state.StaleIds.push_back( state.ViewId );
-                state.ViewId = 0;
-                state.Error = "no answer in 3 s";
+                // Still waited for, not asked again: a child that stopped reading (a breakpoint,
+                // SIGSTOP) has one view queued on its stdin, not one every quarter second.
+                state.Error = "no answer for " + std::to_string( static_cast<int>( now - state.AskedAt ) ) + " s";
             }
         }
         if( state.ViewId == 0 && ( state.AskedAt < 0.0 || now - state.AskedAt >= kViewEvery ) )
@@ -163,6 +172,7 @@ void NetDebuggerWidget::Poll()
             if( play.TakeReply( child.Index, state.ExportId, answer ) )
             {
                 state.ExportId = 0;
+                state.HasExport = true;
                 state.UI.LastExport = answer;
                 CLog::Log( CLog::LogType::Info, "Net Debugger: client " + std::to_string( child.Index ) + " > net export " + std::to_string( state.ExportTick ) + ": " + answer );
             }
@@ -175,6 +185,12 @@ void NetDebuggerWidget::Poll()
                 state.OverlaysId = 0;
                 CLog::Log( CLog::LogType::Info, "Net Debugger: client " + std::to_string( child.Index ) + ": " + answer );
             }
+        }
+        // The newest setting, once the one before it was answered.
+        if( state.OverlaysPending && state.OverlaysId == 0 )
+        {
+            state.OverlaysId = play.SendControl( child.Index, std::string( "net overlays " ) + ( state.UI.DrawOverlays ? "on" : "off" ) );
+            state.OverlaysPending = state.OverlaysId == 0;
         }
         // The server's end of its link.
         const NetServer::Client* connection = server && child.ClientId > 0 ? server->FindClient( static_cast<uint8_t>( child.ClientId ) ) : nullptr;
@@ -406,9 +422,10 @@ void NetDebuggerWidget::DrawClient( int InIndex, ClientState& InState )
         InState.ExportId = play.SendControl( InIndex, "net export " + std::to_string( InState.ExportTick ) );
         InState.UI.LastExport = InState.ExportId != 0 ? "exporting..." : "client " + std::to_string( InIndex ) + " isn't taking commands";
     }
-    if( actions.OverlaysChanged && InState.OverlaysId == 0 )
+    // Sent by the next Poll (after any toggle still on its way): the child ends at the newest value.
+    if( actions.OverlaysChanged )
     {
-        InState.OverlaysId = play.SendControl( InIndex, std::string( "net overlays " ) + ( InState.UI.DrawOverlays ? "on" : "off" ) );
+        InState.OverlaysPending = true;
     }
     DrawServerEnd( InState );
 }

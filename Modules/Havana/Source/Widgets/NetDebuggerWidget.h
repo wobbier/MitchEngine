@@ -45,6 +45,9 @@ public:
     // The newest view child InIndex answered with, and when it came (steady clock seconds); false
     // when none has (the panel closed, the child not running or not answering).
     bool GetClientView( int InIndex, NetDebuggerView& OutView, double& OutReceivedAt ) const;
+    // The answer to the panel's last Export for child InIndex ("writing <path>", or why not) and the
+    // tick it asked for; false before one came.
+    bool GetLastExport( int InIndex, std::string& OutAnswer, uint32_t& OutTick ) const;
     // Seconds on the clock GetClientView's times are on.
     static double Now();
 
@@ -56,12 +59,13 @@ private:
         bool HasView = false;
         double ReceivedAt = -1.0;
         std::string Error;
-        uint64_t ViewId = 0;            // the view asked for, on its way
+        uint64_t ViewId = 0;            // the view asked for, on its way: one at a time, however late
         double AskedAt = -1.0;
-        std::vector<uint64_t> StaleIds; // asked for, given up on: taken when they come
         uint64_t ExportId = 0;
         uint32_t ExportTick = 0;
+        bool HasExport = false;         // an Export was answered (UI.LastExport)
         uint64_t OverlaysId = 0;
+        bool OverlaysPending = false;   // UI.DrawOverlays still to send (toggled while one was on its way, or a restarted child)
         NetDebuggerUI UI;
         NetDebuggerHistory ClientHistory;   // the child's end, from its views
         NetDebuggerHistory ServerHistory;   // the server's end of its connection

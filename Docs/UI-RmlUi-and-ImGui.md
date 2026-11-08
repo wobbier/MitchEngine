@@ -156,7 +156,7 @@ value named `size` can't be used in `data-style-*` (the strip uses `fontsize`).
   - `designer-set <property> | <value>` (inline), `designer-rule <selector> | <property>: <value>` (an empty value removes)
   - `designer-insert <div|h1|p|button|img|text|range|checkbox>`, `designer-delete`
   - `designer-preview <preset>`, `designer-save`, `designer-undo`
-  - Assertions: `designer-assert-selected #id`, `designer-assert-computed <property> | <value>` (as RmlUi prints it: colors are `#rrggbb`), `designer-assert-preview <w>x<h>`, `assert-file-contains <path> | <text>` (`!=` negates)
+  - Assertions: `designer-assert-selected #id`, `designer-assert-computed <property> | <value>` (as RmlUi prints it: colors are `#rrggbb`), `designer-assert-preview <w>x<h>`, `assert-file-contains <path> | <text>` (`!=` negates; `project://<path>` reads a file under the project's root outside the VFS, e.g. `.tmp/PIE/Client1.log`)
 - **Proof:** `UIDesignerFlows.edscript` (inline and rule edits, a Steam Deck preview, picking, a palette button added and deleted; both test files end as committed), with `RmlSourceEditTests.cpp` for the write-back.
 
 ### Engine-native elements (UI-8)

@@ -87,7 +87,8 @@ void ControlChannel::RunLine( const std::string& InLine )
     }
     unsigned long long id = 0;
     const std::string command = ParseLine( InLine, id );
-    const std::string output = DevConsole::Get().Execute( command );
+    // A machine-read answer (a Net Debugger view is ~10 KB, a few times a second) is logged by its size.
+    const std::string output = DevConsole::Get().Execute( command, kLogLimit );
     // Straight to stdout (not the log's prefix and colours): the driver reads it there. Under the
     // log's lock, as one write: another thread's log line can't land inside the answer's line.
     const std::string reply = FormatReply( id, output ) + "\n";

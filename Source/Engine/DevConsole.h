@@ -25,8 +25,12 @@ public:
         std::function<bool( const std::string& InValue )> InSet );
 
     // Runs a line: "name arg arg" (double quotes group words). Returns what it printed; the line and
-    // its output also go to the history and the log.
-    std::string Execute( const std::string& InLine );
+    // its output also go to the history and the log (an output longer than InLogLimit bytes is logged
+    // by its size: the control channel's machine-read answers, a Net Debugger view a few times a second).
+    std::string Execute( const std::string& InLine, size_t InLogLimit = static_cast<size_t>( -1 ) );
+    // The log's line for InLine and its output: "Console: > line", then the output, or "(N bytes)"
+    // on the same line when it is longer than InLogLimit.
+    static std::string FormatLogLine( const std::string& InLine, const std::string& InOutput, size_t InLogLimit );
     // Every command (C++ and C#) starting with InPrefix, sorted.
     std::vector<std::string> Complete( const std::string& InPrefix ) const;
     const std::vector<std::string>& GetHistory() const { return m_history; }

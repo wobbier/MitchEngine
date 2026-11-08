@@ -38,7 +38,14 @@ class EditorApp;
 //                                        the Net Debugger panel's newest view of client C (what the
 //                                        child measures itself; one answered since the command began)
 //                                        has key in range: rtt, loss, slack, dilation, kbpsIn, kbpsOut,
-//                                        corrections, marks, connected, clientId, shots (900)
+//                                        corrections, marks, connected, clientId, shots,
+//                                        knockbackDetail (1 when its record in full is a mark within
+//                                        kMispredictWindow ticks after the last net-knockback) (900)
+//   wait-net-export C | knockback|tick [| frames]
+//                                        the panel's last Export for client C was answered "writing
+//                                        <path>" and that file loads (NetMispredict::Load) as the
+//                                        record of the tick it asked for, after the last net-knockback
+//                                        (within kMispredictWindow) or that tick (600)
 namespace NetPlayAutomation
 {
     constexpr int kMispredictWindow = 60;

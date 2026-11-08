@@ -11,10 +11,12 @@
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "JSON.h"
+#include "Net/NetPrediction.h"
 #include "Widgets/NetDebuggerWidget.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <filesystem>
 #include <memory>
 
 namespace
@@ -158,7 +160,8 @@ bool NetPlayAutomation::Handles( const std::string& InCommand )
 {
     return InCommand == "play-net" || InCommand == "wait-net-connected" || InCommand == "assert-net-field" || InCommand == "net-knockback"
         || InCommand == "assert-net-mispredict" || InCommand == "net-condition" || InCommand == "wait-net-rtt" || InCommand == "net-control"
-        || InCommand == "wait-net-children" || InCommand == "net-ui-set" || InCommand == "net-ui-click" || InCommand == "wait-net-view";
+        || InCommand == "wait-net-children" || InCommand == "net-ui-set" || InCommand == "net-ui-click" || InCommand == "wait-net-view"
+        || InCommand == "wait-net-export";
 }
 
 
@@ -506,7 +509,8 @@ bool NetPlayAutomation::Execute( EditorApp& InApp, const std::string& InCommand,
     {
         // wait-net-view 1 | rtt | 110 400 [| frames]: the Net Debugger panel's newest view of client 1
         // (what the child measures itself, answered since this command began) has the value in range.
-        static const char* kKeys = "rtt, loss (%), slack, dilation (%), kbpsIn, kbpsOut, corrections, marks, connected (0 / 1), clientId, shots";
+        static const char* kKeys = "rtt, loss (%), slack, dilation (%), kbpsIn, kbpsOut, corrections, marks, connected (0 / 1), clientId, shots, "
+                                   "knockbackDetail (1: the record in full is a mark within kMispredictWindow ticks after the last net-knockback)";
         if( parts.size() < 3 )
         {
             OutError = std::string( "wait-net-view: client | key | min [max] [| frames]; keys: " ) + kKeys;
@@ -529,6 +533,10 @@ bool NetPlayAutomation::Execute( EditorApp& InApp, const std::string& InCommand,
             else if( key == "connected" ) OutValue = InView.Connected ? 1.0 : 0.0;
             else if( key == "clientId" ) OutValue = InView.ClientId;
             else if( key == "shots" ) OutValue = static_cast<double>( InView.Shots.size() );
+            else if( key == "knockbackDetail" )
+                OutValue = InView.HasDetail && s_knockbackTick >= 0 && static_cast<int64_t>( InView.Detail.Tick ) >= s_knockbackTick
+                        && static_cast<int64_t>( InView.Detail.Tick ) <= s_knockbackTick + kMispredictWindow
+                    ? 1.0 : 0.0;
             else return false;
             return true;
         };
@@ -564,6 +572,70 @@ bool NetPlayAutomation::Execute( EditorApp& InApp, const std::string& InCommand,
                 return 1;
             }
             return 0;
+        };
+        return true;
+    }
+    if( InCommand == "wait-net-export" )
+    {
+        // wait-net-export 1 | knockback [| frames]: the panel's last Export for client 1 was answered
+        // "writing <path>", and that file (written by the child on its background lane) loads as the
+        // record of the tick it asked for: within kMispredictWindow ticks after the last net-knockback
+        // (knockback) or that tick (a number).
+        if( parts.size() < 2 || parts[1].empty() )
+        {
+            OutError = "wait-net-export: client | knockback|tick [| frames]";
+            return false;
+        }
+        const int index = std::atoi( parts[0].c_str() );
+        int64_t tick = -1;
+        if( parts[1] == "knockback" )
+        {
+            if( s_knockbackTick < 0 )
+            {
+                OutError = "wait-net-export: no net-knockback yet";
+                return false;
+            }
+        }
+        else
+        {
+            tick = std::atoll( parts[1].c_str() );
+        }
+        const int64_t knockback = s_knockbackTick;
+        OutPoll.Frames = FramesOr( parts, 2, 600 );
+        OutPoll.Check = [index, tick, knockback]( std::string& OutDetail ) -> int {
+            NetDebuggerWidget* widget = NetDebuggerWidget::Get();
+            std::string answer;
+            uint32_t asked = 0;
+            if( !widget || !widget->GetLastExport( index, answer, asked ) )
+            {
+                OutDetail = "the Net Debugger panel has no Export answer from client " + std::to_string( index );
+                return 0;
+            }
+            const std::string writing = "writing ";
+            if( answer.rfind( writing, 0 ) != 0 )
+            {
+                OutDetail = "client " + std::to_string( index ) + " answered the Export with: " + answer;
+                return -1;
+            }
+            const std::string path = answer.substr( writing.size() );
+            NetMispredictRecord record;
+            std::string error;
+            std::error_code missing;
+            if( !std::filesystem::exists( path, missing ) || !NetMispredict::Load( path, record, &error ) )
+            {
+                OutDetail = path + " doesn't load (yet): " + ( error.empty() ? std::string( "no such file" ) : error );
+                return 0;
+            }
+            const int64_t at = record.Tick;
+            const bool inRange = tick >= 0 ? at == tick : at >= knockback && at <= knockback + kMispredictWindow;
+            OutDetail = path + " is the record of tick " + std::to_string( at ) + " (asked for " + std::to_string( asked ) + ", "
+                + ( tick >= 0 ? "expected " + std::to_string( tick ) : "knockback at " + std::to_string( knockback ) ) + ")";
+            if( at != static_cast<int64_t>( asked ) || !inRange )
+            {
+                return -1;
+            }
+            CLog::Log( CLog::LogType::Info, "PIE: exported " + OutDetail );
+            return 1;
         };
         return true;
     }

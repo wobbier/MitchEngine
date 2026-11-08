@@ -58,4 +58,11 @@ TEST_CASE( "Console: control lines carry an id, and answers stay on one line" )
     CHECK( reply.find( '\n' ) == std::string::npos );
     // Invalid UTF-8 is replaced, never thrown.
     CHECK( ControlChannel::FormatReply( 0, std::string( "bad \xff byte" ) ).rfind( "[control] 0 \"bad ", 0 ) == 0 );
+
+    // The log keeps a small answer in full and a large one (a Net Debugger view) by its size, on one line.
+    CHECK( DevConsole::FormatLogLine( "echo hi", "hi", ControlChannel::kLogLimit ) == "Console: > echo hi\nhi" );
+    CHECK( DevConsole::FormatLogLine( "clear", "", ControlChannel::kLogLimit ) == "Console: > clear" );
+    const std::string view( 10342, 'x' );
+    CHECK( DevConsole::FormatLogLine( "net view 0", view, ControlChannel::kLogLimit ) == "Console: > net view 0 (10342 bytes)" );
+    CHECK( DevConsole::FormatLogLine( "net view 0", view, static_cast<size_t>( -1 ) ).size() == std::string( "Console: > net view 0\n" ).size() + view.size() );
 }

@@ -1,4 +1,5 @@
 #pragma once
+#include <cstddef>
 #include <string>
 
 // A console over stdin (NET-7: the editor's PIE child clients), for a process another one drives:
@@ -20,6 +21,10 @@ public:
     bool IsActive() const { return m_active; }
     // Runs the lines that arrived. True when stdin closed (the caller quits).
     bool Poll();
+
+    // A command's output longer than this is logged by its size (the answer line still carries it
+    // in full): the editor's Net Debugger panel asks each child for its view 4 times a second.
+    static constexpr size_t kLogLimit = 512;
 
     // The answer line for an id and a command's output.
     static std::string FormatReply( unsigned long long InId, const std::string& InOutput );
