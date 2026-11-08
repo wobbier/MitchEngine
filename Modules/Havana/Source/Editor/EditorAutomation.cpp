@@ -1139,7 +1139,7 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
     else if( command == "imgui-key" || command == "imgui-focus" )
     {
         // imgui-focus Tour          focuses an editor window (as a click on it would)
-        // imgui-key Tab | Space | Enter | Up | Down | Left | Right | Escape
+        // imgui-key Tab | Space | Enter | Up | Down | Left | Right | Escape | Delete | Backspace
         //                           one press (down then up) through ImGui's input queue
         if( command == "imgui-focus" )
         {
@@ -1151,6 +1151,7 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
                 { "Tab", ImGuiKey_Tab }, { "Space", ImGuiKey_Space }, { "Enter", ImGuiKey_Enter },
                 { "Up", ImGuiKey_UpArrow }, { "Down", ImGuiKey_DownArrow }, { "Left", ImGuiKey_LeftArrow },
                 { "Right", ImGuiKey_RightArrow }, { "Escape", ImGuiKey_Escape },
+                { "Delete", ImGuiKey_Delete }, { "Backspace", ImGuiKey_Backspace },
             };
             const auto key = kKeys.find( args );
             if( key == kKeys.end() )

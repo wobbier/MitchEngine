@@ -1,0 +1,153 @@
+# UX-15: a ParticleSystem's Color Over Lifetime gradient (Start/End stops writing the four colour and
+# alpha fields) and Size Over Lifetime curve (its end key writes End Size), one undo step per gesture,
+# two selected systems edited at once; the constrained editors refuse moves, adds and removes.
+# Havana --scene Assets/Scenes/Tests/ParticleTest.lvl --frame-time 0.0166667 --editor-exec Engine/Tests/Editor/UX15Gradients.edscript
+wait 20
+preference Appearance.Juice | "Off"
+select Fire
+wait 5
+
+# The gradient shows the four fields: Start Color 100% -> End Color 0%.
+assert-field Fire | ParticleSystem.StartColor | [1, 0.6, 0.2]
+assert-field Fire | ParticleSystem.EndColor | [0.6, 0.15, 0.05]
+imgui-assert-value ParticleSystem/Color Over Lifetime | #FF9933 100% -> #99260D 0%
+imgui-assert-value ParticleSystem/Color Over Lifetime/Stop 2 | #99260D 0% at 100%
+# The raw fields keep their rows (End Alpha is still found as before).
+imgui-assert-value ParticleSystem/End Alpha | 0%
+
+# The end stop: its alpha typed, then scrubbed; each one undo step.
+imgui-click ParticleSystem/Color Over Lifetime/Stop 2
+wait 2
+imgui-assert-value ParticleSystem/Color Over Lifetime/Stop 2/Alpha | 0%
+imgui-type ParticleSystem/Color Over Lifetime/Alpha | 40%
+wait 2
+assert-field Fire | ParticleSystem.EndAlpha | 0.4
+assert-field Fire | ParticleSystem.StartAlpha | 1
+imgui-assert-value ParticleSystem/Color Over Lifetime | #FF9933 100% -> #99260D 40%
+imgui-assert-value ParticleSystem/End Alpha | 40%
+undo
+wait 2
+assert-field Fire | ParticleSystem.EndAlpha | 0
+redo
+wait 2
+assert-field Fire | ParticleSystem.EndAlpha | 0.4
+undo
+wait 2
+imgui-scrub ParticleSystem/Color Over Lifetime/Alpha | 60
+wait 2
+assert-field Fire | ParticleSystem.EndAlpha | != 0
+undo
+wait 2
+assert-field Fire | ParticleSystem.EndAlpha | 0
+
+# The end colour from the stop's swatch popover (hex), one undo step.
+imgui-click ParticleSystem/Color Over Lifetime/Color
+wait 3
+imgui-assert-value Color/Hex | #99260D
+imgui-type Color/Hex | #3366FF
+wait 2
+assert-field Fire | ParticleSystem.EndColor | [0.2, 0.4, 1] ~ 0.002
+assert-field Fire | ParticleSystem.StartColor | [1, 0.6, 0.2]
+imgui-assert-value ParticleSystem/Color Over Lifetime | #FF9933 100% -> #3366FF 0%
+imgui-key Escape
+wait 3
+undo
+wait 2
+assert-field Fire | ParticleSystem.EndColor | [0.6, 0.15, 0.05]
+redo
+wait 2
+assert-field Fire | ParticleSystem.EndColor | [0.2, 0.4, 1] ~ 0.002
+
+# The start stop: alpha and colour write Start Alpha and Start Color.
+imgui-click ParticleSystem/Color Over Lifetime/Stop 1
+wait 2
+imgui-assert-value ParticleSystem/Color Over Lifetime/Stop 1/Alpha | 100%
+imgui-type ParticleSystem/Color Over Lifetime/Alpha | 75%
+wait 2
+assert-field Fire | ParticleSystem.StartAlpha | 0.75
+assert-field Fire | ParticleSystem.EndAlpha | 0
+imgui-click ParticleSystem/Color Over Lifetime/Color
+wait 3
+imgui-type Color/Hex | #00FF00
+wait 2
+assert-field Fire | ParticleSystem.StartColor | [0, 1, 0]
+imgui-key Escape
+wait 3
+imgui-assert-value ParticleSystem/Color Over Lifetime | #00FF00 75% -> #3366FF 0%
+# Captures with the edited gradient, dark and light.
+imgui-hover ParticleSystem/Color Over Lifetime/Stop 2
+wait 3
+panel-screenshot Properties | .tmp/UX15-Particles.png
+preference Appearance.Theme | "Light"
+wait 5
+panel-screenshot Properties | .tmp/UX15-Particles-Light.png
+preference Appearance.Theme | "Dark"
+wait 3
+undo
+wait 2
+assert-field Fire | ParticleSystem.StartColor | [1, 0.6, 0.2]
+undo
+wait 2
+assert-field Fire | ParticleSystem.StartAlpha | 1
+undo
+wait 2
+assert-field Fire | ParticleSystem.EndColor | [0.6, 0.15, 0.05]
+imgui-assert-value ParticleSystem/Color Over Lifetime | #FF9933 100% -> #99260D 0%
+
+# Constrained: the stops don't move along the bar, a click on the bar adds nothing, Delete and a
+# drag off remove nothing.
+imgui-drag ParticleSystem/Color Over Lifetime/Stop 2 | -80 0
+wait 2
+imgui-drag ParticleSystem/Color Over Lifetime/Stop 1 | 0 80
+wait 2
+imgui-click ParticleSystem/Color Over Lifetime
+wait 2
+imgui-click ParticleSystem/Color Over Lifetime/Stop 1
+wait 2
+imgui-key Delete
+wait 3
+imgui-assert-value ParticleSystem/Color Over Lifetime | #FF9933 100% -> #99260D 0%
+imgui-assert-item ParticleSystem/Color Over Lifetime/Stop 3 | false
+assert-exists Fire
+assert-field Fire | ParticleSystem.StartColor | [1, 0.6, 0.2]
+assert-field Fire | ParticleSystem.EndAlpha | 0
+
+# Size Over Lifetime: 1 at birth (locked), End Size at death. Dragging the end key up writes End
+# Size (one undo step); the start key doesn't move.
+assert-field Fire | ParticleSystem.EndSize | 0.3
+imgui-assert-value ParticleSystem/Size Over Lifetime | (0%, 1×) (100%, 0.3×)
+imgui-drag ParticleSystem/Size Over Lifetime/Key 2 | -30 -20
+wait 2
+assert-field Fire | ParticleSystem.EndSize | 0.73
+imgui-assert-value ParticleSystem/Size Over Lifetime | (0%, 1×) (100%, 0.73×)
+imgui-assert-value ParticleSystem/End Size | 0.73×
+undo
+wait 2
+assert-field Fire | ParticleSystem.EndSize | 0.3
+imgui-drag ParticleSystem/Size Over Lifetime/Key 1 | 20 20
+wait 2
+assert-field Fire | ParticleSystem.EndSize | 0.3
+imgui-assert-value ParticleSystem/Size Over Lifetime/Key 1 | 0%, 1×
+
+# Two systems at once: the end stop's alpha sets both.
+select Fire,Sparks
+wait 5
+imgui-click ParticleSystem/Color Over Lifetime/Stop 2
+wait 2
+imgui-type ParticleSystem/Color Over Lifetime/Alpha | 25%
+wait 2
+assert-field Fire | ParticleSystem.EndAlpha | 0.25
+assert-field Sparks | ParticleSystem.EndAlpha | 0.25
+assert-field Sparks | ParticleSystem.EndColor | [1, 0.3, 0.05]
+imgui-drag ParticleSystem/Size Over Lifetime/Key 2 | 0 -20
+wait 2
+assert-field Fire | ParticleSystem.EndSize | != 0.3
+assert-field Sparks | ParticleSystem.EndSize | != 0.5
+undo
+wait 2
+assert-field Fire | ParticleSystem.EndSize | 0.3
+assert-field Sparks | ParticleSystem.EndSize | 0.5
+undo
+wait 2
+assert-field Fire | ParticleSystem.EndAlpha | 0
+assert-field Sparks | ParticleSystem.EndAlpha | 0

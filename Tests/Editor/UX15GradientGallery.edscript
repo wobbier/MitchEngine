@@ -1,0 +1,185 @@
+# UX-15: the gradient and curve editors in the Widget Gallery: add (sampled), drag, snap and remove
+# stops, a constrained pair that refuses both; curve presets, double-click keys, tangent handles and
+# modes, Delete; the constrained size curve only moves its end key up and down.
+# Havana --scene Assets/Scenes/Tests/LightingTest.lvl --frame-time 0.0166667 --editor-exec Engine/Tests/Editor/UX15GradientGallery.edscript
+wait 20
+preference Appearance.Juice | "Off"
+show-window Widget Gallery
+wait 5
+imgui-click Widget Gallery/Reset
+wait 5
+imgui-hover Widget Gallery/Size Curve
+wait 5
+
+# The free gradient: four stops.
+imgui-assert-value Widget Gallery/Sunset | #1A0D4D 100% -> #CC3366 100% -> #FF9933 80% -> #FFE680 0%
+imgui-assert-value Widget Gallery/Sunset/Stop 3 | #FF9933 80% at 70%
+imgui-assert-item Widget Gallery/Sunset/Stop 5 | false
+
+# A click on the bar adds a stop there (snapped to 50%), sampled from the gradient: nothing you can
+# see changes, and the new stop is selected (its colour, position and alpha in the row below).
+imgui-click Widget Gallery/Sunset
+wait 2
+imgui-assert-value Widget Gallery/Sunset | #1A0D4D 100% -> #CC3366 100% -> #E25F50 91.4% -> #FF9933 80% -> #FFE680 0%
+imgui-assert-value Widget Gallery/Sunset/Stop 3 | #E25F50 91.4% at 50%
+imgui-assert-value Widget Gallery/Sunset/Stop 3/Position | 50%
+imgui-assert-value Widget Gallery/Sunset/Alpha | 91.4%
+# Dragged along the bar (20 px of 294).
+imgui-drag Widget Gallery/Sunset/Stop 3 | 20 0
+wait 2
+imgui-assert-value Widget Gallery/Sunset/Stop 3 | #E25F50 91.4% at 57%
+# The stop's row edits it: alpha typed, position typed (the stops stay in order).
+imgui-type Widget Gallery/Sunset/Alpha | 50%
+wait 2
+imgui-assert-value Widget Gallery/Sunset/Stop 3 | #E25F50 50% at 57%
+imgui-type Widget Gallery/Sunset/Position | 20%
+wait 2
+imgui-assert-value Widget Gallery/Sunset/Stop 2 | #E25F50 50% at 20%
+imgui-assert-value Widget Gallery/Sunset/Position | 20%
+# Scrubbed past its neighbour (CC3366 at 35%): one gesture on one stop, re-sorted on release.
+imgui-scrub Widget Gallery/Sunset/Position | 30
+wait 2
+imgui-assert-value Widget Gallery/Sunset/Alpha | 50%
+imgui-assert-value Widget Gallery/Sunset/Stop 2 | #CC3366 100% at 35%
+imgui-assert-value Widget Gallery/Sunset/Stop 3 | #E25F50 50% at 54.1%
+imgui-type Widget Gallery/Sunset/Position | 20%
+wait 2
+imgui-assert-value Widget Gallery/Sunset/Stop 2 | #E25F50 50% at 20%
+# Delete removes the selected stop (the editor was clicked last).
+imgui-click Widget Gallery/Sunset/Stop 2
+wait 2
+imgui-key Delete
+wait 3
+imgui-assert-value Widget Gallery/Sunset | #1A0D4D 100% -> #CC3366 100% -> #FF9933 80% -> #FFE680 0%
+# Dragged off the bar: removed on release.
+imgui-drag Widget Gallery/Sunset/Stop 2 | 0 80
+wait 3
+imgui-assert-value Widget Gallery/Sunset | #1A0D4D 100% -> #FF9933 80% -> #FFE680 0%
+imgui-assert-item Widget Gallery/Sunset/Stop 4 | false
+# Down to the minimum (two): Delete is refused.
+imgui-click Widget Gallery/Sunset/Stop 2
+wait 2
+imgui-key Delete
+wait 3
+imgui-click Widget Gallery/Sunset/Stop 2
+wait 2
+imgui-key Delete
+wait 3
+imgui-assert-value Widget Gallery/Sunset | #1A0D4D 100% -> #FFE680 0%
+
+# The constrained pair: stops neither move, go, nor get added.
+imgui-click Widget Gallery/Fade/Stop 2
+wait 2
+imgui-key Delete
+wait 3
+imgui-drag Widget Gallery/Fade/Stop 2 | -60 0
+wait 2
+imgui-drag Widget Gallery/Fade/Stop 1 | 0 80
+wait 2
+imgui-click Widget Gallery/Fade
+wait 2
+imgui-assert-value Widget Gallery/Fade | #FF9933 100% -> #99260D 0%
+imgui-assert-value Widget Gallery/Fade/Stop 2 | #99260D 0% at 100%
+imgui-assert-item Widget Gallery/Fade/Position | false
+imgui-assert-item Widget Gallery/Fade/Stop 3 | false
+
+# Curve presets reshape between the end values (0 -> 0.3).
+imgui-assert-value Widget Gallery/Curve | (0%, 0) (40%, 0.8) (100%, 0.3)
+imgui-click Widget Gallery/Curve/Preset/Ease In
+wait 2
+imgui-assert-value Widget Gallery/Curve | (0%, 0) (100%, 0.3)
+imgui-assert-value Widget Gallery/Curve/Key 2/In | slope 0.600
+imgui-assert-value Widget Gallery/Curve/Key 2/Free | selected
+imgui-click Widget Gallery/Curve/Preset/Linear
+wait 2
+imgui-assert-value Widget Gallery/Curve/Key 2/In | slope 0.300
+imgui-assert-value Widget Gallery/Curve/Key 2/Linear | selected
+imgui-assert-value Widget Gallery/Curve/Preset/Linear | current
+imgui-click Widget Gallery/Curve/Preset/Constant
+wait 2
+imgui-assert-value Widget Gallery/Curve | (0%, 0) (100%, 0)
+imgui-assert-value Widget Gallery/Curve/Preset/Constant | current
+# Constant again changes nothing.
+imgui-click Widget Gallery/Curve/Preset/Constant
+wait 2
+imgui-assert-value Widget Gallery/Curve | (0%, 0) (100%, 0)
+imgui-assert-value Widget Gallery/Curve/Preset/Constant | current
+# After Constant the eases go back between the ends it had (0 -> 0.3).
+imgui-click Widget Gallery/Curve/Preset/Ease In-Out
+wait 2
+imgui-assert-value Widget Gallery/Curve | (0%, 0) (100%, 0.3)
+imgui-assert-value Widget Gallery/Curve/Key 2/Flat | selected
+imgui-assert-value Widget Gallery/Curve/Preset/Ease In-Out | current
+imgui-click Widget Gallery/Curve/Preset/Reset
+wait 2
+imgui-assert-value Widget Gallery/Curve | (0%, 0) (40%, 0.8) (100%, 0.3)
+
+# A double-click adds an Auto key there (the graph's middle).
+imgui-click Widget Gallery/Curve/Key 1
+wait 2
+imgui-click Widget Gallery/Curve/Preset/Linear
+wait 2
+imgui-click Widget Gallery/Curve | double
+wait 2
+imgui-assert-value Widget Gallery/Curve | (0%, 0) (50%, 0.36) (100%, 0.3)
+imgui-assert-value Widget Gallery/Curve/Key 2/Auto | selected
+# A peak stays level.
+imgui-assert-value Widget Gallery/Curve/Key 2/Out | slope 0.000
+# Its Out handle bends the curve: the key's tangents become Free, In stays.
+imgui-drag Widget Gallery/Curve/Key 2/Out | 0 20
+wait 2
+imgui-assert-value Widget Gallery/Curve/Key 2/Free | selected
+imgui-assert-value Widget Gallery/Curve/Key 2/In | slope 0.000
+imgui-assert-value Widget Gallery/Curve/Key 2/Out | slope -2.045
+# Tangent modes: Linear goes straight to each neighbour, Flat levels it.
+imgui-click Widget Gallery/Curve/Key 2/Linear
+wait 2
+imgui-assert-value Widget Gallery/Curve/Key 2/In | slope 0.720
+imgui-assert-value Widget Gallery/Curve/Key 2/Out | slope -0.120
+imgui-click Widget Gallery/Curve/Key 2/Flat
+wait 2
+imgui-assert-value Widget Gallery/Curve/Key 2/Out | slope 0.000
+# The key moves (its row follows), then Delete removes it.
+imgui-drag Widget Gallery/Curve/Key 2 | 0 -10
+wait 2
+imgui-assert-value Widget Gallery/Curve/Key 2 | 50%, 0.48
+imgui-assert-value Widget Gallery/Curve/Key 2/Y | 0.48
+imgui-assert-value Widget Gallery/Curve/Key 2/Flat | selected
+imgui-click Widget Gallery/Curve/Key 2
+wait 2
+imgui-key Delete
+wait 3
+imgui-assert-value Widget Gallery/Curve | (0%, 0) (100%, 0.3)
+imgui-click Widget Gallery/Curve/Key 2
+wait 2
+imgui-key Delete
+wait 3
+imgui-assert-value Widget Gallery/Curve | (0%, 0) (100%, 0.3)
+
+# The constrained size curve: the end key moves only up and down, the start key not at all.
+imgui-drag Widget Gallery/Size Curve/Key 2 | -40 -20
+wait 2
+imgui-assert-value Widget Gallery/Size Curve | (0%, 1×) (100%, 0.93×)
+imgui-drag Widget Gallery/Size Curve/Key 1 | 30 30
+wait 2
+imgui-assert-value Widget Gallery/Size Curve/Key 1 | 0%, 1×
+imgui-assert-item Widget Gallery/Size Curve/Preset/Linear | false
+imgui-assert-item Widget Gallery/Size Curve/Key 2/In | false
+
+# Captures, dark and light.
+imgui-click Widget Gallery/Reset
+wait 5
+imgui-click Widget Gallery/Curve/Key 2
+wait 2
+imgui-hover Widget Gallery/Size Curve
+wait 5
+panel-screenshot Widget Gallery | .tmp/UX15-Gallery.png
+preference Appearance.Theme | "Light"
+wait 5
+panel-screenshot Widget Gallery | .tmp/UX15-Gallery-Light.png
+preference Appearance.Theme | "Dark"
+wait 3
+imgui-click Widget Gallery/Reset
+wait 3
+imgui-assert-value Widget Gallery/Sunset | #1A0D4D 100% -> #CC3366 100% -> #FF9933 80% -> #FFE680 0%
+imgui-assert-value Widget Gallery/Curve | (0%, 0) (40%, 0.8) (100%, 0.3)

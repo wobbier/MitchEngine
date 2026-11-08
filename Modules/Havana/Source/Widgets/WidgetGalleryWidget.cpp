@@ -14,6 +14,8 @@
 #include <Widgets/TransformWidgets.h>
 #include <Widgets/ChoiceWidgets.h>
 #include <Widgets/ColorPopover.h>
+#include <Widgets/GradientWidgets.h>
+#include <Widgets/CurveWidgets.h>
 #include "Utils/EditorIcons.h"
 #include <Utils/HavanaUtils.h>
 #include <ImGuiTheme.h>
@@ -253,6 +255,53 @@ namespace
         return samples;
     }
 
+    // Gradient and curve editors (UX-15) with fixed samples: a free four-stop sunset, the
+    // constrained two-stop ramp particles use (with a second start colour), a free curve with an
+    // Auto, a Free and a Flat key, and the constrained particle size curve.
+    struct GradientSamples
+    {
+        std::vector<MeWidgets::GradientMath::Stop> Sunset = {
+            { 0.f, { 0.1f, 0.05f, 0.3f }, 1.f },
+            { 0.35f, { 0.8f, 0.2f, 0.4f }, 1.f },
+            { 0.7f, { 1.f, 0.6f, 0.2f }, 0.8f },
+            { 1.f, { 1.f, 0.9f, 0.5f }, 0.f },
+        };
+        std::vector<MeWidgets::GradientMath::Stop> Fade = {
+            { 0.f, { 1.f, 0.6f, 0.2f }, 1.f },
+            { 1.f, { 0.6f, 0.15f, 0.05f }, 0.f },
+        };
+        float FadeVariant[3] = { 1.f, 0.85f, 0.4f };
+        std::vector<MeWidgets::CurveMath::Key> Curve = MakeCurve();
+        std::vector<MeWidgets::CurveMath::Key> Size = MakeSize( 0.5 );
+
+        static std::vector<MeWidgets::CurveMath::Key> MakeCurve()
+        {
+            using MeWidgets::CurveMath::Key;
+            using MeWidgets::CurveMath::Tangent;
+            std::vector<Key> keys( 3 );
+            keys[0] = { 0.0, 0.0, 0.0, 0.0, Tangent::Auto };
+            keys[1] = { 0.4, 0.8, 0.0, 0.0, Tangent::Auto };
+            keys[2] = { 1.0, 0.3, -1.5, -1.5, Tangent::Free };
+            MeWidgets::CurveMath::UpdateTangents( keys );
+            return keys;
+        }
+
+        static std::vector<MeWidgets::CurveMath::Key> MakeSize( double InEnd )
+        {
+            using MeWidgets::CurveMath::Key;
+            using MeWidgets::CurveMath::Tangent;
+            std::vector<Key> keys = { { 0.0, 1.0, 0.0, 0.0, Tangent::Linear }, { 1.0, InEnd, 0.0, 0.0, Tangent::Linear } };
+            MeWidgets::CurveMath::UpdateTangents( keys );
+            return keys;
+        }
+    };
+
+    GradientSamples& Gradients()
+    {
+        static GradientSamples samples;
+        return samples;
+    }
+
     void DrawGalleryIcon( ImDrawList* InDrawList, const char* InIcon, const ImVec2& InMin, float InSize, ImU32 InColor )
     {
         EditorIcons::Draw( InDrawList, InIcon, InMin, InSize, InColor );
@@ -299,6 +348,9 @@ void WidgetGalleryWidget::ResetSamples()
 	Materials() = MaterialSamples();
 	Choices() = ChoiceSamples();
 	Colors() = ColorSamples();
+	Gradients() = GradientSamples();
+	MeWidgets::ResetGradientEditors();
+	MeWidgets::ResetCurveEditors();
 	MeWidgets::Juice::Reset();
 }
 
@@ -497,6 +549,47 @@ void WidgetGalleryWidget::Render()
 		MeWidgets::ColorSwatchPopover( "##hdr", color.Hdr, 3, true, "Glow Color" );
 		HavanaUtils::Label( "Tint" );
 		MeWidgets::ColorSwatchPopover( "##tint", color.Tint, 4, false, "Tint" );
+	}
+	ImGui::PopID();
+
+	ImGui::SeparatorText( "Gradient and curve" );
+	GradientSamples& gradient = Gradients();
+	ImGui::PushID( "Gradient" );
+	{
+		MeWidgets::GradientOptions sunset;
+		sunset.MinStops = 2;
+		sunset.MaxStops = 6;
+		MeWidgets::GradientEditor( "Sunset", gradient.Sunset, sunset );
+		static const char* const kEnds[] = { "Start", "End" };
+		MeWidgets::GradientOptions fade;
+		fade.MinStops = 2;
+		fade.MaxStops = 2;
+		fade.FixedPositions = true;
+		fade.Variant = gradient.FadeVariant;
+		fade.StopNames = kEnds;
+		fade.Tooltip = "A fixed pair of colours (a particle's start and end)";
+		MeWidgets::GradientEditor( "Fade", gradient.Fade, fade );
+
+		MeWidgets::CurveOptions curve;
+		curve.X = MakeSpec( Unit::Percent, 0.0, 1.0, false, 0.0 );
+		curve.Y = MakeSpec( Unit::None, 0.0, 1.0, false, 0.0 );
+		curve.Y.Decimals = 2;
+		static const std::vector<MeWidgets::CurveMath::Key> kCurveStart = GradientSamples::MakeCurve();
+		curve.ResetKeys = &kCurveStart;
+		MeWidgets::CurveEditor( "Curve", gradient.Curve, curve );
+
+		MeWidgets::CurveOptions size;
+		size.X = MakeSpec( Unit::Percent, 0.0, 1.0, false, 0.0 );
+		size.Y = MakeSpec( Unit::Multiplier, 0.0, 10.0, false, 0.5 );
+		size.FitY = true;
+		size.MinKeys = size.MaxKeys = 2;
+		size.LockX = true;
+		size.LockedKeys = 1u;
+		size.Tangents = false;
+		size.Presets = false;
+		size.KeyRow = false;
+		size.Height = 5.5f;
+		MeWidgets::CurveEditor( "Size Curve", gradient.Size, size );
 	}
 	ImGui::PopID();
 	ImGui::End();

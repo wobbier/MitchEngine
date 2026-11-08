@@ -41,6 +41,9 @@ namespace MeWidgets::ItemLog
         // matches a query scoped by its row ("Joint Type/Distance"), so it never shadows a field
         // with the same name ("PhysicsJoint/Distance").
         bool NeedsRowScope = false;
+        // (UX-15) A part of a row's widget that its own parts sit in ("Key 2" for a curve key's
+        // tangent handles): queries can scope by it like a row ("Curve/Key 2/In").
+        std::string Part;
 
         // Whether a pointer at the item's center would land on it (not scrolled or clipped away).
         bool IsPointable() const { return ClipRect.Contains( Rect.GetCenter() ); }
@@ -70,6 +73,15 @@ namespace MeWidgets::ItemLog
     std::string ItemRow( ImGuiID InId );
     // The last item is such a part (Item::NeedsRowScope).
     void MarkLastItemRowScoped();
+    // (UX-15) Items recorded until PopScope sit in the row InRow (when not empty, whatever line
+    // they are drawn on) and the part InPart (when not empty): a widget's rows under its caption
+    // ("Gradient/Stop 2/Alpha", "Curve/Preset/Linear") without naming each item. Nests; the
+    // innermost wins.
+    void PushScope( std::string_view InRow, std::string_view InPart = {} );
+    void PopScope();
+    // Names / scopes an item drawn this frame by ID (one whose widget draws more after it).
+    void SetItemLabel( ImGuiID InId, std::string_view InLabel );
+    void MarkItemRowScoped( ImGuiID InId );
 
     // Items from the last completed frame, in draw order.
     const std::vector<Item>& LastFrame();

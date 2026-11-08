@@ -58,6 +58,15 @@ assert-images .tmp/UX4-Gallery-Color.png | Engine/Tests/Editor/Reference/WidgetG
 imgui-assert-value Widget Gallery/Light Color | #FF8800
 imgui-assert-value Widget Gallery/Glow Color | #FF330D +2 EV
 imgui-assert-value Widget Gallery/Tint | #4099FF80
+# The gradient and curve editors (UX-15) below them: a free four-stop gradient, a constrained pair
+# with a second start colour, a free curve with tangent handles and presets, a constrained curve.
+imgui-hover Widget Gallery/Size Curve:label
+wait 5
+panel-screenshot Widget Gallery | .tmp/UX4-Gallery-Gradient.png
+assert-images .tmp/UX4-Gallery-Gradient.png | Engine/Tests/Editor/Reference/WidgetGalleryGradient.png | same | 0.002
+imgui-assert-value Widget Gallery/Sunset | #1A0D4D 100% -> #CC3366 100% -> #FF9933 80% -> #FFE680 0%
+imgui-assert-value Widget Gallery/Fade | #FF9933 100% -> #99260D 0%
+imgui-assert-value Widget Gallery/Curve | (0%, 0) (40%, 0.8) (100%, 0.3)
 # Each choice control has its own ID: a click on any of them lands (shared IDs once let only
 # the first control drawn take the click). Then Reset puts the samples back.
 imgui-click Widget Gallery/Joint/Fixed
