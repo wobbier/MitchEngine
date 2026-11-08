@@ -1,4 +1,5 @@
 #include "PCH.h"
+#include <cstdio>
 #include "AutomationRunner.h"
 #include "Core/CommandLine.h"
 #include "Core/CrashHandler.h"
@@ -31,6 +32,7 @@ void AutomationRunner::Init()
     m_targetFrames = CommandLine::GetInt( "--frames", -1 );
     m_warmupFrames = CommandLine::GetInt( "--warmup", 30 );
     m_screenshotPath = CommandLine::GetString( "--screenshot" );
+    m_sequenceEvery = CommandLine::GetInt( "--screenshot-every", 0 );
     m_perfReportPath = CommandLine::GetString( "--perf-report" );
     m_tracePath = CommandLine::GetString( "--trace" );
 
@@ -71,6 +73,18 @@ bool AutomationRunner::OnFrameEnd( BGFXRenderer& renderer, double frameMilliseco
     {
         OPTICK_START_CAPTURE();
         m_isTracing = true;
+    }
+    // --screenshot-every N: a numbered frame every N frames after the warmup, next to the final
+    // screenshot (shot.png -> shot_0001.png, ...), for checking motion.
+    if( m_sequenceEvery > 0 && !m_screenshotPath.empty() && !m_screenshotRequested && m_frameIndex > static_cast<uint64_t>( m_warmupFrames )
+        && ( m_frameIndex - static_cast<uint64_t>( m_warmupFrames ) ) % static_cast<uint64_t>( m_sequenceEvery ) == 0 )
+    {
+        const size_t dot = m_screenshotPath.find_last_of( '.' );
+        const std::string stem = dot == std::string::npos ? m_screenshotPath : m_screenshotPath.substr( 0, dot );
+        const std::string extension = dot == std::string::npos ? std::string( ".png" ) : m_screenshotPath.substr( dot );
+        char number[16];
+        std::snprintf( number, sizeof( number ), "_%04u", ++m_sequenceCount );
+        renderer.RequestScreenshot( stem + number + extension );
     }
     if( m_frameIndex > static_cast<uint64_t>( m_warmupFrames ) && !m_screenshotRequested )
     {

@@ -53,6 +53,9 @@ private:
     bool m_screenshotRequested = false;
     uint32_t m_screenshotBaseline = 0;
     int m_framesSinceScreenshotRequest = 0;
+    // --screenshot-every: frames between numbered sequence shots (0: none), and how many so far.
+    int m_sequenceEvery = 0;
+    uint32_t m_sequenceCount = 0;
     std::vector<double> m_frameTimes;
     // Time between consecutive frame ends (includes frame limiting / vsync waits).
     std::vector<double> m_wallFrameTimes;
