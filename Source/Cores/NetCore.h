@@ -238,6 +238,10 @@ public:
     bool StartOfflineRecording( const std::string& InPath, NetReplayHeader InHeader, uint16_t InTickRate, const NetReplaySettings& InSettings = NetReplaySettings(),
         uint8_t InLocalClient = 1 );
     bool IsRecordingOffline() const { return m_offlineServer != nullptr && IsRecording(); }
+    // The script schema and the command layout must stay as they are (a replay file holds one of each,
+    // the handshake checks them): a live session (ME-311), or an offline recording (ME-215). The engine
+    // holds script hot reload and the action map's layout refresh while it's true.
+    bool IsSchemaFixed() const { return IsSessionLive() || IsRecordingOffline(); }
     // Writes the last chunk and the index and waits (logged); the recorder stays readable until
     // Shutdown or the next StartRecording. Shutdown stops it too (an offline recording's capture goes).
     void StopRecording();

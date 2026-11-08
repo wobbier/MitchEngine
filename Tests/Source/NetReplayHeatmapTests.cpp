@@ -510,6 +510,8 @@ TEST_CASE( "Offline recording: a session with no network records like a server, 
     CHECK( net.IsRecording() );
     CHECK( net.IsRecordingOffline() );
     CHECK_FALSE( net.IsActive() );
+    CHECK_FALSE( net.IsSessionLive() );
+    CHECK( net.IsSchemaFixed() );       // hot reload and the layout's refresh hold: one schema per file
     CHECK_FALSE( net.IsServer() );
     CHECK_FALSE( net.IsClient() );
     CHECK_FALSE( net.StartRecording( path.string() + ".server" ) );    // a server's (there's none)
@@ -572,6 +574,7 @@ TEST_CASE( "Offline recording: a session with no network records like a server, 
     net.StopRecording();
     CHECK_FALSE( net.IsRecording() );
     CHECK_FALSE( net.IsRecordingOffline() );
+    CHECK_FALSE( net.IsSchemaFixed() );
     REQUIRE( net.GetRecorder() );
     CHECK_FALSE( net.GetRecorder()->HasFailed() );
     CHECK( net.GetRecorder()->GetTicksRecorded() == 100 );
@@ -659,6 +662,7 @@ TEST_CASE( "Offline recording: a session with no network records like a server, 
     REQUIRE( net.Host( transport, 60 ) );
     CHECK_FALSE( net.IsRecording() );
     CHECK( net.IsServer() );
+    CHECK( net.IsSchemaFixed() );
     CHECK( net.GetReplicationServer() != nullptr );
     CHECK( net.FindEntity( targetId ) == target );
     net.Shutdown();

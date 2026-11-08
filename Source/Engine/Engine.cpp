@@ -884,10 +884,11 @@ void Engine::Run()
                     // The local player's networked actions (NET-6) into the tick's command, with
                     // this step's edges (a tap between ticks still counts once). A client sends
                     // it; offline it's C#'s Net.LocalCommand (the layout follows the map's hot
-                    // reloads until a session fixes it). A server has no local player.
+                    // reloads until a session, or an offline recording (ME-215: one layout per
+                    // replay file), fixes it). A server has no local player.
                     // The game world's SingletonInput (ME-297): a second world samples into its own.
                     SingletonInput& worldInput = GameWorld->Singleton<SingletonInput>();
-                    if( !Net->IsActive() )
+                    if( !Net->IsActive() && !Net->IsRecordingOffline() )
                     {
                         worldInput.RefreshCommandLayout( GetInput() );
                     }
@@ -1240,8 +1241,9 @@ void Engine::PollAssetChanges()
 #if USING( ME_SCRIPTING )
     // ME-311: script hot reload pauses while this process's network session is live (a .cs edit
     // would rebuild in every local peer and change the schema the handshake checks); an edit made
-    // meanwhile rebuilds once the session ends.
-    if( m_scriptReloadGate.Update( Net && Net->IsSessionLive() ) )
+    // meanwhile rebuilds once the session ends. ME-215: and while an offline session records (a
+    // replay file holds one script schema: its header's).
+    if( m_scriptReloadGate.Update( Net && Net->IsSchemaFixed() ) )
     {
         ScriptEngine::RequestReload();
     }
