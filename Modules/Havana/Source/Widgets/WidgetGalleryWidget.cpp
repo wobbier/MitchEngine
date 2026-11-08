@@ -12,6 +12,8 @@
 #include <Widgets/AudioWidgets.h>
 #include <Widgets/CharacterWidgets.h>
 #include <Widgets/TransformWidgets.h>
+#include <Widgets/ChoiceWidgets.h>
+#include "Utils/EditorIcons.h"
 #include <Utils/HavanaUtils.h>
 #include <ImGuiTheme.h>
 #include <imgui.h>
@@ -218,6 +220,28 @@ namespace
         return samples;
     }
 
+    // Choice widgets (UX-13) with fixed samples: a dynamic body, a hinge joint, centred text
+    // (icons), a mixed projection and two of four nav areas.
+    struct ChoiceSamples
+    {
+        int Body = 2;
+        int Joint = 1;
+        int Align = 1;
+        int Projection = 0;
+        uint64_t Areas = 0b0101;
+    };
+
+    ChoiceSamples& Choices()
+    {
+        static ChoiceSamples samples;
+        return samples;
+    }
+
+    void DrawGalleryIcon( ImDrawList* InDrawList, const char* InIcon, const ImVec2& InMin, float InSize, ImU32 InColor )
+    {
+        EditorIcons::Draw( InDrawList, InIcon, InMin, InSize, InColor );
+    }
+
     const MeWidgets::Reference kSampleRungs[] = {
         { "Candle", 0.1, "A candle flame" },
         { "Bulb", 1.0, "A household bulb" },
@@ -257,6 +281,7 @@ void WidgetGalleryWidget::ResetSamples()
 	Characters() = CharacterSamples();
 	Transforms() = TransformSamples();
 	Materials() = MaterialSamples();
+	Choices() = ChoiceSamples();
 	MeWidgets::Juice::Reset();
 }
 
@@ -416,6 +441,33 @@ void WidgetGalleryWidget::Render()
 		material.EmissiveIntensity = MeWidgets::MaterialMath::EVToIntensity( ev );
 	}
 	MeWidgets::EmissiveStrip( "Glow", material.EmissiveIntensity, material.Emissive );
+	ImGui::PopID();
+
+	ImGui::SeparatorText( "Choice widgets" );
+	ChoiceSamples& choice = Choices();
+	ImGui::PushID( "Choice" );
+	{
+		MeWidgets::SetIconDrawer( &DrawGalleryIcon );
+		// Each control has its own ID: the rows share one scope (Label pushes none).
+		static const char* const kBodies[] = { "Static", "Kinematic", "Dynamic" };
+		HavanaUtils::Label( "Body Type" );
+		MeWidgets::Segmented( "##body", kBodies, nullptr, 3, choice.Body );
+		static const char* const kJoints[] = { "Fixed", "Hinge", "Ball Socket", "Slider", "Distance" };
+		HavanaUtils::Label( "Joint" );
+		MeWidgets::Segmented( "##joint", kJoints, nullptr, 5, choice.Joint );
+		static const char* const kAligns[] = { "Left", "Center", "Right" };
+		static const char* const kAlignIcons[] = { "align-left", "align-center", "align-right" };
+		HavanaUtils::Label( "Alignment" );
+		MeWidgets::Segmented( "##align", kAligns, kAlignIcons, 3, choice.Align );
+		// Two selected cameras that disagree: no pill until a click sets both.
+		static const char* const kProjections[] = { "Perspective", "Orthographic" };
+		HavanaUtils::Label( "Projection" );
+		MeWidgets::Segmented( "##projection", kProjections, nullptr, 2, choice.Projection, true );
+		static const char* const kAreas[] = { "Walkable", "Not Walkable", "Jump", "Water" };
+		static const int kAreaBits[] = { 0, 1, 2, 3 };
+		HavanaUtils::Label( "Areas" );
+		MeWidgets::MaskChips( "##areas", kAreas, kAreaBits, 4, choice.Areas, 0b1111 );
+	}
 	ImGui::PopID();
 	ImGui::End();
 }

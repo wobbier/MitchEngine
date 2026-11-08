@@ -40,8 +40,30 @@ imgui-hover Widget Gallery/Gizmo Mode:label
 wait 5
 panel-screenshot Widget Gallery | .tmp/UX4-Gallery-Transform.png
 assert-images .tmp/UX4-Gallery-Transform.png | Engine/Tests/Editor/Reference/WidgetGalleryTransform.png | same | 0.002
-# The material widgets (UX-12) at the bottom.
+# The material widgets (UX-12) below them.
 imgui-hover Widget Gallery/Glow/Swatch
 wait 5
 panel-screenshot Widget Gallery | .tmp/UX4-Gallery-Material.png
 assert-images .tmp/UX4-Gallery-Material.png | Engine/Tests/Editor/Reference/WidgetGalleryMaterial.png | same | 0.002
+# The choice widgets (UX-13) below them.
+imgui-hover Widget Gallery/Areas/Water
+wait 5
+panel-screenshot Widget Gallery | .tmp/UX4-Gallery-Choice.png
+assert-images .tmp/UX4-Gallery-Choice.png | Engine/Tests/Editor/Reference/WidgetGalleryChoice.png | same | 0.002
+# Each choice control has its own ID: a click on any of them lands (shared IDs once let only
+# the first control drawn take the click). Then Reset puts the samples back.
+imgui-click Widget Gallery/Joint/Fixed
+wait 2
+imgui-assert-value Widget Gallery/Joint | Fixed
+imgui-assert-value Widget Gallery/Body Type | Dynamic
+imgui-click Widget Gallery/Alignment/Right
+wait 2
+imgui-assert-value Widget Gallery/Alignment | Right
+imgui-assert-value Widget Gallery/Joint | Fixed
+imgui-click Widget Gallery/Areas/Not Walkable
+wait 2
+imgui-assert-value Widget Gallery/Areas/Not Walkable | on
+imgui-assert-value Widget Gallery/Areas | Mixed (3)
+imgui-click Widget Gallery/Reset
+wait 5
+imgui-assert-value Widget Gallery/Joint | Hinge

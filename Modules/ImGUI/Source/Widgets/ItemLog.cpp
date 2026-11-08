@@ -352,6 +352,29 @@ namespace MeWidgets::ItemLog
         }
     }
 
+    void MarkLastItemRowScoped()
+    {
+        ImGuiContext* context = ImGui::GetCurrentContext();
+        if( !Get().Enabled || !context )
+        {
+            return;
+        }
+        if( Item* item = FindBuilding( context->LastItemData.ID ) )
+        {
+            item->NeedsRowScope = true;
+        }
+    }
+
+    std::string ItemRow( ImGuiID InId )
+    {
+        if( !Get().Enabled )
+        {
+            return std::string();
+        }
+        const Item* item = FindBuilding( InId );
+        return item ? item->Row : std::string();
+    }
+
     void SetLastItemValue( std::string_view InValue )
     {
         if( ImGuiContext* context = ImGui::GetCurrentContext() )
@@ -421,10 +444,19 @@ namespace MeWidgets::ItemLog
         {
             return false;
         }
-        const bool named = NameMatches( InItem.Label, InQuery.Name ) || NameMatches( InItem.Row, InQuery.Name );
+        const bool byLabel = NameMatches( InItem.Label, InQuery.Name );
+        const bool named = byLabel || NameMatches( InItem.Row, InQuery.Name );
         if( !named )
         {
             return false;
+        }
+        if( InItem.NeedsRowScope && byLabel && !NameMatches( InItem.Row, InQuery.Name ) )
+        {
+            const bool rowScoped = std::any_of( InQuery.Scopes.begin(), InQuery.Scopes.end(), [&]( const std::string& InScope ) { return NameMatches( InItem.Row, InScope ); } );
+            if( !rowScoped )
+            {
+                return false;
+            }
         }
         for( const std::string& scope : InQuery.Scopes )
         {

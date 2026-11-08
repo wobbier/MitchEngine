@@ -37,6 +37,10 @@ namespace MeWidgets::ItemLog
         std::string Value;      // what the widget displays, for widgets that report it
         bool IsRowLabel = false;
         bool IsWindow = false;
+        // A part of a row's widget named by a value (a segment "Distance"): its label only
+        // matches a query scoped by its row ("Joint Type/Distance"), so it never shadows a field
+        // with the same name ("PhysicsJoint/Distance").
+        bool NeedsRowScope = false;
 
         // Whether a pointer at the item's center would land on it (not scrolled or clipped away).
         bool IsPointable() const { return ClipRect.Contains( Rect.GetCenter() ); }
@@ -61,6 +65,11 @@ namespace MeWidgets::ItemLog
     // Puts the last item in a row (a widget's parts below its row label: a graph's handles, a
     // bar's presets), so queries can scope it: "Light/Falloff/Range".
     void SetLastItemRow( std::string_view InRow );
+    // The row an item drawn this frame sits in ("" when none or the log is off): for a widget's
+    // parts that wrap below the row's line (UX-13 chips), passed on with SetLastItemRow.
+    std::string ItemRow( ImGuiID InId );
+    // The last item is such a part (Item::NeedsRowScope).
+    void MarkLastItemRowScoped();
 
     // Items from the last completed frame, in draw order.
     const std::vector<Item>& LastFrame();

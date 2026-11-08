@@ -1,0 +1,140 @@
+# UX-13: enums with up to five values are segmented controls, a few named choices too, driven like
+# a person would: click a segment (one undo step each), step it with Left / Right while it has
+# keyboard focus, read the row's value. Masks of up to eight bits are toggle chips (the gallery); Area Mask's sixteen areas stay a combo. Enums
+# with more values (the light's Type) stay combos. Two bodies that disagree show the mixed
+# state (no pill); one click sets both. Dark and light captures.
+# Havana --scene Assets/Scenes/Tests/PhysicsTest.lvl --frame-time 0.0166667 --editor-exec Engine/Tests/Editor/UX13Enums.edscript
+wait 20
+create ProbeEnums
+add-component Rigidbody
+add-component AudioSource
+add-component Camera
+add-component NavMeshAgent
+add-component Light
+wait 5
+select ProbeEnums
+wait 5
+
+# Body Type: Static / Kinematic / Dynamic, the row reads Dynamic.
+imgui-assert-value Rigidbody/Body Type | Dynamic
+imgui-assert-value Rigidbody/Body Type/Dynamic | selected
+imgui-assert-value Rigidbody/Body Type/Static | unselected
+imgui-click Rigidbody/Body Type/Kinematic
+assert-field ProbeEnums | Rigidbody.BodyType | "Kinematic"
+imgui-assert-value Rigidbody/Body Type | Kinematic
+imgui-assert-value Rigidbody/Body Type/Kinematic | selected
+undo
+assert-field ProbeEnums | Rigidbody.BodyType | "Dynamic"
+imgui-assert-value Rigidbody/Body Type | Dynamic
+redo
+assert-field ProbeEnums | Rigidbody.BodyType | "Kinematic"
+undo
+# Clicking the chosen segment changes nothing (and adds no undo step).
+imgui-click Rigidbody/Body Type/Dynamic
+assert-field ProbeEnums | Rigidbody.BodyType | "Dynamic"
+
+# Keys: a clicked segment has focus; Left / Right step the choice (stopping at the ends), one undo
+# step per press.
+imgui-click Rigidbody/Body Type/Static
+assert-field ProbeEnums | Rigidbody.BodyType | "Static"
+imgui-key Left
+wait 2
+assert-field ProbeEnums | Rigidbody.BodyType | "Static"
+imgui-key Right
+wait 2
+assert-field ProbeEnums | Rigidbody.BodyType | "Kinematic"
+imgui-assert-value Rigidbody/Body Type | Kinematic
+imgui-key Right
+wait 2
+assert-field ProbeEnums | Rigidbody.BodyType | "Dynamic"
+undo
+assert-field ProbeEnums | Rigidbody.BodyType | "Kinematic"
+undo
+assert-field ProbeEnums | Rigidbody.BodyType | "Static"
+undo
+assert-field ProbeEnums | Rigidbody.BodyType | "Dynamic"
+imgui-hover Rigidbody/Body Type:label
+panel-screenshot Properties | .tmp/UX13-BodyType.png
+
+# Rolloff (three values) and Projection (two).
+imgui-assert-value AudioSource/Rolloff | Inverse
+imgui-click AudioSource/Rolloff/Linear
+assert-field ProbeEnums | AudioSource.Rolloff | "Linear"
+imgui-assert-value AudioSource/Rolloff | Linear
+imgui-click AudioSource/Rolloff/LinearSquare
+assert-field ProbeEnums | AudioSource.Rolloff | "LinearSquare"
+undo
+assert-field ProbeEnums | AudioSource.Rolloff | "Linear"
+undo
+assert-field ProbeEnums | AudioSource.Rolloff | "Inverse"
+imgui-hover AudioSource/Rolloff:label
+panel-screenshot Properties | .tmp/UX13-Rolloff.png
+imgui-assert-value Camera/Projection | Perspective
+imgui-click Camera/Projection/Orthographic
+assert-field ProbeEnums | Camera.Projection | "Orthographic"
+imgui-assert-value Camera/Projection | Orthographic
+undo
+assert-field ProbeEnums | Camera.Projection | "Perspective"
+
+# Agent Type: named choices (Any and the project's agent types), skipping unused slots.
+imgui-assert-value NavMeshAgent/Agent Type | Any
+imgui-click NavMeshAgent/Agent Type/Humanoid
+assert-field ProbeEnums | NavMeshAgent.AgentType | 1
+imgui-assert-value NavMeshAgent/Agent Type | Humanoid
+undo
+assert-field ProbeEnums | NavMeshAgent.AgentType | 0
+
+# Area Mask has sixteen areas: still a combo with a checkbox per area (chips are for masks of up
+# to eight bits; the gallery's Areas sample covers them).
+imgui-assert-item NavMeshAgent/Area Mask/Jump | false
+imgui-assert-value NavMeshAgent/Area Mask | Everything
+imgui-click NavMeshAgent/Area Mask
+wait 2
+imgui-click Jump
+assert-field ProbeEnums | NavMeshAgent.AreaMask | 65531
+imgui-key Escape
+wait 2
+imgui-assert-value NavMeshAgent/Area Mask | Mixed (15)
+undo
+assert-field ProbeEnums | NavMeshAgent.AreaMask | 65535
+
+# Light Type (shown as Type) has six values: still a combo.
+imgui-assert-item Light/Type/Spot | false
+imgui-assert-value Light/Type | Point
+imgui-hover Light/Type:label
+panel-screenshot Properties | .tmp/UX13-LightType.png
+
+# Mixed: two bodies that disagree. No segment is chosen; clicking one sets both (one undo step).
+create ProbeEnumsB
+add-component Rigidbody
+set Rigidbody.BodyType "Static"
+wait 3
+select ProbeEnums,ProbeEnumsB
+wait 5
+imgui-assert-value Rigidbody/Body Type | Mixed
+imgui-assert-value Rigidbody/Body Type/Dynamic | unselected
+imgui-assert-value Rigidbody/Body Type/Static | unselected
+imgui-hover Rigidbody/Body Type:label
+panel-screenshot Properties | .tmp/UX13-Mixed.png
+imgui-click Rigidbody/Body Type/Dynamic
+assert-field ProbeEnums | Rigidbody.BodyType | "Dynamic"
+assert-field ProbeEnumsB | Rigidbody.BodyType | "Dynamic"
+imgui-assert-value Rigidbody/Body Type | Dynamic
+undo
+assert-field ProbeEnums | Rigidbody.BodyType | "Dynamic"
+assert-field ProbeEnumsB | Rigidbody.BodyType | "Static"
+imgui-assert-value Rigidbody/Body Type | Mixed
+
+# Light theme, juice Off: the pill sits still on the chosen segment.
+select ProbeEnums
+preference Appearance.Theme | "Light"
+preference Appearance.Juice | "Off"
+wait 5
+imgui-click Rigidbody/Body Type/Kinematic
+assert-field ProbeEnums | Rigidbody.BodyType | "Kinematic"
+imgui-hover Rigidbody/Body Type:label
+panel-screenshot Properties | .tmp/UX13-Light-BodyType.png
+undo
+assert-field ProbeEnums | Rigidbody.BodyType | "Dynamic"
+preference Appearance.Theme | "Dark"
+preference Appearance.Juice | "Full"

@@ -13,10 +13,12 @@
 #include "Types/AssetType.h"
 #include "Utils/CommonUtils.h"
 #include "Selection.h"
+#include "Utils/EditorIcons.h"
 #include <Utils/HavanaUtils.h>
 #include <Widgets/ItemLog.h>
 #include <Widgets/ScrubField.h>
 #include <Widgets/TransformWidgets.h>
+#include <Widgets/ChoiceWidgets.h>
 #include <Widgets/Juice.h>
 #include <Utils/EditorConfig.h>
 #include <ImGuiTheme.h>
@@ -361,6 +363,124 @@ namespace ReflectionUI
             return ImGui::DragFloat( InLabel, &InOutValue, speed, 0.f, 0.f, "%.3f" );
         }
 
+        void DrawEditorIcon( ImDrawList* InDrawList, const char* InIcon, const ImVec2& InMin, float InSize, ImU32 InColor )
+        {
+            EditorIcons::Draw( InDrawList, InIcon, InMin, InSize, InColor );
+        }
+
+        // Enums whose values have an obvious glyph show it in their segments (UX-13); every other
+        // enum shows its names.
+        const char* EnumIcon( const std::string& InEnum, const std::string& InValue )
+        {
+            static const std::map<std::string, std::map<std::string, const char*>> kIcons = {
+                { "TextAlignment", { { "Left", "align-left" }, { "Center", "align-center" }, { "Right", "align-right" } } },
+                { "TextAnchor", { { "Top", "layout-align-top" }, { "Middle", "layout-align-middle" }, { "Bottom", "layout-align-bottom" } } },
+            };
+            const auto icons = kIcons.find( InEnum );
+            if( icons == kIcons.end() )
+            {
+                return nullptr;
+            }
+            const auto icon = icons->second.find( InValue );
+            return icon != icons->second.end() ? icon->second : nullptr;
+        }
+
+        // Whether the field being drawn shows a mixed multi-selection (DrawValue pushes the flag).
+        bool DrawingMixed()
+        {
+            return ( GImGui->CurrentItemFlags & ImGuiItemFlags_MixedValue ) != 0;
+        }
+
+        // An enum with a few values as a segmented control (UX-13). False (nothing drawn) when it
+        // has more values or the column is too narrow: the caller draws its combo.
+        bool DrawEnumSegments( const EnumInfo& InInfo, const FieldInfo* InField, const ValueOps& InOps, void* InValue, int64_t InCurrent, bool InMixed, bool& OutChanged )
+        {
+            const int count = static_cast<int>( InInfo.Values.size() );
+            if( MeWidgets::ChoiceLogic::PickLook( count, false ) != MeWidgets::ChoiceLogic::Look::Segmented )
+            {
+                return false;
+            }
+            const char* labels[MeWidgets::ChoiceLogic::kMaxSegments] = {};
+            const char* icons[MeWidgets::ChoiceLogic::kMaxSegments] = {};
+            int index = -1;
+            for( int i = 0; i < count; ++i )
+            {
+                labels[i] = InInfo.Values[i].first.c_str();
+                icons[i] = EnumIcon( InInfo.Name, InInfo.Values[i].first );
+                if( InInfo.Values[i].second == InCurrent )
+                {
+                    index = i;
+                }
+            }
+            MeWidgets::SetIconDrawer( &DrawEditorIcon );
+            if( !MeWidgets::SegmentedFits( labels, icons, count ) )
+            {
+                return false;
+            }
+            if( MeWidgets::Segmented( "##value", labels, icons, count, index, InMixed, InField ? InField->Tooltip.c_str() : nullptr ) && index >= 0 )
+            {
+                InOps.SetEnum( InValue, InInfo.Values[index].second );
+                OutChanged = true;
+            }
+            return true;
+        }
+
+        // Integer choices with a few named values (UX-13): segments for one of them, chips for a
+        // mask. False (nothing drawn) when there are more or the column is too narrow.
+        bool DrawFewChoices( const char* InLabel, const FieldInfo& InField, uint64_t& InOutValue, uint64_t InAllChoices, bool& OutChanged )
+        {
+            std::vector<std::string> names;
+            std::vector<int> slots;
+            for( int i = 0; i < InField.ChoiceCount && i < 64; ++i )
+            {
+                std::string name = InField.ChoiceName( i );
+                if( !name.empty() )
+                {
+                    names.push_back( std::move( name ) );
+                    slots.push_back( i );
+                }
+            }
+            const int count = static_cast<int>( names.size() );
+            const MeWidgets::ChoiceLogic::Look look = MeWidgets::ChoiceLogic::PickLook( count, InField.ChoiceMask );
+            if( look == MeWidgets::ChoiceLogic::Look::Combo )
+            {
+                return false;
+            }
+            std::vector<const char*> labels;
+            for( const std::string& name : names )
+            {
+                labels.push_back( name.c_str() );
+            }
+            const char* tooltip = InField.Tooltip.empty() ? nullptr : InField.Tooltip.c_str();
+            if( look == MeWidgets::ChoiceLogic::Look::Chips )
+            {
+                if( !MeWidgets::ChipsFit( labels.data(), count ) )
+                {
+                    return false;
+                }
+                OutChanged = MeWidgets::MaskChips( InLabel, labels.data(), slots.data(), count, InOutValue, InAllChoices, DrawingMixed(), tooltip );
+                return true;
+            }
+            if( !MeWidgets::SegmentedFits( labels.data(), nullptr, count ) )
+            {
+                return false;
+            }
+            int index = -1;
+            for( int i = 0; i < count; ++i )
+            {
+                if( InOutValue == static_cast<uint64_t>( slots[i] ) )
+                {
+                    index = i;
+                }
+            }
+            if( MeWidgets::Segmented( InLabel, labels.data(), nullptr, count, index, DrawingMixed(), tooltip ) && index >= 0 )
+            {
+                InOutValue = static_cast<uint64_t>( slots[index] );
+                OutChanged = true;
+            }
+            return true;
+        }
+
         // Integer fields with named choices: a combo, or a multi-select mask.
         bool DrawChoices( const char* InLabel, const FieldInfo& InField, const ValueOps& InOps, void* InValue )
         {
@@ -370,6 +490,16 @@ namespace ReflectionUI
             const uint64_t valueMask = bytes >= 8 ? ~0ull : ( ( 1ull << ( bytes * 8 ) ) - 1 );
             const uint64_t allChoices = InField.ChoiceCount >= 64 ? ~0ull : ( ( 1ull << InField.ChoiceCount ) - 1 );
             bool changed = false;
+
+            if( DrawFewChoices( InLabel, InField, value, allChoices, changed ) )
+            {
+                if( changed )
+                {
+                    value &= valueMask;
+                    std::memcpy( InValue, &value, bytes );
+                }
+                return changed;
+            }
 
             std::string preview;
             if( InField.ChoiceMask )
@@ -905,6 +1035,7 @@ namespace ReflectionUI
             }
             ImGui::SetNextItemWidth( valueWidth );
             ImGui::PushItemFlag( ImGuiItemFlags_MixedValue, InMixed );
+            bool selfReported = false;
 
             switch( InOps.Type )
             {
@@ -965,6 +1096,12 @@ namespace ReflectionUI
             {
                 const EnumInfo* info = InOps.GetEnumInfo();
                 const int64_t current = InOps.GetEnum( InValue );
+                // A few values: a segmented control that reports its own value (UX-13).
+                if( info && DrawEnumSegments( *info, InField, InOps, InValue, current, InMixed, changed ) )
+                {
+                    selfReported = true;
+                    break;
+                }
                 const char* currentName = info ? info->ToName( current ) : nullptr;
                 const std::string preview = currentName ? currentName : std::to_string( current );
                 if( ImGui::BeginCombo( "##value", preview.c_str() ) )
@@ -1003,7 +1140,10 @@ namespace ReflectionUI
                 ImGui::TextDisabled( "<%s>", ToString( InOps.Type ) );
                 break;
             }
-            ReportValue( InField, InOps, InValue );
+            if( !selfReported )
+            {
+                ReportValue( InField, InOps, InValue );
+            }
 
             ImGui::PopItemFlag();
             ImGui::PopID();
