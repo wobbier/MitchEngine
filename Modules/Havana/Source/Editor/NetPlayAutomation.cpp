@@ -11,6 +11,7 @@
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "JSON.h"
+#include "Widgets/NetDebuggerWidget.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -157,7 +158,7 @@ bool NetPlayAutomation::Handles( const std::string& InCommand )
 {
     return InCommand == "play-net" || InCommand == "wait-net-connected" || InCommand == "assert-net-field" || InCommand == "net-knockback"
         || InCommand == "assert-net-mispredict" || InCommand == "net-condition" || InCommand == "wait-net-rtt" || InCommand == "net-control"
-        || InCommand == "wait-net-children";
+        || InCommand == "wait-net-children" || InCommand == "net-ui-set" || InCommand == "net-ui-click" || InCommand == "wait-net-view";
 }
 
 
@@ -469,6 +470,95 @@ bool NetPlayAutomation::Execute( EditorApp& InApp, const std::string& InCommand,
             const int alive = NetPlay::CountChildProcesses();
             OutDetail = std::to_string( alive ) + " PIE child process(es) alive (/proc)";
             if( alive == wanted )
+            {
+                CLog::Log( CLog::LogType::Info, "PIE: " + OutDetail );
+                return 1;
+            }
+            return 0;
+        };
+        return true;
+    }
+    if( InCommand == "net-ui-set" || InCommand == "net-ui-click" )
+    {
+        // net-ui-set Lag (ms, each way) | 60 [| frames]    net-ui-click Restart##2 [| frames]
+        // Queued for the widget with that label (NetPlay's Driven*): it has to be drawn and enabled
+        // (the Net Debugger panel open, or the toolbar's popup) before the frames run out.
+        const bool set = InCommand == "net-ui-set";
+        if( parts[0].empty() || ( set && ( parts.size() < 2 || parts[1].empty() ) ) )
+        {
+            OutError = set ? "net-ui-set: label | value [| frames]" : "net-ui-click: label [| frames]";
+            return false;
+        }
+        const std::string label = parts[0];
+        play.QueueUi( label, set ? parts[1] : std::string() );
+        OutPoll.Frames = FramesOr( parts, set ? 2 : 1, 300 );
+        OutPoll.Check = [label]( std::string& OutDetail ) -> int {
+            if( NetPlay::Get().IsUiQueued( label ) )
+            {
+                OutDetail = "nothing drew \"" + label + "\" enabled to take it (is the Net Debugger panel open?)";
+                return 0;
+            }
+            return 1;
+        };
+        return true;
+    }
+    if( InCommand == "wait-net-view" )
+    {
+        // wait-net-view 1 | rtt | 110 400 [| frames]: the Net Debugger panel's newest view of client 1
+        // (what the child measures itself, answered since this command began) has the value in range.
+        static const char* kKeys = "rtt, loss (%), slack, dilation (%), kbpsIn, kbpsOut, corrections, marks, connected (0 / 1), clientId, shots";
+        if( parts.size() < 3 )
+        {
+            OutError = std::string( "wait-net-view: client | key | min [max] [| frames]; keys: " ) + kKeys;
+            return false;
+        }
+        const int index = std::atoi( parts[0].c_str() );
+        const std::string key = parts[1];
+        char* end = nullptr;
+        const double low = std::strtod( parts[2].c_str(), &end );
+        const double high = end && *end ? std::strtod( end, nullptr ) : 1e18;
+        auto read = [key]( const NetDebuggerView& InView, double& OutValue ) -> bool {
+            if( key == "rtt" ) OutValue = InView.RoundTripMs;
+            else if( key == "loss" ) OutValue = InView.PacketLoss * 100.0;
+            else if( key == "slack" ) OutValue = InView.Slack;
+            else if( key == "dilation" ) OutValue = InView.Dilation * 100.0;
+            else if( key == "kbpsIn" ) OutValue = InView.KbpsIn;
+            else if( key == "kbpsOut" ) OutValue = InView.KbpsOut;
+            else if( key == "corrections" ) OutValue = static_cast<double>( InView.CountOnTimeline( NetPredictOutcome::Correction ) );
+            else if( key == "marks" ) OutValue = static_cast<double>( InView.Marks.size() );
+            else if( key == "connected" ) OutValue = InView.Connected ? 1.0 : 0.0;
+            else if( key == "clientId" ) OutValue = InView.ClientId;
+            else if( key == "shots" ) OutValue = static_cast<double>( InView.Shots.size() );
+            else return false;
+            return true;
+        };
+        double probe = 0.0;
+        if( !read( NetDebuggerView(), probe ) )
+        {
+            OutError = "wait-net-view: unknown key " + key + " (" + kKeys + ")";
+            return false;
+        }
+        const double since = NetDebuggerWidget::Now();
+        OutPoll.Frames = FramesOr( parts, 3, 900 );
+        OutPoll.Check = [index, key, low, high, since, read]( std::string& OutDetail ) -> int {
+            NetDebuggerWidget* widget = NetDebuggerWidget::Get();
+            NetDebuggerView view;
+            double at = -1.0;
+            if( !widget || !widget->IsOpen )
+            {
+                OutDetail = "the Net Debugger panel isn't open (show-window Net Debugger)";
+                return 0;
+            }
+            if( !widget->GetClientView( index, view, at ) || at < since )
+            {
+                OutDetail = "no view of client " + std::to_string( index ) + " since the command began";
+                return 0;
+            }
+            double value = 0.0;
+            read( view, value );
+            OutDetail = "the Net Debugger's view of client " + std::to_string( index ) + " has " + key + " " + std::to_string( value ) + ", expected "
+                + std::to_string( low ) + ".." + std::to_string( high );
+            if( view.Client && value >= low && value <= high )
             {
                 CLog::Log( CLog::LogType::Info, "PIE: " + OutDetail );
                 return 1;

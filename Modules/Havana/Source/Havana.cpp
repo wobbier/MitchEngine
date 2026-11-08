@@ -54,6 +54,7 @@
 #include "Editor/Selection.h"
 #include "Widgets/SequenceWidget.h"
 #include "Widgets/ProfilerWidget.h"
+#include "Widgets/NetDebuggerWidget.h"
 #include "Widgets/SettingsWidgets.h"
 #include "Widgets/BuildGameWidget.h"
 #include "Widgets/OpenProjectWidget.h"
@@ -165,6 +166,9 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
     Profiler.reset( new ProfilerWidget() );
     RegisteredWidgets.push_back( Profiler );
 
+    NetDebugger.reset( new NetDebuggerWidget( app ) );
+    RegisteredWidgets.push_back( NetDebugger );
+
     Preferences.reset( new PreferencesWidget() );
     RegisteredWidgets.push_back( Preferences );
 
@@ -205,6 +209,7 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
     actions.Register( { "File.OpenProject", "Open Project...", "File", 0, 0, [this]() { ShowWidget( "Open Project" ); } } );
     actions.Register( { "File.ProjectHub", "Project Hub...", "File", 0, 0, [app]() { app->RequestProjectHub(); } } );
     actions.Register( { "View.Profiler", "Profiler", "View", 0, 0, [this]() { ShowWidget( "Profiler" ); } } );
+    actions.Register( { "View.NetDebugger", "Net Debugger", "View", 0, 0, [this]() { ShowWidget( "Net Debugger" ); } } );
     actions.Register( { "View.ErrorList", "Error List", "View", 0, 0, [this]() { ShowWidget( "Error List" ); } } );
     ReflectionUI::RegisterDefaultDrawers();
     actions.Register( { "View.AssetSearch", "Quick Asset Search", "View", ImGuiMod_Shortcut | ImGuiKey_Space, 0, [this]() { AssetBrowser->RequestOverlay( nullptr ); } } );
@@ -549,6 +554,7 @@ void Havana::NewFrame()
     UIDesigner->Render();
     Sequencer->Render();
     Profiler->Render();
+    NetDebugger->Render();
     Preferences->Render();
     ProjectSettingsView->Render();
     BuildGameView->Render();

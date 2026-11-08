@@ -113,9 +113,35 @@ public:
     // aside): found in /proc by their --pie-editor <this editor's pid>, reaped or not.
     static int CountChildProcesses();
 
+    // One child while hosting (Havana's Net Debugger panel; the edscript through it): Stop closes its
+    // stdin as Stop does for all (the same escalation), Start runs it again with the arguments it
+    // had (a new client id once it joins), Restart stops it and starts it again once it has gone.
+    // False with OutError when it can't (not hosting, no such child, already running / stopped).
+    bool StopChild( int InIndex, std::string& OutError );
+    bool StartChild( int InIndex, std::string& OutError );
+    bool RestartChild( int InIndex, std::string& OutError );
+
     // Havana's toolbar: the Net button and its popup (clients, client arguments, conditions; the
     // children and their links while playing).
     void DrawToolbar( bool InPlaying );
+    // The popup's parts, which the Net Debugger panel draws too: the clients and their arguments
+    // (disabled while playing), the link's condition sliders (live), and the children (with Stop /
+    // Start / Restart buttons when InButtons). True when a setting changed (saved).
+    bool DrawSettings( bool InPlaying );
+    bool DrawConditions();
+    void DrawChildren( bool InButtons );
+
+    // Driving these widgets from an edscript (net-ui-set, net-ui-click) by their ImGui label:
+    // queued, and taken by the next DrivenSlider / DrivenButton drawn with that label, as if the
+    // user had dragged it to the value or clicked it. A queued label nothing draws stays queued.
+    void QueueUi( const std::string& InLabel, const std::string& InValue );
+    bool IsUiQueued( const std::string& InLabel ) const;
+    // A queued action for InLabel, taken (for a widget drawn elsewhere: the panel's Export).
+    bool TakeUi( const std::string& InLabel, std::string& OutValue );
+    bool DrivenSliderFloat( const char* InLabel, float* InValue, float InMin, float InMax, const char* InFormat );
+    bool DrivenSliderInt( const char* InLabel, int* InValue, int InMin, int InMax, const char* InFormat );
+    bool DrivenButton( const char* InLabel );
+    bool DrivenCheckbox( const char* InLabel, bool* InValue );
 
 private:
     struct Child;
@@ -125,6 +151,8 @@ private:
     void PumpChild( Child& InChild );
     void HandleLine( Child& InChild, const std::string& InLine );
     void ReapChildren( double InNow );
+    // Restart: children that have gone since StopChild, started again.
+    void RestartPending();
     // InReseed: the session's start (the seeds); live changes keep the random sequences going.
     void ApplyConditions( bool InReseed = false );
     std::string FindPlayer() const;
@@ -142,6 +170,7 @@ private:
     uint64_t m_nextControlId = 1;
     uint64_t m_lastAccepted = 0;
     uint64_t m_lastLeft = 0;
+    std::map<std::string, std::string> m_uiQueue;
 };
 
 #endif

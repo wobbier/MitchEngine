@@ -367,11 +367,10 @@ size_t NetDebuggerView::CountOnTimeline( NetPredictOutcome InOutcome ) const
 
 void NetDebuggerHistory::Add( const NetDebuggerView& InView, double InNow )
 {
-    if( !InView.Client || ( LastAt >= 0.0 && InNow - LastAt < Every ) )
+    if( !InView.Client )
     {
         return;
     }
-    LastAt = InNow;
     Sample sample;
     sample.RoundTripMs = InView.RoundTripMs;
     sample.LossPercent = InView.PacketLoss * 100.f;
@@ -379,7 +378,18 @@ void NetDebuggerHistory::Add( const NetDebuggerView& InView, double InNow )
     sample.KbpsOut = static_cast<float>( InView.KbpsOut );
     sample.Slack = InView.Slack;
     sample.DilationPercent = InView.Dilation * 100.f;
-    Samples.push_back( sample );
+    Add( sample, InNow );
+}
+
+
+void NetDebuggerHistory::Add( const Sample& InSample, double InNow )
+{
+    if( LastAt >= 0.0 && InNow - LastAt < Every )
+    {
+        return;
+    }
+    LastAt = InNow;
+    Samples.push_back( InSample );
     while( Samples.size() > kSamples )
     {
         Samples.pop_front();
@@ -419,13 +429,13 @@ namespace
         }
         char overlay[96];
         std::snprintf( overlay, sizeof( overlay ), InFormat, InValues.back(), high );
-        ImGui::PlotLines( InId, InValues.data(), static_cast<int>( InValues.size() ), 0, overlay, low, high * 1.1f, ImVec2( -1.f, ImGui::GetTextLineHeight() * 3.f ) );
+        ImGui::PlotLines( InId, InValues.data(), static_cast<int>( InValues.size() ), 0, overlay, low, high * 1.1f, ImVec2( -1.f, ImGui::GetTextLineHeight() * 2.5f ) );
     }
 }
 #endif
 
 
-void DrawNetDebuggerGraphs( const NetDebuggerHistory& InHistory )
+void DrawNetDebuggerGraphs( const NetDebuggerHistory& InHistory, bool InDilation )
 {
 #if USING( ME_IMGUI )
     if( InHistory.Samples.empty() )
@@ -438,20 +448,224 @@ void DrawNetDebuggerGraphs( const NetDebuggerHistory& InHistory )
         {
             values[i] = InHistory.Samples[i].*InField;
         }
+        ImGui::TableNextColumn();
         Graph( InId, InFormat, values, InSigned );
     };
     const float seconds = static_cast<float>( InHistory.Samples.size() * InHistory.Every );
     ImGui::TextDisabled( "the last %.0f s", seconds );
+    // Two to a row: RTT and loss, the rate in and out, slack and dilation.
+    if( !ImGui::BeginTable( "##NetGraphs", 2, ImGuiTableFlags_SizingStretchSame ) )
+    {
+        return;
+    }
     graph( "##GraphRtt", "RTT %.1f ms (peak %.0f)", &NetDebuggerHistory::Sample::RoundTripMs );
     graph( "##GraphLoss", "loss %.1f %% (peak %.1f)", &NetDebuggerHistory::Sample::LossPercent );
     graph( "##GraphIn", "in %.1f kbps (peak %.0f)", &NetDebuggerHistory::Sample::KbpsIn );
     graph( "##GraphOut", "out %.1f kbps (peak %.0f)", &NetDebuggerHistory::Sample::KbpsOut );
     graph( "##GraphSlack", "slack %.2f ticks (peak %.2f)", &NetDebuggerHistory::Sample::Slack, true );
-    graph( "##GraphDilation", "dilation %+.2f %% (range %.2f)", &NetDebuggerHistory::Sample::DilationPercent, true );
+    if( InDilation )
+    {
+        graph( "##GraphDilation", "dilation %+.2f %% (range %.2f)", &NetDebuggerHistory::Sample::DilationPercent, true );
+    }
+    ImGui::EndTable();
 #else
     (void)InHistory;
+    (void)InDilation;
 #endif
 }
+
+
+#if USING( ME_IMGUI )
+namespace
+{
+    // The prediction: its counts, the timeline (click a mark to pick it), the mark's record and Export.
+    void DrawPrediction( const NetDebuggerView& InView, NetDebuggerUI& InUI, NetDebuggerActions& actions )
+    {
+        if( !InView.Predicting )
+        {
+            ImGui::TextUnformatted( "Nothing predicted (no pawn owned)." );
+            return;
+        }
+        ImGui::Text( "Prediction: %d corrections, %d matches, %d initial sync; last resim %d ticks in %.3f ms; visual offset %.1f mm", InView.Corrections, InView.Matches,
+            InView.InitialSync, InView.LastResimTicks, InView.LastResimMilliseconds, InView.VisualOffsetMm );
+
+        auto findMark = [&InView]( uint32_t InTick ) -> const NetDebuggerView::Mark* {
+            for( const NetDebuggerView::Mark& mark : InView.Marks )
+            {
+                if( mark.Tick == InTick )
+                {
+                    return &mark;
+                }
+            }
+            return nullptr;
+        };
+        // The timeline: the last 10 s of reconciled ticks, one column each (green match, red correction,
+        // grey initial sync, dark not reconciled). Hover for the tick; click a mark to inspect it.
+        if( InView.HasTimeline )
+        {
+            const uint32_t first = InView.First;
+            const uint32_t newest = InView.Newest;
+            const uint32_t span = std::max<uint32_t>( 1, newest - first + 1 );
+            const float width = std::max( 100.f, ImGui::GetContentRegionAvail().x );
+            const float height = 28.f;
+            const ImVec2 origin = ImGui::GetCursorScreenPos();
+            ImGui::InvisibleButton( "##MispredictTimeline", ImVec2( width, height ) );
+            const bool hovered = ImGui::IsItemHovered();
+            const bool clicked = ImGui::IsItemClicked();
+            ImDrawList* draw = ImGui::GetWindowDrawList();
+            draw->AddRectFilled( origin, ImVec2( origin.x + width, origin.y + height ), IM_COL32( 25, 25, 30, 255 ) );
+            const float perTick = width / static_cast<float>( span );
+            auto xOf = [&]( uint32_t InTick ) { return origin.x + static_cast<float>( InTick - first ) * perTick; };
+            // Every reconciled tick from the timeline itself: under a steady desync only the newest
+            // kMaxMispredicts mismatches keep a record, and the rest must still read red.
+            for( uint32_t tick = first; tick <= newest; ++tick )
+            {
+                const NetPredictOutcome outcome = InView.GetOutcome( tick );
+                if( outcome == NetPredictOutcome::Match )
+                {
+                    draw->AddRectFilled( ImVec2( xOf( tick ), origin.y + height * 0.55f ), ImVec2( xOf( tick ) + std::max( perTick, 1.f ), origin.y + height ), IM_COL32( 60, 170, 80, 255 ) );
+                }
+                else if( outcome == NetPredictOutcome::Correction || outcome == NetPredictOutcome::InitialSync )
+                {
+                    const ImU32 color = outcome == NetPredictOutcome::InitialSync ? IM_COL32( 150, 150, 150, 255 ) : IM_COL32( 230, 60, 50, 255 );
+                    draw->AddRectFilled( ImVec2( xOf( tick ), origin.y ), ImVec2( xOf( tick ) + std::max( perTick, 1.f ), origin.y + height ), color );
+                }
+            }
+            // The mismatches with a record on top, wide enough to see and click.
+            for( const NetDebuggerView::Mark& mark : InView.Marks )
+            {
+                if( mark.Tick < first || mark.Tick > newest )
+                {
+                    continue;
+                }
+                const bool selected = InUI.HasSelected && InUI.Selected == mark.Tick;
+                const ImU32 color = mark.InitialSync ? IM_COL32( 150, 150, 150, 255 ) : selected ? IM_COL32( 255, 220, 60, 255 ) : IM_COL32( 230, 60, 50, 255 );
+                draw->AddRectFilled( ImVec2( xOf( mark.Tick ) - 1.f, origin.y ), ImVec2( xOf( mark.Tick ) + std::max( perTick, 2.f ), origin.y + height ), color );
+            }
+            if( hovered )
+            {
+                const float mouse = ImGui::GetIO().MousePos.x;
+                const uint32_t tick = first + static_cast<uint32_t>( std::clamp( ( mouse - origin.x ) / perTick, 0.f, static_cast<float>( span - 1 ) ) );
+                // The nearest mismatch within 4 px.
+                const NetDebuggerView::Mark* closest = nullptr;
+                for( const NetDebuggerView::Mark& mark : InView.Marks )
+                {
+                    if( mark.Tick >= first && std::abs( xOf( mark.Tick ) - mouse ) <= 4.f && ( !closest || std::abs( xOf( mark.Tick ) - mouse ) < std::abs( xOf( closest->Tick ) - mouse ) ) )
+                    {
+                        closest = &mark;
+                    }
+                }
+                static const char* names[] = { "not reconciled", "match", "correction", "initial sync" };
+                ImGui::BeginTooltip();
+                if( closest )
+                {
+                    ImGui::Text( "tick %u: %s", closest->Tick, closest->InitialSync ? "initial sync" : "correction" );
+                    ImGui::TextUnformatted( closest->Describe.c_str() );
+                }
+                else
+                {
+                    const NetPredictOutcome outcome = InView.GetOutcome( tick );
+                    ImGui::Text( "tick %u: %s", tick, names[static_cast<int>( outcome )] );
+                    if( ( outcome == NetPredictOutcome::Correction || outcome == NetPredictOutcome::InitialSync ) && !findMark( tick ) )
+                    {
+                        ImGui::Text( "(no record: only the newest %zu mismatches keep one)", NetPredictor::kMaxMispredicts );
+                    }
+                }
+                ImGui::EndTooltip();
+                if( clicked && closest )
+                {
+                    InUI.HasSelected = true;
+                    InUI.Selected = closest->Tick;
+                    actions.SelectionChanged = true;
+                }
+            }
+            ImGui::Text( "ticks %u..%u (%.0f s)", first, newest, NetPredictor::kTimelineSeconds );
+        }
+        else
+        {
+            ImGui::TextUnformatted( "No tick reconciled yet." );
+        }
+
+        // The mark picked (else the newest mismatch): what differed, the commands, export.
+        ImGui::Separator();
+        if( InView.Marks.empty() )
+        {
+            ImGui::TextUnformatted( "No mispredictions in the last 10 s." );
+            return;
+        }
+        const bool selectedGone = InUI.HasSelected && !findMark( InUI.Selected );
+        if( !InView.HasDetail || ( InUI.HasSelected && !selectedGone && InView.Detail.Tick != InUI.Selected ) )
+        {
+            // A remote view: the record asked for is on its way.
+            const NetDebuggerView::Mark* mark = InUI.HasSelected && !selectedGone ? findMark( InUI.Selected ) : &InView.Marks.back();
+            ImGui::Text( "Tick %u%s: %s", mark->Tick, mark->InitialSync ? " (initial sync)" : "", mark->Describe.c_str() );
+            ImGui::TextDisabled( "(its record is on its way)" );
+            return;
+        }
+        const NetMispredictRecord& record = InView.Detail;
+        ImGui::Text( "Tick %u%s: %s", record.Tick, record.InitialSync ? " (initial sync)" : "", record.Describe().c_str() );
+        if( ImGui::BeginTable( "##MispredictFields", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_SizingStretchProp ) )
+        {
+            ImGui::TableSetupColumn( "" );
+            ImGui::TableSetupColumn( "predicted" );
+            ImGui::TableSetupColumn( "server" );
+            ImGui::TableSetupColumn( "delta" );
+            ImGui::TableHeadersRow();
+            auto row = [&]( const char* InName, const Vector3& InPredicted, const Vector3& InServer, float InScale, const char* InUnit ) {
+                const Vector3 delta = InServer - InPredicted;
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::TextUnformatted( InName );
+                ImGui::TableNextColumn();
+                ImGui::Text( "%.4f, %.4f, %.4f", InPredicted.x, InPredicted.y, InPredicted.z );
+                ImGui::TableNextColumn();
+                ImGui::Text( "%.4f, %.4f, %.4f", InServer.x, InServer.y, InServer.z );
+                ImGui::TableNextColumn();
+                ImGui::Text( "%.1f %s", delta.Length() * InScale, InUnit );
+            };
+            row( "position", record.Predicted.Position, record.Authoritative.Position, 1000.f, "mm" );
+            row( "velocity", record.Predicted.Velocity, record.Authoritative.Velocity, 1.f, "m/s" );
+            row( "ground normal", record.Predicted.GroundNormal, record.Authoritative.GroundNormal, 1.f, "" );
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted( "grounded" );
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted( record.Predicted.Grounded ? "yes" : "no" );
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted( record.Authoritative.Grounded ? "yes" : "no" );
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted( record.Predicted.Grounded == record.Authoritative.Grounded ? "" : "differs" );
+            ImGui::EndTable();
+        }
+        for( const auto& [begin, end] : record.ScriptDiffs )
+        {
+            ImGui::Text( "[Predicted] script bytes %u-%u differ", begin, end - 1 );
+        }
+        ImGui::Text( "%zu ticks resimulated in %.3f ms; the present moved %.1f mm (the visual offset hides it)", record.Resimulated.size(), record.ResimMilliseconds,
+            record.PresentJump.Length() * 1000.f );
+        if( ImGui::Button( "Export" ) )
+        {
+            actions.Export = true;
+            actions.ExportTick = record.Tick;
+        }
+        ImGui::SetItemTooltip( "Writes .tmp/Net/Mispredict_%u.json (the start state and the commands): NetMispredict::Run replays it offline", record.Tick );
+        if( !InUI.LastExport.empty() )
+        {
+            ImGui::SameLine();
+            ImGui::TextUnformatted( InUI.LastExport.c_str() );
+        }
+        if( ImGui::TreeNode( "Commands", "Commands (%zu, from tick %u)", record.Commands.size(), record.Tick ) )
+        {
+            for( const InputCommand& command : record.Commands )
+            {
+                ImGui::Text( "%u: buttons %08x, axes %.3f %.3f %.3f %.3f%s", command.Tick, command.Buttons, command.Axes[0], command.Axes[1], command.Axes[2], command.Axes[3],
+                    command.HasAim ? "" : " (no aim)" );
+            }
+            ImGui::TreePop();
+        }
+    }
+}
+#endif
 
 
 NetDebuggerActions DrawNetDebuggerView( const NetDebuggerView& InView, NetDebuggerUI& InUI, const NetDebuggerHistory* InHistory )
@@ -468,6 +682,9 @@ NetDebuggerActions DrawNetDebuggerView( const NetDebuggerView& InView, NetDebugg
         InView.KbpsOut );
     ImGui::Text( "Slack %.2f (target %.2f), dilation %+.2f%%, %d resyncs, %llu hitches", InView.Slack, InView.TargetSlack, InView.Dilation * 100.f, InView.Resyncs,
         static_cast<unsigned long long>( InView.Hitches ) );
+    // The prediction first (its timeline is what the debugger is for), then the link's graphs.
+    DrawPrediction( InView, InUI, actions );
+    ImGui::Separator();
     if( InHistory && ImGui::CollapsingHeader( "Link graphs", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
         DrawNetDebuggerGraphs( *InHistory );
@@ -552,188 +769,6 @@ NetDebuggerActions DrawNetDebuggerView( const NetDebuggerView& InView, NetDebugg
                 ImGui::ProgressBar( total > 0.0 ? static_cast<float>( entity.BytesPerSecond / total ) : 0.f, ImVec2( -1.f, 0.f ), label );
             }
         }
-    }
-    if( !InView.Predicting )
-    {
-        ImGui::TextUnformatted( "Nothing predicted (no pawn owned)." );
-        return actions;
-    }
-    ImGui::Text( "Prediction: %d corrections, %d matches, %d initial sync; last resim %d ticks in %.3f ms; visual offset %.1f mm", InView.Corrections, InView.Matches,
-        InView.InitialSync, InView.LastResimTicks, InView.LastResimMilliseconds, InView.VisualOffsetMm );
-
-    auto findMark = [&InView]( uint32_t InTick ) -> const NetDebuggerView::Mark* {
-        for( const NetDebuggerView::Mark& mark : InView.Marks )
-        {
-            if( mark.Tick == InTick )
-            {
-                return &mark;
-            }
-        }
-        return nullptr;
-    };
-    // The timeline: the last 10 s of reconciled ticks, one column each (green match, red correction,
-    // grey initial sync, dark not reconciled). Hover for the tick; click a mark to inspect it.
-    if( InView.HasTimeline )
-    {
-        const uint32_t first = InView.First;
-        const uint32_t newest = InView.Newest;
-        const uint32_t span = std::max<uint32_t>( 1, newest - first + 1 );
-        const float width = std::max( 100.f, ImGui::GetContentRegionAvail().x );
-        const float height = 28.f;
-        const ImVec2 origin = ImGui::GetCursorScreenPos();
-        ImGui::InvisibleButton( "##MispredictTimeline", ImVec2( width, height ) );
-        const bool hovered = ImGui::IsItemHovered();
-        const bool clicked = ImGui::IsItemClicked();
-        ImDrawList* draw = ImGui::GetWindowDrawList();
-        draw->AddRectFilled( origin, ImVec2( origin.x + width, origin.y + height ), IM_COL32( 25, 25, 30, 255 ) );
-        const float perTick = width / static_cast<float>( span );
-        auto xOf = [&]( uint32_t InTick ) { return origin.x + static_cast<float>( InTick - first ) * perTick; };
-        // Every reconciled tick from the timeline itself: under a steady desync only the newest
-        // kMaxMispredicts mismatches keep a record, and the rest must still read red.
-        for( uint32_t tick = first; tick <= newest; ++tick )
-        {
-            const NetPredictOutcome outcome = InView.GetOutcome( tick );
-            if( outcome == NetPredictOutcome::Match )
-            {
-                draw->AddRectFilled( ImVec2( xOf( tick ), origin.y + height * 0.55f ), ImVec2( xOf( tick ) + std::max( perTick, 1.f ), origin.y + height ), IM_COL32( 60, 170, 80, 255 ) );
-            }
-            else if( outcome == NetPredictOutcome::Correction || outcome == NetPredictOutcome::InitialSync )
-            {
-                const ImU32 color = outcome == NetPredictOutcome::InitialSync ? IM_COL32( 150, 150, 150, 255 ) : IM_COL32( 230, 60, 50, 255 );
-                draw->AddRectFilled( ImVec2( xOf( tick ), origin.y ), ImVec2( xOf( tick ) + std::max( perTick, 1.f ), origin.y + height ), color );
-            }
-        }
-        // The mismatches with a record on top, wide enough to see and click.
-        for( const NetDebuggerView::Mark& mark : InView.Marks )
-        {
-            if( mark.Tick < first || mark.Tick > newest )
-            {
-                continue;
-            }
-            const bool selected = InUI.HasSelected && InUI.Selected == mark.Tick;
-            const ImU32 color = mark.InitialSync ? IM_COL32( 150, 150, 150, 255 ) : selected ? IM_COL32( 255, 220, 60, 255 ) : IM_COL32( 230, 60, 50, 255 );
-            draw->AddRectFilled( ImVec2( xOf( mark.Tick ) - 1.f, origin.y ), ImVec2( xOf( mark.Tick ) + std::max( perTick, 2.f ), origin.y + height ), color );
-        }
-        if( hovered )
-        {
-            const float mouse = ImGui::GetIO().MousePos.x;
-            const uint32_t tick = first + static_cast<uint32_t>( std::clamp( ( mouse - origin.x ) / perTick, 0.f, static_cast<float>( span - 1 ) ) );
-            // The nearest mismatch within 4 px.
-            const NetDebuggerView::Mark* closest = nullptr;
-            for( const NetDebuggerView::Mark& mark : InView.Marks )
-            {
-                if( mark.Tick >= first && std::abs( xOf( mark.Tick ) - mouse ) <= 4.f && ( !closest || std::abs( xOf( mark.Tick ) - mouse ) < std::abs( xOf( closest->Tick ) - mouse ) ) )
-                {
-                    closest = &mark;
-                }
-            }
-            static const char* names[] = { "not reconciled", "match", "correction", "initial sync" };
-            ImGui::BeginTooltip();
-            if( closest )
-            {
-                ImGui::Text( "tick %u: %s", closest->Tick, closest->InitialSync ? "initial sync" : "correction" );
-                ImGui::TextUnformatted( closest->Describe.c_str() );
-            }
-            else
-            {
-                const NetPredictOutcome outcome = InView.GetOutcome( tick );
-                ImGui::Text( "tick %u: %s", tick, names[static_cast<int>( outcome )] );
-                if( ( outcome == NetPredictOutcome::Correction || outcome == NetPredictOutcome::InitialSync ) && !findMark( tick ) )
-                {
-                    ImGui::Text( "(no record: only the newest %zu mismatches keep one)", NetPredictor::kMaxMispredicts );
-                }
-            }
-            ImGui::EndTooltip();
-            if( clicked && closest )
-            {
-                InUI.HasSelected = true;
-                InUI.Selected = closest->Tick;
-                actions.SelectionChanged = true;
-            }
-        }
-        ImGui::Text( "ticks %u..%u (%.0f s)", first, newest, NetPredictor::kTimelineSeconds );
-    }
-    else
-    {
-        ImGui::TextUnformatted( "No tick reconciled yet." );
-    }
-
-    // The mark picked (else the newest mismatch): what differed, the commands, export.
-    ImGui::Separator();
-    if( InView.Marks.empty() )
-    {
-        ImGui::TextUnformatted( "No mispredictions in the last 10 s." );
-        return actions;
-    }
-    const bool selectedGone = InUI.HasSelected && !findMark( InUI.Selected );
-    if( !InView.HasDetail || ( InUI.HasSelected && !selectedGone && InView.Detail.Tick != InUI.Selected ) )
-    {
-        // A remote view: the record asked for is on its way.
-        const NetDebuggerView::Mark* mark = InUI.HasSelected && !selectedGone ? findMark( InUI.Selected ) : &InView.Marks.back();
-        ImGui::Text( "Tick %u%s: %s", mark->Tick, mark->InitialSync ? " (initial sync)" : "", mark->Describe.c_str() );
-        ImGui::TextDisabled( "(its record is on its way)" );
-        return actions;
-    }
-    const NetMispredictRecord& record = InView.Detail;
-    ImGui::Text( "Tick %u%s: %s", record.Tick, record.InitialSync ? " (initial sync)" : "", record.Describe().c_str() );
-    if( ImGui::BeginTable( "##MispredictFields", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_SizingStretchProp ) )
-    {
-        ImGui::TableSetupColumn( "" );
-        ImGui::TableSetupColumn( "predicted" );
-        ImGui::TableSetupColumn( "server" );
-        ImGui::TableSetupColumn( "delta" );
-        ImGui::TableHeadersRow();
-        auto row = [&]( const char* InName, const Vector3& InPredicted, const Vector3& InServer, float InScale, const char* InUnit ) {
-            const Vector3 delta = InServer - InPredicted;
-            ImGui::TableNextRow();
-            ImGui::TableNextColumn();
-            ImGui::TextUnformatted( InName );
-            ImGui::TableNextColumn();
-            ImGui::Text( "%.4f, %.4f, %.4f", InPredicted.x, InPredicted.y, InPredicted.z );
-            ImGui::TableNextColumn();
-            ImGui::Text( "%.4f, %.4f, %.4f", InServer.x, InServer.y, InServer.z );
-            ImGui::TableNextColumn();
-            ImGui::Text( "%.1f %s", delta.Length() * InScale, InUnit );
-        };
-        row( "position", record.Predicted.Position, record.Authoritative.Position, 1000.f, "mm" );
-        row( "velocity", record.Predicted.Velocity, record.Authoritative.Velocity, 1.f, "m/s" );
-        row( "ground normal", record.Predicted.GroundNormal, record.Authoritative.GroundNormal, 1.f, "" );
-        ImGui::TableNextRow();
-        ImGui::TableNextColumn();
-        ImGui::TextUnformatted( "grounded" );
-        ImGui::TableNextColumn();
-        ImGui::TextUnformatted( record.Predicted.Grounded ? "yes" : "no" );
-        ImGui::TableNextColumn();
-        ImGui::TextUnformatted( record.Authoritative.Grounded ? "yes" : "no" );
-        ImGui::TableNextColumn();
-        ImGui::TextUnformatted( record.Predicted.Grounded == record.Authoritative.Grounded ? "" : "differs" );
-        ImGui::EndTable();
-    }
-    for( const auto& [begin, end] : record.ScriptDiffs )
-    {
-        ImGui::Text( "[Predicted] script bytes %u-%u differ", begin, end - 1 );
-    }
-    ImGui::Text( "%zu ticks resimulated in %.3f ms; the present moved %.1f mm (the visual offset hides it)", record.Resimulated.size(), record.ResimMilliseconds,
-        record.PresentJump.Length() * 1000.f );
-    if( ImGui::Button( "Export" ) )
-    {
-        actions.Export = true;
-        actions.ExportTick = record.Tick;
-    }
-    ImGui::SetItemTooltip( "Writes .tmp/Net/Mispredict_%u.json (the start state and the commands): NetMispredict::Run replays it offline", record.Tick );
-    if( !InUI.LastExport.empty() )
-    {
-        ImGui::SameLine();
-        ImGui::TextUnformatted( InUI.LastExport.c_str() );
-    }
-    if( ImGui::TreeNode( "Commands", "Commands (%zu, from tick %u)", record.Commands.size(), record.Tick ) )
-    {
-        for( const InputCommand& command : record.Commands )
-        {
-            ImGui::Text( "%u: buttons %08x, axes %.3f %.3f %.3f %.3f%s", command.Tick, command.Buttons, command.Axes[0], command.Axes[1], command.Axes[2], command.Axes[3],
-                command.HasAim ? "" : " (no aim)" );
-        }
-        ImGui::TreePop();
     }
 #else
     (void)InView;

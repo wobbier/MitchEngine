@@ -2280,7 +2280,9 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
     }
     else if( command == "screenshot" )
     {
-        GetEngine().GetRenderer().RequestScreenshot( args );
+        // screenshot .tmp/Shot.png (the working directory's), or project://.tmp/Shot.png (the project's)
+        const std::string projectPrefix = "project://";
+        GetEngine().GetRenderer().RequestScreenshot( args.rfind( projectPrefix, 0 ) == 0 ? Project::GetRoot() + "/" + args.substr( projectPrefix.size() ) : args );
         m_waitFrames = 3;
     }
     else if( command == "quit" )

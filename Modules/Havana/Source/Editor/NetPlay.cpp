@@ -16,12 +16,14 @@
 #include "Net/UdpTransport.h"
 #include "Utils/EditorConfig.h"
 #include "World/Scene.h"
+#include "Editor/EditorActions.h"
 #include "Editor/UndoStack.h"
 #if USING( ME_SCRIPTING )
 #include "Scripting/ScriptNet.h"
 #endif
 #include <ImGuiTheme.h>
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -93,6 +95,12 @@ namespace
         OutType = InLine.find( "--- ASSERT ---" ) != std::string::npos ? CLog::LogType::Error : CLog::LogType::Info;
         return InLine;
     }
+
+    // A disabled widget can't be used: a queued edscript action waits until it can.
+    bool IsLastItemEnabled()
+    {
+        return !( ImGui::GetCurrentContext()->LastItemData.InFlags & ImGuiItemFlags_Disabled );
+    }
 }
 
 
@@ -107,6 +115,8 @@ struct NetPlay::Child
     double StopAt = -1.0;   // when Stop closed its stdin (< 0: not stopping)
     bool Termed = false;
     bool Killed = false;
+    std::vector<std::string> Args;  // its command line (StartChild runs it again)
+    bool RestartWhenGone = false;   // RestartChild: started again once it has gone
 };
 
 
@@ -426,7 +436,17 @@ bool NetPlay::SpawnChild( int InIndex, const std::vector<std::string>& InArgs, s
         line += ( line.empty() ? "" : " " ) + ( arg.find_first_of( " \t\"'" ) == std::string::npos && !arg.empty() ? arg : "'" + arg + "'" );
     }
     child->Log << "# " << line << "\n";
+    child->Args = InArgs;
     CLog::Log( CLog::LogType::Info, "PIE: client " + std::to_string( InIndex ) + " started (pid " + std::to_string( pid ) + "), its log: " + child->Info.LogPath );
+    // Started again (StartChild): it takes its old place.
+    for( std::unique_ptr<Child>& existing : m_children )
+    {
+        if( existing->Info.Index == InIndex )
+        {
+            existing = std::move( child );
+            return true;
+        }
+    }
     m_children.push_back( std::move( child ) );
     return true;
 #endif
@@ -443,7 +463,8 @@ void NetPlay::HandleLine( Child& InChild, const std::string& InLine )
         const uint64_t id = std::strtoull( text, &end, 10 );
         const json value = json::parse( end ? end : "", nullptr, false );
         InChild.Replies[id] = value.is_string() ? value.get<std::string>() : std::string( end ? end : "" );
-        InChild.Log << InLine << "\n";
+        // The Net Debugger panel's views come a few times a second: the log keeps their size.
+        InChild.Log << ( InLine.size() > 512 ? "[control] " + std::to_string( id ) + " (" + std::to_string( InLine.size() ) + " bytes)" : InLine ) << "\n";
         return;
     }
     InChild.Log << InLine << "\n";
@@ -568,6 +589,7 @@ void NetPlay::Update()
         PumpChild( *child );
     }
     ReapChildren( Now() );
+    RestartPending();
     if( m_hosting && m_net )
     {
         if( NetServer* server = m_net->GetServer() )
@@ -605,6 +627,7 @@ void NetPlay::Stop( NetCore& InNet )
     const double now = Now();
     for( std::unique_ptr<Child>& child : m_children )
     {
+        child->RestartWhenGone = false;
         if( child->Info.Running && child->StopAt < 0.0 )
         {
             child->StopAt = now;
@@ -660,6 +683,120 @@ void NetPlay::Shutdown()
         }
     }
 #endif
+}
+
+
+bool NetPlay::StopChild( int InIndex, std::string& OutError )
+{
+#if USING( ME_PLATFORM_WINDOWS )
+    (void)InIndex;
+    OutError = "Play with clients is Linux / POSIX only for now";
+    return false;
+#else
+    for( std::unique_ptr<Child>& child : m_children )
+    {
+        if( child->Info.Index != InIndex )
+        {
+            continue;
+        }
+        if( !child->Info.Running || child->StopAt >= 0.0 )
+        {
+            OutError = "client " + std::to_string( InIndex ) + ( child->Info.Running ? " is already stopping" : " isn't running" );
+            return false;
+        }
+        CLog::Log( CLog::LogType::Info, "PIE: stopping client " + std::to_string( InIndex ) + " (pid " + std::to_string( child->Info.Pid ) + ")" );
+        // As Stop does for every child: its stdin closed, then the escalation (ReapChildren).
+        child->StopAt = Now();
+        if( child->StdinFd >= 0 )
+        {
+            close( child->StdinFd );
+            child->StdinFd = -1;
+        }
+        return true;
+    }
+    OutError = "no client " + std::to_string( InIndex );
+    return false;
+#endif
+}
+
+
+bool NetPlay::StartChild( int InIndex, std::string& OutError )
+{
+    if( !m_hosting )
+    {
+        OutError = "not hosting (Play with clients first)";
+        return false;
+    }
+    for( std::unique_ptr<Child>& child : m_children )
+    {
+        if( child->Info.Index != InIndex )
+        {
+            continue;
+        }
+        if( child->Info.Running )
+        {
+            OutError = "client " + std::to_string( InIndex ) + " is still running (pid " + std::to_string( child->Info.Pid ) + ")";
+            return false;
+        }
+        const std::vector<std::string> args = child->Args;
+        std::string error;
+        if( !SpawnChild( InIndex, args, error ) )
+        {
+            OutError = "client " + std::to_string( InIndex ) + " didn't start: " + error;
+            YIKES( "PIE: " + OutError );
+            return false;
+        }
+        return true;
+    }
+    OutError = "no client " + std::to_string( InIndex );
+    return false;
+}
+
+
+bool NetPlay::RestartChild( int InIndex, std::string& OutError )
+{
+    for( std::unique_ptr<Child>& child : m_children )
+    {
+        if( child->Info.Index != InIndex )
+        {
+            continue;
+        }
+        if( !m_hosting )
+        {
+            OutError = "not hosting (Play with clients first)";
+            return false;
+        }
+        if( child->Info.Running && child->StopAt < 0.0 && !StopChild( InIndex, OutError ) )
+        {
+            return false;
+        }
+        child->RestartWhenGone = true;
+        RestartPending();
+        return true;
+    }
+    OutError = "no client " + std::to_string( InIndex );
+    return false;
+}
+
+
+void NetPlay::RestartPending()
+{
+    for( size_t i = 0; i < m_children.size(); ++i )
+    {
+        Child& child = *m_children[i];
+        if( !child.RestartWhenGone || child.Info.Running )
+        {
+            continue;
+        }
+        // StartChild replaces the entry: nothing of it is used after.
+        child.RestartWhenGone = false;
+        const int index = child.Info.Index;
+        std::string error;
+        if( m_hosting && StartChild( index, error ) )
+        {
+            CLog::Log( CLog::LogType::Info, "PIE: client " + std::to_string( index ) + " restarted" );
+        }
+    }
 }
 
 
@@ -836,12 +973,43 @@ void NetPlay::DrawToolbar( bool InPlaying )
     {
         return;
     }
-    bool changed = false;
     ImGui::TextUnformatted( "Play In Editor over the network" );
     ImGui::Separator();
+    DrawSettings( InPlaying );
+    ImGui::Separator();
+    DrawConditions();
+    if( !m_children.empty() )
+    {
+        ImGui::Separator();
+        DrawChildren( false );
+    }
+    if( !m_lastError.empty() )
+    {
+        ImGui::Separator();
+        ImGui::TextWrapped( "Last error: %s", m_lastError.c_str() );
+    }
+    ImGui::Separator();
+    if( ImGui::Button( "Net Debugger..." ) )
+    {
+        EditorActions::Get().Execute( "View.NetDebugger" );
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::SetItemTooltip( "Each client's link, prediction, shots and bandwidth, the server's connections, and these settings in a panel" );
+    ImGui::EndPopup();
+}
+
+
+bool NetPlay::DrawSettings( bool InPlaying )
+{
+    bool changed = false;
+    if( m_hosting )
+    {
+        // What this Play started (an edscript's play-net may differ from the setting).
+        ImGui::TextDisabled( "This Play: %zu client(s); the setting below is for the next one", m_children.size() );
+    }
     ImGui::BeginDisabled( InPlaying );
     ImGui::SetNextItemWidth( ImGuiTheme::Em( 10.f ) );
-    changed |= ImGui::SliderInt( "Clients", &m_settings.Clients, 0, kMaxClients, m_settings.Clients == 0 ? "offline" : "%d" );
+    changed |= DrivenSliderInt( "Clients", &m_settings.Clients, 0, kMaxClients, m_settings.Clients == 0 ? "offline" : "%d" );
     ImGui::SetItemTooltip( "0: Play is offline. Otherwise Play hosts in the editor and starts this many game Players that join it" );
     char args[512];
     std::snprintf( args, sizeof( args ), "%s", m_settings.ClientArgs.c_str() );
@@ -852,56 +1020,167 @@ void NetPlay::DrawToolbar( bool InPlaying )
         changed = true;
     }
     ImGui::EndDisabled();
-    changed |= ImGui::Checkbox( "Client logs in the Log", &m_settings.ShowClientLogs );
-    ImGui::Separator();
-    ImGui::TextUnformatted( live ? "Link conditions (live, both directions)" : "Link conditions (both directions)" );
+    changed |= DrivenCheckbox( "Client logs in the Log", &m_settings.ShowClientLogs );
+    if( changed )
+    {
+        SaveSettings();
+    }
+    return changed;
+}
+
+
+bool NetPlay::DrawConditions()
+{
+    ImGui::TextUnformatted( m_hosting ? "Link conditions (live, both directions)" : "Link conditions (both directions)" );
     NetConditions conditions = m_settings.Conditions;
     float lossPercent = conditions.Loss * 100.f;
     float duplicatePercent = conditions.Duplicate * 100.f;
     bool conditionsChanged = false;
     ImGui::SetNextItemWidth( ImGuiTheme::Em( 10.f ) );
-    conditionsChanged |= ImGui::SliderFloat( "Lag (ms, each way)", &conditions.LatencyMs, 0.f, 300.f, "%.0f" );
+    conditionsChanged |= DrivenSliderFloat( "Lag (ms, each way)", &conditions.LatencyMs, 0.f, 300.f, "%.0f" );
     ImGui::SetNextItemWidth( ImGuiTheme::Em( 10.f ) );
-    conditionsChanged |= ImGui::SliderFloat( "Jitter (ms)", &conditions.JitterMs, 0.f, 100.f, "%.0f" );
+    conditionsChanged |= DrivenSliderFloat( "Jitter (ms)", &conditions.JitterMs, 0.f, 100.f, "%.0f" );
     ImGui::SetNextItemWidth( ImGuiTheme::Em( 10.f ) );
-    conditionsChanged |= ImGui::SliderFloat( "Loss (%)", &lossPercent, 0.f, 50.f, "%.1f" );
+    conditionsChanged |= DrivenSliderFloat( "Loss (%)", &lossPercent, 0.f, 50.f, "%.1f" );
     ImGui::SetNextItemWidth( ImGuiTheme::Em( 10.f ) );
-    conditionsChanged |= ImGui::SliderFloat( "Duplicates (%)", &duplicatePercent, 0.f, 50.f, "%.1f" );
+    conditionsChanged |= DrivenSliderFloat( "Duplicates (%)", &duplicatePercent, 0.f, 50.f, "%.1f" );
     if( conditionsChanged )
     {
         conditions.Loss = lossPercent / 100.f;
         conditions.Duplicate = duplicatePercent / 100.f;
         SetConditions( conditions );
-        changed = true;
-    }
-    if( !m_children.empty() )
-    {
-        ImGui::Separator();
-        for( const std::unique_ptr<Child>& child : m_children )
-        {
-            const float rtt = GetRoundTripMs( child->Info.Index );
-            if( child->Info.Running )
-            {
-                ImGui::Text( "Client %d: pid %d, %s", child->Info.Index, child->Info.Pid,
-                    child->Info.ClientId > 0 ? ( "client #" + std::to_string( child->Info.ClientId ) + ( rtt >= 0.f ? ", " + std::to_string( static_cast<int>( rtt ) ) + " ms RTT" : "" ) ).c_str() : "connecting" );
-            }
-            else
-            {
-                ImGui::TextDisabled( "Client %d: exited (%d)", child->Info.Index, child->Info.ExitCode );
-            }
-            ImGui::SetItemTooltip( "%s", child->Info.LogPath.c_str() );
-        }
-    }
-    if( !m_lastError.empty() )
-    {
-        ImGui::Separator();
-        ImGui::TextWrapped( "Last error: %s", m_lastError.c_str() );
-    }
-    ImGui::EndPopup();
-    if( changed )
-    {
         SaveSettings();
     }
+    return conditionsChanged;
+}
+
+
+void NetPlay::DrawChildren( bool InButtons )
+{
+    for( const std::unique_ptr<Child>& child : m_children )
+    {
+        const ChildInfo info = child->Info;
+        const float rtt = GetRoundTripMs( info.Index );
+        ImGui::PushID( info.Index );
+        if( info.Running )
+        {
+            ImGui::Text( "Client %d: pid %d, %s%s", info.Index, info.Pid,
+                info.ClientId > 0 ? ( "client #" + std::to_string( info.ClientId ) + ( rtt >= 0.f ? ", " + std::to_string( static_cast<int>( rtt ) ) + " ms RTT" : "" ) ).c_str() : "connecting",
+                child->StopAt >= 0.0 ? " (stopping)" : "" );
+        }
+        else
+        {
+            ImGui::TextDisabled( "Client %d: exited (%d)", info.Index, info.ExitCode );
+        }
+        ImGui::SetItemTooltip( "%s", info.LogPath.c_str() );
+        if( InButtons )
+        {
+            const std::string index = std::to_string( info.Index );
+            std::string error;
+            ImGui::SameLine();
+            ImGui::BeginDisabled( !info.Running || child->StopAt >= 0.0 );
+            const bool stop = DrivenButton( ( "Stop##" + index ).c_str() );
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            ImGui::BeginDisabled( info.Running || !m_hosting );
+            const bool start = DrivenButton( ( "Start##" + index ).c_str() );
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            ImGui::BeginDisabled( !m_hosting || child->RestartWhenGone );
+            const bool restart = DrivenButton( ( "Restart##" + index ).c_str() );
+            ImGui::EndDisabled();
+            ImGui::PopID();
+            // After the drawing: Start and Restart replace the child's entry.
+            if( ( stop && !StopChild( info.Index, error ) ) || ( start && !StartChild( info.Index, error ) ) || ( restart && !RestartChild( info.Index, error ) ) )
+            {
+                m_lastError = error;
+                BRUH( "PIE: " + error );
+            }
+            if( start || restart )
+            {
+                break;
+            }
+            continue;
+        }
+        ImGui::PopID();
+    }
+}
+
+
+void NetPlay::QueueUi( const std::string& InLabel, const std::string& InValue )
+{
+    m_uiQueue[InLabel] = InValue;
+}
+
+
+bool NetPlay::IsUiQueued( const std::string& InLabel ) const
+{
+    return m_uiQueue.count( InLabel ) > 0;
+}
+
+
+bool NetPlay::TakeUi( const std::string& InLabel, std::string& OutValue )
+{
+    auto it = m_uiQueue.find( InLabel );
+    if( it == m_uiQueue.end() )
+    {
+        return false;
+    }
+    OutValue = it->second;
+    m_uiQueue.erase( it );
+    CLog::Log( CLog::LogType::Info, "PIE: the edscript drove \"" + InLabel + "\"" + ( OutValue.empty() ? std::string() : " to " + OutValue ) );
+    return true;
+}
+
+
+bool NetPlay::DrivenSliderFloat( const char* InLabel, float* InValue, float InMin, float InMax, const char* InFormat )
+{
+    bool changed = ImGui::SliderFloat( InLabel, InValue, InMin, InMax, InFormat );
+    std::string value;
+    if( IsLastItemEnabled() && TakeUi( InLabel, value ) )
+    {
+        *InValue = std::clamp( static_cast<float>( std::atof( value.c_str() ) ), InMin, InMax );
+        changed = true;
+    }
+    return changed;
+}
+
+
+bool NetPlay::DrivenSliderInt( const char* InLabel, int* InValue, int InMin, int InMax, const char* InFormat )
+{
+    bool changed = ImGui::SliderInt( InLabel, InValue, InMin, InMax, InFormat );
+    std::string value;
+    if( IsLastItemEnabled() && TakeUi( InLabel, value ) )
+    {
+        *InValue = std::clamp( std::atoi( value.c_str() ), InMin, InMax );
+        changed = true;
+    }
+    return changed;
+}
+
+
+bool NetPlay::DrivenButton( const char* InLabel )
+{
+    bool clicked = ImGui::Button( InLabel );
+    std::string value;
+    if( IsLastItemEnabled() && TakeUi( InLabel, value ) )
+    {
+        clicked = true;
+    }
+    return clicked;
+}
+
+
+bool NetPlay::DrivenCheckbox( const char* InLabel, bool* InValue )
+{
+    bool changed = ImGui::Checkbox( InLabel, InValue );
+    std::string value;
+    if( IsLastItemEnabled() && TakeUi( InLabel, value ) )
+    {
+        *InValue = value.empty() ? !*InValue : ( value == "true" || value == "on" || value == "1" );
+        changed = true;
+    }
+    return changed;
 }
 
 #endif

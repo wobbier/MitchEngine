@@ -29,6 +29,16 @@ class EditorApp;
 //   net-control C | console line [| frames]     runs a console line on client C, logs its answer
 //   wait-net-children N [| frames]       until N of this editor's PIE child processes are alive
 //                                        (found in /proc, so orphans count; 600)
+//   net-ui-set label | value [| frames]  a PIE widget (NetPlay's Driven*: the condition sliders,
+//   net-ui-click label [| frames]        Clients, the children's Stop##N / Start##N / Restart##N,
+//                                        "Lag-compensation overlays", the panel's "Export N") set or
+//                                        clicked by its ImGui label, as the user would; fails unless
+//                                        it is drawn and enabled within the frames (300)
+//   wait-net-view C | key | min [max] [| frames]
+//                                        the Net Debugger panel's newest view of client C (what the
+//                                        child measures itself; one answered since the command began)
+//                                        has key in range: rtt, loss, slack, dilation, kbpsIn, kbpsOut,
+//                                        corrections, marks, connected, clientId, shots (900)
 namespace NetPlayAutomation
 {
     constexpr int kMispredictWindow = 60;

@@ -143,6 +143,8 @@ struct NetDebuggerHistory
     double Every = 0.25;
 
     void Add( const NetDebuggerView& InView, double InNow );
+    // A sample from elsewhere (Havana's panel: the server's end of a connection).
+    void Add( const Sample& InSample, double InNow );
     void Clear();
 };
 
@@ -167,5 +169,5 @@ struct NetDebuggerActions
 // Draws InView into the current ImGui window (ImGui builds; elsewhere nothing). InHistory, when
 // given, draws the link's graphs (RTT, loss, the rate, slack, dilation) under its numbers.
 NetDebuggerActions DrawNetDebuggerView( const NetDebuggerView& InView, NetDebuggerUI& InUI, const NetDebuggerHistory* InHistory = nullptr );
-// The graphs alone.
-void DrawNetDebuggerGraphs( const NetDebuggerHistory& InHistory );
+// The graphs alone (InDilation false: the clock's dilation isn't known here, a server's end).
+void DrawNetDebuggerGraphs( const NetDebuggerHistory& InHistory, bool InDilation = true );

@@ -30,6 +30,7 @@ class TourWidget;
 class UIDesignerWidget;
 class WhatsNewWidget;
 class ProfilerWidget;
+class NetDebuggerWidget;
 class PreferencesWidget;
 class ProjectSettingsWidget;
 class BuildGameWidget;
@@ -144,6 +145,7 @@ private:
 	SharedPtr<UIDesignerWidget> UIDesigner;
 	SharedPtr<WhatsNewWidget> WhatsNew;
 	SharedPtr<ProfilerWidget> Profiler;
+	SharedPtr<NetDebuggerWidget> NetDebugger;
 	SharedPtr<PreferencesWidget> Preferences;
 	SharedPtr<ProjectSettingsWidget> ProjectSettingsView;
 	SharedPtr<BuildGameWidget> BuildGameView;
