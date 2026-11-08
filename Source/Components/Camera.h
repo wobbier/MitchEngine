@@ -42,6 +42,19 @@ public:
     // Render at the main camera's output size, field of view and far plane, with its background, for
     // views shown in screen space on a surface (PortalMaterial).
     bool MatchMainCamera = false;
+    // Overlay: renders after the main camera, at its size, and composites over its image wherever
+    // it drew (its background is see-through; additive and transparent effects add over the scene).
+    // A layer such as a game's HUD in 3D or a note highway over a scene that changes underneath.
+    // Never becomes the main camera on its own; several overlays stack by entity GUID.
+    bool Overlay = false;
+    // An overlay fades out between these distances from the camera (metres; an end at or before
+    // the start fades nothing), so a far edge melts into the scene instead of cutting off.
+    float OverlayFadeStart = 0.f;
+    float OverlayFadeEnd = 0.f;
+    // How opaque the overlay's darkest pixels are (1: everything it drew covers the scene). Below
+    // 1, dark surfaces let the scene through while bright ones stay solid: a see-through backing
+    // under bright markings.
+    float OverlayDarkOpacity = 1.f;
 
     // Render texture: the camera renders into this .rendertexture asset, at the asset's size, instead
     // of to the screen; materials show the image by naming the same asset in a texture slot. Such
@@ -90,6 +103,8 @@ public:
     // world: SingletonCamera::SetMain).
     void SetCurrent();
     float GetFOV();
+    // Degrees, clamped to the field's range (1-179).
+    void SetFOV( float InDegrees );
     float GetAspectRatio() const;
     bool HasPartialViewport() const;
     // OutputSize scaled by the viewport rect: the size this camera actually renders at.

@@ -87,6 +87,7 @@ namespace Moonlight
         m_taaProgram = LoadPost( "TAA" );
         m_copyProgram = LoadPost( "Copy" );
         m_upscaleProgram = LoadPost( "Upscale" );
+        m_overlayProgram = LoadPost( "OverlayComposite" );
         m_eraProgram = LoadPost( "Era" );
         m_dofCoCProgram = LoadPost( "DoFCoC" );
         m_dofPrefilterProgram = LoadPost( "DoFPrefilter" );
@@ -109,6 +110,9 @@ namespace Moonlight
         s_input0 = bgfx::createUniform( "s_input0", bgfx::UniformType::Sampler );
         u_upscaleParams = bgfx::createUniform( "u_upscaleParams", bgfx::UniformType::Vec4 );
         u_upscaleSize = bgfx::createUniform( "u_upscaleSize", bgfx::UniformType::Vec4 );
+        u_overlayParams = bgfx::createUniform( "u_overlayParams", bgfx::UniformType::Vec4 );
+        u_overlayFade = bgfx::createUniform( "u_overlayFade", bgfx::UniformType::Vec4 );
+        u_overlayLook = bgfx::createUniform( "u_overlayLook", bgfx::UniformType::Vec4 );
         u_eraPost = bgfx::createUniform( "u_eraPost", bgfx::UniformType::Vec4 );
         s_input1 = bgfx::createUniform( "s_input1", bgfx::UniformType::Sampler );
         s_hdrColor = bgfx::createUniform( "s_hdrColor", bgfx::UniformType::Sampler );
@@ -157,7 +161,7 @@ namespace Moonlight
     {
         for( bgfx::UniformHandle* uniform : { &s_input0, &s_input1, &s_hdrColor, &s_bloom, &s_exposure, &s_ldrColor, &u_tonemap, &u_grading, &u_grading2, &u_exposure, &u_bloom, &u_ssao, &u_ssaoProjection, &u_ssaoScreen, &u_ssaoInvProjection, &u_adapt,
             &u_fogProjection, &u_fogProjection2, &u_fogScreen, &u_fogInvView, &u_fogVolume2, &u_fogReproject, &s_fogHistory, &s_taaCurrent, &s_taaHistory, &s_taaDepth, &u_taaParams, &u_taaJitter, &u_taaReproject, &u_graphSceneFilter,
-            &s_dof0, &s_dof1, &s_dof2, &s_dof3, &s_dof4, &u_dofLens, &u_dofSplit, &u_dofProjection, &u_dofScreen, &u_dofPass, &u_dofJitter, &s_lut, &s_lutStrip, &u_lut, &u_outline, &u_outlineParams, &u_upscaleParams, &u_upscaleSize, &u_eraPost } )
+            &s_dof0, &s_dof1, &s_dof2, &s_dof3, &s_dof4, &u_dofLens, &u_dofSplit, &u_dofProjection, &u_dofScreen, &u_dofPass, &u_dofJitter, &s_lut, &s_lutStrip, &u_lut, &u_outline, &u_outlineParams, &u_upscaleParams, &u_upscaleSize, &u_overlayParams, &u_overlayFade, &u_overlayLook, &u_eraPost } )
         {
             DestroyUniform( *uniform );
         }
@@ -612,6 +616,35 @@ namespace Moonlight
         bgfx::setUniform( u_upscaleSize, size );
         bgfx::setTexture( 0, s_input0, InTargets.UpscaleInput.Color );
         SubmitFullscreen( view, m_upscaleProgram );
+    }
+
+
+    void PostProcess::RenderOverlayComposite( ViewAllocator& InViews, const CameraData& InOverlayCamera, const FrameBuffer& InOverlay, bgfx::FrameBufferHandle InOutput, uint16_t InOutputWidth, uint16_t InOutputHeight )
+    {
+        if( !m_overlayProgram.IsLoaded() || !bgfx::isValid( InOverlay.Texture ) || !bgfx::isValid( InOverlay.DepthTexture ) )
+        {
+            return;
+        }
+        const bgfx::ViewId view = InViews.Allocate( "Overlay Composite" );
+        if( view == UINT16_MAX )
+        {
+            return;
+        }
+        SetupFullscreenView( view, InOutput, InOutputWidth, InOutputHeight );
+        // The depth is the scene's, at the internal size.
+        // z: 1 when depth is OpenGL-style (-1..1 clip space), w: 1 for an orthographic camera.
+        const float params[4] = { 1.f / static_cast<float>( std::max<uint32_t>( InOverlay.Width, 1u ) ), 1.f / static_cast<float>( std::max<uint32_t>( InOverlay.Height, 1u ) ),
+            bgfx::getCaps()->homogeneousDepth ? 1.f : 0.f, InOverlayCamera.Projection == ProjectionType::Orthographic ? 1.f : 0.f };
+        bgfx::setUniform( u_overlayParams, params );
+        // Near, far, fade start, fade end.
+        const float fade[4] = { InOverlayCamera.Near, InOverlayCamera.Far, InOverlayCamera.OverlayFade.x, InOverlayCamera.OverlayFade.y };
+        bgfx::setUniform( u_overlayFade, fade );
+        const float look[4] = { InOverlayCamera.OverlayDarkOpacity, 0.f, 0.f, 0.f };
+        bgfx::setUniform( u_overlayLook, look );
+        bgfx::setTexture( 0, s_input0, InOverlay.Texture, BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP );
+        bgfx::setTexture( 1, s_input1, InOverlay.DepthTexture, BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP | BGFX_SAMPLER_POINT );
+        // Covered: the overlay. Uncovered: the scene plus the overlay (black where it drew nothing).
+        SubmitFullscreen( view, m_overlayProgram, BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_FUNC( BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA ) );
     }
 
 

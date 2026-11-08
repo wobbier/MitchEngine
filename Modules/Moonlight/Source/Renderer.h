@@ -256,6 +256,7 @@ private:
     SceneCounts m_textureCounts;    // render texture cameras (added to the scene's draws)
     // This frame's render texture cameras, in the order they render.
     std::vector<Moonlight::CameraData*> m_textureCameras;
+    std::vector<Moonlight::CameraData*> m_overlayCameras;
     SceneCounts* m_counting = nullptr;
 
     ShadowAtlas m_sunShadowAtlas;

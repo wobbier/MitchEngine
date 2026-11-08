@@ -806,7 +806,7 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
     // cameras draw into the main camera's output, so they wait until it has rendered.
     for( auto& camData : m_cameraCache.Commands )
     {
-        if( camData.IsMain || !camData.ShouldRender || RendersToTexture( camData ) || ( mainCamera && isSplit( camData ) ) )
+        if( camData.IsMain || !camData.ShouldRender || RendersToTexture( camData ) || camData.Overlay || ( mainCamera && isSplit( camData ) ) )
         {
             continue;
         }
@@ -834,9 +834,39 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
 
         for( auto& camData : m_cameraCache.Commands )
         {
-            if( !camData.IsMain && camData.ShouldRender && isSplit( camData ) )
+            if( !camData.IsMain && camData.ShouldRender && isSplit( camData ) && !camData.Overlay )
             {
                 RenderCameraView( camData, kMainCameraToBackbuffer, mainCamera->Buffer );
+            }
+        }
+
+        // Overlay cameras (Camera::Overlay): each renders on a black background into its own
+        // output, then composites over the main camera's final image, in GUID order. Their views
+        // come after the main camera's and before the UI composite's.
+        m_overlayCameras.clear();
+        for( auto& camData : m_cameraCache.Commands )
+        {
+            if( camData.Overlay && !camData.IsMain && camData.ShouldRender && camData.Buffer && !RendersToTexture( camData ) )
+            {
+                m_overlayCameras.push_back( &camData );
+            }
+        }
+        std::sort( m_overlayCameras.begin(), m_overlayCameras.end(), []( const Moonlight::CameraData* InA, const Moonlight::CameraData* InB ) {
+            return InA->TargetOrder < InB->TargetOrder;
+        } );
+        const bgfx::FrameBufferHandle mainOutput = kMainCameraToBackbuffer ? bgfx::FrameBufferHandle( BGFX_INVALID_HANDLE ) : mainCamera->Buffer->Buffer;
+        const uint16_t mainWidth = kMainCameraToBackbuffer ? static_cast<uint16_t>( CurrentSize.x ) : static_cast<uint16_t>( mainCamera->Buffer->GetOutputWidth() );
+        const uint16_t mainHeight = kMainCameraToBackbuffer ? static_cast<uint16_t>( CurrentSize.y ) : static_cast<uint16_t>( mainCamera->Buffer->GetOutputHeight() );
+        for( Moonlight::CameraData* overlay : m_overlayCameras )
+        {
+            // See-through: nothing drawn stays black, which adds nothing over the scene.
+            overlay->ClearType = Moonlight::ClearColorType::Color;
+            overlay->ClearColor = Vector3( 0.f, 0.f, 0.f );
+            overlay->Viewport = glm::vec4( 0.f, 0.f, 1.f, 1.f );
+            RenderCameraView( *overlay, false );
+            if( !m_views.IsExhausted() && overlay->Buffer )
+            {
+                m_postProcess->RenderOverlayComposite( m_views, *overlay, *overlay->Buffer, mainOutput, mainWidth, mainHeight );
             }
         }
     }

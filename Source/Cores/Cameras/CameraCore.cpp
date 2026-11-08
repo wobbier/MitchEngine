@@ -1,4 +1,5 @@
 #include "PCH.h"
+#include <algorithm>
 #include "CameraCore.h"
 #include "Components/Camera.h"
 #include "Components/Cameras/CameraSway.h"
@@ -142,6 +143,11 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
             CameraComponent.Skybox = mainCamera->Skybox;
             CameraComponent.ProceduralSky = mainCamera->ProceduralSky;
         }
+        else if( CameraComponent.Overlay )
+        {
+            // Overlays composite over the main camera's image pixel for pixel.
+            CameraComponent.OutputSize = mainCamera ? mainCamera->OutputSize : windowSize;
+        }
         else if( CameraComponent.HasPartialViewport() )
         {
             // Split screen cameras share the main camera's output, so size from it.
@@ -188,6 +194,9 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
             CamData->Projection = CameraComponent.Projection;
             CamData->OrthographicSize = CameraComponent.OrthographicSize;
             CamData->IsMain = CameraComponent.IsMain();
+            CamData->Overlay = CameraComponent.Overlay && !CamData->IsMain && !toTexture;
+            CamData->OverlayFade = glm::vec2( CameraComponent.OverlayFadeStart, CameraComponent.OverlayFadeEnd );
+            CamData->OverlayDarkOpacity = std::clamp( CameraComponent.OverlayDarkOpacity, 0.f, 1.f );
             const PostProcess* post = InEntity.TryGetComponent<PostProcess>();
             CamData->Post = ( post && post->IsEnabled() ) ? post->ToSettings() : Moonlight::PostProcessSettings();
             CamData->SunShadows = CameraComponent.SunShadows;

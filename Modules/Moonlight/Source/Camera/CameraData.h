@@ -121,6 +121,12 @@ namespace Moonlight
         Matrix4 ProjectionMatrix;
         Frustum ViewFrustum;
         bool IsMain = false;
+        // Renders after the main camera and composites over its final image where it drew
+        // (Camera::Overlay). Overlays go in TargetOrder.
+        bool Overlay = false;
+        // Distances (start, end) the overlay fades out over; end <= start: no fade.
+        glm::vec2 OverlayFade = glm::vec2( 0.f, 0.f );
+        float OverlayDarkOpacity = 1.f;
         // Normalized rect (x, y from the top left, width, height) of the main output this camera
         // draws into; a partial rect is split screen and OutputSize is already the rect's size.
         glm::vec4 Viewport = glm::vec4( 0.f, 0.f, 1.f, 1.f );

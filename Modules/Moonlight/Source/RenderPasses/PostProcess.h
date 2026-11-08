@@ -56,6 +56,10 @@ namespace Moonlight
         // into InOutput's rect with the camera's UpscaleFilter.
         void RenderUpscale( ViewAllocator& InViews, const CameraData& InCamera, FrameBuffer& InTargets, uint32_t InPixelFactor, bgfx::FrameBufferHandle InOutput, uint16_t InOutputWidth, uint16_t InOutputHeight, uint16_t InOutputX = 0, uint16_t InOutputY = 0 );
 
+        // An overlay camera's final image (Camera::Overlay) over InOutput, the main camera's: it
+        // replaces the scene where the overlay's depth shows it drew, and adds on top elsewhere.
+        void RenderOverlayComposite( ViewAllocator& InViews, const CameraData& InOverlayCamera, const FrameBuffer& InOverlay, bgfx::FrameBufferHandle InOutput, uint16_t InOutputWidth, uint16_t InOutputHeight );
+
         // The sub-pixel jitter (in pixels, -0.5..0.5) of frame InFrame of the temporal sequence
         // (Halton 2, 3 over 8 frames).
         static void TemporalJitter( uint32_t InFrame, float OutJitter[2] );
@@ -96,6 +100,7 @@ namespace Moonlight
         ShaderCommand m_taaProgram;
         ShaderCommand m_copyProgram;
         ShaderCommand m_upscaleProgram;
+        ShaderCommand m_overlayProgram;
         ShaderCommand m_eraProgram;
         ShaderCommand m_dofCoCProgram;
         ShaderCommand m_dofPrefilterProgram;
@@ -118,6 +123,9 @@ namespace Moonlight
         bgfx::UniformHandle s_input0 = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_upscaleParams = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_upscaleSize = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_overlayParams = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_overlayFade = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_overlayLook = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_eraPost = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_input1 = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_hdrColor = BGFX_INVALID_HANDLE;

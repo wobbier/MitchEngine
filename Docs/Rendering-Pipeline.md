@@ -448,6 +448,16 @@ A camera can render into a texture asset that any material samples: a security m
 
 `../Assets/Scenes/Showcase/RenderTexture.lvl` (rebuilt by `../Tools/BuildRenderTextureShowcase.py`) shows each consumer, an update interval, masked passes and a screen in its own camera's shot; ConcertTest's LED wall shows a crowd camera's feed (`../Assets/Scenes/Tests/ConcertTest.md`).
 
+### Overlay cameras
+
+An overlay camera draws a layer over the main camera's image: a game's 3D HUD, or a rhythm game's note highway over a concert that cuts between shots underneath it. Set `Camera::Overlay` on a camera that isn't the main one.
+
+- **Order and size.** Overlays render after the main camera and its split-screen cameras, in entity GUID order (`CameraData::TargetOrder`), at the main camera's output size (`CameraCore::LateUpdate`), always full screen. They never become the main camera on their own (`Camera::Init`). Their views land before the UI composite, so game UI stays on top.
+- **The composite.** Each overlay renders its whole chain (post included) into its own output on a black background, then `PostProcess::RenderOverlayComposite` (`Post/OverlayComposite.frag`) blends it over the main camera's final image. Coverage comes from the overlay's depth: where it drew geometry its image replaces the scene; where it drew nothing its image adds on top, so bloom and additive or transparent effects over the black glow over the scene. The coverage is averaged over 3x3 depth samples to soften silhouettes.
+- **Fading.** `OverlayFadeStart` / `OverlayFadeEnd` (metres from the overlay camera) fade it into the scene with distance, so a far edge melts away instead of cutting off (fog to black would leave a black band). `OverlayDarkOpacity` below 1 lets dark pixels show the scene through while bright ones (luma from 0.3) stay solid: a see-through backing under bright markings.
+- **Separate scenes.** An overlay draws every mesh of the world it can see, like any camera: keep its content out of the main camera's view and vice versa (Drumsmith puts its venue kilometres from its highway), or use different render groups. Directional lights light both; local lights only light what's in their range.
+- Overlays are skipped when there's no main camera. The overlay camera's `PostProcess` (or the default one) applies to the layer; turn its fog off, the fade replaces it.
+
 ## Screen-door fades (ME-279)
 
 Opaque meshes fade without sorting by dropping texels against a 4x4 Bayer pattern (`Assets/Shaders/Dither.sh`).

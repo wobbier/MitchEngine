@@ -1,4 +1,5 @@
 #include "PCH.h"
+#include <algorithm>
 #include "Camera.h"
 #include "Graphics/SkyBox.h"
 #include "Graphics/Texture.h"
@@ -53,6 +54,10 @@ ME_REFLECT_BEGIN( Camera )
     ME_FIELD( ClearColor ).Color().CustomInspector();
     ME_FIELD( ProceduralSky ).Display( "Procedural Sky" ).CustomInspector();
     ME_FIELD( MatchMainCamera ).Display( "Match Main Camera" ).Tooltip( "Render at the main camera's size, field of view, far plane and background (for portal and screen-space views)" );
+    ME_FIELD( Overlay ).Tooltip( "Render after the main camera and composite over its image wherever this camera drew: a layer over the scene (its background is see-through)" );
+    ME_FIELD( OverlayFadeStart ).Display( "Overlay Fade Start" ).Range( 0.f, 10000.f ).Unit( Reflection::Unit::Meters ).SoftRange( 0.f, 500.f ).Tooltip( "Overlay only: distance where the overlay starts fading into the scene below" );
+    ME_FIELD( OverlayFadeEnd ).Display( "Overlay Fade End" ).Range( 0.f, 10000.f ).Unit( Reflection::Unit::Meters ).SoftRange( 0.f, 500.f ).Tooltip( "Overlay only: distance where the overlay is gone (at or before the start: no fade)" );
+    ME_FIELD( OverlayDarkOpacity ).Display( "Overlay Dark Opacity" ).Range( 0.f, 1.f ).Unit( Reflection::Unit::Percent ).Tooltip( "Overlay only: how much the overlay's darkest pixels cover the scene (bright ones always do)" );
     ME_FIELD( Zoom ).Hidden();
     ME_FIELD( TargetTexture ).Category( "Render Texture" ).Display( "Target Texture" ).Asset( "RenderTexture" ).Tooltip( "Render into this render texture, at its size, instead of the screen. Materials show the image by using the same asset as a texture" );
     ME_FIELD( UpdateInterval ).Category( "Render Texture" ).Display( "Update Interval" ).Range( 1.f, 60.f ).Unit( Reflection::Unit::Frames ).Tooltip( "Render every Nth frame; the texture keeps its last image in between" );
@@ -92,10 +97,10 @@ Camera::~Camera()
 
 void Camera::Init()
 {
-    // The first camera of a world without a main camera takes it. A render texture camera never
-    // takes over the screen by itself.
+    // The first camera of a world without a main camera takes it. A render texture or overlay
+    // camera never takes over the screen by itself.
     World* world = Parent.GetWorld();
-    if( world && !HasTargetTexture() )
+    if( world && !HasTargetTexture() && !Overlay )
     {
         SingletonCamera& main = world->Singleton<SingletonCamera>();
         if( !main.GetMain() )
@@ -251,6 +256,12 @@ void Camera::SetCurrent()
 float Camera::GetFOV()
 {
     return m_FOV;
+}
+
+
+void Camera::SetFOV( float InDegrees )
+{
+    m_FOV = std::clamp( InDegrees, 1.f, 179.f );
 }
 
 float Camera::GetAspectRatio() const
