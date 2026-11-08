@@ -18,11 +18,13 @@
 #include "Net/NetReplayDump.h"
 #include "Net/NetReplayHeatmap.h"
 #include "Net/NetReplayTimeline.h"
+#include <chrono>
 #include <cmath>
 #include <sstream>
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 // ME-215: heatmaps of where players were, died and killed, from one pass over a replay (or many).
@@ -768,6 +770,109 @@ TEST_CASE( "Heatmap overlay: each cell lies on the ground under it (characters i
     overlay.RunCommand( { "clear" } );
     CHECK_FALSE( overlay.HasHeatmap() );
     CHECK( overlay.RunCommand( {} ) == "heatmap: none loaded" );
+    DebugDraw::Clear();
+}
+
+
+TEST_CASE( "Heatmap overlay: a scene load finds the ground again, another map's heatmap is warned about, and a build is cancelled (ME-215)" )
+{
+    PhysicsCore physics;    // the cores before the world
+    auto world = std::make_shared<World>();
+    world->IsLoading = false;
+    world->AddCore( physics );
+    auto box = [&]( const Vector3& InPosition, const Vector3& InSize ) {
+        EntityHandle entity = world->CreateEntity();
+        entity->AddComponent<Transform>().SetPosition( InPosition );
+        entity->AddComponent<BoxCollider>().Size = InSize;
+        return entity;
+    };
+    HeatmapStepContext context;
+    context.FixedDeltaTime = 1.f / 60.f;
+    context.InterpolationAlpha = 1.f;
+    auto step = [&]() {
+        context.IsFixedStepActive = true;
+        physics.FixedUpdate( context );
+        context.IsFixedStepActive = false;
+        physics.Update( context );
+    };
+    EntityHandle floor = box( Vector3( 0.f, -0.5f, 0.f ), Vector3( 80.f, 1.f, 80.f ) );     // its top at 0
+    world->Simulate();
+    world->Start();
+    step();
+
+    NetReplayHeatmap built;
+    built.AddPoint( Layer::Positions, Vector3( 2.5f, 2.9f, 3.5f ), "Striker", "" );
+    json arena = built.ToJson();
+    arena["map"] = "Assets/Scenes/Arena.lvl";
+    NetReplayHeatmap heatmap;
+    std::string error;
+    REQUIRE_MESSAGE( heatmap.FromJson( arena, &error ), error );
+
+    HeatmapOverlay overlay;
+    overlay.OnSceneLoaded( "Assets/Scenes/Arena.lvl" );
+    overlay.Set( heatmap, "test" );
+    CHECK( overlay.MatchesScene() );
+    overlay.Draw( *world );
+    REQUIRE( overlay.GetCells().size() == 1 );
+    CHECK( overlay.GetCells()[0].Centre.y == doctest::Approx( 0.04f ).epsilon( 0.01 ) );
+
+    // The same World, another scene loaded into it (Engine::LoadSceneInternal reuses it): its ground is
+    // 2 m up. Until the load is told, the cells keep the old ground; after, they find the new one.
+    floor->MarkForDelete();
+    box( Vector3( 0.f, 1.5f, 0.f ), Vector3( 80.f, 1.f, 80.f ) );   // its top at 2
+    world->Simulate();
+    step();
+    overlay.Draw( *world );
+    CHECK( overlay.GetCells()[0].Centre.y == doctest::Approx( 0.04f ).epsilon( 0.01 ) );
+    overlay.OnSceneLoaded( "Assets/Scenes/Payload.lvl" );
+    overlay.Draw( *world );
+    REQUIRE( overlay.GetCells().size() == 1 );
+    CHECK( overlay.GetCells()[0].Centre.y == doctest::Approx( 2.04f ).epsilon( 0.01 ) );
+    CHECK_FALSE( overlay.MatchesScene() );
+    CHECK( overlay.Describe().find( "warning: recorded on Assets/Scenes/Arena.lvl, drawn over Assets/Scenes/Payload.lvl" ) != std::string::npos );
+    CHECK( overlay.Report()["sceneMatches"] == false );
+
+    // A build from replay files: cancelled, nothing is shown whether or not it finished first; let run, shown.
+    namespace fs = std::filesystem;
+    const fs::path folder = fs::temp_directory_path() / "MitchEngineHeatmapCancel";
+    fs::remove_all( folder );
+    fs::create_directories( folder );
+    for( const char* name : { "a.mreplay", "b.mreplay" } )
+    {
+        NetReplaySettings settings;
+        settings.KeyframeInterval = 50;
+        NetReplayRecorder recorder( HeatmapHeader(), settings );
+        REQUIRE( recorder.OpenFile( ( folder / name ).string() ) );
+        for( NetReplayTick& tick : HeatmapMatch() )
+        {
+            recorder.Record( std::move( tick ) );
+        }
+        recorder.Close();
+        REQUIRE_FALSE( recorder.HasFailed() );
+    }
+    auto settle = [&]() {
+        for( int i = 0; i < 2000 && overlay.IsBuilding(); ++i )
+        {
+            std::this_thread::sleep_for( std::chrono::milliseconds( 5 ) );
+            overlay.Draw( *world );
+        }
+        REQUIRE_FALSE( overlay.IsBuilding() );
+    };
+    overlay.Clear();
+    CHECK( overlay.RunCommand( { "cancel" } ) == "no heatmap is building" );
+    CHECK( overlay.RunCommand( { "build", folder.string() } ).find( "on the background lane" ) != std::string::npos );
+    CHECK( overlay.RunCommand( { "cancel" } ) == "cancelling the heatmap build" );
+    settle();
+    CHECK_FALSE( overlay.HasHeatmap() );
+    CHECK( overlay.RunCommand( { "build", folder.string() } ).find( "on the background lane" ) != std::string::npos );
+    overlay.Clear();    // clearing cancels too
+    settle();
+    CHECK_FALSE( overlay.HasHeatmap() );
+    REQUIRE( overlay.Build( { folder.string() } ) );
+    settle();
+    REQUIRE( overlay.HasHeatmap() );
+    CHECK( overlay.GetHeatmap()->GetSources().size() == 2 );
+    fs::remove_all( folder );
     DebugDraw::Clear();
 }
 

@@ -26,14 +26,22 @@ class World;
 //   heatmap layer positions|deaths|kills
 //   heatmap group <all|hero:Name|team:Name>     (heatmap groups lists them)
 //   heatmap on|off|clear
+//   heatmap cancel                              a build still running
 //   heatmap opacity <0..1>
 //
-// Paths may start project:// (the project's folder). The edscript's "console heatmap load ..." reaches it in Havana; the replay viewer's
-// --replay-heatmap and "replay heatmap" set it from the replay playing.
+// Paths may start project:// (the project's folder). Any Player or Havana takes one at start-up:
+// --heatmap-overlay <file.json> [--heatmap-overlay-layer LAYER[:GROUP]]; the edscript's
+// "console heatmap load ..." reaches it in Havana; the replay viewer's --replay-heatmap and
+// "replay heatmap" set it from the replay playing.
 //
 // Each cell is drawn at the ground under it: a ray down the world's physics from just above the
-// lowest sample that went into the cell (characters' capsules ignored), found once per world and
-// heatmap; where nothing is hit, that sample less 0.9 m (a capsule's centre to its feet).
+// lowest sample that went into the cell (characters' capsules ignored), found once per world, scene
+// and heatmap (a scene load finds them again: OnSceneLoaded); where nothing is hit, that sample
+// less 0.9 m (a capsule's centre to its feet). A heatmap recorded on another scene than the one
+// loaded is still drawn, with a warning (logged once, and in Describe / Report).
+//
+// A build is cancelled by Clear, "heatmap cancel" and Engine shutdown (Cancel, before the background
+// lane is joined), between ticks of the replay it is reading.
 class HeatmapOverlay
 {
 public:
@@ -48,6 +56,15 @@ public:
     bool IsBuilding() const { return m_build.valid(); }
     void Set( NetReplayHeatmap InHeatmap, const std::string& InSource );
     void Clear();
+    // Stops a build still running (its result is dropped). False when none was.
+    bool Cancel();
+    // The command line's --heatmap-overlay (Engine start-up; logs what it did).
+    void ApplyCommandLine();
+    // A scene loaded into the world (Engine::LoadSceneInternal): the cells find the ground again, and a
+    // heatmap of another map is warned about.
+    void OnSceneLoaded( const std::string& InScene );
+    // The heatmap's map is the scene loaded (or either is unknown).
+    bool MatchesScene() const;
     bool HasHeatmap() const { return m_heatmap != nullptr; }
     const NetReplayHeatmap* GetHeatmap() const { return m_heatmap.get(); }
 
@@ -79,6 +96,7 @@ public:
 private:
     void Invalidate() { m_builtFor = nullptr; m_cells.clear(); }
     void BuildCells( World& InWorld );
+    void WarnIfOtherScene();
 
     std::unique_ptr<NetReplayHeatmap> m_heatmap;
     std::string m_source;
@@ -96,5 +114,7 @@ private:
         std::string Source;
     };
     std::future<Built> m_build;
+    std::shared_ptr<std::atomic<bool>> m_cancel;
     std::string m_buildError;
+    std::string m_scene;
 };

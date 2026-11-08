@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "Engine/HeatmapOverlay.h"
 #include "CLog.h"
+#include "Core/CommandLine.h"
 #include "Components/Physics/CharacterController.h"
 #include "Cores/PhysicsCore.h"
 #include "Debug/DebugDraw.h"
@@ -59,7 +60,7 @@ void HeatmapOverlay::RegisterCommands()
     registered = true;
     DevConsole::Get().Register( "heatmap",
         "a replay heatmap over the world (ME-215): heatmap [load <file.json> [layer] [group]|build <replay|folder> ...|layer positions|deaths|kills"
-        "|group <name>|groups|on|off|clear|opacity <0..1>]",
+        "|group <name>|groups|on|off|clear|cancel|opacity <0..1>]",
         []( const std::vector<std::string>& InArgs ) { return Get().RunCommand( InArgs ); } );
 }
 
@@ -87,13 +88,19 @@ bool HeatmapOverlay::Build( const std::vector<std::string>& InPaths, const NetRe
     options.Path = InPaths.empty() ? std::string() : InPaths.front();
     options.MorePaths.assign( InPaths.begin() + ( InPaths.empty() ? 0 : 1 ), InPaths.end() );
     const std::vector<std::string> paths = NetReplayDump::ExpandPaths( options );
+    auto cancel = std::make_shared<std::atomic<bool>>( false );
+    m_cancel = cancel;
     // Low: every chunk of every replay is decoded; scene reads and replay writes mustn't wait on it.
-    m_build = Jobs::BackgroundLane::Get().Submit( "Replay Heatmap", [paths, InSettings]() -> Built {
+    m_build = Jobs::BackgroundLane::Get().Submit( "Replay Heatmap", [paths, InSettings, cancel]() -> Built {
         Built built;
         built.Heatmap = std::make_unique<NetReplayHeatmap>( InSettings );
         std::string skipped;
         for( const std::string& path : paths )
         {
+            if( cancel->load( std::memory_order_relaxed ) )
+            {
+                break;
+            }
             NetReplayFileSource source;
             std::string error;
             if( !source.Open( path ) )
@@ -102,10 +109,16 @@ bool HeatmapOverlay::Build( const std::vector<std::string>& InPaths, const NetRe
                 continue;
             }
             NetReplayReader reader( source );
-            if( !built.Heatmap->AddReplay( reader, path, &error ) )
+            if( !built.Heatmap->AddReplay( reader, path, &error, cancel.get() ) && !cancel->load( std::memory_order_relaxed ) )
             {
                 skipped += "; skipped " + path + ": " + error;
             }
+        }
+        if( cancel->load( std::memory_order_relaxed ) )
+        {
+            built.Error = "the build was cancelled";
+            built.Heatmap.reset();
+            return built;
         }
         const size_t read = built.Heatmap->GetSources().size();
         if( read == 0 )
@@ -131,14 +144,86 @@ void HeatmapOverlay::Set( NetReplayHeatmap InHeatmap, const std::string& InSourc
     }
     m_shown = true;
     Invalidate();
+    WarnIfOtherScene();
 }
 
 
 void HeatmapOverlay::Clear()
 {
+    Cancel();
     m_heatmap.reset();
     m_source.clear();
     Invalidate();
+}
+
+
+bool HeatmapOverlay::Cancel()
+{
+    if( !m_build.valid() || !m_cancel || m_cancel->load() )
+    {
+        return false;
+    }
+    m_cancel->store( true );
+    return true;
+}
+
+
+void HeatmapOverlay::ApplyCommandLine()
+{
+    if( !CommandLine::Has( "--heatmap-overlay" ) )
+    {
+        return;
+    }
+    const std::string path = CommandLine::GetString( "--heatmap-overlay" );
+    std::string error;
+    if( path.empty() || !Load( Resolve( path ), error ) )
+    {
+        CLog::Log( CLog::LogType::Error, "Heatmap: --heatmap-overlay " + path + ": " + ( path.empty() ? std::string( "which file? (ReplayDump --heatmap's JSON)" ) : error ) );
+        return;
+    }
+    // LAYER[:GROUP]
+    const std::string pick = CommandLine::GetString( "--heatmap-overlay-layer" );
+    if( !pick.empty() )
+    {
+        const size_t colon = pick.find( ':' );
+        NetReplayHeatmap::Layer layer;
+        if( NetReplayHeatmap::ParseLayer( pick.substr( 0, colon ), layer ) )
+        {
+            SetLayer( layer );
+        }
+        else
+        {
+            CLog::Log( CLog::LogType::Warning, "Heatmap: --heatmap-overlay-layer " + pick + ": no such layer (positions, deaths, kills)" );
+        }
+        if( colon != std::string::npos && !SetGroup( pick.substr( colon + 1 ) ) )
+        {
+            CLog::Log( CLog::LogType::Warning, "Heatmap: --heatmap-overlay-layer " + pick + ": the heatmap has no group " + pick.substr( colon + 1 ) );
+        }
+    }
+    CLog::Log( CLog::LogType::Info, "Heatmap: " + Describe() );
+}
+
+
+void HeatmapOverlay::OnSceneLoaded( const std::string& InScene )
+{
+    m_scene = InScene;
+    Invalidate();
+    WarnIfOtherScene();
+}
+
+
+bool HeatmapOverlay::MatchesScene() const
+{
+    return !m_heatmap || m_heatmap->GetMap().empty() || m_scene.empty() || m_heatmap->GetMap() == m_scene;
+}
+
+
+void HeatmapOverlay::WarnIfOtherScene()
+{
+    if( !MatchesScene() )
+    {
+        CLog::Log( CLog::LogType::Warning, "Heatmap: recorded on " + m_heatmap->GetMap() + ", drawn over " + m_scene + ": the cells aren't this scene's places" );
+    }
 }
 
 
@@ -246,7 +331,14 @@ void HeatmapOverlay::Draw( World& InWorld )
     if( m_build.valid() && m_build.wait_for( std::chrono::seconds( 0 ) ) == std::future_status::ready )
     {
         Built built = m_build.get();
-        if( built.Heatmap )
+        const bool cancelled = m_cancel && m_cancel->load();
+        m_cancel.reset();
+        if( cancelled )
+        {
+            // Cleared or cancelled meanwhile: what it built (if it finished first) isn't wanted.
+            CLog::Log( CLog::LogType::Info, "Heatmap: the build was cancelled" );
+        }
+        else if( built.Heatmap )
         {
             Set( std::move( *built.Heatmap ), built.Source );
             CLog::Log( CLog::LogType::Info, "Heatmap: built from " + built.Source + ": " + Describe() );
@@ -287,6 +379,10 @@ std::string HeatmapOverlay::Describe() const
     std::string text = std::string( "heatmap " ) + ( m_shown ? "shown" : "hidden" ) + ": " + NetReplayHeatmap::LayerName( m_layer ) + " of " + m_group + ", "
         + Fixed( m_heatmap->GetTotal( m_layer, m_group ), m_layer == NetReplayHeatmap::Layer::Positions ? 1 : 0 )
         + ( m_layer == NetReplayHeatmap::Layer::Positions ? " s" : "" ) + " in " + std::to_string( m_cells.size() ) + " cells drawn, from " + m_source + "\n";
+    if( !MatchesScene() )
+    {
+        text += "  warning: recorded on " + m_heatmap->GetMap() + ", drawn over " + m_scene + "\n";
+    }
     return text + m_heatmap->Describe();
 }
 
@@ -312,6 +408,9 @@ json HeatmapOverlay::Report() const
     report["total"] = m_heatmap->GetTotal( m_layer, m_group );
     report["cellsDrawn"] = m_cells.size();
     report["replays"] = m_heatmap->GetSources().size();
+    report["map"] = m_heatmap->GetMap();
+    report["scene"] = m_scene;
+    report["sceneMatches"] = MatchesScene();
     float hottest = 0.f;
     Vector3 at;
     for( const Cell& cell : m_cells )
@@ -413,6 +512,10 @@ std::string HeatmapOverlay::RunCommand( const std::vector<std::string>& InArgs )
         Clear();
         return "heatmap cleared";
     }
+    if( verb == "cancel" )
+    {
+        return Cancel() ? "cancelling the heatmap build" : "no heatmap is building";
+    }
     if( verb == "opacity" )
     {
         if( InArgs.size() < 2 )
@@ -422,5 +525,5 @@ std::string HeatmapOverlay::RunCommand( const std::vector<std::string>& InArgs )
         SetOpacity( static_cast<float>( std::atof( InArgs[1].c_str() ) ) );
         return "opacity " + Fixed( m_opacity, 2 );
     }
-    return "heatmap [load <file.json> [layer] [group]|build <replay|folder> ...|layer positions|deaths|kills|group <name>|groups|on|off|clear|opacity <0..1>]";
+    return "heatmap [load <file.json> [layer] [group]|build <replay|folder> ...|layer positions|deaths|kills|group <name>|groups|on|off|clear|cancel|opacity <0..1>]";
 }

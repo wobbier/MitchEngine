@@ -663,6 +663,7 @@ void Engine::Run()
     m_netLaunch.Start( *Net, static_cast<uint16_t>( std::lround( 1.0 / m_fixedTimeStep ) ), GameWindow, engineConfig.GetValue( "Title" ) );
     // ME-215: replay heatmaps over the world ("heatmap" in the console, the edscript's console line).
     HeatmapOverlay::RegisterCommands();
+    HeatmapOverlay::Get().ApplyCommandLine();
     m_control.Init();
     // ME-323 phase 3: killcams the session receives play into a replay world of their own.
     m_killcam.SetPopulate( [this]( KillcamPlayer::ReplayWorld& InReplay, std::string& OutError ) { return PopulateKillcamWorld( InReplay, OutError ); } );
@@ -1340,7 +1341,9 @@ void Engine::Shutdown()
         NewRenderer->Destroy();
     }
 
-    // Background work still queued (a save or replay write) lands before the process goes.
+    // Background work still queued (a save or replay write) lands before the process goes; a heatmap
+    // build (ME-215, possibly many replays long) stops instead.
+    HeatmapOverlay::Get().Cancel();
     Jobs::BackgroundLane::GetUnstarted().Shutdown();
     Jobs::JobSystem::Get().Shutdown();
     CLog::GetInstance().Flush();
@@ -1609,6 +1612,8 @@ void Engine::LoadSceneInternal( const std::string& SceneFile, const json* InData
     SceneLoadedEvent evt;
     evt.LoadedScene = CurrentScene;
     evt.Fire();
+    // ME-215: a heatmap over the world finds this scene's ground again (the world is the same object).
+    HeatmapOverlay::Get().OnSceneLoaded( CurrentScene->FilePath.GetLocalPathString() );
 
 #if !USING( ME_EDITOR )
     GameWorld->Simulate();
