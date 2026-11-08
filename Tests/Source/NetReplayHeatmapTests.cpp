@@ -5,6 +5,11 @@
 #include "Components/Networking/NetIdentity.h"
 #include "Components/Networking/SingletonInput.h"
 #include "Components/Physics/CharacterController.h"
+#include "Components/Physics/Colliders.h"
+#include "Core/UpdateContext.h"
+#include "Cores/PhysicsCore.h"
+#include "Debug/DebugDraw.h"
+#include "Engine/HeatmapOverlay.h"
 #include "Components/Transform.h"
 #include "Cores/NetCore.h"
 #include "Engine/World.h"
@@ -48,7 +53,7 @@ namespace
     // Bruiser at (-1.5, 1, 0.5) throughout. Picks at 10 put them on teams Red and Blue. Bruiser's shot hits
     // Striker at 40 and Striker dies at 45 (the payload's "at": (2.2, 1, 3.9)), no killer named: the shot's.
     // Striker kills Bruiser at 90 ("killerNetId"). Bruiser dies at 100 with nobody to blame (a fall) and at
-    // 110 by its own hand.
+    // 110 by its own hand. Striker respawns at 60, Bruiser at 95 and 105: the dead aren't sampled in between.
     std::vector<NetReplayTick> HeatmapMatch()
     {
         std::vector<NetReplayTick> ticks;
@@ -81,6 +86,14 @@ namespace
             if( t == 45 )
             {
                 tick.Events.push_back( { "kill", "{\"killer\":\"Bravo\",\"victim\":\"Alpha\",\"at\":[2.2,1,3.9]}", kStriker } );
+            }
+            if( t == 60 )
+            {
+                tick.Events.push_back( { "respawn", "{}", kStriker } );
+            }
+            if( t == 95 || t == 105 )
+            {
+                tick.Events.push_back( { "respawn", "{}", kBruiser } );
             }
             if( t == 90 )
             {
@@ -123,15 +136,16 @@ TEST_CASE( "Replay heatmap: positions, deaths and kills from one pass land in th
     std::string error;
     REQUIRE_MESSAGE( heatmap.AddReplay( reader, "synthetic.mreplay", &error ), error );
 
-    // Positions: a sample every 6 ticks (0.1 s), 20 per character.
-    CHECK( heatmap.GetTotal( Layer::Positions ) == doctest::Approx( 4.0 ) );
-    CHECK( heatmap.ValueAt( Layer::Positions, Vector3( 2.5f, 0.f, 3.5f ) ) == doctest::Approx( 1.0 ) );
+    // Positions: a sample every 6 ticks (0.1 s), none while dead: Striker's at 0..42 and 60..114, Bruiser's at
+    // 0..84, 96 and 108.
+    CHECK( heatmap.GetTotal( Layer::Positions ) == doctest::Approx( 3.5 ) );
+    CHECK( heatmap.ValueAt( Layer::Positions, Vector3( 2.5f, 0.f, 3.5f ) ) == doctest::Approx( 0.8 ) );
     CHECK( heatmap.ValueAt( Layer::Positions, Vector3( 10.5f, 0.f, -4.5f ) ) == doctest::Approx( 1.0 ) );
-    CHECK( heatmap.ValueAt( Layer::Positions, Vector3( -1.5f, 0.f, 0.5f ) ) == doctest::Approx( 2.0 ) );
-    CHECK( heatmap.GetTotal( Layer::Positions, "hero:Striker" ) == doctest::Approx( 2.0 ) );
-    CHECK( heatmap.GetTotal( Layer::Positions, "team:Blue" ) == doctest::Approx( 1.8 ) );
-    // Before the picks, nobody had a team: ticks 0 and 6 aren't on Red.
-    CHECK( heatmap.GetTotal( Layer::Positions, "team:Red" ) == doctest::Approx( 1.8 ) );
+    CHECK( heatmap.ValueAt( Layer::Positions, Vector3( -1.5f, 0.f, 0.5f ) ) == doctest::Approx( 1.7 ) );
+    CHECK( heatmap.GetTotal( Layer::Positions, "hero:Striker" ) == doctest::Approx( 1.8 ) );
+    // Before the picks, nobody had a team: ticks 0 and 6 aren't on a team.
+    CHECK( heatmap.GetTotal( Layer::Positions, "team:Blue" ) == doctest::Approx( 1.5 ) );
+    CHECK( heatmap.GetTotal( Layer::Positions, "team:Red" ) == doctest::Approx( 1.6 ) );
 
     // Deaths: Striker's at the payload's point, Bruiser's three where it stood.
     CHECK( heatmap.GetTotal( Layer::Deaths ) == doctest::Approx( 4.0 ) );
@@ -167,7 +181,7 @@ TEST_CASE( "Replay heatmap: positions, deaths and kills from one pass land in th
 
     REQUIRE( heatmap.GetSources().size() == 1 );
     CHECK( heatmap.GetSources()[0].Kills == 4 );
-    CHECK( heatmap.GetSources()[0].Samples == 40 );
+    CHECK( heatmap.GetSources()[0].Samples == 35 );
     CHECK( heatmap.GetSources()[0].Seconds == doctest::Approx( 2.0 ) );
     const std::string text = heatmap.Describe();
     CHECK( text.find( "1 replay(s) of Assets/Scenes/Arena.lvl" ) != std::string::npos );
@@ -185,7 +199,7 @@ TEST_CASE( "Replay heatmap: many replays add up, another scene is refused, and t
         NetReplayReader reader( source );
         REQUIRE_MESSAGE( heatmap.AddReplay( reader, "match" + std::to_string( i ) + ".mreplay", &error ), error );
     }
-    CHECK( heatmap.GetTotal( Layer::Positions ) == doctest::Approx( 8.0 ) );
+    CHECK( heatmap.GetTotal( Layer::Positions ) == doctest::Approx( 7.0 ) );
     CHECK( heatmap.GetTotal( Layer::Deaths ) == doctest::Approx( 8.0 ) );
     CHECK( heatmap.GetTotal( Layer::Kills ) == doctest::Approx( 4.0 ) );
 
@@ -289,7 +303,7 @@ TEST_CASE( "ReplayDump --heatmap: replays and folders of them into one heatmap's
     NetReplayHeatmap written;
     REQUIRE_MESSAGE( written.Load( out, &error ), error );
     CHECK( written.GetSettings().CellSize == doctest::Approx( 2.f ) );
-    CHECK( written.GetTotal( Layer::Positions ) == doctest::Approx( 8.0 ) );
+    CHECK( written.GetTotal( Layer::Positions ) == doctest::Approx( 7.0 ) );
     CHECK( written.GetTotal( Layer::Deaths ) == doctest::Approx( 8.0 ) );
     CHECK( written.GetTotal( Layer::Kills, "hero:Striker" ) == doctest::Approx( 2.0 ) );
     // 2 m cells: Bruiser's (-1.5, 0.5) and Striker's death at (2.2, 3.9) are cells (-1, 0) and (1, 1).
@@ -496,4 +510,112 @@ TEST_CASE( "Offline recording: a session with no network records like a server, 
     CHECK( net.FindEntity( targetId ) == target );
     net.Shutdown();
     fs::remove( path );
+}
+
+
+namespace
+{
+    struct HeatmapStepContext
+        : public UpdateContext
+    {
+        using UpdateContext::FixedDeltaTime;
+        using UpdateContext::InterpolationAlpha;
+        using UpdateContext::IsFixedStepActive;
+    };
+}
+
+
+TEST_CASE( "Heatmap overlay: each cell lies on the ground under it (characters ignored), coloured by its heat; the console picks layer and group (ME-215)" )
+{
+    PhysicsCore physics;    // the cores before the world
+    auto world = std::make_shared<World>();
+    world->IsLoading = false;
+    world->AddCore( physics );
+    auto box = [&]( const Vector3& InPosition, const Vector3& InSize ) {
+        EntityHandle entity = world->CreateEntity();
+        entity->AddComponent<Transform>().SetPosition( InPosition );
+        entity->AddComponent<BoxCollider>().Size = InSize;
+    };
+    box( Vector3( 0.f, -0.5f, 0.f ), Vector3( 80.f, 1.f, 80.f ) );     // the floor, its top at 0
+    box( Vector3( 2.5f, 0.5f, 3.5f ), Vector3( 1.f, 1.f, 1.f ) );      // a crate, its top at 1
+    EntityHandle pawn = world->CreateEntity();                         // a character standing in a cell
+    pawn->AddComponent<Transform>().SetPosition( Vector3( 10.5f, 0.9f, -4.5f ) );
+    pawn->AddComponent<CharacterController>();
+    world->Simulate();
+    world->Start();
+    HeatmapStepContext context;
+    context.FixedDeltaTime = 1.f / 60.f;
+    context.InterpolationAlpha = 1.f;
+    context.IsFixedStepActive = true;
+    physics.FixedUpdate( context );
+    context.IsFixedStepActive = false;
+    physics.Update( context );
+
+    // Capsule centres 0.9 m over their feet: on the crate, on the floor, where the pawn stands, and
+    // high over nothing (past the floor's edge).
+    NetReplayHeatmap heatmap;
+    heatmap.AddPoint( NetReplayHeatmap::Layer::Positions, Vector3( 2.5f, 1.9f, 3.5f ), "Striker", "" , 4.0 );
+    heatmap.AddPoint( NetReplayHeatmap::Layer::Positions, Vector3( -1.5f, 0.9f, 0.5f ), "Bruiser", "", 1.0 );
+    heatmap.AddPoint( NetReplayHeatmap::Layer::Positions, Vector3( 10.5f, 0.9f, -4.5f ), "Bruiser", "", 1.0 );
+    heatmap.AddPoint( NetReplayHeatmap::Layer::Positions, Vector3( 50.5f, 5.f, 0.5f ), "Bruiser", "", 1.0 );
+    heatmap.AddPoint( NetReplayHeatmap::Layer::Deaths, Vector3( -1.5f, 0.9f, 0.5f ), "Bruiser", "" );
+
+    HeatmapOverlay overlay;
+    overlay.Set( heatmap, "test" );
+    overlay.Draw( *world );
+    const std::vector<HeatmapOverlay::Cell>& cells = overlay.GetCells();
+    REQUIRE( cells.size() == 4 );
+    auto cellAt = [&]( float InX, float InZ ) -> const HeatmapOverlay::Cell* {
+        for( const HeatmapOverlay::Cell& cell : overlay.GetCells() )
+        {
+            if( std::abs( cell.Centre.x - InX ) < 0.01f && std::abs( cell.Centre.z - InZ ) < 0.01f )
+            {
+                return &cell;
+            }
+        }
+        return nullptr;
+    };
+    const HeatmapOverlay::Cell* crate = cellAt( 2.5f, 3.5f );
+    const HeatmapOverlay::Cell* floor = cellAt( -1.5f, 0.5f );
+    const HeatmapOverlay::Cell* underPawn = cellAt( 10.5f, -4.5f );
+    const HeatmapOverlay::Cell* nothing = cellAt( 50.5f, 0.5f );
+    REQUIRE( crate );
+    REQUIRE( floor );
+    REQUIRE( underPawn );
+    REQUIRE( nothing );
+    CHECK( crate->Centre.y == doctest::Approx( 1.04f ).epsilon( 0.01 ) );
+    CHECK( floor->Centre.y == doctest::Approx( 0.04f ).epsilon( 0.01 ) );
+    CHECK( underPawn->Centre.y == doctest::Approx( 0.04f ).epsilon( 0.01 ) );   // the floor, not the pawn's capsule
+    CHECK( nothing->Centre.y == doctest::Approx( 4.14f ).epsilon( 0.01 ) );     // the sample less 0.9 m
+    // The hottest is the crate's, at the top of the ramp; the others a half of it (the square root of a quarter).
+    CHECK( crate->Value == doctest::Approx( 4.f ) );
+    CHECK( crate->Colour.w > floor->Colour.w );
+    const Vector3 top = NetReplayHeatmap::Ramp( 1.f );
+    CHECK( crate->Colour.x == doctest::Approx( top.x ) );
+    CHECK( floor->Colour.x == doctest::Approx( NetReplayHeatmap::Ramp( 0.5f ).x ) );
+
+    // The console: a layer, a group, a group it doesn't have, hidden, the report.
+    CHECK( overlay.RunCommand( { "layer", "deaths" } ).find( "deaths of all" ) != std::string::npos );
+    overlay.Draw( *world );
+    REQUIRE( overlay.GetCells().size() == 1 );
+    CHECK( overlay.GetCells()[0].Centre.x == doctest::Approx( -1.5f ) );
+    CHECK( overlay.RunCommand( { "layer", "positions" } ).find( "positions" ) != std::string::npos );
+    CHECK( overlay.RunCommand( { "group", "hero:Bruiser" } ).find( "positions of hero:Bruiser" ) != std::string::npos );
+    overlay.Draw( *world );
+    CHECK( overlay.GetCells().size() == 3 );
+    CHECK( overlay.RunCommand( { "group", "hero:Nobody" } ).find( "one of the heatmap's groups" ) != std::string::npos );
+    CHECK( overlay.GetGroup() == "hero:Bruiser" );
+    CHECK( overlay.RunCommand( { "groups" } ) == "all hero:Bruiser hero:Striker" );
+    const json report = overlay.Report();
+    CHECK( report["loaded"] == true );
+    CHECK( report["layer"] == "positions" );
+    CHECK( report["group"] == "hero:Bruiser" );
+    CHECK( report["cellsDrawn"] == 3 );
+    CHECK( report["total"].get<double>() == doctest::Approx( 3.0 ) );
+    overlay.RunCommand( { "off" } );
+    CHECK_FALSE( overlay.IsShown() );
+    overlay.RunCommand( { "clear" } );
+    CHECK_FALSE( overlay.HasHeatmap() );
+    CHECK( overlay.RunCommand( {} ) == "heatmap: none loaded" );
+    DebugDraw::Clear();
 }

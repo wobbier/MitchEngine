@@ -16,7 +16,8 @@
 //
 // Layers, each kept for the whole match ("all") and per group:
 // - positions: every networked character's mover (format 3) every SampleTicks ticks, weighted by
-//   the time a sample stands for, so a cell's value is seconds spent there;
+//   the time a sample stands for, so a cell's value is seconds spent there; not while it's dead
+//   (from its "kill" event to a "respawn" or "spawn" event about it, AliveEvents);
 // - deaths:    each "kill" event (C#'s Replay.Event, the convention the timeline uses): at the
 //              payload's "at" ([x, y, z], HeroShooter's death position), else where the event's
 //              entity (the victim) is at that tick;
@@ -55,6 +56,9 @@ public:
         uint32_t SampleTicks = 6;           // a position sample every this many ticks (10 Hz at 60)
         std::string KillEvent = "kill";
         double KillerShotSeconds = 10.0;
+        // A character killed isn't sampled for positions until one of these events about it (games park
+        // the dead somewhere out of sight: HeroShooter's limbo spot).
+        std::vector<std::string> AliveEvents = { "respawn", "spawn" };
     };
 
     // A replay that went in.

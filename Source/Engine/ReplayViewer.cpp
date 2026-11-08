@@ -12,6 +12,7 @@
 #include "Components/Transform.h"
 #include "Core/CommandLine.h"
 #include "Cores/NetCore.h"
+#include "Engine/HeatmapOverlay.h"
 #include "Engine/World.h"
 #include "Jobs/BackgroundLane.h"
 #include "Net/NetLagCompensation.h"
@@ -343,6 +344,46 @@ bool ReplayViewer::Configure( NetCore& InNet, std::string& OutError )
         m_drawShots = list.find( ",shots," ) != std::string::npos;
         m_drawHitboxes = list.find( ",hitboxes," ) != std::string::npos;
         m_drawTrails = list.find( ",trails," ) != std::string::npos;
+        if( list.find( ",heatmap," ) != std::string::npos && !CommandLine::Has( "--replay-heatmap" ) )
+        {
+            HeatmapOverlay::Get().Build( { m_path } );
+            m_heatmapPending = true;
+        }
+    }
+    // ME-215: a heatmap over the ground, from a file (ReplayDump --heatmap's, many replays) or built
+    // from this replay on the background lane; --replay-heatmap-layer LAYER[:GROUP] picks what it shows.
+    if( CommandLine::Has( "--replay-heatmap" ) )
+    {
+        HeatmapOverlay& overlay = HeatmapOverlay::Get();
+        const std::string file = CommandLine::GetString( "--replay-heatmap" );
+        if( !file.empty() && file.rfind( "--", 0 ) != 0 )
+        {
+            std::string error;
+            if( !overlay.Load( file, error ) )
+            {
+                OutError = "--replay-heatmap " + file + ": " + error;
+                return false;
+            }
+            Say( CLog::LogType::Info, "Replay: heatmap from " + file );
+        }
+        else
+        {
+            overlay.Build( { m_path } );
+        }
+        m_heatmapPending = true;
+    }
+    if( CommandLine::Has( "--replay-heatmap-layer" ) )
+    {
+        const std::string pick = CommandLine::GetString( "--replay-heatmap-layer" );
+        const size_t colon = pick.find( ':' );
+        NetReplayHeatmap::Layer layer;
+        if( !NetReplayHeatmap::ParseLayer( pick.substr( 0, colon ), layer ) )
+        {
+            OutError = "--replay-heatmap-layer " + pick + ": expected LAYER[:GROUP] (positions, deaths or kills; all, hero:NAME, team:NAME)";
+            return false;
+        }
+        HeatmapOverlay::Get().SetLayer( layer );
+        m_heatmapGroup = colon == std::string::npos ? std::string() : pick.substr( colon + 1 );
     }
 
     // The timeline, on the background lane from a source of its own (the file is read again: the
@@ -396,7 +437,29 @@ void ReplayViewer::PollTimeline()
 
 bool ReplayViewer::IsSettling() const
 {
-    return !m_markerRequest.empty() || m_jumpStage != 0;
+    return !m_markerRequest.empty() || m_jumpStage != 0 || m_heatmapPending;
+}
+
+
+void ReplayViewer::PollHeatmap()
+{
+    HeatmapOverlay& overlay = HeatmapOverlay::Get();
+    if( !m_heatmapPending || overlay.IsBuilding() )
+    {
+        return;
+    }
+    m_heatmapPending = false;
+    if( !overlay.HasHeatmap() )
+    {
+        return;     // the build failed: the overlay logged why
+    }
+    if( !m_heatmapGroup.empty() && !overlay.SetGroup( m_heatmapGroup ) )
+    {
+        Say( CLog::LogType::Warning, "Replay: the heatmap has no group " + m_heatmapGroup + "; showing all" );
+    }
+    m_heatmapGroup.clear();
+    overlay.SetShown( true );
+    Say( CLog::LogType::Info, "Replay: " + overlay.Describe().substr( 0, overlay.Describe().find( '\n' ) ) );
 }
 
 
@@ -580,6 +643,7 @@ bool ReplayViewer::Update( NetCore& InNet, std::string& OutError )
         return false;
     }
     PollTimeline();
+    PollHeatmap();
 
     // --replay-marker, once the timeline is in.
     if( !m_markerRequest.empty() )
@@ -1377,6 +1441,7 @@ json ReplayViewer::MakeReport( NetCore& InNet )
     report["resim"] = resim;
     report["camera"] = m_camera == CameraMode::Game ? "game" : m_camera == CameraMode::Free ? "free" : m_camera == CameraMode::Follow ? "follow" : "pov";
     report["cameraTarget"] = m_cameraTarget;
+    report["heatmap"] = HeatmapOverlay::Get().Report();
     return report;
 }
 
@@ -1598,14 +1663,30 @@ std::string ReplayViewer::RunCommand( NetCore& InNet, const std::vector<std::str
     {
         if( InArgs.size() < 3 || ( InArgs[2] != "on" && InArgs[2] != "off" ) )
         {
-            return "replay overlay shots|hitboxes|trails on|off";
+            return "replay overlay shots|hitboxes|trails|heatmap on|off";
         }
         const bool on = InArgs[2] == "on";
         if( InArgs[1] == "shots" ) m_drawShots = on;
         else if( InArgs[1] == "hitboxes" ) m_drawHitboxes = on;
         else if( InArgs[1] == "trails" ) { m_drawTrails = on; m_hasTrails = false; }
-        else return "replay overlay shots|hitboxes|trails on|off";
+        else if( InArgs[1] == "heatmap" ) HeatmapOverlay::Get().SetShown( on );
+        else return "replay overlay shots|hitboxes|trails|heatmap on|off";
         return InArgs[1] + ( on ? " on" : " off" );
+    }
+    if( verb == "heatmap" )
+    {
+        // ME-215: "replay heatmap" builds this replay's; the rest is the "heatmap" command's.
+        HeatmapOverlay& overlay = HeatmapOverlay::Get();
+        if( InArgs.size() < 2 || InArgs[1] == "build" )
+        {
+            if( !overlay.Build( { m_path } ) )
+            {
+                return "a heatmap is building already";
+            }
+            m_heatmapPending = true;
+            return "building this replay's heatmap on the background lane";
+        }
+        return overlay.RunCommand( std::vector<std::string>( InArgs.begin() + 1, InArgs.end() ) );
     }
     if( verb == "report" )
     {
@@ -1751,6 +1832,46 @@ void ReplayViewer::DrawReplayWindow( NetCore& InNet )
         if( ImGui::Checkbox( "Trails", &m_drawTrails ) )
         {
             m_hasTrails = false;
+        }
+        // ME-215: the heatmap over the ground (built from this replay the first time it's ticked).
+        {
+            HeatmapOverlay& overlay = HeatmapOverlay::Get();
+            ImGui::SameLine();
+            bool heatmap = overlay.HasHeatmap() && overlay.IsShown();
+            if( ImGui::Checkbox( overlay.IsBuilding() ? "Heatmap (building)" : "Heatmap", &heatmap ) )
+            {
+                if( heatmap && !overlay.HasHeatmap() && !overlay.IsBuilding() )
+                {
+                    overlay.Build( { m_path } );
+                    m_heatmapPending = true;
+                }
+                overlay.SetShown( heatmap );
+            }
+            if( overlay.HasHeatmap() )
+            {
+                ImGui::SameLine();
+                const char* layers[] = { "positions", "deaths", "kills" };
+                int layer = static_cast<int>( overlay.GetLayer() );
+                ImGui::SetNextItemWidth( 100.f );
+                if( ImGui::Combo( "##HeatmapLayer", &layer, layers, 3 ) )
+                {
+                    overlay.SetLayer( static_cast<NetReplayHeatmap::Layer>( layer ) );
+                }
+                const std::vector<std::string> groups = overlay.GetHeatmap()->GetGroups();
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth( 130.f );
+                if( ImGui::BeginCombo( "##HeatmapGroup", overlay.GetGroup().c_str() ) )
+                {
+                    for( const std::string& group : groups )
+                    {
+                        if( ImGui::Selectable( group.c_str(), group == overlay.GetGroup() ) )
+                        {
+                            overlay.SetGroup( group );
+                        }
+                    }
+                    ImGui::EndCombo();
+                }
+            }
         }
         // The kinds the scrubber shows (and [ / ] visit).
         for( uint8_t i = 0; i < static_cast<uint8_t>( NetReplayMarker::Kind::Count ); ++i )

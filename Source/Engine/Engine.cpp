@@ -79,6 +79,7 @@
 #include "Core/CommandLine.h"
 #include "Mods/Mods.h"
 #include "Engine/DevConsole.h"
+#include "Engine/HeatmapOverlay.h"
 #include "Core/CrashHandler.h"
 #include "Resource/AssetMetaCache.h"
 #include "Resource/FileWatcher.h"
@@ -660,6 +661,8 @@ void Engine::Run()
     // networked entities. One tick per fixed step.
     GameWorld->Singleton<SingletonInput>().BuildCommandLayout( GetInput() );
     m_netLaunch.Start( *Net, static_cast<uint16_t>( std::lround( 1.0 / m_fixedTimeStep ) ), GameWindow, engineConfig.GetValue( "Title" ) );
+    // ME-215: replay heatmaps over the world ("heatmap" in the console, the edscript's console line).
+    HeatmapOverlay::RegisterCommands();
     m_control.Init();
     // ME-323 phase 3: killcams the session receives play into a replay world of their own.
     m_killcam.SetPopulate( [this]( KillcamPlayer::ReplayWorld& InReplay, std::string& OutError ) { return PopulateKillcamWorld( InReplay, OutError ); } );
@@ -1075,6 +1078,8 @@ void Engine::Run()
                 SceneNodes->LateUpdate( updateContext );
                 Cameras->LateUpdate( updateContext );
                 LateUpdateKillcam( updateContext );
+                // ME-215: a replay heatmap over the ground, in every view (the editor's scene view too).
+                HeatmapOverlay::Get().Draw( *GameWorld );
                 AudioThread->LateUpdate( updateContext );
 #if !USING( ME_HEADLESS )
                 ModelRenderer->LateUpdate( updateContext );

@@ -822,7 +822,7 @@ void NetLaunch::RegisterReplayCommands( NetCore& InNet )
     DevConsole::Get().Register( "replay",
         "the replay playing (--replay): replay [play|pause|toggle|step [n]|seek <tick>|speed <x>|loop <a> <b>|loop off|pause-at <tick>|check|info"
         "|markers [kind]|marker <kind> [n]|next [kind]|prev [kind]|inspect [netid]|input|shots|resim [netid] [a:b]|camera game|free|follow <id>|pov <id>"
-        "|overlay shots|hitboxes|trails on|off|report <file>]",
+        "|overlay shots|hitboxes|trails|heatmap on|off|heatmap [build|layer <l>|group <g>|on|off|load <file>]|report <file>]",
         [net, self]( const std::vector<std::string>& InArgs ) -> std::string {
             NetReplayPlayback* playback = net->GetPlayback();
             if( !playback )

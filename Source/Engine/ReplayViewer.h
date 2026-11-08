@@ -49,7 +49,10 @@ class NetCore;
 //                              matches, 3 when a tick diverges, 1 when any couldn't be checked (or
 //                              the run ended before the check did: NetLaunch::Shutdown)
 //   --replay-camera MODE       game, free, follow:NETID or pov:NETID
-//   --replay-overlays LIST     what to draw in the world: shots,hitboxes,trails (default all; none)
+//   --replay-overlays LIST     what to draw in the world: shots,hitboxes,trails (default all; none),heatmap
+//   --replay-heatmap [FILE]    (ME-215) a heatmap over the ground (HeatmapOverlay): FILE, a ReplayDump --heatmap
+//                              JSON (many replays), or built from this replay on the background lane
+//   --replay-heatmap-layer LAYER[:GROUP]   positions, deaths or kills; all, hero:NAME or team:NAME
 class ReplayViewer
 {
 public:
@@ -121,6 +124,8 @@ private:
     };
 
     void PollTimeline();
+    // ME-215: a heatmap asked for (command line, console, the window) is in: its group, shown.
+    void PollHeatmap();
     // Rest on InTick, paused, having shown the tick before first (the inspector's diffs).
     void JumpTo( NetCore& InNet, uint32_t InTick );
     bool JumpToMarker( NetCore& InNet, NetReplayMarker::Kind InKind, int InNth, std::string& OutError );
@@ -176,6 +181,9 @@ private:
     bool m_drawShots = true;
     bool m_drawHitboxes = true;
     bool m_drawTrails = true;
+    // ME-215: a heatmap asked for and not in yet (--replay-check waits), and the group it should show.
+    bool m_heatmapPending = false;
+    std::string m_heatmapGroup;
     int m_selectedShot = -1;        // -1: all
 
     // Marker jump: waiting for the timeline (--replay-marker), then the tick before, then the tick.

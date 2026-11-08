@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdio>
 #include <deque>
+#include <set>
 #include <filesystem>
 #include <fstream>
 #include <limits>
@@ -228,6 +229,7 @@ bool NetReplayHeatmap::AddReplay( NetReplayReader& InReader, const std::string& 
         Vector3 Origin;
     };
     std::deque<Hit> hits;
+    std::set<uint32_t> dead;    // killed, not back yet: no positions
     bool cancelled = false;
 
     auto heroOf = [&table]( uint32_t InNetId ) {
@@ -291,11 +293,19 @@ bool NetReplayHeatmap::AddReplay( NetReplayReader& InReader, const std::string& 
                     teams[event.Entity] = team;
                 }
             }
+            if( event.Entity != 0 && std::find( m_settings.AliveEvents.begin(), m_settings.AliveEvents.end(), event.Name ) != m_settings.AliveEvents.end() )
+            {
+                dead.erase( event.Entity );
+            }
             if( event.Name != m_settings.KillEvent )
             {
                 continue;
             }
             ++source.Kills;
+            if( event.Entity != 0 )
+            {
+                dead.insert( event.Entity );
+            }
             const json none;
             const json& fields = isObject ? payload : none;
             const uint32_t victim = event.Entity;
@@ -361,6 +371,10 @@ bool NetReplayHeatmap::AddReplay( NetReplayReader& InReader, const std::string& 
         {
             for( const NetReplayMover& mover : InTick.Movers )
             {
+                if( dead.count( mover.NetId ) )
+                {
+                    continue;
+                }
                 AddPoint( Layer::Positions, mover.State.Position, heroOf( mover.NetId ), teamOf( mover.NetId ), sampleSeconds );
                 ++source.Samples;
             }

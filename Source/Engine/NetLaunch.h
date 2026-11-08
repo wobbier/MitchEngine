@@ -66,7 +66,8 @@ class ReplayViewer;
 // The viewer's debug tools (ME-316 phase 3, ReplayViewer.h): a timeline with markers, an inspector,
 // input, lag-compensation and resim views, world overlays and cameras; their options:
 //   --replay-marker KIND[:N] --replay-report FILE --resim-check [A:B] --replay-camera MODE
-//   --replay-overlays LIST   (and --replay-dump FILE --resim-check, which plays FILE to check it)
+//   --replay-overlays LIST --replay-heatmap [FILE] --replay-heatmap-layer LAYER[:GROUP] (ME-215)
+//                            (and --replay-dump FILE --resim-check, which plays FILE to check it)
 class NetLaunch
 {
 public:
