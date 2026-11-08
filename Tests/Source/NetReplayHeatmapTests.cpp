@@ -2,7 +2,9 @@
 #include <doctest/doctest.h>
 #include "JSON.h"
 #include "Net/NetReplay.h"
+#include "Net/NetReplayDump.h"
 #include "Net/NetReplayHeatmap.h"
+#include <sstream>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -222,4 +224,75 @@ TEST_CASE( "Replay heatmap: many replays add up, another scene is refused, and t
     REQUIRE_MESSAGE( reread.Load( ( folder / "heatmap.json" ).string(), &error ), error );
     CHECK( reread.ToJson() == saved );
     std::filesystem::remove_all( folder );
+}
+
+
+TEST_CASE( "ReplayDump --heatmap: replays and folders of them into one heatmap's JSON and PNGs, a bad one skipped (ME-215)" )
+{
+    namespace fs = std::filesystem;
+    const fs::path folder = fs::temp_directory_path() / "MitchEngineHeatmapDump";
+    fs::remove_all( folder );
+    fs::create_directories( folder / "more" );
+    auto record = []( const fs::path& InPath ) {
+        NetReplaySettings settings;
+        settings.KeyframeInterval = 50;
+        NetReplayRecorder recorder( HeatmapHeader(), settings );
+        REQUIRE( recorder.OpenFile( InPath.string() ) );
+        for( NetReplayTick& tick : HeatmapMatch() )
+        {
+            recorder.Record( std::move( tick ) );
+        }
+        recorder.Close();
+        REQUIRE_FALSE( recorder.HasFailed() );
+    };
+    record( folder / "a.mreplay" );
+    record( folder / "more" / "b.mreplay" );
+    {
+        std::ofstream torn( folder / "more" / "c.mreplay", std::ios::binary );
+        torn << "not a replay";
+    }
+
+    NetReplayDump::Options options;
+    std::string error;
+    // Several replays only with --heatmap.
+    CHECK_FALSE( NetReplayDump::ParseArgs( { "Player", "--replay-dump", ( folder / "a.mreplay" ).string(), ( folder / "more" ).string() }, options, error ) );
+    CHECK( error.find( "only --heatmap" ) != std::string::npos );
+    CHECK_FALSE( NetReplayDump::ParseArgs( { "Player", "--replay-dump", "x.mreplay", "--heatmap" }, options, error ) );
+    CHECK_FALSE( NetReplayDump::ParseArgs( { "Player", "--replay-dump", "x.mreplay", "--heatmap", "out", "--heatmap-cell", "0" }, options, error ) );
+
+    const std::string out = ( folder / "Heatmaps" / "match.json" ).generic_string();
+    REQUIRE_MESSAGE( NetReplayDump::ParseArgs( { "Player", "--replay-dump", ( folder / "a.mreplay" ).string(), ( folder / "more" ).string(), "--heatmap", out,
+                                                 "--heatmap-cell", "2", "--heatmap-groups" },
+                         options, error ),
+        error );
+    CHECK( options.MorePaths.size() == 1 );
+    CHECK( options.HeatmapCell == doctest::Approx( 2.f ) );
+    CHECK( NetReplayDump::ExpandPaths( options ).size() == 3 );
+    std::ostringstream text;
+    REQUIRE_MESSAGE( NetReplayDump::WriteHeatmap( options, text, error ), error );
+    const std::string printed = text.str();
+    CHECK( printed.find( "skipped " + ( folder / "more" / "c.mreplay" ).generic_string() ) != std::string::npos );
+    CHECK( printed.find( "heatmap: 2 replay(s)" ) != std::string::npos );
+    for( const char* file : { "match.json", "match.png", "match.positions.png", "match.deaths.png", "match.kills.png", "match.hero-Striker.png", "match.team-Blue.png" } )
+    {
+        CHECK_MESSAGE( fs::exists( folder / "Heatmaps" / file ), file );
+        CHECK( printed.find( std::string( "wrote " ) + ( folder / "Heatmaps" / file ).generic_string() ) != std::string::npos );
+    }
+    NetReplayHeatmap written;
+    REQUIRE_MESSAGE( written.Load( out, &error ), error );
+    CHECK( written.GetSettings().CellSize == doctest::Approx( 2.f ) );
+    CHECK( written.GetTotal( Layer::Positions ) == doctest::Approx( 8.0 ) );
+    CHECK( written.GetTotal( Layer::Deaths ) == doctest::Approx( 8.0 ) );
+    CHECK( written.GetTotal( Layer::Kills, "hero:Striker" ) == doctest::Approx( 2.0 ) );
+    // 2 m cells: Bruiser's (-1.5, 0.5) and Striker's death at (2.2, 3.9) are cells (-1, 0) and (1, 1).
+    CHECK( written.ValueAt( Layer::Deaths, Vector3( -1.5f, 0.f, 0.5f ) ) == doctest::Approx( 6.0 ) );
+    CHECK( written.ValueAt( Layer::Deaths, Vector3( 2.2f, 0.f, 3.9f ) ) == doctest::Approx( 2.0 ) );
+
+    // None read: an error, nothing written.
+    REQUIRE( NetReplayDump::ParseArgs( { "Player", "--replay-dump", ( folder / "more" / "c.mreplay" ).string(), "--heatmap", ( folder / "none" ).string() }, options, error ) );
+    std::ostringstream none;
+    CHECK_FALSE( NetReplayDump::WriteHeatmap( options, none, error ) );
+    CHECK( error.find( "none of the 1" ) != std::string::npos );
+    CHECK_FALSE( fs::exists( folder / "none" ) );
+    fs::remove_all( folder );
 }

@@ -3,11 +3,14 @@
 #include "Core/CommandLine.h"
 #include "JSON.h"
 #include "Net/NetReplay.h"
+#include "Net/NetReplayHeatmap.h"
 #include "Net/NetReplayTimeline.h"
 #include <algorithm>
+#include <cctype>
 #include <cinttypes>
 #include <cstdarg>
 #include <cstdio>
+#include <filesystem>
 #include <iostream>
 #include <map>
 #include <ostream>
@@ -286,6 +289,11 @@ bool NetReplayDump::ParseArgs( const std::vector<std::string>& InArgs, Options& 
                 return false;
             }
             OutOptions.Path = InArgs[++i];
+            // More replays (or folders of them) straight after it, for --heatmap.
+            while( i + 1 < InArgs.size() && InArgs[i + 1].rfind( "--", 0 ) != 0 )
+            {
+                OutOptions.MorePaths.push_back( InArgs[++i] );
+            }
         }
         else if( arg == "--ticks" )
         {
@@ -340,10 +348,50 @@ bool NetReplayDump::ParseArgs( const std::vector<std::string>& InArgs, Options& 
         {
             OutOptions.Json = true;
         }
+        else if( arg == "--heatmap" )
+        {
+            if( !hasValue || InArgs[i + 1].rfind( "--", 0 ) == 0 )
+            {
+                OutError = "--heatmap: where to? (a .json file or a folder)";
+                return false;
+            }
+            OutOptions.Heatmap = InArgs[++i];
+        }
+        else if( arg == "--heatmap-cell" )
+        {
+            const float cell = hasValue ? static_cast<float>( std::atof( InArgs[i + 1].c_str() ) ) : 0.f;
+            if( !( cell >= 0.05f && cell <= 1000.f ) )
+            {
+                OutError = "--heatmap-cell: expected a cell size in metres (0.05 to 1000)";
+                return false;
+            }
+            OutOptions.HeatmapCell = cell;
+            ++i;
+        }
+        else if( arg == "--heatmap-sample-ticks" )
+        {
+            uint32_t ticks = 0;
+            if( !hasValue || !ParseTick( InArgs[i + 1], ticks ) || ticks == 0 )
+            {
+                OutError = "--heatmap-sample-ticks: expected a tick count (1 or more)";
+                return false;
+            }
+            OutOptions.HeatmapSampleTicks = ticks;
+            ++i;
+        }
+        else if( arg == "--heatmap-groups" )
+        {
+            OutOptions.HeatmapGroups = true;
+        }
     }
     if( OutOptions.Path.empty() )
     {
         OutError = "--replay-dump: which file?";
+        return false;
+    }
+    if( !OutOptions.MorePaths.empty() && OutOptions.Heatmap.empty() )
+    {
+        OutError = "more than one replay: only --heatmap takes several (" + OutOptions.MorePaths.front() + ")";
         return false;
     }
     if( !any )
@@ -351,6 +399,120 @@ bool NetReplayDump::ParseArgs( const std::vector<std::string>& InArgs, Options& 
         OutOptions.Summary = OutOptions.Events = OutOptions.Shots = OutOptions.CommandChanges = true;
     }
     return true;
+}
+
+
+std::vector<std::string> NetReplayDump::ExpandPaths( const Options& InOptions )
+{
+    namespace fs = std::filesystem;
+    std::vector<std::string> paths;
+    std::vector<std::string> named{ InOptions.Path };
+    named.insert( named.end(), InOptions.MorePaths.begin(), InOptions.MorePaths.end() );
+    for( const std::string& path : named )
+    {
+        std::error_code error;
+        if( fs::is_directory( path, error ) )
+        {
+            std::vector<std::string> found;
+            for( const fs::directory_entry& entry : fs::directory_iterator( path, error ) )
+            {
+                if( entry.is_regular_file() && entry.path().extension() == ".mreplay" )
+                {
+                    found.push_back( entry.path().generic_string() );
+                }
+            }
+            std::sort( found.begin(), found.end() );
+            paths.insert( paths.end(), found.begin(), found.end() );
+        }
+        else
+        {
+            paths.push_back( path );
+        }
+    }
+    return paths;
+}
+
+
+bool NetReplayDump::WriteHeatmap( const Options& InOptions, std::ostream& InOut, std::string& OutError )
+{
+    namespace fs = std::filesystem;
+    OutError.clear();
+    NetReplayHeatmap::Settings settings;
+    settings.CellSize = InOptions.HeatmapCell;
+    settings.SampleTicks = InOptions.HeatmapSampleTicks;
+    NetReplayHeatmap heatmap( settings );
+    const std::vector<std::string> paths = ExpandPaths( InOptions );
+    for( const std::string& path : paths )
+    {
+        NetReplayFileSource source;
+        std::string error;
+        if( !source.Open( path ) )
+        {
+            InOut << "skipped " << path << ": " << source.GetError() << "\n";
+            continue;
+        }
+        NetReplayReader reader( source );
+        if( !heatmap.AddReplay( reader, path, &error ) )
+        {
+            InOut << "skipped " << path << ": " << error << "\n";
+        }
+    }
+    if( heatmap.GetSources().empty() )
+    {
+        OutError = paths.empty() ? "no replays found" : "none of the " + std::to_string( paths.size() ) + " replay(s) read";
+        return false;
+    }
+    // Where it goes: a .json and its PNGs beside it, or a folder.
+    fs::path json = InOptions.Heatmap;
+    if( json.extension() != ".json" )
+    {
+        json /= "heatmap.json";
+    }
+    const std::string stem = ( json.parent_path() / json.stem() ).generic_string();
+    std::vector<std::string> written;
+    auto write = [&]( bool InOk, const std::string& InPath, const std::string& InError ) {
+        if( InOk )
+        {
+            written.push_back( InPath );
+        }
+        else if( OutError.empty() )
+        {
+            OutError = InError;
+        }
+    };
+    std::string error;
+    write( heatmap.Save( json.generic_string(), &error ), json.generic_string(), error );
+    for( size_t i = 0; i < NetReplayHeatmap::kLayerCount; ++i )
+    {
+        const auto layer = static_cast<NetReplayHeatmap::Layer>( i );
+        if( heatmap.GetTotal( layer ) <= 0.0 )
+        {
+            continue;
+        }
+        const std::string png = stem + "." + NetReplayHeatmap::LayerName( layer ) + ".png";
+        write( heatmap.WritePng( png, layer, "all", &error ), png, error );
+    }
+    write( heatmap.WriteOverviewPng( stem + ".png", "all", &error ), stem + ".png", error );
+    if( InOptions.HeatmapGroups )
+    {
+        for( const std::string& group : heatmap.GetGroups() )
+        {
+            if( group == "all" )
+            {
+                continue;
+            }
+            std::string name = group;
+            std::replace_if( name.begin(), name.end(), []( char InChar ) { return !std::isalnum( static_cast<unsigned char>( InChar ) ) && InChar != '_' && InChar != '-'; }, '-' );
+            const std::string png = stem + "." + name + ".png";
+            write( heatmap.WriteOverviewPng( png, group, &error ), png, error );
+        }
+    }
+    InOut << heatmap.Describe();
+    for( const std::string& path : written )
+    {
+        InOut << "wrote " << path << "\n";
+    }
+    return OutError.empty();
 }
 
 
@@ -785,6 +947,17 @@ int NetReplayDump::Run()
     {
         std::cerr << "ReplayDump: " << error << "\n";
         return 2;
+    }
+    if( !options.Heatmap.empty() )
+    {
+        const bool ok = WriteHeatmap( options, std::cout, error );
+        std::cout.flush();
+        if( !ok )
+        {
+            std::cerr << "ReplayDump: --heatmap: " << error << "\n";
+            return 1;
+        }
+        return 0;
     }
     NetReplayFileSource source;
     if( !source.Open( options.Path ) )

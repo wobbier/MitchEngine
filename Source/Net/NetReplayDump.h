@@ -22,6 +22,18 @@ class NetReplayReader;
 // missed one. --ticks limits to a range (a:b, a: or :b), --entity to one NetId (its events, the
 // shots it fired or took, its owner's commands, its states). --json prints one document with the
 // same sections.
+//
+// Heatmaps (ME-215, NetReplayHeatmap.h): one replay or many of the same scene into a heatmap of
+// where players were, died and killed, instead of the dump:
+//
+//   Player --replay-dump a.mreplay [b.mreplay | folder ...] --heatmap OUT [--heatmap-cell M]
+//          [--heatmap-sample-ticks N] [--heatmap-groups]
+//
+// More replays follow the first straight after it (a folder: every .mreplay in it, by name). OUT
+// ending in .json is the heatmap's JSON, its PNGs beside it as <stem>.<layer>.png and the overview
+// <stem>.png; any other OUT is a folder holding heatmap.json and heatmap.*.png. --heatmap-groups
+// also writes an overview per hero and team (<stem>.hero-Striker.png). A replay that won't read, or
+// is of another scene than the first, is skipped with a warning; none read is exit code 1.
 namespace NetReplayDump
 {
     struct Options
@@ -39,12 +51,25 @@ namespace NetReplayDump
         bool States = false;
         bool Markers = false;   // the timeline's (NetReplayTimeline)
         bool Json = false;
+        // --heatmap (ME-215): the replays after the first, and where the heatmap goes.
+        std::vector<std::string> MorePaths;
+        std::string Heatmap;
+        float HeatmapCell = 1.f;
+        uint32_t HeatmapSampleTicks = 6;
+        bool HeatmapGroups = false;
     };
 
     // InArgs: the whole command line (argv). False with OutError on a bad option.
     bool ParseArgs( const std::vector<std::string>& InArgs, Options& OutOptions, std::string& OutError );
     // The dump of InReader to InOut; false with OutError when the replay won't read.
     bool Write( NetReplayReader& InReader, const Options& InOptions, std::ostream& InOut, std::string& OutError );
+
+    // --heatmap: every replay the options name (folders expanded) into one heatmap, written where
+    // they say, its summary and the files written to InOut. False with OutError when no replay read
+    // or a file couldn't be written; a replay skipped is a warning line in InOut.
+    bool WriteHeatmap( const Options& InOptions, std::ostream& InOut, std::string& OutError );
+    // The replays the options name: the first, then the rest, a folder as its .mreplay files by name.
+    std::vector<std::string> ExpandPaths( const Options& InOptions );
 
     // --replay-dump is on the command line.
     bool IsRequested();
