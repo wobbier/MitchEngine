@@ -63,7 +63,14 @@ public:
         // A character killed isn't sampled for positions until one of these events about it (games park
         // the dead somewhere out of sight: HeroShooter's limbo spot).
         std::vector<std::string> AliveEvents = { "respawn", "spawn" };
+        // A sample farther than this from the origin on X or Z (metres; 0: no limit) is dropped and
+        // counted (GetOutOfRange): one character flung far off the map would stretch the grid, its PNGs and
+        // the overlay over kilometres of nothing.
+        float MaxDistance = 1000.f;
     };
+    // The most cells a grid (GetGrid, the PNGs, the overlay) spans: one past it is empty (Width 0) and
+    // WritePng says why.
+    static constexpr int64_t kMaxGridCells = int64_t( 2048 ) * 2048;
 
     // A replay that went in.
     struct Source
@@ -112,12 +119,16 @@ public:
     // Kills whose killer couldn't be told (deaths only), and suicides, over every replay.
     uint32_t GetUnattributedKills() const { return m_unattributed; }
     uint32_t GetSuicides() const { return m_suicides; }
+    // Samples dropped past Settings::MaxDistance.
+    uint32_t GetOutOfRange() const { return m_outOfRange; }
 
     // "all" first, then "hero:..." and "team:..." in order.
     std::vector<std::string> GetGroups() const;
     double GetTotal( Layer InLayer, const std::string& InGroup = "all" ) const;
     // The cell's value (0 when nothing went there).
     double ValueAt( Layer InLayer, const Vector3& InPosition, const std::string& InGroup = "all" ) const;
+    // Over the cells of every layer and group; empty (Width 0) when there are none or it would span more
+    // than kMaxGridCells.
     Grid GetGrid( Layer InLayer, const std::string& InGroup = "all" ) const;
     // The cell holding InPosition, and a cell's centre on the ground plane (y: the lowest sample
     // that went in there, any layer; NaN when none did).
@@ -148,8 +159,12 @@ private:
     static int64_t Key( int InX, int InZ );
     static void Unkey( int64_t InKey, int& OutX, int& OutZ );
     void Bounds( int& OutMinX, int& OutMinZ, int& OutMaxX, int& OutMaxZ ) const;
+    // The bounds' width and height (64-bit: cells read from a file can be anywhere).
+    void Extent( int64_t& OutWidth, int64_t& OutHeight ) const;
     bool WriteImage( const std::string& InPath, int InWidth, int InHeight, const std::vector<uint8_t>& InRgba, std::string* OutError ) const;
     int PixelsPerCell( int InWidth, int InHeight, int InRequested ) const;
+    // Why GetGrid is empty: nothing in it, or too many cells.
+    std::string GridError() const;
 
     Settings m_settings;
     std::array<std::map<std::string, CellMap>, kLayerCount> m_layers;
@@ -159,4 +174,5 @@ private:
     uint64_t m_sceneHash = 0;
     uint32_t m_unattributed = 0;
     uint32_t m_suicides = 0;
+    uint32_t m_outOfRange = 0;
 };

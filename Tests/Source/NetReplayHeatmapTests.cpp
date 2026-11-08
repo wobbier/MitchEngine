@@ -354,6 +354,52 @@ TEST_CASE( "Replay heatmap: many replays add up, another scene is refused, and t
 }
 
 
+TEST_CASE( "Replay heatmap: a sample far off the map is left out, a file's stray cells stay inside the grid, and one too big to draw says so (ME-215)" )
+{
+    // A character flung 5 km away doesn't stretch the grid over kilometres of nothing.
+    NetReplayHeatmap heatmap;
+    heatmap.AddPoint( Layer::Positions, Vector3( 0.5f, 1.f, 0.5f ), "Striker", "" );
+    heatmap.AddPoint( Layer::Positions, Vector3( 5000.f, 1.f, 0.5f ), "Striker", "" );
+    heatmap.AddPoint( Layer::Deaths, Vector3( 1.f, 1.f, -1e30f ), "Striker", "" );
+    CHECK( heatmap.GetOutOfRange() == 2 );
+    NetReplayHeatmap::Grid grid = heatmap.GetGrid( Layer::Positions );
+    CHECK( grid.Width == 1 );
+    CHECK( grid.Height == 1 );
+    CHECK( heatmap.Describe().find( "2 sample(s) more than 1000 m from the origin left out" ) != std::string::npos );
+
+    // A file whose hero group has a cell "all" lacks (edited by hand): the grid spans it, nothing is
+    // written outside it.
+    json edited = heatmap.ToJson();
+    edited["layers"]["positions"]["groups"]["hero:Striker"]["cells"].push_back( { 40, -30, 2.0 } );
+    NetReplayHeatmap loaded;
+    std::string error;
+    REQUIRE_MESSAGE( loaded.FromJson( edited, &error ), error );
+    CHECK( loaded.GetOutOfRange() == 2 );
+    grid = loaded.GetGrid( Layer::Positions, "hero:Striker" );
+    CHECK( grid.MinX == 0 );
+    CHECK( grid.MinZ == -30 );
+    CHECK( grid.Width == 41 );
+    CHECK( grid.Height == 31 );
+    CHECK( grid.Total == doctest::Approx( 3.0 ) );
+    CHECK( grid.At( 40, 0 ) == doctest::Approx( 2.f ) );
+    CHECK( loaded.GetGrid( Layer::Positions ).Total == doctest::Approx( 1.0 ) );
+
+    // Cells a file puts 100 km apart: no grid (no 10^10-cell allocation), and the PNG says why.
+    json far = heatmap.ToJson();
+    far["layers"]["deaths"]["groups"]["all"]["cells"] = json::array( { json::array( { -50000, -50000, 1.0 } ), json::array( { 50000, 50000, 1.0 } ) } );
+    REQUIRE_MESSAGE( loaded.FromJson( far, &error ), error );
+    grid = loaded.GetGrid( Layer::Deaths );
+    CHECK( grid.Width == 0 );
+    CHECK( grid.Values.empty() );
+    const std::filesystem::path folder = std::filesystem::temp_directory_path() / "MitchEngineHeatmapFarTest";
+    CHECK_FALSE( loaded.WritePng( ( folder / "far.png" ).string(), Layer::Deaths, "all", &error ) );
+    CHECK( error.find( "cells, more than" ) != std::string::npos );
+    CHECK_FALSE( loaded.WriteOverviewPng( ( folder / "far.png" ).string(), "all", &error ) );
+    CHECK( loaded.Describe().find( "100001x100001 cells" ) != std::string::npos );
+    CHECK_FALSE( std::filesystem::exists( folder / "far.png" ) );
+}
+
+
 TEST_CASE( "ReplayDump --heatmap: replays and folders of them into one heatmap's JSON and PNGs, a bad one skipped (ME-215)" )
 {
     namespace fs = std::filesystem;

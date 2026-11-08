@@ -162,6 +162,11 @@ void NetReplayHeatmap::AddPoint( Layer InLayer, const Vector3& InPosition, const
     {
         return;
     }
+    if( m_settings.MaxDistance > 0.f && ( std::abs( InPosition.x ) > m_settings.MaxDistance || std::abs( InPosition.z ) > m_settings.MaxDistance ) )
+    {
+        ++m_outOfRange;
+        return;
+    }
     int x = 0;
     int z = 0;
     CellOf( InPosition, x, z );
@@ -524,24 +529,32 @@ void NetReplayHeatmap::Bounds( int& OutMinX, int& OutMinZ, int& OutMaxX, int& Ou
 {
     OutMinX = OutMinZ = std::numeric_limits<int>::max();
     OutMaxX = OutMaxZ = std::numeric_limits<int>::min();
+    // Every group's cells, not only "all"'s: a file edited by hand may hold a hero's cell "all" lacks.
     for( const auto& layer : m_layers )
     {
-        auto all = layer.find( "all" );
-        if( all == layer.end() )
+        for( const auto& [group, cells] : layer )
         {
-            continue;
-        }
-        for( const auto& [key, value] : all->second )
-        {
-            int x = 0;
-            int z = 0;
-            Unkey( key, x, z );
-            OutMinX = std::min( OutMinX, x );
-            OutMinZ = std::min( OutMinZ, z );
-            OutMaxX = std::max( OutMaxX, x );
-            OutMaxZ = std::max( OutMaxZ, z );
+            for( const auto& [key, value] : cells )
+            {
+                int x = 0;
+                int z = 0;
+                Unkey( key, x, z );
+                OutMinX = std::min( OutMinX, x );
+                OutMinZ = std::min( OutMinZ, z );
+                OutMaxX = std::max( OutMaxX, x );
+                OutMaxZ = std::max( OutMaxZ, z );
+            }
         }
     }
+}
+
+
+void NetReplayHeatmap::Extent( int64_t& OutWidth, int64_t& OutHeight ) const
+{
+    int minX = 0, minZ = 0, maxX = 0, maxZ = 0;
+    Bounds( minX, minZ, maxX, maxZ );
+    OutWidth = maxX >= minX ? static_cast<int64_t>( maxX ) - minX + 1 : 0;
+    OutHeight = maxZ >= minZ ? static_cast<int64_t>( maxZ ) - minZ + 1 : 0;
 }
 
 
@@ -553,11 +566,18 @@ NetReplayHeatmap::Grid NetReplayHeatmap::GetGrid( Layer InLayer, const std::stri
     {
         return grid;
     }
+    int64_t width = 0;
+    int64_t height = 0;
+    Extent( width, height );
+    if( width <= 0 || height <= 0 || width * height > kMaxGridCells )
+    {
+        return grid;
+    }
     int maxX = 0;
     int maxZ = 0;
     Bounds( grid.MinX, grid.MinZ, maxX, maxZ );
-    grid.Width = maxX - grid.MinX + 1;
-    grid.Height = maxZ - grid.MinZ + 1;
+    grid.Width = static_cast<int>( width );
+    grid.Height = static_cast<int>( height );
     grid.Values.assign( static_cast<size_t>( grid.Width ) * grid.Height, 0.f );
     const size_t layer = static_cast<size_t>( InLayer );
     if( layer >= kLayerCount )
@@ -574,7 +594,13 @@ NetReplayHeatmap::Grid NetReplayHeatmap::GetGrid( Layer InLayer, const std::stri
         int x = 0;
         int z = 0;
         Unkey( key, x, z );
-        float& cell = grid.Values[static_cast<size_t>( z - grid.MinZ ) * grid.Width + ( x - grid.MinX )];
+        const int64_t column = static_cast<int64_t>( x ) - grid.MinX;
+        const int64_t row = static_cast<int64_t>( z ) - grid.MinZ;
+        if( column < 0 || column >= grid.Width || row < 0 || row >= grid.Height )
+        {
+            continue;
+        }
+        float& cell = grid.Values[static_cast<size_t>( row ) * grid.Width + static_cast<size_t>( column )];
         cell = static_cast<float>( value );
         grid.Max = std::max( grid.Max, cell );
         grid.Total += value;
@@ -595,6 +621,8 @@ json NetReplayHeatmap::ToJson() const
     out["sceneHash"] = Hex( m_sceneHash );
     out["unattributedKills"] = m_unattributed;
     out["suicides"] = m_suicides;
+    out["outOfRange"] = m_outOfRange;
+    out["maxDistance"] = m_settings.MaxDistance;
     json sources = json::array();
     for( const Source& source : m_sources )
     {
@@ -605,8 +633,10 @@ json NetReplayHeatmap::ToJson() const
     if( !IsEmpty() )
     {
         int minX = 0, minZ = 0, maxX = 0, maxZ = 0;
+        int64_t width = 0, height = 0;
         Bounds( minX, minZ, maxX, maxZ );
-        out["bounds"] = { { "minX", minX }, { "minZ", minZ }, { "width", maxX - minX + 1 }, { "height", maxZ - minZ + 1 } };
+        Extent( width, height );
+        out["bounds"] = { { "minX", minX }, { "minZ", minZ }, { "width", width }, { "height", height } };
     }
     json floor = json::array();
     for( const auto& [key, y] : m_floor )
@@ -675,6 +705,8 @@ bool NetReplayHeatmap::FromJson( const json& InJson, std::string* OutError )
         loaded.m_sceneHash = std::strtoull( InJson.value( "sceneHash", std::string( "0" ) ).c_str(), nullptr, 16 );
         loaded.m_unattributed = InJson.value( "unattributedKills", 0u );
         loaded.m_suicides = InJson.value( "suicides", 0u );
+        loaded.m_outOfRange = InJson.value( "outOfRange", 0u );
+        loaded.m_settings.MaxDistance = InJson.value( "maxDistance", loaded.m_settings.MaxDistance );
         if( InJson.contains( "replays" ) && InJson["replays"].is_array() )
         {
             for( const json& entry : InJson["replays"] )
@@ -798,14 +830,31 @@ Vector3 NetReplayHeatmap::Ramp( float InT )
 }
 
 
+std::string NetReplayHeatmap::GridError() const
+{
+    int64_t width = 0;
+    int64_t height = 0;
+    Extent( width, height );
+    if( IsEmpty() || width <= 0 || height <= 0 )
+    {
+        return "the heatmap is empty";
+    }
+    return "the heatmap spans " + std::to_string( width ) + " x " + std::to_string( height ) + " cells, more than " + std::to_string( kMaxGridCells )
+        + " (a sample far off the map? Settings::MaxDistance leaves those out)";
+}
+
+
 int NetReplayHeatmap::PixelsPerCell( int InWidth, int InHeight, int InRequested ) const
 {
     if( InRequested > 0 )
     {
-        return std::min( InRequested, 64 );
+        // No more than 4096 px on a side, however many were asked for.
+        const int longest = std::max( 1, std::max( InWidth, InHeight ) );
+        return std::clamp( std::min( InRequested, 4096 / longest ), 1, 64 );
     }
+    // A big map gets 1 px a cell (at most kMaxGridCells pixels), a small one 2 to 16.
     const int longest = std::max( 1, std::max( InWidth, InHeight ) );
-    return std::clamp( 512 / longest, 2, 16 );
+    return std::clamp( 512 / longest, longest > 256 ? 1 : 2, 16 );
 }
 
 
@@ -865,7 +914,7 @@ bool NetReplayHeatmap::WritePng( const std::string& InPath, Layer InLayer, const
     {
         if( OutError )
         {
-            *OutError = "the heatmap is empty";
+            *OutError = GridError();
         }
         return false;
     }
@@ -908,11 +957,16 @@ bool NetReplayHeatmap::WriteOverviewPng( const std::string& InPath, const std::s
     {
         if( OutError )
         {
-            *OutError = "the heatmap is empty";
+            *OutError = GridError();
         }
         return false;
     }
-    const int scale = std::max( 3, PixelsPerCell( positions.Width, positions.Height, InPixelsPerCell ) );
+    // 3 px a cell at least (a kill's dot inside a death's), unless that's past 4096 px across.
+    int scale = PixelsPerCell( positions.Width, positions.Height, InPixelsPerCell );
+    if( std::max( positions.Width, positions.Height ) * 3 <= 4096 )
+    {
+        scale = std::max( 3, scale );
+    }
     const int width = positions.Width * scale;
     const int height = positions.Height * scale;
     std::vector<uint8_t> rgba( static_cast<size_t>( width ) * height * 4 );
@@ -974,9 +1028,16 @@ std::string NetReplayHeatmap::Describe( size_t InHottest ) const
     out << line;
     if( !IsEmpty() )
     {
-        const Grid grid = GetGrid( Layer::Positions );
-        std::snprintf( line, sizeof( line ), ", %dx%d cells from (%d, %d)", grid.Width, grid.Height, grid.MinX, grid.MinZ );
+        int minX = 0, minZ = 0, maxX = 0, maxZ = 0;
+        int64_t width = 0, height = 0;
+        Bounds( minX, minZ, maxX, maxZ );
+        Extent( width, height );
+        std::snprintf( line, sizeof( line ), ", %lldx%lld cells from (%d, %d)", static_cast<long long>( width ), static_cast<long long>( height ), minX, minZ );
         out << line;
+        if( width * height > kMaxGridCells )
+        {
+            out << " (too many to draw: " << GridError() << ")";
+        }
     }
     out << "\n";
     for( const Source& source : m_sources )
@@ -994,6 +1055,10 @@ std::string NetReplayHeatmap::Describe( size_t InHottest ) const
     if( m_unattributed > 0 || m_suicides > 0 )
     {
         out << "  " << m_unattributed << " kill(s) without a known killer and " << m_suicides << " by the victim itself: deaths only\n";
+    }
+    if( m_outOfRange > 0 )
+    {
+        out << "  " << m_outOfRange << " sample(s) more than " << m_settings.MaxDistance << " m from the origin left out\n";
     }
     for( size_t i = 0; i < kLayerCount; ++i )
     {
