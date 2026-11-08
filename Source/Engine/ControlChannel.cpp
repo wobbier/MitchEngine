@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
+#include <mutex>
 #if !USING( ME_PLATFORM_WINDOWS )
 #include <cerrno>
 #include <fcntl.h>
@@ -48,32 +49,51 @@ std::string ControlChannel::FormatReply( unsigned long long InId, const std::str
 }
 
 
-void ControlChannel::RunLine( const std::string& InLine )
+std::string ControlChannel::ParseLine( const std::string& InLine, unsigned long long& OutId )
 {
-    size_t start = InLine.find_first_not_of( " \t\r" );
+    OutId = 0;
+    const size_t start = InLine.find_first_not_of( " \t\r" );
     if( start == std::string::npos )
     {
-        return;
+        return {};
     }
-    unsigned long long id = 0;
     size_t end = start;
     while( end < InLine.size() && std::isdigit( static_cast<unsigned char>( InLine[end] ) ) )
     {
         ++end;
     }
     std::string command = InLine.substr( start );
+    // "<digits> <command>" (or the digits alone: an id with nothing to run). Digits glued to a word are a command.
     if( end > start && ( end == InLine.size() || InLine[end] == ' ' || InLine[end] == '\t' ) )
     {
-        id = std::strtoull( InLine.c_str() + start, nullptr, 10 );
+        OutId = std::strtoull( InLine.c_str() + start, nullptr, 10 );
         command = InLine.substr( end );
     }
-    while( !command.empty() && ( command.back() == '\r' || command.back() == ' ' ) )
+    const size_t first = command.find_first_not_of( " \t" );
+    command = first == std::string::npos ? std::string() : command.substr( first );
+    while( !command.empty() && ( command.back() == '\r' || command.back() == ' ' || command.back() == '\t' ) )
     {
         command.pop_back();
     }
+    return command;
+}
+
+
+void ControlChannel::RunLine( const std::string& InLine )
+{
+    if( InLine.find_first_not_of( " \t\r" ) == std::string::npos )
+    {
+        return;
+    }
+    unsigned long long id = 0;
+    const std::string command = ParseLine( InLine, id );
     const std::string output = DevConsole::Get().Execute( command );
-    // Straight to stdout (not the log's prefix and colours): the driver reads it there.
-    std::cout << FormatReply( id, output ) << std::endl;
+    // Straight to stdout (not the log's prefix and colours): the driver reads it there. Under the
+    // log's lock, as one write: another thread's log line can't land inside the answer's line.
+    const std::string reply = FormatReply( id, output ) + "\n";
+    std::lock_guard<std::recursive_mutex> lock( CLog::GetInstance().GetMutex() );
+    std::cout.write( reply.data(), static_cast<std::streamsize>( reply.size() ) );
+    std::cout.flush();
 }
 
 

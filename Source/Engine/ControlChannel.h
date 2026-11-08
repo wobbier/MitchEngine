@@ -21,8 +21,11 @@ public:
     // Runs the lines that arrived. True when stdin closed (the caller quits).
     bool Poll();
 
-    // The answer line for an id and a command's output (tests).
+    // The answer line for an id and a command's output.
     static std::string FormatReply( unsigned long long InId, const std::string& InOutput );
+    // A line's console command and its id ("<digits> <command>"; digits alone are an id with an
+    // empty command; 0 when it has none, and digits glued to a word are a command). Trimmed.
+    static std::string ParseLine( const std::string& InLine, unsigned long long& OutId );
 
 private:
     void RunLine( const std::string& InLine );
