@@ -6,6 +6,7 @@
 #include <vector>
 
 #if USING( ME_EDITOR )
+#include <Widgets/ScrubField.h>
 
 // Inspector UI generated from reflection data. Draws every visible field of a reflected type with a
 // widget chosen from its PropertyType and metadata (ranges, angles, colours, enums, assets, nested
@@ -30,6 +31,10 @@ namespace ReflectionUI
         std::string Filter;
         // Optional: the top-level fields drawn (editor automation asserts on them).
         std::vector<std::string>* Drawn = nullptr;
+        // Optional (UX-2): the type's default values as JSON (a new instance serialized).
+        // Double-clicking a number's label restores its default from here unless the field
+        // names one with .Default().
+        const json* Defaults = nullptr;
     };
 
     // Draws all fields; returns true when anything changed.
@@ -42,6 +47,44 @@ namespace ReflectionUI
     // InField may be null (array elements).
     using CustomDrawer = std::function<bool( const char* InLabel, const Reflection::FieldInfo* InField, void* InValue )>;
     void RegisterCustomDrawer( const std::string& InCppName, CustomDrawer InDrawer );
+
+    // Field decorators (UX-5): an extra row drawn right after a field of a reflected type, inside
+    // the component's group (so a gesture on it is one undo step), for widgets that show what a
+    // value means (a colour temperature bar under Light.Color, a falloff graph under Light.Range).
+    // InInstance is the reflected object (a component: static_cast it from BaseComponent*). Return
+    // true when the decorator changed any of InFieldsItEdits: they are then reported changed and
+    // copied to the other selected instances like a normal edit. Decorators are skipped while
+    // the inspector's field search is active. Several per field draw in registration order.
+    using FieldDecorator = std::function<bool( void* InInstance, const Reflection::TypeInfo& InType )>;
+    void RegisterFieldDecorator( const std::string& InTypeName, const std::string& InFieldName, std::vector<std::string> InFieldsItEdits, FieldDecorator InDecorator );
+    // Same, with a fix-up run on each other selected instance after the changed fields are copied
+    // to it, to keep a rule across fields the gesture left alone (UX-10: a capsule's Height never
+    // under 2 x Radius when only one of the two was copied).
+    using DecoratorFixUp = std::function<void( void* InInstance, const Reflection::TypeInfo& InType )>;
+    void RegisterFieldDecorator( const std::string& InTypeName, const std::string& InFieldName, std::vector<std::string> InFieldsItEdits, FieldDecorator InDecorator, DecoratorFixUp InFixUp );
+
+    // Vector rows (UX-11). Every reflected vector (Vector2/3/4, Quaternion as Euler degrees) row
+    // already scrubs per axis from its coloured X/Y/Z handles ("Transform/Position/X:axis") and
+    // offers Reset / Copy / Paste on a right-click of its label. A field can also ask for:
+    struct VectorRowOptions
+    {
+        // A uniform-scale lock ending the row ("Transform/Scale/Lock"): while it is on, editing
+        // one axis scales the others in proportion. Its state is this editor preference (shared
+        // by every entity). Vector2/3/4 fields.
+        std::string LockPreference;
+        // A dial toggle ending the row ("Transform/Rotation/Dial") whose state is this editor
+        // preference. The row only draws the toggle: a field decorator reads the preference and
+        // draws the dials (TransformInspector). Quaternion fields.
+        std::string DialPreference;
+        // Leave room for a trailing toggle the row doesn't have, so its axes line up with rows
+        // that do (Transform Position beside Rotation's dial and Scale's lock).
+        bool ReserveTrailing = false;
+    };
+    void SetVectorRowOptions( const std::string& InTypeName, const std::string& InFieldName, VectorRowOptions InOptions );
+
+    // The unit-field description of a reflected number (unit, ranges, log, default), for
+    // decorators that edit numbers.
+    MeWidgets::NumberSpec NumberSpecFor( const Reflection::FieldInfo& InField );
 
     // Registers the built-in custom drawers (EntityHandle).
     void RegisterDefaultDrawers();

@@ -1,0 +1,179 @@
+# UX-7: post-processing and grading widgets drive the Fog showcase camera's PostProcess like a person
+# would: the EV ladder's rungs and strip (third stops), the tonemap curve (switching operators and
+# following the exposure; mid grey's display value from the shader's own curves), the white
+# balance pad's puck (and double-click reset), the lift / gamma / gain handles on the grade curve,
+# and the fog's visibility handle, which sets density = ln(20) / visibility. One undo step each.
+# Havana --scene Assets/Scenes/Showcase/Fog.lvl --frame-time 0.0166667 --editor-exec Engine/Tests/Editor/UX7PostGrading.edscript
+wait 25
+select Main Camera
+wait 5
+
+# Exposure: the scene sits at -0.2 EV.
+imgui-assert-value PostProcess/Lit Like | -0.2 EV
+imgui-assert-value PostProcess/Lit Like/Sunlight | -3.0 EV
+imgui-click PostProcess/Lit Like/Sunlight
+assert-field Main Camera | PostProcess.ExposureCompensation | -3
+imgui-assert-value PostProcess/Lit Like | -3.0 EV
+undo
+assert-field Main Camera | PostProcess.ExposureCompensation | -0.2 ~ 0.0001
+redo
+assert-field Main Camera | PostProcess.ExposureCompensation | -3
+undo
+# Dragging from Overcast along the strip lands on a third stop (+1.33 EV); near a rung it snaps.
+imgui-drag PostProcess/Lit Like/Overcast | 30 0
+assert-field Main Camera | PostProcess.ExposureCompensation | 1.33 ~ 0.001
+imgui-assert-value PostProcess/Lit Like | +1.3 EV
+undo
+assert-field Main Camera | PostProcess.ExposureCompensation | -0.2 ~ 0.0001
+imgui-drag PostProcess/Lit Like/Overcast | 46 0
+assert-field Main Camera | PostProcess.ExposureCompensation | 2
+undo
+
+# Tonemap curve: mid grey (0.18) at -0.2 EV shows 0.32 under ACES (0.36 at 0 EV), 0.47 under AgX.
+imgui-assert-value PostProcess/Tonemap Curve | ACES: 0.18 -> 0.32
+imgui-hover PostProcess/Tonemap Curve
+panel-screenshot Properties | .tmp/UX7-Tonemap-ACES.png
+imgui-click PostProcess/Tonemap Curve/AgX
+assert-field Main Camera | PostProcess.Tonemapper | "AgX"
+imgui-assert-value PostProcess/Tonemap Curve | AgX: 0.18 -> 0.47
+imgui-hover PostProcess/Tonemap Curve
+panel-screenshot Properties | .tmp/UX7-Tonemap-AgX.png
+assert-images .tmp/UX7-Tonemap-ACES.png | .tmp/UX7-Tonemap-AgX.png | different
+undo
+assert-field Main Camera | PostProcess.Tonemapper | "ACES"
+imgui-assert-value PostProcess/Tonemap Curve | ACES: 0.18 -> 0.32
+redo
+assert-field Main Camera | PostProcess.Tonemapper | "AgX"
+undo
+# The curve follows the exposure (and the tonemapper field).
+set PostProcess.ExposureCompensation 0
+wait 3
+imgui-assert-value PostProcess/Tonemap Curve | ACES: 0.18 -> 0.36
+set PostProcess.Tonemapper "Reinhard"
+wait 3
+imgui-assert-value PostProcess/Tonemap Curve | Reinhard: 0.18 -> 0.43
+set PostProcess.Tonemapper "ACES"
+set PostProcess.ExposureCompensation -0.2
+wait 3
+
+# White balance: the puck dragged right and up is warmer and more magenta.
+imgui-assert-value PostProcess/White Balance | 0, 0
+imgui-drag PostProcess/White Balance/Puck | 40 -20
+assert-field Main Camera | PostProcess.Temperature | 0.3 ~ 0.0001
+assert-field Main Camera | PostProcess.Tint | 0.38 ~ 0.0001
+imgui-assert-value PostProcess/White Balance | 0.3, 0.38
+imgui-hover PostProcess/White Balance/Puck
+panel-screenshot Properties | .tmp/UX7-WhiteBalance.png
+undo
+assert-field Main Camera | PostProcess.Temperature | 0
+assert-field Main Camera | PostProcess.Tint | 0
+redo
+assert-field Main Camera | PostProcess.Temperature | 0.3 ~ 0.0001
+# Double-clicking the puck returns to neutral, as one more undo step.
+imgui-click PostProcess/White Balance/Puck | double
+assert-field Main Camera | PostProcess.Temperature | 0
+assert-field Main Camera | PostProcess.Tint | 0
+undo
+assert-field Main Camera | PostProcess.Temperature | 0.3 ~ 0.0001
+undo
+assert-field Main Camera | PostProcess.Temperature | 0
+# A double-click on the pad away from the puck: the first click moves the puck there, the second
+# lands on it and is not a reset. One undo step goes back to where it was.
+redo
+assert-field Main Camera | PostProcess.Temperature | 0.3 ~ 0.0001
+imgui-click PostProcess/White Balance | double
+assert-field Main Camera | PostProcess.Temperature | 0
+assert-field Main Camera | PostProcess.Tint | 0
+undo
+assert-field Main Camera | PostProcess.Temperature | 0.3 ~ 0.0001
+assert-field Main Camera | PostProcess.Tint | 0.38 ~ 0.0001
+undo
+assert-field Main Camera | PostProcess.Temperature | 0
+# Dragging straight across leaves the other axis exactly as typed (no rounding, no snap to 0).
+set PostProcess.Tint 0.123
+wait 3
+imgui-drag PostProcess/White Balance/Puck | 40 0
+assert-field Main Camera | PostProcess.Temperature | 0.3 ~ 0.0001
+assert-field Main Camera | PostProcess.Tint | 0.123 ~ 0.000001
+undo
+set PostProcess.Tint 0
+wait 3
+
+# Lift / gamma / gain: handles on the curve as seen (sRGB). Gain down 20 px puts white at 0.33.
+imgui-assert-value PostProcess/Lift Gamma Gain | Lift 0, Gamma 1, Gain 1
+imgui-drag PostProcess/Lift Gamma Gain/Gain | 0 20
+assert-field Main Camera | PostProcess.Gain | 0.33 ~ 0.0001
+imgui-assert-value PostProcess/Lift Gamma Gain/Gain | 0.33
+undo
+assert-field Main Camera | PostProcess.Gain | 1
+imgui-drag PostProcess/Lift Gamma Gain/Lift | 0 -10
+assert-field Main Camera | PostProcess.Lift | 0.02 ~ 0.0001
+undo
+assert-field Main Camera | PostProcess.Lift | 0
+# Gamma: 3 em of travel doubles it (log), Shift ten times finer: 15 px up is 1.21, or 1.02 with Shift.
+imgui-drag PostProcess/Lift Gamma Gain/Gamma | 0 -15 | shift
+assert-field Main Camera | PostProcess.Gamma | 1.02 ~ 0.0001
+undo
+assert-field Main Camera | PostProcess.Gamma | 1
+imgui-drag PostProcess/Lift Gamma Gain/Gamma | 0 -15
+assert-field Main Camera | PostProcess.Gamma | 1.21 ~ 0.0001
+imgui-hover PostProcess/Lift Gamma Gain/Gamma
+panel-screenshot Properties | .tmp/UX7-Grade.png
+imgui-click PostProcess/Lift Gamma Gain/Gamma | double
+assert-field Main Camera | PostProcess.Gamma | 1
+undo
+assert-field Main Camera | PostProcess.Gamma | 1.21 ~ 0.0001
+undo
+assert-field Main Camera | PostProcess.Gamma | 1
+
+# Exposure: double-clicking the value's marker on the strip returns to 0 in one step.
+imgui-click PostProcess/Lit Like/Value | double
+assert-field Main Camera | PostProcess.ExposureCompensation | 0
+undo
+assert-field Main Camera | PostProcess.ExposureCompensation | -0.2 ~ 0.0001
+
+# Fog: 0.035 /m sees ln(20) / 0.035 = 85.6 m. Dragging Visibility to 350 m sets ln(20) / 350.
+imgui-assert-value PostProcess/Fog Visibility | visibility 86 m
+imgui-assert-value PostProcess/Fog Visibility/Visibility | 85.59 m
+imgui-drag PostProcess/Fog Visibility/Visibility | 40 0
+imgui-assert-value PostProcess/Fog Visibility/Visibility | 350 m
+assert-field Main Camera | PostProcess.FogDensity | 0.0085593 ~ 0.000001
+imgui-assert-value PostProcess/Fog Visibility | visibility 350 m
+imgui-hover PostProcess/Fog Visibility
+panel-screenshot Properties | .tmp/UX7-Fog.png
+undo
+assert-field Main Camera | PostProcess.FogDensity | 0.035 ~ 0.000001
+redo
+assert-field Main Camera | PostProcess.FogDensity | 0.0085593 ~ 0.000001
+undo
+# Clicking the middle of the bar sets 100 m.
+imgui-click PostProcess/Fog Visibility
+imgui-assert-value PostProcess/Fog Visibility | visibility 100 m
+undo
+assert-field Main Camera | PostProcess.FogDensity | 0.035 ~ 0.000001
+# Under 95% max opacity the fog never hides anything: the readout says so, and the handle sits
+# where 95% would be without the cap, so dragging it still moves what it shows.
+set PostProcess.FogMaxOpacity 0.8
+wait 3
+imgui-assert-value PostProcess/Fog Visibility | unlimited: 80% cap (86 m uncapped)
+imgui-assert-value PostProcess/Fog Visibility/Visibility | 85.59 m
+imgui-hover PostProcess/Fog Visibility
+panel-screenshot Properties | .tmp/UX7-FogCapped.png
+imgui-drag PostProcess/Fog Visibility/Visibility | 40 0
+imgui-assert-value PostProcess/Fog Visibility/Visibility | 350 m
+assert-field Main Camera | PostProcess.FogDensity | 0.0085593 ~ 0.000001
+imgui-assert-value PostProcess/Fog Visibility | unlimited: 80% cap (350 m uncapped)
+undo
+assert-field Main Camera | PostProcess.FogDensity | 0.035 ~ 0.000001
+set PostProcess.FogMaxOpacity 1
+wait 3
+# The start distance adds on: 20 m of clear air first.
+set PostProcess.FogStartDistance 20
+wait 3
+imgui-assert-value PostProcess/Fog Visibility | visibility 110 m
+set PostProcess.FogStartDistance 0
+wait 3
+
+# Captures to look at.
+imgui-hover PostProcess/Lit Like
+panel-screenshot Properties | .tmp/UX7-Exposure.png

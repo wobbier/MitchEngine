@@ -1,0 +1,174 @@
+# UX-8: physics feel widgets drive PhysicsTest's bodies like a person would: the mass ladder's
+# rungs (click, drag from one rung to the next, Auto, double-click reset), the friction ramp's
+# Angle handle (friction = tan(angle)), the linear damping graph's Half-life handle (Box3D's
+# per-substep damping, v *= 1 / (1 + h d) with h = 1/240 s), the axis lock chips and the
+# bouncing ball (animated at Full, still at Off). One undo step per gesture; a light-theme check.
+# Havana --scene Assets/Scenes/Tests/PhysicsTest.lvl --frame-time 0.0166667 --editor-exec Engine/Tests/Editor/UX8PhysicsFeel.edscript
+wait 20
+select Ramp Crate 0
+wait 5
+
+# Mass: 2 kg. Click Cat (4 kg), then undo / redo.
+imgui-assert-value Rigidbody/Weighs Like | 2 kg
+imgui-assert-value Rigidbody/Weighs Like/Cat | 4 kg
+imgui-click Rigidbody/Weighs Like/Cat
+assert-field Ramp Crate 0 | Rigidbody.Mass | 4
+imgui-assert-value Rigidbody/Weighs Like | 4 kg
+undo
+assert-field Ramp Crate 0 | Rigidbody.Mass | 2
+redo
+assert-field Ramp Crate 0 | Rigidbody.Mass | 4
+undo
+# Dragging from Cat towards Human snaps onto it (log strip).
+imgui-drag Rigidbody/Weighs Like/Cat | 41 0
+assert-field Ramp Crate 0 | Rigidbody.Mass | 70
+imgui-assert-value Rigidbody/Weighs Like | 70 kg
+imgui-hover Rigidbody/Weighs Like/Human
+panel-screenshot Properties | .tmp/UX8-Mass.png
+undo
+assert-field Ramp Crate 0 | Rigidbody.Mass | 2
+# A short drag lands between rungs at two significant digits.
+imgui-drag Rigidbody/Weighs Like/Cat | 20 0
+assert-field Ramp Crate 0 | Rigidbody.Mass | 16
+imgui-assert-value Rigidbody/Weighs Like | 16 kg
+undo
+assert-field Ramp Crate 0 | Rigidbody.Mass | 2
+# Auto: 0 kg, the mass comes from the colliders' densities.
+imgui-click Rigidbody/Weighs Like/Auto
+assert-field Ramp Crate 0 | Rigidbody.Mass | 0
+imgui-assert-value Rigidbody/Weighs Like | Auto (from density)
+undo
+assert-field Ramp Crate 0 | Rigidbody.Mass | 2
+# Double-clicking the value's marker resets to the default 1 kg, in one step.
+imgui-click Rigidbody/Weighs Like/Value | double
+assert-field Ramp Crate 0 | Rigidbody.Mass | 1
+undo
+assert-field Ramp Crate 0 | Rigidbody.Mass | 2
+
+# Friction 0.15 slides above atan(0.15) = 8.5 degrees. Dragging the Angle handle up to 27 degrees
+# sets friction = tan(27°) = 0.50953.
+imgui-assert-value BoxCollider/Slide Angle | slides above 8.5°
+imgui-assert-value BoxCollider/Slide Angle/Angle | 8.5°
+imgui-drag BoxCollider/Slide Angle/Angle | 0 -25
+imgui-assert-value BoxCollider/Slide Angle/Angle | 27°
+assert-field Ramp Crate 0 | BoxCollider.Friction | 0.5095254 ~ 0.000001
+imgui-assert-value BoxCollider/Slide Angle | slides above 27°
+imgui-hover BoxCollider/Slide Angle/Angle
+panel-screenshot Properties | .tmp/UX8-Friction.png
+undo
+assert-field Ramp Crate 0 | BoxCollider.Friction | 0.15 ~ 0.000001
+redo
+assert-field Ramp Crate 0 | BoxCollider.Friction | 0.5095254 ~ 0.000001
+undo
+assert-field Ramp Crate 0 | BoxCollider.Friction | 0.15 ~ 0.000001
+
+# Angular damping 0.05 (the Rigidbody default) halves the spin in 14 s: the axis widens to 20 s to
+# show it, the handle reports 14 s, and a one-pixel nudge keeps it (it doesn't jump to the 3 s value).
+imgui-assert-value Rigidbody/Angular Decay | half-life 14 s
+imgui-assert-value Rigidbody/Angular Decay/Half-life | 14 s
+imgui-drag Rigidbody/Angular Decay/Half-life | 1 0
+assert-field Ramp Crate 0 | Rigidbody.AngularDamping | 0.05 ~ 0.003
+imgui-assert-value Rigidbody/Angular Decay/Half-life | 14 s
+panel-screenshot Properties | .tmp/UX8-Damping-Angular.png
+undo
+assert-field Ramp Crate 0 | Rigidbody.AngularDamping | 0.05 ~ 0.000001
+
+# Linear damping 0: the speed never halves. The handle sits pinned at the 30 s edge and says
+# "never". Dragging it left sets the damping for the half-life under the pointer.
+imgui-assert-value Rigidbody/Linear Decay | half-life never
+imgui-assert-value Rigidbody/Linear Decay/Half-life | never
+panel-screenshot Properties | .tmp/UX8-Damping-Never.png
+imgui-drag Rigidbody/Linear Decay/Half-life | -150 0
+imgui-assert-value Rigidbody/Linear Decay/Half-life | 13 s
+assert-field Ramp Crate 0 | Rigidbody.LinearDamping | 0.0533249 ~ 0.000001
+# Released, the axis eases in to 20 s around the new half-life. A second drag down to 1.3 s sets the
+# damping that halves the speed in 1.3 s with Box3D's per-substep factor:
+# (2^(h / 1.3) - 1) / h = 0.53378 (h = 1/240 s); the axis then settles on 3 s.
+wait 30
+imgui-drag Rigidbody/Linear Decay/Half-life | -157 0
+imgui-assert-value Rigidbody/Linear Decay/Half-life | 1.3 s
+assert-field Ramp Crate 0 | Rigidbody.LinearDamping | 0.5337829 ~ 0.000001
+imgui-assert-value Rigidbody/Linear Decay | half-life 1.3 s
+wait 30
+imgui-hover Rigidbody/Linear Decay/Half-life
+panel-screenshot Properties | .tmp/UX8-Damping.png
+undo
+assert-field Ramp Crate 0 | Rigidbody.LinearDamping | 0.0533249 ~ 0.000001
+redo
+assert-field Ramp Crate 0 | Rigidbody.LinearDamping | 0.5337829 ~ 0.000001
+undo
+undo
+assert-field Ramp Crate 0 | Rigidbody.LinearDamping | 0
+wait 30
+imgui-assert-value Rigidbody/Linear Decay/Half-life | never
+
+# Axis locks: click Y under Lock Rotation.
+imgui-assert-value Rigidbody/Lock Rotation/Y | free
+imgui-click Rigidbody/Lock Rotation/Y
+assert-field Ramp Crate 0 | Rigidbody.LockRotationY | true
+imgui-assert-value Rigidbody/Lock Rotation/Y | locked
+imgui-hover Rigidbody/Lock Rotation/Y
+panel-screenshot Properties | .tmp/UX8-Locks.png
+undo
+assert-field Ramp Crate 0 | Rigidbody.LockRotationY | false
+redo
+assert-field Ramp Crate 0 | Rigidbody.LockRotationY | true
+# A second click frees it again: its own undo step.
+imgui-click Rigidbody/Lock Rotation/Y
+assert-field Ramp Crate 0 | Rigidbody.LockRotationY | false
+undo
+assert-field Ramp Crate 0 | Rigidbody.LockRotationY | true
+undo
+assert-field Ramp Crate 0 | Rigidbody.LockRotationY | false
+imgui-click Rigidbody/Lock Position/X
+assert-field Ramp Crate 0 | Rigidbody.LockPositionX | true
+assert-field Ramp Crate 0 | Rigidbody.LockPositionY | false
+imgui-assert-value Rigidbody/Lock Position/X | locked
+undo
+assert-field Ramp Crate 0 | Rigidbody.LockPositionX | false
+
+# Bounce: Ball 0 has restitution 0.6.
+select Ball 0
+wait 5
+imgui-assert-value SphereCollider/Bounce | bounces to 36%
+imgui-hover SphereCollider/Bounce
+panel-screenshot Properties | .tmp/UX8-Bounce-A.png
+wait 9
+panel-screenshot Properties | .tmp/UX8-Bounce-B.png
+assert-images .tmp/UX8-Bounce-A.png | .tmp/UX8-Bounce-B.png | different
+# At juice Off the ball rests at its drop point and the apex dots stay: the picture is still.
+preference Appearance.Juice | "Off"
+wait 3
+imgui-hover SphereCollider/Bounce
+panel-screenshot Properties | .tmp/UX8-Bounce-Off-A.png
+wait 9
+panel-screenshot Properties | .tmp/UX8-Bounce-Off-B.png
+assert-images .tmp/UX8-Bounce-Off-A.png | .tmp/UX8-Bounce-Off-B.png | same
+preference Appearance.Juice | "Full"
+# A different restitution: 0.9 rises to 81%.
+set SphereCollider.Restitution 0.9
+wait 3
+imgui-assert-value SphereCollider/Bounce | bounces to 81%
+undo
+wait 3
+imgui-assert-value SphereCollider/Bounce | bounces to 36%
+
+# Light theme: every physics widget on Ramp Crate 0 and Ball 0.
+preference Appearance.Theme | "Light"
+preference Appearance.Juice | "Off"
+wait 5
+imgui-hover SphereCollider/Bounce
+panel-screenshot Properties | .tmp/UX8-Light-Bounce.png
+select Ramp Crate 0
+wait 5
+imgui-click Rigidbody/Lock Rotation/Z
+imgui-hover Rigidbody/Weighs Like
+panel-screenshot Properties | .tmp/UX8-Light-Mass.png
+imgui-hover Rigidbody/Lock Rotation/Z
+panel-screenshot Properties | .tmp/UX8-Light-Locks.png
+imgui-hover BoxCollider/Slide Angle
+panel-screenshot Properties | .tmp/UX8-Light-Friction.png
+undo
+assert-field Ramp Crate 0 | Rigidbody.LockRotationZ | false
+preference Appearance.Theme | "Dark"
+preference Appearance.Juice | "Full"

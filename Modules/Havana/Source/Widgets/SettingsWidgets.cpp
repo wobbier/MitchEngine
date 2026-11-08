@@ -1,4 +1,7 @@
 #include "SettingsWidgets.h"
+#include <Widgets/Juice.h>
+#include <Widgets/ScrubField.h>
+#include "Core/CommandLine.h"
 #include "Editor/EditorActions.h"
 #include "Engine/Engine.h"
 #include "Window/SDLWindow.h"
@@ -513,6 +516,28 @@ void PreferencesWidget::Init()
 
 void PreferencesWidget::ApplyAppearancePreferences()
 {
+	// UX-3: juice level, reduce motion and editor sound cues.
+	{
+		EditorConfig& config = EditorConfig::GetInstance();
+		const std::string juice = config.GetPreference<std::string>("Appearance.Juice", "Full");
+		MeWidgets::Juice::SetLevel(juice == "Off" ? MeWidgets::Juice::Level::Off : juice == "Subtle" ? MeWidgets::Juice::Level::Subtle : MeWidgets::Juice::Level::Full);
+		MeWidgets::Juice::SetReduceMotion(config.GetPreference<bool>("Appearance.ReduceMotion", false));
+		// Deterministic runs animate on the fixed frame step, as the engine does.
+		MeWidgets::Juice::SetFixedDelta(CommandLine::GetFloat("--frame-time", 0.f));
+		if (config.GetPreference<bool>("Appearance.JuiceSounds", false))
+		{
+			// The editor ships no UI sounds yet: cues are logged, so the hook is visible and
+			// a sound set can be wired in here.
+			MeWidgets::Juice::SetSoundPlayer([](MeWidgets::Juice::Cue InCue) {
+				static const char* kNames[] = { "Tick", "Reset", "Commit", "Refuse" };
+				CLog::Log(CLog::LogType::Debug, std::string("[juice] sound cue ") + kNames[static_cast<int>(InCue)]);
+			});
+		}
+		else
+		{
+			MeWidgets::Juice::SetSoundPlayer(nullptr);
+		}
+	}
 	ImGuiTheme::Apply(AppearanceMode(), AppearanceAccent(), AppearanceFontSize());
 	if (ImGuiRenderer* imgui = GetEngine().GetRenderer().GetImGuiRenderer())
 	{
@@ -724,6 +749,46 @@ void PreferencesWidget::DrawAppearance()
 		ImGui::TextDisabled("%s", labels[i]);
 	}
 
+	ImGui::SeparatorText("Motion");
+	{
+		// UX-3: how much the widgets move, flash and spark.
+		const char* levels[] = { "Off", "Subtle", "Full" };
+		const std::string current = config.GetPreference<std::string>("Appearance.Juice", "Full");
+		HavanaUtils::Label("Juice");
+		if (ImGui::BeginCombo("##Juice", current.c_str()))
+		{
+			for (const char* level : levels)
+			{
+				if (ImGui::Selectable(level, current == level))
+				{
+					config.SetPreference("Appearance.Juice", std::string(level));
+					m_appearancePending = true;
+					m_appearanceUnsaved = true;
+				}
+			}
+			ImGui::EndCombo();
+		}
+		ImGui::SetItemTooltip("Springs, flashes, detent ticks and sparks on editor widgets. Off keeps them still.");
+		bool reduce = config.GetPreference<bool>("Appearance.ReduceMotion", false);
+		HavanaUtils::Label("Reduce motion");
+		if (ImGui::Checkbox("##ReduceMotion", &reduce))
+		{
+			config.SetPreference("Appearance.ReduceMotion", reduce);
+			m_appearancePending = true;
+			m_appearanceUnsaved = true;
+		}
+		ImGui::SetItemTooltip("Keeps colour feedback (flashes) but nothing moves, shakes or sparks.");
+		bool sounds = config.GetPreference<bool>("Appearance.JuiceSounds", false);
+		HavanaUtils::Label("Sounds");
+		if (ImGui::Checkbox("##JuiceSounds", &sounds))
+		{
+			config.SetPreference("Appearance.JuiceSounds", sounds);
+			m_appearancePending = true;
+			m_appearanceUnsaved = true;
+		}
+		ImGui::SetItemTooltip("Editor sound cues for ticks, resets, commits and refusals (logged until the editor ships a sound set).");
+	}
+
 	ImGui::SeparatorText("Preview");
 	HavanaUtils::Label("Controls");
 	ImGui::Button("Button");
@@ -734,9 +799,15 @@ void PreferencesWidget::DrawAppearance()
 	ImGui::SameLine();
 	static bool previewChecked = true;
 	ImGui::Checkbox("Enabled", &previewChecked);
-	static float previewValue = 0.5f;
-	HavanaUtils::Label("Value");
-	ImGui::SliderFloat("##Value", &previewValue, 0.f, 1.f, "%.2f");
+	static double previewValue = 0.5;
+	MeWidgets::NumberSpec previewSpec;
+	previewSpec.FieldUnit = Reflection::Unit::Percent;
+	previewSpec.HasRange = true;
+	previewSpec.Min = 0.0;
+	previewSpec.Max = 1.0;
+	previewSpec.HasDefault = true;
+	previewSpec.Default = 0.5;
+	MeWidgets::UnitRow("Value", previewValue, previewSpec);
 
 	ImGui::Separator();
 	HavanaUtils::SkipLabel();
@@ -746,6 +817,9 @@ void PreferencesWidget::DrawAppearance()
 		accent = ImGuiTheme::DefaultAccent();
 		font = 0;
 		fontSize = static_cast<int>(ImGuiRenderer::kMinFontSize);
+		config.SetPreference("Appearance.Juice", std::string("Full"));
+		config.SetPreference("Appearance.ReduceMotion", false);
+		config.SetPreference("Appearance.JuiceSounds", false);
 		changed = true;
 	}
 	ImGui::SameLine();

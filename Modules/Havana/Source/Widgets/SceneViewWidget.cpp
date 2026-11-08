@@ -36,6 +36,7 @@
 #include "Editor/SceneTools.h"
 #include "Editor/UndoStack.h"
 #include <Utils/EditorConfig.h>
+#include <Widgets/TransformWidgets.h>
 #include <imgui_internal.h>
 #include <SDL_keyboard.h>
 #include <SDL_mouse.h>
@@ -923,13 +924,12 @@ void SceneViewWidget::DrawViewMenu()
 
 void SceneViewWidget::DrawSceneToolbar()
 {
-	for (int i = 0; i < 4; ++i)
+	// The gizmo modes (UX-11): a highlight pill springs to the active one (static at Juice Off).
+	static const char* shortcuts[] = { "Move (W)", "Rotate (E)", "Scale (R)", "Universal (T)" };
+	int operation = static_cast<int>(m_operation);
+	if (MeWidgets::SpringPill("GizmoMode", kOperationNames, shortcuts, 4, operation))
 	{
-		static const char* shortcuts[] = { "Move (W)", "Rotate (E)", "Scale (R)", "Universal (T)" };
-		if (ToolbarToggle(kOperationNames[i], static_cast<int>(m_operation) == i, shortcuts[i]))
-		{
-			SetGizmoOperation(static_cast<GizmoOperation>(i));
-		}
+		SetGizmoOperation(static_cast<GizmoOperation>(operation));
 	}
 	ImGui::Separator();
 	if (ImGui::Button(m_mode == ImGuizmo::LOCAL ? "Local" : "World"))

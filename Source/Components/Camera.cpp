@@ -22,32 +22,32 @@ ME_REFLECT_ENUM( Moonlight::UpscaleFilter, { { "Bilinear", Moonlight::UpscaleFil
 ME_REFLECT_ENUM( Moonlight::ClearColorType, { { "Color", Moonlight::ClearColorType::Color }, { "Skybox", Moonlight::ClearColorType::Skybox }, { "Procedural", Moonlight::ClearColorType::Procedural } } )
 
 ME_REFLECT_BEGIN( Moonlight::ProceduralSkySettings )
-    ME_FIELD( Time ).Display( "Time of Day" ).Range( 0.f, 24.f );
-    ME_FIELD( TimeScale ).Display( "Time Scale" ).Range( 0.f, 1.f );
-    ME_FIELD( Latitude ).Range( -90.f, 90.f );
+    ME_FIELD( Time ).Display( "Time of Day" ).Range( 0.f, 24.f ).Unit( Reflection::Unit::Hours );
+    ME_FIELD( TimeScale ).Display( "Time Scale" ).Range( 0.f, 1.f ).Log();
+    ME_FIELD( Latitude ).Range( -90.f, 90.f ).Unit( Reflection::Unit::Degrees );
     ME_FIELD( Turbidity ).Range( 1.f, 10.f );
     ME_FIELD( Month ).Range( 0.f, 11.f );
     ME_FIELD( MoonPhase ).Display( "Moon Phase" ).Range( 0.f, 1.f );
-    ME_FIELD( MoonOrbitInclination ).Display( "Moon Orbit Inclination" ).Range( 0.f, 10.f ).Tooltip( "Degrees from the ecliptic. Set to 0 with Moon Phase 0 for a solar eclipse; relative Sun/Moon Size controls partial, total or annular coverage." );
-    ME_FIELD( MoonAscendingNode ).Display( "Moon Ascending Node" ).Range( 0.f, 360.f ).Tooltip( "Degrees along the ecliptic where the tilted lunar orbit crosses it; eclipses occur near a node." );
-    ME_FIELD( SunSize ).Display( "Sun Size" ).Range( 0.1f, 10.f );
-    ME_FIELD( MoonSize ).Display( "Moon Size" ).Range( 0.1f, 100.f );
-    ME_FIELD( MoonBrightness ).Display( "Moon Brightness" ).Range( 0.f, 10.f );
-    ME_FIELD( StarBrightness ).Display( "Star Brightness" ).Range( 0.f, 10.f );
-    ME_FIELD( CloudCoverage ).Display( "Cloud Coverage" ).Range( 0.f, 1.f );
-    ME_FIELD( CloudDensity ).Display( "Cloud Density" ).Range( 0.f, 4.f );
-    ME_FIELD( CloudAltitude ).Display( "Cloud Altitude (m)" ).Range( 100.f, 10000.f );
-    ME_FIELD( CloudThickness ).Display( "Cloud Thickness (m)" ).Range( 100.f, 8000.f );
-    ME_FIELD( WindSpeed ).Display( "Wind Speed (m/s)" ).Range( 0.f, 100.f );
-    ME_FIELD( WindDirection ).Display( "Wind Direction" ).Range( 0.f, 360.f );
+    ME_FIELD( MoonOrbitInclination ).Display( "Moon Orbit Inclination" ).Range( 0.f, 10.f ).Unit( Reflection::Unit::Degrees ).Tooltip( "Degrees from the ecliptic. Set to 0 with Moon Phase 0 for a solar eclipse; relative Sun/Moon Size controls partial, total or annular coverage." );
+    ME_FIELD( MoonAscendingNode ).Display( "Moon Ascending Node" ).Range( 0.f, 360.f ).Unit( Reflection::Unit::Degrees ).Tooltip( "Degrees along the ecliptic where the tilted lunar orbit crosses it; eclipses occur near a node." );
+    ME_FIELD( SunSize ).Display( "Sun Size" ).Range( 0.1f, 10.f ).Unit( Reflection::Unit::Multiplier ).Log();
+    ME_FIELD( MoonSize ).Display( "Moon Size" ).Range( 0.1f, 100.f ).Unit( Reflection::Unit::Multiplier ).Log().SoftRange( 0.1f, 10.f );
+    ME_FIELD( MoonBrightness ).Display( "Moon Brightness" ).Range( 0.f, 10.f ).Unit( Reflection::Unit::Multiplier ).SoftRange( 0.f, 3.f );
+    ME_FIELD( StarBrightness ).Display( "Star Brightness" ).Range( 0.f, 10.f ).Unit( Reflection::Unit::Multiplier ).SoftRange( 0.f, 3.f );
+    ME_FIELD( CloudCoverage ).Display( "Cloud Coverage" ).Range( 0.f, 1.f ).Unit( Reflection::Unit::Percent );
+    ME_FIELD( CloudDensity ).Display( "Cloud Density" ).Range( 0.f, 4.f ).Unit( Reflection::Unit::Multiplier );
+    ME_FIELD( CloudAltitude ).Range( 100.f, 10000.f ).Unit( Reflection::Unit::Meters ).Log();
+    ME_FIELD( CloudThickness ).Range( 100.f, 8000.f ).Unit( Reflection::Unit::Meters ).Log();
+    ME_FIELD( WindSpeed ).Range( 0.f, 100.f ).Unit( Reflection::Unit::MetersPerSecond ).SoftRange( 0.f, 30.f );
+    ME_FIELD( WindDirection ).Display( "Wind Direction" ).Range( 0.f, 360.f ).Unit( Reflection::Unit::Degrees );
 ME_REFLECT_END()
 
 ME_REFLECT_BEGIN( Camera )
     ME_FIELD( Projection );
-    ME_FIELD_NAMED( m_FOV, "FieldOfView" ).Display( "Field of View" ).Range( 1.f, 179.f );
-    ME_FIELD( OrthographicSize ).Display( "Orthographic Size (m)" ).Range( 0.01f, 1000.f ).Tooltip( "Half the view height in metres" );
-    ME_FIELD( Near ).Display( "Near Clip (m)" ).Speed( 0.01f ).Tooltip( "Distance to the near clipping plane in metres" );
-    ME_FIELD( Far ).Display( "Far Clip (m)" ).Speed( 1.f ).Tooltip( "Distance to the far clipping plane in metres" );
+    ME_FIELD_NAMED( m_FOV, "FieldOfView" ).Display( "Field of View" ).Range( 1.f, 179.f ).Unit( Reflection::Unit::Degrees ).SoftRange( 20.f, 120.f );
+    ME_FIELD( OrthographicSize ).Range( 0.01f, 1000.f ).Unit( Reflection::Unit::Meters ).Log().SoftRange( 1.f, 50.f ).Tooltip( "Half the view height in metres" );
+    ME_FIELD( Near ).Display( "Near Clip" ).Speed( 0.01f ).Unit( Reflection::Unit::Meters ).Log().SoftRange( 0.01f, 1.f ).Tooltip( "Distance to the near clipping plane in metres" );
+    ME_FIELD( Far ).Display( "Far Clip" ).Speed( 1.f ).Unit( Reflection::Unit::Meters ).Log().SoftRange( 10.f, 10000.f ).Tooltip( "Distance to the far clipping plane in metres" );
     ME_FIELD( Viewport ).Display( "Viewport Rect" ).Speed( 0.01f ).Tooltip( "Normalized x, y (from the top left), width and height of the screen this camera draws to, for split screen" );
     ME_FIELD( ClearType ).Display( "Background" ).CustomInspector();
     ME_FIELD( ClearColor ).Color().CustomInspector();
@@ -55,18 +55,18 @@ ME_REFLECT_BEGIN( Camera )
     ME_FIELD( MatchMainCamera ).Display( "Match Main Camera" ).Tooltip( "Render at the main camera's size, field of view, far plane and background (for portal and screen-space views)" );
     ME_FIELD( Zoom ).Hidden();
     ME_FIELD( TargetTexture ).Category( "Render Texture" ).Display( "Target Texture" ).Asset( "RenderTexture" ).Tooltip( "Render into this render texture, at its size, instead of the screen. Materials show the image by using the same asset as a texture" );
-    ME_FIELD( UpdateInterval ).Category( "Render Texture" ).Display( "Update Interval" ).Range( 1.f, 60.f ).Tooltip( "Render every Nth frame; the texture keeps its last image in between" );
+    ME_FIELD( UpdateInterval ).Category( "Render Texture" ).Display( "Update Interval" ).Range( 1.f, 60.f ).Unit( Reflection::Unit::Frames ).Tooltip( "Render every Nth frame; the texture keeps its last image in between" );
     ME_FIELD( SunShadows ).Category( "Render Passes" ).Display( "Sun Shadows" ).Tooltip( "Draw the sun's shadow cascades for this camera. Spot and point light shadows are shared by every camera and stay" );
     ME_FIELD( AmbientOcclusion ).Category( "Render Passes" ).Display( "Ambient Occlusion" ).Tooltip( "Allow screen-space ambient occlusion when the post settings turn it on" );
     ME_FIELD( VolumetricFog ).Category( "Render Passes" ).Display( "Volumetric Fog" ).Tooltip( "Allow volumetric fog when the post settings turn it on; off falls back to the analytic height fog" );
-    ME_FIELD( RenderScale ).Category( "Render Scale" ).Display( "Render Scale" ).Range( 0.1f, 1.f ).Tooltip( "Render the scene at this fraction of the output size, then upscale it (0.5 = a quarter of the pixels)" );
+    ME_FIELD( RenderScale ).Category( "Render Scale" ).Display( "Render Scale" ).Range( 0.1f, 1.f ).Unit( Reflection::Unit::Percent ).Tooltip( "Render the scene at this fraction of the output size, then upscale it (0.5 = a quarter of the pixels)" );
     ME_FIELD( Upscale ).Category( "Render Scale" ).Display( "Upscale Filter" ).Tooltip( "Bilinear: smooth. Nearest: blocky. Pixel: whole N x N texel blocks for pixel art (the scale snaps to 1/N). Sharp: bicubic plus contrast-adaptive sharpening" );
-    ME_FIELD( UpscaleSharpness ).Category( "Render Scale" ).Display( "Sharpness" ).Range( 0.f, 1.f ).Tooltip( "Sharp filter only" );
+    ME_FIELD( UpscaleSharpness ).Category( "Render Scale" ).Display( "Sharpness" ).Range( 0.f, 1.f ).Unit( Reflection::Unit::Percent ).Tooltip( "Sharp filter only" );
     ME_FIELD( DynamicResolution ).Category( "Render Scale" ).Display( "Dynamic Resolution" ).Tooltip( "Lower the scale while the GPU frame takes longer than the target, and raise it back when there's headroom" );
-    ME_FIELD( DynamicMinScale ).Category( "Render Scale" ).Display( "Minimum Scale" ).Range( 0.1f, 1.f );
-    ME_FIELD( DynamicTargetMs ).Category( "Render Scale" ).Display( "Target GPU ms" ).Range( 1.f, 100.f );
+    ME_FIELD( DynamicMinScale ).Category( "Render Scale" ).Display( "Minimum Scale" ).Range( 0.1f, 1.f ).Unit( Reflection::Unit::Percent );
+    ME_FIELD( DynamicTargetMs ).Category( "Render Scale" ).Display( "Target GPU ms" ).Range( 1.f, 100.f ).Unit( Reflection::Unit::Milliseconds ).SoftRange( 4.f, 33.3f );
     ME_FIELD( PixelPerfect ).Category( "Pixel Perfect" ).Display( "Pixel Perfect" ).Tooltip( "Render pixel art at the reference resolution times the largest whole factor that fits, as exact blocks (overrides Render Scale and the upscale filter)" );
-    ME_FIELD( ReferenceResolution ).Category( "Pixel Perfect" ).Display( "Reference Resolution" ).Speed( 1.f ).Tooltip( "The art's native resolution: the least the camera shows" );
+    ME_FIELD( ReferenceResolution ).Category( "Pixel Perfect" ).Display( "Reference Resolution" ).Speed( 1.f ).Unit( Reflection::Unit::Pixels ).Tooltip( "The art's native resolution: the least the camera shows" );
     ME_FIELD( PixelsPerUnit ).Category( "Pixel Perfect" ).Display( "Pixels Per Unit" ).Range( 0.f, 512.f ).Tooltip( "Orthographic only: texels per world unit (sets the view size). 0 keeps Orthographic Size" );
     ME_FIELD( PixelSnap ).Category( "Pixel Perfect" ).Display( "Pixel Snap" ).Tooltip( "Orthographic only: move the view in whole texels so a panning camera doesn't shimmer" );
 ME_REFLECT_END()

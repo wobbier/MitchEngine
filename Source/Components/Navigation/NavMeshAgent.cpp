@@ -6,14 +6,14 @@
 ME_REFLECT_ENUM( NavAvoidanceQuality, { { "None", NavAvoidanceQuality::None }, { "Low", NavAvoidanceQuality::Low }, { "Medium", NavAvoidanceQuality::Medium }, { "High", NavAvoidanceQuality::High } } )
 
 ME_REFLECT_BEGIN( NavMeshAgent )
-    ME_FIELD( Speed ).Category( "Steering" ).Range( 0.f, 50.f );
-    ME_FIELD( Acceleration ).Category( "Steering" ).Range( 0.f, 200.f );
-    ME_FIELD( AngularSpeed ).Category( "Steering" ).Range( 0.f, 1440.f ).Tooltip( "Degrees per second turning to face the direction of travel" );
-    ME_FIELD( StoppingDistance ).Category( "Steering" ).Range( 0.f, 20.f );
-    ME_FIELD( Radius ).Category( "Shape" ).Range( 0.05f, 10.f );
-    ME_FIELD( Height ).Category( "Shape" ).Range( 0.1f, 20.f );
-    ME_FIELD( BaseOffset ).Category( "Shape" ).Tooltip( "Height of the Transform above the navmesh" );
-    ME_FIELD( LinkJumpHeight ).Category( "Steering" ).Range( 0.f, 10.f ).Tooltip( "Arc height when crossing a NavMeshLink" );
+    ME_FIELD( Speed ).Category( "Steering" ).Range( 0.f, 50.f ).Unit( Reflection::Unit::MetersPerSecond ).SoftRange( 0.f, 10.f );
+    ME_FIELD( Acceleration ).Category( "Steering" ).Range( 0.f, 200.f ).Unit( Reflection::Unit::MetersPerSecondSq ).Log().SoftRange( 0.f, 50.f );
+    ME_FIELD( AngularSpeed ).Category( "Steering" ).Range( 0.f, 1440.f ).Unit( Reflection::Unit::DegreesPerSecond ).SoftRange( 0.f, 720.f ).Tooltip( "Degrees per second turning to face the direction of travel" );
+    ME_FIELD( StoppingDistance ).Category( "Steering" ).Range( 0.f, 20.f ).Unit( Reflection::Unit::Meters ).SoftRange( 0.f, 5.f );
+    ME_FIELD( Radius ).Category( "Shape" ).Range( 0.05f, 10.f ).Unit( Reflection::Unit::Meters ).Log();
+    ME_FIELD( Height ).Category( "Shape" ).Range( 0.1f, 20.f ).Unit( Reflection::Unit::Meters ).Log();
+    ME_FIELD( BaseOffset ).Category( "Shape" ).Unit( Reflection::Unit::Meters ).Tooltip( "Height of the Transform above the navmesh" );
+    ME_FIELD( LinkJumpHeight ).Category( "Steering" ).Range( 0.f, 10.f ).Unit( Reflection::Unit::Meters ).SoftRange( 0.f, 3.f ).Tooltip( "Arc height when crossing a NavMeshLink" );
     ME_FIELD( Avoidance ).Category( "Avoidance" );
     ME_FIELD( AgentType ).Category( "Pathing" ).Choices( ProjectSettings::kMaxNavAgentTypes + 1, NavigationUI::AgentAgentTypeName ).Tooltip( "Walk only surfaces baked for this agent type" );
     ME_FIELD( AreaMask ).Category( "Pathing" ).MaskChoices( NavAreas::kCount, NavigationUI::AreaName ).Tooltip( "Areas this agent may walk on" );

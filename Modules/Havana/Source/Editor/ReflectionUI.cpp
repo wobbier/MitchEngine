@@ -13,7 +13,14 @@
 #include "Types/AssetType.h"
 #include "Utils/CommonUtils.h"
 #include "Selection.h"
+#include "Utils/EditorIcons.h"
 #include <Utils/HavanaUtils.h>
+#include <Widgets/ItemLog.h>
+#include <Widgets/ScrubField.h>
+#include <Widgets/TransformWidgets.h>
+#include <Widgets/ChoiceWidgets.h>
+#include <Widgets/Juice.h>
+#include <Utils/EditorConfig.h>
 #include <ImGuiTheme.h>
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -33,6 +40,20 @@ namespace ReflectionUI
         constexpr float kRadToDeg = 180.f / 3.14159265f;
         constexpr const char* kEntityPayload = "DND_CHILD_TRANSFORM";
 
+        struct Decorator
+        {
+            std::vector<std::string> Edits;
+            FieldDecorator Draw;
+            DecoratorFixUp FixUp;
+        };
+
+        // "Type.Field" -> its decorators, in registration order.
+        std::map<std::string, std::vector<Decorator>>& Decorators()
+        {
+            static std::map<std::string, std::vector<Decorator>> decorators;
+            return decorators;
+        }
+
         std::map<std::string, CustomDrawer>& Drawers()
         {
             static std::map<std::string, CustomDrawer> drawers;
@@ -44,6 +65,33 @@ namespace ReflectionUI
         {
             static std::unordered_map<ImGuiID, Vector3> cache;
             return cache;
+        }
+
+        // "Type.Field" -> its vector row options (UX-11), and those of the field being drawn.
+        std::map<std::string, VectorRowOptions>& RowOptions()
+        {
+            static std::map<std::string, VectorRowOptions> options;
+            return options;
+        }
+
+        const VectorRowOptions*& CurrentRowOptions()
+        {
+            static const VectorRowOptions* current = nullptr;
+            return current;
+        }
+
+        // A paste the row refused, shown for a moment.
+        struct PasteError
+        {
+            std::string Field;
+            std::string Message;
+            double Until = 0.0;
+        };
+
+        PasteError& LastPasteError()
+        {
+            static PasteError error;
+            return error;
         }
 
         std::unordered_map<ImGuiID, std::string>& PickerResults()
@@ -66,15 +114,227 @@ namespace ReflectionUI
             return AssetType::Unknown;
         }
 
-        void Tooltip( const FieldInfo* InField )
+        void Tooltip( const FieldInfo* InField, const std::string& InHint = std::string() )
         {
-            if( InField && !InField->Tooltip.empty() && ImGui::IsItemHovered( ImGuiHoveredFlags_DelayShort ) )
+            if( !ImGui::IsItemHovered( ImGuiHoveredFlags_DelayShort ) || ImGui::IsItemActive() )
             {
-                ImGui::SetTooltip( "%s", InField->Tooltip.c_str() );
+                return;
+            }
+            const std::string text = InField && !InField->Tooltip.empty() ? InField->Tooltip + ( InHint.empty() ? "" : "\n\n" + InHint ) : InHint;
+            if( !text.empty() )
+            {
+                ImGui::SetTooltip( "%s", text.c_str() );
             }
         }
 
+        // The default value of the top-level field being drawn (from Context::Defaults).
+        const json*& CurrentDefault()
+        {
+            static const json* current = nullptr;
+            return current;
+        }
+
+        // Numbers drawn as unit fields (UX-2): floats, doubles and integers without named
+        // choices, unless the field asks for a classic slider.
+        bool IsUnitField( const FieldInfo* InField, const ValueOps& InOps )
+        {
+            if( InField && InField->Widget == Reflection::WidgetKind::Slider )
+            {
+                return false;
+            }
+            switch( InOps.Type )
+            {
+            case PropertyType::Float:
+            case PropertyType::Double:
+                return true;
+            case PropertyType::Int:
+            case PropertyType::UInt:
+                // 64-bit integers keep the exact DragScalar: a double can't hold every value.
+                return !( InField && InField->ChoiceName && InField->ChoiceCount > 0 ) && InOps.IntBytes < 8;
+            default:
+                return false;
+            }
+        }
+
+        double ReadNumber( const ValueOps& InOps, const void* InValue )
+        {
+            switch( InOps.Type )
+            {
+            case PropertyType::Float: return *static_cast<const float*>( InValue );
+            case PropertyType::Double: return *static_cast<const double*>( InValue );
+            default:
+            {
+                const size_t bytes = std::min<size_t>( InOps.IntBytes, sizeof( int64_t ) );
+                uint64_t raw = 0;
+                std::memcpy( &raw, InValue, bytes );
+                if( InOps.Type == PropertyType::UInt )
+                {
+                    return static_cast<double>( raw );
+                }
+                if( bytes < 8 && ( raw >> ( bytes * 8 - 1 ) ) & 1 )
+                {
+                    raw |= ~( ( uint64_t( 1 ) << ( bytes * 8 ) ) - 1 );
+                }
+                return static_cast<double>( static_cast<int64_t>( raw ) );
+            }
+            }
+        }
+
+        void WriteNumber( const ValueOps& InOps, void* InValue, double InNumber )
+        {
+            switch( InOps.Type )
+            {
+            case PropertyType::Float: *static_cast<float*>( InValue ) = static_cast<float>( InNumber ); return;
+            case PropertyType::Double: *static_cast<double*>( InValue ) = InNumber; return;
+            default:
+            {
+                const size_t bytes = std::min<size_t>( InOps.IntBytes, sizeof( int64_t ) );
+                const int64_t whole = static_cast<int64_t>( std::llround( InNumber ) );
+                std::memcpy( InValue, &whole, bytes );
+                return;
+            }
+            }
+        }
+
+        MeWidgets::NumberSpec SpecFor( const FieldInfo* InField, const ValueOps& InOps )
+        {
+            MeWidgets::NumberSpec spec;
+            const bool integer = InOps.Type == PropertyType::Int || InOps.Type == PropertyType::UInt;
+            spec.Integer = integer;
+            if( InField )
+            {
+                spec.FieldUnit = InField->FieldUnit;
+                if( spec.FieldUnit == Reflection::Unit::None && InField->Has( FieldFlags::Angle ) )
+                {
+                    spec.FieldUnit = Reflection::Unit::Radians;
+                }
+                spec.HasRange = InField->HasRange;
+                spec.Min = InField->Min;
+                spec.Max = InField->Max;
+                spec.HasSoftRange = InField->HasSoftRange;
+                spec.SoftMin = InField->SoftMin;
+                spec.SoftMax = InField->SoftMax;
+                spec.Log = InField->LogScale;
+                spec.Speed = InField->Speed;
+            }
+            // The 0.1 default speed suits metres; radians and whole numbers want their own.
+            const bool defaultSpeed = !InField || InField->Speed == 0.1f;
+            if( defaultSpeed && spec.FieldUnit == Reflection::Unit::Radians )
+            {
+                spec.Speed = 0.5 * 3.14159265358979 / 180.0;
+            }
+            if( defaultSpeed && integer )
+            {
+                spec.Speed = 0.25;
+            }
+            if( InField && InField->Has( FieldFlags::Drag ) && spec.HasRange )
+            {
+                // .Drag( speed ): the field scrubs at its speed; the range only clamps.
+                spec.HasRange = false;
+                spec.HasClamp = true;
+                spec.ClampMin = InField->Min;
+                spec.ClampMax = InField->Max;
+            }
+            if( integer && !spec.HasRange )
+            {
+                // Whole numbers stay inside their type (a clamp: the scrub keeps its speed).
+                const int bits = static_cast<int>( std::min<size_t>( InOps.IntBytes, 4 ) * 8 );
+                spec.HasClamp = true;
+                if( InOps.Type == PropertyType::UInt )
+                {
+                    spec.ClampMin = 0.0;
+                    spec.ClampMax = std::ldexp( 1.0, bits ) - 1.0;
+                }
+                else
+                {
+                    spec.ClampMin = -std::ldexp( 1.0, bits - 1 );
+                    spec.ClampMax = std::ldexp( 1.0, bits - 1 ) - 1.0;
+                }
+            }
+            if( InField && InField->DefaultCount > 0 )
+            {
+                spec.HasDefault = true;
+                spec.Default = InField->DefaultValue[0];
+            }
+            else if( const json* fallback = CurrentDefault(); fallback && fallback->is_number() )
+            {
+                spec.HasDefault = true;
+                spec.Default = fallback->get<double>();
+            }
+            return spec;
+        }
+
+        std::string ScrubHint( const MeWidgets::NumberSpec& InSpec )
+        {
+            std::string hint = "Drag the label or the value to change it (Shift fine, Ctrl coarse, Alt snaps); click the value to type one";
+            if( InSpec.HasDefault )
+            {
+                hint += "\nDouble-click the label to reset to " + MeWidgets::FormatValue( InSpec.FieldUnit, InSpec.Default, InSpec.Integer ? 0 : -1 );
+            }
+            return hint;
+        }
+
         bool DrawValue( const char* InLabel, const FieldInfo* InField, const ValueOps& InOps, void* InValue, bool InMixed );
+
+        // Tells editor automation what a scalar field's widget shows (imgui-assert-value).
+        void ReportValue( const FieldInfo* InField, const ValueOps& InOps, const void* InValue )
+        {
+            if( !MeWidgets::ItemLog::IsEnabled() )
+            {
+                return;
+            }
+            // Widgets that show something other than the stored number report it themselves.
+            if( IsUnitField( InField, InOps ) || ( InField && ( InField->Has( FieldFlags::Asset ) || ( InField->ChoiceName && InField->ChoiceCount > 0 ) ) ) )
+            {
+                return;
+            }
+            if( InField && InField->Has( FieldFlags::Angle ) && InOps.Type == PropertyType::Float )
+            {
+                char degrees[64];
+                std::snprintf( degrees, sizeof( degrees ), "%.1f", *static_cast<const float*>( InValue ) * kRadToDeg );
+                MeWidgets::ItemLog::SetLastItemValue( degrees );
+                return;
+            }
+            char text[64] = {};
+            switch( InOps.Type )
+            {
+            case PropertyType::Bool:
+                MeWidgets::ItemLog::SetLastItemValue( *static_cast<const bool*>( InValue ) ? "true" : "false" );
+                return;
+            case PropertyType::Float:
+                std::snprintf( text, sizeof( text ), "%.6g", *static_cast<const float*>( InValue ) );
+                break;
+            case PropertyType::Double:
+                std::snprintf( text, sizeof( text ), "%.9g", *static_cast<const double*>( InValue ) );
+                break;
+            case PropertyType::Int:
+            case PropertyType::UInt:
+            {
+                int64_t value = 0;
+                std::memcpy( &value, InValue, std::min<size_t>( InOps.IntBytes, sizeof( value ) ) );
+                if( InOps.Type == PropertyType::Int && InOps.IntBytes < sizeof( value ) && ( value >> ( InOps.IntBytes * 8 - 1 ) ) & 1 )
+                {
+                    value |= ~( ( int64_t( 1 ) << ( InOps.IntBytes * 8 ) ) - 1 );
+                }
+                std::snprintf( text, sizeof( text ), "%lld", static_cast<long long>( value ) );
+                break;
+            }
+            case PropertyType::String:
+                MeWidgets::ItemLog::SetLastItemValue( *static_cast<const std::string*>( InValue ) );
+                return;
+            case PropertyType::Enum:
+            {
+                const EnumInfo* info = InOps.GetEnumInfo();
+                const int64_t current = InOps.GetEnum( InValue );
+                const char* name = info ? info->ToName( current ) : nullptr;
+                MeWidgets::ItemLog::SetLastItemValue( name ? std::string( name ) : std::to_string( current ) );
+                return;
+            }
+            default:
+                return;
+            }
+            MeWidgets::ItemLog::SetLastItemValue( text );
+        }
 
         bool DrawFloat( const char* InLabel, const FieldInfo* InField, float& InOutValue )
         {
@@ -103,6 +363,124 @@ namespace ReflectionUI
             return ImGui::DragFloat( InLabel, &InOutValue, speed, 0.f, 0.f, "%.3f" );
         }
 
+        void DrawEditorIcon( ImDrawList* InDrawList, const char* InIcon, const ImVec2& InMin, float InSize, ImU32 InColor )
+        {
+            EditorIcons::Draw( InDrawList, InIcon, InMin, InSize, InColor );
+        }
+
+        // Enums whose values have an obvious glyph show it in their segments (UX-13); every other
+        // enum shows its names.
+        const char* EnumIcon( const std::string& InEnum, const std::string& InValue )
+        {
+            static const std::map<std::string, std::map<std::string, const char*>> kIcons = {
+                { "TextAlignment", { { "Left", "align-left" }, { "Center", "align-center" }, { "Right", "align-right" } } },
+                { "TextAnchor", { { "Top", "layout-align-top" }, { "Middle", "layout-align-middle" }, { "Bottom", "layout-align-bottom" } } },
+            };
+            const auto icons = kIcons.find( InEnum );
+            if( icons == kIcons.end() )
+            {
+                return nullptr;
+            }
+            const auto icon = icons->second.find( InValue );
+            return icon != icons->second.end() ? icon->second : nullptr;
+        }
+
+        // Whether the field being drawn shows a mixed multi-selection (DrawValue pushes the flag).
+        bool DrawingMixed()
+        {
+            return ( GImGui->CurrentItemFlags & ImGuiItemFlags_MixedValue ) != 0;
+        }
+
+        // An enum with a few values as a segmented control (UX-13). False (nothing drawn) when it
+        // has more values or the column is too narrow: the caller draws its combo.
+        bool DrawEnumSegments( const EnumInfo& InInfo, const FieldInfo* InField, const ValueOps& InOps, void* InValue, int64_t InCurrent, bool InMixed, bool& OutChanged )
+        {
+            const int count = static_cast<int>( InInfo.Values.size() );
+            if( MeWidgets::ChoiceLogic::PickLook( count, false ) != MeWidgets::ChoiceLogic::Look::Segmented )
+            {
+                return false;
+            }
+            const char* labels[MeWidgets::ChoiceLogic::kMaxSegments] = {};
+            const char* icons[MeWidgets::ChoiceLogic::kMaxSegments] = {};
+            int index = -1;
+            for( int i = 0; i < count; ++i )
+            {
+                labels[i] = InInfo.Values[i].first.c_str();
+                icons[i] = EnumIcon( InInfo.Name, InInfo.Values[i].first );
+                if( InInfo.Values[i].second == InCurrent )
+                {
+                    index = i;
+                }
+            }
+            MeWidgets::SetIconDrawer( &DrawEditorIcon );
+            if( !MeWidgets::SegmentedFits( labels, icons, count ) )
+            {
+                return false;
+            }
+            if( MeWidgets::Segmented( "##value", labels, icons, count, index, InMixed, InField ? InField->Tooltip.c_str() : nullptr ) && index >= 0 )
+            {
+                InOps.SetEnum( InValue, InInfo.Values[index].second );
+                OutChanged = true;
+            }
+            return true;
+        }
+
+        // Integer choices with a few named values (UX-13): segments for one of them, chips for a
+        // mask. False (nothing drawn) when there are more or the column is too narrow.
+        bool DrawFewChoices( const char* InLabel, const FieldInfo& InField, uint64_t& InOutValue, uint64_t InAllChoices, bool& OutChanged )
+        {
+            std::vector<std::string> names;
+            std::vector<int> slots;
+            for( int i = 0; i < InField.ChoiceCount && i < 64; ++i )
+            {
+                std::string name = InField.ChoiceName( i );
+                if( !name.empty() )
+                {
+                    names.push_back( std::move( name ) );
+                    slots.push_back( i );
+                }
+            }
+            const int count = static_cast<int>( names.size() );
+            const MeWidgets::ChoiceLogic::Look look = MeWidgets::ChoiceLogic::PickLook( count, InField.ChoiceMask );
+            if( look == MeWidgets::ChoiceLogic::Look::Combo )
+            {
+                return false;
+            }
+            std::vector<const char*> labels;
+            for( const std::string& name : names )
+            {
+                labels.push_back( name.c_str() );
+            }
+            const char* tooltip = InField.Tooltip.empty() ? nullptr : InField.Tooltip.c_str();
+            if( look == MeWidgets::ChoiceLogic::Look::Chips )
+            {
+                if( !MeWidgets::ChipsFit( labels.data(), count ) )
+                {
+                    return false;
+                }
+                OutChanged = MeWidgets::MaskChips( InLabel, labels.data(), slots.data(), count, InOutValue, InAllChoices, DrawingMixed(), tooltip );
+                return true;
+            }
+            if( !MeWidgets::SegmentedFits( labels.data(), nullptr, count ) )
+            {
+                return false;
+            }
+            int index = -1;
+            for( int i = 0; i < count; ++i )
+            {
+                if( InOutValue == static_cast<uint64_t>( slots[i] ) )
+                {
+                    index = i;
+                }
+            }
+            if( MeWidgets::Segmented( InLabel, labels.data(), nullptr, count, index, DrawingMixed(), tooltip ) && index >= 0 )
+            {
+                InOutValue = static_cast<uint64_t>( slots[index] );
+                OutChanged = true;
+            }
+            return true;
+        }
+
         // Integer fields with named choices: a combo, or a multi-select mask.
         bool DrawChoices( const char* InLabel, const FieldInfo& InField, const ValueOps& InOps, void* InValue )
         {
@@ -112,6 +490,16 @@ namespace ReflectionUI
             const uint64_t valueMask = bytes >= 8 ? ~0ull : ( ( 1ull << ( bytes * 8 ) ) - 1 );
             const uint64_t allChoices = InField.ChoiceCount >= 64 ? ~0ull : ( ( 1ull << InField.ChoiceCount ) - 1 );
             bool changed = false;
+
+            if( DrawFewChoices( InLabel, InField, value, allChoices, changed ) )
+            {
+                if( changed )
+                {
+                    value &= valueMask;
+                    std::memcpy( InValue, &value, bytes );
+                }
+                return changed;
+            }
 
             std::string preview;
             if( InField.ChoiceMask )
@@ -134,7 +522,9 @@ namespace ReflectionUI
                 preview = static_cast<int64_t>( value ) >= 0 && static_cast<int>( value ) < InField.ChoiceCount ? InField.ChoiceName( static_cast<int>( value ) ) : std::to_string( value );
             }
 
-            if( ImGui::BeginCombo( InLabel, preview.c_str() ) )
+            const bool open = ImGui::BeginCombo( InLabel, preview.c_str() );
+            MeWidgets::ItemLog::SetLastItemValue( preview );
+            if( open )
             {
                 if( InField.ChoiceMask )
                 {
@@ -226,6 +616,7 @@ namespace ReflectionUI
             const float gap = ImGuiTheme::InnerGap();
             ImGui::SetNextItemWidth( std::max( ImGui::CalcItemWidth() - ImGuiTheme::IconButtonsWidth( 2 ), ImGuiTheme::Em( 2.f ) ) );
             changed |= ImGui::InputTextWithHint( "##path", "None", &InOutPath, ImGuiInputTextFlags_EnterReturnsTrue );
+            MeWidgets::ItemLog::SetLastItemValue( InOutPath );
             if( ImGui::BeginDragDropTarget() )
             {
                 if( ImGui::AcceptDragDropPayload( AssetDescriptor::kDragAndDropPayload ) )
@@ -270,15 +661,144 @@ namespace ReflectionUI
             return changed;
         }
 
+        // A vector axis' display format with the field's unit ("%.3f m", "%.2f°"). Units that
+        // convert between stored and shown values (radians, gain, percent) keep the plain format.
+        std::string AxisFormat( const FieldInfo* InField, const char* InBase )
+        {
+            if( !InField )
+            {
+                return InBase;
+            }
+            switch( InField->FieldUnit )
+            {
+            case Reflection::Unit::None:
+            case Reflection::Unit::Radians:
+            case Reflection::Unit::LinearGain:
+            case Reflection::Unit::Percent:
+            case Reflection::Unit::PitchRatio:
+            case Reflection::Unit::FStop:
+                return InBase;
+            case Reflection::Unit::Degrees:
+            case Reflection::Unit::DegreesPerSecond:
+                return std::string( InBase ) + MeWidgets::GetUnitInfo( InField->FieldUnit ).Symbol;
+            default:
+                return std::string( InBase ) + " " + MeWidgets::GetUnitInfo( InField->FieldUnit ).Symbol;
+            }
+        }
+
+        // DragAxes, or with a uniform-scale lock when the field asks for one (UX-11).
+        bool DragOrLockAxes( const char* InLabel, float* InOutValues, int InCount, float InSpeed, const char* InFormat )
+        {
+            const VectorRowOptions* options = CurrentRowOptions();
+            if( !options || options->LockPreference.empty() )
+            {
+                if( options && options->ReserveTrailing )
+                {
+                    ImGui::SetNextItemWidth( std::max( ImGui::CalcItemWidth() - ImGui::GetFrameHeight() - ImGuiTheme::InnerGap(), 1.f ) );
+                }
+                return HavanaUtils::DragAxes( InLabel, InOutValues, InCount, InSpeed, InFormat );
+            }
+            EditorConfig& config = EditorConfig::GetInstance();
+            bool locked = config.GetPreference<bool>( options->LockPreference, false );
+            bool toggled = false;
+            const bool changed = MeWidgets::LockedAxes( InLabel, InOutValues, InCount, InSpeed, InFormat, locked, &toggled );
+            if( toggled )
+            {
+                config.SetPreference( options->LockPreference, locked );
+            }
+            return changed;
+        }
+
+        // Vector rows' Reset / Copy / Paste (UX-11): the axes a row shows (Euler degrees for a
+        // quaternion), 0 for rows that aren't vectors.
+        int VectorAxes( const FieldInfo& InField, const ValueOps& InOps )
+        {
+            if( InField.Has( FieldFlags::Color ) )
+            {
+                return 0;
+            }
+            switch( InOps.Type )
+            {
+            case PropertyType::Vector2: return 2;
+            case PropertyType::Vector3: return 3;
+            case PropertyType::Vector4: return 4;
+            case PropertyType::Quaternion: return 3;
+            default: return 0;
+            }
+        }
+
+        // A quaternion's Euler degrees as the row shows them: round-trip dust (which would read
+        // as "-0.00°" or copy as "1.7e-06") is 0.
+        Vector3 ShownEuler( const Quaternion& InValue )
+        {
+            Vector3 euler = Quaternion::ToEulerAngles( InValue );
+            for( float* axis : { &euler.x, &euler.y, &euler.z } )
+            {
+                *axis = std::abs( *axis ) < 5e-5f ? 0.f : *axis;
+            }
+            return euler;
+        }
+
+        void ReadAxes( const ValueOps& InOps, const void* InValue, float* OutAxes, int InCount )
+        {
+            if( InOps.Type == PropertyType::Quaternion )
+            {
+                const Vector3 euler = ShownEuler( *static_cast<const Quaternion*>( InValue ) );
+                OutAxes[0] = euler.x;
+                OutAxes[1] = euler.y;
+                OutAxes[2] = euler.z;
+                return;
+            }
+            std::memcpy( OutAxes, InValue, sizeof( float ) * InCount );
+        }
+
+        void WriteAxes( const ValueOps& InOps, void* InValue, const float* InAxes, int InCount )
+        {
+            if( InOps.Type == PropertyType::Quaternion )
+            {
+                *static_cast<Quaternion*>( InValue ) = Quaternion::FromEulerDegrees( Vector3( InAxes[0], InAxes[1], InAxes[2] ) );
+                return;
+            }
+            std::memcpy( InValue, InAxes, sizeof( float ) * InCount );
+        }
+
+        // The row's default as it shows it: from the type's defaults, the field's .Default(), or 0.
+        void DefaultAxes( const FieldInfo& InField, const ValueOps& InOps, const json* InDefault, float* OutAxes, int InCount )
+        {
+            std::fill( OutAxes, OutAxes + InCount, 0.f );
+            if( InDefault && InDefault->is_array() )
+            {
+                if( InOps.Type == PropertyType::Quaternion && InDefault->size() == 4 )
+                {
+                    const Quaternion q( ( *InDefault )[0].get<float>(), ( *InDefault )[1].get<float>(), ( *InDefault )[2].get<float>(), ( *InDefault )[3].get<float>() );
+                    ReadAxes( InOps, &q, OutAxes, InCount );
+                    return;
+                }
+                for( int i = 0; i < InCount && i < static_cast<int>( InDefault->size() ); ++i )
+                {
+                    if( ( *InDefault )[i].is_number() )
+                    {
+                        OutAxes[i] = ( *InDefault )[i].get<float>();
+                    }
+                }
+                return;
+            }
+            for( int i = 0; i < InCount && i < InField.DefaultCount; ++i )
+            {
+                OutAxes[i] = static_cast<float>( InField.DefaultValue[i] );
+            }
+        }
+
         bool DrawVector( const char* InLabel, const FieldInfo* InField, const ValueOps& InOps, void* InValue )
         {
+            const std::string axisFormat = AxisFormat( InField, "%.3f" );
             const bool isColor = InField && InField->Has( FieldFlags::Color );
             const ImGuiColorEditFlags colorFlags = ImGuiColorEditFlags_Float | ( InField && InField->Has( FieldFlags::HDR ) ? ImGuiColorEditFlags_HDR : 0 );
             const float speed = InField ? InField->Speed : 0.1f;
             switch( InOps.Type )
             {
             case PropertyType::Vector2:
-                return HavanaUtils::DragAxes( InLabel, &static_cast<Vector2*>( InValue )->x, 2, speed, "%.3f" );
+                return DragOrLockAxes( InLabel, &static_cast<Vector2*>( InValue )->x, 2, speed, axisFormat.c_str() );
             case PropertyType::Vector3:
             {
                 Vector3& value = *static_cast<Vector3*>( InValue );
@@ -286,7 +806,7 @@ namespace ReflectionUI
                 {
                     return ImGui::ColorEdit3( InLabel, &value.x, colorFlags );
                 }
-                return HavanaUtils::DragAxes( InLabel, &value.x, 3, speed, "%.3f" );
+                return DragOrLockAxes( InLabel, &value.x, 3, speed, axisFormat.c_str() );
             }
             case PropertyType::Vector4:
             {
@@ -295,16 +815,35 @@ namespace ReflectionUI
                 {
                     return ImGui::ColorEdit4( InLabel, &value.x, colorFlags | ImGuiColorEditFlags_AlphaBar );
                 }
-                return HavanaUtils::DragAxes( InLabel, &value.x, 4, speed, "%.3f" );
+                return DragOrLockAxes( InLabel, &value.x, 4, speed, axisFormat.c_str() );
             }
             case PropertyType::Quaternion:
             {
                 Quaternion& value = *static_cast<Quaternion*>( InValue );
                 const ImGuiID id = ImGui::GetID( InLabel );
                 auto& cache = EulerCache();
-                Vector3 euler = cache.count( id ) ? cache[id] : Quaternion::ToEulerAngles( value );
+                Vector3 euler = cache.count( id ) ? cache[id] : ShownEuler( value );
                 bool active = false;
-                const bool changed = HavanaUtils::DragAxes( InLabel, &euler.x, 3, 0.5f, "%.2f", &active );
+                const VectorRowOptions* options = CurrentRowOptions();
+                const bool dials = options && !options->DialPreference.empty();
+                if( dials )
+                {
+                    ImGui::SetNextItemWidth( std::max( ImGui::CalcItemWidth() - ImGui::GetFrameHeight() - ImGuiTheme::InnerGap(), 1.f ) );
+                }
+                const bool changed = HavanaUtils::DragAxes( InLabel, &euler.x, 3, 0.5f, "%.2f\xC2\xB0", &active );
+                if( dials )
+                {
+                    // The dials' toggle (UX-11): a decorator draws them under the row.
+                    EditorConfig& config = EditorConfig::GetInstance();
+                    bool open = config.GetPreference<bool>( options->DialPreference, false );
+                    ImGui::SameLine( 0.f, ImGuiTheme::InnerGap() );
+                    ImGui::PushID( InLabel );
+                    if( MeWidgets::GlyphToggle( "Dial", open, MeWidgets::ToggleGlyph::Dial, "Hide the rotation dials", "Show a dial per axis under this row" ) )
+                    {
+                        config.SetPreference( options->DialPreference, open );
+                    }
+                    ImGui::PopID();
+                }
                 if( active )
                 {
                     cache[id] = euler;
@@ -433,6 +972,11 @@ namespace ReflectionUI
         bool DrawFieldsOf( const TypeInfo& InType, void* InInstance )
         {
             Context nested;
+            // A struct field's defaults are the struct's own fields.
+            if( CurrentDefault() && CurrentDefault()->is_object() )
+            {
+                nested.Defaults = CurrentDefault();
+            }
             return DrawType( InType, InInstance, nested );
         }
 
@@ -463,7 +1007,20 @@ namespace ReflectionUI
             {
                 ImGui::PushStyleColor( ImGuiCol_Text, ImGuiTheme::WarningText() );
             }
-            HavanaUtils::Label( InLabel );
+            const float valueWidth = HavanaUtils::Label( InLabel );
+            // Numbers scrub from their label too (UX-2), and reset on a double-click.
+            const bool unitField = IsUnitField( InField, InOps );
+            MeWidgets::NumberSpec spec;
+            if( unitField )
+            {
+                spec = SpecFor( InField, InOps );
+                double number = ReadNumber( InOps, InValue );
+                if( MeWidgets::ScrubLastItem( number, spec, valueWidth, InMixed ) )
+                {
+                    WriteNumber( InOps, InValue, number );
+                    changed = true;
+                }
+            }
             if( InMixed )
             {
                 ImGui::PopStyleColor();
@@ -472,8 +1029,13 @@ namespace ReflectionUI
                     ImGui::SetTooltip( "Selected entities have different values" );
                 }
             }
-            Tooltip( InField );
+            else
+            {
+                Tooltip( InField, unitField ? ScrubHint( spec ) : std::string() );
+            }
+            ImGui::SetNextItemWidth( valueWidth );
             ImGui::PushItemFlag( ImGuiItemFlags_MixedValue, InMixed );
+            bool selfReported = false;
 
             switch( InOps.Type )
             {
@@ -482,13 +1044,29 @@ namespace ReflectionUI
                 break;
             case PropertyType::Int:
             case PropertyType::UInt:
-                changed = DrawInt( "##value", InField, InOps, InValue );
-                break;
             case PropertyType::Float:
-                changed = DrawFloat( "##value", InField, *static_cast<float*>( InValue ) );
-                break;
             case PropertyType::Double:
-                changed = ImGui::DragScalar( "##value", ImGuiDataType_Double, InValue, InField ? InField->Speed : 0.1f );
+                if( unitField )
+                {
+                    double number = ReadNumber( InOps, InValue );
+                    if( MeWidgets::UnitField( "##value", number, spec ) )
+                    {
+                        WriteNumber( InOps, InValue, number );
+                        changed = true;
+                    }
+                }
+                else if( InOps.Type == PropertyType::Float )
+                {
+                    changed |= DrawFloat( "##value", InField, *static_cast<float*>( InValue ) );
+                }
+                else if( InOps.Type == PropertyType::Double )
+                {
+                    changed |= ImGui::DragScalar( "##value", ImGuiDataType_Double, InValue, InField ? InField->Speed : 0.1f );
+                }
+                else
+                {
+                    changed |= DrawInt( "##value", InField, InOps, InValue );
+                }
                 break;
             case PropertyType::String:
             {
@@ -518,6 +1096,12 @@ namespace ReflectionUI
             {
                 const EnumInfo* info = InOps.GetEnumInfo();
                 const int64_t current = InOps.GetEnum( InValue );
+                // A few values: a segmented control that reports its own value (UX-13).
+                if( info && DrawEnumSegments( *info, InField, InOps, InValue, current, InMixed, changed ) )
+                {
+                    selfReported = true;
+                    break;
+                }
                 const char* currentName = info ? info->ToName( current ) : nullptr;
                 const std::string preview = currentName ? currentName : std::to_string( current );
                 if( ImGui::BeginCombo( "##value", preview.c_str() ) )
@@ -555,6 +1139,10 @@ namespace ReflectionUI
             default:
                 ImGui::TextDisabled( "<%s>", ToString( InOps.Type ) );
                 break;
+            }
+            if( !selfReported )
+            {
+                ReportValue( InField, InOps, InValue );
             }
 
             ImGui::PopItemFlag();
@@ -641,7 +1229,19 @@ namespace ReflectionUI
             {
                 ImGui::PushStyleColor( ImGuiCol_Text, ImGuiTheme::AccentText() );
             }
+            const json* previousDefault = CurrentDefault();
+            CurrentDefault() = nullptr;
+            if( InContext.Defaults && InContext.Defaults->is_object() )
+            {
+                const auto found = InContext.Defaults->find( field.Name );
+                CurrentDefault() = found != InContext.Defaults->end() ? &*found : nullptr;
+            }
+            const auto rowOptions = RowOptions().find( InType.Name + "." + field.Name );
+            CurrentRowOptions() = rowOptions != RowOptions().end() ? &rowOptions->second : nullptr;
             const bool changed = DrawValue( field.DisplayName.c_str(), &field, *field.Ops, field.Get( owner ), mixed );
+            CurrentRowOptions() = nullptr;
+            const json* rowDefault = CurrentDefault();
+            CurrentDefault() = previousDefault;
             if( overridden )
             {
                 ImGui::PopStyleColor();
@@ -656,42 +1256,156 @@ namespace ReflectionUI
                 const float markerWidth = std::max( 2.f, std::round( ImGui::GetFontSize() / 6.f ) );
                 ImGui::GetWindowDrawList()->AddRectFilled( ImVec2( markerRight - markerWidth, rowStart.y + 1.f ), ImVec2( markerRight, labelMax.y - 1.f ), ImGui::GetColorU32( ImGuiTheme::AccentText() ) );
             }
-            if( InContext.OnPrefabAction )
+            // The label's context menu: Reset / Copy / Paste on vector rows (UX-11), Revert / Apply
+            // on prefab instances.
+            const int axes = VectorAxes( field, *field.Ops );
+            bool contextChanged = false;
+            if( InContext.OnPrefabAction || axes > 0 )
             {
                 ImGui::PushID( field.Name.c_str() );
-                if( ImGui::IsMouseHoveringRect( rowStart, labelMax ) && ImGui::IsMouseClicked( ImGuiMouseButton_Right ) )
+                if( ImGui::IsWindowHovered( ImGuiHoveredFlags_AllowWhenBlockedByActiveItem ) && ImGui::IsMouseHoveringRect( rowStart, labelMax ) && ImGui::IsMouseClicked( ImGuiMouseButton_Right ) )
                 {
-                    ImGui::OpenPopup( "PrefabFieldContext" );
+                    ImGui::OpenPopup( "FieldContext" );
                 }
-                if( ImGui::BeginPopup( "PrefabFieldContext" ) )
+                if( ImGui::BeginPopup( "FieldContext" ) )
                 {
                     ImGui::TextDisabled( "%s", field.DisplayName.c_str() );
                     ImGui::Separator();
-                    if( ImGui::MenuItem( "Revert to Prefab", nullptr, false, overridden ) )
+                    if( axes > 0 )
                     {
-                        InContext.OnPrefabAction( field.Name, false );
+                        void* value = field.Get( owner );
+                        float current[4] = {};
+                        float defaults[4] = {};
+                        ReadAxes( *field.Ops, value, current, axes );
+                        DefaultAxes( field, *field.Ops, rowDefault, defaults, axes );
+                        const std::string currentText = MeWidgets::TransformMath::FormatVector( current, axes );
+                        const std::string defaultText = MeWidgets::TransformMath::FormatVector( defaults, axes );
+                        if( ImGui::MenuItem( "Reset", defaultText.c_str(), false, !readOnly ) )
+                        {
+                            if( rowDefault && Reflection::SetPathJson( InType, InInstance, field.Name, *rowDefault ) )
+                            {
+                                contextChanged = true;
+                            }
+                            else
+                            {
+                                WriteAxes( *field.Ops, value, defaults, axes );
+                                contextChanged = true;
+                            }
+                        }
+                        if( ImGui::MenuItem( "Copy", currentText.c_str() ) )
+                        {
+                            ImGui::SetClipboardText( currentText.c_str() );
+                        }
+                        // Paste shows what it would paste when the clipboard holds a vector.
+                        const char* clipboard = ImGui::GetClipboardText();
+                        float pasted[4] = {};
+                        std::string error;
+                        const bool parsed = MeWidgets::TransformMath::ParseVector( clipboard ? clipboard : "", pasted, axes, &error );
+                        const std::string pastedText = parsed ? MeWidgets::TransformMath::FormatVector( pasted, axes ) : std::string();
+                        if( ImGui::MenuItem( "Paste", parsed ? pastedText.c_str() : nullptr, false, !readOnly ) )
+                        {
+                            if( parsed )
+                            {
+                                WriteAxes( *field.Ops, value, pasted, axes );
+                                contextChanged = true;
+                                MeWidgets::Juice::Play( MeWidgets::Juice::Cue::Commit );
+                            }
+                            else
+                            {
+                                LastPasteError() = { InType.Name + "." + field.Name, "Can't paste into " + field.DisplayName + ": " + error, ImGui::GetTime() + 2.5 };
+                                MeWidgets::Juice::Play( MeWidgets::Juice::Cue::Refuse );
+                            }
+                        }
                     }
-                    if( ImGui::MenuItem( "Apply to Prefab", nullptr, false, overridden ) )
+                    if( InContext.OnPrefabAction )
                     {
-                        InContext.OnPrefabAction( field.Name, true );
+                        if( axes > 0 )
+                        {
+                            ImGui::Separator();
+                        }
+                        if( ImGui::MenuItem( "Revert to Prefab", nullptr, false, overridden ) )
+                        {
+                            InContext.OnPrefabAction( field.Name, false );
+                        }
+                        if( ImGui::MenuItem( "Apply to Prefab", nullptr, false, overridden ) )
+                        {
+                            InContext.OnPrefabAction( field.Name, true );
+                        }
                     }
                     ImGui::EndPopup();
+                }
+                // A refused paste says why for a moment, with the label outlined.
+                const PasteError& pasteError = LastPasteError();
+                if( ImGui::GetTime() < pasteError.Until && pasteError.Field == InType.Name + "." + field.Name )
+                {
+                    ImGui::GetWindowDrawList()->AddRect( rowStart, labelMax, ImGui::GetColorU32( ImGuiTheme::ErrorText() ), ImGui::GetStyle().FrameRounding );
+                    ImGui::SetTooltip( "%s", pasteError.Message.c_str() );
                 }
                 ImGui::PopID();
             }
 
-            if( changed )
-            {
+            auto markChanged = [&]( const std::string& InField ) {
                 anyChanged = true;
-                InContext.ChangedFields.push_back( field.Name );
+                if( std::find( InContext.ChangedFields.begin(), InContext.ChangedFields.end(), InField ) == InContext.ChangedFields.end() )
+                {
+                    InContext.ChangedFields.push_back( InField );
+                }
                 if( !InContext.Others.empty() )
                 {
-                    const json value = Reflection::GetPathJson( InType, InInstance, field.Name );
+                    const json value = Reflection::GetPathJson( InType, InInstance, InField );
                     for( void* other : InContext.Others )
                     {
-                        Reflection::SetPathJson( InType, other, field.Name, value );
+                        Reflection::SetPathJson( InType, other, InField, value );
                     }
                 }
+            };
+            if( changed || contextChanged )
+            {
+                markChanged( field.Name );
+            }
+
+            // Decorators: extra rows under the field, edits reported like the field's own.
+            const auto decorated = InContext.Filter.empty() ? Decorators().find( InType.Name + "." + field.Name ) : Decorators().end();
+            if( decorated != Decorators().end() )
+            {
+                ImGui::PushID( field.Name.c_str() );
+                ImGui::BeginDisabled( readOnly );
+                for( size_t i = 0; i < decorated->second.size(); ++i )
+                {
+                    const Decorator& decorator = decorated->second[i];
+                    // Snapshot the listed fields so only those the gesture changed are reported and
+                    // copied to the other selected instances (a cone drag may leave Inner alone).
+                    std::vector<json> before;
+                    before.reserve( decorator.Edits.size() );
+                    for( const std::string& edit : decorator.Edits )
+                    {
+                        before.push_back( Reflection::GetPathJson( InType, InInstance, edit ) );
+                    }
+                    ImGui::PushID( static_cast<int>( i ) );
+                    const bool edited = decorator.Draw && decorator.Draw( InInstance, InType );
+                    ImGui::PopID();
+                    if( edited )
+                    {
+                        for( size_t e = 0; e < decorator.Edits.size(); ++e )
+                        {
+                            if( Reflection::GetPathJson( InType, InInstance, decorator.Edits[e] ) != before[e] )
+                            {
+                                markChanged( decorator.Edits[e] );
+                            }
+                        }
+                        // Only the changed fields were copied: restore each other instance's
+                        // invariants against the fields it kept (a capsule's Height >= 2 Radius).
+                        if( decorator.FixUp )
+                        {
+                            for( void* other : InContext.Others )
+                            {
+                                decorator.FixUp( other, InType );
+                            }
+                        }
+                    }
+                }
+                ImGui::EndDisabled();
+                ImGui::PopID();
             }
         } );
 
@@ -706,6 +1420,33 @@ namespace ReflectionUI
     void RegisterCustomDrawer( const std::string& InCppName, CustomDrawer InDrawer )
     {
         Drawers()[InCppName] = std::move( InDrawer );
+    }
+
+
+    void RegisterFieldDecorator( const std::string& InTypeName, const std::string& InFieldName, std::vector<std::string> InFieldsItEdits, FieldDecorator InDecorator )
+    {
+        RegisterFieldDecorator( InTypeName, InFieldName, std::move( InFieldsItEdits ), std::move( InDecorator ), nullptr );
+    }
+
+    void RegisterFieldDecorator( const std::string& InTypeName, const std::string& InFieldName, std::vector<std::string> InFieldsItEdits, FieldDecorator InDecorator, DecoratorFixUp InFixUp )
+    {
+        Decorators()[InTypeName + "." + InFieldName].push_back( { std::move( InFieldsItEdits ), std::move( InDecorator ), std::move( InFixUp ) } );
+    }
+
+
+    void SetVectorRowOptions( const std::string& InTypeName, const std::string& InFieldName, VectorRowOptions InOptions )
+    {
+        RowOptions()[InTypeName + "." + InFieldName] = std::move( InOptions );
+    }
+
+
+    MeWidgets::NumberSpec NumberSpecFor( const Reflection::FieldInfo& InField )
+    {
+        const json* previous = CurrentDefault();
+        CurrentDefault() = nullptr;
+        MeWidgets::NumberSpec spec = SpecFor( &InField, *InField.Ops );
+        CurrentDefault() = previous;
+        return spec;
     }
 
 

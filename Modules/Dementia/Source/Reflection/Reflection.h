@@ -84,6 +84,51 @@ namespace Reflection
         };
     }
 
+    // What a number means (UX-2). The inspector formats, parses and scrubs a field in its unit;
+    // the stored value is never converted except where a unit says so (Radians, LinearGain,
+    // PitchRatio, Percent store one thing and show another). Append-only: saved metadata and
+    // C# attributes may name these by value.
+    enum class Unit : uint8_t
+    {
+        None = 0,
+        Meters,             // m (typed: mm, cm, m, km)
+        Millimeters,        // mm (camera sensors, focal lengths)
+        Degrees,            // stored in degrees
+        Radians,            // stored in radians, shown in degrees (what .Angle() means)
+        Kelvin,             // colour temperature
+        Decibels,           // stored in dB
+        LinearGain,         // stored as a linear amplitude (1 = 0 dB), shown in dB
+        Kilograms,
+        Newtons,
+        EV,                 // exposure value, stops
+        Seconds,
+        Milliseconds,
+        Hours,
+        Hertz,
+        Percent,            // stored 0..1, shown 0..100 %
+        Multiplier,         // x
+        MetersPerSecond,
+        MetersPerSecondSq,
+        DegreesPerSecond,
+        Pixels,
+        FStop,              // aperture, f/N
+        PitchRatio,         // stored as a playback-rate ratio, shown in semitones
+        Frames,
+        Texels,
+        PerMeter,           // 1/m (densities, fog extinction)
+        Count
+    };
+
+    // A bespoke widget a field asks for instead of the one its type and unit would pick (UX-2).
+    // Append-only.
+    enum class WidgetKind : uint8_t
+    {
+        Auto = 0,
+        Scrub,      // the unit field (default for numbers)
+        Slider,     // a classic ImGui slider
+        Count
+    };
+
     struct TypeInfo;
     struct EnumInfo;
 
@@ -137,6 +182,18 @@ namespace Reflection
         bool ChoiceMask = false;
         // Keys this field was saved under before it was renamed (read when Name is missing).
         std::vector<std::string> FormerNames;
+        // UX-2 widget metadata. Unit says what the number means; LogScale scrubs and fills in
+        // log space; the soft range is the span a scrub and the fill bar cover (the hard Range
+        // still clamps); Default is what double-clicking the label restores (without one, the
+        // inspector uses the value a new component starts with).
+        Unit FieldUnit = Unit::None;
+        bool LogScale = false;
+        bool HasSoftRange = false;
+        float SoftMin = 0.f;
+        float SoftMax = 0.f;
+        int DefaultCount = 0;
+        float DefaultValue[4] = { 0.f, 0.f, 0.f, 0.f };
+        WidgetKind Widget = WidgetKind::Auto;
 
         const ValueOps* Ops = nullptr;
         void* ( *Access )( void* instance ) = nullptr;
@@ -378,6 +435,14 @@ namespace Reflection
         FieldBuilder& MaskChoices( int count, std::string ( *name )( int ) ) { Field().ChoiceCount = count; Field().ChoiceName = name; Field().ChoiceMask = true; return *this; }
         // The field was renamed: data saved under the old key still loads (saving writes the new one).
         FieldBuilder& FormerName( const char* name ) { Field().FormerNames.emplace_back( name ); return *this; }
+        // UX-2: what the number means, how it scrubs, and what resetting it restores.
+        FieldBuilder& Unit( Reflection::Unit unit ) { Field().FieldUnit = unit; return *this; }
+        FieldBuilder& Log() { Field().LogScale = true; return *this; }
+        FieldBuilder& SoftRange( float min, float max ) { Field().HasSoftRange = true; Field().SoftMin = min; Field().SoftMax = max; return *this; }
+        FieldBuilder& Default( float value ) { Field().DefaultCount = 1; Field().DefaultValue[0] = value; return *this; }
+        FieldBuilder& Default( float x, float y ) { Field().DefaultCount = 2; Field().DefaultValue[0] = x; Field().DefaultValue[1] = y; return *this; }
+        FieldBuilder& Default( float x, float y, float z ) { Field().DefaultCount = 3; Field().DefaultValue[0] = x; Field().DefaultValue[1] = y; Field().DefaultValue[2] = z; return *this; }
+        FieldBuilder& Widget( WidgetKind kind ) { Field().Widget = kind; return *this; }
 
     private:
         FieldInfo& Field() { return m_type.Fields[m_index]; }

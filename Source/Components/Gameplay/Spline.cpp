@@ -6,7 +6,7 @@
 #include <cmath>
 
 ME_REFLECT_BEGIN( Spline )
-    ME_FIELD( Points ).Tooltip( "Local positions the curve passes through, in order" );
+    ME_FIELD( Points ).Unit( Reflection::Unit::Meters ).Tooltip( "Local positions the curve passes through, in order" );
     ME_FIELD( Closed ).Tooltip( "Join the last point back to the first" );
 ME_REFLECT_END()
 

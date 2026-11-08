@@ -25,22 +25,22 @@ ME_REFLECT_ENUM( AudioRolloff, { { "Inverse", AudioRolloff::Inverse }, { "Linear
 ME_REFLECT_BEGIN( AudioSource )
     ME_FIELD( FilePath ).Asset( "Audio" ).Tooltip( "The clip (wav / mp3)" );
     ME_FIELD( Bus ).Tooltip( "Mixer bus; bus volumes are in Project Settings > Audio" );
-    ME_FIELD( Volume ).Range( 0.f, 1.f );
-    ME_FIELD( Pitch ).Range( 0.1f, 3.f ).Tooltip( "Playback rate: 2 = an octave up and twice as fast" );
+    ME_FIELD( Volume ).Range( 0.f, 1.f ).Unit( Reflection::Unit::LinearGain );
+    ME_FIELD( Pitch ).Range( 0.1f, 3.f ).Tooltip( "Playback rate: 2 = an octave up and twice as fast" ).Unit( Reflection::Unit::PitchRatio );
     ME_FIELD( Mute );
     ME_FIELD( PlayOnAwake ).Tooltip( "Starts when the game starts, or when the source is spawned during play" );
     ME_FIELD( Loop );
     ME_FIELD( Occlusion ).Tooltip( "Muffle the sound when colliders block the line to the listener (3D)" );
-    ME_FIELD( OcclusionAmount ).Range( 0.f, 1.f ).Tooltip( "How much each obstacle muffles" );
-    ME_FIELD( ReverbMix ).Range( 0.f, 1.f ).Tooltip( "How much the sound feeds reverb zones (3D)" );
+    ME_FIELD( OcclusionAmount ).Range( 0.f, 1.f ).Tooltip( "How much each obstacle muffles" ).Unit( Reflection::Unit::Percent );
+    ME_FIELD( ReverbMix ).Range( 0.f, 1.f ).Tooltip( "How much the sound feeds reverb zones (3D)" ).Unit( Reflection::Unit::Percent );
     ME_FIELD( Stream ).Tooltip( "Read from disk while playing (music, long ambience): no load hitch, little memory, one voice at a time" );
     ME_FIELD( Preload ).Tooltip( "Load the clip while the source joins the world (blocking) instead of in the background, so its first Play starts at once" );
     ME_FIELD( MaxOneShots ).Range( 1.f, 64.f ).Tooltip( "Overlapping PlayOneShot voices; the oldest stops beyond this" );
     ME_FIELD( SpatialBlend ).Category( "3D Sound" ).Range( 0.f, 1.f ).Tooltip( "0 = 2D (no panning or distance fade), 1 = positioned at this entity" );
-    ME_FIELD( MinDistance ).Category( "3D Sound" ).Range( 0.f, 1000.f ).Tooltip( "Metres at full volume" );
-    ME_FIELD( MaxDistance ).Category( "3D Sound" ).Range( 0.f, 10000.f ).Tooltip( "Linear rolloffs reach silence here; Inverse stops fading here" );
+    ME_FIELD( MinDistance ).Category( "3D Sound" ).Range( 0.f, 1000.f ).Tooltip( "Metres at full volume" ).Unit( Reflection::Unit::Meters ).Log().SoftRange( 0.f, 50.f );
+    ME_FIELD( MaxDistance ).Category( "3D Sound" ).Range( 0.f, 10000.f ).Tooltip( "Linear rolloffs reach silence here; Inverse stops fading here" ).Unit( Reflection::Unit::Meters ).Log().SoftRange( 0.f, 500.f );
     ME_FIELD( Rolloff ).Category( "3D Sound" );
-    ME_FIELD( DopplerLevel ).Category( "3D Sound" ).Range( 0.f, 5.f ).Tooltip( "Pitch shift from relative motion (0 = none)" );
+    ME_FIELD( DopplerLevel ).Category( "3D Sound" ).Range( 0.f, 5.f ).Tooltip( "Pitch shift from relative motion (0 = none)" ).Unit( Reflection::Unit::Multiplier );
     ME_FIELD( Priority ).Category( "3D Sound" ).Range( 0.f, 256.f ).Tooltip( "0 = most important; the least important voices go virtual first" );
 ME_REFLECT_END()
 

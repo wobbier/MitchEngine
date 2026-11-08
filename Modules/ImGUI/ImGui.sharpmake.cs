@@ -63,6 +63,10 @@ public class ImGui : BaseProject
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/imgui-node-editor"));
         conf.IncludePaths.Add("[project.SourceRootPath]");
         conf.AddPublicDependency<Dementia>(target);
+        // ImGui's item hooks feed MeWidgets::ItemLog (editor automation finds widgets by label).
+        // They only run while ItemLog::Enable(true) sets ImGuiContext::TestEngineHookItems.
+        conf.Defines.Add("IMGUI_ENABLE_TEST_ENGINE");
+        conf.ExportDefines.Add("IMGUI_ENABLE_TEST_ENGINE");
         //conf.LibraryFiles.Add("ImGui");
 
         //conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/Lib/Optick/Win64/[target.Optimization]"));

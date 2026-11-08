@@ -3,6 +3,8 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <ImGuiTheme.h>
+#include "Widgets/ItemLog.h"
+#include "Widgets/ScrubField.h"
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -67,7 +69,9 @@ float HavanaUtils::Label( const std::string& Name, float customWidth )
     const ImVec2 textPos( start.x, start.y + window->DC.CurrLineTextBaseOffset );
     const ImRect bb( textPos, ImVec2( textPos.x + labelWidth, textPos.y + textSize.y ) );
     ImGui::ItemSize( ImVec2( labelWidth, textSize.y ), 0.f );
-    if( ImGui::ItemAdd( bb, window->GetID( Name.c_str() ) ) )
+    const bool visible = ImGui::ItemAdd( bb, window->GetID( Name.c_str() ) );
+    MeWidgets::ItemLog::MarkRowLabel( Name.c_str() );
+    if( visible )
     {
         ImGui::RenderTextEllipsis( window->DrawList, bb.Min, bb.Max, bb.Max.x, bb.Max.x, Name.c_str(), nullptr, &textSize );
         if( textSize.x > labelWidth && ImGui::IsItemHovered() )
@@ -119,33 +123,47 @@ void HavanaUtils::Text( const std::string& Name, const Vector3& Vector )
 bool HavanaUtils::DragAxes( const char* InId, float* InOutValues, int InCount, float InSpeed, const char* InFormat, bool* OutActive, const float* InResetValue )
 {
     static const char* kAxisNames[4] = { "X", "Y", "Z", "W" };
+    static const char* kHandleNames[4] = { "X:axis", "Y:axis", "Z:axis", "W:axis" };
+    ImGuiContext& g = *GImGui;
     bool changed = false;
     ImGui::PushID( InId );
     // One group, so callers can ask IsItemActive / IsItemDeactivatedAfterEdit of the vector.
     ImGui::BeginGroup();
     const float gap = ImGuiTheme::InnerGap();
-    const float width = std::max( ( ImGui::CalcItemWidth() - gap * static_cast<float>( InCount - 1 ) ) / static_cast<float>( InCount ), 1.f );
-    const float marker = std::max( 2.f, std::round( ImGui::GetFontSize() / 6.f ) );
-    for( int i = 0; i < InCount; ++i )
+    const float slot = std::max( ( ImGui::CalcItemWidth() - gap * static_cast<float>( InCount - 1 ) ) / static_cast<float>( InCount ), 1.f );
+    // Each axis starts with its coloured handle (UX-11): drag it sideways to scrub that axis.
+    const float handle = std::min( std::round( ImGuiTheme::Em( 0.9f ) ), std::round( slot * 0.4f ) );
+    ImRect fields[4];
+    const int count = std::min( InCount, 4 );
+    for( int i = 0; i < count; ++i )
     {
         ImGui::PushID( i );
         if( i > 0 )
         {
-            ImGui::SameLine( 0.f, gap );
+            ImGui::SameLine( 0.f, gap + handle );
         }
-        ImGui::SetNextItemWidth( width );
+        else
+        {
+            ImGui::SetCursorScreenPos( ImVec2( ImGui::GetCursorScreenPos().x + handle, ImGui::GetCursorScreenPos().y ) );
+        }
+        ImGui::SetNextItemWidth( std::max( slot - handle, 1.f ) );
         changed |= ImGui::DragFloat( "##axis", &InOutValues[i], InSpeed, 0.f, 0.f, InFormat );
+        if( MeWidgets::ItemLog::IsEnabled() )
+        {
+            char value[64];
+            std::snprintf( value, sizeof( value ), InFormat, InOutValues[i] );
+            MeWidgets::ItemLog::SetLastItemValue( value );
+            MeWidgets::ItemLog::SetLastItemLabel( kAxisNames[i] );
+        }
         if( OutActive && ImGui::IsItemActive() )
         {
             *OutActive = true;
         }
-        const ImVec2 min = ImGui::GetItemRectMin();
-        const ImVec2 max = ImGui::GetItemRectMax();
-        ImGui::GetWindowDrawList()->AddRectFilled( min, ImVec2( min.x + marker, max.y ), ImGuiTheme::AxisColor( i ), ImGui::GetStyle().FrameRounding, ImDrawFlags_RoundCornersLeft );
+        fields[i] = ImRect( ImGui::GetItemRectMin(), ImGui::GetItemRectMax() );
         if( InResetValue && ImGui::BeginPopupContextItem( "AxisContext" ) )
         {
             char label[48];
-            std::snprintf( label, sizeof( label ), "Reset %s to %g", kAxisNames[std::min( i, 3 )], *InResetValue );
+            std::snprintf( label, sizeof( label ), "Reset %s to %g", kAxisNames[i], *InResetValue );
             if( ImGui::MenuItem( label ) )
             {
                 InOutValues[i] = *InResetValue;
@@ -157,6 +175,71 @@ bool HavanaUtils::DragAxes( const char* InId, float* InOutValues, int InCount, f
                 changed = true;
             }
             ImGui::EndPopup();
+        }
+        ImGui::PopID();
+    }
+
+    // The handles, after the fields so "Row@2" still names the second axis' field. Each is an
+    // item named "X:axis" in the row: drag it like a row label (Shift fine, Ctrl coarse, Alt
+    // snaps) at the field's speed; double-click it for the reset value.
+    MeWidgets::NumberSpec spec;
+    spec.Speed = InSpeed;
+    spec.HasDefault = InResetValue != nullptr;
+    spec.Default = InResetValue ? *InResetValue : 0.0;
+    const float rounding = g.Style.FrameRounding;
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    const ImU32 textDark = ImGui::GetColorU32( ImGuiTheme::Gray( 0.08f ) );
+    const ImU32 textLight = ImGui::GetColorU32( ImGuiTheme::Gray( 0.97f ) );
+    for( int i = 0; i < count; ++i )
+    {
+        ImGui::PushID( i );
+        const ImRect bb( ImVec2( fields[i].Min.x - handle, fields[i].Min.y ), ImVec2( fields[i].Min.x, fields[i].Max.y ) );
+        const ImGuiID id = ImGui::GetID( "##handle" );
+        if( ImGui::ItemAdd( bb, id ) )
+        {
+            double value = InOutValues[i];
+            if( MeWidgets::ScrubLastItem( value, spec, slot ) )
+            {
+                InOutValues[i] = static_cast<float>( value );
+                changed = true;
+            }
+            const bool active = ImGui::IsItemActive();
+            const bool hovered = ImGui::IsItemHovered();
+            if( OutActive && active )
+            {
+                *OutActive = true;
+            }
+            if( hovered && !active && ImGui::IsItemHovered( ImGuiHoveredFlags_DelayShort ) )
+            {
+                if( InResetValue )
+                {
+                    ImGui::SetTooltip( "Drag to scrub %s (Shift fine, Ctrl coarse, Alt snaps)\nDouble-click to reset to %g", kAxisNames[i], *InResetValue );
+                }
+                else
+                {
+                    ImGui::SetTooltip( "Drag to scrub %s (Shift fine, Ctrl coarse, Alt snaps)", kAxisNames[i] );
+                }
+            }
+            // Drawn over the field's rounded left corners, so handle and field read as one box.
+            ImVec4 color = ImGui::ColorConvertU32ToFloat4( ImGuiTheme::AxisColor( i ) );
+            if( active || hovered )
+            {
+                color = ImGuiTheme::Mix( color, ImGuiTheme::Gray( 1.f ), active ? 0.3f : 0.18f );
+            }
+            drawList->AddRectFilled( bb.Min, ImVec2( bb.Max.x + rounding, bb.Max.y ), ImGui::GetColorU32( color ), rounding, ImDrawFlags_RoundCornersLeft );
+            const ImVec2 letter = ImGui::CalcTextSize( kAxisNames[i] );
+            if( letter.x <= bb.GetWidth() )
+            {
+                const ImU32 ink = ImGuiTheme::Contrast( color, ImGuiTheme::Gray( 0.08f ) ) >= ImGuiTheme::Contrast( color, ImGuiTheme::Gray( 0.97f ) ) ? textDark : textLight;
+                drawList->AddText( ImVec2( std::round( bb.GetCenter().x - letter.x * 0.5f ), std::round( bb.GetCenter().y - letter.y * 0.5f ) ), ink, kAxisNames[i] );
+            }
+        }
+        IMGUI_TEST_ENGINE_ITEM_INFO( id, kHandleNames[i], g.LastItemData.StatusFlags );
+        if( MeWidgets::ItemLog::IsEnabled() )
+        {
+            char value[64];
+            std::snprintf( value, sizeof( value ), InFormat, InOutValues[i] );
+            MeWidgets::ItemLog::SetItemValue( id, value );
         }
         ImGui::PopID();
     }

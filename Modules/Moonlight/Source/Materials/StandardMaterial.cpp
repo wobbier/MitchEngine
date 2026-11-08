@@ -5,6 +5,7 @@
 
 #if USING( ME_TOOLS )
 #include <imgui.h>
+#include "Widgets/MaterialWidgets.h"
 #endif
 
 namespace
@@ -158,22 +159,62 @@ void StandardMaterial::OnDeserialize( const json& InJson )
 #if USING( ME_TOOLS )
 void StandardMaterial::OnEditorInspect()
 {
+    // Material edits live in the owning Mesh's JSON, so the inspector's per-interaction diff
+    // makes each gesture here one undo step (UX-12).
     Material::OnEditorInspect();
-    HavanaUtils::Label( "Opacity" );
-    ImGui::SliderFloat( "##Opacity", &Opacity, 0.f, 1.f );
-    HavanaUtils::Label( "Metallic" );
-    ImGui::SliderFloat( "##Metallic", &Metallic, 0.f, 1.f );
-    HavanaUtils::Label( "Roughness" );
-    ImGui::SliderFloat( "##Roughness", &Roughness, 0.f, 1.f );
-    HavanaUtils::Label( "Normal Strength" );
-    ImGui::SliderFloat( "##NormalStrength", &NormalStrength, 0.f, 2.f );
-    HavanaUtils::Label( "Occlusion Strength" );
-    ImGui::SliderFloat( "##OcclusionStrength", &OcclusionStrength, 0.f, 1.f );
+    auto spec = []( MeWidgets::Unit InUnit, double InMax, double InDefault, int InDecimals ) {
+        MeWidgets::NumberSpec result;
+        result.FieldUnit = InUnit;
+        result.HasRange = true;
+        result.Min = 0.0;
+        result.Max = InMax;
+        result.HasDefault = true;
+        result.Default = InDefault;
+        result.Decimals = InDecimals;
+        return result;
+    };
+    auto row = []( const char* InLabel, float& InOutValue, const MeWidgets::NumberSpec& InSpec ) {
+        double value = InOutValue;
+        if( MeWidgets::UnitRow( InLabel, value, InSpec ) )
+        {
+            InOutValue = static_cast<float>( value );
+        }
+    };
+    const float baseColor[3] = { DiffuseColor.x, DiffuseColor.y, DiffuseColor.z };
+    row( "Opacity", Opacity, spec( MeWidgets::Unit::Percent, 1.0, 1.0, -1 ) );
+
+    double metallic = Metallic;
+    double roughness = Roughness;
+    if( MeWidgets::MetalRoughPad( "Surface", metallic, roughness, baseColor ) )
+    {
+        Metallic = static_cast<float>( metallic );
+        Roughness = static_cast<float>( roughness );
+    }
+    row( "Metallic", Metallic, spec( MeWidgets::Unit::None, 1.0, 0.0, 2 ) );
+    row( "Roughness", Roughness, spec( MeWidgets::Unit::None, 1.0, 0.5, 2 ) );
+
+    const MeWidgets::NumberSpec normal = spec( MeWidgets::Unit::Multiplier, 2.0, 1.0, 2 );
+    row( "Normal Strength", NormalStrength, normal );
+    double normalStrength = NormalStrength;
+    if( MeWidgets::BumpPreview( "Relief", normalStrength, normal, baseColor ) )
+    {
+        NormalStrength = static_cast<float>( normalStrength );
+    }
+    row( "Occlusion Strength", OcclusionStrength, spec( MeWidgets::Unit::Percent, 1.0, 1.0, -1 ) );
+
     HavanaUtils::Label( "Emissive" );
     ImGui::ColorEdit3( "##Emissive", &EmissiveColor.x );
-    HavanaUtils::Label( "Emissive Intensity" );
-    ImGui::DragFloat( "##EmissiveIntensity", &EmissiveIntensity, 0.05f, 0.f, 100.f );
-    HavanaUtils::Label( "Alpha Cutoff" );
-    ImGui::SliderFloat( "##AlphaCutoff", &AlphaCutoff, 0.f, 1.f );
+    double ev = MeWidgets::MaterialMath::IntensityToEV( EmissiveIntensity );
+    if( MeWidgets::UnitRow( "Emissive Intensity", ev, MeWidgets::MaterialMath::EmissiveSpec() ) )
+    {
+        EmissiveIntensity = static_cast<float>( MeWidgets::MaterialMath::EVToIntensity( ev ) );
+    }
+    const float emissive[3] = { EmissiveColor.x, EmissiveColor.y, EmissiveColor.z };
+    double intensity = EmissiveIntensity;
+    if( MeWidgets::EmissiveStrip( "Glow", intensity, emissive ) )
+    {
+        EmissiveIntensity = static_cast<float>( intensity );
+    }
+    row( "Alpha Cutoff", AlphaCutoff, spec( MeWidgets::Unit::Percent, 1.0, 0.0, -1 ) );
 }
 #endif

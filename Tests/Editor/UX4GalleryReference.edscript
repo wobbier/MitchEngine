@@ -1,0 +1,69 @@
+# UX-4: the Widget Gallery matches its reference capture (juice Off, samples reset, so the picture
+# is static). After a deliberate look change, refresh the reference by copying .tmp/UX4-Gallery.png
+# over Engine/Tests/Editor/Reference/WidgetGallery.png.
+# Havana --scene Assets/Scenes/Tests/LightingTest.lvl --frame-time 0.0166667 --editor-exec Engine/Tests/Editor/UX4GalleryReference.edscript
+wait 20
+preference Appearance.Juice | "Off"
+show-window Widget Gallery
+wait 5
+imgui-click Widget Gallery/Reset
+wait 5
+panel-screenshot Widget Gallery | .tmp/UX4-Gallery.png
+assert-images .tmp/UX4-Gallery.png | Engine/Tests/Editor/Reference/WidgetGallery.png | same | 0.002
+# The camera widgets (UX-6) below the fold: scrolled into view, then captured.
+imgui-hover Widget Gallery/Focus Band
+wait 5
+panel-screenshot Widget Gallery | .tmp/UX4-Gallery-Camera.png
+assert-images .tmp/UX4-Gallery-Camera.png | Engine/Tests/Editor/Reference/WidgetGalleryCamera.png | same | 0.002
+# The post widgets (UX-7) at the bottom.
+imgui-hover Widget Gallery/Fog Visibility
+wait 5
+panel-screenshot Widget Gallery | .tmp/UX4-Gallery-Post.png
+assert-images .tmp/UX4-Gallery-Post.png | Engine/Tests/Editor/Reference/WidgetGalleryPost.png | same | 0.002
+# The physics widgets (UX-8) below them.
+imgui-hover Widget Gallery/Lock Rotation/Z
+wait 5
+panel-screenshot Widget Gallery | .tmp/UX4-Gallery-Physics.png
+assert-images .tmp/UX4-Gallery-Physics.png | Engine/Tests/Editor/Reference/WidgetGalleryPhysics.png | same | 0.002
+# The audio widgets (UX-9) below them.
+imgui-hover Widget Gallery/Linear Square
+wait 5
+panel-screenshot Widget Gallery | .tmp/UX4-Gallery-Audio.png
+assert-images .tmp/UX4-Gallery-Audio.png | Engine/Tests/Editor/Reference/WidgetGalleryAudio.png | same | 0.002
+# The character widgets (UX-10) below them.
+imgui-hover Widget Gallery/Walks Up/Stairs
+wait 5
+panel-screenshot Widget Gallery | .tmp/UX4-Gallery-Character.png
+assert-images .tmp/UX4-Gallery-Character.png | Engine/Tests/Editor/Reference/WidgetGalleryCharacter.png | same | 0.002
+# The transform widgets (UX-11) below them.
+imgui-hover Widget Gallery/Gizmo Mode:label
+wait 5
+panel-screenshot Widget Gallery | .tmp/UX4-Gallery-Transform.png
+assert-images .tmp/UX4-Gallery-Transform.png | Engine/Tests/Editor/Reference/WidgetGalleryTransform.png | same | 0.002
+# The material widgets (UX-12) below them.
+imgui-hover Widget Gallery/Glow/Swatch
+wait 5
+panel-screenshot Widget Gallery | .tmp/UX4-Gallery-Material.png
+assert-images .tmp/UX4-Gallery-Material.png | Engine/Tests/Editor/Reference/WidgetGalleryMaterial.png | same | 0.002
+# The choice widgets (UX-13) below them.
+imgui-hover Widget Gallery/Areas/Water
+wait 5
+panel-screenshot Widget Gallery | .tmp/UX4-Gallery-Choice.png
+assert-images .tmp/UX4-Gallery-Choice.png | Engine/Tests/Editor/Reference/WidgetGalleryChoice.png | same | 0.002
+# Each choice control has its own ID: a click on any of them lands (shared IDs once let only
+# the first control drawn take the click). Then Reset puts the samples back.
+imgui-click Widget Gallery/Joint/Fixed
+wait 2
+imgui-assert-value Widget Gallery/Joint | Fixed
+imgui-assert-value Widget Gallery/Body Type | Dynamic
+imgui-click Widget Gallery/Alignment/Right
+wait 2
+imgui-assert-value Widget Gallery/Alignment | Right
+imgui-assert-value Widget Gallery/Joint | Fixed
+imgui-click Widget Gallery/Areas/Not Walkable
+wait 2
+imgui-assert-value Widget Gallery/Areas/Not Walkable | on
+imgui-assert-value Widget Gallery/Areas | Mixed (3)
+imgui-click Widget Gallery/Reset
+wait 5
+imgui-assert-value Widget Gallery/Joint | Hinge

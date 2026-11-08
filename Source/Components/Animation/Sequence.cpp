@@ -16,7 +16,7 @@ ME_REFLECT_ENUM( SequenceInterpolation, { { "Linear", SequenceInterpolation::Lin
     { "FocalLength", SequenceInterpolation::FocalLength }, { "SmoothFocalLength", SequenceInterpolation::SmoothFocalLength } } )
 
 ME_REFLECT_BEGIN( SequenceKey )
-    ME_FIELD( Frame );
+    ME_FIELD( Frame ).Unit( Reflection::Unit::Frames );
     ME_FIELD( Value );
     ME_FIELD( Interpolation );
 ME_REFLECT_END()
@@ -40,7 +40,7 @@ ME_REFLECT_ENUM( SequenceMarkerAction, { { "Event", SequenceMarkerAction::Event 
     { "StopAudio", SequenceMarkerAction::StopAudio }, { "PlayAnimation", SequenceMarkerAction::PlayAnimation } } )
 
 ME_REFLECT_BEGIN( SequenceMarker )
-    ME_FIELD( Frame );
+    ME_FIELD( Frame ).Unit( Reflection::Unit::Frames );
     ME_FIELD( Name );
     ME_FIELD( Target );
     ME_FIELD( Binding );
@@ -66,7 +66,7 @@ void SequenceMarker::RunAction( const EntityHandle& InReceiver ) const
 }
 
 ME_REFLECT_BEGIN( SequenceCut )
-    ME_FIELD( Frame );
+    ME_FIELD( Frame ).Unit( Reflection::Unit::Frames );
     ME_FIELD( Target );
     ME_FIELD( Binding );
 ME_REFLECT_END()
@@ -82,10 +82,10 @@ ME_REFLECT_BEGIN( Sequence )
     ME_FIELD( Clips );
     ME_FIELD( Name ).CustomInspector();
     ME_FIELD( FrameRate ).Range( 1.f, 240.f ).CustomInspector();
-    ME_FIELD( DurationFrames ).Range( 1.f, 100000.f ).CustomInspector();
+    ME_FIELD( DurationFrames ).Range( 1.f, 100000.f ).Unit( Reflection::Unit::Frames ).Log().CustomInspector();
     ME_FIELD( PlayOnStart );
     ME_FIELD( Loop );
-    ME_FIELD( Speed ).Range( 0.f, 16.f );
+    ME_FIELD( Speed ).Range( 0.f, 16.f ).Unit( Reflection::Unit::Multiplier ).Log();
     ME_FIELD( Tracks ).CustomInspector();
     ME_FIELD( Markers ).CustomInspector();
     ME_FIELD( Cuts ).CustomInspector();

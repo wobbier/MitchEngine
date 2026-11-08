@@ -33,6 +33,7 @@
 #include "Widgets/Terrain/TerrainAutomation.h"
 #include "Editor/UIAutomation.h"
 #include "Editor/RenderTextureAutomation.h"
+#include "Editor/ImGuiAutomation.h"
 #include "Widgets/Tree/TreeAutomation.h"
 #include "Widgets/ShaderGraph/ShaderGraphPreview.h"
 #include "Components/Audio/AudioSource.h"
@@ -285,6 +286,7 @@ void EditorAutomation::Tick( EditorApp& InApp )
     {
         return;
     }
+    ImGuiAutomation::Tick();
     if( m_recordProfile )
     {
         const auto& stats = FrameStats::Get();
@@ -549,6 +551,22 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         else
         {
             Fail( command + ": bad arguments" );
+        }
+    }
+    else if( ImGuiAutomation::Handles( command ) )
+    {
+        // imgui-click / imgui-drag / imgui-scrub / imgui-type / imgui-hover / imgui-assert-value /
+        // imgui-assert-item / imgui-dump / panel-screenshot (usage in ImGuiAutomation.h)
+        std::string error;
+        bool retry = false;
+        if( !ImGuiAutomation::Execute( command, args, error, retry ) )
+        {
+            Fail( command + ": " + error );
+        }
+        else if( retry )
+        {
+            // Gestures spread over frames: run this line again next frame.
+            --m_nextLine;
         }
     }
     else if( command.rfind( "rtt-", 0 ) == 0 )
@@ -1298,6 +1316,21 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             {
                 gameView->MaximizeOnPlayPreference = parsed.get<bool>();
             }
+        }
+    }
+    else if( command == "clipboard" )
+    {
+        // clipboard [1, 2, 3]   (puts the text on the clipboard, as copying it would; UX-11)
+        ImGui::SetClipboardText( args.c_str() );
+    }
+    else if( command == "assert-clipboard" )
+    {
+        // assert-clipboard [4, 0, 0]   (the clipboard holds exactly this text)
+        const char* clipboard = ImGui::GetClipboardText();
+        const std::string actual = clipboard ? clipboard : "";
+        if( actual != args )
+        {
+            Fail( "assert-clipboard: the clipboard holds '" + actual + "', expected '" + args + "'" );
         }
     }
     else if( command == "trace-start" )

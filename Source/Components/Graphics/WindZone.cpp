@@ -8,7 +8,7 @@
 ME_REFLECT_BEGIN( WindZone )
     ME_FIELD( Strength ).Range( 0.f, 4.f ).Tooltip( "0 is calm, 1 a strong breeze, 2 and above a storm" );
     ME_FIELD( Gusts ).Range( 0.f, 2.f ).Tooltip( "How much gusts add on top of the strength" );
-    ME_FIELD( GustFrequency ).Range( 0.f, 2.f ).Tooltip( "Gust fronts per second (they roll downwind across a forest)" );
+    ME_FIELD( GustFrequency ).Unit( Reflection::Unit::Hertz ).Log().Range( 0.f, 2.f ).Tooltip( "Gust fronts per second (they roll downwind across a forest)" );
     ME_FIELD( Turbulence ).Range( 0.f, 2.f ).Tooltip( "Crosswise, irregular motion" );
 ME_REFLECT_END()
 

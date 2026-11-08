@@ -1,0 +1,156 @@
+# UX-12: materials you can see. The Metallic x Roughness pad (5 x 5 shaded spheres in the base
+# colour) moves both with one puck (Alt snaps to the spheres, double-click resets), one undo step
+# per drag (material edits live in the Mesh JSON); typed rows still work. Emissive intensity in
+# stops ("+2 EV" is 4x, "8x", "off") with a glow strip; the relief tile follows Normal Strength.
+# Havana --scene Assets/Scenes/Showcase/Lighting.lvl --frame-time 0.0166667 --editor-exec Engine/Tests/Editor/UX12Materials.edscript
+wait 20
+preference Appearance.Juice | "Off"
+select Sphere M0 R0.50 4
+wait 5
+
+# The pad starts on the material: a red dielectric at roughness 0.5.
+imgui-assert-item Mesh/Surface/Puck
+imgui-assert-value Mesh/Surface/Puck | metallic 0.00, roughness 0.50
+imgui-assert-value Mesh/Surface | Satin
+# The typed rows keep their names (the texture slots of the same name come first).
+imgui-assert-value Mesh/Metallic@2 | 0.00
+imgui-assert-value Mesh/Roughness@2 | 0.50
+# Scrolled so the whole pad shows (centred in the panel).
+imgui-hover Mesh/Alpha Cutoff:label
+imgui-hover Mesh/Surface
+panel-screenshot Properties | .tmp/UX12-Pad.png
+
+# Alt-drag the puck one sphere right and two up: roughness 0.75, metallic 0.5, in one step.
+imgui-drag Mesh/Surface/Puck | 55 -111 | alt
+assert-field Sphere M0 R0.50 4 | Mesh.Material.Metallic | 0.5
+assert-field Sphere M0 R0.50 4 | Mesh.Material.Roughness | 0.75
+imgui-assert-value Mesh/Surface/Puck | metallic 0.50, roughness 0.75
+imgui-assert-value Mesh/Metallic@2 | 0.50
+imgui-assert-value Mesh/Roughness@2 | 0.75
+imgui-assert-value Mesh/Surface | Cast iron
+undo
+assert-field Sphere M0 R0.50 4 | Mesh.Material.Metallic | 0
+assert-field Sphere M0 R0.50 4 | Mesh.Material.Roughness | 0.5
+imgui-assert-value Mesh/Surface/Puck | metallic 0.00, roughness 0.50
+redo
+assert-field Sphere M0 R0.50 4 | Mesh.Material.Metallic | 0.5
+assert-field Sphere M0 R0.50 4 | Mesh.Material.Roughness | 0.75
+# Without Alt, hundredths: a small drag down leaves roughness alone.
+imgui-drag Mesh/Surface/Puck | 0 30
+assert-field Sphere M0 R0.50 4 | Mesh.Material.Roughness | 0.75
+assert-field Sphere M0 R0.50 4 | Mesh.Material.Metallic | != 0.5
+undo
+assert-field Sphere M0 R0.50 4 | Mesh.Material.Metallic | 0.5
+# Double-click the puck: back to metallic 0, roughness 0.5, as one step.
+imgui-click Mesh/Surface/Puck | double
+assert-field Sphere M0 R0.50 4 | Mesh.Material.Metallic | 0
+assert-field Sphere M0 R0.50 4 | Mesh.Material.Roughness | 0.5
+undo
+assert-field Sphere M0 R0.50 4 | Mesh.Material.Metallic | 0.5
+assert-field Sphere M0 R0.50 4 | Mesh.Material.Roughness | 0.75
+# Typed entry still works and moves the puck: a polished metal.
+imgui-type Mesh/Metallic@2 | 1
+imgui-type Mesh/Roughness@2 | 0.1
+assert-field Sphere M0 R0.50 4 | Mesh.Material.Metallic | 1
+assert-field Sphere M0 R0.50 4 | Mesh.Material.Roughness | 0.1
+imgui-assert-value Mesh/Surface/Puck | metallic 1.00, roughness 0.10
+imgui-assert-value Mesh/Surface | Polished metal
+imgui-hover Mesh/Alpha Cutoff:label
+imgui-hover Mesh/Surface
+panel-screenshot Properties | .tmp/UX12-Pad-Metal.png
+assert-images .tmp/UX12-Pad.png | .tmp/UX12-Pad-Metal.png | different
+
+# Normal strength: the relief tile deepens with it. Scrub the field, then flatten it by typing.
+imgui-hover Mesh/Relief/Tile
+imgui-assert-value Mesh/Relief/Tile | 1.0×
+panel-screenshot Properties | .tmp/UX12-Relief.png
+imgui-scrub Mesh/Normal Strength | 60
+assert-field Sphere M0 R0.50 4 | Mesh.Material.NormalStrength | != 1
+imgui-assert-value Mesh/Relief/Tile | 1.4×
+imgui-hover Mesh/Relief/Tile
+panel-screenshot Properties | .tmp/UX12-Relief-Deep.png
+assert-images .tmp/UX12-Relief.png | .tmp/UX12-Relief-Deep.png | different
+undo
+assert-field Sphere M0 R0.50 4 | Mesh.Material.NormalStrength | 1
+imgui-type Mesh/Normal Strength | 0
+imgui-assert-value Mesh/Relief/Tile | 0.0×
+imgui-hover Mesh/Relief/Tile
+panel-screenshot Properties | .tmp/UX12-Relief-Flat.png
+assert-images .tmp/UX12-Relief.png | .tmp/UX12-Relief-Flat.png | different
+# The tile scrubs too (one step), and its double-click restores 1x.
+imgui-scrub Mesh/Relief/Tile | 40
+assert-field Sphere M0 R0.50 4 | Mesh.Material.NormalStrength | != 0
+imgui-click Mesh/Relief/Tile | double
+assert-field Sphere M0 R0.50 4 | Mesh.Material.NormalStrength | 1
+undo
+assert-field Sphere M0 R0.50 4 | Mesh.Material.NormalStrength | != 1
+
+# Emissive intensity in stops, on a neon tube (12x pink).
+select Neon 0
+wait 5
+imgui-assert-value Mesh/Emissive Intensity | +3.6 EV
+imgui-assert-value Mesh/Glow | +3.6 EV
+imgui-type Mesh/Emissive Intensity | +2 EV
+assert-field Neon 0 | Mesh.Material.EmissiveIntensity | 4
+imgui-assert-value Mesh/Emissive Intensity | +2.0 EV
+imgui-assert-value Mesh/Glow | +2.0 EV
+imgui-hover Mesh/Alpha Cutoff:label
+imgui-hover Mesh/Glow/Swatch
+panel-screenshot Properties | .tmp/UX12-Glow.png
+# A multiplier types too, and "off" is 0.
+imgui-type Mesh/Emissive Intensity | 8x
+assert-field Neon 0 | Mesh.Material.EmissiveIntensity | 8
+imgui-assert-value Mesh/Emissive Intensity | +3.0 EV
+imgui-type Mesh/Emissive Intensity | off
+assert-field Neon 0 | Mesh.Material.EmissiveIntensity | 0
+imgui-assert-value Mesh/Emissive Intensity | Off
+imgui-assert-value Mesh/Glow | Off
+imgui-assert-value Mesh/Glow/Swatch | #000000
+undo
+assert-field Neon 0 | Mesh.Material.EmissiveIntensity | 8
+undo
+assert-field Neon 0 | Mesh.Material.EmissiveIntensity | 4
+undo
+assert-field Neon 0 | Mesh.Material.EmissiveIntensity | 12
+# A negative multiplier is refused, not Off.
+imgui-type Mesh/Emissive Intensity | -2x
+assert-field Neon 0 | Mesh.Material.EmissiveIntensity | 12
+# A lit intensity too dim for the field reads just above Off, and "off" still zeroes it.
+set Mesh.Material.EmissiveIntensity 0.001
+wait 2
+imgui-assert-value Mesh/Emissive Intensity | -9.0 EV
+imgui-type Mesh/Emissive Intensity | off
+assert-field Neon 0 | Mesh.Material.EmissiveIntensity | 0
+undo
+assert-field Neon 0 | Mesh.Material.EmissiveIntensity | 0.001 ~ 0.0001
+set Mesh.Material.EmissiveIntensity 12
+wait 2
+assert-field Neon 0 | Mesh.Material.EmissiveIntensity | 12
+# Double-click the strip's marker: 1x, one step.
+imgui-click Mesh/Glow/Value | double
+assert-field Neon 0 | Mesh.Material.EmissiveIntensity | 1
+imgui-assert-value Mesh/Glow | 0.0 EV
+undo
+assert-field Neon 0 | Mesh.Material.EmissiveIntensity | 12
+
+# The other rows are kit fields in percent.
+imgui-assert-value Mesh/Opacity@2 | 100%
+imgui-assert-value Mesh/Occlusion Strength | 100%
+imgui-assert-value Mesh/Alpha Cutoff | 0%
+imgui-type Mesh/Alpha Cutoff | 50%
+assert-field Neon 0 | Mesh.Material.AlphaCutoff | 0.5
+undo
+assert-field Neon 0 | Mesh.Material.AlphaCutoff | 0
+
+# Light theme.
+preference Appearance.Theme | "Light"
+wait 5
+imgui-hover Mesh/Alpha Cutoff:label
+imgui-hover Mesh/Glow/Swatch
+panel-screenshot Properties | .tmp/UX12-Glow-Light.png
+select Sphere M0 R0.50 4
+wait 5
+imgui-hover Mesh/Alpha Cutoff:label
+imgui-hover Mesh/Surface
+panel-screenshot Properties | .tmp/UX12-Pad-Light.png
+preference Appearance.Theme | "Dark"

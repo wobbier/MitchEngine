@@ -14,8 +14,8 @@ ME_REFLECT_ENUM( ReverbPreset, { { "Generic", ReverbPreset::Generic }, { "Padded
 
 ME_REFLECT_BEGIN( AudioReverbZone )
     ME_FIELD( Preset ).Tooltip( "The zone's acoustics" );
-    ME_FIELD( MinDistance ).Range( 0.f, 500.f ).Tooltip( "Full reverb while the listener is this close" );
-    ME_FIELD( MaxDistance ).Range( 0.f, 1000.f ).Tooltip( "No reverb from this zone beyond this distance" );
+    ME_FIELD( MinDistance ).Range( 0.f, 500.f ).Tooltip( "Full reverb while the listener is this close" ).Unit( Reflection::Unit::Meters ).Log().SoftRange( 0.f, 50.f );
+    ME_FIELD( MaxDistance ).Range( 0.f, 1000.f ).Tooltip( "No reverb from this zone beyond this distance" ).Unit( Reflection::Unit::Meters ).Log().SoftRange( 0.f, 100.f );
 ME_REFLECT_END()
 
 

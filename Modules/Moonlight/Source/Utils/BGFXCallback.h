@@ -25,6 +25,11 @@ namespace Moonlight
         void captureEnd() override {}
         void captureFrame( const void* _data, uint32_t _size ) override {}
 
+        // The screenshot written to InPath is cropped to this rect (pixels from the top left), once.
+        // Editor automation's panel-screenshot uses it to capture one panel of the main window.
+        static void SetScreenshotCrop( const std::string& InPath, uint32_t InX, uint32_t InY, uint32_t InWidth, uint32_t InHeight );
+        static void ClearScreenshotCrop( const std::string& InPath );
+
         // Number of screenshots written since startup. Polled by the automation harness.
         uint32_t GetScreenshotCount() const { return m_screenshotCount.load(); }
 

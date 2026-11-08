@@ -1,0 +1,152 @@
+# UX-5: lighting widgets drive the Light component like a person would. The temperature bar's
+# presets and drags set blackbody colours, the intensity ladder's rungs and strip set intensity,
+# the cone's handles set the half angles (pushing each other), the falloff graph's handle sets the
+# range with the axis held still under it. Every gesture is one undo step; multi-selection edits
+# every light; widgets that don't apply to a light type are hidden.
+# Havana --scene Assets/Scenes/Tests/LightingTest.lvl --frame-time 0.0166667 --editor-exec Engine/Tests/Editor/UX5Lighting.edscript
+wait 20
+create SpotProbe
+add-component Light
+set Light.LightType "Spot"
+select SpotProbe
+wait 5
+
+# Temperature: white sits on the curve at 6600 K; a preset sets its blackbody colour.
+imgui-assert-value Light/Temperature | 6600 K
+imgui-click Light/Temperature/Candle
+assert-field SpotProbe | Light.Color | [1, 0.5167, 0] ~ 0.01
+imgui-assert-value Light/Temperature | 1900 K
+undo
+assert-field SpotProbe | Light.Color | [1, 1, 1]
+redo
+assert-field SpotProbe | Light.Color | [1, 0.5167, 0] ~ 0.01
+# Dragging along the bar (log scale, from its middle at about 3460 K) scrubs the temperature.
+imgui-drag Light/Temperature | 60 0
+imgui-assert-value Light/Temperature | 5930 ~ 150
+assert-field SpotProbe | Light.Color.0 | 1
+assert-field SpotProbe | Light.Color.2 | 0.91 ~ 0.04
+undo
+assert-field SpotProbe | Light.Color | [1, 0.5167, 0] ~ 0.01
+imgui-click Light/Temperature/Daylight
+assert-field SpotProbe | Light.Color | [1, 0.9384, 0.8835] ~ 0.01
+imgui-assert-value Light/Temperature | 5600 K
+# A colour off the blackbody curve has no temperature.
+set Light.Color [0.2,1,0.2]
+wait 2
+imgui-assert-value Light/Temperature | off curve
+imgui-click Light/Temperature/Blue sky
+assert-field SpotProbe | Light.Color | [0.791, 0.8552, 1] ~ 0.01
+
+# Intensity: rungs set their reference, the strip scrubs in log space.
+imgui-click Light/Reference/Floodlight
+assert-field SpotProbe | Light.Intensity | 8
+imgui-click Light/Reference/Candle
+assert-field SpotProbe | Light.Intensity | 0.1
+imgui-assert-value Light/Intensity | 0.1×
+undo
+assert-field SpotProbe | Light.Intensity | 8
+redo
+assert-field SpotProbe | Light.Intensity | 0.1
+imgui-drag Light/Reference | -20 0
+assert-field SpotProbe | Light.Intensity | 0.18 ~ 0.04
+undo
+assert-field SpotProbe | Light.Intensity | 0.1
+
+# Cone: the inner handle moves towards the axis; one undo restores it.
+imgui-assert-value Light/Cone/Inner Cone | 20°
+imgui-assert-value Light/Cone/Outer Cone | 30°
+imgui-drag Light/Cone/Inner Cone | -15 0
+assert-field SpotProbe | Light.InnerConeAngle | 3 ~ 2
+assert-field SpotProbe | Light.OuterConeAngle | 30
+undo
+assert-field SpotProbe | Light.InnerConeAngle | 20
+# Inner dragged past outer pushes outer along (one undo step for both).
+imgui-drag Light/Cone/Inner Cone | 60 -30
+assert-field SpotProbe | Light.InnerConeAngle | 77 ~ 3
+assert-field SpotProbe | Light.OuterConeAngle | 77 ~ 3
+imgui-assert-value Light/Inner Cone Angle | 77 ~ 3
+undo
+assert-field SpotProbe | Light.InnerConeAngle | 20
+assert-field SpotProbe | Light.OuterConeAngle | 30
+# Outer dragged across the axis stops at 0 and pushes inner down with it.
+imgui-drag Light/Cone/Outer Cone | -80 0
+assert-field SpotProbe | Light.OuterConeAngle | 0
+assert-field SpotProbe | Light.InnerConeAngle | 0
+undo
+assert-field SpotProbe | Light.InnerConeAngle | 20
+assert-field SpotProbe | Light.OuterConeAngle | 30
+redo
+assert-field SpotProbe | Light.OuterConeAngle | 0
+undo
+# Past the apex the outer angle stops at 89.
+imgui-drag Light/Cone/Outer Cone | 150 -100
+assert-field SpotProbe | Light.OuterConeAngle | 89
+assert-field SpotProbe | Light.InnerConeAngle | 20
+# Carried on over the top of the apex to its other side, it stays at 89 (no snap to 0).
+imgui-drag Light/Cone/Outer Cone | -120 -70
+assert-field SpotProbe | Light.OuterConeAngle | 89
+assert-field SpotProbe | Light.InnerConeAngle | 20
+
+# Range: the handle on the falloff graph's axis (0..12 m at 10 m) moves with the pointer while
+# the axis holds still; one undo step.
+imgui-assert-value Light/Falloff/Range | 10 m
+imgui-drag Light/Falloff/Range | -92 0
+assert-field SpotProbe | Light.Range | 5.9 ~ 0.4
+imgui-assert-value Light/Range | 5.9 ~ 0.4
+undo
+assert-field SpotProbe | Light.Range | 10
+redo
+assert-field SpotProbe | Light.Range | 5.9 ~ 0.4
+wait 40
+imgui-hover Light/Temperature
+panel-screenshot Properties | .tmp/UX5-Light.png
+imgui-hover Light/Cone
+panel-screenshot Properties | .tmp/UX5-Light-Cone.png
+
+# Several lights selected: a decorator edit applies to all of them as one step.
+create SpotProbe2
+add-component Light
+set Light.LightType "Spot"
+select SpotProbe,SpotProbe2
+wait 5
+imgui-click Light/Temperature/Tungsten
+assert-field SpotProbe | Light.Color | [1, 0.6538, 0.3428] ~ 0.01
+assert-field SpotProbe2 | Light.Color | [1, 0.6538, 0.3428] ~ 0.01
+undo
+assert-field SpotProbe | Light.Color | [0.791, 0.8552, 1] ~ 0.01
+assert-field SpotProbe2 | Light.Color | [1, 1, 1]
+# A cone drag copies only the angle it changed: the other light keeps its own inner angle.
+select SpotProbe2
+set Light.InnerConeAngle 10
+set Light.OuterConeAngle 40
+select SpotProbe,SpotProbe2
+wait 5
+# (The inspector shows SpotProbe2, the last selected; its outer angle goes 40 -> 14 and is
+# copied to SpotProbe, whose inner angle of 20 is left alone rather than set to 10.)
+imgui-drag Light/Cone/Outer Cone | -30 30
+assert-field SpotProbe2 | Light.OuterConeAngle | 14 ~ 4
+assert-field SpotProbe2 | Light.InnerConeAngle | 10
+assert-field SpotProbe | Light.OuterConeAngle | 14 ~ 4
+assert-field SpotProbe | Light.InnerConeAngle | 20
+undo
+assert-field SpotProbe2 | Light.InnerConeAngle | 10
+assert-field SpotProbe2 | Light.OuterConeAngle | 40
+assert-field SpotProbe | Light.OuterConeAngle | 89
+
+# Widgets that don't apply are hidden: no cone on a point light, no falloff on a directional
+# one, whose ladder offers sky references instead.
+select SpotProbe
+set Light.LightType "Point"
+wait 3
+imgui-assert-item Light/Cone | false
+imgui-assert-item Light/Falloff/Range
+set Light.LightType "Directional"
+wait 3
+imgui-assert-item Light/Falloff | false
+imgui-click Light/Reference/Sun
+assert-field SpotProbe | Light.Intensity | 5
+# The field search hides decorators with the rest of the extras.
+inspector-search intensity
+wait 3
+imgui-assert-item Light/Reference | false
+inspector-search

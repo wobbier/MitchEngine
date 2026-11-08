@@ -29,8 +29,10 @@ public:
     static void Text( const std::string& Name, const Vector2& Vector );
 
     // Vector components side by side, each marked with its axis color, filling the next item's
-    // width, as one group (IsItemActive and friends apply to the whole vector). With a reset
-    // value, right-clicking a component offers to reset it.
+    // width, as one group (IsItemActive and friends apply to the whole vector). Each axis starts
+    // with a coloured handle (UX-11, an item named "X:axis" drawn after the fields): drag it
+    // sideways to scrub that axis at InSpeed (Shift fine, Ctrl coarse, Alt snaps). With a reset
+    // value, right-clicking a component offers to reset it and double-clicking a handle does.
     static bool DragAxes( const char* InId, float* InOutValues, int InCount, float InSpeed, const char* InFormat, bool* OutActive = nullptr, const float* InResetValue = nullptr );
 
     static bool EditableVector3( const std::string& Name, Vector3& Vector, float ResetValue = 0.f, float customWidth = -1 );

@@ -16,23 +16,23 @@ ME_REFLECT_ENUM( NavPartition, { { "Watershed", NavPartition::Watershed }, { "Mo
 
 ME_REFLECT_BEGIN( NavMeshSurface )
     ME_FIELD( AgentType ).Category( "Agent" ).Choices( ProjectSettings::kMaxNavAgentTypes + 1, NavigationUI::SurfaceAgentTypeName ).Tooltip( "The agent size this navmesh is for (Project Settings > Navigation); Custom uses the values below" );
-    ME_FIELD( AgentRadius ).Category( "Agent" ).Range( 0.05f, 10.f );
-    ME_FIELD( AgentHeight ).Category( "Agent" ).Range( 0.1f, 20.f );
-    ME_FIELD( AgentMaxClimb ).Category( "Agent" ).Range( 0.f, 5.f ).Tooltip( "Step height the agent can walk up" );
-    ME_FIELD( AgentMaxSlope ).Category( "Agent" ).Range( 0.f, 89.f ).Tooltip( "Degrees; steeper surfaces aren't walkable" );
+    ME_FIELD( AgentRadius ).Category( "Agent" ).Range( 0.05f, 10.f ).Unit( Reflection::Unit::Meters ).Log();
+    ME_FIELD( AgentHeight ).Category( "Agent" ).Range( 0.1f, 20.f ).Unit( Reflection::Unit::Meters ).Log();
+    ME_FIELD( AgentMaxClimb ).Category( "Agent" ).Range( 0.f, 5.f ).Unit( Reflection::Unit::Meters ).Tooltip( "Step height the agent can walk up" );
+    ME_FIELD( AgentMaxSlope ).Category( "Agent" ).Range( 0.f, 89.f ).Unit( Reflection::Unit::Degrees ).Tooltip( "Degrees; steeper surfaces aren't walkable" );
     ME_FIELD( Collect ).Category( "Sources" ).Tooltip( "Which entities to bake" );
     ME_FIELD( UseGeometry ).Category( "Sources" );
     ME_FIELD( IncludeLayers ).Category( "Sources" ).MaskChoices( ProjectSettings::kLayerCount, NavigationUI::LayerName );
     ME_FIELD( DefaultArea ).Category( "Sources" ).Choices( NavAreas::kCount, NavigationUI::AreaName );
-    ME_FIELD( VolumeCenter ).Category( "Sources" ).Tooltip( "Collect = Volume: the box to bake, local to this entity" );
-    ME_FIELD( VolumeSize ).Category( "Sources" );
-    ME_FIELD( CellSize ).Category( "Advanced" ).Range( 0.f, 2.f ).Tooltip( "Voxel size; 0 = a third of the agent radius" );
-    ME_FIELD( CellHeight ).Category( "Advanced" ).Range( 0.f, 2.f ).Tooltip( "0 = half the cell size" );
-    ME_FIELD( TileSize ).Category( "Advanced" ).Range( 16.f, 512.f ).Tooltip( "Cells per tile side; tiles bake in parallel" );
+    ME_FIELD( VolumeCenter ).Category( "Sources" ).Unit( Reflection::Unit::Meters ).Tooltip( "Collect = Volume: the box to bake, local to this entity" );
+    ME_FIELD( VolumeSize ).Category( "Sources" ).Unit( Reflection::Unit::Meters );
+    ME_FIELD( CellSize ).Category( "Advanced" ).Range( 0.f, 2.f ).Unit( Reflection::Unit::Meters ).Tooltip( "Voxel size; 0 = a third of the agent radius" );
+    ME_FIELD( CellHeight ).Category( "Advanced" ).Range( 0.f, 2.f ).Unit( Reflection::Unit::Meters ).Tooltip( "0 = half the cell size" );
+    ME_FIELD( TileSize ).Category( "Advanced" ).Range( 16.f, 512.f ).Log().Tooltip( "Cells per tile side; tiles bake in parallel" );
     ME_FIELD( MinRegionSize ).Category( "Advanced" ).Range( 0.f, 150.f ).Tooltip( "Cells; smaller islands are dropped" );
     ME_FIELD( MergeRegionSize ).Category( "Advanced" ).Range( 0.f, 150.f );
     ME_FIELD( Partition ).Category( "Advanced" );
-    ME_FIELD( EdgeMaxLength ).Category( "Advanced" ).Range( 0.f, 50.f );
+    ME_FIELD( EdgeMaxLength ).Category( "Advanced" ).Range( 0.f, 50.f ).Unit( Reflection::Unit::Meters );
     ME_FIELD( EdgeMaxError ).Category( "Advanced" ).Range( 0.1f, 3.f );
     ME_FIELD( DetailSampleDistance ).Category( "Advanced" ).Range( 0.f, 16.f );
     ME_FIELD( DetailSampleMaxError ).Category( "Advanced" ).Range( 0.f, 16.f );

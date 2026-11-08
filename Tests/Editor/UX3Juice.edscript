@@ -1,0 +1,48 @@
+# UX-3: juice at each level. A Poke in the Widget Gallery fires every kind of feedback; two captures
+# a few frames apart differ at Full and Subtle (springs, flashes, sparks) and are identical at Off.
+# Havana --scene Assets/Scenes/Tests/LightingTest.lvl --frame-time 0.0166667 --editor-exec Engine/Tests/Editor/UX3Juice.edscript
+wait 20
+show-window Widget Gallery
+wait 5
+imgui-assert-item Widget Gallery/Poke
+
+preference Appearance.Juice | "Full"
+imgui-click Widget Gallery/Poke
+panel-screenshot Widget Gallery | .tmp/UX3-Full-a.png
+panel-screenshot Widget Gallery | .tmp/UX3-Full-b.png
+assert-images .tmp/UX3-Full-a.png | .tmp/UX3-Full-b.png | different
+wait 60
+panel-screenshot Widget Gallery | .tmp/UX3-Full-settled.png
+
+preference Appearance.Juice | "Subtle"
+imgui-click Widget Gallery/Poke
+panel-screenshot Widget Gallery | .tmp/UX3-Subtle-a.png
+panel-screenshot Widget Gallery | .tmp/UX3-Subtle-b.png
+assert-images .tmp/UX3-Subtle-a.png | .tmp/UX3-Subtle-b.png | different
+
+# Off: the same Poke changes nothing on screen, frame to frame and against the settled look.
+preference Appearance.Juice | "Off"
+wait 60
+panel-screenshot Widget Gallery | .tmp/UX3-Off-before.png
+imgui-click Widget Gallery/Poke
+panel-screenshot Widget Gallery | .tmp/UX3-Off-a.png
+panel-screenshot Widget Gallery | .tmp/UX3-Off-b.png
+assert-images .tmp/UX3-Off-a.png | .tmp/UX3-Off-b.png | same
+assert-images .tmp/UX3-Off-before.png | .tmp/UX3-Off-a.png | same
+
+# Reduce motion: flashes stay, motion goes.
+preference Appearance.Juice | "Full"
+preference Appearance.ReduceMotion | true
+imgui-click Widget Gallery/Poke
+panel-screenshot Widget Gallery | .tmp/UX3-Reduced-a.png
+preference Appearance.ReduceMotion | false
+
+# A refused entry shakes; a typed one commits; scrubbing to the hard limit ticks.
+imgui-type Widget Gallery/Angle | 5 kg
+imgui-assert-value Widget Gallery/Angle | 35°
+imgui-type Widget Gallery/Angle | 45
+imgui-assert-value Widget Gallery/Angle | 45°
+imgui-scrub Widget Gallery/Angle:label | 400
+imgui-assert-value Widget Gallery/Angle | 89°
+imgui-click Widget Gallery/Angle:label | double
+imgui-assert-value Widget Gallery/Angle | 30°

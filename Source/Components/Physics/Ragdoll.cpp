@@ -14,12 +14,12 @@
 
 ME_REFLECT_BEGIN( Ragdoll )
     ME_FIELD( Simulating ).Tooltip( "Physics drives the bones; clearing it blends back to the animation" );
-    ME_FIELD( BlendSeconds ).Range( 0.f, 5.f ).Tooltip( "Seconds to blend from the ragdoll back to the animation" );
+    ME_FIELD( BlendSeconds ).Range( 0.f, 5.f ).Unit( Reflection::Unit::Seconds ).Tooltip( "Seconds to blend from the ragdoll back to the animation" );
     ME_FIELD( Bones ).CustomInspector();
-    ME_FIELD( RadiusRatio ).Range( 0.01f, 1.f ).Category( "Build" ).Tooltip( "Capsule radius as a fraction of the bone's length" );
-    ME_FIELD( SwingLimit ).Range( 0.f, 180.f ).Category( "Build" ).Tooltip( "The joints' cone half-angle, degrees" );
-    ME_FIELD( TotalMass ).Range( 0.f, 10000.f ).Category( "Build" ).Tooltip( "Kilograms, shared out by bone length" );
-    ME_FIELD( MinBoneLength ).Range( 0.f, 10.f ).Category( "Build" ).Tooltip( "Shorter bones get no body" );
+    ME_FIELD( RadiusRatio ).Range( 0.01f, 1.f ).Unit( Reflection::Unit::Percent ).Category( "Build" ).Tooltip( "Capsule radius as a fraction of the bone's length" );
+    ME_FIELD( SwingLimit ).Range( 0.f, 180.f ).Unit( Reflection::Unit::Degrees ).Category( "Build" ).Tooltip( "The joints' cone half-angle, degrees" );
+    ME_FIELD( TotalMass ).Range( 0.f, 10000.f ).Unit( Reflection::Unit::Kilograms ).Log().SoftRange( 0.f, 500.f ).Category( "Build" ).Tooltip( "Kilograms, shared out by bone length" );
+    ME_FIELD( MinBoneLength ).Range( 0.f, 10.f ).Unit( Reflection::Unit::Meters ).Log().SoftRange( 0.f, 1.f ).Category( "Build" ).Tooltip( "Shorter bones get no body" );
 ME_REFLECT_END()
 
 namespace

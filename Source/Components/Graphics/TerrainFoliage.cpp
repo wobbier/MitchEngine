@@ -5,7 +5,7 @@
 #endif
 
 ME_REFLECT_BEGIN( TerrainFoliage )
-    ME_FIELD( DrawDistance ).Range( 1.f, 10000.f );
+    ME_FIELD( DrawDistance ).Range( 1.f, 10000.f ).Unit( Reflection::Unit::Meters ).Log();
     ME_FIELD( CastShadows );
 ME_REFLECT_END()
 

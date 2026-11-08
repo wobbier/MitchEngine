@@ -21,6 +21,7 @@
 #include "World/SceneSerializer.h"
 #include <Utils/HavanaUtils.h>
 #include <ImGuiTheme.h>
+#include <Widgets/ItemLog.h>
 #include <imgui.h>
 #include <algorithm>
 #include <cctype>
@@ -107,6 +108,15 @@ void PropertiesWidget::SortComponents(std::vector<BaseComponent*>& components) c
 
 void PropertiesWidget::Render()
 {
+	// Defaults asked for last frame, made before anything is drawn this frame.
+	for (const std::string& typeName : m_wantedDefaults)
+	{
+		if (!m_defaults.count(typeName))
+		{
+			m_defaults[typeName] = EditorOps::GetComponentDefaults(typeName);
+		}
+	}
+	m_wantedDefaults.clear();
 	if (!IsOpen)
 	{
 		return;
@@ -591,6 +601,7 @@ void PropertiesWidget::DrawComponentGroup(const std::string& typeName, std::vect
 	const bool isTransform = typeName == "Transform";
 	const float headerLabelX = ImGui::GetCursorPosX() + ImGui::GetTreeNodeToLabelSpacing();
 	const bool open = ImGui::CollapsingHeader("##header", isTransform ? nullptr : &keep, ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowOverlap);
+	MeWidgets::ItemLog::MarkSection(typeName.c_str());
 	DrawComponentContextMenu(typeName, instances);
 
 	// Enabled toggle + name drawn over the header.
@@ -631,6 +642,15 @@ void PropertiesWidget::DrawComponentGroup(const std::string& typeName, std::vect
 			context.Filter = InFilter;
 			std::vector<std::string> drawnFields;
 			context.Drawn = &drawnFields;
+			const auto defaults = m_defaults.find(typeName);
+			if (defaults != m_defaults.end())
+			{
+				context.Defaults = &defaults->second;
+			}
+			else
+			{
+				m_wantedDefaults.push_back(typeName);
+			}
 			for (size_t i = 1; i < instances.size(); ++i)
 			{
 				context.Others.push_back(instances[i].Component);
@@ -656,6 +676,9 @@ void PropertiesWidget::DrawComponentGroup(const std::string& typeName, std::vect
 			}
 			if (ReflectionUI::DrawType(*typeInfo, primary, context))
 			{
+				// Edits from outside the group's items (a row's context menu: Reset, Paste) commit
+				// like any other once nothing is held.
+				m_pendingEdits[groupKey] = true;
 				for (const std::string& field : context.ChangedFields)
 				{
 					for (Instance& instance : instances)
@@ -702,6 +725,7 @@ void PropertiesWidget::DrawComponentGroup(const std::string& typeName, std::vect
 		ImGuiTheme::SectionGap();
 	}
 	ImGui::PopID();
+	MeWidgets::ItemLog::EndSection();
 
 	if (!keep)
 	{

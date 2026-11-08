@@ -142,7 +142,12 @@ namespace
         // SDL creates undecorated windows non-resizable, which pins their min and max size hints
         // to the current size, so window managers (Hyprland, i3) refuse border resizes. ImGui
         // follows a resize made by the window manager through SDL's resize event.
+        // Utility windows float on tiling window managers (Hyprland, i3, sway); as normal windows
+        // they tile the moment a dragged panel leaves the main window, ending the drag. The main
+        // window is created elsewhere and stays normal.
+        SDL_SetHint( SDL_HINT_X11_WINDOW_TYPE, "_NET_WM_WINDOW_TYPE_UTILITY" );
         SDLCreateWindow( viewport );
+        SDL_ResetHint( SDL_HINT_X11_WINDOW_TYPE );
         SDL_SetWindowResizable( static_cast<SDL_Window*>( viewport->PlatformHandle ), SDL_TRUE );
     }
 #endif

@@ -1,0 +1,244 @@
+# UX-10: the character and navigation widgets driven like a person would, on a new
+# CharacterController and a new NavMeshAgent in the physics test scene. One undo step per gesture;
+# a light-theme check.
+# Havana --scene Assets/Scenes/Tests/PhysicsTest.lvl --frame-time 0.0166667 --editor-exec Engine/Tests/Editor/UX10Characters.edscript
+# The capsule beside a 1.8 m person under Height (drag the Height and Radius handles; Height stays
+# at least 2 x Radius), the pace strip under Max Speed (click a pace, drag along, double-click the
+# marker for the default), the jump arc under Jump Height (drag Apex, snapping to the person mark;
+# Shift drags past it) and the slope wedge under Slope Limit (click a mark, drag the Slope handle).
+wait 20
+create ProbeCharacter
+add-component CharacterController
+select ProbeCharacter
+wait 5
+
+# Capsule: a new controller is 1.8 m end to end with a 0.4 m radius.
+imgui-assert-value CharacterController/Capsule | 1.8 m x 0.4 m
+imgui-assert-value CharacterController/Capsule/Height | 1.8 m
+imgui-assert-value CharacterController/Capsule/Radius | 0.4 m
+# Dragging the top up makes it taller, in centimetres.
+imgui-drag CharacterController/Capsule/Height | 0 -30
+assert-field ProbeCharacter | CharacterController.Height | 2.4 ~ 0.000001
+assert-field ProbeCharacter | CharacterController.Radius | 0.4 ~ 0.000001
+imgui-assert-value CharacterController/Capsule | 2.4 m x 0.4 m
+imgui-assert-value CharacterController/Height | 2.4 m
+wait 30
+imgui-hover CharacterController/Capsule/Height
+panel-screenshot Properties | .tmp/UX10-Capsule-Height.png
+undo
+assert-field ProbeCharacter | CharacterController.Height | 1.8 ~ 0.000001
+redo
+assert-field ProbeCharacter | CharacterController.Height | 2.4 ~ 0.000001
+undo
+wait 30
+# Back near the person's height it snaps to 1.8 m (Shift drags past).
+imgui-drag CharacterController/Capsule/Height | 0 -40
+wait 30
+imgui-drag CharacterController/Capsule/Height | 0 32
+assert-field ProbeCharacter | CharacterController.Height | 1.8 ~ 0.000001
+undo
+undo
+wait 30
+assert-field ProbeCharacter | CharacterController.Height | 1.8 ~ 0.000001
+# Dragging the side out widens it; past half the height it pushes the height up with it, in one
+# undo step.
+imgui-drag CharacterController/Capsule/Radius | 40 0
+assert-field ProbeCharacter | CharacterController.Radius | 1.2 ~ 0.000001
+assert-field ProbeCharacter | CharacterController.Height | 2.4 ~ 0.000001
+imgui-assert-value CharacterController/Capsule | 2.4 m x 1.2 m
+wait 30
+imgui-hover CharacterController/Capsule/Radius
+panel-screenshot Properties | .tmp/UX10-Capsule-Radius.png
+undo
+assert-field ProbeCharacter | CharacterController.Radius | 0.4 ~ 0.000001
+assert-field ProbeCharacter | CharacterController.Height | 1.8 ~ 0.000001
+wait 30
+# The top stops at the caps: a capsule of radius 0.4 m is never under 0.8 m.
+imgui-drag CharacterController/Capsule/Height | 0 200
+assert-field ProbeCharacter | CharacterController.Height | 0.8 ~ 0.000001
+imgui-assert-value CharacterController/Capsule | 0.8 m x 0.4 m
+undo
+assert-field ProbeCharacter | CharacterController.Height | 1.8 ~ 0.000001
+wait 30
+
+# Pace: a new controller runs at 6 m/s. Click Run.
+imgui-assert-value CharacterController/Pace | 6 m/s
+imgui-assert-value CharacterController/Pace/Run | 5 m/s
+imgui-click CharacterController/Pace/Run
+assert-field ProbeCharacter | CharacterController.MaxSpeed | 5
+imgui-assert-value CharacterController/Pace | 5 m/s, run
+imgui-assert-value CharacterController/Max Speed | 5 m/s
+undo
+assert-field ProbeCharacter | CharacterController.MaxSpeed | 6
+redo
+assert-field ProbeCharacter | CharacterController.MaxSpeed | 5
+# Dragging from Run towards Sprint lands on it (the paces catch the pointer).
+imgui-drag CharacterController/Pace/Run | 69 0
+assert-field ProbeCharacter | CharacterController.MaxSpeed | 7.5
+imgui-assert-value CharacterController/Pace | 7.5 m/s, sprint
+imgui-hover CharacterController/Pace/Sprint
+panel-screenshot Properties | .tmp/UX10-Pace.png
+undo
+assert-field ProbeCharacter | CharacterController.MaxSpeed | 5
+# Off the paces it moves in tenths.
+imgui-drag CharacterController/Pace/Value | -20 0
+assert-field ProbeCharacter | CharacterController.MaxSpeed | 4.3 ~ 0.000001
+imgui-assert-value CharacterController/Pace | 4.3 m/s
+undo
+assert-field ProbeCharacter | CharacterController.MaxSpeed | 5
+# Double-clicking the marker returns to the default, 6 m/s.
+imgui-click CharacterController/Pace/Value | double
+assert-field ProbeCharacter | CharacterController.MaxSpeed | 6
+undo
+assert-field ProbeCharacter | CharacterController.MaxSpeed | 5
+undo
+assert-field ProbeCharacter | CharacterController.MaxSpeed | 6
+
+# Jump: 1.2 m under 9.81 m/s^2 leaves at sqrt(2 g h) = 4.85 m/s and lands 0.989 s later.
+imgui-assert-value CharacterController/Jump | 1.2 m apex, 4.85 m/s takeoff, 0.989 s in the air
+imgui-assert-value CharacterController/Jump/Apex | 1.2 m
+# Dragging Apex up near the person mark snaps to 1.8 m.
+imgui-drag CharacterController/Jump/Apex | 0 -20
+assert-field ProbeCharacter | CharacterController.JumpHeight | 1.8 ~ 0.000001
+imgui-assert-value CharacterController/Jump | 1.8 m apex, 5.94 m/s takeoff, 1.21 s in the air
+imgui-assert-value CharacterController/Jump Height | 1.8 m
+wait 30
+imgui-hover CharacterController/Jump/Apex
+panel-screenshot Properties | .tmp/UX10-Jump.png
+undo
+assert-field ProbeCharacter | CharacterController.JumpHeight | 1.2 ~ 0.000001
+redo
+assert-field ProbeCharacter | CharacterController.JumpHeight | 1.8 ~ 0.000001
+undo
+wait 30
+# With Shift it goes past the mark, in millimetres.
+imgui-drag CharacterController/Jump/Apex | 0 -20 | shift
+assert-field ProbeCharacter | CharacterController.JumpHeight | 1.762 ~ 0.000001
+undo
+assert-field ProbeCharacter | CharacterController.JumpHeight | 1.2 ~ 0.000001
+wait 30
+# Gravity Scale 2 pulls twice as hard: the same jump is quicker.
+set CharacterController.GravityScale 2
+wait 5
+imgui-assert-value CharacterController/Jump | 1.2 m apex, 6.86 m/s takeoff, 0.699 s in the air
+undo
+wait 5
+
+# Slope: a new controller walks up 50°. Click Stairs (35°).
+imgui-assert-value CharacterController/Walks Up | walks up 50°
+imgui-assert-value CharacterController/Walks Up/Slope | 50°
+imgui-click CharacterController/Walks Up/Stairs
+assert-field ProbeCharacter | CharacterController.SlopeLimit | 35
+imgui-assert-value CharacterController/Walks Up | walks up 35°
+imgui-assert-value CharacterController/Slope Limit | 35°
+undo
+assert-field ProbeCharacter | CharacterController.SlopeLimit | 50
+redo
+# Dragging the Slope handle up the arc from 35°, in whole degrees.
+imgui-drag CharacterController/Walks Up/Slope | -15 -10
+assert-field ProbeCharacter | CharacterController.SlopeLimit | 46
+imgui-assert-value CharacterController/Walks Up | walks up 46°
+imgui-hover CharacterController/Walks Up/Slope
+panel-screenshot Properties | .tmp/UX10-Slope.png
+undo
+assert-field ProbeCharacter | CharacterController.SlopeLimit | 35
+undo
+assert-field ProbeCharacter | CharacterController.SlopeLimit | 50
+
+# NavMeshAgent: a cylinder (no caps), and the same paces.
+create ProbeAgent
+add-component NavMeshAgent
+select ProbeAgent
+wait 5
+imgui-assert-value NavMeshAgent/Cylinder | 2 m x 0.5 m
+imgui-assert-value NavMeshAgent/Pace | 3.5 m/s
+imgui-click NavMeshAgent/Pace/Walk
+assert-field ProbeAgent | NavMeshAgent.Speed | 1.4 ~ 0.000001
+imgui-assert-value NavMeshAgent/Pace | 1.4 m/s, walk
+undo
+assert-field ProbeAgent | NavMeshAgent.Speed | 3.5
+# A short, wide agent is fine: the top goes below twice the radius.
+imgui-drag NavMeshAgent/Cylinder/Height | 0 70
+assert-field ProbeAgent | NavMeshAgent.Height | 0.6 ~ 0.000001
+assert-field ProbeAgent | NavMeshAgent.Radius | 0.5 ~ 0.000001
+wait 30
+imgui-hover NavMeshAgent/Cylinder
+panel-screenshot Properties | .tmp/UX10-Agent.png
+undo
+assert-field ProbeAgent | NavMeshAgent.Height | 2
+wait 30
+
+# CharacterController2D gets the same widgets: a 1.6 m x 0.3 m capsule jumping 2 m at 7 m/s.
+create Probe2D
+add-component CharacterController2D
+select Probe2D
+wait 5
+imgui-assert-value CharacterController2D/Capsule | 1.6 m x 0.3 m
+imgui-assert-value CharacterController2D/Pace | 7 m/s
+imgui-assert-value CharacterController2D/Jump | 2 m apex, 6.26 m/s takeoff, 1.28 s in the air
+imgui-click CharacterController2D/Pace/Jog
+assert-field Probe2D | CharacterController2D.MaxSpeed | 3
+undo
+assert-field Probe2D | CharacterController2D.MaxSpeed | 7
+
+# Multi-select (the last selected, ProbeCharacter, is the one drawn): the drag copies only Height to the other controller, which then keeps its own
+# caps (a wide one with Radius 1 m stays 2 m tall instead of taking the dragged 0.8 m).
+create ProbeWide
+add-component CharacterController
+select ProbeWide
+wait 5
+set CharacterController.Radius 1.0
+set CharacterController.Height 2.0
+assert-field ProbeWide | CharacterController.Height | 2 ~ 0.000001
+select ProbeWide,ProbeCharacter
+wait 10
+imgui-assert-value CharacterController/Capsule | 1.8 m x 0.4 m
+imgui-drag CharacterController/Capsule/Height | 0 200
+assert-field ProbeCharacter | CharacterController.Height | 0.8 ~ 0.000001
+assert-field ProbeWide | CharacterController.Height | 2 ~ 0.000001
+assert-field ProbeWide | CharacterController.Radius | 1 ~ 0.000001
+undo
+assert-field ProbeCharacter | CharacterController.Height | 1.8 ~ 0.000001
+assert-field ProbeWide | CharacterController.Height | 2 ~ 0.000001
+wait 10
+# Widening a tall controller copies only Radius; a short other one rises to 2 x its new Radius.
+select ProbeWide
+wait 5
+set CharacterController.Radius 0.3
+set CharacterController.Height 0.8
+select ProbeWide,ProbeCharacter
+wait 10
+imgui-drag CharacterController/Capsule/Radius | 10 0
+assert-field ProbeCharacter | CharacterController.Radius | 0.6 ~ 0.000001
+assert-field ProbeCharacter | CharacterController.Height | 1.8 ~ 0.000001
+assert-field ProbeWide | CharacterController.Radius | 0.6 ~ 0.000001
+assert-field ProbeWide | CharacterController.Height | 1.2 ~ 0.000001
+undo
+assert-field ProbeCharacter | CharacterController.Radius | 0.4 ~ 0.000001
+assert-field ProbeWide | CharacterController.Radius | 0.3 ~ 0.000001
+assert-field ProbeWide | CharacterController.Height | 0.8 ~ 0.000001
+wait 10
+
+# Light theme, juice Off: every widget with a value set.
+preference Appearance.Theme | "Light"
+preference Appearance.Juice | "Off"
+select ProbeCharacter
+wait 5
+imgui-drag CharacterController/Capsule/Radius | 10 0
+imgui-click CharacterController/Pace/Jog
+imgui-hover CharacterController/Capsule
+panel-screenshot Properties | .tmp/UX10-Light-Capsule.png
+imgui-hover CharacterController/Jump
+panel-screenshot Properties | .tmp/UX10-Light-Jump.png
+imgui-click CharacterController/Walks Up/Ramp
+assert-field ProbeCharacter | CharacterController.SlopeLimit | 4.8 ~ 0.000001
+imgui-hover CharacterController/Walks Up
+panel-screenshot Properties | .tmp/UX10-Light-Slope.png
+undo
+undo
+undo
+assert-field ProbeCharacter | CharacterController.Radius | 0.4 ~ 0.000001
+assert-field ProbeCharacter | CharacterController.MaxSpeed | 6
+assert-field ProbeCharacter | CharacterController.SlopeLimit | 50
+preference Appearance.Theme | "Dark"
+preference Appearance.Juice | "Full"
