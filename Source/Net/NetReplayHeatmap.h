@@ -23,9 +23,13 @@
 //              entity (the victim) is at that tick;
 // - kills:     the same event, where the killer is at that tick: the payload's "killerNetId" (or
 //              "killerId"), else whoever fired the newest shot that hit the victim in the
-//              KillerShotSeconds before (a projectile's sweep counts for its instigator). A
-//              kill with neither (a fall) is a death only, counted as unattributed; one by the victim
-//              itself (a rocket jump gone wrong) a death only.
+//              KillerShotSeconds before (a projectile's sweep counts for its instigator), but not
+//              a hit whose shooter died after landing it (someone else finished the victim) nor
+//              one by another player than the payload's "killer" names (the "player" of its
+//              events). A killer that is dead by then (a rocket still in flight) is placed where
+//              it last stood alive, never where its body was parked. A kill with no killer (a
+//              fall) is a death only, counted as unattributed; one by the victim itself (a rocket
+//              jump gone wrong) a death only.
 //
 // Groups: "hero:<name>" (the entity's prefab file name, "Striker" from .../Heroes/Striker.prefab,
 // else its entity name) and "team:<name>" (the newest "team" in the payload of any event about the

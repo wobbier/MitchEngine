@@ -18,6 +18,7 @@
 #include "Net/NetReplayDump.h"
 #include "Net/NetReplayHeatmap.h"
 #include "Net/NetReplayTimeline.h"
+#include <cmath>
 #include <sstream>
 #include <filesystem>
 #include <fstream>
@@ -187,6 +188,109 @@ TEST_CASE( "Replay heatmap: positions, deaths and kills from one pass land in th
     const std::string text = heatmap.Describe();
     CHECK( text.find( "1 replay(s) of Assets/Scenes/Arena.lvl" ) != std::string::npos );
     CHECK( text.find( "1 kill(s) without a known killer and 1 by the victim itself" ) != std::string::npos );
+}
+
+
+TEST_CASE( "Replay heatmap: a dead killer's kill is where it stood alive, and a hit its shooter died after, or by another player than the payload names, isn't the kill (ME-215)" )
+{
+    // Striker (Alpha), Bruiser (Bravo) and Railgunner (Romeo). Romeo hits Striker at 10, Bruiser kills
+    // Romeo at 20 (named), and Romeo's body is parked under the map from 30 (HeroShooter's limbo).
+    // Striker dies at 40 by "Bravo", with no hit of Bravo's: Romeo's hit landed before Romeo died, so it
+    // isn't the kill. Romeo's rocket (fired alive, its sweep at 50) kills Bruiser at 50: Romeo's, where
+    // Romeo last stood alive. Striker hits Bruiser at 60 and Bruiser dies at 65 by "Charlie": neither
+    // Alpha's hit nor Romeo's is the kill.
+    constexpr uint32_t kRailgunner = 65541;
+    const Vector3 romeoAt( 6.5f, 1.f, 6.5f );
+    const Vector3 limbo( -4.5f, -58.5f, 4.5f );
+    std::vector<NetReplayTick> ticks;
+    for( uint32_t t = 0; t < 80; ++t )
+    {
+        NetReplayTick tick;
+        tick.Tick = t;
+        tick.State.Tick = t;
+        Mover( tick, kStriker, Vector3( 2.5f, 1.f, 3.5f ) );
+        Mover( tick, kBruiser, Vector3( -1.5f, 1.f, 0.5f ) );
+        Mover( tick, kRailgunner, t < 30 ? romeoAt : limbo );
+        if( t % 50 == 0 )
+        {
+            tick.Entities = { { kStriker, "Striker", "Assets/Prefabs/Heroes/Striker.prefab", 1 }, { kBruiser, "Bruiser", "Assets/Prefabs/Heroes/Bruiser.prefab", 2 },
+                { kRailgunner, "Railgunner", "Assets/Prefabs/Heroes/Railgunner.prefab", 3 } };
+        }
+        auto hit = [&]( uint32_t InShooter, uint32_t InInstigator, uint32_t InTarget, const Vector3& InOrigin ) {
+            NetReplayShot& shot = tick.Shots.emplace_back();
+            shot.Shooter = InShooter;
+            shot.Instigator = InInstigator;
+            shot.Origin = InOrigin;
+            shot.Direction = Vector3( 1.f, 0.f, 0.f );
+            shot.Hit = true;
+            shot.Target = InTarget;
+        };
+        if( t == 1 )
+        {
+            tick.Events.push_back( { "spawn", "{\"player\":\"Alpha\"}", kStriker } );
+            tick.Events.push_back( { "spawn", "{\"player\":\"Bravo\"}", kBruiser } );
+            tick.Events.push_back( { "spawn", "{\"player\":\"Romeo\"}", kRailgunner } );
+        }
+        if( t == 10 )
+        {
+            hit( kRailgunner, 0, kStriker, romeoAt );
+        }
+        if( t == 20 )
+        {
+            tick.Events.push_back( { "kill", "{\"killer\":\"Bravo\",\"killerNetId\":65539}", kRailgunner } );
+        }
+        if( t == 40 )
+        {
+            tick.Events.push_back( { "kill", "{\"killer\":\"Bravo\"}", kStriker } );
+        }
+        if( t == 50 )
+        {
+            hit( 0, kRailgunner, kBruiser, Vector3( -1.f, 1.f, 0.5f ) );
+            tick.Events.push_back( { "kill", "{\"killer\":\"Romeo\"}", kBruiser } );
+        }
+        if( t == 55 )
+        {
+            tick.Events.push_back( { "respawn", "{\"player\":\"Alpha\"}", kStriker } );
+            tick.Events.push_back( { "respawn", "{\"player\":\"Bravo\"}", kBruiser } );
+        }
+        if( t == 60 )
+        {
+            hit( kStriker, 0, kBruiser, Vector3( 2.5f, 2.f, 3.5f ) );
+        }
+        if( t == 65 )
+        {
+            tick.Events.push_back( { "kill", "{\"killer\":\"Charlie\"}", kBruiser } );
+        }
+        ticks.push_back( std::move( tick ) );
+    }
+    NetReplayMemorySource source( HeatmapHeader() );
+    for( size_t first = 0; first < ticks.size(); first += 50 )
+    {
+        std::vector<NetReplayTick> chunk( ticks.begin() + first, ticks.begin() + std::min<size_t>( first + 50, ticks.size() ) );
+        REQUIRE( source.AddChunk( NetReplayChunk::Encode( chunk, NetReplayCodec::Deflate ) ) );
+    }
+    NetReplayReader reader( source );
+    NetReplayHeatmap heatmap;
+    std::string error;
+    REQUIRE_MESSAGE( heatmap.AddReplay( reader, "dead-killer.mreplay", &error ), error );
+
+    CHECK( heatmap.GetTotal( Layer::Deaths ) == doctest::Approx( 4.0 ) );
+    // Bravo's named kill of Romeo where Bravo stands; Romeo's rocket kill where Romeo stood alive.
+    CHECK( heatmap.GetTotal( Layer::Kills ) == doctest::Approx( 2.0 ) );
+    CHECK( heatmap.ValueAt( Layer::Kills, Vector3( -1.5f, 0.f, 0.5f ) ) == doctest::Approx( 1.0 ) );
+    CHECK( heatmap.ValueAt( Layer::Kills, romeoAt ) == doctest::Approx( 1.0 ) );
+    CHECK( heatmap.GetTotal( Layer::Kills, "hero:Railgunner" ) == doctest::Approx( 1.0 ) );
+    CHECK( heatmap.ValueAt( Layer::Kills, limbo ) == doctest::Approx( 0.0 ) );
+    CHECK( heatmap.GetTotal( Layer::Kills, "hero:Striker" ) == doctest::Approx( 0.0 ) );
+    // Striker's death at 40 and Bruiser's at 65 have no killer the replay can tell.
+    CHECK( heatmap.GetUnattributedKills() == 2 );
+    // Nothing went in under the map: the parked body isn't a position, a death or a kill.
+    int x = 0;
+    int z = 0;
+    heatmap.CellOf( limbo, x, z );
+    CHECK( std::isnan( heatmap.FloorAt( x, z ) ) );
+    heatmap.CellOf( romeoAt, x, z );
+    CHECK( heatmap.FloorAt( x, z ) == doctest::Approx( 1.f ) );
 }
 
 

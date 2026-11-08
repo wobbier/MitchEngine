@@ -230,6 +230,11 @@ bool NetReplayHeatmap::AddReplay( NetReplayReader& InReader, const std::string& 
     };
     std::deque<Hit> hits;
     std::set<uint32_t> dead;    // killed, not back yet: no positions
+    // Where each character last stood alive (a dead one's killer is placed there: a game parks its dead
+    // out of sight, HeroShooter under the arena), the tick it last died, and the "player" its events name.
+    std::map<uint32_t, Vector3> lastAlive;
+    std::map<uint32_t, uint32_t> lastDeath;
+    std::map<uint32_t, std::string> players;
     bool cancelled = false;
 
     auto heroOf = [&table]( uint32_t InNetId ) {
@@ -269,6 +274,13 @@ bool NetReplayHeatmap::AddReplay( NetReplayReader& InReader, const std::string& 
         {
             table[entity.NetId] = entity;
         }
+        for( const NetReplayMover& mover : InTick.Movers )
+        {
+            if( !dead.count( mover.NetId ) )
+            {
+                lastAlive[mover.NetId] = mover.State.Position;
+            }
+        }
         // Hits, newest last, for kills that don't name their killer.
         for( const NetReplayShot& shot : InTick.Shots )
         {
@@ -292,6 +304,11 @@ bool NetReplayHeatmap::AddReplay( NetReplayReader& InReader, const std::string& 
                 {
                     teams[event.Entity] = team;
                 }
+                const std::string player = ReadName( payload, "player" );
+                if( !player.empty() )
+                {
+                    players[event.Entity] = player;
+                }
             }
             if( event.Entity != 0 && std::find( m_settings.AliveEvents.begin(), m_settings.AliveEvents.end(), event.Name ) != m_settings.AliveEvents.end() )
             {
@@ -305,6 +322,7 @@ bool NetReplayHeatmap::AddReplay( NetReplayReader& InReader, const std::string& 
             if( event.Entity != 0 )
             {
                 dead.insert( event.Entity );
+                lastDeath[event.Entity] = InTick.Tick;
             }
             const json none;
             const json& fields = isObject ? payload : none;
@@ -326,10 +344,27 @@ bool NetReplayHeatmap::AddReplay( NetReplayReader& InReader, const std::string& 
             {
                 killer = ReadNetId( fields, "killerId" );
             }
+            // Without a named killer, the newest hit on the victim, unless it can't be the kill: its shooter
+            // died after landing it (someone else finished the victim off: a projectile still in flight
+            // when its shooter died lands later, and counts), or the payload's "killer" names another player.
+            const std::string killerName = ReadName( fields, "killer" );
+            auto couldBe = [&]( const Hit& InHit ) {
+                if( killer != 0 )
+                {
+                    return InHit.Killer == killer;
+                }
+                auto died = lastDeath.find( InHit.Killer );
+                if( InHit.Killer != victim && died != lastDeath.end() && died->second > InHit.Tick )
+                {
+                    return false;
+                }
+                auto name = players.find( InHit.Killer );
+                return killerName.empty() || name == players.end() || name->second == killerName;
+            };
             const Hit* shot = nullptr;
             for( auto it = hits.rbegin(); it != hits.rend(); ++it )
             {
-                if( victim != 0 && it->Target == victim && ( killer == 0 || it->Killer == killer ) )
+                if( victim != 0 && it->Target == victim && couldBe( *it ) )
                 {
                     shot = &*it;
                     break;
@@ -349,9 +384,23 @@ bool NetReplayHeatmap::AddReplay( NetReplayReader& InReader, const std::string& 
                 ++m_suicides;
                 continue;
             }
-            // Where the killer is: the payload's, the tick's, else where its shot came from.
+            // Where the killer is: the payload's, the tick's (a dead killer's: where it last stood alive, never
+            // where its body was parked), else where its shot came from.
             Vector3 killAt;
-            bool hasKill = ( isObject && fields.contains( "killerAt" ) && ReadVector( fields["killerAt"], killAt ) ) || positionOf( InTick, killer, killAt );
+            bool hasKill = isObject && fields.contains( "killerAt" ) && ReadVector( fields["killerAt"], killAt );
+            if( !hasKill && dead.count( killer ) )
+            {
+                auto alive = lastAlive.find( killer );
+                if( alive != lastAlive.end() )
+                {
+                    killAt = alive->second;
+                    hasKill = true;
+                }
+            }
+            else if( !hasKill )
+            {
+                hasKill = positionOf( InTick, killer, killAt );
+            }
             if( !hasKill && shot )
             {
                 killAt = shot->Origin;
