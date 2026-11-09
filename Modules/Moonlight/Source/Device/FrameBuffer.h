@@ -68,10 +68,12 @@ namespace Moonlight
         float FogPreviousForward[3] = {};
         void EnsureFogHistoryTargets();
 
-        // Auto exposure: this frame's average luminance and the adapted value (ping-pong).
+        // Auto exposure (created on first use): this frame's average luminance and the adapted
+        // value (ping-pong). False when they couldn't all be made.
         Mip LuminanceBuffer;
         Mip AdaptedLuminance[2];
         uint32_t AdaptedIndex = 0;
+        bool EnsureAutoExposureTargets();
 
         // Temporal anti-aliasing (created on first use): the resolved HDR colour, ping-ponged with
         // the history it was resolved against.

@@ -152,8 +152,8 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
     m_drawsNothing = settings.Type == bgfx::RendererType::Noop;
     if( settings.InitAssets )
     {
+        // Built when the editor view first draws, at its size (bgfx's framebuffer pool is small).
         EditorCameraBuffer = new Moonlight::FrameBuffer( init.swapChain.width, init.swapChain.height );
-        EditorCameraBuffer->ReCreate( m_resetFlags );
 
         m_debugDraw.reset( new DebugDrawer() );
         //m_debugDraw->End();
@@ -1336,15 +1336,14 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     {
         OPTICK_CATEGORY( "Meshes", Optick::Category::GPU_Scene );
         bool hasCullingInfo = camera.ShouldCull && !camera.VisibleFlags.empty();
-        for( size_t i = 0; i < m_meshCache.Commands.size(); ++i )
-        {
+        const auto drawCommand = [&]( size_t i ) {
             const Moonlight::MeshCommand& mesh = m_meshCache.Commands[i];
             // Resident foliage can retain a hidden command whose old visibility index
             // exceeds this frame's smaller draw list. Ignore it before reading that list.
-            if( !mesh.Visible || !mesh.MeshMaterial || mesh.RenderGroup != camera.RenderGroup ) continue;
+            if( !mesh.Visible || !mesh.MeshMaterial || mesh.RenderGroup != camera.RenderGroup ) return;
             if( hasCullingInfo && ( mesh.VisibilityIndex >= camera.VisibleFlags.size() || !camera.VisibleFlags[mesh.VisibilityIndex] ) )
             {
-                continue;
+                return;
             }
             if( mesh.Outlined && mesh.OutlineWidth > 0.f )
             {
@@ -1355,13 +1354,13 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
                 if( mesh.IsTransparent )
                 {
                     if( options.Transparencies ) TransparentIndicies.push_back( i );
-                    continue;
+                    return;
                 }
 
                 if( overdraw )
                 {
                     RenderOverdrawMesh( id, mesh );
-                    continue;
+                    return;
                 }
 
                 // A LOD crossfade: the outgoing level too, through the complementary mask.
@@ -1387,22 +1386,40 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
                 if( mesh.SkinBoneCount > 0 )
                 {
                     RenderSkinnedMesh( id, mesh, state );
-                    continue;
+                    return;
                 }
                 if( bgfx::isValid( mesh.PosedVertices ) && mesh.MeshMaterial->SupportsInstancing )
                 {
                     RenderMeshInstanced( id, mesh, &mesh.Transform, 1, state );
-                    continue;
+                    return;
                 }
 
                 if( mesh.SupportsInstancing && mesh.VertexBufferIdx != UINT16_MAX )
                 {
                     InstanceBatch& batch = getBatch( mesh.VertexBufferIdx, mesh.IndexBufferIdx, mesh.BatchKey, i );
                     batch.transforms.push_back( mesh.Transform );
-                    continue;
+                    return;
                 }
 
                 RenderSingleMesh( id, mesh, state );
+            }
+        };
+        // RenderCore's list of what this camera sees, when it built one for this frame; otherwise
+        // (editor previews, a frame RenderCore didn't prepare) every command, as the checks above
+        // still decide. Both visit commands in ascending order.
+        if( hasCullingInfo && camera.VisibleMeshesFrame == m_frameIndex )
+        {
+            const size_t commandCount = m_meshCache.Commands.size();
+            for( uint32_t i : camera.VisibleMeshes )
+            {
+                if( i < commandCount ) drawCommand( i );
+            }
+        }
+        else
+        {
+            for( size_t i = 0; i < m_meshCache.Commands.size(); ++i )
+            {
+                drawCommand( i );
             }
         }
     }

@@ -25,6 +25,7 @@
 #include "Components/Graphics/Mesh.h"
 #include "Components/Graphics/OccluderFade.h"
 #include <cstring>
+#include <algorithm>
 #include "Cores/PhysicsCore.h"
 #include "Components/Graphics/Terrain.h"
 #include "Components/Graphics/TerrainFoliage.h"
@@ -980,6 +981,46 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                     }
                 }
             } );
+
+    // Each camera's visible meshes as a list of mesh cache ids, so its draw loop walks those rather
+    // than every command. Ascending, the order a full scan visits them: instance batches (and their
+    // draw order) are made first-seen. Stamped with the frame about to render: only that frame's
+    // Render uses them, so a camera this core didn't refresh falls back to the scan.
+    {
+        std::vector<Moonlight::CameraData*> listed;
+        for( Moonlight::CameraData& cam : cameras.Commands )
+        {
+            listed.push_back( &cam );
+        }
+#if USING( ME_EDITOR )
+        listed.push_back( &editorCamera );
+#endif
+        const uint64_t frame = renderer.GetFrameIndex() + 1;
+        const size_t commandCount = renderer.GetMeshCache().Commands.size();
+        engine.GetJobSystem().ParallelFor( "Render Prep: Visible Meshes", static_cast<uint32_t>( listed.size() ), 1, [&]( uint32_t begin, uint32_t end )
+            {
+                for( uint32_t c = begin; c < end; ++c )
+                {
+                    Moonlight::CameraData& cam = *listed[c];
+                    cam.VisibleMeshes.clear();
+                    for( size_t entIndex = 0; entIndex < cam.VisibleFlags.size(); ++entIndex )
+                    {
+                        if( !cam.VisibleFlags[entIndex] )
+                        {
+                            continue;
+                        }
+                        const unsigned int id = items[entIndex].Instance->GetId();
+                        if( id < commandCount )
+                        {
+                            cam.VisibleMeshes.push_back( id );
+                        }
+                    }
+                    std::sort( cam.VisibleMeshes.begin(), cam.VisibleMeshes.end() );
+                    cam.VisibleMeshes.erase( std::unique( cam.VisibleMeshes.begin(), cam.VisibleMeshes.end() ), cam.VisibleMeshes.end() );
+                    cam.VisibleMeshesFrame = frame;
+                }
+            } );
+    }
 
     {
         OPTICK_EVENT( "RenderCore::UploadVertexAnimation" );

@@ -69,7 +69,7 @@ bool Moonlight::FrameBuffer::IsIncomplete() const
     {
         if( missing( mip ) ) return true;
     }
-    for( const Mip* mip : { &AOBuffer, &AOBlurBuffer, &FogBuffer, &FogBlurBuffer, &FogHistory[0], &FogHistory[1], &LuminanceBuffer, &AdaptedLuminance[0], &AdaptedLuminance[1],
+    for( const Mip* mip : { &AOBuffer, &AOBlurBuffer, &FogBuffer, &FogBlurBuffer, &FogHistory[0], &FogHistory[1],
              &TemporalHistory[0], &TemporalHistory[1], &DoFCoC, &DoFPrefilter, &DoFRadius[0], &DoFRadius[1], &DoFNear, &DoFFar, &DoFOutput, &DoFSplitOutput,
              &CloudHistory[0], &CloudHistory[1], &GraphHdr[0], &GraphHdr[1], &GraphLdr[0], &GraphLdr[1], &GraphSceneMips, &UpscaleInput, &EraInput } )
     {
@@ -218,6 +218,36 @@ void Moonlight::FrameBuffer::EnsureBloomTargets()
 }
 
 
+bool Moonlight::FrameBuffer::EnsureAutoExposureTargets()
+{
+    if( !bgfx::isValid( LuminanceBuffer.Color ) )
+    {
+        LuminanceBuffer = CreateColorTarget( 1, 1, bgfx::TextureFormat::R16F, "Average Luminance" );
+        for( Mip& adapted : AdaptedLuminance )
+        {
+            // Start adapted to mid grey so the first frames aren't flashed.
+            const float initial = 0.18f;
+            adapted.Width = adapted.Height = 1;
+            adapted.Color = bgfx::createTexture2D( 1, 1, false, 1, bgfx::TextureFormat::R32F, BGFX_TEXTURE_RT | kClampLinear, bgfx::copy( &initial, sizeof( initial ) ) );
+            bgfx::setName( adapted.Color, "Adapted Luminance" );
+            adapted.Buffer = CreateChecked( 1, &adapted.Color, "Adapted Luminance" );
+        }
+        AdaptedIndex = 0;
+    }
+    if( bgfx::isValid( LuminanceBuffer.Buffer ) && bgfx::isValid( AdaptedLuminance[0].Buffer ) && bgfx::isValid( AdaptedLuminance[1].Buffer ) )
+    {
+        return true;
+    }
+    // Optional, like bloom: the camera renders at a fixed exposure and tries again next frame.
+    for( Mip* target : { &LuminanceBuffer, &AdaptedLuminance[0], &AdaptedLuminance[1] } )
+    {
+        DestroyIfValid( target->Buffer );
+        DestroyIfValid( target->Color );
+    }
+    return false;
+}
+
+
 void Moonlight::FrameBuffer::EnsureAmbientOcclusionTargets()
 {
     if( bgfx::isValid( AOBuffer.Color ) )
@@ -356,7 +386,11 @@ void Moonlight::FrameBuffer::Resize( Vector2 newSize )
 {
     Width = OutputWidth = static_cast<uint32_t>( Mathf::Max( newSize.x, 1.f ) );
     Height = OutputHeight = static_cast<uint32_t>( Mathf::Max( newSize.y, 1.f ) );
-    ReCreate( m_resetFlags );
+    // Not built yet: the renderer builds it at this size when it first draws with it.
+    if( bgfx::isValid( SceneBuffer ) )
+    {
+        ReCreate( m_resetFlags );
+    }
 }
 
 
@@ -396,18 +430,6 @@ void Moonlight::FrameBuffer::ReCreate( uint32_t resetFlags )
         const bgfx::TextureHandle outputAttachments[] = { Texture, bgfx::isValid( OutputDepth ) ? OutputDepth : DepthTexture };
         Buffer = CreateChecked( 2, outputAttachments, "Camera Output" );
     }
-
-    LuminanceBuffer = CreateColorTarget( 1, 1, bgfx::TextureFormat::R16F, "Average Luminance" );
-    for( Mip& adapted : AdaptedLuminance )
-    {
-        // Start adapted to mid grey so the first frames aren't flashed.
-        const float initial = 0.18f;
-        adapted.Width = adapted.Height = 1;
-        adapted.Color = bgfx::createTexture2D( 1, 1, false, 1, bgfx::TextureFormat::R32F, BGFX_TEXTURE_RT | kClampLinear, bgfx::copy( &initial, sizeof( initial ) ) );
-        bgfx::setName( adapted.Color, "Adapted Luminance" );
-        adapted.Buffer = CreateChecked( 1, &adapted.Color, "Adapted Luminance" );
-    }
-    AdaptedIndex = 0;
 
     // Sized for ClusterBuilder (16 x 9 tiles, 24 slices; 1024 x 128 light indices).
     ClusterGrid = bgfx::createTexture2D( 16 * 9, 24, false, 1, bgfx::TextureFormat::RGBA32F, BGFX_SAMPLER_POINT | kClampLinear );

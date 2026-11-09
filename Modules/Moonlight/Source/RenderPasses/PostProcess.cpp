@@ -479,6 +479,10 @@ namespace Moonlight
     bgfx::TextureHandle PostProcess::RenderAutoExposure( ViewAllocator& InViews, const PostProcessSettings& InSettings, FrameBuffer& InTargets )
     {
         OPTICK_EVENT( "PostProcess::AutoExposure" );
+        if( !InTargets.EnsureAutoExposureTargets() )
+        {
+            return m_whiteTexture;
+        }
         const bgfx::ViewId luminanceView = InViews.Allocate( "Luminance" );
         const bgfx::ViewId adaptView = InViews.Allocate( "Eye Adaptation" );
         if( adaptView == UINT16_MAX )

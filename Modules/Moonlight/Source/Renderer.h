@@ -109,6 +109,8 @@ public:
     CommandCache<Moonlight::MeshCommand>& GetMeshCache();
     // Changes whenever ClearMeshes drops every command (holders of mesh command IDs push again).
     uint32_t GetMeshCacheGeneration() const { return m_meshCacheGeneration; }
+    // Counts Render calls; the one in progress (or last finished) has this index, the next one +1.
+    uint64_t GetFrameIndex() const { return m_frameIndex; }
     CommandCache<Moonlight::DebugColliderCommand>& GetDebugDrawCache();
 
     // Meshes

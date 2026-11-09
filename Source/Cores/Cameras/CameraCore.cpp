@@ -332,7 +332,9 @@ void CameraCore::OnEntityAdded( Entity& NewEntity )
     Moonlight::CameraData camData = CreateCameraData( NewEntity.GetComponent<Transform>(), NewEntity.GetComponent<Camera>() );
     unsigned int id = renderer.GetCameraCache().Push( camData );
     NewEntity.GetComponent<Camera>().m_id = id;
-    renderer.RecreateFrameBuffer( id );
+    // No targets yet: the renderer creates them at the size it first draws the camera at. Built
+    // here at a guessed size, they were built twice, and bgfx only frees a framebuffer once the
+    // frame using it is done, so a scene with several cameras ran out of its fixed pool.
 }
 
 Moonlight::CameraData CameraCore::CreateCameraData( Transform& InTransform, Camera& InCamera )

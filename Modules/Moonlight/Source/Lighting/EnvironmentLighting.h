@@ -15,8 +15,8 @@ namespace Moonlight
     // panorama or the procedural sky. Each distinct source gets a probe: the environment captured into
     // a cube, GGX-prefiltered into a specular mip chain (roughness = mip / (kSpecularMips - 1)) and
     // convolved into diffuse irradiance, plus one shared split-sum BRDF table. Probes refresh when their
-    // source changes (e.g. the sky's sun moves), spread over two frames so a refresh never costs more
-    // than a few dozen tiny passes in one frame.
+    // source changes (e.g. the sky's sun moves), one step a frame over kRefreshSteps frames: each
+    // step's six faces need a framebuffer apiece until the frame is done, and bgfx's pool is small.
     class EnvironmentLighting
     {
     public:
@@ -25,6 +25,8 @@ namespace Moonlight
         static constexpr uint8_t kSpecularMips = 5;    // 128 .. 8
         static constexpr uint8_t kSourceLevels = 4;    // 128, 64, 32, 16 (separate cubes: no read/write hazards)
         static constexpr size_t kProbeCount = 3;
+        // Capture, the smaller source copies, each specular mip, then the irradiance.
+        static constexpr uint8_t kRefreshSteps = kSourceLevels + kSpecularMips + 1;
 
         struct Probe
         {
@@ -34,7 +36,7 @@ namespace Moonlight
             uint64_t Key = 0;
             int SourceType = -1;
             uint64_t LastUsedFrame = 0;
-            bool Captured = false;   // captured, waiting to be filtered
+            uint8_t NextStep = 0;    // mid-refresh (captured, still filtering) when not 0
             bool Ready = false;      // filtered at least once
         };
 
@@ -71,7 +73,7 @@ namespace Moonlight
         void CreateProbe( Probe& OutProbe );
         void DestroyProbe( Probe& InProbe );
         bool Capture( Probe& InProbe, const SourceDesc& InSource, ViewAllocator& InViews, DynamicSky* InSky );
-        bool Filter( Probe& InProbe, ViewAllocator& InViews );
+        bool RefreshStep( Probe& InProbe, uint8_t InStep, ViewAllocator& InViews );
         bool RenderBrdfLut( ViewAllocator& InViews );
         bgfx::ViewId BeginPass( ViewAllocator& InViews, const char* InName, bgfx::TextureHandle InTarget, uint16_t InLayer, uint16_t InMip, uint16_t InSize );
         void Submit( bgfx::ViewId InView, const ShaderCommand& InProgram );

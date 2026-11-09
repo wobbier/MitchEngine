@@ -187,15 +187,18 @@ namespace Moonlight
         }
         probe->LastUsedFrame = InFrame;
 
-        // One refresh step per frame across all probes: capture, then filter on a later frame.
+        // One refresh step per frame across all probes: capture, then filter on later frames.
         if( m_lastUpdateFrame != InFrame )
         {
-            if( probe->Captured )
+            if( probe->NextStep != 0 )
             {
-                if( HasFrameBufferHeadroom( 6 * ( kSpecularMips + 1 ) ) && Filter( *probe, InViews ) )
+                if( HasFrameBufferHeadroom( 6 ) && RefreshStep( *probe, probe->NextStep, InViews ) )
                 {
-                    probe->Captured = false;
-                    probe->Ready = true;
+                    if( ++probe->NextStep == kRefreshSteps )
+                    {
+                        probe->NextStep = 0;
+                        probe->Ready = true;
+                    }
                     m_lastUpdateFrame = InFrame;
                 }
             }
@@ -205,11 +208,11 @@ namespace Moonlight
                 {
                     probe->Ready = false;
                 }
-                if( HasFrameBufferHeadroom( 6 * kSourceLevels ) && Capture( *probe, source, InViews, InSky ) )
+                if( HasFrameBufferHeadroom( 6 ) && Capture( *probe, source, InViews, InSky ) )
                 {
                     probe->Key = source.Key;
                     probe->SourceType = source.Type;
-                    probe->Captured = true;
+                    probe->NextStep = 1;
                     m_lastUpdateFrame = InFrame;
                 }
             }
@@ -363,9 +366,16 @@ namespace Moonlight
             Submit( view, m_captureProgram );
         }
 
+        return true;
+    }
+
+
+    bool EnvironmentLighting::RefreshStep( Probe& InProbe, uint8_t InStep, ViewAllocator& InViews )
+    {
         // Smaller copies for the rougher prefilter levels and the irradiance.
-        for( uint8_t level = 1; level < kSourceLevels; ++level )
+        if( InStep < kSourceLevels )
         {
+            const uint8_t level = InStep;
             const uint16_t size = static_cast<uint16_t>( kCaptureSize >> level );
             for( uint16_t face = 0; face < 6; ++face )
             {
@@ -379,15 +389,11 @@ namespace Moonlight
                 bgfx::setTexture( 0, s_envSource, InProbe.Source[level - 1], kCubeSampler );
                 Submit( view, m_downsampleProgram );
             }
+            return true;
         }
-        return true;
-    }
-
-
-    bool EnvironmentLighting::Filter( Probe& InProbe, ViewAllocator& InViews )
-    {
-        for( uint8_t mip = 0; mip < kSpecularMips; ++mip )
+        if( InStep < kSourceLevels + kSpecularMips )
         {
+            const uint8_t mip = static_cast<uint8_t>( InStep - kSourceLevels );
             const uint16_t size = static_cast<uint16_t>( kCaptureSize >> mip );
             const float roughness = static_cast<float>( mip ) / static_cast<float>( kSpecularMips - 1 );
             const uint8_t sourceLevel = std::min<uint8_t>( mip, kSourceLevels - 1 );
@@ -404,6 +410,7 @@ namespace Moonlight
                 bgfx::setTexture( 0, s_envSource, InProbe.Source[sourceLevel], kCubeSampler );
                 Submit( view, m_prefilterProgram );
             }
+            return true;
         }
         for( uint16_t face = 0; face < 6; ++face )
         {

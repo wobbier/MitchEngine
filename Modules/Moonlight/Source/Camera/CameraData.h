@@ -174,5 +174,11 @@ namespace Moonlight
 
         // One byte per renderable (not vector<bool>): mesh jobs write these concurrently.
         std::vector<uint8_t> VisibleFlags;
+        // The same visibility as mesh cache ids, ascending (a full scan's order, which fixes instance
+        // batch order), so the camera's draw loop visits only what it sees. RenderCore compacts it
+        // from VisibleFlags; it is only trusted the frame it was built for (BGFXRenderer frame index):
+        // a camera that frame's RenderCore didn't refresh scans every command instead.
+        std::vector<uint32_t> VisibleMeshes;
+        uint64_t VisibleMeshesFrame = 0;
     };
 }
