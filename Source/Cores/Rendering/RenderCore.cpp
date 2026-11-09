@@ -506,79 +506,168 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
 #if USING( ME_EDITOR )
     addTerrainView( engine.EditorCamera );
 #endif
-    for( Entity& entity : Renderables )
     {
-        if( auto* terrain = entity.TryGetComponent<Terrain>(); terrain && terrain->IsEnabled() && entity.IsActiveInHierarchy() && terrain->GetData() )
-        {
-            terrains.insert( entity.GetId().Value() );
-            TerrainDraw* draw = PrepareTerrainDraw( entity, *terrain, terrainViews );
-            if( draw )
+        OPTICK_EVENT( "RenderCore::Gather" );
+        // Everything an entity can need, on the main thread: registering or releasing its mesh
+        // command, terrain and foliage draws, a compact model's parts.
+        const auto gatherEntity = [&]( Entity& entity ) {
+            if( auto* terrain = entity.TryGetComponent<Terrain>(); terrain && terrain->IsEnabled() && entity.IsActiveInHierarchy() && terrain->GetData() )
             {
-                const auto& world = entity.GetComponent<Transform>().GetLocalToWorldMatrix().GetInternalMatrix();
-                for( size_t i = 0; i < draw->Parts.size(); ++i )
-                    items.push_back( { draw->Parts[i].get(), Matrix4( glm::translate( world, draw->Source->Patches[i]->Offset.InternalVector ) ), entity.GetHandle() } );
+                terrains.insert( entity.GetId().Value() );
+                TerrainDraw* draw = PrepareTerrainDraw( entity, *terrain, terrainViews );
+                if( draw )
+                {
+                    const auto& world = entity.GetComponent<Transform>().GetLocalToWorldMatrix().GetInternalMatrix();
+                    for( size_t i = 0; i < draw->Parts.size(); ++i )
+                        items.push_back( { draw->Parts[i].get(), Matrix4( glm::translate( world, draw->Source->Patches[i]->Offset.InternalVector ) ), entity.GetHandle() } );
+                }
             }
-        }
-        if( auto* foliage = entity.TryGetComponent<TerrainFoliage>(); foliage && foliage->IsEnabled() && entity.IsActiveInHierarchy() )
-            PrepareFoliageDraw( entity, *foliage, terrainViews, [&]( Mesh* mesh, const Matrix4& matrix ) { items.push_back( { mesh, matrix, entity.GetHandle() } ); } );
-        else RemoveFoliageDraw( entity.GetId().Value() );
-        Mesh* directMesh = entity.TryGetComponent<Mesh>();
-        if( Mesh* mesh = directMesh; mesh && mesh->IsEnabled() )
-        {
-            if( mesh->Id == std::numeric_limits<unsigned int>::max() ) mesh->Id = renderer.GetMeshCache().Push( Moonlight::MeshCommand() );
-            m_meshCommands[entity.GetId().Value()] = mesh->Id;
-            items.push_back( { mesh, mesh->PortalImage ? mesh->PortalImageWorld : entity.GetComponent<Transform>().GetLocalToWorldMatrix(), entity.GetHandle() } );
-            applyOutline( items.back(), entity );
-        }
-        else
-        {
-            auto previous = m_meshCommands.find( entity.GetId().Value() );
-            if( previous != m_meshCommands.end() )
+            if( auto* foliage = entity.TryGetComponent<TerrainFoliage>(); foliage && foliage->IsEnabled() && entity.IsActiveInHierarchy() )
+                PrepareFoliageDraw( entity, *foliage, terrainViews, [&]( Mesh* mesh, const Matrix4& matrix ) { items.push_back( { mesh, matrix, entity.GetHandle() } ); } );
+            else RemoveFoliageDraw( entity.GetId().Value() );
+            Mesh* directMesh = entity.TryGetComponent<Mesh>();
+            if( Mesh* mesh = directMesh; mesh && mesh->IsEnabled() )
             {
-                renderer.GetMeshCache().Pop( previous->second ); m_meshCommands.erase( previous );
-                if( directMesh ) directMesh->Id = std::numeric_limits<unsigned int>::max();
+                if( mesh->Id == std::numeric_limits<unsigned int>::max() ) mesh->Id = renderer.GetMeshCache().Push( Moonlight::MeshCommand() );
+                m_meshCommands[entity.GetId().Value()] = mesh->Id;
+                items.push_back( { mesh, mesh->PortalImage ? mesh->PortalImageWorld : entity.GetComponent<Transform>().GetLocalToWorldMatrix(), entity.GetHandle() } );
+                applyOutline( items.back(), entity );
             }
-        }
-        Model* model = entity.TryGetComponent<Model>();
-        if( !model || !model->IsEnabled() || !model->IsCompact() ) continue;
-        compactModels.insert( entity.GetId().Value() );
-        model->UpdatePoseMatrices();
-        auto& ids = m_compactCommands[entity.GetId().Value()];
-        for( auto& part : model->GetRenderParts() )
-        {
-            if( model->IsPartExternal( part ) ) continue;
-            Mesh& mesh = *part.Renderer;
-            if( mesh.Id == std::numeric_limits<unsigned int>::max() )
+            else
             {
-                mesh.Id = renderer.GetMeshCache().Push( Moonlight::MeshCommand() );
-                ids.push_back( mesh.Id );
+                auto previous = m_meshCommands.find( entity.GetId().Value() );
+                if( previous != m_meshCommands.end() )
+                {
+                    renderer.GetMeshCache().Pop( previous->second ); m_meshCommands.erase( previous );
+                    if( directMesh ) directMesh->Id = std::numeric_limits<unsigned int>::max();
+                }
             }
-            items.push_back( { &mesh, model->GetPartWorld( part ), model->GetNodeEntity( part.NodeIndex ) } );
-            applyOutline( items.back(), entity );
-        }
-    }
-    for( auto it = m_terrainDraws.begin(); it != m_terrainDraws.end(); )
-    {
-        const uint64_t id = it->first;
-        ++it;
-        if( !terrains.contains( id ) ) RemoveTerrainDraw( id );
-    }
-    // Patterns are shared across instances; release unused patterns after every instance updates.
-    for( auto it = m_terrainTopology.begin(); it != m_terrainTopology.end(); )
-        if( it->second.use_count() == 1 ) it = m_terrainTopology.erase( it ); else ++it;
+            Model* model = entity.TryGetComponent<Model>();
+            if( !model || !model->IsEnabled() || !model->IsCompact() ) return;
+            compactModels.insert( entity.GetId().Value() );
+            model->UpdatePoseMatrices();
+            auto& ids = m_compactCommands[entity.GetId().Value()];
+            for( auto& part : model->GetRenderParts() )
+            {
+                if( model->IsPartExternal( part ) ) continue;
+                Mesh& mesh = *part.Renderer;
+                if( mesh.Id == std::numeric_limits<unsigned int>::max() )
+                {
+                    mesh.Id = renderer.GetMeshCache().Push( Moonlight::MeshCommand() );
+                    ids.push_back( mesh.Id );
+                }
+                items.push_back( { &mesh, model->GetPartWorld( part ), model->GetNodeEntity( part.NodeIndex ) } );
+                applyOutline( items.back(), entity );
+            }
+        };
+        // The common case, a mesh already registered last frame, needs only reads (components,
+        // a clean world matrix, and finds on maps nothing writes until the merge), so workers
+        // gather those; anything else is left for gatherEntity, in entity order.
+        const auto gatherReadOnly = [&]( Entity& entity, std::vector<RenderItem>& outItems ) -> bool {
+            if( entity.HasComponent<Terrain>() || entity.HasComponent<TerrainFoliage>() )
+            {
+                return false;
+            }
+            const uint64_t id = entity.GetId().Value();
+            if( !m_foliageDraws.empty() && m_foliageDraws.contains( id ) )
+            {
+                return false;
+            }
+            if( const Model* model = entity.TryGetComponent<Model>(); model && model->IsEnabled() && model->IsCompact() )
+            {
+                return false;
+            }
+            const auto command = m_meshCommands.find( id );
+            Mesh* mesh = entity.TryGetComponent<Mesh>();
+            if( !mesh || !mesh->IsEnabled() )
+            {
+                return command == m_meshCommands.end();   // else its command is released
+            }
+            if( command == m_meshCommands.end() || command->second != mesh->Id )
+            {
+                return false;
+            }
+            Transform* transform = mesh->PortalImage ? nullptr : entity.TryGetComponent<Transform>();
+            if( !mesh->PortalImage && ( !transform || transform->IsDirty() ) )
+            {
+                return false;
+            }
+            outItems.push_back( { mesh, mesh->PortalImage ? mesh->PortalImageWorld : transform->GetLocalToWorldMatrix(), entity.GetHandle() } );
+            applyOutline( outItems.back(), entity );
+            return true;
+        };
 
-    for( auto it = m_compactCommands.begin(); it != m_compactCommands.end(); )
+        struct GatherChunk
+        {
+            std::vector<RenderItem> Items;
+            // Entities for gatherEntity: (index into Renderables, how many of Items come before it).
+            std::vector<std::pair<uint32_t, uint32_t>> Deferred;
+        };
+        constexpr uint32_t kGatherChunkSize = 256;
+        const uint32_t entityCount = static_cast<uint32_t>( Renderables.size() );
+        std::vector<GatherChunk> chunks( ( entityCount + kGatherChunkSize - 1 ) / kGatherChunkSize );
+        engine.GetJobSystem().ParallelFor( "Render Prep: Gather", static_cast<uint32_t>( chunks.size() ), 1, [&]( uint32_t begin, uint32_t end ) {
+            OPTICK_EVENT( "Gather Job" );
+            for( uint32_t c = begin; c < end; ++c )
+            {
+                GatherChunk& chunk = chunks[c];
+                chunk.Items.reserve( kGatherChunkSize );
+                const uint32_t last = std::min( entityCount, ( c + 1 ) * kGatherChunkSize );
+                for( uint32_t i = c * kGatherChunkSize; i < last; ++i )
+                {
+                    if( !gatherReadOnly( Renderables[i], chunk.Items ) )
+                    {
+                        chunk.Deferred.push_back( { i, static_cast<uint32_t>( chunk.Items.size() ) } );
+                    }
+                }
+            }
+        } );
+
+        // Merge in entity order, so items come out as a serial gather would make them.
+        size_t gathered = 0;
+        for( const GatherChunk& chunk : chunks )
+        {
+            gathered += chunk.Items.size();
+        }
+        items.reserve( gathered );
+        for( GatherChunk& chunk : chunks )
+        {
+            uint32_t copied = 0;
+            for( const auto& [index, before] : chunk.Deferred )
+            {
+                items.insert( items.end(), chunk.Items.begin() + copied, chunk.Items.begin() + before );
+                copied = before;
+                gatherEntity( Renderables[index] );
+            }
+            items.insert( items.end(), chunk.Items.begin() + copied, chunk.Items.end() );
+        }
+    }
     {
-        if( compactModels.count( it->first ) ) { ++it; continue; }
-        for( unsigned int id : it->second ) renderer.GetMeshCache().Pop( id );
-        EntityHandle entity = GetWorld().FindEntityByIDValue( it->first );
-        if( entity ) if( Model* model = entity->TryGetComponent<Model>() )
-            for( auto& part : model->GetRenderParts() ) part.Renderer->Id = std::numeric_limits<unsigned int>::max();
-        it = m_compactCommands.erase( it );
+        OPTICK_EVENT( "RenderCore::PruneDraws" );
+        for( auto it = m_terrainDraws.begin(); it != m_terrainDraws.end(); )
+        {
+            const uint64_t id = it->first;
+            ++it;
+            if( !terrains.contains( id ) ) RemoveTerrainDraw( id );
+        }
+        // Patterns are shared across instances; release unused patterns after every instance updates.
+        for( auto it = m_terrainTopology.begin(); it != m_terrainTopology.end(); )
+            if( it->second.use_count() == 1 ) it = m_terrainTopology.erase( it ); else ++it;
+
+        for( auto it = m_compactCommands.begin(); it != m_compactCommands.end(); )
+        {
+            if( compactModels.count( it->first ) ) { ++it; continue; }
+            for( unsigned int id : it->second ) renderer.GetMeshCache().Pop( id );
+            EntityHandle entity = GetWorld().FindEntityByIDValue( it->first );
+            if( entity ) if( Model* model = entity->TryGetComponent<Model>() )
+                for( auto& part : model->GetRenderParts() ) part.Renderer->Id = std::numeric_limits<unsigned int>::max();
+            it = m_compactCommands.erase( it );
+        }
     }
 
     // The first active WindZone blows (else the renderer's default breeze).
     {
+        OPTICK_EVENT( "RenderCore::Wind" );
         Moonlight::WindCommand wind;
         bool found = false;
         GetWorld().Each<Transform, WindZone>( [&]( Entity& entity, Transform& transform, WindZone& zone ) {
@@ -593,6 +682,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
 
     // Lights are rebuilt every frame (cheap: a handful of POD commands).
     {
+        OPTICK_EVENT( "RenderCore::Lights" );
         std::vector<Moonlight::LightCommand>& lights = renderer.GetLights();
         lights.clear();
         GetWorld().Each<Transform, Light>( [&]( Entity& entity, Transform& transform, Light& light ) {
@@ -605,6 +695,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
 
     // Decals likewise. One whose albedo is still streaming in waits rather than drawing a solid tint.
     {
+        OPTICK_EVENT( "RenderCore::Decals" );
         std::vector<Moonlight::DecalCommand>& decals = renderer.GetDecals();
         decals.clear();
         GetWorld().Each<Transform, Decal>( [&]( Entity& entity, Transform& transform, Decal& decal ) {
@@ -622,6 +713,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
 
     // Sprites (LOOK-S2): one command each, numbered in gathering order for stable sorting ties.
     {
+        OPTICK_EVENT( "RenderCore::Sprites" );
         std::vector<Moonlight::SpriteCommand>& sprites = renderer.GetSprites();
         sprites.clear();
         GetWorld().Each<Transform, SpriteRenderer>( [&]( Entity& entity, Transform& transform, SpriteRenderer& sprite ) {
@@ -672,34 +764,37 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         AABB Bounds;
     };
     std::vector<Mesh*> vertexAnimations;
-    std::vector<VertexAnimationJob> vertexJobs;
-    for( const RenderItem& item : items )
     {
-        Mesh& mesh = *item.Instance;
-        if( mesh.HasVertexAnimation() || bgfx::isValid( mesh.m_posedVertices ) ) mesh.PrepareVertexAnimation();
-        if( mesh.HasVertexAnimation() && mesh.BeginVertexAnimation() )
+        OPTICK_EVENT( "RenderCore::VertexAnimation" );
+        std::vector<VertexAnimationJob> vertexJobs;
+        for( const RenderItem& item : items )
         {
-            vertexAnimations.push_back( &mesh );
-            const size_t count = mesh.m_vertexAnimationVertices.size();
-            for( size_t begin = 0; begin < count; begin += 4096 )
-                vertexJobs.push_back( { &mesh, begin, std::min( begin + 4096, count ), AABB() } );
-        }
-    }
-    engine.GetJobSystem().ParallelFor( "Render Prep: Vertices", static_cast<uint32_t>( vertexJobs.size() ), 1,
-        [&]( uint32_t begin, uint32_t end ) {
-            OPTICK_EVENT( "Vertex Animation" );
-            for( uint32_t i = begin; i < end; ++i )
+            Mesh& mesh = *item.Instance;
+            if( mesh.HasVertexAnimation() || bgfx::isValid( mesh.m_posedVertices ) ) mesh.PrepareVertexAnimation();
+            if( mesh.HasVertexAnimation() && mesh.BeginVertexAnimation() )
             {
-                auto& job = vertexJobs[i];
-                job.Bounds = job.Instance->SampleVertexAnimation( job.Begin, job.End );
+                vertexAnimations.push_back( &mesh );
+                const size_t count = mesh.m_vertexAnimationVertices.size();
+                for( size_t begin = 0; begin < count; begin += 4096 )
+                    vertexJobs.push_back( { &mesh, begin, std::min( begin + 4096, count ), AABB() } );
             }
-        } );
-    size_t job = 0;
-    for( Mesh* mesh : vertexAnimations )
-    {
-        AABB bounds;
-        while( job < vertexJobs.size() && vertexJobs[job].Instance == mesh ) bounds.Encapsulate( vertexJobs[job++].Bounds );
-        mesh->EndVertexAnimation( bounds );
+        }
+        engine.GetJobSystem().ParallelFor( "Render Prep: Vertices", static_cast<uint32_t>( vertexJobs.size() ), 1,
+            [&]( uint32_t begin, uint32_t end ) {
+                OPTICK_EVENT( "Vertex Animation" );
+                for( uint32_t i = begin; i < end; ++i )
+                {
+                    auto& job = vertexJobs[i];
+                    job.Bounds = job.Instance->SampleVertexAnimation( job.Begin, job.End );
+                }
+            } );
+        size_t job = 0;
+        for( Mesh* mesh : vertexAnimations )
+        {
+            AABB bounds;
+            while( job < vertexJobs.size() && vertexJobs[job].Instance == mesh ) bounds.Encapsulate( vertexJobs[job++].Bounds );
+            mesh->EndVertexAnimation( bounds );
+        }
     }
 
     auto& cameras = renderer.GetCameraCache();
@@ -726,17 +821,22 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
     const float fadeStep = m_occluderFadeRate * inUpdateContext.GetDeltaTime();
     UpdateOccluderFades();
 
-    // Resize visible flag vector
 #if USING( ME_EDITOR )
     Moonlight::CameraData& editorCamera = engine.EditorCamera;
-    editorCamera.VisibleFlags.clear();
-    editorCamera.VisibleFlags.resize( items.size() );
+#endif
+    // Resize visible flag vector
+    {
+        OPTICK_EVENT( "RenderCore::VisibleFlags" );
+#if USING( ME_EDITOR )
+        editorCamera.VisibleFlags.clear();
+        editorCamera.VisibleFlags.resize( items.size() );
 #endif
 
-    for( Moonlight::CameraData& cam : cameras.Commands )
-    {
-        cam.VisibleFlags.clear();
-        cam.VisibleFlags.resize( items.size() );
+        for( Moonlight::CameraData& cam : cameras.Commands )
+        {
+            cam.VisibleFlags.clear();
+            cam.VisibleFlags.resize( items.size() );
+        }
     }
 
     engine.GetJobSystem().ParallelFor( "Render Prep: Mesh Commands", static_cast<uint32_t>( items.size() ), 128, [&]( uint32_t batchBegin, uint32_t batchEnd )
@@ -881,7 +981,10 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                 }
             } );
 
-    for( Mesh* mesh : vertexAnimations ) mesh->UploadVertexAnimation();
+    {
+        OPTICK_EVENT( "RenderCore::UploadVertexAnimation" );
+        for( Mesh* mesh : vertexAnimations ) mesh->UploadVertexAnimation();
+    }
 
 #if USING( ME_EDITOR )
     renderer.SetDebugDrawEnabled( EnableDebugDraw );
@@ -895,6 +998,7 @@ void RenderCore::OnDeviceLost()
 
 void RenderCore::UpdateOccluderFades()
 {
+    OPTICK_EVENT( "RenderCore::UpdateOccluderFades" );
     m_occluderTargets.clear();
     // Its own world's physics (ME-297: a core reaches per-world state through its world).
     PhysicsCore* physics = GetWorld().GetCore<PhysicsCore>();
@@ -904,11 +1008,9 @@ void RenderCore::UpdateOccluderFades()
     }
     World& world = GetWorld();
     std::vector<std::pair<EntityHandle, OccluderFade*>> cameras;
-    world.ForEachEntity( [&]( Entity& InEntity ) {
-        if( OccluderFade* fade = InEntity.TryGetComponent<OccluderFade>(); fade && fade->IsEnabled() && InEntity.IsActiveInHierarchy() && InEntity.HasComponent<Transform>() )
-        {
-            cameras.emplace_back( world.GetEntity( InEntity.GetId() ), fade );
-        }
+    // OccluderFade's pool, not every entity: a scene without one pays nothing here.
+    world.Each<Transform, OccluderFade>( [&]( Entity& InEntity, Transform&, OccluderFade& InFade ) {
+        cameras.emplace_back( world.GetEntity( InEntity.GetId() ), &InFade );
     } );
     for( auto& [camera, fade] : cameras )
     {
