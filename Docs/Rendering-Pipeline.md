@@ -309,7 +309,9 @@ Per camera, from `CameraData::Post`, which `CameraCore` copies from a `PostProce
   - Exposure (manual stops or adapted), bloom mix and white balance.
   - ACES / AgX / Reinhard / none.
   - Saturation, contrast, lift/gamma/gain and vignette.
-  - Accurate gamma encode, then an optional display-referred grading LUT (`Lut` on PostProcess): a `.cube` file parsed to an RGBA16F volume, or an unmipped image strip of N slices of N×N; `LutContribution` blends it. Stock grades ship in `Engine/Assets/Textures/LUTs` and `.cube` files hot reload. ±0.5 LSB dither last.
+  - Accurate gamma encode, then an optional display-referred grading LUT (`Lut` on PostProcess): a `.cube` file parsed to an RGBA16F volume, or an unmipped image strip of N slices of N×N; `LutContribution` blends it. Stock grades ship in `Engine/Assets/Textures/LUTs` and `.cube` files hot reload.
+  - Film grain (`FilmGrain`, off at 0): monochrome triangular noise in cells `FilmGrainSize` pixels across, weighted toward the midtones. `FilmGrainFrame` picks the pattern; -1, the default, is a new one each tonemap pass, while a fixed number holds it, so a game stepping its image at a low frame rate steps the grain with it.
+  - ±0.5 LSB dither last.
   - Writes luma to alpha only when FXAA follows.
 - **FXAA** into the final target.
 

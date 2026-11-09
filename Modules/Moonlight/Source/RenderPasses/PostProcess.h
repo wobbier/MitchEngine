@@ -161,6 +161,9 @@ namespace Moonlight
         bgfx::UniformHandle s_lut = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_lutStrip = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_lut = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_grain = BGFX_INVALID_HANDLE;
+        // Advances every tonemap pass: the grain's pattern when a camera doesn't pick one.
+        uint32_t m_grainCounter = 0;
 
         bgfx::TextureHandle m_blackTexture = BGFX_INVALID_HANDLE;
         bgfx::TextureHandle m_whiteTexture = BGFX_INVALID_HANDLE;

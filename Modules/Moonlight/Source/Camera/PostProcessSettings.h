@@ -107,6 +107,14 @@ namespace Moonlight
         SharedPtr<Texture> EraPalette;
         bool HasEraImageEffects() const { return EraKuwahara > 0 || EraColorBits > 0 || EraPalette != nullptr; }
 
+        // Film grain, in the tonemap pass after grading and the LUT: monochrome noise of
+        // FilmGrain strength (0 = off), strongest in the midtones, in cells FilmGrainSize screen
+        // pixels across. FilmGrainFrame picks the pattern: -1 is a new one every rendered frame, a
+        // fixed number holds it (a game stepping its image at a low frame rate steps the grain too).
+        float FilmGrain = 0.f;
+        float FilmGrainSize = 1.5f;
+        int FilmGrainFrame = -1;
+
         bool FXAA = true;
         // Temporal anti-aliasing: the projection is jittered by a sub-pixel each frame and the HDR
         // image is resolved against the reprojected history (camera motion through the depth).

@@ -1,7 +1,7 @@
 $input v_texcoord0
 
-// HDR -> display: exposure, bloom add, white balance, tonemapping, grading, vignette, dithered
-// gamma encode. Writes luma to alpha when FXAA follows.
+// HDR -> display: exposure, bloom add, white balance, tonemapping, grading, vignette, gamma
+// encode, LUT, film grain, dither. Writes luma to alpha when FXAA follows.
 #include "../Common.sh"
 #include "PostCommon.sh"
 
@@ -16,6 +16,15 @@ uniform vec4 u_grading;   // x saturation, y contrast, z temperature, w tint
 uniform vec4 u_grading2;  // x vignette smoothness, y gamma, z lift, w gain
 uniform vec4 u_exposure;  // x auto exposure on, y compensation multiplier (2^EV), z luma in alpha (FXAA follows), w dither (0 for pixel-perfect cameras)
 uniform vec4 u_lut;       // x LUT size N, y contribution, z mode (0 off, 1 volume, 2 strip)
+uniform vec4 u_grain;     // x film grain intensity (0 off), y cell size in pixels, z pattern seed
+
+// A hash of a 2D cell (Dave Hoskins' hash12): no sine, so it's the same on every GPU.
+float grainHash(vec2 _p)
+{
+	vec3 p3 = fract(vec3(_p.xyx) * 0.1031);
+	p3 += dot(p3, p3.yzx + 33.33);
+	return fract((p3.x + p3.y) * p3.z);
+}
 
 void main()
 {
@@ -76,6 +85,17 @@ void main()
 		float n = u_lut.x;
 		vec3 coord = clamp(display, 0.0, 1.0) * ((n - 1.0) / n) + 0.5 / n;
 		display = mix(display, texture3DLod(s_lut, coord, 0.0).rgb, u_lut.y);
+	}
+
+	// Film grain: monochrome, triangular (two hashes summed, -1..1), strongest in the midtones like
+	// film's, so blacks and blown highlights keep some grain without being swamped.
+	if (u_grain.x > 0.0)
+	{
+		vec2 cell = floor(gl_FragCoord.xy / u_grain.y);
+		vec2 seed = vec2(u_grain.z * 37.0, u_grain.z * 61.0);
+		float grain = grainHash(cell + seed) + grainHash(cell + seed + vec2(113.0, 271.0)) - 1.0;
+		float luma = clamp(dot(display, vec3(0.2126, 0.7152, 0.0722)), 0.0, 1.0);
+		display = clamp(display + grain * u_grain.x * mix(0.35, 1.0, 4.0 * luma * (1.0 - luma)), 0.0, 1.0);
 	}
 
 	// +-0.5 LSB of dither hides 8-bit banding in gradients (sky, fog). Pixel-perfect cameras skip it:

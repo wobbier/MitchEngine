@@ -97,6 +97,11 @@ public:
     float EraDither = 0.f;
     Path EraPalette;
 
+    // Film grain (PostProcessSettings documents each)
+    float FilmGrain = 0.f;
+    float FilmGrainSize = 1.5f;
+    int FilmGrainFrame = -1;
+
     bool FXAA = true;
     bool TemporalAA = false;
     float TemporalSharpness = 0.25f;
