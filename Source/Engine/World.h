@@ -78,6 +78,12 @@ public:
     template<typename First, typename... Rest, typename Fn>
     void Each( Fn&& fn );
 
+    // Calls fn( Entity&, T& ) for every live entity holding a T, active and enabled or not (the
+    // set ForEachEntity + TryGetComponent<T> would find, without visiting every entity). Walks
+    // T's pool in no particular order; components added inside fn aren't visited.
+    template<typename T, typename Fn>
+    void EachOwner( Fn&& fn );
+
     // ------------------------------------------------------------------ Components
     // T's pool, created on first use. Main thread only: use FindComponentPool to read.
     template<typename T>
@@ -392,6 +398,29 @@ void World::Each( Fn&& fn )
     }
     --m_iterationDepth;
 }
+
+template<typename T, typename Fn>
+void World::EachOwner( Fn&& fn )
+{
+    ComponentPool<T>* pool = FindComponentPool<T>();
+    if( !pool )
+    {
+        return;
+    }
+    ++m_iterationDepth;
+    const size_t count = pool->Count();
+    for( size_t i = 0; i < count; ++i )
+    {
+        const IComponentPool::Entry& entry = pool->GetEntries()[i];
+        EntityRecord& record = m_records[entry.EntityIndex];
+        if( record.Alive && !( m_hasSingletonEntity && record.Facade.GetId() == m_singletonEntity ) )
+        {
+            fn( record.Facade, *static_cast<T*>( entry.Component ) );
+        }
+    }
+    --m_iterationDepth;
+}
+
 
 // ---------------------------------------------------------------------------------------------
 // Entity template members (need the complete World)

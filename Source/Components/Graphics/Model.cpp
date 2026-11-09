@@ -389,9 +389,7 @@ Model* ModelNode::GetModel() const
 
 void Model::CaptureExposedEdits( World& InWorld )
 {
-    InWorld.ForEachEntity( []( Entity& entity ) {
-        if( ModelNode* attachment = entity.TryGetComponent<ModelNode>() ) attachment->CaptureEdit();
-    } );
+    InWorld.EachOwner<ModelNode>( []( Entity&, ModelNode& attachment ) { attachment.CaptureEdit(); } );
 }
 
 void ModelNode::CaptureEdit()
@@ -410,15 +408,13 @@ void ModelNode::CaptureEdit()
 
 void Model::UpdateExposedNodes( World& InWorld )
 {
-    InWorld.ForEachEntity( []( Entity& entity ) {
-        if( Model* model = entity.TryGetComponent<Model>() ) { model->m_exposed.clear(); model->m_externalParts.clear(); model->UpdatePoseMatrices(); }
-    } );
-    InWorld.ForEachEntity( []( Entity& entity ) {
+    // Pool walks, not world walks: this runs several times a frame (AnimationCore), and a scene
+    // of thousands of entities with no models paid for visiting every one of them.
+    InWorld.EachOwner<Model>( []( Entity&, Model& model ) { model.m_exposed.clear(); model.m_externalParts.clear(); model.UpdatePoseMatrices(); } );
+    InWorld.EachOwner<ModelNode>( []( Entity& entity, ModelNode& attachment ) {
         Transform* entityTransform = entity.TryGetComponent<Transform>();
-        ModelNode* nodeAttachment = entity.TryGetComponent<ModelNode>();
-        if( !entityTransform || !nodeAttachment ) return;
+        if( !entityTransform ) return;
         Transform& transform = *entityTransform;
-        ModelNode& attachment = *nodeAttachment;
         Model* model = attachment.GetModel();
         const int index = model ? model->FindNode( attachment.NodePath ) : -1;
         if( !model || !model->IsCompact() || index < 0 ) return;
