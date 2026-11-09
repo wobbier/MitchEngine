@@ -159,3 +159,80 @@ TEST_CASE( "ClusterBuilder: a bar end can reach the near plane from behind the c
     CHECK( fixture.Count( 7, 4, 0 ) == 1 );
     CHECK( fixture.Count( 8, 4, static_cast<uint32_t>( fixture.Slice( 1.f ) ) ) == 1 );
 }
+
+namespace
+{
+    Moonlight::LightCommand SpotLight( const Vector3& InPosition, const Vector3& InDirection, float InRange, float InOuterDegrees )
+    {
+        Moonlight::LightCommand light = PointLight( InPosition, InRange );
+        light.Type = Moonlight::LightType::Spot;
+        light.Direction = InDirection;
+        light.CosOuter = std::cos( glm::radians( InOuterDegrees ) );
+        light.CosInner = std::min( 1.f, light.CosOuter + 0.05f );
+        return light;
+    }
+
+    // Every point a spot lights (inside its outer cone, within Range) that the camera sees falls
+    // in a cluster listing it. Returns how many such points were checked.
+    int CheckSpotCoverage( ClusterFixture& InFixture, const Moonlight::LightCommand& InSpot )
+    {
+        const glm::vec3 apex = InSpot.Position.InternalVector;
+        const glm::vec3 axis = glm::normalize( InSpot.Direction.InternalVector );
+        const glm::vec3 side = glm::normalize( glm::cross( axis, std::abs( axis.y ) < 0.9f ? glm::vec3( 0.f, 1.f, 0.f ) : glm::vec3( 1.f, 0.f, 0.f ) ) );
+        const glm::vec3 up = glm::cross( side, axis );
+        const float outer = std::acos( InSpot.CosOuter ) * 0.999f;
+        const glm::mat4 projection = InFixture.Projection.GetInternalMatrix();
+        int checked = 0;
+        for( int d = 1; d <= 12; ++d )
+        {
+            const float distance = InSpot.Range * d / 12.f * 0.999f;
+            for( int a = 0; a <= 6; ++a )
+            {
+                const float angle = outer * a / 6.f;
+                for( int r = 0; r < 12; ++r )
+                {
+                    const float turn = glm::two_pi<float>() * r / 12.f;
+                    const glm::vec3 offAxis = side * std::cos( turn ) + up * std::sin( turn );
+                    const glm::vec3 point = apex + distance * ( axis * std::cos( angle ) + offAxis * std::sin( angle ) );
+                    if( point.z <= 0.15f || point.z >= 99.f )
+                    {
+                        continue;
+                    }
+                    const glm::vec4 clip = projection * glm::vec4( point, 1.f );
+                    const float x = clip.x / clip.w, y = clip.y / clip.w;
+                    if( std::abs( x ) >= 0.999f || std::abs( y ) >= 0.999f )
+                    {
+                        continue;
+                    }
+                    const uint32_t tileX = static_cast<uint32_t>( ( x * 0.5f + 0.5f ) * ClusterBuilder::kGridX );
+                    const uint32_t tileY = static_cast<uint32_t>( ( 0.5f - y * 0.5f ) * ClusterBuilder::kGridY );
+                    const uint32_t slice = static_cast<uint32_t>( std::clamp( InFixture.Slice( point.z ), 0, static_cast<int>( ClusterBuilder::kGridZ ) - 1 ) );
+                    CHECK( InFixture.Count( tileX, tileY, slice ) == 1 );
+                    ++checked;
+                }
+            }
+        }
+        return checked;
+    }
+}
+
+TEST_CASE( "ClusterBuilder: a spot covers every cluster its cone lights, and a narrow one far fewer than its range sphere" )
+{
+    ClusterFixture fixture;
+    const Vector3 apex( -4.f, 3.f, 12.f );
+    const Vector3 across = Vector3( 1.f, -0.4f, 0.6f ).Normalized();
+    for( float degrees : { 8.f, 30.f, 45.f, 60.f, 85.f, 120.f } )
+    {
+        CAPTURE( degrees );
+        const Moonlight::LightCommand spot = SpotLight( apex, across, 14.f, degrees );
+        fixture.Build( { spot } );
+        CHECK( CheckSpotCoverage( fixture, spot ) > 100 );
+    }
+
+    // A follow spot's beam against the sphere the cluster used to take for it.
+    fixture.Build( { SpotLight( apex, across, 14.f, 8.f ) } );
+    const uint32_t narrow = fixture.TotalAssignments();
+    fixture.Build( { PointLight( apex, 14.f ) } );
+    const uint32_t sphere = fixture.TotalAssignments();
+    CHECK( narrow * 4 < sphere );
+}

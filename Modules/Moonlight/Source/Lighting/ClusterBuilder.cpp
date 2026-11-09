@@ -5,6 +5,39 @@
 
 namespace Moonlight
 {
+    namespace
+    {
+        // The sphere around everything a light can reach. A spot lights only its cone out to Range
+        // (a spherical sector: Lighting.sh's localLightCone is zero past the outer angle), so it
+        // gets the smallest sphere around that sector instead of the whole Range sphere: through
+        // the apex and the rim up to 45 degrees, centred on the rim's circle up to 90.
+        void LightBounds( const LightCommand& InLight, glm::vec3& OutCenter, float& OutRadius )
+        {
+            OutCenter = InLight.Position.InternalVector;
+            OutRadius = InLight.GetBoundingRadius();
+            const float axisLength = InLight.Direction.Length();
+            const float cosOuter = std::clamp( InLight.CosOuter, -1.f, 1.f );
+            if( InLight.Type != LightType::Spot || axisLength < 1e-6f || cosOuter <= 0.f )
+            {
+                return;
+            }
+            const glm::vec3 axis = InLight.Direction.InternalVector / axisLength;
+            float along = 0.f;
+            if( cosOuter >= 0.70710678f )
+            {
+                along = OutRadius = InLight.Range / ( 2.f * cosOuter );
+            }
+            else
+            {
+                along = InLight.Range * cosOuter;
+                OutRadius = InLight.Range * std::sqrt( 1.f - cosOuter * cosOuter );
+            }
+            OutCenter += axis * along;
+            OutRadius *= 1.001f;   // rounding slack: the bound stays outside the cone
+        }
+    }
+
+
     void ClusterBuilder::Build( const std::vector<LightCommand>& InLights, const Matrix4& InView, const Matrix4& InProjection, float InNear, float InFar, float InWidth, float InHeight )
     {
         const float nearPlane = std::max( InNear, 0.001f );
@@ -15,10 +48,7 @@ namespace Moonlight
         m_params.SliceScale = kGridZ / logRatio;
         m_params.SliceBias = -static_cast<float>( kGridZ ) * std::log( nearPlane ) / logRatio;
 
-        for( std::vector<uint32_t>& list : m_lists )
-        {
-            list.clear();
-        }
+        m_cells.clear();
 
         const glm::mat4& view = InView.GetInternalMatrix();
         const glm::mat4& projection = InProjection.GetInternalMatrix();
@@ -29,8 +59,10 @@ namespace Moonlight
         for( uint32_t lightIndex = 0; lightIndex < InLights.size(); ++lightIndex )
         {
             const LightCommand& light = InLights[lightIndex];
-            const glm::vec4 center = view * glm::vec4( light.Position.InternalVector, 1.f );
-            const float radius = light.GetBoundingRadius();
+            glm::vec3 bound;
+            float radius = 0.f;
+            LightBounds( light, bound, radius );
+            const glm::vec4 center = view * glm::vec4( bound, 1.f );
             if( center.z + radius < nearPlane || center.z - radius > farPlane )
             {
                 continue;
@@ -65,35 +97,59 @@ namespace Moonlight
                 tileMaxY = std::clamp( static_cast<int>( ( 0.5f - minY * 0.5f ) * kGridY ), 0, static_cast<int>( kGridY ) - 1 );
             }
 
-            for( int z = sliceMin; z <= sliceMax; ++z )
+            m_cells.push_back( { lightIndex, tileMinX, tileMaxX, tileMinY, tileMaxY, sliceMin, sliceMax } );
+        }
+
+        // Count each cluster's lights (the first kMaxLightsPerCluster by index), lay the lists out
+        // back to back, then write each light's index into every cluster it touches, in light
+        // order: no per-cluster lists to grow and copy.
+        std::fill( m_counts.begin(), m_counts.end(), 0u );
+        for( const LightCells& cells : m_cells )
+        {
+            for( int z = cells.MinZ; z <= cells.MaxZ; ++z )
             {
-                for( int y = tileMinY; y <= tileMaxY; ++y )
+                for( int y = cells.MinY; y <= cells.MaxY; ++y )
                 {
-                    for( int x = tileMinX; x <= tileMaxX; ++x )
+                    uint32_t* row = m_counts.data() + y * kGridX + z * kGridX * kGridY;
+                    for( int x = cells.MinX; x <= cells.MaxX; ++x )
                     {
-                        std::vector<uint32_t>& list = m_lists[x + y * kGridX + z * kGridX * kGridY];
-                        if( list.size() < kMaxLightsPerCluster )
-                        {
-                            list.push_back( lightIndex );
-                        }
+                        row[x] += row[x] < kMaxLightsPerCluster ? 1u : 0u;
                     }
                 }
             }
         }
-
-        // Flatten into the grid (offset, count) and the index list.
         uint32_t offset = 0;
+        float* const grid = m_grid.data();
         for( uint32_t cluster = 0; cluster < kClusterCount; ++cluster )
         {
-            std::vector<uint32_t>& list = m_lists[cluster];
-            const uint32_t count = std::min<uint32_t>( static_cast<uint32_t>( list.size() ), kMaxIndices - offset );
-            m_grid[cluster * 4 + 0] = static_cast<float>( offset );
-            m_grid[cluster * 4 + 1] = static_cast<float>( count );
-            for( uint32_t i = 0; i < count; ++i )
-            {
-                m_indices[offset + i] = static_cast<float>( list[i] );
-            }
+            const uint32_t count = std::min( m_counts[cluster], kMaxIndices - offset );
+            grid[cluster * 4 + 0] = static_cast<float>( offset );
+            grid[cluster * 4 + 1] = static_cast<float>( count );
+            m_counts[cluster] = count;   // now the room left in its list
+            m_cursors[cluster] = offset;
             offset += count;
+        }
+        uint32_t* const room = m_counts.data();
+        uint32_t* const cursors = m_cursors.data();
+        float* const indices = m_indices.data();
+        for( const LightCells& cells : m_cells )
+        {
+            const float light = static_cast<float>( cells.Light );
+            for( int z = cells.MinZ; z <= cells.MaxZ; ++z )
+            {
+                for( int y = cells.MinY; y <= cells.MaxY; ++y )
+                {
+                    const uint32_t first = y * kGridX + z * kGridX * kGridY;
+                    for( uint32_t cluster = first + cells.MinX; cluster <= first + cells.MaxX; ++cluster )
+                    {
+                        if( room[cluster] > 0 )
+                        {
+                            --room[cluster];
+                            indices[cursors[cluster]++] = light;
+                        }
+                    }
+                }
+            }
         }
         m_usedIndices = offset;
     }

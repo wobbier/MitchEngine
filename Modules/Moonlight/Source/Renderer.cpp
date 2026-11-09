@@ -1287,28 +1287,52 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         m_instanceBatches[b].transforms.clear();
     }
     m_activeBatchCount = 0;
+    m_batchLookup.clear();
 
-    auto getBatch = [this]( uint16_t vbh, uint16_t ibh, uint64_t key, size_t cmdIndex ) -> InstanceBatch& {
+    // Batches keep first-seen order (so draw order doesn't change), found by a hash of the key
+    // rather than a scan of every batch per mesh: a venue's 16k instanced meshes in a few dozen
+    // batches spent most of the opaque loop scanning. Runs of the same mesh skip the lookup.
+    size_t previousBatch = SIZE_MAX;
+    auto getBatch = [this, &previousBatch]( uint16_t vbh, uint16_t ibh, uint64_t key, size_t cmdIndex ) -> InstanceBatch& {
+        auto matches = [&]( const InstanceBatch& InBatch ) {
+            return InBatch.vertexBuffer == vbh && InBatch.indexBuffer == ibh && InBatch.materialKey == key;
+        };
+        if( previousBatch != SIZE_MAX && matches( m_instanceBatches[previousBatch] ) )
+        {
+            return m_instanceBatches[previousBatch];
+        }
+        const uint64_t lookup = key * 0x9E3779B97F4A7C15ull ^ ( static_cast<uint64_t>( vbh ) << 16 | ibh );
+        if( auto found = m_batchLookup.find( lookup ); found != m_batchLookup.end() && matches( m_instanceBatches[found->second] ) )
+        {
+            previousBatch = found->second;
+            return m_instanceBatches[previousBatch];
+        }
+        // A hash collision (rare): the batch may still exist under another key's slot.
         for( size_t b = 0; b < m_activeBatchCount; ++b )
         {
-            InstanceBatch& batch = m_instanceBatches[b];
-            if( batch.vertexBuffer == vbh && batch.indexBuffer == ibh && batch.materialKey == key )
+            if( matches( m_instanceBatches[b] ) )
             {
-                return batch;
+                previousBatch = b;
+                return m_instanceBatches[b];
             }
         }
         if( m_activeBatchCount == m_instanceBatches.size() )
         {
             m_instanceBatches.emplace_back();
         }
-        InstanceBatch& batch = m_instanceBatches[m_activeBatchCount++];
+        previousBatch = m_activeBatchCount++;
+        InstanceBatch& batch = m_instanceBatches[previousBatch];
         batch.vertexBuffer = vbh;
         batch.indexBuffer = ibh;
         batch.materialKey = key;
         batch.representativeIndex = cmdIndex;
+        m_batchLookup.emplace( lookup, static_cast<uint32_t>( previousBatch ) );
         return batch;
-        };
+    };
 
+    // Outlined meshes this camera draws, noted on the way past so the hull pass doesn't scan
+    // every command again.
+    std::vector<size_t> outlined;
     {
         OPTICK_CATEGORY( "Meshes", Optick::Category::GPU_Scene );
         bool hasCullingInfo = camera.ShouldCull && !camera.VisibleFlags.empty();
@@ -1321,6 +1345,10 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
             if( hasCullingInfo && ( mesh.VisibilityIndex >= camera.VisibleFlags.size() || !camera.VisibleFlags[mesh.VisibilityIndex] ) )
             {
                 continue;
+            }
+            if( mesh.Outlined && mesh.OutlineWidth > 0.f )
+            {
+                outlined.push_back( i );
             }
 
             {
@@ -1401,13 +1429,9 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     if( sceneEffects && !overdraw )
     {
         OPTICK_CATEGORY( "Outline Hulls", Optick::Category::GPU_Scene );
-        const bool hasCullingInfo = camera.ShouldCull && !camera.VisibleFlags.empty();
-        for( size_t i = 0; i < m_meshCache.Commands.size(); ++i )
+        for( size_t i : outlined )
         {
-            const Moonlight::MeshCommand& mesh = m_meshCache.Commands[i];
-            if( !mesh.Outlined || mesh.OutlineWidth <= 0.f || !mesh.Visible || !mesh.MeshMaterial || mesh.RenderGroup != camera.RenderGroup ) continue;
-            if( hasCullingInfo && ( mesh.VisibilityIndex >= camera.VisibleFlags.size() || !camera.VisibleFlags[mesh.VisibilityIndex] ) ) continue;
-            RenderOutlineHull( id, mesh );
+            RenderOutlineHull( id, m_meshCache.Commands[i] );
         }
     }
 
@@ -1735,6 +1759,7 @@ void BGFXRenderer::PrepareCameraLighting( Moonlight::CameraData& camera )
     // captures use it.
     if( m_dynamicSky )
     {
+        OPTICK_EVENT( "Renderer::PrepareCameraSky" );
         m_dynamicSky->ApplySettings( camera.ProceduralSky, camera, camera.ProceduralSky.AnimationTime );
         if( camera.ClearType == Moonlight::ClearColorType::Procedural )
         {
@@ -1781,6 +1806,7 @@ void BGFXRenderer::PrepareCameraLighting( Moonlight::CameraData& camera )
     m_lighting.Params[1] = localLights ? static_cast<float>( m_localLights.size() ) : 0.f;
     if( localLights )
     {
+        OPTICK_EVENT( "Renderer::BuildLightClusters" );
         m_clusterBuilder->Build( m_localLights, camera.View, camera.ProjectionMatrix, camera.Near, camera.Far, static_cast<float>( buffer.Width ), static_cast<float>( buffer.Height ) );
         const std::vector<float>& grid = m_clusterBuilder->GetGrid();
         bgfx::updateTexture2D( buffer.ClusterGrid, 0, 0, 0, 0, Moonlight::ClusterBuilder::kGridX * Moonlight::ClusterBuilder::kGridY, Moonlight::ClusterBuilder::kGridZ, bgfx::copy( grid.data(), static_cast<uint32_t>( grid.size() * sizeof( float ) ) ) );

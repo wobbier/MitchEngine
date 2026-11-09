@@ -44,7 +44,16 @@ namespace Moonlight
     private:
         std::vector<float> m_grid = std::vector<float>( kClusterCount * 4, 0.f );
         std::vector<float> m_indices = std::vector<float>( kMaxIndices, 0.f );
-        std::vector<std::vector<uint32_t>> m_lists = std::vector<std::vector<uint32_t>>( kClusterCount );
+        // The block of clusters each light touches this build, then per cluster its (capped) light
+        // count and where its next index goes: lists are written straight into m_indices.
+        struct LightCells
+        {
+            uint32_t Light;
+            int MinX, MaxX, MinY, MaxY, MinZ, MaxZ;
+        };
+        std::vector<LightCells> m_cells;
+        std::vector<uint32_t> m_counts = std::vector<uint32_t>( kClusterCount, 0 );
+        std::vector<uint32_t> m_cursors = std::vector<uint32_t>( kClusterCount, 0 );
         Params m_params;
         uint32_t m_usedIndices = 0;
     };

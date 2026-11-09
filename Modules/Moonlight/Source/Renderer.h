@@ -448,6 +448,7 @@ private:
     };
     std::vector<InstanceBatch> m_instanceBatches;
     size_t m_activeBatchCount = 0;
+    std::unordered_map<uint64_t, uint32_t> m_batchLookup;   // key hash -> m_instanceBatches index
     std::vector<InstanceBatch> m_shadowBatches;
     size_t m_activeShadowBatchCount = 0;
 
