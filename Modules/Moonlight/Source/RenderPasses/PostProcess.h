@@ -69,6 +69,9 @@ namespace Moonlight
         static constexpr float kFogHistoryWeight = 0.9f;
         // The most raymarch steps a volumetric fog pixel takes (FogScatter.frag's loop bound).
         static constexpr int kMaxVolumetricSteps = 256;
+        // The most samples a local light takes along a ray with VolumetricLightSamples
+        // (FogScatterLights.frag's FOG_MAX_LIGHT_SAMPLES).
+        static constexpr int kMaxVolumetricLightSamples = 32;
 
         // Seconds since the last frame, for eye adaptation.
         float DeltaSeconds = 1.f / 60.f;
@@ -94,6 +97,7 @@ namespace Moonlight
         ShaderCommand m_luminanceProgram;
         ShaderCommand m_adaptProgram;
         ShaderCommand m_fogScatterProgram;
+        ShaderCommand m_fogScatterLightsProgram;    // VolumetricLightSamples: each local light on its own stretch of the ray
         ShaderCommand m_fogBlurProgram;
         ShaderCommand m_fogResolveProgram;
         ShaderCommand m_fogProgram;
@@ -147,6 +151,7 @@ namespace Moonlight
         bgfx::UniformHandle u_fogScreen = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_fogInvView = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_fogVolume2 = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_fogScatter = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_fogReproject = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_fogHistory = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_taaCurrent = BGFX_INVALID_HANDLE;

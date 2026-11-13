@@ -69,6 +69,11 @@ namespace Moonlight
         int VolumetricSteps = 24;           // up to 256
         bool VolumetricTemporal = true;     // accumulate the march over frames (own reprojected history, independent of TemporalAA)
         float FogLocalAnisotropy = 0.f;     // Henyey-Greenstein g for point / spot / area lights in the fog (0 even)
+        // Samples each local light takes along the part of a ray inside its range and cone (up to
+        // 32). 0 lights every march step from the step's cluster instead, whose cost is steps x
+        // the cluster's lights: with many long, narrow beams in one room nearly every light is in
+        // nearly every cluster, and almost all of that work finds nothing.
+        int VolumetricLightSamples = 0;
 
         // Edge outlines over the opaque scene: depth silhouettes and crease folds, from depth alone.
         bool Outline = false;

@@ -70,6 +70,7 @@ public:
     int VolumetricSteps = 24;
     bool VolumetricTemporal = true;
     float FogLocalAnisotropy = 0.f;
+    int VolumetricLightSamples = 0;
 
     // Colour grading
     float Saturation = 1.f;

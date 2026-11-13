@@ -81,6 +81,7 @@ namespace Moonlight
         m_luminanceProgram = LoadPost( "Luminance" );
         m_adaptProgram = LoadPost( "Adapt" );
         m_fogScatterProgram = LoadPost( "FogScatter" );
+        m_fogScatterLightsProgram = LoadPost( "FogScatterLights" );
         m_fogBlurProgram = LoadPost( "FogBlur" );
         m_fogResolveProgram = LoadPost( "FogResolve" );
         m_fogProgram = LoadPost( "Fog" );
@@ -134,6 +135,7 @@ namespace Moonlight
         u_fogScreen = bgfx::createUniform( "u_fogScreen", bgfx::UniformType::Vec4 );
         u_fogInvView = bgfx::createUniform( "u_fogInvView", bgfx::UniformType::Mat4 );
         u_fogVolume2 = bgfx::createUniform( "u_fogVolume2", bgfx::UniformType::Vec4 );
+        u_fogScatter = bgfx::createUniform( "u_fogScatter", bgfx::UniformType::Vec4 );
         u_fogReproject = bgfx::createUniform( "u_fogReproject", bgfx::UniformType::Mat4 );
         s_fogHistory = bgfx::createUniform( "s_fogHistory", bgfx::UniformType::Sampler );
         s_taaCurrent = bgfx::createUniform( "s_taaCurrent", bgfx::UniformType::Sampler );
@@ -161,7 +163,7 @@ namespace Moonlight
     PostProcess::~PostProcess()
     {
         for( bgfx::UniformHandle* uniform : { &s_input0, &s_input1, &s_hdrColor, &s_bloom, &s_exposure, &s_ldrColor, &u_tonemap, &u_grading, &u_grading2, &u_exposure, &u_bloom, &u_ssao, &u_ssaoProjection, &u_ssaoScreen, &u_ssaoInvProjection, &u_adapt,
-            &u_fogProjection, &u_fogProjection2, &u_fogScreen, &u_fogInvView, &u_fogVolume2, &u_fogReproject, &s_fogHistory, &s_taaCurrent, &s_taaHistory, &s_taaDepth, &u_taaParams, &u_taaJitter, &u_taaReproject, &u_graphSceneFilter,
+            &u_fogProjection, &u_fogProjection2, &u_fogScreen, &u_fogInvView, &u_fogVolume2, &u_fogScatter, &u_fogReproject, &s_fogHistory, &s_taaCurrent, &s_taaHistory, &s_taaDepth, &u_taaParams, &u_taaJitter, &u_taaReproject, &u_graphSceneFilter,
             &s_dof0, &s_dof1, &s_dof2, &s_dof3, &s_dof4, &u_dofLens, &u_dofSplit, &u_dofProjection, &u_dofScreen, &u_dofPass, &u_dofJitter, &s_lut, &s_lutStrip, &u_lut, &u_outline, &u_outlineParams, &u_upscaleParams, &u_upscaleSize, &u_overlayParams, &u_overlayFade, &u_overlayLook, &u_eraPost, &u_grain } )
         {
             DestroyUniform( *uniform );
@@ -376,6 +378,11 @@ namespace Moonlight
         // the 5x5 blur hides a single frame's jitter; once the history has converged 3x3 keeps
         // the beams crisper.
         const float fogVolume2[4] = { std::clamp( settings.FogLocalAnisotropy, 0.f, 0.95f ), kFogHistoryWeight, InTargets.FogHistoryValid ? 1.f : 0.f, temporal && InTargets.FogHistoryValid ? 1.f : 2.f };
+        // VolumetricLightSamples swaps the scatter pass for the one that integrates each local
+        // light on its own stretch of the ray (x: samples per light); without it the march lights
+        // every step from its cluster, in the shader it always had.
+        const int lightSamples = std::clamp( settings.VolumetricLightSamples, 0, kMaxVolumetricLightSamples );
+        const float fogScatter[4] = { static_cast<float>( lightSamples ), 0.f, 0.f, 0.f };
         auto setFogState = [&]() {
             InBindLighting();
             bgfx::setUniform( u_fogProjection, fogProjection );
@@ -383,6 +390,7 @@ namespace Moonlight
             bgfx::setUniform( u_fogScreen, fogScreen );
             bgfx::setUniform( u_fogInvView, &invView[0][0] );
             bgfx::setUniform( u_fogVolume2, fogVolume2 );
+            bgfx::setUniform( u_fogScatter, fogScatter );
             bgfx::setUniform( u_fogReproject, &reproject[0][0] );
         };
 
@@ -399,7 +407,7 @@ namespace Moonlight
             SetupFullscreenView( scatterView, InTargets.FogBuffer.Buffer, InTargets.FogBuffer.Width, InTargets.FogBuffer.Height );
             setFogState();
             bgfx::setTexture( 0, s_input0, InTargets.DepthTexture, pointClamp );
-            SubmitFullscreen( scatterView, m_fogScatterProgram );
+            SubmitFullscreen( scatterView, lightSamples > 0 && m_fogScatterLightsProgram.IsLoaded() ? m_fogScatterLightsProgram : m_fogScatterProgram );
 
             bgfx::TextureHandle blurInput = InTargets.FogBuffer.Color;
             if( temporal )

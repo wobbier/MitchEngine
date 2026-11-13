@@ -53,6 +53,7 @@ ME_REFLECT_BEGIN( PostProcess )
     ME_FIELD( VolumetricSteps ).Category( "Fog" ).Range( 4.f, 256.f ).Log().Tooltip( "Raymarch samples per pixel (hardware profiles may cap it)" );
     ME_FIELD( VolumetricTemporal ).Display( "Volumetric Temporal" ).Category( "Fog" ).Tooltip( "Accumulate the raymarch over frames against a reprojected history (independent of Temporal AA): smooth shafts for the same step count; a fast cut or a moving light trails for a few frames" );
     ME_FIELD( FogLocalAnisotropy ).Display( "Local Light Anisotropy" ).Category( "Fog" ).Range( 0.f, 0.95f ).Tooltip( "Henyey-Greenstein g for point, spot and area lights in volumetric fog: 0 scatters evenly; towards 1 beams brighten when seen from in front of the fixture" );
+    ME_FIELD( VolumetricLightSamples ).Display( "Volumetric Light Samples" ).Category( "Fog" ).Range( 0.f, 32.f ).Tooltip( "0: every raymarch step lights itself from its cluster's point, spot and area lights. Above 0: each light is integrated on its own with this many samples along the part of the ray inside its range and cone, which costs far less with many narrow beams and resolves thin ones; 8 is a good start" );
     ME_FIELD( Saturation ).Category( "Color Grading" ).Range( 0.f, 2.f ).Unit( Reflection::Unit::Percent );
     ME_FIELD( Contrast ).Category( "Color Grading" ).Range( 0.f, 2.f ).Unit( Reflection::Unit::Percent );
     ME_FIELD( Temperature ).Category( "Color Grading" ).Range( -1.f, 1.f );
@@ -162,6 +163,7 @@ Moonlight::PostProcessSettings PostProcess::ToSettings() const
     settings.VolumetricSteps = VolumetricSteps;
     settings.VolumetricTemporal = VolumetricTemporal;
     settings.FogLocalAnisotropy = FogLocalAnisotropy;
+    settings.VolumetricLightSamples = VolumetricLightSamples;
     settings.Saturation = Saturation;
     settings.Contrast = Contrast;
     settings.Temperature = Temperature;
