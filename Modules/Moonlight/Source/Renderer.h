@@ -9,10 +9,9 @@
 #include "Graphics/ShaderCommand.h"
 #include <Dementia.h>
 
-#if USING( ME_ENABLE_RENDERDOC )
-#include <Debug/RenderDocManager.h>
-#endif
 #include <Debug/DebugDrawer.h>
+
+class RenderDocManager;
 #include <Utils/CommandCache.h>
 #include <array>
 #include "Core/ISystem.h"
@@ -187,8 +186,8 @@ public:
     // Captures the backbuffer at the end of the current frame and writes it as a PNG.
     void RequestScreenshot( const std::string& filePath );
     uint32_t GetScreenshotCount() const;
-    // RenderDoc (ME-61): whether its in-app API loaded (Windows builds with RenderDoc installed),
-    // and a capture of the next frame through it.
+    // RenderDoc (ME-61): whether its in-app API loaded (see Debug/RenderDocManager.h for when it
+    // does), and a capture of the next frame through it. The engine binds F11 to the capture.
     bool IsRenderDocLoaded() const;
     void CaptureRenderDocFrame();
 
@@ -512,7 +511,7 @@ private:
     uint32_t m_currentFrame = 0;
 
 #if USING( ME_ENABLE_RENDERDOC )
-    RenderDocManager* RenderDoc;
+    RenderDocManager* RenderDoc = nullptr;
 #endif
 
 #if USING( ME_IMGUI )

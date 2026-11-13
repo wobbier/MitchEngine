@@ -828,6 +828,17 @@ void Engine::Run()
             }
             
 
+        // F11: RenderDoc capture of the next frame (ME-61; a no-op unless RenderDoc is attached).
+        // Whichever of the editor and the playing game has the keyboard.
+        if( GetInput().WasKeyPressed( KeyCode::F11 )
+#if USING( ME_EDITOR )
+            || GetEditorInput().WasKeyPressed( KeyCode::F11 )
+#endif
+        )
+        {
+            GetRenderer().CaptureRenderDocFrame();
+        }
+
 #if !USING( ME_EDITOR ) && USING( ME_IMGUI )
         if( GetInput().WasKeyPressed( KeyCode::F3 ) && !CommandLine::Has( "--no-debug-overlay" ) )
         {

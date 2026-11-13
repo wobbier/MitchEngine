@@ -194,7 +194,7 @@ Flags are driven by `DEFINE_ME_*` preprocessor defines that Sharpmake sets per t
 | `ME_IMGUI` | `(EDITOR \|\| TOOLS \|\| PROFILING) && !HEADLESS` |
 | `ME_BASIC_PROFILER` | `IMGUI && PROFILING` |
 | `ME_HEADLESS` | No window/rendering: the dedicated Server build (`DEFINE_ME_HEADLESS`, `CommonTarget.Mode.Server`; NullWindow, bgfx Noop). Turns off `ME_IMGUI`, `ME_GAME_TOOLS` and `ME_FMOD` (see Networking.md) |
-| `ME_ENABLE_RENDERDOC` | RenderDoc integration |
+| `ME_ENABLE_RENDERDOC` | RenderDoc in-app API (`Moonlight/Source/Debug/RenderDocManager.h`): Windows when `DEFINE_ME_RENDERDOC`; Linux always outside Retail. Loaded at runtime whenever RenderDoc is found (`--no-renderdoc` skips it). F11 / Help > RenderDoc captures; `--renderdoc-capture-frame N` captures unattended; files go to `.tmp/Captures/RenderDoc/` |
 | `ME_EDITOR_WIN64` / `ME_EDITOR_MACOS` | Editor + platform composites |
 
 ## Caveats & Fragility

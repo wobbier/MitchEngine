@@ -153,7 +153,10 @@ Class& operator=(Class&&) = delete;
 #define ME_PHYSICS_3D NOT_IN_USE
 #endif
 
-#if defined( DEFINE_ME_RENDERDOC )
+// RenderDoc's in-app API (Moonlight/Source/Debug/RenderDocManager.h). Windows: on when the
+// generator found RenderDoc installed. Linux: always compiled in outside Retail; it is dlopen'd at
+// runtime only with --renderdoc, or attaches when launched from qrenderdoc.
+#if defined( DEFINE_ME_RENDERDOC ) || ( defined( DEFINE_ME_PLATFORM_LINUX ) && !defined( DEFINE_ME_RETAIL ) )
 #define ME_ENABLE_RENDERDOC IN_USE
 #else
 #define ME_ENABLE_RENDERDOC NOT_IN_USE

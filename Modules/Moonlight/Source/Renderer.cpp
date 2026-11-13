@@ -36,6 +36,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include "Primitives/Primitives.h"
 #include "Profiling/FrameStats.h"
+#include <Debug/RenderDocManager.h>
+#include "Core/CommandLine.h"
 
 #if BX_PLATFORM_LINUX
 #define GLFW_EXPOSE_NATIVE_X11
@@ -139,6 +141,9 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         }
         Moonlight::SetGpuAlive( true );
     }
+#if USING( ME_ENABLE_RENDERDOC )
+    RenderDoc->Configure();
+#endif
 
     // Set view 0 clear state.
     bgfx::setViewClear( kClearView
@@ -687,6 +692,10 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
     // Enable stats or debug text.
     bgfx::setDebug( ( s_showStats ? BGFX_DEBUG_STATS : BGFX_DEBUG_TEXT ) | ( FrameStats::Get().DetailedGpuTimings ? BGFX_DEBUG_PROFILER : 0 ) );
     // Advance to next frame. Process submitted rendering primitives.
+
+#if USING( ME_ENABLE_RENDERDOC )
+    if( RenderDoc ) RenderDoc->Update();
+#endif
 
     if( m_drawsNothing )
     {

@@ -251,8 +251,8 @@ void MainMenuWidget::Render()
                 BGFXRenderer& renderer = GetEngine().GetRenderer();
                 if( renderer.IsRenderDocLoaded() )
                 {
-                    ImGui::TextColored( ImVec4( 0.4f, 0.9f, 0.4f, 1.f ), "Loaded: captures go to RenderDoc's capture folder" );
-                    if( ImGui::MenuItem( "Capture Next Frame" ) )
+                    ImGui::TextColored( ImVec4( 0.4f, 0.9f, 0.4f, 1.f ), "Loaded: captures go to .tmp/Captures/RenderDoc" );
+                    if( ImGui::MenuItem( "Capture Next Frame", "F11" ) )
                     {
                         renderer.CaptureRenderDocFrame();
                     }
@@ -264,8 +264,9 @@ void MainMenuWidget::Render()
                     ImGui::TextUnformatted( "Install RenderDoc to C:/Program Files/RenderDoc," );
                     ImGui::TextUnformatted( "then regenerate the solution (it enables DEFINE_ME_RENDERDOC)." );
 #else
-                    ImGui::TextUnformatted( "The in-app API is Windows-only. Here, launch Havana from" );
-                    ImGui::TextUnformatted( "RenderDoc (qrenderdoc: Launch Application, Vulkan) to capture." );
+                    ImGui::TextUnformatted( "librenderdoc.so wasn't found (or --no-renderdoc was passed)." );
+                    ImGui::TextUnformatted( "Install RenderDoc or set ME_RENDERDOC_LIB to its path." );
+                    ImGui::TextUnformatted( "Needs X11: RenderDoc can't capture Wayland windows." );
 #endif
                 }
                 ImGui::Separator();

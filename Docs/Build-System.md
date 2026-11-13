@@ -85,7 +85,7 @@ From `Tools/BaseProject.sharpmake.cs` (+ `Engine.sharpmake.cs` `Globals`):
 | `DEFINE_ME_FMOD` | `Globals.FMOD_<Platform>_Dir` exists (Win64/UWP: installed SDK path; Linux: SDK dir with `api/core/lib/x86_64`) |
 | `DEFINE_ME_DOTNET` | `Globals.DOTNET_Win64_Dir` (Win64/UWP) or `Globals.DOTNET_Linux_Dir` (Linux) exists — **no macOS path** |
 | `DEFINE_ME_OPTICK` | Win64 (per-optimization lib copy from `ThirdParty/Lib/Optick/Win64/…`) |
-| `DEFINE_ME_RENDERDOC` | RenderDoc integration available |
+| `DEFINE_ME_RENDERDOC` | RenderDoc integration available (Windows, set when RenderDoc is installed; Linux enables it in `Dementia.h` without this define) |
 
 Because these are **generation-time filesystem checks**, two machines with different SDKs silently produce different feature sets from identical source. When a feature "doesn't work", check the generation log/defines before debugging code. The Mono integration is gone; `Globals.MONO_*_Dir` remain only so older game sharpmake files that set them still compile.
 
