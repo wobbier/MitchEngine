@@ -915,6 +915,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                             command.MeshMaterial = model.MeshMaterial;
                             command.Transform = meshMatrix;
                             command.PortalClipPlane = model.PortalClipPlane;
+                            command.InstanceData = model.InstanceData;
                             command.Type = model.GetType();
                             command.VisibilityIndex = entIndex;
                             command.ID = item.Owner->GetId().Value();
@@ -1185,6 +1186,11 @@ void RenderCore::OnEditorInspect()
         if( ImGui::IsItemHovered() )
         {
             ImGui::SetTooltip( "Scales mesh screen size before choosing LOD: above 1 keeps detail longer; 0 draws the coarsest level" );
+        }
+        checkbox( "Depth Prepass", renderer.EnableDepthPrepass );
+        if( ImGui::IsItemHovered() )
+        {
+            ImGui::SetTooltip( "Opaque Standard surfaces draw depth-only first, so the lit pass shades each pixel once instead of once per layer. Off draws every mesh once, as before" );
         }
         ImGui::TreePop();
     }

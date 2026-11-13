@@ -77,11 +77,19 @@ public:
     void SubmitDebugLines( const Moonlight::CameraData& camera, bgfx::ViewId id );
     void GatherFrameStats();
 
-    void RenderSingleMesh( bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint64_t state );
+    // The mesh draws. InPrepassView: the camera's depth prepass view (UINT16_MAX = none). A draw
+    // that qualifies (BindMeshDrawState) is also submitted there, depth only, and its colour draw
+    // in view id then tests against that depth instead of writing its own.
+    void RenderSingleMesh( bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint64_t state, bgfx::ViewId InPrepassView = UINT16_MAX );
 
-    void RenderMeshInstanced( bgfx::ViewId id, const Moonlight::MeshCommand& representative, const glm::mat4* transforms, uint32_t count, uint64_t state );
+    void RenderMeshInstanced( bgfx::ViewId id, const Moonlight::MeshCommand& representative, const glm::mat4* transforms, uint32_t count, uint64_t state, bgfx::ViewId InPrepassView = UINT16_MAX );
+    // A mesh's entry in an instance buffer: its transform, with MeshCommand::InstanceData in the
+    // spare bottom row (column c's w) when the material draws with the stock Standard program,
+    // whose vertex shader reads it and restores the row to (0, 0, 0, 1). Everything else, and
+    // every shadow, picking or overdraw draw, gets the transform as it is.
+    glm::mat4 InstanceMatrix( const Moonlight::MeshCommand& mesh ) const;
     // One skinned mesh: the material's skinned program, the weights stream and the bone palette.
-    void RenderSkinnedMesh( bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint64_t state );
+    void RenderSkinnedMesh( bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint64_t state, bgfx::ViewId InPrepassView = UINT16_MAX );
     // Overdraw view: any mesh (static, instanced or skinned) as one additive layer.
     void RenderOverdrawMesh( bgfx::ViewId id, const Moonlight::MeshCommand& mesh );
     // Per-object outline: the mesh inflated along its normals with the opposite cull (Outline component).
@@ -158,6 +166,11 @@ public:
     bool EnableEnvironmentLighting = true;
     float EnvironmentIntensity = 1.f;
 
+    // Depth prepass (ME-363): each camera lays down the depth of its opaque Standard surfaces in a
+    // view of its own before the opaque view, which then shades every pixel once instead of once
+    // per layer. FeatureCaps.DepthPrepass masks it; --no-depth-prepass starts with it off.
+    bool EnableDepthPrepass = true;
+
     // What the target hardware can do (an enforced hardware profile sets these). They mask the
     // settings above and every camera's post-processing as frames render, without changing them,
     // so lifting a cap brings the authored look back.
@@ -173,6 +186,7 @@ public:
         int MaxVolumetricSteps = 0;          // raymarch samples per pixel (0 = no cap)
         bool TemporalAA = true;
         bool Instancing = true;              // off: every instanced mesh is its own draw call
+        bool DepthPrepass = true;            // off: opaque meshes draw once, testing and writing depth themselves
         float MaxRenderScale = 0.f;          // cameras' render scale ceiling (0 = no cap)
         uint64_t MaxRenderPixels = 0;        // internal pixels per camera (0 = no cap): the profile's resolution
         // The player's graphics settings (ME-275), on every game camera: a scale on its own
@@ -198,7 +212,12 @@ public:
 private:
     Moonlight::BGFXCallback m_bgfxCallback;
 
-    bgfx::ProgramHandle BindMeshDrawState( const Moonlight::MeshCommand& mesh, uint64_t state );
+    // Binds a mesh draw (buffers, textures, lighting, material, render state) and returns the
+    // program to submit it with; the caller has already set its transform or instance data.
+    // InSkinned: the material's skinned program, with the mesh's weights stream and bone palette.
+    // With a prepass view, a draw of the stock Standard programs is submitted to it here first,
+    // depth only (InInstances: its instance count, for the statistics).
+    bgfx::ProgramHandle BindMeshDrawState( const Moonlight::MeshCommand& mesh, uint64_t state, bgfx::ViewId InPrepassView = UINT16_MAX, bool InSkinned = false, uint32_t InInstances = 1 );
     // A render texture camera: it has a loaded target texture and isn't the main camera.
     static bool RendersToTexture( const Moonlight::CameraData& InCamera );
 
@@ -267,6 +286,11 @@ private:
     // Overdraw view: the shadow casters' vertex shaders with an additive fragment.
     Moonlight::ShaderCommand m_overdrawProgram;
     Moonlight::ShaderCommand m_overdrawSkinnedProgram;
+    // Depth prepass: the Standard colour programs (to recognise the draws that can take part), and
+    // their vertex shaders paired with the depth-only fragment shaders, [skinned][drops fragments].
+    Moonlight::ShaderCommand m_standardProgram;
+    Moonlight::ShaderCommand m_standardSkinnedProgram;
+    Moonlight::ShaderCommand m_depthPrepassPrograms[2][2];
     // Inverted-hull outlines (Outline component).
     Moonlight::ShaderCommand m_outlineHullProgram;
     Moonlight::ShaderCommand m_outlineHullSkinnedProgram;
@@ -449,6 +473,13 @@ private:
     };
     std::vector<InstanceBatch> m_instanceBatches;
     size_t m_activeBatchCount = 0;
+    // The camera's opaque meshes that draw one at a time, in the order its commands are visited.
+    struct OpaqueDraw
+    {
+        uint32_t Command = 0;       // index into the mesh commands
+        bool Outgoing = false;      // the level a LOD crossfade fades out, not the mesh's own
+    };
+    std::vector<OpaqueDraw> m_opaqueDraws;
     std::unordered_map<uint64_t, uint32_t> m_batchLookup;   // key hash -> m_instanceBatches index
     std::vector<InstanceBatch> m_shadowBatches;
     size_t m_activeShadowBatchCount = 0;

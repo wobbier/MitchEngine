@@ -3,9 +3,8 @@ $input v_worldPos, v_normal, v_tangent, v_bitangent, v_texcoord0, v_viewPos, v_a
 // Metallic-roughness PBR (glTF conventions): base colour, normal, metallic-roughness (G rough, B metal),
 // occlusion, emissive, opacity; alpha cutout via u_emissive.w.
 #include "Common.sh"
-#include "Era.sh"
+#include "StandardCutout.sh"
 #include "StandardSurface.sh"
-#include "Dither.sh"
 
 SAMPLER2D(s_texDiffuse, 0);
 SAMPLER2D(s_texNormal, 1);
@@ -16,27 +15,21 @@ SAMPLER2D(s_texOcclusion, 5);
 SAMPLER2D(s_texMetallic, 6);
 SAMPLER2D(s_texRoughness, 7);
 
-uniform vec4 u_baseColor;   // linear rgb, opacity
+// u_baseColor, u_emissive, u_uvTransform, u_drawParams and u_portalClipPlane: StandardCutout.sh.
 uniform vec4 u_pbrParams;   // x metallic, y roughness, z normal strength, w occlusion strength
-uniform vec4 u_emissive;    // rgb linear * intensity, w alpha cutoff (0 = off)
-uniform vec4 u_uvTransform; // xy tiling, zw offset
 uniform vec4 u_pbrTextureParams; // xy separate metallic/roughness maps, z invert roughness
-uniform vec4 u_drawParams;  // x screen-door fade (Dither.sh), per draw
-
-uniform vec4 u_portalClipPlane;
 
 void main()
 {
-	if (dot(vec4(v_worldPos, 1.0), u_portalClipPlane) < 0.0) discard;
-	if (ditherDrops(u_drawParams.x, gl_FragCoord.xy))
+	// The discards, in the order StandardDepth.frag (the depth prepass) makes them.
+	if (standardClipped(v_worldPos, gl_FragCoord.xy))
 	{
 		discard;
 	}
-	vec2 meshUv = u_eraParams.y > 0.5 ? v_affine.xy / max(v_affine.z, 0.000001) : v_texcoord0;
-	vec2 uv = meshUv * u_uvTransform.xy + u_uvTransform.zw;
-	vec4 base = toLinear(u_eraParams.z > 0.5 ? eraThreePoint(s_texDiffuse, uv) : texture2D(s_texDiffuse, uv)) * u_baseColor;
+	vec2 uv = standardUv(v_texcoord0, v_affine);
+	vec4 base = standardBase(s_texDiffuse, uv);
 	float alpha = base.a * texture2D(s_texAlpha, uv).r;
-	if (u_emissive.w > 0.0 && alpha < u_emissive.w)
+	if (standardCutout(alpha))
 	{
 		discard;
 	}

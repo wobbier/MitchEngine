@@ -5,7 +5,7 @@ Rendering is split into CPU **producers** and a serial **consumer**:
 - **Producers** are `RenderCore` and `ParticleCore`. `RenderCore` runs a parallel job that fills one POD `MeshCommand` per mesh and gathers a `LightCommand` per light and a `DecalCommand` per decal; `ParticleCore` simulates particle systems into per-system batches.
 - **The consumer** is `BGFXRenderer`. It renders every camera through the same chain into HDR targets:
   1. Shadow cascades.
-  2. Clustered-forward PBR opaque pass (the sky behind it, then per-object outline hulls).
+  2. Clustered-forward PBR opaque pass, after a depth prepass of the same surfaces (the sky behind it, then per-object outline hulls).
   3. Decals, projected onto the opaque surfaces and lit like them.
   4. SSAO, then screen-space edge outlines (optional toon ink).
   5. Height fog, optionally volumetric (light shafts, lit by every light).
@@ -17,7 +17,7 @@ Rendering is split into CPU **producers** and a serial **consumer**:
 
 Ambient light comes from per-camera image-based-lighting probes. This doc maps the frame, the view-ID scheme, the lighting data paths and the sharp edges.
 
-> Verified against engine commit 1fa55311, 2026-10-09 (overhaul Wave 3); skinned meshes against 07617c5f, 2026-10-09; fog against b7c61e56, 2026-10-10; decals against 8d958c0b plus the `Decal` component, 2026-10-15; background sky box loads against ac23d33f plus the background loads change, 2026-10-16; feature caps and scene draw statistics against 3f04199c plus the hardware profiles change, 2026-10-22; rectangle beams and temporal volumetric fog against 94407e9d plus the concert lighting change, 2026-10-29; render textures, the camera order and lazy post targets against 89e036be plus the render texture change, 2026-10-29.
+> Verified against engine commit 1fa55311, 2026-10-09 (overhaul Wave 3); skinned meshes against 07617c5f, 2026-10-09; fog against b7c61e56, 2026-10-10; decals against 8d958c0b plus the `Decal` component, 2026-10-15; background sky box loads against ac23d33f plus the background loads change, 2026-10-16; feature caps and scene draw statistics against 3f04199c plus the hardware profiles change, 2026-10-22; rectangle beams and temporal volumetric fog against 94407e9d plus the concert lighting change, 2026-10-29; volumetric light samples against 78e47156 plus that change (ME-364), 2026-11-12; render textures, the camera order and lazy post targets against 89e036be plus the render texture change, 2026-10-29; the depth prepass against 78e47156 plus the depth prepass change, 2026-11-12; per-instance data against 78e47156 plus that change (ME-365), 2026-11-12.
 
 ## Overview
 
@@ -108,16 +108,17 @@ bgfx runs views in ascending ID order, so producers must have lower IDs than the
 2. For each camera: render texture cameras first (by entity GUID, see Render textures below), so every later view samples this frame's image; then the editor camera, the other cameras, the main camera, and split-screen cameras last (they draw into the main camera's output):
    1. Environment probe updates.
    2. 4 shadow cascades.
-   3. Opaque.
-   4. SSAO (3 views).
-   5. Transparent.
-   6. Particles.
-   7. Temporal AA resolve (when on).
-   8. Depth of field (when on, 7 views).
-   9. Bloom down/up chain.
-   10. Luminance + adaptation.
-   11. Tonemap.
-   12. FXAA.
+   3. Depth prepass (when on, see Depth prepass below).
+   4. Opaque.
+   5. SSAO (3 views).
+   6. Transparent.
+   7. Particles.
+   8. Temporal AA resolve (when on).
+   9. Depth of field (when on, 7 views).
+   10. Bloom down/up chain.
+   11. Luminance + adaptation.
+   12. Tonemap.
+   13. FXAA.
 
 ### Render groups
 
@@ -142,9 +143,9 @@ bgfx runs views in ascending ID order, so producers must have lower IDs than the
    - `PrepareCameraLighting` applies the camera's procedural sky settings (`DynamicSky::ApplySettings`), renders the sky's tables and clouds for a procedural background (`DynamicSky::Prepare`), resolves the sky's sun and moon directionals for procedural backgrounds, and builds the clusters and ambient fallback.
    - `EnvironmentLighting::Prepare` picks or refreshes the IBL probe.
    - `RenderSunShadows` renders the cascades.
-3. **Opaque view** on `SceneBuffer`:
-   - Clear to the linearised clear colour. A textured skybox gets a preceding view on the same HDR target: its mesh bounds are normalized to a unit cube, with a rotation-only view and fixed clipping. Source units, scene clip distances and orthographic zoom cannot clip the background. The panorama and the sky mesh load in the background: until both (and the sky material's shader) are ready the view just clears, and a panorama that failed to load samples black.
-   - Opaque meshes: instanced batches keyed `(vertexBuffer, indexBuffer, BatchKey)` plus singles.
+3. **Depth prepass view**, then the **opaque view**, both on `SceneBuffer` (see Depth prepass below; with the prepass off there is only the opaque view):
+   - Clear to the linearised clear colour, in the first of the views. A textured skybox gets a preceding view on the same HDR target: its mesh bounds are normalized to a unit cube, with a rotation-only view and fixed clipping. Source units, scene clip distances and orthographic zoom cannot clip the background. The panorama and the sky mesh load in the background: until both (and the sky material's shader) are ready the view just clears, and a panorama that failed to load samples black.
+   - Opaque meshes: instanced batches keyed `(vertexBuffer, indexBuffer, BatchKey)` plus singles (each instance's matrix carries its per-instance data, see Per-instance data below). The loop first sorts the visible commands into the batches and a list of single draws (`m_opaqueDraws`: skinned, posed, not instanced, and the outgoing level of a LOD crossfade), then submits: the singles as visited and the batches as first seen, or exactly backwards under a prepass.
    - Procedural sky (`DynamicSky::Draw`), last: a far-plane triangle with `DEPTH_TEST_LEQUAL`, so it only shades pixels the scene left empty (see Procedural sky below).
 4. **Decals** blend onto the opaque HDR colour (see Decals below), so the SSAO and fog that follow cover them too.
 5. **SSAO** multiplies the opaque HDR colour (before transparents).
@@ -152,6 +153,38 @@ bgfx runs views in ascending ID order, so producers must have lower IDs than the
 7. **Transparent view**: meshes sorted back to front, depth-write off; then legacy gizmo callbacks and the Debug Draw v2 lines.
 8. **Particles** (see below).
 9. **Post** into the final target (a render texture camera's texture), then the **UI composite** for the main camera.
+
+### Per-instance data
+
+Meshes that differ only in a value the shader could read per instance would otherwise split into one batch per value, since anything a material uploads in `Use()` has to be in its batch key. `Mesh::InstanceData` (ME-365) carries three floats per mesh past the batch key, in the instance data instead: three spare floats in the instance's matrix, so the stride stays one `mat4` (64 bytes) and nothing else about instancing changes.
+
+- **Where.** A world matrix is affine, so its bottom row is always (0, 0, 0, 1). `BGFXRenderer::InstanceMatrix` writes `InstanceData` into the first three (`matrix[c][3]`, the `w` of instance attributes `i_data0..2`) as it fills the opaque batches, a single instanced draw (posed vertices, the outgoing level of a LOD crossfade) or a transparent one. The vertex shader takes them out and rebuilds the matrix with (0, 0, 0, 1).
+- **Who reads it.** Only draws whose program is the stock `Standard` program (`StandardMaterial` and the subclasses that keep its shaders; the same program check as the depth prepass). `Standard.vert` adds `xy` to the mesh's uv before the material's tiling and offset: with `Tiling` one tile of an atlas, `InstanceData.xy` = (column, row) picks the tile, so meshes in different atlas tiles share one draw. `z` is free. Any other program, and every shadow, picking, overdraw and outline draw, gets the plain matrix, so a value set on a mesh with another material is ignored, not misread as a matrix.
+- **Both passes.** The depth prepass draws with the same `Standard.vert` and the same instance buffer, so it sees the same values; the uv offset only matters to it when the surface has an alpha cutoff (`StandardDepth.frag` samples with that uv).
+- **Unchanged otherwise.** With `InstanceData` zero (the default, and every existing mesh) the shader rebuilds exactly the matrix it was given and adds 0 to the uv, so existing instanced materials draw as before. It's runtime only, like `DitherFade`: not saved, not in the inspector.
+- **Limits.** Skinned meshes (`StandardSkinned.vert`) don't read it: they draw one at a time anyway, so a material's own `Offset` does the same job. Shadow casters don't carry it: an alpha-tested caster whose cutout depends on the atlas tile would test the material's tile, not the instance's.
+- **Drumsmith's crowd** uses it to wear twelve atlas variants from one packed atlas: 404 instanced draws of its venue's crane shot became 42 (`Docs/Venue-and-Band.md` in the game).
+
+### Depth prepass
+
+The opaque loop draws in mesh command order, which is creation order, not front to back, and nearly every surface runs one expensive lit shader. A scene with three layers of geometry behind a pixel therefore shades about three fragments for it. The depth prepass (ME-363) removes that: each camera first draws its opaque surfaces depth-only into a view named `<label> Depth Prepass`, then the opaque view shades only what ended up in front.
+
+- **Views.** The prepass view is allocated right before the opaque view, on the same target (`SceneBuffer`), with the same view and projection matrices (temporal jitter included) and `ViewMode::Sequential`. Whichever scene view comes first does the clear: the skybox view, else the prepass, else the opaque view. A camera that gets no prepass view (the dynamic band is full) renders without one.
+- **Which draws take part.** Draws whose colour program is the stock `Standard` or `StandardSkinned` program (`StandardMaterial`, its legacy names, a subclass that keeps the shader): singles, skinned meshes, posed vertices, instance batches and the outgoing level of a LOD crossfade. `BindMeshDrawState` decides by comparing program handles, because the depth programs are those same vertex shaders with a depth-only fragment shader. A material with its own shaders (shader graphs, foliage, terrain, unlit, portals) is not in the prepass and draws once in the opaque view, as before.
+- **One bind, two submits.** `BindMeshDrawState` binds the buffers, the instance data and everything a discard can depend on (base colour and opacity maps, `u_drawParams`, `u_portalClipPlane`, `u_eraParams`, the bone palette, and the material itself when the surface can drop fragments). It submits that to the prepass view with `BGFX_DISCARD_NONE`, so the bindings stay, then binds the shading maps and lighting and returns for the colour submit. Both draws read the same instance data buffer. The prepass costs one more `bgfx::submit` per draw, not a second bind or a second copy of the transforms.
+- **The depth programs** (`m_depthPrepassPrograms`): `Standard.vert` or `StandardSkinned.vert` with
+  - `StandardDepthSolid.frag` for a surface that drops nothing (no alpha cutoff, no screen-door fade, no portal clip plane). It has no `discard`, so the GPU skips the fragment stage: Drumsmith's venue prepass runs 0 fragment shader invocations.
+  - `StandardDepth.frag` otherwise: the three discards of `Standard.frag` and nothing else.
+- **What the prepass has to honour.** A fragment the prepass keeps and the colour pass drops leaves a hole (depth with no colour, and nothing behind it passes); one the prepass drops and the colour pass keeps is drawn without its depth. So:
+  - The discards live in `Assets/Shaders/StandardCutout.sh`, which both `Standard.frag` and `StandardDepth.frag` include: the portal clip plane, the screen-door fade, and the alpha cutoff with its uv (tiling, offset, affine mapping) and base alpha (three-point filtering). Change a discard there, never in one of the two shaders.
+  - The vertex shader binary is the colour pass's own, with the same uniforms and instance data, so clip-space positions match bit for bit. A separate depth-only vertex shader would not guarantee that.
+  - The solid variant is chosen on the CPU from the same values the shader would test (`Material::GetAlphaCutoff()`, `MeshCommand::DitherFade`, `PortalClipPlane`), per draw or per batch. The batch key already separates those.
+- **Depth states.** The prepass writes depth with `LESS`. Under a prepass every colour draw tests `LEQUAL`. The prepassed ones don't write depth, so their fragment shader runs only where the depth test passes, whatever the shader discards. The others still write theirs and treat the prepass depth as an upper bound. `LEQUAL` rather than `EQUAL` costs nothing and keeps a fragment that lands in front of the prepass depth.
+- **Order under a prepass.** Without one, the first surface drawn at a given depth keeps the pixel: it writes that depth and `LESS` rejects the next. With one, every surface at the prepass depth passes and the last drawn keeps it. So the opaque view submits backwards under a prepass (last batch first, each batch's instances reversed, then the single draws last to first), and two coplanar surfaces show the same one as without a prepass. The limit is triangles inside one mesh: two of them at exactly the same depth (duplicated or coincident faces in a model) swap which one shows, because a mesh's triangles can't be drawn backwards without a second index buffer. That was the only difference found between prepass on and off: 3 pixels of 7.4 million in Drumsmith's venue bench frame, and up to a few dozen pixels in a 1080p close-up of low-poly characters, on slivers too small to see. Depth is identical everywhere.
+- **Not used** in the overdraw view, which counts every layer, or in wireframe.
+- **Switches.** `BGFXRenderer::EnableDepthPrepass` (RenderCore inspector > Rendering > Depth Prepass; `--no-depth-prepass` starts with it off) and the `DepthPrepass` feature cap, which a hardware profile or quality preset sets with `"DepthPrepass": false` (`Docs/Hardware-Profiles.md`). Both must be on.
+- **Statistics.** Prepass submits count as draws and triangles, per view and in the scene totals, like shadow casters.
+- **Measured** on Drumsmith's venue (RTX 4090, 5120x1440, Vulkan, RenderDoc counters): the main opaque view went from 22.2 M fragment shader invocations (3.0 per pixel) to 7.37 M (1.0 per pixel), and its GPU time from 12.6 ms to 7.5 ms as RenderDoc times it (it times each draw on its own, so read the ratio). The prepass view next to it: the same 378 draws, 0 invocations, 0.01 ms. Forcing every prepass draw through `StandardDepth.frag` instead cost 13.4 M invocations and 0.02 ms. On the CPU (Release build, same scene, about 390 more draws a frame) the mesh submit loops took 0.51 ms a frame against 0.49 ms, and `bgfx::frame` showed no difference above its run-to-run noise of about 0.1 ms.
 
 ### Anti-aliasing and RenderCore controls
 
@@ -373,7 +406,7 @@ The editor draws each decal's box with an arrow along the projection (and the te
   - Every call takes a colour, a duration and flags (`NoDepthTest`, `EditorOnly`).
   - Collected once per frame and drawn in each camera's transparent view. `EditorOnly` lines go only to the editor camera.
 - **Frame statistics**: `BGFXRenderer::GatherFrameStats` copies `bgfx::getStats()` into `FrameStats::RenderStats`, including bgfx's texture and render-target memory estimates and `MeshData::GetTotalGpuBytes`. Per-view GPU timings need `BGFX_DEBUG_PROFILER`, which is on only while the editor's Profiler window is open. `CountTriangles` also counts each mesh draw into a tally for the game's cameras, the editor's views, render texture cameras, or the frame's local shadows (`SceneCounts`), and `RenderStats::SceneDrawCalls` / `SceneTriangles` report the game's, with the local shadows and render texture cameras added (`Docs/Hardware-Profiles.md`).
-- **Feature caps** (`BGFXRenderer::FeatureCaps`, set by an enforced hardware profile): they mask shadows (`AreShadowsActive`), shadow tile sizes (`CapShadowResolution`), environment lighting, and the camera's AO, bloom, depth of field, volumetric fog and TAA at render time. With instancing off, every instanced submit (opaque and shadow casters, not particles) draws one instance at a time. The authored settings are never changed. A camera's own pass switches mask its sun cascades, AO and volumetric fog the same way (Render textures below).
+- **Feature caps** (`BGFXRenderer::FeatureCaps`, set by an enforced hardware profile): they mask shadows (`AreShadowsActive`), shadow tile sizes (`CapShadowResolution`), environment lighting, the depth prepass, and the camera's AO, bloom, depth of field, volumetric fog and TAA at render time. With instancing off, every instanced submit (opaque and shadow casters, not particles) draws one instance at a time. The authored settings are never changed. A camera's own pass switches mask its sun cascades, AO and volumetric fog the same way (Render textures below).
 - **Picking**: `PickingPass` renders entity IDs into a 32×32 target around the click and reads it back (see `Docs/Editor-Havana.md`).
 
 ### Levels of detail
@@ -419,7 +452,9 @@ Texture stages:
 | 14 | Environment irradiance |
 | 15 | BRDF LUT |
 
-Missing maps fall back to neutral 1×1 textures (white; flat normal), and so does a render texture camera's own target in its views, except in the base colour and emissive stages, which get black (`Texture::Sampleable`). `BindLighting` sets the lighting uniforms with every draw (bgfx uniform state is per draw), then `Material::Use()` and `GetRenderState()` apply.
+Missing maps fall back to neutral 1×1 textures (white; flat normal), and so does a render texture camera's own target in its views, except in the base colour and emissive stages, which get black (`Texture::Sampleable`). `BindLighting` sets the lighting uniforms with every draw (bgfx uniform state is per draw), then `Material::Use()` applies; the render state comes from `GetRenderState()`.
+
+The order inside `BindMeshDrawState` matters to the depth prepass: buffers (and, for a skinned draw, the weights stream and `u_bones`), stages 0 and 2, `u_drawParams` and `u_portalClipPlane` come first, then the prepass submit, then the remaining stages, the lighting and `Material::Use()`. The caller sets the transform or the instance data before calling it. Anything new that a discard or the vertex position depends on belongs before the prepass submit.
 
 ### Portals and screen-space camera views
 
@@ -591,7 +626,8 @@ A camera can render below its output size and upscale the result (LOOK-S1): chea
 - **Sky noise start-up**: the cloud noise generates on the background lane (ME-319: a Low-priority `Sky Noise` task whose slices the lane's threads share, so it never holds up a scene read or terrain page queued behind it) in ~0.26 s in Release and ~1 s in a `-O0` Debug build (32 hardware threads, 4 lane threads), overlapped with loading. Until it's ready the sky draws without clouds (and the moon and Milky Way without their noise detail) instead of stalling the frame; the environment key changes when they appear, so the probe recaptures. Runs with `--frame-time` wait for it on the first frame, so repeatable captures always have clouds. The noise is deterministic: caching or cooking it would remove the start-up cost entirely.
 - **Fog is screen-space, not froxels**: volumetric lighting exists only in front of opaque surfaces. Transparents and particles get analytic fog (no shafts). The fog history reprojects through the opaque depth, so fog in front of a surface follows that surface; a light moving on its own trails for the few frames the neighbourhood clamp allows. With `VolumetricTemporal` off and no temporal AA the sample pattern stays fixed and only the depth-aware blur hides it. The march costs `VolumetricSteps` shadow taps plus cluster light loops per half-resolution pixel, so a 256-step march is a quality setting for static shots; `MaxVolumetricSteps` in a hardware profile caps it.
 - **Lit particles are per-pixel and isotropic**: no forward-scattering phase function, no self-shadowing within a plume, and each lit pixel walks its cluster's lights, which costs fill rate on big smoke.
-- **Skinned meshes aren't instanced**: each costs one draw per view (camera, cascade, spot light), and its palette is uploaded with every draw.
+- **Skinned meshes aren't instanced**: each costs one draw per view (camera, cascade, spot light), and its palette is uploaded with every draw. Under a depth prepass that is two draws per camera, each replaying the palette.
+- **The depth prepass relies on one vertex shader giving the same positions in two pipelines.** That holds on Vulkan with NVIDIA's driver and with lavapipe, the only backends it has been run on. A backend whose compiler rounds a position differently for the depth-only pipeline would leave speckled holes on Standard surfaces, as the colour draw's fragments fall behind the prepass depth. The `DepthPrepass` cap (or `--no-depth-prepass`) is the way out until it's fixed there. Materials with their own shaders get no prepass, so a scene made of shader graph or foliage materials gains nothing from it.
 - **Framebuffer exhaustion**: bgfx has a fixed framebuffer pool (`BGFX_CONFIG_MAX_FRAME_BUFFERS`, 128, compiled into the prebuilt bgfx libraries). Each camera's targets take one each: scene, post, particles and output, plus the lazily created bloom mips (up to six), SSAO, volumetric fog, exposure, histories and the upscale input. A destroyed framebuffer stays counted until its frame is done, so rebuilding a camera briefly costs its targets twice. When creation fails it's logged once ("Out of framebuffers"), and a camera missing a core target is skipped ("Camera skipped"), retrying every 120 frames. Four Lighting-showcase cameras with bloom and SSAO exceed the pool; `RenderScale.lvl` turns bloom and SSAO off for that reason. Drumsmith's venue (highway, venue and two screen-feed cameras) peaks at about 65 in the game. The editor adds its own camera and panels on top of that.
 - **A render texture costs a camera**: each feed runs the whole chain (clusters, sun cascades, post) at its asset's size, and its targets, plus the texture's own framebuffer, count against bgfx's framebuffer limit. `UpdateInterval`, a smaller asset and the pass switches are the controls. A feed that samples another rendered after it in the frame lags a frame.
 - **Decals paint everything opaque in their box**: there is no receiver mask, so a character walking through a floor decal gets it projected onto its legs. Transparents and particles never receive decals (they draw later).

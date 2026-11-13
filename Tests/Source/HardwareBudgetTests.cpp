@@ -89,6 +89,19 @@ TEST_CASE( "Hardware profiles: keys read over the defaults, frame budgets follow
     CHECK_FALSE( profile.Caps.VolumetricFog );
     CHECK( profile.Caps.MaxVolumetricSteps == 48 );
     CHECK( profile.Caps.Shadows );              // not mentioned: the target has it
+    CHECK( profile.Caps.DepthPrepass );
+}
+
+
+TEST_CASE( "Hardware profiles: the depth prepass cap reads from a profile and the stricter set wins" )
+{
+    HardwareProfile profile;
+    profile.Deserialize( json::parse( R"({ "Name": "Test", "Caps": { "DepthPrepass": false } })" ) );
+    CHECK_FALSE( profile.Caps.DepthPrepass );
+    const HardwareProfile::FeatureCaps none;
+    CHECK( HardwareProfile::Combine( none, none ).DepthPrepass );
+    CHECK_FALSE( HardwareProfile::Combine( profile.Caps, none ).DepthPrepass );
+    CHECK_FALSE( HardwareProfile::Combine( none, profile.Caps ).DepthPrepass );
 }
 
 

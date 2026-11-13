@@ -4,7 +4,7 @@ Materials are code-defined `Material` subclasses (a `Resource` specialization) r
 
 Shaders are bgfx `.vert`/`.frag` sources compiled to per-backend binaries by `shaderc`, either in batch (`Tools/BuildShaders.sh`) or on demand by the resource-metadata cook. In tools builds they **hot reload**: editing a shader, a shared `.sh` include or a `.var` file recompiles it and swaps the program in place. This doc covers the material contract, the instancing batch key, the shader pipeline and how to add a material.
 
-> Verified against engine commit 1fa55311, 2026-10-09 (overhaul Wave 3); shader loading and the program registry against 488b07f1 plus the non-blocking shaders change, 2026-10-16; `Offset` and render texture inputs against 89e036be plus the render texture change, 2026-10-29.
+> Verified against engine commit 1fa55311, 2026-10-09 (overhaul Wave 3); shader loading and the program registry against 488b07f1 plus the non-blocking shaders change, 2026-10-16; `Offset` and render texture inputs against 89e036be plus the render texture change, 2026-10-29; per-instance data in `Standard.vert` against 78e47156 plus that change (ME-365), 2026-11-12.
 
 ## Overview
 
@@ -29,6 +29,7 @@ A material type *is* a C++ class that knows its shader pair, its uniforms, and h
 | `Modules/Moonlight/Source/Graphics/ShaderFile.h` | Compiled-shader resource, `Reload`, and the `shaderc` cook (`ShaderFileMetadata::Export`) |
 | `Modules/Moonlight/Source/Graphics/ShaderDependencies.cpp` | Maps changed `.sh` includes / `.var` files to the shaders built from them |
 | `Assets/Shaders/Standard.vert` / `.frag`, `Lighting.sh` | The PBR shader and the shared lighting library |
+| `Assets/Shaders/StandardCutout.sh`, `StandardDepth.frag`, `StandardDepthSolid.frag` | Standard's discards (shared by the colour and depth shaders) and the depth prepass fragment shaders |
 | `Tools/BuildShaders.sh` | Batch compile (SPIR-V + GLSL 150) of everything, or a filtered subset |
 
 ## How It Works
@@ -96,6 +97,18 @@ Max Physical FBX materials also retain their raw `3dsMax|Parameters` properties.
 
 Model meshes save `ImportedMaterialDefaults` alongside their material. Reopening rebases values that still equal those defaults and retains user edits, including removed texture slots. Older scenes compare against the former importer's defaults so newly supported maps and corrected factors apply without resetting authored materials.
 
+### Standard's discards and the depth prepass
+
+`Standard.frag` drops a fragment for three reasons: it is behind the draw's portal clip plane, the screen-door fade drops its texel, or its alpha is under `AlphaCutoff`. The tests, the uv they use and the base colour the alpha comes from are functions in `StandardCutout.sh` (`standardClipped`, `standardUv`, `standardBase`, `standardCutout`), with the uniforms they read.
+
+The renderer's depth prepass (`Docs/Rendering-Pipeline.md`, Depth prepass) draws every opaque Standard surface a first time with `Standard.vert` or `StandardSkinned.vert` and a depth-only fragment shader: `StandardDepthSolid.frag` when the surface can't drop a fragment, otherwise `StandardDepth.frag`, which makes the same calls into `StandardCutout.sh` and nothing else. The colour pass then only shades fragments at the depth the prepass left, so the two must agree on every fragment:
+
+- A new discard in `Standard.frag`, or a change to an existing one, goes into `StandardCutout.sh` so both shaders get it. If it depends on a new uniform or texture, the renderer has to bind that before the prepass submit (`BGFXRenderer::BindMeshDrawState`), and the CPU test that picks the solid variant has to know when it can fire.
+- Anything that moves `gl_Position` in `Standard.vert` or `StandardSkinned.vert` applies to both passes on its own, as they share the vertex shader binary. Its inputs must be bound before the prepass submit too (`u_eraParams` and `u_bones` are).
+- The fragment shaders declare `Standard.frag`'s inputs in the same order. Their `.var` files are copies of `Standard.var`.
+
+A material that draws with other shaders is left out of the prepass and renders as it always did. To bring one in it needs the same pair: its own vertex shader with a fragment shader that only makes its discards, and the renderer has to pick that program for it (today it only recognises the stock Standard programs).
+
 ### FoliageMaterial
 
 `.mtree` trees load with one `FoliageMaterial` per part (`Part` Bark or Leaves), filled from the recipe; the Model component's imported-material merge keeps per-part edits across regenerations. Their meshes carry a second vertex stream (`WindVertex`, bound by `MeshData::BindVertexBuffer` as stream 1 and read as `a_color0`): R leaf flutter, G branch phase, B branch sway weight, A baked crown occlusion.
@@ -128,7 +141,9 @@ Model meshes save `ImportedMaterialDefaults` alongside their material. Reopening
 
 **The invariant to preserve:** anything your material reads in `Use()` or contributes to `GetRenderState` **must be mixed into the batch key**. If it isn't, visually different instances batch together and silently render with the representative's values.
 
-Instancing-capable vertex shaders are **instance-only**: they read the model matrix from `i_data0..3` (`TEXCOORD7..4` in the `.var`), so every draw of that material, transparent ones included, feeds an instance buffer.
+The one way past the key is per-instance data (`Mesh::InstanceData`, `Docs/Rendering-Pipeline.md` Per-instance data): three floats per mesh that ride in the instance buffer, not the material, for the stock Standard program only. `Standard.vert` reads `xy` as an offset added to the mesh's uv before `Tiling` and `Offset`, so meshes drawing different tiles of one atlas (the same texture, `Tiling` one tile) batch together.
+
+Instancing-capable vertex shaders are **instance-only**: they read the model matrix from `i_data0..3` (`TEXCOORD7..4` in the `.var`), so every draw of that material, transparent ones included, feeds an instance buffer. `Standard.vert` takes the bottom row (`i_data0..2.w`) as the per-instance data and rebuilds it as (0, 0, 0, 1); a shader of your own that builds the matrix with `mtxFromCols(i_data0, i_data1, i_data2, i_data3)` as it is never gets non-zero values there.
 
 ### Shader pipeline
 
@@ -201,6 +216,7 @@ ME_REGISTER_MATERIAL_NAME( ClearcoatMaterial, "Clearcoat" )
    - Include `Fog.sh` and end with `fogForward` like `Standard.frag`. Otherwise the shader stays unfogged when drawn as a transparent (after the fog pass); for opaque draws it's a no-op.
    - Instanced shaders read the model matrix from `i_data0..3`.
    - Note that bgfx's shaderc only allows `gl_FragCoord` inside `main()`.
+   - A custom shader isn't in the depth prepass (see Standard's discards and the depth prepass), so its opaque draws shade every layer the depth test lets through, as before.
 3. Override `OnSerialize`/`OnDeserialize` for new fields; the base handles modes, colour, tiling, offset and textures.
 4. Run `Tools/BuildShaders.sh Foo`, or just open the editor (it cooks), then edit live.
 

@@ -47,6 +47,11 @@ public:
     float DitherFade = 0.f;
     // Runtime portal slicing. Zero plane disables clipping; proxies override only their draw matrix.
     glm::vec4 PortalClipPlane = glm::vec4( 0.f );
+    // Per-instance values (ME-365), at runtime only (not saved): they ride in the instance data,
+    // so meshes that differ only here still share one instanced draw. The stock Standard program
+    // reads xy as an offset added to the mesh's uv before the material's tiling and offset (an
+    // atlas tile); z is free. Other programs never see them. See Engine/Docs/Rendering-Pipeline.md.
+    glm::vec3 InstanceData = glm::vec3( 0.f );
     bool PortalImage = false;
     Matrix4 PortalImageWorld;
 

@@ -97,6 +97,10 @@ namespace Moonlight
         // -d draw of the same surface cover it exactly once. Shadows dither the same way.
         float DitherFade = 0.f;
         glm::vec4 PortalClipPlane = glm::vec4( 0.f );
+        // Per-instance values (Mesh::InstanceData, ME-365). Not part of BatchKey: they go into the
+        // spare bottom row of the instance matrix (BGFXRenderer::InstanceMatrix), for the stock
+        // Standard program only, which reads xy as a uv offset.
+        glm::vec3 InstanceData = glm::vec3( 0.f );
         // A LOD crossfade: the level fading out (0xFF = none). Drawn as a second command with the
         // complementary mask (DitherFade negated), so the switch doesn't pop.
         uint8_t CrossfadeLod = 0xFF;

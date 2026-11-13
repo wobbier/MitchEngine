@@ -268,6 +268,15 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         m_shadowSkinnedProgram = Moonlight::ShaderCommand( "Assets/Shaders/ShadowDepthSkinned", "Assets/Shaders/ShadowDepth" );
         m_overdrawProgram = Moonlight::ShaderCommand( "Assets/Shaders/ShadowDepth", "Assets/Shaders/Overdraw" );
         m_overdrawSkinnedProgram = Moonlight::ShaderCommand( "Assets/Shaders/ShadowDepthSkinned", "Assets/Shaders/Overdraw" );
+        // Depth prepass: the Standard vertex shaders with depth-only fragment shaders. The colour
+        // programs come from the registry, so these are the handles Standard materials draw with.
+        m_standardProgram = Moonlight::ShaderCommand( "Assets/Shaders/Standard" );
+        m_standardSkinnedProgram = Moonlight::ShaderCommand( "Assets/Shaders/StandardSkinned", "Assets/Shaders/Standard" );
+        m_depthPrepassPrograms[0][0] = Moonlight::ShaderCommand( "Assets/Shaders/Standard", "Assets/Shaders/StandardDepthSolid" );
+        m_depthPrepassPrograms[0][1] = Moonlight::ShaderCommand( "Assets/Shaders/Standard", "Assets/Shaders/StandardDepth" );
+        m_depthPrepassPrograms[1][0] = Moonlight::ShaderCommand( "Assets/Shaders/StandardSkinned", "Assets/Shaders/StandardDepthSolid" );
+        m_depthPrepassPrograms[1][1] = Moonlight::ShaderCommand( "Assets/Shaders/StandardSkinned", "Assets/Shaders/StandardDepth" );
+        EnableDepthPrepass = !CommandLine::Has( "--no-depth-prepass" );
         m_outlineHullProgram = Moonlight::ShaderCommand( "Assets/Shaders/OutlineHull", "Assets/Shaders/OutlineHull" );
         m_outlineHullSkinnedProgram = Moonlight::ShaderCommand( "Assets/Shaders/OutlineHullSkinned", "Assets/Shaders/OutlineHull" );
         u_outlineHull = bgfx::createUniform( "u_outlineHull", bgfx::UniformType::Vec4 );
@@ -625,6 +634,15 @@ void BGFXRenderer::Destroy()
     m_shadowSkinnedProgram = Moonlight::ShaderCommand();
     m_overdrawProgram = Moonlight::ShaderCommand();
     m_overdrawSkinnedProgram = Moonlight::ShaderCommand();
+    m_standardProgram = Moonlight::ShaderCommand();
+    m_standardSkinnedProgram = Moonlight::ShaderCommand();
+    for( auto& skinned : m_depthPrepassPrograms )
+    {
+        for( Moonlight::ShaderCommand& program : skinned )
+        {
+            program = Moonlight::ShaderCommand();
+        }
+    }
     m_outlineHullProgram = Moonlight::ShaderCommand();
     m_outlineHullSkinnedProgram = Moonlight::ShaderCommand();
     if( bgfx::isValid( m_lightDataTexture ) )
@@ -1180,6 +1198,13 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         && ( !camera.Skybox->SkyMap || !camera.Skybox->SkyMap->IsLoading() );
     bx::snprintf( viewName, sizeof( viewName ), "%s Skybox", label );
     const bgfx::ViewId skyView = hasSkybox ? m_views.Allocate( viewName ) : UINT16_MAX;
+    // Depth prepass (ME-363): a view before the opaque one, on the same target, that only writes
+    // depth. The opaque view then shades each pixel's front surface once, however many layers
+    // lie behind it. Not for overdraw (which counts every layer) or wireframe (nothing to shade).
+    // Out of views, the camera draws without one.
+    const bool depthPrepass = EnableDepthPrepass && FeatureCaps.DepthPrepass && !overdraw && !wireframe;
+    bx::snprintf( viewName, sizeof( viewName ), "%s Depth Prepass", label );
+    const bgfx::ViewId prepassView = depthPrepass ? m_views.Allocate( viewName ) : UINT16_MAX;
     bx::snprintf( viewName, sizeof( viewName ), "%s Opaque", label );
     const bgfx::ViewId id = m_views.Allocate( viewName );
     if( id == UINT16_MAX )
@@ -1229,11 +1254,16 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         bgfx::touch( view );
     };
     setupSceneView( id );
+    if( prepassView != UINT16_MAX )
+    {
+        setupSceneView( prepassView );
+    }
 
     // Clear colours are authored in sRGB.
     auto toLinear = []( float c ) { return c <= 0.04045f ? c / 12.92f : std::pow( ( c + 0.055f ) / 1.055f, 2.4f ); };
     const uint32_t color = depthView || overdraw ? 0x000000ff : ( !background ? 0x050508ff : Moonlight::PackClearColor( toLinear( camera.ClearColor.x ), toLinear( camera.ClearColor.y ), toLinear( camera.ClearColor.z ) ) );
-    bgfx::setViewClear( id, hasSkybox ? BGFX_CLEAR_NONE : BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, color, 1.0f, 0 );
+    // The first view on the target clears it: the skybox's, else the prepass's, else the opaque one.
+    bgfx::setViewClear( prepassView != UINT16_MAX ? prepassView : id, hasSkybox ? BGFX_CLEAR_NONE : BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, color, 1.0f, 0 );
 
     if( hasSkybox )
     {
@@ -1281,10 +1311,13 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         bgfx::submit( skyView, camera.Skybox->SkyMaterial->MeshShader.GetProgram() );
     }
 
+    // With a depth prepass every opaque draw tests LEQUAL: the prepassed ones against the depth
+    // they laid down themselves (BindMeshDrawState takes their depth write off), the rest
+    // against it as an upper bound, still writing their own.
     uint64_t state = 0
         | BGFX_STATE_WRITE_RGB
         | BGFX_STATE_WRITE_Z
-        | BGFX_STATE_DEPTH_TEST_LESS
+        | ( prepassView != UINT16_MAX ? BGFX_STATE_DEPTH_TEST_LEQUAL : BGFX_STATE_DEPTH_TEST_LESS )
         | BGFX_STATE_MSAA
         | s_ptState[m_pt]
         ;
@@ -1297,6 +1330,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     }
     m_activeBatchCount = 0;
     m_batchLookup.clear();
+    m_opaqueDraws.clear();
 
     // Batches keep first-seen order (so draw order doesn't change), found by a hash of the key
     // rather than a scan of every batch per mesh: a venue's 16k instanced meshes in a few dozen
@@ -1342,10 +1376,51 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     // Outlined meshes this camera draws, noted on the way past so the hull pass doesn't scan
     // every command again.
     std::vector<size_t> outlined;
+    // One mesh drawn on its own: skinned, posed, not instanced, or the outgoing level of a LOD
+    // crossfade.
+    const auto drawSingle = [&]( const OpaqueDraw& InDraw ) {
+        const Moonlight::MeshCommand& mesh = m_meshCache.Commands[InDraw.Command];
+        if( InDraw.Outgoing )
+        {
+            // A LOD crossfade: the outgoing level too, through the complementary mask.
+            Moonlight::MeshCommand outgoing = mesh;
+            outgoing.Lod = mesh.CrossfadeLod;
+            outgoing.DitherFade = -mesh.DitherFade;
+            if( mesh.SkinBoneCount > 0 )
+            {
+                RenderSkinnedMesh( id, outgoing, state, prepassView );
+            }
+            else if( mesh.MeshMaterial->SupportsInstancing )
+            {
+                // Instancing-capable shaders read the transform from instance data only.
+                const glm::mat4 instance = InstanceMatrix( outgoing );
+                RenderMeshInstanced( id, outgoing, &instance, 1, state, prepassView );
+            }
+            else
+            {
+                RenderSingleMesh( id, outgoing, state, prepassView );
+            }
+        }
+        else if( mesh.SkinBoneCount > 0 )
+        {
+            RenderSkinnedMesh( id, mesh, state, prepassView );
+        }
+        else if( bgfx::isValid( mesh.PosedVertices ) && mesh.MeshMaterial->SupportsInstancing )
+        {
+            const glm::mat4 instance = InstanceMatrix( mesh );
+            RenderMeshInstanced( id, mesh, &instance, 1, state, prepassView );
+        }
+        else
+        {
+            RenderSingleMesh( id, mesh, state, prepassView );
+        }
+    };
     {
         OPTICK_CATEGORY( "Meshes", Optick::Category::GPU_Scene );
         bool hasCullingInfo = camera.ShouldCull && !camera.VisibleFlags.empty();
-        const auto drawCommand = [&]( size_t i ) {
+        // Sorts a visible command into the transparent list, an instance batch or the list of
+        // single draws. Nothing is submitted here but overdraw layers, whose order doesn't matter.
+        const auto visitCommand = [&]( size_t i ) {
             const Moonlight::MeshCommand& mesh = m_meshCache.Commands[i];
             // Resident foliage can retain a hidden command whose old visibility index
             // exceeds this frame's smaller draw list. Ignore it before reading that list.
@@ -1359,59 +1434,33 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
                 outlined.push_back( i );
             }
 
+            if( mesh.IsTransparent )
             {
-                if( mesh.IsTransparent )
-                {
-                    if( options.Transparencies ) TransparentIndicies.push_back( i );
-                    return;
-                }
-
-                if( overdraw )
-                {
-                    RenderOverdrawMesh( id, mesh );
-                    return;
-                }
-
-                // A LOD crossfade: the outgoing level too, through the complementary mask.
-                if( mesh.CrossfadeLod != 0xFF )
-                {
-                    Moonlight::MeshCommand outgoing = mesh;
-                    outgoing.Lod = mesh.CrossfadeLod;
-                    outgoing.DitherFade = -mesh.DitherFade;
-                    if( mesh.SkinBoneCount > 0 )
-                    {
-                        RenderSkinnedMesh( id, outgoing, state );
-                    }
-                    else if( mesh.MeshMaterial->SupportsInstancing )
-                    {
-                        // Instancing-capable shaders read the transform from instance data only.
-                        RenderMeshInstanced( id, outgoing, &outgoing.Transform, 1, state );
-                    }
-                    else
-                    {
-                        RenderSingleMesh( id, outgoing, state );
-                    }
-                }
-                if( mesh.SkinBoneCount > 0 )
-                {
-                    RenderSkinnedMesh( id, mesh, state );
-                    return;
-                }
-                if( bgfx::isValid( mesh.PosedVertices ) && mesh.MeshMaterial->SupportsInstancing )
-                {
-                    RenderMeshInstanced( id, mesh, &mesh.Transform, 1, state );
-                    return;
-                }
-
-                if( mesh.SupportsInstancing && mesh.VertexBufferIdx != UINT16_MAX )
-                {
-                    InstanceBatch& batch = getBatch( mesh.VertexBufferIdx, mesh.IndexBufferIdx, mesh.BatchKey, i );
-                    batch.transforms.push_back( mesh.Transform );
-                    return;
-                }
-
-                RenderSingleMesh( id, mesh, state );
+                if( options.Transparencies ) TransparentIndicies.push_back( i );
+                return;
             }
+
+            if( overdraw )
+            {
+                RenderOverdrawMesh( id, mesh );
+                return;
+            }
+
+            // A LOD crossfade draws the outgoing level first, then the mesh itself.
+            if( mesh.CrossfadeLod != 0xFF )
+            {
+                m_opaqueDraws.push_back( { static_cast<uint32_t>( i ), true } );
+            }
+            const bool posed = bgfx::isValid( mesh.PosedVertices ) && mesh.MeshMaterial->SupportsInstancing;
+            if( mesh.SkinBoneCount == 0 && !posed && mesh.SupportsInstancing && mesh.VertexBufferIdx != UINT16_MAX )
+            {
+                InstanceBatch& batch = getBatch( mesh.VertexBufferIdx, mesh.IndexBufferIdx, mesh.BatchKey, i );
+                // InstanceData rides in the matrix, not the key: meshes that differ only there
+                // (atlas tiles, ME-365) share the batch.
+                batch.transforms.push_back( InstanceMatrix( mesh ) );
+                return;
+            }
+            m_opaqueDraws.push_back( { static_cast<uint32_t>( i ), false } );
         };
         // RenderCore's list of what this camera sees, when it built one for this frame; otherwise
         // (editor previews, a frame RenderCore didn't prepare) every command, as the checks above
@@ -1421,14 +1470,23 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
             const size_t commandCount = m_meshCache.Commands.size();
             for( uint32_t i : camera.VisibleMeshes )
             {
-                if( i < commandCount ) drawCommand( i );
+                if( i < commandCount ) visitCommand( i );
             }
         }
         else
         {
             for( size_t i = 0; i < m_meshCache.Commands.size(); ++i )
             {
-                drawCommand( i );
+                visitCommand( i );
+            }
+        }
+
+        // Draw order is the single draws as visited, then the batches as first seen.
+        if( prepassView == UINT16_MAX )
+        {
+            for( const OpaqueDraw& draw : m_opaqueDraws )
+            {
+                drawSingle( draw );
             }
         }
     }
@@ -1436,10 +1494,38 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     {
         OPTICK_CATEGORY( "Instanced Meshes", Optick::Category::GPU_Scene );
 
-        for( size_t b = 0; b < m_activeBatchCount; ++b )
+        if( prepassView == UINT16_MAX )
         {
-            InstanceBatch& batch = m_instanceBatches[b];
-            RenderMeshInstanced( id, m_meshCache.Commands[batch.representativeIndex], batch.transforms.data(), (uint32_t)batch.transforms.size(), state );
+            for( size_t b = 0; b < m_activeBatchCount; ++b )
+            {
+                InstanceBatch& batch = m_instanceBatches[b];
+                RenderMeshInstanced( id, m_meshCache.Commands[batch.representativeIndex], batch.transforms.data(), (uint32_t)batch.transforms.size(), state );
+            }
+        }
+        else
+        {
+            // With a prepass the whole order runs backwards: last batch first, its instances
+            // last to first, then the single draws last to first. Without one, the first
+            // surface drawn at a depth keeps the pixel (LESS, and it writes that depth). With
+            // one, every surface at the prepass depth passes and none writes, so the last one
+            // drawn keeps it. Drawing backwards makes that the same surface, and coplanar
+            // surfaces look as they do without a prepass. (Triangles inside one mesh can't be
+            // reversed: two of them at exactly the same depth swap which one shows.)
+            for( size_t b = m_activeBatchCount; b-- > 0; )
+            {
+                InstanceBatch& batch = m_instanceBatches[b];
+                std::reverse( batch.transforms.begin(), batch.transforms.end() );
+                RenderMeshInstanced( id, m_meshCache.Commands[batch.representativeIndex], batch.transforms.data(), (uint32_t)batch.transforms.size(), state, prepassView );
+            }
+        }
+    }
+
+    if( prepassView != UINT16_MAX )
+    {
+        OPTICK_CATEGORY( "Meshes", Optick::Category::GPU_Scene );
+        for( size_t d = m_opaqueDraws.size(); d-- > 0; )
+        {
+            drawSingle( m_opaqueDraws[d] );
         }
     }
 
@@ -1526,7 +1612,8 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
                 }
                 else if( mesh.SupportsInstancing || ( bgfx::isValid( mesh.PosedVertices ) && mesh.MeshMaterial->SupportsInstancing ) )
                 {
-                    RenderMeshInstanced( transparentView, mesh, &mesh.Transform, 1, transparentState );
+                    const glm::mat4 instance = InstanceMatrix( mesh );
+                    RenderMeshInstanced( transparentView, mesh, &instance, 1, transparentState );
                 }
                 else
                 {
@@ -2584,11 +2671,28 @@ void BGFXRenderer::BindLighting()
 }
 
 
-bgfx::ProgramHandle BGFXRenderer::BindMeshDrawState( const Moonlight::MeshCommand& mesh, uint64_t state )
+bgfx::ProgramHandle BGFXRenderer::BindMeshDrawState( const Moonlight::MeshCommand& mesh, uint64_t state, bgfx::ViewId InPrepassView, bool InSkinned, uint32_t InInstances )
 {
+    Moonlight::Material& material = *mesh.MeshMaterial;
+    const bgfx::ProgramHandle program = InSkinned ? material.GetSkinnedProgram() : material.MeshShader.GetProgram();
+
     // Set vertex and index buffer.
     mesh.SingleMesh->BindVertexBuffer( mesh.PosedVertices );
+    if( InSkinned )
+    {
+        // The weights stream and the bone palette, for the skinned vertex shader.
+        bgfx::setVertexBuffer( 1, mesh.SingleMesh->GetSkinBuffer() );
+        bgfx::setUniform( u_bones, mesh.SkinPalette, mesh.SkinBoneCount );
+    }
     bgfx::setIndexBuffer( m_lighting.Wireframe ? mesh.SingleMesh->GetWireframeIndexBuffer( mesh.Lod ) : mesh.SingleMesh->GetIndexBuffer( mesh.Lod ) );
+
+    // Render states.
+    state = material.GetRenderState( state );
+    if( !m_lighting.BackfaceCulling ) state &= ~BGFX_STATE_CULL_MASK;
+    if( m_lighting.Wireframe )
+    {
+        state = ( state & ~( BGFX_STATE_PT_MASK | BGFX_STATE_CULL_MASK | BGFX_STATE_BLEND_MASK ) ) | BGFX_STATE_PT_LINES | BGFX_STATE_WRITE_Z;
+    }
 
     // Every sampler gets a texture: a missing map falls back to a neutral 1x1 so the material's
     // colour shows through instead of whatever the backend leaves bound.
@@ -2603,10 +2707,13 @@ bgfx::ProgramHandle BGFXRenderer::BindMeshDrawState( const Moonlight::MeshComman
         const bool colour = type == Moonlight::TextureType::Diffuse || type == Moonlight::TextureType::Emissive;
         return Moonlight::Texture::Sampleable( texture->TexHandle, colour ? m_blackTexture : fallback );
     };
+
+    // First, what decides which fragments the surface has (the maps its alpha comes from, the
+    // screen-door fade, the portal clip plane): the depth prepass draws with just these.
     // PortalMaterial: the linked camera's HDR image in the diffuse slot, sampled in screen space by
     // the shader. A view cannot sample its own target, so there (and while that camera has no
     // target) the material's tint shows instead.
-    const int screenViewCamera = mesh.MeshMaterial->ScreenViewCamera;
+    const int screenViewCamera = material.ScreenViewCamera;
     if( screenViewCamera >= 0 )
     {
         const Moonlight::CameraData* source = m_cameraCache.Get( static_cast<unsigned int>( screenViewCamera ) );
@@ -2616,7 +2723,7 @@ bgfx::ProgramHandle BGFXRenderer::BindMeshDrawState( const Moonlight::MeshComman
         {
             view = bgfx::isValid( buffer->PostInput ) ? buffer->PostInput : buffer->SceneColor;
         }
-        const Vector3& tint = mesh.MeshMaterial->DiffuseColor;
+        const Vector3& tint = material.DiffuseColor;
         const float params[4] = { tint.x, tint.y, tint.z, bgfx::isValid( view ) ? 1.f : 0.f };
         bgfx::setTexture( 0, s_texDiffuse, bgfx::isValid( view ) ? view : m_blackTexture );
         bgfx::setUniform( u_screenView, params );
@@ -2625,34 +2732,60 @@ bgfx::ProgramHandle BGFXRenderer::BindMeshDrawState( const Moonlight::MeshComman
     {
         bgfx::setTexture( 0, s_texDiffuse, textureOr( Moonlight::TextureType::Diffuse, m_whiteTexture ) );
     }
-    bgfx::setTexture( 1, s_texNormal, textureOr( Moonlight::TextureType::Normal, m_flatNormalTexture ) );
     bgfx::setTexture( 2, s_texAlpha, textureOr( Moonlight::TextureType::Opacity, m_whiteTexture ) );
+    const float drawParams[4] = { mesh.DitherFade, 0.f, 0.f, 0.f };
+    bgfx::setUniform( u_drawParams, drawParams );
+    bgfx::setUniform( u_portalClipPlane, &mesh.PortalClipPlane );
+
+    // Depth prepass (ME-363): the same draw, depth only, into the prepass view. Only draws of the
+    // stock Standard programs take part: the depth programs pair those vertex shaders with
+    // fragment shaders that make Standard.frag's discards (StandardCutout.sh), so both passes
+    // rasterize the same surface. Everything bound so far stays bound for the colour draw
+    // (BGFX_DISCARD_NONE), which shares the instance data too. Any other material draws once, as
+    // without a prepass, and depth-tests against what the prepass wrote.
+    if( InPrepassView != UINT16_MAX && !m_lighting.Wireframe && ( state & BGFX_STATE_BLEND_MASK ) == 0
+        && bgfx::isValid( program ) && program.idx == ( InSkinned ? m_standardSkinnedProgram : m_standardProgram ).GetProgram().idx )
+    {
+        // A surface that drops no fragments draws with the variant that has no discard.
+        const bool drops = material.GetAlphaCutoff() > 0.f || mesh.DitherFade != 0.f || mesh.PortalClipPlane != glm::vec4( 0.f );
+        const bgfx::ProgramHandle depthProgram = m_depthPrepassPrograms[InSkinned ? 1 : 0][drops ? 1 : 0].GetProgram();
+        if( bgfx::isValid( depthProgram ) )
+        {
+            // The vertex shader snaps positions by the era settings. The variant that drops
+            // fragments reads the material's cutoff, opacity and uv transform, so the material
+            // goes on now (and again below, after the renderer's other bindings, as always).
+            bgfx::setUniform( u_eraParams, m_lighting.EraParams );
+            if( drops )
+            {
+                material.Use();
+            }
+            bgfx::setState( ( state & ~( BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_DEPTH_TEST_MASK ) ) | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS );
+            bgfx::submit( InPrepassView, depthProgram, 0, BGFX_DISCARD_NONE );
+            CountTriangles( InPrepassView, mesh, InInstances );
+            // The colour draw shades what the prepass left in front. LEQUAL rather than EQUAL: a
+            // fragment in front of the prepass depth still draws, so a backend whose two
+            // pipelines round a position differently loses pixels on one side of the error only.
+            state = ( state & ~( BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_MASK ) ) | BGFX_STATE_DEPTH_TEST_LEQUAL;
+        }
+    }
+
+    bgfx::setTexture( 1, s_texNormal, textureOr( Moonlight::TextureType::Normal, m_flatNormalTexture ) );
     bgfx::setTexture( 3, s_texMetallicRoughness, textureOr( Moonlight::TextureType::MetallicRoughness, m_whiteTexture ) );
     bgfx::setTexture( 4, s_texEmissive, textureOr( Moonlight::TextureType::Emissive, m_whiteTexture ) );
     bgfx::setTexture( 5, s_texOcclusion, textureOr( Moonlight::TextureType::Occlusion, m_whiteTexture ) );
     bgfx::setTexture( 6, s_texMetallic, textureOr( Moonlight::TextureType::Metallic, m_whiteTexture ) );
     bgfx::setTexture( 7, s_texRoughness, textureOr( Moonlight::TextureType::Roughness, m_whiteTexture ) );
     BindLighting();
-    const float drawParams[4] = { mesh.DitherFade, 0.f, 0.f, 0.f };
-    bgfx::setUniform( u_drawParams, drawParams );
-    bgfx::setUniform( u_portalClipPlane, &mesh.PortalClipPlane );
 
-    mesh.MeshMaterial->Use();
+    material.Use();
 
-    // Set render states.
-    state = mesh.MeshMaterial->GetRenderState( state );
-    if( !m_lighting.BackfaceCulling ) state &= ~BGFX_STATE_CULL_MASK;
-    if( m_lighting.Wireframe )
-    {
-        state = ( state & ~( BGFX_STATE_PT_MASK | BGFX_STATE_CULL_MASK | BGFX_STATE_BLEND_MASK ) ) | BGFX_STATE_PT_LINES | BGFX_STATE_WRITE_Z;
-    }
     bgfx::setState( state );
 
-    return mesh.MeshMaterial->MeshShader.GetProgram();
+    return program;
 }
 
 
-void BGFXRenderer::RenderSingleMesh( bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint64_t state )
+void BGFXRenderer::RenderSingleMesh( bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint64_t state, bgfx::ViewId InPrepassView )
 {
     OPTICK_CATEGORY( "Mesh", Optick::Category::Rendering );
 
@@ -2666,7 +2799,7 @@ void BGFXRenderer::RenderSingleMesh( bgfx::ViewId id, const Moonlight::MeshComma
         // Set model matrix for rendering.
         bgfx::setTransform( &mesh.Transform );
 
-        bgfx::ProgramHandle program = BindMeshDrawState( mesh, state );
+        bgfx::ProgramHandle program = BindMeshDrawState( mesh, state, InPrepassView );
 
         // Submit primitive for rendering to view 0.
         bgfx::submit( id, program );
@@ -2679,7 +2812,7 @@ void BGFXRenderer::RenderSingleMesh( bgfx::ViewId id, const Moonlight::MeshComma
 }
 
 
-void BGFXRenderer::RenderSkinnedMesh( bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint64_t state )
+void BGFXRenderer::RenderSkinnedMesh( bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint64_t state, bgfx::ViewId InPrepassView )
 {
     constexpr uint16_t kInstanceStride = sizeof( glm::mat4 );
     if( !mesh.SingleMesh || !bgfx::isValid( mesh.SingleMesh->GetVertexBuffer() ) || bgfx::getAvailInstanceDataBuffer( 1, kInstanceStride ) == 0 )
@@ -2690,16 +2823,10 @@ void BGFXRenderer::RenderSkinnedMesh( bgfx::ViewId id, const Moonlight::MeshComm
     bgfx::allocInstanceDataBuffer( &idb, 1, kInstanceStride );
     std::memcpy( idb.data, &mesh.Transform, kInstanceStride );
 
-    bgfx::ProgramHandle program = BindMeshDrawState( mesh, state );
-    const bgfx::ProgramHandle skinned = mesh.MeshMaterial->GetSkinnedProgram();
-    if( bgfx::isValid( skinned ) && bgfx::isValid( mesh.SingleMesh->GetSkinBuffer() ) )
-    {
-        bgfx::setVertexBuffer( 1, mesh.SingleMesh->GetSkinBuffer() );
-        bgfx::setUniform( u_bones, mesh.SkinPalette, mesh.SkinBoneCount );
-        program = skinned;
-    }
     // Materials without a skinned program draw the bind pose.
+    const bool skinned = bgfx::isValid( mesh.MeshMaterial->GetSkinnedProgram() ) && bgfx::isValid( mesh.SingleMesh->GetSkinBuffer() );
     bgfx::setInstanceDataBuffer( &idb );
+    const bgfx::ProgramHandle program = BindMeshDrawState( mesh, state, InPrepassView, skinned );
     bgfx::submit( id, program );
     CountTriangles( id, mesh );
 }
@@ -2792,7 +2919,26 @@ uint16_t BGFXRenderer::CapShadowResolution( uint16_t InResolution ) const
 }
 
 
-void BGFXRenderer::RenderMeshInstanced( bgfx::ViewId id, const Moonlight::MeshCommand& representative, const glm::mat4* transforms, uint32_t count, uint64_t state )
+glm::mat4 BGFXRenderer::InstanceMatrix( const Moonlight::MeshCommand& mesh ) const
+{
+    // A world transform is affine: its bottom row is (0, 0, 0, 1), and the first three of it carry
+    // the mesh's per-instance values instead, so the instance stride stays one mat4. Only the
+    // stock Standard program reads (and clears) them; any other program would take them for the
+    // matrix, so it gets the transform untouched.
+    const bgfx::ProgramHandle standard = m_standardProgram.GetProgram();
+    if( mesh.InstanceData == glm::vec3( 0.f ) || !mesh.MeshMaterial || !bgfx::isValid( standard ) || mesh.MeshMaterial->MeshShader.GetProgram().idx != standard.idx )
+    {
+        return mesh.Transform;
+    }
+    glm::mat4 instance = mesh.Transform;
+    instance[0][3] = mesh.InstanceData.x;
+    instance[1][3] = mesh.InstanceData.y;
+    instance[2][3] = mesh.InstanceData.z;
+    return instance;
+}
+
+
+void BGFXRenderer::RenderMeshInstanced( bgfx::ViewId id, const Moonlight::MeshCommand& representative, const glm::mat4* transforms, uint32_t count, uint64_t state, bgfx::ViewId InPrepassView )
 {
     if( count == 0 || transforms == nullptr || !representative.SingleMesh || !bgfx::isValid( representative.SingleMesh->GetVertexBuffer() ) )
     {
@@ -2816,8 +2962,9 @@ void BGFXRenderer::RenderMeshInstanced( bgfx::ViewId id, const Moonlight::MeshCo
         bgfx::allocInstanceDataBuffer( &idb, available, kInstanceStride );
         std::memcpy( idb.data, transforms + offset, (size_t)available * kInstanceStride );
 
-        bgfx::ProgramHandle program = BindMeshDrawState( representative, state );
+        // The instance data first: a depth prepass submit inside BindMeshDrawState shares it.
         bgfx::setInstanceDataBuffer( &idb );
+        bgfx::ProgramHandle program = BindMeshDrawState( representative, state, InPrepassView, false, available );
 
         bgfx::submit( id, program );
         CountTriangles( id, representative, available );
