@@ -18,7 +18,7 @@ Baked vertex animation moves vertices, not source-node transforms. Exposing a ma
 the Sponza knight therefore does not create a moving head/hand socket. Such attachments require
 separately authored/baked transform tracks or a skeletal export.
 
-> Verified against engine commit 07617c5f, 2026-10-09 (overhaul Wave 4); layers, 2D blends and root motion against b0f082f8, 2026-10-10; additive layers and editor previews against 2d07489b, 2026-10-10; `ClipSource` background loads against ac23d33f plus the background loads change, 2026-10-16.
+> Verified against engine commit 07617c5f, 2026-10-09 (overhaul Wave 4); layers, 2D blends and root motion against b0f082f8, 2026-10-10; additive layers and editor previews against 2d07489b, 2026-10-10; `ClipSource` background loads against ac23d33f plus the background loads change, 2026-10-16; the FBX skin repair against 78e47156 plus the skin repair change, 2026-11-12.
 
 ## Overview
 
@@ -56,6 +56,19 @@ separately authored/baked transform tracks or a skeletal export.
 FBX combined animation channels are rebased when Assimp retains a static helper chain above
 their target node. This prevents pre-rotations and bind translations from being applied twice;
 channels targeting the helper nodes themselves retain their original local keys.
+
+FBX skins on a transformed root mesh are repaired while cooking
+(`ModelResourceMetadata::RepairRootMeshSkins`). Assimp's FBX importer (5.1 to 5.4) builds each
+bone's offset from the transform of the mesh's parent rather than the mesh's own place in the
+scene. Blender exports an armature and its mesh as two objects at the scene root, each scaled 100x
+and turned -90 degrees about X, so such a skin bound as if the mesh had no transform and drew a
+hundredth of its size, lying down. Where a mesh sits at the scene root (under nothing but its own
+`$AssimpFbx$` helper nodes) with a transform, and most of its bones' offsets just undo the bone's
+own place in the scene, the cook multiplies the mesh's transform into every offset. Offsets that
+already account for it are left alone, as are rigs exported out of their bind pose, meshes under
+another object, and every format but FBX. Models cooked before this keep their old offsets until
+their `.assbin` is deleted or they're reimported. Proof: ModelImportTests' transformed root mesh
+case.
 
 For assets supplied as baked USD vertex animation, `Tools/BakeUsdVertexAnimation.py INPUT.usd
 OUTPUT.obj` creates an OBJ, MTL, and `.obj.vertexcache` sidecar (requires Python `usd-core` and

@@ -148,6 +148,114 @@ TEST_CASE( "Models: combined FBX animation keys are local to preserved helper ch
     CHECK( explicitHelper.GetAnimations()[0].Channels[0].Positions[0].x == doctest::Approx( 2.f ) );
 }
 
+TEST_CASE( "Models: FBX skins on a transformed root mesh get the mesh's placement back in their bone offsets" )
+{
+    // As Assimp imports a Blender export: the armature and the mesh both at the scene root, 100x
+    // and turned -90 degrees about X, each bone's offset just the inverse of its place in the scene.
+    aiMatrix4x4 placement, turn;
+    aiMatrix4x4::Scaling( aiVector3D( 100.f, 100.f, 100.f ), placement );
+    placement = placement * aiMatrix4x4::RotationX( -1.5707963f, turn );
+    struct Rig
+    {
+        aiScene Scene;
+        aiNode* Body = nullptr;
+        aiMatrix4x4 Hip, Knee;      // the bones' places in the scene
+        aiBone* Bones[2] = {};
+    };
+    const auto build = [&placement]( Rig& rig ) {
+        rig.Scene.mRootNode = new aiNode( "RootNode" );
+        auto* armature = new aiNode( "Armature" );
+        auto* hip = new aiNode( "Hip" );
+        auto* knee = new aiNode( "Knee" );
+        rig.Body = new aiNode( "Body" );
+        aiNode* top[2] = { armature, rig.Body };
+        rig.Scene.mRootNode->addChildren( 2, top );
+        armature->addChildren( 1, &hip );
+        hip->addChildren( 1, &knee );
+        armature->mTransformation = placement;
+        rig.Body->mTransformation = placement;
+        aiMatrix4x4::RotationZ( 0.3f, hip->mTransformation );
+        hip->mTransformation.c4 = 0.9f;
+        aiMatrix4x4::RotationX( 0.2f, knee->mTransformation );
+        knee->mTransformation.b4 = 0.4f;
+        rig.Hip = armature->mTransformation * hip->mTransformation;
+        rig.Knee = rig.Hip * knee->mTransformation;
+        rig.Scene.mNumMeshes = 1;
+        rig.Scene.mMeshes = new aiMesh*[1]{ new aiMesh() };
+        rig.Body->mNumMeshes = 1;
+        rig.Body->mMeshes = new unsigned int[1]{ 0 };
+        aiMesh& mesh = *rig.Scene.mMeshes[0];
+        mesh.mNumBones = 2;
+        mesh.mBones = new aiBone*[2]{ new aiBone(), new aiBone() };
+        rig.Bones[0] = mesh.mBones[0];
+        rig.Bones[1] = mesh.mBones[1];
+        rig.Bones[0]->mName = aiString( "Hip" );
+        rig.Bones[1]->mName = aiString( "Knee" );
+        rig.Bones[0]->mOffsetMatrix = aiMatrix4x4( rig.Hip ).Inverse();
+        rig.Bones[1]->mOffsetMatrix = aiMatrix4x4( rig.Knee ).Inverse();
+    };
+    // Whether a bone at its place in the scene carries the mesh as InExpected places it.
+    const auto binds = []( const aiMatrix4x4& InBone, const aiBone& InSkin, const aiMatrix4x4& InExpected ) {
+        const aiMatrix4x4 bound = InBone * InSkin.mOffsetMatrix;
+        bool same = true;
+        for( unsigned int row = 0; row < 4; ++row )
+        {
+            for( unsigned int column = 0; column < 4; ++column )
+            {
+                same = same && std::abs( bound[row][column] - InExpected[row][column] ) < 1e-3f;
+            }
+        }
+        return same;
+    };
+    {
+        Rig rig;
+        build( rig );
+        ModelResourceMetadata::RepairRootMeshSkins( rig.Scene );
+        CHECK( binds( rig.Hip, *rig.Bones[0], placement ) );
+        CHECK( binds( rig.Knee, *rig.Bones[1], placement ) );
+        // And then they're right: a second pass finds nothing to do.
+        ModelResourceMetadata::RepairRootMeshSkins( rig.Scene );
+        CHECK( binds( rig.Hip, *rig.Bones[0], placement ) );
+    }
+    {
+        // The placement split over the importer's helper nodes above the mesh.
+        Rig rig;
+        build( rig );
+        auto* helper = new aiNode( "Body_$AssimpFbx$_PreRotation" );
+        aiMatrix4x4 scale;
+        helper->mTransformation = aiMatrix4x4::RotationX( -1.5707963f, turn );
+        rig.Body->mTransformation = aiMatrix4x4::Scaling( aiVector3D( 100.f, 100.f, 100.f ), scale );
+        rig.Scene.mRootNode->mChildren[1] = helper;
+        helper->mParent = rig.Scene.mRootNode;
+        helper->addChildren( 1, &rig.Body );
+        ModelResourceMetadata::RepairRootMeshSkins( rig.Scene );
+        CHECK( binds( rig.Knee, *rig.Bones[1], placement ) );
+    }
+    {
+        // A mesh under another object is the importer's business: left alone.
+        Rig rig;
+        build( rig );
+        auto* group = new aiNode( "Group" );
+        rig.Scene.mRootNode->mChildren[1] = group;
+        group->mParent = rig.Scene.mRootNode;
+        group->addChildren( 1, &rig.Body );
+        ModelResourceMetadata::RepairRootMeshSkins( rig.Scene );
+        CHECK( binds( rig.Hip, *rig.Bones[0], aiMatrix4x4() ) );
+    }
+    {
+        // A rig out of its bind pose: its offsets don't say what's missing, so nothing is added.
+        Rig rig;
+        build( rig );
+        aiMatrix4x4 posed;
+        rig.Bones[0]->mOffsetMatrix = rig.Bones[0]->mOffsetMatrix * aiMatrix4x4::RotationY( 0.4f, posed );
+        const aiMatrix4x4 hip = rig.Bones[0]->mOffsetMatrix;
+        const aiMatrix4x4 knee = rig.Bones[1]->mOffsetMatrix;
+        ModelResourceMetadata::RepairRootMeshSkins( rig.Scene );
+        CHECK( rig.Bones[0]->mOffsetMatrix == hip );
+        CHECK( rig.Bones[1]->mOffsetMatrix == knee );
+    }
+}
+
 TEST_CASE( "Models: import scale and unit conversion are baked into the cooked model" )
 {
     namespace fs = std::filesystem;

@@ -144,6 +144,10 @@ struct ModelResourceMetadata
     {
         return true;
     }
+    // FBX only (Export calls it): a skinned mesh at the scene root with a transform of its own, as
+    // Blender exports one, is imported with that transform left out of its bones' offsets. Puts it
+    // back where the offsets are short of the node hierarchy by exactly that (Docs/Animation.md).
+    static void RepairRootMeshSkins( aiScene& InScene );
 #endif
 };
 

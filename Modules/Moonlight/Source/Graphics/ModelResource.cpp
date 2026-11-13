@@ -1107,6 +1107,103 @@ namespace
             }
         }
     }
+
+
+    // Whether two transforms agree to about a tenth of a percent: the linear parts against their
+    // own size, the translations against theirs (and the linear size, for ones near the origin).
+    bool NearlyEqual( const aiMatrix4x4& InA, const aiMatrix4x4& InB )
+    {
+        float linear = 0.f, linearSize = 0.f, moved = 0.f, movedSize = 0.f;
+        for( unsigned int row = 0; row < 3; ++row )
+        {
+            for( unsigned int column = 0; column < 3; ++column )
+            {
+                const float difference = InA[row][column] - InB[row][column];
+                linear += difference * difference;
+                linearSize += InA[row][column] * InA[row][column] + InB[row][column] * InB[row][column];
+            }
+            const float difference = InA[row][3] - InB[row][3];
+            moved += difference * difference;
+            movedSize += InA[row][3] * InA[row][3] + InB[row][3] * InB[row][3];
+        }
+        return linear <= 1e-6f * linearSize && moved <= 1e-6f * ( movedSize + linearSize );
+    }
+
+
+    void CollectSkinNodes( const aiNode* InNode, const aiMatrix4x4& InParent, std::unordered_map<std::string, aiMatrix4x4>& OutGlobals, std::vector<std::vector<const aiNode*>>& OutMeshNodes )
+    {
+        const aiMatrix4x4 global = InParent * InNode->mTransformation;
+        OutGlobals.emplace( InNode->mName.C_Str(), global );
+        for( unsigned int m = 0; m < InNode->mNumMeshes; ++m )
+        {
+            OutMeshNodes[InNode->mMeshes[m]].push_back( InNode );
+        }
+        for( unsigned int c = 0; c < InNode->mNumChildren; ++c )
+        {
+            CollectSkinNodes( InNode->mChildren[c], global, OutGlobals, OutMeshNodes );
+        }
+    }
+}
+
+
+// Assimp's FBX importer (5.1 to 5.4) works a bone's offset out from the transform of the mesh's
+// parent, not from the mesh's own place in the scene. A skinned mesh that sits at the scene
+// root with a transform of its own, as Blender exports one (100x, turned -90 degrees about X),
+// then binds as if it had none: it draws a hundredth of its size, lying down. Where the bones'
+// offsets fall short of what the node hierarchy implies by exactly the mesh's transform, fold it
+// back in. Offsets that already account for it, or disagree with the hierarchy some other way (a
+// rig exported out of its bind pose), are left as imported.
+void ModelResourceMetadata::RepairRootMeshSkins( aiScene& InScene )
+{
+    if( !InScene.mRootNode->mTransformation.IsIdentity() )
+    {
+        return;
+    }
+    std::unordered_map<std::string, aiMatrix4x4> globals;
+    std::vector<std::vector<const aiNode*>> meshNodes( InScene.mNumMeshes );
+    CollectSkinNodes( InScene.mRootNode, aiMatrix4x4(), globals, meshNodes );
+    for( unsigned int m = 0; m < InScene.mNumMeshes; ++m )
+    {
+        aiMesh* mesh = InScene.mMeshes[m];
+        if( mesh->mNumBones == 0 || meshNodes[m].size() != 1 )
+        {
+            continue;
+        }
+        // At the root of the FBX scene: nothing above it but the importer's own helper nodes.
+        const aiNode* node = meshNodes[m][0];
+        const std::string helperPrefix = std::string( node->mName.C_Str() ) + "_$AssimpFbx$_";
+        bool atRoot = true;
+        for( const aiNode* parent = node->mParent; parent && parent != InScene.mRootNode; parent = parent->mParent )
+        {
+            atRoot = atRoot && std::string( parent->mName.C_Str() ).rfind( helperPrefix, 0 ) == 0;
+        }
+        const aiMatrix4x4 placement = globals[node->mName.C_Str()];
+        if( !atRoot || placement.IsIdentity() )
+        {
+            continue;
+        }
+        // A bone whose offset just undoes its own place in the scene took no account of the mesh's.
+        // Most of them have to: bones posed away from their bind each differ their own way.
+        size_t bones = 0;
+        size_t bare = 0;
+        for( unsigned int b = 0; b < mesh->mNumBones; ++b )
+        {
+            auto global = globals.find( mesh->mBones[b]->mName.C_Str() );
+            if( global != globals.end() )
+            {
+                ++bones;
+                bare += NearlyEqual( global->second * mesh->mBones[b]->mOffsetMatrix, aiMatrix4x4() ) ? 1 : 0;
+            }
+        }
+        if( bare * 2 <= bones )
+        {
+            continue;
+        }
+        for( unsigned int b = 0; b < mesh->mNumBones; ++b )
+        {
+            mesh->mBones[b]->mOffsetMatrix = mesh->mBones[b]->mOffsetMatrix * placement;
+        }
+    }
 }
 
 
@@ -1179,6 +1276,12 @@ void ModelResourceMetadata::Export()
         {
             scene->mMetaData->Get( "UnitScaleFactor", factor );
         }
+    }
+    std::string extension = FilePath.GetExtension();
+    std::transform( extension.begin(), extension.end(), extension.begin(), []( unsigned char c ) { return static_cast<char>( std::tolower( c ) ); } );
+    if( extension == "fbx" || extension == ".fbx" )
+    {
+        RepairRootMeshSkins( *const_cast<aiScene*>( scene ) );
     }
     const float scale = GetBakedScale( factor );
     if( scale > 0.f && std::abs( scale - 1.f ) > 1e-6f )
