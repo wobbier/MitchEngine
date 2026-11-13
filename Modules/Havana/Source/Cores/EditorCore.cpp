@@ -27,6 +27,9 @@
 #include <Cores/PhysicsCore.h>
 #include <Cores/NavigationCore.h>
 #include <Cores/AnimationCore.h>
+#include <Cores/Cameras/CameraCore.h>
+#include <Mathf.h>
+#include <cmath>
 #include <Components/Animation/Animator.h>
 
 #if USING( ME_EDITOR )
@@ -84,6 +87,9 @@ void EditorCore::RegisterViewActions()
         view( ( "View.SetBookmark" + number ).c_str(), ( "Set Camera Bookmark " + number ).c_str(), ImGuiMod_Shortcut | ImGuiMod_Shift | digits[slot], [this, slot]() { SetBookmark( slot ); } );
         view( ( "View.GoToBookmark" + number ).c_str(), ( "Go to Camera Bookmark " + number ).c_str(), ImGuiMod_Shift | digits[slot], [this, slot]() { GoToBookmark( slot ); } );
     }
+    // Shift+0 beside the bookmarks: jump to the game's cameras in turn (a game whose overlay camera
+    // looks at a different part of the world than its main camera swaps between the two).
+    view( "View.GoToGameCamera", "Go to Next Game Camera", ImGuiMod_Shift | ImGuiKey_0, [this]() { GoToNextGameCamera(); } );
     EditorAction bake{ "Navigation.BakeAll", "Bake All NavMeshes", "Navigation", 0, 0, []() { if( NavigationCore* navigation = GetEngine().Navigation ) { navigation->BakeAll( true ); } } };
     actions.Register( bake );
     EditorAction cameraSettings{ "View.CameraSettings", "Scene Camera Settings", "Scene View", 0, 0, [this]() {
@@ -190,6 +196,57 @@ bool EditorCore::GoToBookmark( int InSlot )
     }
     m_camera.SetPose( Vector3( slot["Position"][0].get<float>(), slot["Position"][1].get<float>(), slot["Position"][2].get<float>() ),
         slot.value( "Pitch", 0.f ), slot.value( "Yaw", 0.f ) );
+    return true;
+}
+
+
+bool EditorCore::GoToNextGameCamera()
+{
+    CameraCore* cameras = GetEngine().Cameras;
+    if( !cameras )
+    {
+        return false;
+    }
+    // Cameras that draw to the screen: the main one first, then the rest (overlays, split screen)
+    // by GUID. Render texture cameras are feeds, not views.
+    std::vector<Entity> views;
+    for( const Entity& entity : cameras->GetEntities() )
+    {
+        const Camera* camera = entity.TryGetComponent<Camera>();
+        if( camera && camera != Camera::EditorCamera && camera->IsEnabled() && !camera->RendersToTexture() && entity.HasComponent<Transform>() )
+        {
+            views.push_back( entity );
+        }
+    }
+    if( views.empty() )
+    {
+        return false;
+    }
+    std::sort( views.begin(), views.end(), []( const Entity& InA, const Entity& InB ) {
+        const bool mainA = InA.GetComponent<Camera>().IsMain();
+        const bool mainB = InB.GetComponent<Camera>().IsMain();
+        return mainA != mainB ? mainA : InA.GetGUID() < InB.GetGUID();
+    } );
+    size_t next = 0;
+    for( size_t i = 0; i < views.size(); ++i )
+    {
+        if( views[i].GetGUID() == m_lastGameCamera )
+        {
+            next = ( i + 1 ) % views.size();
+            break;
+        }
+    }
+    Entity& target = views[next];
+    m_lastGameCamera = target.GetGUID();
+
+    // The scene camera has no roll: take pitch and yaw from the game camera's facing.
+    // (Euler (pitch, yaw, 0) faces (cos p sin y, -sin p, cos p cos y).)
+    Transform& transform = target.GetComponent<Transform>();
+    const Vector3 front = transform.Front().Normalized();
+    const float pitch = Mathf::Degrees( std::asin( std::clamp( -front.y, -1.f, 1.f ) ) );
+    const float yaw = Mathf::Degrees( std::atan2( front.x, front.z ) );
+    m_camera.SetPose( transform.GetWorldPosition(), pitch, yaw );
+    CLog::Log( CLog::LogType::Info, "Scene camera at game camera " + std::to_string( next + 1 ) + " of " + std::to_string( views.size() ) + ": " + target.GetName() );
     return true;
 }
 

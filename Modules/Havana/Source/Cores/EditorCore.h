@@ -44,6 +44,10 @@ public:
 	// ED-8: camera bookmarks for the open scene (slots 0..8); false when the slot is empty.
 	void SetBookmark( int InSlot );
 	bool GoToBookmark( int InSlot );
+	// Puts the scene camera where the next on-screen game camera is (the main camera first, then
+	// overlays and other screen cameras in GUID order), so repeated presses swap between them.
+	// False when the world has none.
+	bool GoToNextGameCamera();
 
 private:
 	void OnSaveScene( const class SaveSceneEvent& event );
@@ -58,6 +62,8 @@ private:
 	EditorCameraController m_camera;
 	float m_saveTimer = 0.f;
 	bool m_useSceneEnvironment = true;
+	// The game camera GoToNextGameCamera went to last (its entity's GUID; 0 for none).
+	uint64_t m_lastGameCamera = 0;
 
 	virtual void OnEditorInspect() final;
 };

@@ -893,6 +893,7 @@ void SceneViewWidget::DrawViewMenu()
 		actions.MenuItem("View.Top");
 		actions.MenuItem("View.Front");
 		actions.MenuItem("View.Right");
+		actions.MenuItem("View.GoToGameCamera");
 		// ED-8: per-scene camera bookmarks (Ctrl+Shift+1..9 sets, Shift+1..9 goes).
 		if (ImGui::BeginMenu("Camera Bookmarks"))
 		{
