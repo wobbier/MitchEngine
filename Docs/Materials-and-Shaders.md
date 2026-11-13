@@ -163,12 +163,14 @@ flowchart LR
 - **Loading**: `ShaderFile` loads like a texture. `ResourceCache::GetAsync` cooks it if needed and reads the binary on a loader thread, then creates the shader on the main thread; `Get` does both on the spot.
   - At startup `BGFXRenderer::Create` requests every `.vert` / `.frag` under the engine's `Assets/Shaders` at once (`PrefetchShaders( FindEngineShaderStages() )`) and keeps them. Cold cooks therefore run in parallel (all 48 stages added about 0.55 s to a cold start on the dev machine, against about 1.9 s for the 41 that used to cook one at a time), and the passes created next, with their shadow / IBL "supported" checks, find their shaders loaded.
   - `AcquireProgram( vert, frag, ShaderLoad::Async )` never blocks. It hands back a `ProgramRef` that stays invalid until both shaders have loaded; finishing a shader builds the programs waiting for it. Materials (`Material::LoadShader`, the skinned variant of `StandardMaterial`) load this way, and `RenderCore` skips a mesh, as the renderer skips the sky, until `ShaderCommand::IsLoaded()`. The engine's own shaders are loaded by then, so only shaders a game adds take a frame or more.
-- **Cook**: `Export` runs the platform's `shaderc` with absolute paths. Linux uses `Engine/Tools/RunShaderCompiler.sh` so vendored binaries can run with the current Nix loader:
+- **Cook**: `Export` runs the platform's `shaderc` with absolute paths. Linux uses `Engine/Tools/RunShaderCompiler.sh` so vendored binaries can run with the current Nix loader. It uses `Tools/linux/shaderc`, which ships with the prebuilt bgfx libraries; an old compiler under `ThirdParty/bgfx/.build` must not override it:
   - `-i Engine/Assets/Shaders` so engine includes resolve;
   - the profile picked from the running renderer (`spirv` / `150` / `s_5_0` / `metal` / `320_es`);
   - always a `--depends` depfile.
 
   It captures the compiler's output (`PlatformUtils::RunCommand`) and logs failures with the full error text.
+
+  If cached binaries were produced by an older bgfx compiler, regenerate them with `Engine/Tools/NixEnv.sh Engine/Tools/BuildShaders.sh`. Existing files alone do not prove compatibility: the renderer rejects old binary formats even when they are newer than their shader source.
 - **Hot reload** (tools builds):
   1. The asset watcher reports a changed `.vert`/`.frag`, or a `.sh`/`.var`, which `ExpandShaderChanges` maps to every shader whose depfile lists it.
   2. The shader is re-exported **on a reimport thread** (`ShaderFileMetadata::ExportsInBackground`), so the editor keeps running while `shaderc` works, several shaders at once when an include changed. When it's done, `ResourceCache::PumpReimports` (start of the next frame) saves the meta and `ShaderFile::Reload` creates the new shader. A shader edited again mid-compile compiles again before it reloads.

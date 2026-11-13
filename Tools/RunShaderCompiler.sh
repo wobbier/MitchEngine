@@ -2,8 +2,8 @@
 set -euo pipefail
 engine_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 shader_compiler="$engine_dir/Tools/linux/shaderc"
-rebuilt="$engine_dir/ThirdParty/bgfx/.build/linux64_gcc/bin/shadercRelease"
-if [[ -x "$rebuilt" ]]; then shader_compiler="$rebuilt"; fi
+# The shipped compiler matches the engine's prebuilt bgfx libraries. Local
+# .build tools survive branch switches and can emit an incompatible format.
 # Vendored tool binaries can retain the path of a garbage-collected Nix loader.
 if [[ -n "${NIX_CC:-}" && -f "$NIX_CC/nix-support/dynamic-linker" ]]; then
     exec "$(cat "$NIX_CC/nix-support/dynamic-linker")" \

@@ -21,7 +21,7 @@ namespace Moonlight::ShaderCompiler
 #elif USING( ME_PLATFORM_MACOS )
             return Path( "Engine/Tools/macOS/shaderc" ).FullPath;
 #else
-            // Picks a rebuilt shaderc when there is one and works around stale Nix loaders.
+            // Uses the SDK's matching shaderc and works around stale Nix loaders.
             return Path( "Engine/Tools/RunShaderCompiler.sh" ).FullPath;
 #endif
         }
