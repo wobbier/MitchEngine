@@ -165,6 +165,7 @@ void HardwareProfile::Deserialize( const json& InJson )
         readBool( *caps, "EnvironmentLighting", Caps.EnvironmentLighting );
         readBool( *caps, "Instancing", Caps.Instancing );
         readBool( *caps, "DepthPrepass", Caps.DepthPrepass );
+        readBool( *caps, "Compute", Caps.Compute );
         if( auto scale = caps->find( "MaxRenderScale" ); scale != caps->end() && scale->is_number() )
         {
             Caps.MaxRenderScale = scale->get<float>();
@@ -191,6 +192,7 @@ HardwareProfile::FeatureCaps HardwareProfile::Combine( const FeatureCaps& InA, c
     caps.EnvironmentLighting = InA.EnvironmentLighting && InB.EnvironmentLighting;
     caps.Instancing = InA.Instancing && InB.Instancing;
     caps.DepthPrepass = InA.DepthPrepass && InB.DepthPrepass;
+    caps.Compute = InA.Compute && InB.Compute;
     caps.MaxRenderScale = InA.MaxRenderScale <= 0.f ? std::max( InB.MaxRenderScale, 0.f ) : InB.MaxRenderScale <= 0.f ? InA.MaxRenderScale : std::min( InA.MaxRenderScale, InB.MaxRenderScale );
     return caps;
 }
@@ -468,6 +470,7 @@ void HardwareBudget::ApplyCaps()
         out.TemporalAA = caps.TemporalAA;
         out.Instancing = caps.Instancing;
         out.DepthPrepass = caps.DepthPrepass;
+        out.Compute = caps.Compute;
         out.MaxRenderScale = caps.MaxRenderScale;
         out.PlayerRenderScale = m_playerRenderScale;
         out.PlayerDynamicResolution = m_playerDynamicResolution;

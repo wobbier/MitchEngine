@@ -232,7 +232,7 @@ namespace Cook
         {
             return AssetKind::Model;
         }
-        if( extension == "vert" || extension == "frag" )
+        if( extension == "vert" || extension == "frag" || extension == "comp" )
         {
             return AssetKind::ShaderStage;
         }

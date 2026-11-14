@@ -691,3 +691,52 @@ TEST_CASE( "ShaderGraph: project graphs match their generated sources" )
         }
     }
 }
+
+
+TEST_CASE( "shader compiler: the stage comes from the file extension" )
+{
+    using Moonlight::ShaderCompiler::Stage;
+    using Moonlight::ShaderCompiler::StageFromPath;
+    CHECK( StageFromPath( "Assets/Shaders/Standard.vert" ) == Stage::Vertex );
+    CHECK( StageFromPath( "Assets/Shaders/Standard.frag" ) == Stage::Fragment );
+    CHECK( StageFromPath( "Assets/Shaders/Particles/Sim.comp" ) == Stage::Compute );
+    // Unknown extensions stay fragment shaders (the shader graph previews rely on it).
+    CHECK( StageFromPath( "Assets/Shaders/Standard.sc" ) == Stage::Fragment );
+    CHECK( StageFromPath( "Assets/Shaders/NoExtension" ) == Stage::Fragment );
+    CHECK( StageFromPath( "Assets/Shaders/Sim.comp.spirv.bin" ) == Stage::Fragment );
+}
+
+
+TEST_CASE( "shader compiler: a compute shader compiles for every portable profile without a varying def" )
+{
+    const std::filesystem::path directory = std::filesystem::path( Path( ".tmp/ComputeShaderTests" ).FullPath );
+    std::filesystem::remove_all( directory );
+    std::filesystem::create_directories( directory );
+    const std::filesystem::path source = directory / "Trivial.comp";
+    {
+        std::ofstream file( source );
+        file << "#include \"bgfx_compute.sh\"\n"
+                "BUFFER_RW( data, vec4, 0 );\n"
+                "NUM_THREADS( 64, 1, 1 )\n"
+                "void main()\n"
+                "{\n"
+                "    data[gl_GlobalInvocationID.x] = vec4( 1.0, 2.0, 3.0, 4.0 );\n"
+                "}\n";
+    }
+    std::string failures;
+    for( const Moonlight::ShaderCompiler::Profile& profile : Moonlight::ShaderCompiler::GetPortableProfiles() )
+    {
+        Moonlight::ShaderCompiler::Request request;
+        request.SourcePath = source.string();
+        request.OutputPath = request.SourcePath + "." + profile.Name + ".bin";
+        request.ShaderStage = Moonlight::ShaderCompiler::StageFromPath( request.SourcePath );
+        request.TargetProfile = profile;
+        const Moonlight::ShaderCompiler::Result result = Moonlight::ShaderCompiler::Compile( request );
+        if( !result.Success || !std::filesystem::exists( request.OutputPath ) )
+        {
+            failures += "[" + profile.Name + "]\n" + result.Log + "\n";
+        }
+    }
+    CHECK_MESSAGE( failures.empty(), failures );
+    std::filesystem::remove_all( directory );
+}

@@ -55,6 +55,7 @@ TEST_CASE( "cook: assets ship in their runtime form" )
     CHECK( Cook::Classify( "Assets/Textures/Wall.TGA" ) == AssetKind::Texture );
     CHECK( Cook::Classify( "Assets/Models/Crate.fbx" ) == AssetKind::Model );
     CHECK( Cook::Classify( "Assets/Shaders/Standard.frag" ) == AssetKind::ShaderStage );
+    CHECK( Cook::Classify( "Assets/Shaders/Particles/Sim.comp" ) == AssetKind::ShaderStage );
     CHECK( Cook::Classify( "Assets/Scenes/Level.lvl" ) == AssetKind::Data );
     CHECK( Cook::Classify( "Assets/Sounds/Hit.wav" ) == AssetKind::Data );
     CHECK( Cook::Classify( "Assets/Textures/Wall.png.dds" ) == AssetKind::Data );
@@ -77,6 +78,9 @@ TEST_CASE( "cook: assets ship in their runtime form" )
     CHECK( Cook::ShippedFiles( "Assets/Shaders/Standard.vert", Cook::Platform::Linux ) == std::vector<std::string>{ "Assets/Shaders/Standard.vert.spirv.bin" } );
     CHECK( Cook::ShippedFiles( "Assets/Shaders/Standard.vert", Cook::Platform::Windows ) == std::vector<std::string>{ "Assets/Shaders/Standard.vert.dx11.bin" } );
     CHECK( Cook::ShippedFiles( "Assets/Shaders/Standard.vert", Cook::Platform::MacOS ) == std::vector<std::string>{ "Assets/Shaders/Standard.vert.metal.bin" } );
+    CHECK( Cook::ShippedFiles( "Assets/Shaders/Particles/Sim.comp", Cook::Platform::Linux ) == std::vector<std::string>{ "Assets/Shaders/Particles/Sim.comp.spirv.bin" } );
+    CHECK( Cook::ShippedFiles( "Assets/Shaders/Particles/Sim.comp", Cook::Platform::Windows ) == std::vector<std::string>{ "Assets/Shaders/Particles/Sim.comp.dx11.bin" } );
+    CHECK( Cook::ShippedFiles( "Assets/Shaders/Particles/Sim.comp", Cook::Platform::MacOS ) == std::vector<std::string>{ "Assets/Shaders/Particles/Sim.comp.metal.bin" } );
     Cook::Platform parsed = Cook::Platform::Linux;
     CHECK( Cook::ParsePlatform( "macos", parsed ) );
     CHECK( parsed == Cook::Platform::MacOS );
@@ -91,6 +95,7 @@ TEST_CASE( "cook: recorded reads stand for the asset they belong to" )
     CHECK( Cook::OwningAsset( "Assets/Models/Crate.fbx.assbin" ) == "Assets/Models/Crate.fbx" );
     CHECK( Cook::OwningAsset( "Assets/Models/Crate.fbx.vertexcache" ) == "Assets/Models/Crate.fbx" );
     CHECK( Cook::OwningAsset( "Assets/Shaders/Post/Fog.frag.spirv.bin" ) == "Assets/Shaders/Post/Fog.frag" );
+    CHECK( Cook::OwningAsset( "Assets/Shaders/Particles/Sim.comp.spirv.bin" ) == "Assets/Shaders/Particles/Sim.comp" );
     CHECK( Cook::OwningAsset( "Assets/Config/Input.inputactions.meta" ) == "Assets/Config/Input.inputactions" );
     // Assets of their own.
     CHECK( Cook::OwningAsset( "Assets/Scenes/Level.lvl" ).empty() );

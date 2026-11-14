@@ -57,14 +57,26 @@ namespace Moonlight::ShaderCompiler
         std::string command = Quote( CompilerPath() );
         command += " -f " + Quote( InRequest.SourcePath );
         command += " -o " + Quote( InRequest.OutputPath );
-        command += " --varyingdef " + Quote( varyingDef );
+        if( InRequest.ShaderStage != Stage::Compute )
+        {
+            command += " --varyingdef " + Quote( varyingDef );
+        }
         command += " -i " + Quote( Path( "Engine/Assets/Shaders" ).FullPath );
         for( const std::string& include : InRequest.IncludeDirs )
         {
             command += " -i " + Quote( include );
         }
         command += " --platform " + profile.Platform + " -p " + profile.Name;
-        command += std::string( " --type " ) + ( InRequest.ShaderStage == Stage::Vertex ? "vertex" : "fragment" );
+        const char* stageName = "fragment";
+        if( InRequest.ShaderStage == Stage::Vertex )
+        {
+            stageName = "vertex";
+        }
+        else if( InRequest.ShaderStage == Stage::Compute )
+        {
+            stageName = "compute";
+        }
+        command += std::string( " --type " ) + stageName;
         if( InRequest.WriteDepends )
         {
             command += " --depends";
@@ -112,6 +124,17 @@ namespace Moonlight::ShaderCompiler
     Stage StageFromPath( const std::string& InPath )
     {
         const size_t dot = InPath.rfind( '.' );
-        return ( dot != std::string::npos && InPath.compare( dot, std::string::npos, ".vert" ) == 0 ) ? Stage::Vertex : Stage::Fragment;
+        if( dot != std::string::npos )
+        {
+            if( InPath.compare( dot, std::string::npos, ".vert" ) == 0 )
+            {
+                return Stage::Vertex;
+            }
+            if( InPath.compare( dot, std::string::npos, ".comp" ) == 0 )
+            {
+                return Stage::Compute;
+            }
+        }
+        return Stage::Fragment;
     }
 }

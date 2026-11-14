@@ -9,7 +9,8 @@ namespace Moonlight::ShaderCompiler
     enum class Stage
     {
         Vertex,
-        Fragment
+        Fragment,
+        Compute
     };
 
     // A shaderc --platform / -p pair.
@@ -23,7 +24,7 @@ namespace Moonlight::ShaderCompiler
     {
         std::string SourcePath;
         std::string OutputPath;
-        // Empty: <source dir>/<source base name>.var, the engine's convention.
+        // Empty: <source dir>/<source base name>.var, the engine's convention. Unused by compute shaders.
         std::string VaryingDefPath;
         Stage ShaderStage = Stage::Fragment;
         // Empty: the running renderer's profile (GetRunningProfile).
@@ -49,6 +50,6 @@ namespace Moonlight::ShaderCompiler
     // Profiles shaderc can produce on this OS (the dx11 profiles need Windows' D3D compiler).
     std::vector<Profile> GetPortableProfiles();
 
-    // The vertex/fragment stage for a .vert / .frag path.
+    // The stage for a .vert / .comp path; anything else (.frag, shader graph previews) is Fragment.
     Stage StageFromPath( const std::string& InPath );
 }

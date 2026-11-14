@@ -555,7 +555,7 @@ AssetType AssetBrowserWidget::GetAssetType( const std::string& InPath )
         return AssetType::RenderTexture;
     if( EndsWith( path, ".spritesheet" ) )
         return AssetType::SpriteSheet;
-    if( EndsWith( path, ".vert" ) || EndsWith( path, ".frag" ) || EndsWith( path, ".sh" ) || EndsWith( path, ".sc" ) )
+    if( EndsWith( path, ".vert" ) || EndsWith( path, ".frag" ) || EndsWith( path, ".comp" ) || EndsWith( path, ".sh" ) || EndsWith( path, ".sc" ) )
         return AssetType::Shader;
     if( EndsWith( path, ".cpp" ) || EndsWith( path, ".h" ) )
         return AssetType::Code;

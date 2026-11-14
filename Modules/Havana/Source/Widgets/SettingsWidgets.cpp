@@ -464,6 +464,7 @@ namespace
 				feature("Environment lighting", caps.EnvironmentLighting, renderer.EnableEnvironmentLighting);
 				feature("Instancing", caps.Instancing, true);
 				feature("Depth prepass", caps.DepthPrepass, renderer.EnableDepthPrepass);
+				feature("Compute shaders", caps.Compute, renderer.IsComputeSupported());
 				ImGui::EndTable();
 			}
 		}

@@ -2,9 +2,9 @@
 
 Materials are code-defined `Material` subclasses (a `Resource` specialization) registered by name. Each `Mesh` component owns a **unique material instance**, created via `CreateInstance()` and serialized inline into the component's JSON. The workhorse is **`StandardMaterial`**, metallic-roughness PBR in glTF conventions.
 
-Shaders are bgfx `.vert`/`.frag` sources compiled to per-backend binaries by `shaderc`, either in batch (`Tools/BuildShaders.sh`) or on demand by the resource-metadata cook. In tools builds they **hot reload**: editing a shader, a shared `.sh` include or a `.var` file recompiles it and swaps the program in place. This doc covers the material contract, the instancing batch key, the shader pipeline and how to add a material.
+Shaders are bgfx `.vert`/`.frag` (and `.comp` compute) sources compiled to per-backend binaries by `shaderc`, either in batch (`Tools/BuildShaders.sh`) or on demand by the resource-metadata cook. In tools builds they **hot reload**: editing a shader, a shared `.sh` include or a `.var` file recompiles it and swaps the program in place. This doc covers the material contract, the instancing batch key, the shader pipeline, compute shaders and how to add a material.
 
-> Verified against engine commit 1fa55311, 2026-10-09 (overhaul Wave 3); shader loading and the program registry against 488b07f1 plus the non-blocking shaders change, 2026-10-16; `Offset` and render texture inputs against 89e036be plus the render texture change, 2026-10-29; per-instance data in `Standard.vert` against 78e47156 plus that change (ME-365), 2026-11-12.
+> Verified against engine commit 1fa55311, 2026-10-09 (overhaul Wave 3); shader loading and the program registry against 488b07f1 plus the non-blocking shaders change, 2026-10-16; `Offset` and render texture inputs against 89e036be plus the render texture change, 2026-10-29; per-instance data in `Standard.vert` against 78e47156 plus that change (ME-365), 2026-11-12; compute shaders against 367830e4 plus the compute plumbing change, 2026-11-14.
 
 ## Overview
 
@@ -25,12 +25,12 @@ A material type *is* a C++ class that knows its shader pair, its uniforms, and h
 | `Source/ShaderGraph/` | Shader graph model, node library and compiler (bgfx shader sources from `.shadergraph` files) |
 | `Assets/Shaders/StandardSurface.sh` | `shadeStandardSurface`: the forward shading shared by `Standard.frag` and Lit graphs |
 | `Modules/Moonlight/Source/Graphics/ShaderCommand.h` | A shader pair's program; shares a hot-reloadable `ProgramRef` |
-| `Modules/Moonlight/Source/Utils/BGFXUtils.cpp` | Program registry (`AcquireProgram`, `RebuildProgramsUsing`), startup prefetch (`PrefetchShaders`, `FindEngineShaderStages`), `LoadProgram`, `GetPlatformString` |
+| `Modules/Moonlight/Source/Utils/BGFXUtils.cpp` | Program registry (`AcquireProgram`, `RebuildProgramsUsing`), startup prefetch (`AcquireComputeProgram`, `PrefetchShaders`, `FindEngineShaderStages`), `LoadProgram`, `GetPlatformString` |
 | `Modules/Moonlight/Source/Graphics/ShaderFile.h` | Compiled-shader resource, `Reload`, and the `shaderc` cook (`ShaderFileMetadata::Export`) |
 | `Modules/Moonlight/Source/Graphics/ShaderDependencies.cpp` | Maps changed `.sh` includes / `.var` files to the shaders built from them |
 | `Assets/Shaders/Standard.vert` / `.frag`, `Lighting.sh` | The PBR shader and the shared lighting library |
 | `Assets/Shaders/StandardCutout.sh`, `StandardDepth.frag`, `StandardDepthSolid.frag` | Standard's discards (shared by the colour and depth shaders) and the depth prepass fragment shaders |
-| `Tools/BuildShaders.sh` | Batch compile (SPIR-V + GLSL 150) of everything, or a filtered subset |
+| `Tools/BuildShaders.sh` | Batch compile (SPIR-V + GLSL 430) of everything, or a filtered subset |
 
 ## How It Works
 
@@ -147,40 +147,60 @@ Instancing-capable vertex shaders are **instance-only**: they read the model mat
 
 ### Shader pipeline
 
-Each program is `Foo.vert` + `Foo.frag` + **`Foo.var`** (bgfx varying definition, one per base name). Binaries land **next to the source** as `Foo.vert.<profile>.bin`, where `<profile>` is `Moonlight::GetPlatformString()`: `spirv`, `glsl`, `dx11`, `metal` or `essl`. `ShaderFile` loads the binary next to the resolved source (`Path` resolves game `Assets/` first, then `Engine/Assets/`).
+Each program is `Foo.vert` + `Foo.frag` + **`Foo.var`** (bgfx varying definition, one per base name). A compute program is a single `Foo.comp` with no `.var` (see Compute shaders). Binaries land **next to the source** as `Foo.vert.<profile>.bin`, where `<profile>` is `Moonlight::GetPlatformString()`: `spirv`, `glsl`, `dx11`, `metal` or `essl`. `ShaderFile` loads the binary next to the resolved source (`Path` resolves game `Assets/` first, then `Engine/Assets/`).
 
 ```mermaid
 flowchart LR
-    S["Foo.vert / Foo.frag / Foo.var<br/>(+ .sh includes)"] -->|"ResourceCache::Get / GetAsync&lt;ShaderFile&gt;<br/>(tools: cook if flagged)"| E["ShaderFileMetadata::Export<br/>shaderc --depends"]
+    S["Foo.vert / Foo.frag / Foo.var, Foo.comp<br/>(+ .sh includes)"] -->|"ResourceCache::Get / GetAsync&lt;ShaderFile&gt;<br/>(tools: cook if flagged)"| E["ShaderFileMetadata::Export<br/>shaderc --depends"]
     E --> B["Foo.frag.spirv.bin<br/>+ .d depfile"]
     B --> SF["ShaderFile: bgfx::createShader"]
-    SF --> REG["AcquireProgram(vert, frag)<br/>shared ProgramRef"]
+    SF --> REG["AcquireProgram(vert, frag)<br/>AcquireComputeProgram(comp)<br/>shared ProgramRef"]
     REG --> SC["ShaderCommand::GetProgram()"]
-    W["FileWatcher: .vert/.frag/.sh/.var changed"] -->|"ExpandShaderChanges (depfiles)"| HR["Export + ShaderFile::Reload"]
+    W["FileWatcher: .vert/.frag/.comp/.sh/.var changed"] -->|"ExpandShaderChanges (depfiles)"| HR["Export + ShaderFile::Reload"]
     HR -->|"RebuildProgramsUsing"| REG
 ```
 
 - **Loading**: `ShaderFile` loads like a texture. `ResourceCache::GetAsync` cooks it if needed and reads the binary on a loader thread, then creates the shader on the main thread; `Get` does both on the spot.
-  - At startup `BGFXRenderer::Create` requests every `.vert` / `.frag` under the engine's `Assets/Shaders` at once (`PrefetchShaders( FindEngineShaderStages() )`) and keeps them. Cold cooks therefore run in parallel (all 48 stages added about 0.55 s to a cold start on the dev machine, against about 1.9 s for the 41 that used to cook one at a time), and the passes created next, with their shadow / IBL "supported" checks, find their shaders loaded.
+  - At startup `BGFXRenderer::Create` requests every `.vert` / `.frag` / `.comp` under the engine's `Assets/Shaders` at once (`PrefetchShaders( FindEngineShaderStages() )`) and keeps them. Cold cooks therefore run in parallel (all 48 stages added about 0.55 s to a cold start on the dev machine, against about 1.9 s for the 41 that used to cook one at a time), and the passes created next, with their shadow / IBL "supported" checks, find their shaders loaded.
   - `AcquireProgram( vert, frag, ShaderLoad::Async )` never blocks. It hands back a `ProgramRef` that stays invalid until both shaders have loaded; finishing a shader builds the programs waiting for it. Materials (`Material::LoadShader`, the skinned variant of `StandardMaterial`) load this way, and `RenderCore` skips a mesh, as the renderer skips the sky, until `ShaderCommand::IsLoaded()`. The engine's own shaders are loaded by then, so only shaders a game adds take a frame or more.
 - **Cook**: `Export` runs the platform's `shaderc` with absolute paths. Linux uses `Engine/Tools/RunShaderCompiler.sh` so vendored binaries can run with the current Nix loader. It uses `Tools/linux/shaderc`, which ships with the prebuilt bgfx libraries; an old compiler under `ThirdParty/bgfx/.build` must not override it:
   - `-i Engine/Assets/Shaders` so engine includes resolve;
-  - the profile picked from the running renderer (`spirv` / `150` / `s_5_0` / `metal` / `320_es`);
-  - always a `--depends` depfile.
+  - the profile picked from the running renderer (`spirv` / `430` / `s_5_0` / `metal` / `320_es`);
+  - always a `--depends` depfile;
+  - `--varyingdef Foo.var` for vertex and fragment stages, nothing for a compute stage.
 
   It captures the compiler's output (`PlatformUtils::RunCommand`) and logs failures with the full error text.
 
   If cached binaries were produced by an older bgfx compiler, regenerate them with `Engine/Tools/NixEnv.sh Engine/Tools/BuildShaders.sh`. Existing files alone do not prove compatibility: the renderer rejects old binary formats even when they are newer than their shader source.
 - **Hot reload** (tools builds):
-  1. The asset watcher reports a changed `.vert`/`.frag`, or a `.sh`/`.var`, which `ExpandShaderChanges` maps to every shader whose depfile lists it.
+  1. The asset watcher reports a changed `.vert`/`.frag`/`.comp`, or a `.sh`/`.var`, which `ExpandShaderChanges` maps to every shader whose depfile lists it.
   2. The shader is re-exported **on a reimport thread** (`ShaderFileMetadata::ExportsInBackground`), so the editor keeps running while `shaderc` works, several shaders at once when an include changed. When it's done, `ResourceCache::PumpReimports` (start of the next frame) saves the meta and `ShaderFile::Reload` creates the new shader. A shader edited again mid-compile compiles again before it reloads.
   3. Every program acquired through the registry is rebuilt in place. `ShaderCommand::GetProgram()` reads the shared `ProgramRef`, so materials, post-processing, IBL, shadow, particle and picking passes all pick it up.
 
   Programs created with raw `LoadProgram` (the UI composite and RmlUi document shaders) don't reload.
 - **Metas**: a shader's `.meta` lives next to its source (engine shader metas are committed in the engine repo). A missing `.meta` makes the editor cook that shader at startup.
-- **Batch**: `Tools/BuildShaders.sh [filter]` compiles SPIR-V and GLSL 150 for every engine shader (or those whose path contains the filter) and refreshes shadow copies under the game's `Assets/Shaders`.
+- **Batch**: `Tools/BuildShaders.sh [filter]` compiles SPIR-V and GLSL 430 for every engine shader (`.vert`, `.frag` and `.comp`; a compute shader needs no `.var`) (or those whose path contains the filter) and refreshes shadow copies under the game's `Assets/Shaders`.
 
 ## How to Extend
+
+### Compute shaders
+
+Compute shaders are `Foo.comp` sources that go through the same pipeline as the other stages: `shaderc --type compute` (no varying def), a `ComputeShaderFileMetadata` so the cooker and the editor treat `.comp` like `.vert`/`.frag`, a `<renderer>.bin` binary next to the source, and hot reload. Nothing about them is specific to one feature; particles, volumetric fog froxels and anything else that wants the GPU to compute use the same path.
+
+To add a compute pass:
+
+1. Write `Assets/Shaders/<Area>/Foo.comp` (no `.var`). Start with `#include "bgfx_compute.sh"` (vendored next to `bgfx_shader.sh`), declare buffers and images with its macros (`BUFFER_RO`, `BUFFER_WR`, `BUFFER_RW`, `IMAGE2D_*`, `IMAGE3D_*`) and give the entry point a group size with `NUM_THREADS( x, y, z )`. Its `.meta` is created by the first cook like any shader's.
+2. Get the program with `Moonlight::AcquireComputeProgram( "Assets/Shaders/<Area>/Foo.comp" )` (`Utils/BGFXUtils.h`; `ShaderLoad::Async` works as for `AcquireProgram`). It returns the shared `ProgramRef`; read `Handle` at dispatch time, because hot reload rebuilds it in place. The handle is invalid while the shader loads or if it failed to compile.
+3. Dispatch from the main thread inside the frame: bind buffers with `bgfx::setBuffer( stage, handle, access )` or images with `bgfx::setImage`, then `bgfx::dispatch( view, program, groupsX, groupsY, groupsZ )`. `Moonlight::ComputeGroupCount( items, groupSize )` is the ceiling division for the group counts.
+4. **Gate it and keep a fallback.** `BGFXRenderer::IsComputeActive()` is true when the `Compute` feature cap is on (`Docs/Hardware-Profiles.md`), the backend reports `BGFX_CAPS_COMPUTE`, and the renderer draws something (not the Noop backend). Every system that uses compute must also have a path that works when it is false: the 2004 PC and Xbox 360 profiles turn it off on purpose, and backends without `BGFX_CAPS_COMPUTE` lack it. The renderer logs once at startup whether compute is supported.
+
+Rules that keep a compute shader portable:
+
+- **Buffers are vec4 elements.** D3D11 types a compute vertex buffer as RGBA32F, so declare compute vertex buffers as `vec4` and index multi-vec4 records by hand (`data[i * 4 + k]` for a four-vec4 record). Create them with `bgfx::createDynamicVertexBuffer` and `BGFX_BUFFER_COMPUTE_READ_WRITE` (or `_READ` / `_WRITE`). Integer data goes in an index buffer created with `BGFX_BUFFER_INDEX32` and `BGFX_BUFFER_COMPUTE_*`, read as `uint`.
+- **Images and volumes**: create the texture with `BGFX_TEXTURE_COMPUTE_WRITE` and bind it with `bgfx::setImage`. This is the route for 3D textures a compute pass fills, such as froxel volumes.
+- **Ordering**: within one view, every dispatch runs before every draw, whatever the submit order. Across views, bgfx runs them in view order, so put a compute pass in a view that is ordered before the views that read its results (`bgfx::setViewOrder` if the ids are not already in that order).
+
+What has been checked: the compile test (`Tests/Source/ShaderGraphTests.cpp`) builds a trivial compute shader for `spirv`, `430` and `metal` on Linux (and `s_5_0` on a Windows host); `StageFromPath`, the cook classification and the `Compute` cap have unit tests. The Vulkan backend is the only one where a compute dispatch has been run; D3D11 and Metal have not run one, so the vec4-element rule above comes from bgfx's own compute examples, not from testing here.
 
 ### Add a lit material type
 

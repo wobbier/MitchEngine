@@ -59,6 +59,7 @@ struct HardwareProfile
         bool EnvironmentLighting = true;
         bool Instancing = true;
         bool DepthPrepass = true;       // off for a target whose depth prepass misrenders or doesn't pay
+        bool Compute = true;            // off for a target without compute shaders; systems use their non-compute fallback
         float MaxRenderScale = 0.f;     // cameras' render scale ceiling (0 = no cap)
     };
     FeatureCaps Caps;

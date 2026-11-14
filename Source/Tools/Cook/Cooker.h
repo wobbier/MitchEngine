@@ -54,7 +54,7 @@ namespace Cook
     std::vector<std::string> ShippedFiles( const std::string& InAsset, Platform InPlatform );
 
     // The asset a recorded read belongs to: "X.png.dds" -> "X.png", "X.frag.spirv.bin" ->
-    // "X.frag", "X.fbx.assbin" -> "X.fbx", "X.png.meta" -> "X.png". Empty when the read is an
+    // "X.frag" (".vert" and ".comp" likewise), "X.fbx.assbin" -> "X.fbx", "X.png.meta" -> "X.png". Empty when the read is an
     // asset of its own.
     std::string OwningAsset( const std::string& InRead );
 

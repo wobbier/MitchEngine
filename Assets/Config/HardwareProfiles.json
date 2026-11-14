@@ -27,7 +27,8 @@
                 "VolumetricFog": false,
                 "TemporalAA": false,
                 "EnvironmentLighting": false,
-                "Instancing": true
+                "Instancing": true,
+                "Compute": false
             }
         },
         {
@@ -55,7 +56,8 @@
                 "VolumetricFog": false,
                 "TemporalAA": false,
                 "EnvironmentLighting": true,
-                "Instancing": true
+                "Instancing": true,
+                "Compute": false
             }
         },
         {

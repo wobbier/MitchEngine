@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Compiles engine shaders (Engine/Assets/Shaders/**/*.vert|*.frag) for Linux/Vulkan (spirv) and
+# Compiles engine shaders (Engine/Assets/Shaders/**/*.vert|*.frag|*.comp) for Linux/Vulkan (spirv) and
 # OpenGL (glsl 430), writing <name>.<platform>.bin next to each source. If the game repository has
 # a compiled copy of the same shader under Assets/Shaders (it shadows the engine copy at runtime),
 # that copy is refreshed too. Windows (dx11) and macOS (metal) compile at load time through
@@ -30,12 +30,18 @@ while IFS= read -r -d '' source; do
     case "$source" in
         *.vert) type=vertex ;;
         *.frag) type=fragment ;;
+        *.comp) type=compute ;;
         *) continue ;;
     esac
     varying="${source%.*}.var"
-    if [[ ! -f "$varying" ]]; then
+    # Compute shaders have no varying def.
+    if [[ "$type" == compute ]]; then
+        varying_args=()
+    elif [[ ! -f "$varying" ]]; then
         echo "skip (no .var): $relative"
         continue
+    else
+        varying_args=( --varyingdef "$varying" )
     fi
     if [[ $CHANGED_ONLY -eq 1 && -f "$source.spirv.bin" && "$source.spirv.bin" -nt "$source" ]]; then
         continue
@@ -45,7 +51,7 @@ while IFS= read -r -d '' source; do
         output="$source.$ext.bin"
         had_output=0
         [[ -f "$output" ]] && had_output=1
-        if ! "$SHADERC" -f "$source" -o "$output" --varyingdef "$varying" --platform linux -p "$profile" --type "$type" -i "$SHADERS" --depends > /tmp/shaderc_$$.log 2>&1; then
+        if ! "$SHADERC" -f "$source" -o "$output" ${varying_args[@]+"${varying_args[@]}"} --platform linux -p "$profile" --type "$type" -i "$SHADERS" --depends > /tmp/shaderc_$$.log 2>&1; then
             # Some UI shaders (RmlUi) are Vulkan-only; only count GL failures for shaders
             # that have built for GL before, or for new shaders.
             if [[ "$profile" == "430" && $had_output -eq 0 && -f "$source.spirv.bin" && ! "$source" -nt "$source.spirv.bin" && "$relative" == UI* ]]; then
@@ -63,7 +69,7 @@ while IFS= read -r -d '' source; do
         fi
     done
     count=$((count + 1))
-done < <(find "$SHADERS" \( -name '*.vert' -o -name '*.frag' \) -print0 | sort -z)
+done < <(find "$SHADERS" \( -name '*.vert' -o -name '*.frag' -o -name '*.comp' \) -print0 | sort -z)
 rm -f /tmp/shaderc_$$.log
 echo "Compiled $count shader(s), $failures failure(s)."
 [[ $failures -eq 0 ]]

@@ -197,5 +197,16 @@ struct FragShaderFileMetadata
     }
 };
 
+// Compute shaders (.comp) cook like any other stage; the distinct type is only for the registry.
+struct ComputeShaderFileMetadata
+    : public ShaderFileMetadata
+{
+    ComputeShaderFileMetadata( const Path& filePath )
+        : ShaderFileMetadata( filePath )
+    {
+    }
+};
+
 ME_REGISTER_METADATA( "vert", ShaderFileMetadata );
 ME_REGISTER_METADATA( "frag", FragShaderFileMetadata );
+ME_REGISTER_METADATA( "comp", ComputeShaderFileMetadata );

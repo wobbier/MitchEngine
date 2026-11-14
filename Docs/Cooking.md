@@ -54,7 +54,7 @@ the old `BuildAssets` / `-CompileAssets`, which only loaded textures and shaders
 2. **Recorded runs** (`--record-deps`, `Docs/VFS.md`): unless `--no-record`, the cooker plays
    each scene through the game for `--record-frames` frames, recording every logical path the
    VFS served. This catches what no scene names, such as assets scripts load by string and
-   engine defaults. A twin or `.meta` read (`X.png.dds`, `X.frag.spirv.bin`, `X.png.meta`)
+   engine defaults. A twin or `.meta` read (`X.png.dds`, `X.frag.spirv.bin`, `X.comp.spirv.bin`, `X.png.meta`)
    stands for its asset (`Cook::OwningAsset`). A source the runtime read raw ships as those
    exact bytes: an RmlUi document's `.png` stays a `.png`.
 3. **Always**: `Assets/Config/ProjectSettings.json`, `Engine.cfg`, `HardwareProfiles.json`, the
@@ -72,7 +72,7 @@ the old `BuildAssets` / `-CompileAssets`, which only loaded textures and shaders
 |---|---|
 | Textures (`png`, `jpg`, `jpeg`, `tga`) | `<path>.dds` |
 | Models (`fbx`, `obj`) | `<path>.assbin` (+ `<path>.vertexcache` when there is one) |
-| Shader stages (`vert`, `frag`) | `<path>.<profile>.bin` for the target: `spirv` on Linux (Vulkan is forced), `dx11` on Windows, `metal` on macOS |
+| Shader stages (`vert`, `frag`, `comp`) | `<path>.<profile>.bin` for the target: `spirv` on Linux (Vulkan is forced), `dx11` on Windows, `metal` on macOS |
 | Sprite images a `.spriteatlas` packs (see below) | packed into `<atlas>.spriteatlas.png.dds` + `.spritesheet`; the sources stay home |
 | Everything else (scenes, prefabs, sounds, fonts, navmeshes, UI documents, config, render textures: a `.rendertexture` is its own runtime form) | as is |
 | Never | `.meta`, shader build inputs (`.sh`, `.var`, `.sc`, depfiles), scripts and projects (`.cs`, `.csproj`, `.sln`; scripts ship compiled next to the executable), editor documents (`.shadergraph`, `.edscript`, `.md`), `Assets/Havana/`, `Assets/Icons/`, `imgui.cfg`, `.tmp/` |

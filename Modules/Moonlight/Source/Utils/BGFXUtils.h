@@ -77,6 +77,9 @@ namespace Moonlight
     };
 
     SharedPtr<ProgramRef> AcquireProgram( const std::string& vsName, const std::string& fsName, ShaderLoad InLoad = ShaderLoad::Blocking );
+    // A compute program from one .comp stage (e.g. "Assets/Shaders/Foo.comp"), through the same
+    // registry as AcquireProgram, so it hot reloads. Check IsComputeActive() before relying on it.
+    SharedPtr<ProgramRef> AcquireComputeProgram( const std::string& csName, ShaderLoad InLoad = ShaderLoad::Blocking );
     // Creates or recreates every acquired program that uses InShader (called when it finishes
     // loading or reloads); programs whose other shader is still loading wait for that one.
     void RebuildProgramsUsing( const ShaderFile* InShader );
@@ -84,12 +87,19 @@ namespace Moonlight
     // parallel on the loader threads, and waits for them. Returns the loaded shaders: hold on to
     // them to keep them cached.
     std::vector<SharedPtr<ShaderFile>> PrefetchShaders( const std::vector<std::string>& InStages );
-    // Every .vert / .frag under the engine's Assets/Shaders, as "Assets/Shaders/..." paths.
+    // Every .vert / .frag / .comp under the engine's Assets/Shaders, as "Assets/Shaders/..." paths.
     std::vector<std::string> FindEngineShaderStages();
     // Drops the registry's shader references (before the renderer shuts down).
     void ReleaseProgramRegistry();
 
     std::string GetPlatformString();
+
+
+    // Dispatch group count covering InItems with groups of InGroupSize threads (ceil division).
+    inline uint32_t ComputeGroupCount( uint32_t InItems, uint32_t InGroupSize )
+    {
+        return InGroupSize == 0 ? 0 : ( InItems + InGroupSize - 1 ) / InGroupSize;
+    }
 
 
     // Packs a 0..1 RGB color into bgfx's 0xRRGGBBAA clear format, clamping each channel.

@@ -155,6 +155,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
 
     m_hasAssets = settings.InitAssets;
     m_drawsNothing = settings.Type == bgfx::RendererType::Noop;
+    CLog::Log( CLog::LogType::Info, std::string( "Compute shaders: " ) + ( IsComputeSupported() ? "supported" : "not supported" ) + " (" + bgfx::getRendererName( bgfx::getRendererType() ) + ")" );
     if( settings.InitAssets )
     {
         // Built when the editor view first draws, at its size (bgfx's framebuffer pool is small).

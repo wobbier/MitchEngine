@@ -187,6 +187,7 @@ public:
         bool TemporalAA = true;
         bool Instancing = true;              // off: every instanced mesh is its own draw call
         bool DepthPrepass = true;            // off: opaque meshes draw once, testing and writing depth themselves
+        bool Compute = true;                 // off: systems with a compute path use their non-compute fallback
         float MaxRenderScale = 0.f;          // cameras' render scale ceiling (0 = no cap)
         uint64_t MaxRenderPixels = 0;        // internal pixels per camera (0 = no cap): the profile's resolution
         // The player's graphics settings (ME-275), on every game camera: a scale on its own
@@ -196,6 +197,12 @@ public:
         int PlayerUpscale = -1;
     };
     FeatureCapSettings FeatureCaps;
+
+    // Compute shaders: the backend supports them (BGFX_CAPS_COMPUTE) and the renderer draws something.
+    bool IsComputeSupported() const { return !m_drawsNothing && ( bgfx::getCaps()->supported & BGFX_CAPS_COMPUTE ) != 0; }
+    // Supported and not turned off by the Compute feature cap. Every compute user needs a non-compute
+    // fallback for when this is false.
+    bool IsComputeActive() const { return FeatureCaps.Compute && IsComputeSupported(); }
 
     // Captures the backbuffer at the end of the current frame and writes it as a PNG.
     void RequestScreenshot( const std::string& filePath );
