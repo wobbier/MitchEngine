@@ -1050,10 +1050,12 @@ void Engine::Run()
                 Particles->Update( updateContext );
                 if( m_killcam.IsPlaying() )
                 {
-                    // The game world's particles simulate on, out of sight.
+                    // The game world's particles simulate on, out of sight (GPU systems still
+                    // dispatch their step; only the draw is hidden).
                     for( Moonlight::ParticleBatch& batch : NewRenderer->GetParticleBatches() )
                     {
                         batch.Instances.clear();
+                        batch.GpuInstanceCount = 0;
                     }
                 }
             }

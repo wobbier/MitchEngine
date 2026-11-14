@@ -28,6 +28,7 @@ namespace Moonlight {
     class PostProcess;
     class ClusterBuilder;
     class EnvironmentLighting;
+    class GpuParticleSimulator;
 }
 
 struct RendererCreationSettings
@@ -228,6 +229,15 @@ private:
     // A render texture camera: it has a loaded target texture and isn't the main camera.
     static bool RendersToTexture( const Moonlight::CameraData& InCamera );
 
+    // Compute work that runs once per frame, after the frame's lights are gathered and before any
+    // camera view, so every camera reads its results. Each pass allocates its own named view here
+    // (so it is ordered before the camera views and shows in a debugger) and does nothing when
+    // IsComputeActive() is false; a second compute pass (froxel fog, ...) joins it the same way.
+    void RunFrameCompute();
+    // GPU particles: dispatches each batch's pending step once (a frame rendered twice doesn't
+    // step twice).
+    void DispatchGpuParticles();
+
     // Lighting: per frame (light data, directional lights) and per camera (clusters, ambient).
     void PrepareFrameLighting();
     void PrepareCameraLighting( Moonlight::CameraData& camera );
@@ -371,6 +381,8 @@ private:
     bgfx::UniformHandle u_particleDepth = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_texParticle = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_sceneDepth = BGFX_INVALID_HANDLE;
+    // GPU particle simulation (compute); null when compute isn't supported.
+    UniquePtr<Moonlight::GpuParticleSimulator> m_gpuParticles;
     std::vector<Moonlight::DecalCommand> m_decals;
     std::vector<const Moonlight::DecalCommand*> m_decalOrder;
     Moonlight::ShaderCommand m_decalProgram;

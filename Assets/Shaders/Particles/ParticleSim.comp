@@ -1,0 +1,229 @@
+// GPU particle simulation (ParticleSystem::Simulation = GPU). One thread per slot, in place: a
+// thread reads and writes only its own slot. Each step a slot is
+//   reset            -> dead (restart, new buffers)
+//   in the spawn ring range -> born, like ParticleSystem::Emit
+//   alive            -> aged and moved, like ParticleSystem::Simulate (newborns are not moved)
+// and then written as one instance for Particle.vert, like ParticleSystem::FillBatch. Dead slots
+// write a zero-size, zero-alpha instance. Keep this in step with those three functions; the CPU
+// simulation is the reference. Randoms come from a per-slot hash, so the values differ from the
+// CPU's xorshift but the distributions are the same.
+#include "bgfx_compute.sh"
+
+// Records are four vec4s, indexed [slot * 4 + k] (compute buffers stay vec4-only for D3D11).
+// State: (position, age) (velocity, lifetime: 0 = dead) (sRGB colour, size) (rotation, angular velocity, seed, 0)
+BUFFER_RW(s_particleState, vec4, 0);
+// Instance (ParticleInstance): (position, size) (linear colour * intensity, alpha) (rotation, flipbook frame, 0, 0) (velocity, 0)
+BUFFER_WO(s_particleInstances, vec4, 1);
+
+// Packed by Moonlight::PackGpuParticleStep (GpuParticles.cpp).
+uniform vec4 u_particleSim[12];
+uniform mat4 u_particleWorld;
+
+#define u_dt             u_particleSim[0].x
+#define u_time           u_particleSim[0].y
+#define u_spawnStart     u_particleSim[0].z
+#define u_spawnCount     u_particleSim[0].w
+#define u_capacity       u_particleSim[1].x
+#define u_reset          u_particleSim[1].y
+#define u_seed           u_particleSim[1].z
+#define u_shape          u_particleSim[1].w
+#define u_shapeRadius    u_particleSim[2].x
+#define u_coneAngle      u_particleSim[2].y
+#define u_emitFromShell  u_particleSim[2].z
+#define u_local          u_particleSim[2].w
+#define u_boxSize        u_particleSim[3].xyz
+#define u_gravity        u_particleSim[3].w
+#define u_lifetime       u_particleSim[4].xy
+#define u_speed          u_particleSim[4].zw
+#define u_size           u_particleSim[5].xy
+#define u_rotation       u_particleSim[5].zw
+#define u_angularVel     u_particleSim[6].xy
+#define u_drag           u_particleSim[6].z
+#define u_noiseStrength  u_particleSim[6].w
+#define u_startColor     u_particleSim[7].xyz
+#define u_startAlpha     u_particleSim[7].w
+#define u_startColor2    u_particleSim[8].xyz
+#define u_intensity      u_particleSim[8].w
+#define u_endColor       u_particleSim[9].xyz
+#define u_endAlpha       u_particleSim[9].w
+#define u_endSize        u_particleSim[10].x
+#define u_fadeIn         u_particleSim[10].y
+#define u_flipbookFps    u_particleSim[10].z
+#define u_flipbookFrames u_particleSim[10].w
+#define u_noiseFrequency u_particleSim[11].x
+
+#define PI 3.14159265
+
+uint pcgHash(uint v)
+{
+	uint state = v * 747796405u + 2891336453u;
+	uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+	return (word >> 22u) ^ word;
+}
+
+// [0, 1) with 24 bits, like ParticleSystem::Random01.
+float random01(inout uint rng)
+{
+	rng = pcgHash(rng);
+	return float(rng >> 8u) * (1.0 / 16777216.0);
+}
+
+float randomRange(vec2 range, inout uint rng)
+{
+	return range.x + (range.y - range.x) * random01(rng);
+}
+
+vec3 randomDirection(inout uint rng)
+{
+	float z = random01(rng) * 2.0 - 1.0;
+	float phi = random01(rng) * 2.0 * PI;
+	float r = sqrt(max(0.0, 1.0 - z * z));
+	return vec3(r * cos(phi), z, r * sin(phi));
+}
+
+float toLinear(float c)
+{
+	return c <= 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4);
+}
+
+NUM_THREADS(64, 1, 1)
+void main()
+{
+	uint capacity = uint(u_capacity + 0.5);
+	uint slot = gl_GlobalInvocationID.x;
+	if (slot >= capacity)
+	{
+		return;
+	}
+	uint base = slot * 4u;
+
+	vec4 s0 = s_particleState[base + 0u];
+	vec4 s1 = s_particleState[base + 1u];
+	vec4 s2 = s_particleState[base + 2u];
+	vec4 s3 = s_particleState[base + 3u];
+	if (u_reset > 0.5)
+	{
+		s0 = vec4_splat(0.0);
+		s1 = vec4_splat(0.0);
+		s2 = vec4_splat(0.0);
+		s3 = vec4_splat(0.0);
+	}
+
+	uint spawnStart = uint(u_spawnStart + 0.5);
+	uint spawnCount = uint(u_spawnCount + 0.5);
+	uint ringOffset = (slot + capacity - spawnStart) % capacity;
+	bool isLocal = u_local > 0.5;
+
+	if (ringOffset < spawnCount)
+	{
+		// Born this step (ParticleSystem::Emit).
+		uint rng = pcgHash(slot ^ pcgHash(uint(u_seed + 0.5)));
+		vec3 position = vec3_splat(0.0);
+		vec3 direction = vec3(0.0, 1.0, 0.0);
+		bool shell = u_emitFromShell > 0.5;
+		int shape = int(u_shape + 0.5);
+		if (shape == 0)
+		{
+			direction = randomDirection(rng);
+		}
+		else if (shape == 1 || shape == 2)
+		{
+			direction = randomDirection(rng);
+			if (shape == 2)
+			{
+				direction.y = abs(direction.y);
+			}
+			float radius = shell ? u_shapeRadius : u_shapeRadius * pow(random01(rng), 1.0 / 3.0);
+			position = direction * radius;
+		}
+		else if (shape == 3)
+		{
+			// Directions fan out with the distance from the axis (like a real nozzle).
+			float phi = random01(rng) * 2.0 * PI;
+			float spread = sqrt(random01(rng));
+			float disk = shell ? u_shapeRadius : u_shapeRadius * spread;
+			position = vec3(cos(phi) * disk, 0.0, sin(phi) * disk);
+			float angle = u_coneAngle * (shell ? 1.0 : spread);
+			direction = normalize(vec3(cos(phi) * sin(angle), cos(angle), sin(phi) * sin(angle)));
+		}
+		else
+		{
+			position = vec3(random01(rng) - 0.5, random01(rng) - 0.5, random01(rng) - 0.5) * u_boxSize;
+		}
+
+		vec3 velocity = direction * randomRange(u_speed, rng);
+		if (!isLocal)
+		{
+			position = mul(u_particleWorld, vec4(position, 1.0)).xyz;
+			velocity = mul(u_particleWorld, vec4(velocity, 0.0)).xyz;
+		}
+		float lifetime = max(randomRange(u_lifetime, rng), 0.01);
+		float size = randomRange(u_size, rng);
+		float rotation = randomRange(u_rotation, rng);
+		float angularVelocity = randomRange(u_angularVel, rng);
+		float colorT = random01(rng);
+		vec3 color = mix(u_startColor, u_startColor2, colorT);
+		float seed = random01(rng) * 100.0;
+		s0 = vec4(position, 0.0);
+		s1 = vec4(velocity, lifetime);
+		s2 = vec4(color, size);
+		s3 = vec4(rotation, angularVelocity, seed, 0.0);
+	}
+	else if (s1.w > 0.0)
+	{
+		// Ageing and motion (ParticleSystem::Simulate).
+		s0.w += u_dt;
+		if (s0.w >= s1.w)
+		{
+			s0 = vec4_splat(0.0);
+			s1 = vec4_splat(0.0);
+		}
+		else
+		{
+			vec3 acceleration = vec3(0.0, -9.81 * u_gravity, 0.0);
+			if (u_noiseStrength > 0.0)
+			{
+				vec3 p = s0.xyz * u_noiseFrequency;
+				float time = u_time + s3.z;
+				acceleration += u_noiseStrength * vec3(sin(p.y * 1.7 + time * 1.3) + cos(p.z * 0.9 + time),
+					sin(p.z * 1.3 + time * 0.7) * 0.5,
+					sin(p.x * 1.1 + time * 1.7) + cos(p.y * 0.8 - time));
+			}
+			vec3 velocity = (s1.xyz + acceleration * u_dt) * exp(-u_drag * u_dt);
+			s1.xyz = velocity;
+			s0.xyz += velocity * u_dt;
+			s3.x += s3.y * u_dt;
+		}
+	}
+
+	s_particleState[base + 0u] = s0;
+	s_particleState[base + 1u] = s1;
+	s_particleState[base + 2u] = s2;
+	s_particleState[base + 3u] = s3;
+
+	// The instance (ParticleSystem::FillBatch).
+	if (s1.w > 0.0)
+	{
+		float age = s0.w;
+		float life = age / s1.w;
+		vec3 position = isLocal ? mul(u_particleWorld, vec4(s0.xyz, 1.0)).xyz : s0.xyz;
+		vec3 velocity = isLocal ? mul(u_particleWorld, vec4(s1.xyz, 0.0)).xyz : s1.xyz;
+		float size = s2.w * mix(1.0, u_endSize, life);
+		vec3 srgb = mix(s2.xyz, u_endColor, life);
+		float fadeIn = u_fadeIn > 0.0 ? min(life / u_fadeIn, 1.0) : 1.0;
+		float alpha = mix(u_startAlpha, u_endAlpha, life) * fadeIn;
+		float frame = u_flipbookFps > 0.0 ? floor(age * u_flipbookFps) : floor(life * u_flipbookFrames);
+		vec3 linearColor = vec3(toLinear(srgb.x), toLinear(srgb.y), toLinear(srgb.z)) * u_intensity;
+		s_particleInstances[base + 0u] = vec4(position, size);
+		s_particleInstances[base + 1u] = vec4(linearColor, alpha);
+		s_particleInstances[base + 2u] = vec4(s3.x, frame, 0.0, 0.0);
+		s_particleInstances[base + 3u] = vec4(velocity, 0.0);
+	}
+	else
+	{
+		s_particleInstances[base + 0u] = vec4_splat(0.0);
+		s_particleInstances[base + 1u] = vec4_splat(0.0);
+		s_particleInstances[base + 2u] = vec4_splat(0.0);
+		s_particleInstances[base + 3u] = vec4_splat(0.0);
+	}
+}

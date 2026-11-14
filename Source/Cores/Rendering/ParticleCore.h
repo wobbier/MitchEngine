@@ -1,8 +1,11 @@
 #pragma once
 #include "ECS/Core.h"
 
+namespace Moonlight { struct ParticleBatch; }
+
 // Simulates every ParticleSystem (in parallel, one job per system) and hands their particles to the
-// renderer. Owned by the engine and updated every frame, also in the editor, so effects preview
+// renderer; GPU-simulated systems only run their emitter here and the renderer dispatches the
+// rest. Owned by the engine and updated every frame, also in the editor, so effects preview
 // without entering play mode; pausing the game freezes them.
 class ParticleCore final
     : public Core<ParticleCore>
@@ -20,5 +23,8 @@ public:
 #endif
 
 private:
+    // Empties a batch, letting go of its GPU buffers.
+    static void ClearBatch( Moonlight::ParticleBatch& InBatch );
+
     size_t m_liveParticles = 0;
 };

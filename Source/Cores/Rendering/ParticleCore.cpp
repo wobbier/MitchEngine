@@ -31,10 +31,11 @@ void ParticleCore::Update( const UpdateContext& inUpdateContext )
     std::vector<Moonlight::ParticleBatch>& batches = engine.GetRenderer().GetParticleBatches();
     std::vector<Entity>& entities = GetEntities();
 
-    // Batches are reused frame to frame (their instance arrays keep their capacity).
+    // Batches are reused frame to frame (their instance arrays keep their capacity). A batch only
+    // refers to GPU buffers for the frame its system stepped.
     for( Moonlight::ParticleBatch& batch : batches )
     {
-        batch.Instances.clear();
+        ClearBatch( batch );
     }
     if( batches.size() < entities.size() )
     {
@@ -47,10 +48,18 @@ void ParticleCore::Update( const UpdateContext& inUpdateContext )
     }
 
     Transform::UpdateAll( GetWorld() );
-    // Texture loads touch the resource cache: main thread only.
+    // Texture loads touch the resource cache, and GPU buffers are bgfx objects: main thread only.
+    // The simulation path is decided here too, so it holds for the whole frame.
+    const bool computeActive = engine.GetRenderer().IsComputeActive();
     for( Entity& entity : entities )
     {
-        entity.GetComponent<ParticleSystem>().ResolveTexture();
+        ParticleSystem& system = entity.GetComponent<ParticleSystem>();
+        system.ResolveTexture();
+        system.UpdateSimulationMode( computeActive );
+        if( system.UsesGpuSimulation() && entity.IsActiveInHierarchy() && system.IsEnabled() )
+        {
+            system.EnsureGpuBuffers();
+        }
     }
 
     const float dt = inUpdateContext.GetDeltaTime();
@@ -64,15 +73,23 @@ void ParticleCore::Update( const UpdateContext& inUpdateContext )
                 continue;
             }
             const glm::mat4& world = entity.GetComponent<Transform>().GetLocalToWorldMatrix().GetInternalMatrix();
-            system.Simulate( dt, world );
-            system.FillBatch( batches[i], world );
+            if( system.UsesGpuSimulation() )
+            {
+                // Only the emitter runs here; the renderer dispatches the step.
+                system.StepGpu( dt, world, batches[i] );
+            }
+            else
+            {
+                system.Simulate( dt, world );
+                system.FillBatch( batches[i], world );
+            }
         }
     } );
 
     m_liveParticles = 0;
     for( const Moonlight::ParticleBatch& batch : batches )
     {
-        m_liveParticles += batch.Instances.size();
+        m_liveParticles += batch.Instances.size() + batch.GpuLiveCount;
     }
 }
 
@@ -81,8 +98,18 @@ void ParticleCore::OnStop()
 {
     for( Moonlight::ParticleBatch& batch : GetEngine().GetRenderer().GetParticleBatches() )
     {
-        batch.Instances.clear();
+        ClearBatch( batch );
     }
+}
+
+
+void ParticleCore::ClearBatch( Moonlight::ParticleBatch& InBatch )
+{
+    InBatch.Instances.clear();
+    InBatch.Gpu = nullptr;
+    InBatch.GpuStepPending = false;
+    InBatch.GpuInstanceCount = 0;
+    InBatch.GpuLiveCount = 0;
 }
 
 

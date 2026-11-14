@@ -33,6 +33,7 @@
 #include "Lighting/ClusterBuilder.h"
 #include "Lighting/ShadowCascades.h"
 #include "Lighting/EnvironmentLighting.h"
+#include "Particles/GpuParticles.h"
 #include <glm/gtc/matrix_transform.hpp>
 #include "Primitives/Primitives.h"
 #include "Profiling/FrameStats.h"
@@ -191,7 +192,16 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         OPTICK_EVENT( "BGFXRenderer::LoadShaders" );
         // Every engine shader at once: first-time cooks and binary reads run on the loader threads
         // in parallel, then the passes below (and later materials) find them loaded.
-        m_engineShaders = Moonlight::PrefetchShaders( Moonlight::FindEngineShaderStages() );
+        std::vector<std::string> engineStages = Moonlight::FindEngineShaderStages();
+        if( !IsComputeSupported() )
+        {
+            // A backend without compute can fail hard on a compute shader (bgfx's GL backend
+            // aborts on a compile error), so those stay unloaded.
+            engineStages.erase( std::remove_if( engineStages.begin(), engineStages.end(), []( const std::string& InStage ) {
+                return InStage.size() >= 5 && InStage.compare( InStage.size() - 5, 5, ".comp" ) == 0;
+            } ), engineStages.end() );
+        }
+        m_engineShaders = Moonlight::PrefetchShaders( engineStages );
         UIProgram = Moonlight::LoadProgram( "Assets/Shaders/UI.vert", "Assets/Shaders/UI.frag" );
         s_texDiffuse = bgfx::createUniform( "s_texDiffuse", bgfx::UniformType::Sampler );
         s_texNormal = bgfx::createUniform( "s_texNormal", bgfx::UniformType::Sampler );
@@ -332,6 +342,10 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
             s_texParticle = bgfx::createUniform( "s_texParticle", bgfx::UniformType::Sampler );
             s_sceneDepth = bgfx::createUniform( "s_sceneDepth", bgfx::UniformType::Sampler );
             m_particleProgram = Moonlight::ShaderCommand( "Assets/Shaders/Particle" );
+            if( IsComputeSupported() )
+            {
+                m_gpuParticles = MakeUnique<Moonlight::GpuParticleSimulator>();
+            }
 
             const uint32_t white = 0xffffffff;
             m_spriteWhite = bgfx::createTexture2D( 1, 1, false, 1, bgfx::TextureFormat::RGBA8, BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP, bgfx::copy( &white, sizeof( white ) ) );
@@ -559,8 +573,10 @@ void BGFXRenderer::Destroy()
     m_pickingPass.reset();
 #endif
     m_postProcess.reset();
-    // Commands can hold shader graph assets (and so programs): drop them while bgfx is alive.
+    // Commands can hold shader graph assets (and so programs) and GPU particle buffers: drop them
+    // while bgfx is alive.
     m_particleBatches.clear();
+    m_gpuParticles.reset();
     m_decals.clear();
     for( auto& sampler : GraphSamplers() )
     {
@@ -782,6 +798,7 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
     ++m_frameIndex;
     DebugDraw::CollectFrame( m_debugLines );
     PrepareFrameLighting();
+    RunFrameCompute();
 
     // Render texture cameras first, so every view after them (the editor's scene view, other
     // cameras, the main camera) samples this frame's image. Between themselves they go by GUID: one
@@ -2441,6 +2458,46 @@ void BGFXRenderer::RenderSunShadows( Moonlight::CameraData& camera )
 }
 
 
+void BGFXRenderer::RunFrameCompute()
+{
+    OPTICK_EVENT( "Renderer::RunFrameCompute" );
+    if( !IsComputeActive() )
+    {
+        return;
+    }
+    DispatchGpuParticles();
+}
+
+
+void BGFXRenderer::DispatchGpuParticles()
+{
+    if( !m_gpuParticles )
+    {
+        return;
+    }
+    bgfx::ViewId view = UINT16_MAX;
+    for( Moonlight::ParticleBatch& batch : m_particleBatches )
+    {
+        if( !batch.GpuStepPending || !batch.Gpu )
+        {
+            continue;
+        }
+        batch.GpuStepPending = false;
+        if( view == UINT16_MAX )
+        {
+            view = m_views.Allocate( "GPU Particles" );
+            if( view == UINT16_MAX )
+            {
+                return;
+            }
+        }
+        // While the program loads (or after a failed hot reload) nothing runs; the buffers keep
+        // any reset that was asked for, and aren't drawn until a dispatch has initialised them.
+        m_gpuParticles->Dispatch( view, *batch.Gpu, batch.GpuStep );
+    }
+}
+
+
 void BGFXRenderer::RenderParticles( Moonlight::CameraData& camera )
 {
     OPTICK_EVENT( "Renderer::RenderParticles" );
@@ -2455,7 +2512,8 @@ void BGFXRenderer::RenderParticles( Moonlight::CameraData& camera )
     for( uint32_t i = 0; i < m_particleBatches.size(); ++i )
     {
         const Moonlight::ParticleBatch& batch = m_particleBatches[i];
-        if( batch.Instances.empty() || ( camera.ShouldCull && !camera.ViewFrustum.Intersects( batch.Bounds ) ) )
+        const bool gpuDrawable = batch.Gpu && batch.Gpu->Initialized && batch.GpuInstanceCount > 0;
+        if( ( batch.Instances.empty() && !gpuDrawable ) || ( camera.ShouldCull && !camera.ViewFrustum.Intersects( batch.Bounds ) ) )
         {
             continue;
         }
@@ -2490,7 +2548,7 @@ void BGFXRenderer::RenderParticles( Moonlight::CameraData& camera )
     {
         const Moonlight::ParticleBatch& batch = m_particleBatches[entry.second];
         const Moonlight::ParticleInstance* instances = batch.Instances.data();
-        if( batch.Blend == Moonlight::ParticleBlend::Alpha )
+        if( batch.Blend == Moonlight::ParticleBlend::Alpha && !batch.Gpu )
         {
             // Blended particles need back-to-front order within the system too.
             m_particleSorted = batch.Instances;
@@ -2511,21 +2569,10 @@ void BGFXRenderer::RenderParticles( Moonlight::CameraData& camera )
         // A particle shader graph replaces the fragment shader (it keeps Particle.vert).
         const bgfx::ProgramHandle graphProgram = batch.Graph ? batch.Graph->GetProgramHandle( "Forward" ) : bgfx::ProgramHandle( BGFX_INVALID_HANDLE );
 
-        const uint32_t count = static_cast<uint32_t>( batch.Instances.size() );
-        uint32_t offset = 0;
-        while( offset < count )
-        {
-            const uint32_t available = bgfx::getAvailInstanceDataBuffer( count - offset, kInstanceStride );
-            if( available == 0 )
-            {
-                break;
-            }
-            bgfx::InstanceDataBuffer idb;
-            bgfx::allocInstanceDataBuffer( &idb, available, kInstanceStride );
-            std::memcpy( idb.data, instances + offset, (size_t)available * kInstanceStride );
+        // Everything but the instance data, shared by the GPU and CPU paths.
+        auto submitDraw = [&]() {
             bgfx::setVertexBuffer( 0, m_particleQuadVB );
             bgfx::setIndexBuffer( m_particleQuadIB );
-            bgfx::setInstanceDataBuffer( &idb );
             if( bgfx::isValid( graphProgram ) )
             {
                 batch.Graph->Bind( batch.GraphBinding );
@@ -2544,6 +2591,33 @@ void BGFXRenderer::RenderParticles( Moonlight::CameraData& camera )
             BindLighting();
             bgfx::setState( BGFX_STATE_WRITE_RGB | blend );
             bgfx::submit( view, bgfx::isValid( graphProgram ) ? graphProgram : m_particleProgram.GetProgram() );
+        };
+
+        if( batch.Gpu )
+        {
+            // GPU-simulated (Additive, so unsorted): the compute pass wrote the instances this frame.
+            if( batch.Gpu->Initialized && batch.GpuInstanceCount > 0 )
+            {
+                bgfx::setInstanceDataBuffer( batch.Gpu->GetInstances(), 0, std::min( batch.GpuInstanceCount, batch.Gpu->GetCapacity() ) );
+                submitDraw();
+            }
+            continue;
+        }
+
+        const uint32_t count = static_cast<uint32_t>( batch.Instances.size() );
+        uint32_t offset = 0;
+        while( offset < count )
+        {
+            const uint32_t available = bgfx::getAvailInstanceDataBuffer( count - offset, kInstanceStride );
+            if( available == 0 )
+            {
+                break;
+            }
+            bgfx::InstanceDataBuffer idb;
+            bgfx::allocInstanceDataBuffer( &idb, available, kInstanceStride );
+            std::memcpy( idb.data, instances + offset, (size_t)available * kInstanceStride );
+            bgfx::setInstanceDataBuffer( &idb );
+            submitDraw();
             offset += available;
         }
     }

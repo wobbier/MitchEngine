@@ -7,6 +7,7 @@
 #include "Math/Vector2.h"
 #include "Math/Vector3.h"
 #include <glm/glm.hpp>
+#include <deque>
 #include <vector>
 
 class Transform;
@@ -27,11 +28,21 @@ enum class ParticleSpace : uint8_t
     Local,      // particles move with the emitter
 };
 
-// CPU particle emitter. Particles spawn from a shape at a rate (plus an optional burst), take
+enum class ParticleSimulation : uint8_t
+{
+    CPU = 0,    // the reference: simulated on job threads, uploaded each frame
+    GPU,        // a compute shader steps the particles where they are drawn (Additive only; falls back to CPU)
+};
+
+// Particle emitter. Particles spawn from a shape at a rate (plus an optional burst), take
 // randomized lifetime / speed / size / rotation / colour, fall with gravity, slow with drag, wander
 // with noise, and fade and scale over their life. Rendered as instanced camera-facing (or
 // velocity-stretched / flat) quads with optional flipbook animation and soft edges against the
-// scene. Simulates in the editor too, so effects preview while you edit them.
+// scene. Simulates in the editor too, so effects preview while you edit them. Simulation picks
+// where the particles are stepped: on the CPU (the reference), or on the GPU by a compute shader
+// (Moonlight/Particles/GpuParticles.h), where the CPU still runs the emitter and only sends what
+// to spawn. GPU systems fall back to the CPU when they blend Alpha (they need a sort) or compute
+// isn't available.
 class ParticleSystem
     : public Component<ParticleSystem>
 {
@@ -48,6 +59,7 @@ public:
     int BurstCount = 0;
     int MaxParticles = 1000;
     ParticleSpace SimulationSpace = ParticleSpace::World;
+    ParticleSimulation Simulation = ParticleSimulation::CPU;
 
     // Shape
     ParticleShape Shape = ParticleShape::Cone;
@@ -103,8 +115,22 @@ public:
     void Burst( int InCount );
     // Loads the texture and graph when they changed (main thread).
     void ResolveTexture();
-    size_t GetParticleCount() const { return m_particles.size(); }
+    // CPU: the live particles. GPU: an estimate (nothing is read back): the particles spawned
+    // within the longest lifetime, at most MaxParticles.
+    size_t GetParticleCount() const { return m_gpuActive ? m_gpuLiveEstimate : m_particles.size(); }
     bool IsEmitting() const { return !m_stopped && ( Looping || m_time < Duration ); }
+
+    // GPU simulation (main thread, before stepping): decides the path for this frame. The GPU path
+    // runs when Simulation is GPU, Blend is Additive and InComputeActive (the renderer's
+    // IsComputeActive()). Switching paths or changing MaxParticles restarts the system.
+    void UpdateSimulationMode( bool InComputeActive );
+    bool UsesGpuSimulation() const { return m_gpuActive; }
+    // Creates (or resizes) the compute buffers of a GPU system (main thread, renderer running).
+    void EnsureGpuBuffers();
+    // The GPU path's CPU half (any thread): advances the emitter like Simulate, and fills OutBatch
+    // with this frame's spawn range, the instance count to draw, the live estimate and
+    // conservative bounds. The renderer dispatches the step (no GPU work happens here).
+    void StepGpu( float InDeltaSeconds, const glm::mat4& InWorld, Moonlight::ParticleBatch& OutBatch );
 
 #if USING( ME_EDITOR )
     void OnEditorInspect() override;
@@ -127,6 +153,18 @@ private:
     float Random01();
     float RandomRange( const Vector2& InRange );
     void Emit( const glm::mat4& InWorld );
+    // The emitter half of a step, shared by both paths: clamps the step and advances the clock
+    // (BeginStep), then after the particles moved wraps a looping clock, re-arms the start burst
+    // and counts this step's spawns (script bursts, start burst, rate) (AdvanceEmitter).
+    float BeginStep( float InDeltaSeconds );
+    int AdvanceEmitter( float InDeltaSeconds );
+    // The batch fields both paths share (texture, blend, alignment, flipbook, graph).
+    void FillBatchSettings( Moonlight::ParticleBatch& OutBatch ) const;
+    float GpuMaxLifetime() const;
+    uint32_t GpuCapacity() const;
+    // Conservative bounds of particles spawned with InWorld (World space), or of every particle in
+    // the emitter's local space (Local space; the caller transforms it).
+    AABB GpuSpawnBounds( const glm::mat4& InWorld ) const;
 
     std::vector<Particle> m_particles;
     float m_time = 0.f;
@@ -139,6 +177,32 @@ private:
     std::string m_loadedTexture;
     SharedPtr<Moonlight::ShaderGraphAsset> m_graph;
     std::string m_loadedGraph;
+
+    // GPU path (CPU side). One entry per step that spawned, oldest first, dropped once its
+    // particles must all have died: the live estimate and, in World space, the bounds.
+    struct GpuSpawn
+    {
+        float Age = 0.f;
+        uint32_t Count = 0;
+        AABB Bounds;
+    };
+    // Buffers aren't shared by copies of the component (a copy makes its own).
+    struct GpuBufferHolder
+    {
+        GpuBufferHolder() = default;
+        GpuBufferHolder( const GpuBufferHolder& ) {}
+        GpuBufferHolder& operator=( const GpuBufferHolder& ) { return *this; }
+        SharedPtr<Moonlight::GpuParticleBuffers> Buffers;
+    };
+    bool m_gpuActive = false;
+    bool m_gpuResetPending = true;
+    uint32_t m_gpuCapacity = 0;
+    uint32_t m_gpuCursor = 0;
+    uint32_t m_gpuHighWater = 0;
+    uint32_t m_gpuStepIndex = 0;
+    size_t m_gpuLiveEstimate = 0;
+    std::deque<GpuSpawn> m_gpuSpawns;
+    GpuBufferHolder m_gpu;
 
     void OnDeserialize( const json& InJson ) override;
 };

@@ -12,6 +12,7 @@
 
 ME_REFLECT_ENUM( ParticleShape, { { "Point", ParticleShape::Point }, { "Sphere", ParticleShape::Sphere }, { "Hemisphere", ParticleShape::Hemisphere }, { "Cone", ParticleShape::Cone }, { "Box", ParticleShape::Box } } )
 ME_REFLECT_ENUM( ParticleSpace, { { "World", ParticleSpace::World }, { "Local", ParticleSpace::Local } } )
+ME_REFLECT_ENUM( ParticleSimulation, { { "CPU", ParticleSimulation::CPU }, { "GPU", ParticleSimulation::GPU } } )
 ME_REFLECT_ENUM( Moonlight::ParticleBlend, { { "Additive", Moonlight::ParticleBlend::Additive }, { "Alpha", Moonlight::ParticleBlend::Alpha } } )
 ME_REFLECT_ENUM( Moonlight::ParticleAlignment, { { "Billboard", Moonlight::ParticleAlignment::Billboard }, { "Stretched", Moonlight::ParticleAlignment::Stretched }, { "Horizontal", Moonlight::ParticleAlignment::Horizontal } } )
 
@@ -22,6 +23,7 @@ ME_REFLECT_BEGIN( ParticleSystem )
     ME_FIELD( BurstCount ).Category( "Emission" ).Range( 0.f, 10000.f ).Tooltip( "Particles emitted at once when the system starts (and each loop)" ).Log().SoftRange( 0.f, 500.f );
     ME_FIELD( MaxParticles ).Category( "Emission" ).Range( 1.f, 100000.f ).Log();
     ME_FIELD( SimulationSpace ).Category( "Emission" );
+    ME_FIELD( Simulation ).Category( "Emission" ).Tooltip( "Where the particles are stepped. GPU: a compute shader, for many particles; Additive systems only, and the CPU path is used where compute isn't available. When the pool is full a GPU system replaces its oldest particle (CPU skips the new one)" );
     ME_FIELD( Shape ).Category( "Shape" );
     ME_FIELD( ShapeRadius ).Category( "Shape" ).Range( 0.f, 100.f ).Unit( Reflection::Unit::Meters ).Log().SoftRange( 0.f, 10.f );
     ME_FIELD( ConeAngle ).Category( "Shape" ).Range( 0.f, 90.f ).Unit( Reflection::Unit::Degrees );
@@ -84,6 +86,12 @@ void ParticleSystem::Restart()
     m_emitAccumulator = 0.f;
     m_burstDone = false;
     m_stopped = false;
+    // GPU path: every slot dies on the next dispatch and the ring starts over.
+    m_gpuResetPending = true;
+    m_gpuCursor = 0;
+    m_gpuHighWater = 0;
+    m_gpuLiveEstimate = 0;
+    m_gpuSpawns.clear();
 }
 
 
@@ -216,10 +224,43 @@ void ParticleSystem::Emit( const glm::mat4& InWorld )
 }
 
 
-void ParticleSystem::Simulate( float InDeltaSeconds, const glm::mat4& InWorld )
+float ParticleSystem::BeginStep( float InDeltaSeconds )
 {
     const float dt = std::clamp( InDeltaSeconds, 0.f, 0.1f );
     m_time += dt;
+    return dt;
+}
+
+
+int ParticleSystem::AdvanceEmitter( float InDeltaSeconds )
+{
+    if( Looping && m_time >= Duration )
+    {
+        m_time = std::fmod( m_time, std::max( Duration, 0.05f ) );
+        m_burstDone = false;
+    }
+    // Script bursts emit whether or not the system is emitting.
+    int count = m_pendingBurst;
+    m_pendingBurst = 0;
+    if( IsEmitting() )
+    {
+        if( !m_burstDone )
+        {
+            count += std::max( BurstCount, 0 );
+            m_burstDone = true;
+        }
+        m_emitAccumulator += EmissionRate * InDeltaSeconds;
+        const int rate = static_cast<int>( m_emitAccumulator );
+        m_emitAccumulator -= static_cast<float>( rate );
+        count += std::max( rate, 0 );
+    }
+    return count;
+}
+
+
+void ParticleSystem::Simulate( float InDeltaSeconds, const glm::mat4& InWorld )
+{
+    const float dt = BeginStep( InDeltaSeconds );
 
     // Ageing and motion.
     const glm::vec3 gravity( 0.f, -9.81f * Gravity, 0.f );
@@ -251,38 +292,15 @@ void ParticleSystem::Simulate( float InDeltaSeconds, const glm::mat4& InWorld )
     }
 
     // Emission.
-    if( Looping && m_time >= Duration )
-    {
-        m_time = std::fmod( m_time, std::max( Duration, 0.05f ) );
-        m_burstDone = false;
-    }
-    // Script bursts emit whether or not the system is emitting.
-    for( ; m_pendingBurst > 0; --m_pendingBurst )
+    const int spawns = AdvanceEmitter( dt );
+    for( int i = 0; i < spawns; ++i )
     {
         Emit( InWorld );
-    }
-    if( IsEmitting() )
-    {
-        if( !m_burstDone )
-        {
-            for( int i = 0; i < BurstCount; ++i )
-            {
-                Emit( InWorld );
-            }
-            m_burstDone = true;
-        }
-        m_emitAccumulator += EmissionRate * dt;
-        const int count = static_cast<int>( m_emitAccumulator );
-        m_emitAccumulator -= static_cast<float>( count );
-        for( int i = 0; i < count; ++i )
-        {
-            Emit( InWorld );
-        }
     }
 }
 
 
-void ParticleSystem::FillBatch( Moonlight::ParticleBatch& OutBatch, const glm::mat4& InWorld ) const
+void ParticleSystem::FillBatchSettings( Moonlight::ParticleBatch& OutBatch ) const
 {
     OutBatch.Texture = m_texture ? m_texture->TexHandle : bgfx::TextureHandle( BGFX_INVALID_HANDLE );
     OutBatch.Blend = Blend;
@@ -297,6 +315,16 @@ void ParticleSystem::FillBatch( Moonlight::ParticleBatch& OutBatch, const glm::m
     }
     OutBatch.FlipbookColumns = static_cast<uint16_t>( std::clamp( FlipbookColumns, 1, 64 ) );
     OutBatch.FlipbookRows = static_cast<uint16_t>( std::clamp( FlipbookRows, 1, 64 ) );
+}
+
+
+void ParticleSystem::FillBatch( Moonlight::ParticleBatch& OutBatch, const glm::mat4& InWorld ) const
+{
+    FillBatchSettings( OutBatch );
+    OutBatch.Gpu = nullptr;
+    OutBatch.GpuStepPending = false;
+    OutBatch.GpuInstanceCount = 0;
+    OutBatch.GpuLiveCount = 0;
     OutBatch.Bounds = AABB();
     OutBatch.Instances.clear();
     OutBatch.Instances.reserve( m_particles.size() );
@@ -329,17 +357,242 @@ void ParticleSystem::FillBatch( Moonlight::ParticleBatch& OutBatch, const glm::m
 }
 
 
+void ParticleSystem::UpdateSimulationMode( bool InComputeActive )
+{
+    const bool gpu = Simulation == ParticleSimulation::GPU && Blend == Moonlight::ParticleBlend::Additive && InComputeActive;
+    const uint32_t capacity = GpuCapacity();
+    if( gpu != m_gpuActive || ( gpu && capacity != m_gpuCapacity ) )
+    {
+        m_gpuActive = gpu;
+        m_gpuCapacity = gpu ? capacity : 0;
+        Restart();
+    }
+    if( !gpu )
+    {
+        m_gpu.Buffers.reset();
+    }
+}
+
+
+void ParticleSystem::EnsureGpuBuffers()
+{
+    if( !m_gpuActive )
+    {
+        return;
+    }
+    if( !m_gpu.Buffers || m_gpu.Buffers->GetCapacity() != m_gpuCapacity )
+    {
+        m_gpu.Buffers = MakeShared<Moonlight::GpuParticleBuffers>( m_gpuCapacity );
+    }
+}
+
+
+float ParticleSystem::GpuMaxLifetime() const
+{
+    return std::max( std::max( Lifetime.x, Lifetime.y ), 0.01f );
+}
+
+
+uint32_t ParticleSystem::GpuCapacity() const
+{
+    return static_cast<uint32_t>( std::clamp<int64_t>( MaxParticles, 1, Moonlight::kMaxGpuParticles ) );
+}
+
+
+AABB ParticleSystem::GpuSpawnBounds( const glm::mat4& InWorld ) const
+{
+    // Where a particle can start, in the emitter's space.
+    const float radius = std::abs( ShapeRadius );
+    glm::vec3 shapeMin( 0.f );
+    glm::vec3 shapeMax( 0.f );
+    switch( Shape )
+    {
+    case ParticleShape::Point:
+        break;
+    case ParticleShape::Sphere:
+        shapeMin = glm::vec3( -radius );
+        shapeMax = glm::vec3( radius );
+        break;
+    case ParticleShape::Hemisphere:
+        shapeMin = glm::vec3( -radius, 0.f, -radius );
+        shapeMax = glm::vec3( radius );
+        break;
+    case ParticleShape::Cone:
+        shapeMin = glm::vec3( -radius, 0.f, -radius );
+        shapeMax = glm::vec3( radius, 0.f, radius );
+        break;
+    case ParticleShape::Box:
+        shapeMax = glm::abs( BoxSize.InternalVector ) * 0.5f;
+        shapeMin = -shapeMax;
+        break;
+    }
+
+    // How far one can travel in its longest life T. Per axis, the speed stays under the start
+    // speed plus T times the largest acceleration on that axis (gravity, and the noise: its x and z
+    // terms reach 2, y 0.5); drag only slows (a negative drag grows it by exp(-Drag * T)).
+    const float maxLife = GpuMaxLifetime();
+    const float growth = std::exp( std::max( -Drag, 0.f ) * maxLife );
+    const float noise = std::max( NoiseStrength, 0.f );
+    const glm::vec3 acceleration( 2.f * noise, 9.81f * std::abs( Gravity ) + 0.5f * noise, 2.f * noise );
+    const float startSpeed = std::max( std::abs( Speed.x ), std::abs( Speed.y ) );
+    const glm::mat3 basis( InWorld );
+    const float scale = std::max( { glm::length( basis[0] ), glm::length( basis[1] ), glm::length( basis[2] ) } );
+    const bool local = SimulationSpace == ParticleSpace::Local;
+    // World space: the start speed is scaled by the emitter, gravity and noise are not. Local
+    // space: everything is in the emitter's units and the whole box is transformed.
+    const float speed0 = local ? startSpeed : startSpeed * scale;
+    const glm::vec3 travel = ( glm::vec3( speed0 ) + acceleration * maxLife ) * maxLife * growth * 1.01f + glm::vec3( 1e-3f );
+    const float worldSpeed = ( speed0 + glm::length( acceleration ) * maxLife ) * growth * ( local ? scale : 1.f );
+
+    const glm::vec3 boxMin = local ? shapeMin - travel : shapeMin;
+    const glm::vec3 boxMax = local ? shapeMax + travel : shapeMax;
+    AABB bounds;
+    for( int corner = 0; corner < 8; ++corner )
+    {
+        const glm::vec3 point( corner & 1 ? boxMax.x : boxMin.x, corner & 2 ? boxMax.y : boxMin.y, corner & 4 ? boxMax.z : boxMin.z );
+        const glm::vec3 world = glm::vec3( InWorld * glm::vec4( point, 1.f ) );
+        bounds.Encapsulate( Vector3( world.x, world.y, world.z ) );
+    }
+
+    // The quad around the particle: Particle.vert reaches size / sqrt(2) from the centre, a
+    // stretched quad its length (size + speed * StretchFactor) behind it plus half its width.
+    const float maxSize = std::max( std::abs( Size.x ), std::abs( Size.y ) ) * std::max( 1.f, std::abs( EndSize ) );
+    const float extent = Alignment == Moonlight::ParticleAlignment::Stretched ? 1.5f * maxSize + worldSpeed * std::abs( StretchFactor ) : maxSize;
+    const glm::vec3 grow = ( local ? glm::vec3( 0.f ) : travel ) + glm::vec3( extent );
+    bounds.Min = bounds.Min - Vector3( grow.x, grow.y, grow.z );
+    bounds.Max = bounds.Max + Vector3( grow.x, grow.y, grow.z );
+    return bounds;
+}
+
+
+void ParticleSystem::StepGpu( float InDeltaSeconds, const glm::mat4& InWorld, Moonlight::ParticleBatch& OutBatch )
+{
+    const float dt = BeginStep( InDeltaSeconds );
+    // The noise phase the particles move with this step (before a looping clock wraps).
+    const float time = m_time;
+
+    // Age the spawn history like the GPU ages its particles; a step whose particles must all have
+    // died (its age reached the longest lifetime) drops out of the estimate and the bounds.
+    const float maxLife = GpuMaxLifetime() * 1.0001f + 1e-4f;
+    for( GpuSpawn& spawn : m_gpuSpawns )
+    {
+        spawn.Age += dt;
+    }
+    while( !m_gpuSpawns.empty() && m_gpuSpawns.front().Age >= maxLife )
+    {
+        m_gpuSpawns.pop_front();
+    }
+    if( m_gpuSpawns.empty() )
+    {
+        // Every particle is dead: the ring starts over and nothing needs drawing.
+        m_gpuCursor = 0;
+        m_gpuHighWater = 0;
+    }
+
+    // This step's births take the next slots of the ring; when it is full they replace the oldest.
+    const int spawns = AdvanceEmitter( dt );
+    const uint32_t capacity = std::max( m_gpuCapacity, 1u );
+    uint32_t spawnStart = 0;
+    uint32_t spawnCount = 0;
+    if( spawns > 0 )
+    {
+        const uint64_t total = static_cast<uint64_t>( spawns );
+        spawnCount = static_cast<uint32_t>( std::min<uint64_t>( total, capacity ) );
+        spawnStart = static_cast<uint32_t>( ( m_gpuCursor + total - spawnCount ) % capacity );
+        m_gpuCursor = static_cast<uint32_t>( ( m_gpuCursor + total ) % capacity );
+        m_gpuHighWater = static_cast<uint32_t>( std::min<uint64_t>( static_cast<uint64_t>( m_gpuHighWater ) + total, capacity ) );
+        GpuSpawn spawn;
+        spawn.Count = spawnCount;
+        if( SimulationSpace == ParticleSpace::World )
+        {
+            spawn.Bounds = GpuSpawnBounds( InWorld );
+        }
+        m_gpuSpawns.push_back( spawn );
+    }
+
+    uint64_t live = 0;
+    AABB bounds;
+    for( const GpuSpawn& spawn : m_gpuSpawns )
+    {
+        live += spawn.Count;
+        bounds.Encapsulate( spawn.Bounds );
+    }
+    m_gpuLiveEstimate = static_cast<size_t>( std::min<uint64_t>( live, capacity ) );
+    if( SimulationSpace == ParticleSpace::Local && !m_gpuSpawns.empty() )
+    {
+        // Local particles ride along with the emitter: this step's matrix places all of them.
+        bounds = GpuSpawnBounds( InWorld );
+    }
+
+    FillBatchSettings( OutBatch );
+    OutBatch.Instances.clear();
+    OutBatch.Bounds = bounds;
+    OutBatch.Gpu = m_gpu.Buffers;
+    OutBatch.GpuStepPending = true;
+    OutBatch.GpuInstanceCount = m_gpuHighWater;
+    OutBatch.GpuLiveCount = static_cast<uint32_t>( m_gpuLiveEstimate );
+
+    Moonlight::GpuParticleStep& step = OutBatch.GpuStep;
+    step.World = InWorld;
+    step.DeltaSeconds = dt;
+    step.Time = time;
+    step.SpawnStart = spawnStart;
+    step.SpawnCount = spawnCount;
+    step.Seed = ( ++m_gpuStepIndex * 2654435761u ) >> 8;
+    step.Reset = m_gpuResetPending;
+    m_gpuResetPending = false;
+    step.Local = SimulationSpace == ParticleSpace::Local;
+    step.EmitFromShell = EmitFromShell;
+    step.Shape = static_cast<uint8_t>( Shape );
+    step.ShapeRadius = ShapeRadius;
+    step.ConeAngle = glm::radians( ConeAngle );
+    step.BoxSize = BoxSize.InternalVector;
+    step.Lifetime = glm::vec2( Lifetime.x, Lifetime.y );
+    step.Speed = glm::vec2( Speed.x, Speed.y );
+    step.Size = glm::vec2( Size.x, Size.y );
+    step.Rotation = glm::radians( glm::vec2( Rotation.x, Rotation.y ) );
+    step.AngularVelocity = glm::radians( glm::vec2( AngularVelocity.x, AngularVelocity.y ) );
+    step.StartColor = StartColor.InternalVector;
+    step.StartColor2 = StartColor2.InternalVector;
+    step.EndColor = EndColor.InternalVector;
+    step.StartAlpha = StartAlpha;
+    step.EndAlpha = EndAlpha;
+    step.Intensity = Intensity;
+    step.Gravity = Gravity;
+    step.Drag = Drag;
+    step.NoiseStrength = NoiseStrength;
+    step.NoiseFrequency = NoiseFrequency;
+    step.EndSize = EndSize;
+    step.FadeIn = FadeIn;
+    step.FlipbookFps = FlipbookFps;
+    step.FlipbookFrames = static_cast<float>( OutBatch.FlipbookColumns * OutBatch.FlipbookRows );
+}
+
+
 #if USING( ME_EDITOR )
 void ParticleSystem::OnEditorInspect()
 {
     // Keeps the Graph Properties above in step with Graph even when nothing renders the system.
     ResolveTexture();
     HavanaUtils::Label( "Particles" );
-    ImGui::Text( "%zu / %d", m_particles.size(), MaxParticles );
+    if( m_gpuActive )
+    {
+        ImGui::Text( "~%zu / %d (GPU, estimated)", GetParticleCount(), MaxParticles );
+    }
+    else
+    {
+        ImGui::Text( "%zu / %d", GetParticleCount(), MaxParticles );
+    }
     ImGui::SameLine();
     if( ImGui::Button( "Restart" ) )
     {
         Restart();
+    }
+    if( Simulation == ParticleSimulation::GPU && !m_gpuActive )
+    {
+        ImGui::TextWrapped( Blend != Moonlight::ParticleBlend::Additive
+            ? "Simulated on the CPU: GPU simulation is for Additive systems (Alpha needs a back-to-front sort)."
+            : "Simulated on the CPU: compute shaders are unavailable here (the backend, the Compute feature cap or a headless renderer)." );
     }
 }
 #endif

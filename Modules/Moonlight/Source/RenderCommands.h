@@ -10,6 +10,7 @@
 #include <bgfx/bgfx.h>
 #include <glm/glm.hpp>
 #include "Materials/ShaderGraphParams.h"
+#include "Particles/GpuParticles.h"
 
 namespace Moonlight {
     class ShaderCommand;
@@ -305,6 +306,14 @@ namespace Moonlight
         uint16_t FlipbookRows = 1;
         AABB Bounds;
         std::vector<ParticleInstance> Instances;
+        // GPU-simulated systems (Instances stays empty): the compute buffers, this frame's step
+        // (dispatched once by the renderer, which then clears GpuStepPending), the instance slots
+        // to draw (dead ones are zero-size) and the live estimate (stats only).
+        SharedPtr<GpuParticleBuffers> Gpu;
+        GpuParticleStep GpuStep;
+        bool GpuStepPending = false;
+        uint32_t GpuInstanceCount = 0;
+        uint32_t GpuLiveCount = 0;
         // A Particle-target shader graph colouring the quads (null: the built-in particle shader).
         SharedPtr<ShaderGraphAsset> Graph;
         // The particle system's values for the graph's properties.

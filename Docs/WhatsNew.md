@@ -2,6 +2,11 @@
 
 > Shown by Help > What's New, and once by itself whenever this page changes (ED-3). Newest first.
 
+## November 2026: compute shaders
+
+- Compute shaders: `.comp` files compile, cook and hot reload like other shaders, and a `Compute` hardware cap turns them off.
+- GPU particles: set a Particle System's Simulation to GPU and a compute shader moves its particles, for effects with many more of them. Additive systems only, and anything without compute support falls back to the CPU.
+
 ## Late October 2026: the gameplay kit
 
 - Make your first game: two tutorials, Coin Hunt (3D) and Coin Hop (2D), built from the templates; every snippet is tested.
