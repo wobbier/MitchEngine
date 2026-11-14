@@ -82,7 +82,7 @@ Impact (H/M/L) × Effort (S/M/L). Grouped so related items can share one work se
 | GPU validation of the Wave 3 renderer | **H** | S | Measure the 57k-mesh bench with shadows and IBL on real hardware, and smoke-test D3D11/Metal (only Vulkan/lavapipe verified) |
 | ~~Point-light shadows~~ | — | — | Done: six faces per light in the local shadow atlas |
 | ~~Lit particles~~ | — | — | Done: `ParticleSystem::Lit` shades smoke with the sun, local lights, their shadows and ambient |
-| GPU particles follow-ups | M | M | A GPU sort so Alpha systems can use `Simulation = GPU`; dispatch only the live part of the pool; measure CPU vs GPU on real hardware (only lavapipe has run it) and on D3D11 / Metal; switch Drumsmith's StageFx emitters over |
+| GPU particles follow-ups | M | M | A GPU sort so Alpha systems can use `Simulation = GPU`; dispatch only the live part of the pool; measure the GPU-side cost on real hardware (the CPU side is in `Rendering-Pipeline.md`) and run it on D3D11 / Metal; switch Drumsmith's StageFx emitters over |
 | ~~Parallel shadow caster culling~~ | — | — | Done: one gather per frame, one parallel cull per pass for all its views (-24% CPU at 57k meshes on a busy machine) |
 | ~~Decals~~ | — | — | Done: `Decal` component, projected through a box onto opaque surfaces, lit with normal maps, angle fade and sort order |
 | Decal receiver masks / DBuffer | M | M | Decals paint everything in their box and replace the surface's shading; a stencil or per-mesh "receives decals" bit, and a DBuffer for normal/roughness-only decals |
