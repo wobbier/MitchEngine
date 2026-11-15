@@ -1,4 +1,5 @@
 #include "Havana.h"
+#include "Editor/HostedPlay.h"
 #include <algorithm>
 #include <cstring>
 #include <fstream>
@@ -620,8 +621,22 @@ void Havana::NewFrame()
 
 void Havana::SetPlayMode( bool playing )
 {
-    GameSceneView->MaximizeOnPlay = playing && GameSceneView->MaximizeOnPlayPreference;
-    if( playing )
+    // Play hosted by a widget (Editor/HostedPlay.h): the Game View shows beside it, unfocused.
+    if( !playing )
+    {
+        HostedPlay::Active() = false;
+    }
+    const bool hosted = HostedPlay::Active();
+    GameSceneView->MaximizeOnPlay = playing && !hosted && GameSceneView->MaximizeOnPlayPreference;
+    if( playing && hosted )
+    {
+        GameSceneView->IsOpen = true;
+        if( std::find( m_pendingTabSelections.begin(), m_pendingTabSelections.end(), GameSceneView->Name ) == m_pendingTabSelections.end() )
+        {
+            m_pendingTabSelections.push_back( GameSceneView->Name );
+        }
+    }
+    else if( playing )
     {
         ImGui::SetWindowFocus( GameSceneView->MaximizeOnPlay ? "Full Screen Viewport" : GameSceneView->Name.c_str() );
     }

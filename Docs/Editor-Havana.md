@@ -109,6 +109,8 @@ Play options (ED-9):
 - **Build & Run** (File > Build & Run, or the button in Build Game) builds the selected profile and, if it succeeds, starts it through its launcher from its build folder.
 - **Automation:** `simulate`, `keep-values <Component>` (the selected entity's) and `build-game <profile> | ... run <game args>`. `wait-file <path> | <frames>` waits for something a launched game writes. PlayOptionsFlows, SimulateFlows and BuildGameFlows cover them.
 
+- **A game widget that starts play to drive the game from itself** (a chart editor scrubbing the song in the Game View) sets `HostedPlay::Active()` (`Editor/HostedPlay.h`) first: the Game View is opened and brought to the front of its dock, but skips Maximize On Play and doesn't take the focus. Cleared when play ends.
+
 ### Scene management
 
 New/Open/Quit (including closing the window) go through `RunWithUnsavedCheck`. If the scene is dirty, a modal offers Save / Don't Save / Cancel. Closing the window is vetoed via `Game::OnQuitRequested` and `IWindow::CancelClose` until answered. Scene loads are queued events, processed at the start of the next frame. File > Open Recent lists the last 10 scenes.
@@ -333,6 +335,7 @@ The script runs one command per frame after a short warm-up and logs `[editor-ex
 | `work-begin label | progress`, `work-end`, `notify message | actionId`, `assert-work label | 0/1` (ED-14: stand-in background work and notices, and what's running) | Status |
 | `asset-rename path | name`, `asset-move path | folder`, `asset-delete path`, `asset-restore path`, `asset-trash-window`, `assert-file path | 0/1`, `project-settings-file path`, `project-set Key | json`, `project-assert Key | json`; `delete-file path | optional` (ED-13: asset operations through the browser, project settings saved to a scratch file) | Undo |
 | `palette-search filter | text`, `palette-run filter | text` (ED-15: the command palette lists / runs a result whose "Category: Label" contains the text) | Palette |
+| Commands a game registers (`Editor/AutomationCommands.h`): `AutomationCommands::Register( "track-", handler )` sends every command with that prefix to the handler, which answers false with an error to fail the line. Checked before the built-in commands | Game |
 | `console <line>` (PLAY-10: runs a developer console line, a C++ or C# command), `assert-console-output text` (the last line's output contains it) | Console |
 | `assert-mod-loaded id | 0/1` (MOD-6: what loaded at start; a flow header's `--mods` / `--mod-dir <folder>` reach the editor through RunEditorFlows) | Mods |
 | `copy-file from | to`, `write-file path | text` (under the project), `material-texture Name | Slot | texture` (as the material inspector assigns it), `assert-texture-format texture | BC5` (its cooked .dds: BC1/BC3/BC5/BC7/Uncompressed; `!BC5` for anything else) | Texture and material checks |
