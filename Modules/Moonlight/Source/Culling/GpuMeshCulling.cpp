@@ -3,6 +3,7 @@
 #include "CLog.h"
 #include <algorithm>
 #include <cfloat>
+#include <cmath>
 #include <cstring>
 #include <string>
 
@@ -12,6 +13,16 @@ namespace
     constexpr const char* kOffsetsShader = "Assets/Shaders/Culling/GpuCullOffsets.comp";
     constexpr const char* kWriteShader = "Assets/Shaders/Culling/GpuCullWrite.comp";
     constexpr const char* kScatterShader = "Assets/Shaders/Culling/GpuCullScatter.comp";
+    constexpr const char* kOcclusionCountShader = "Assets/Shaders/Culling/GpuCullOcclusionCount.comp";
+    constexpr const char* kOcclusionWriteShader = "Assets/Shaders/Culling/GpuCullOcclusionWrite.comp";
+    constexpr const char* kPyramidShader = "Assets/Shaders/Culling/GpuCullDepthPyramid.comp";
+    // Stages the occlusion passes add (GpuCullOcclusion.sh): the member state, then the pyramid's textures.
+    constexpr uint8_t kOcclusionStateStage = 11;
+    constexpr uint8_t kOcclusionPyramidStage = 12;
+    // A pyramid not built for this many frames goes (its camera went, or stopped occlusion culling).
+    constexpr uint64_t kHiZHistoryFrames = 300;
+    // Point sampling, clamped: the pyramid and depth reads fetch whole texels.
+    constexpr uint32_t kPointClamp = BGFX_SAMPLER_POINT | BGFX_SAMPLER_UVW_CLAMP;
     // NUM_THREADS of GpuCullScatter.comp.
     constexpr uint32_t kSmallGroup = 64;
     // u_gpuCull: three vec4s of counts, then six planes per view.
@@ -238,6 +249,169 @@ void Moonlight::PackGpuCullRecord( const glm::mat4& InInstance, const AABB& InBo
 }
 
 
+Moonlight::HiZLayout Moonlight::MakeHiZLayout( uint32_t InDepthWidth, uint32_t InDepthHeight )
+{
+    HiZLayout layout;
+    if( InDepthWidth == 0 || InDepthHeight == 0 )
+    {
+        return layout;
+    }
+    const auto previousPowerOfTwo = []( uint32_t InValue ) {
+        uint32_t result = 1;
+        while( result <= InValue / 2 )
+        {
+            result *= 2;
+        }
+        return result;
+    };
+    layout.SourceWidth = InDepthWidth;
+    layout.SourceHeight = InDepthHeight;
+    layout.Width = previousPowerOfTwo( InDepthWidth );
+    layout.Height = previousPowerOfTwo( InDepthHeight );
+    layout.Mips = 1;
+    while( ( std::max( layout.Width, layout.Height ) >> ( layout.Mips - 1 ) ) > 1 )
+    {
+        ++layout.Mips;
+    }
+    return layout;
+}
+
+
+std::vector<std::vector<float>> Moonlight::BuildHiZ( const HiZLayout& InLayout, const std::vector<float>& InDepth )
+{
+    std::vector<std::vector<float>> mips( InLayout.Mips );
+    if( !InLayout.IsValid() || InDepth.size() < static_cast<size_t>( InLayout.SourceWidth ) * InLayout.SourceHeight )
+    {
+        return {};
+    }
+    // Mip 0: the max of every depth texel a pyramid texel overlaps (GpuCullDepthPyramid.comp's first
+    // pass, in the same integer arithmetic).
+    const uint32_t sw = InLayout.SourceWidth;
+    const uint32_t sh = InLayout.SourceHeight;
+    const uint32_t w = InLayout.Width;
+    const uint32_t h = InLayout.Height;
+    mips[0].assign( static_cast<size_t>( w ) * h, 0.f );
+    for( uint32_t y = 0; y < h; ++y )
+    {
+        const uint32_t y0 = ( y * sh ) / h;
+        const uint32_t y1 = std::min( ( ( y + 1 ) * sh + h - 1 ) / h - 1, sh - 1 );
+        for( uint32_t x = 0; x < w; ++x )
+        {
+            const uint32_t x0 = ( x * sw ) / w;
+            const uint32_t x1 = std::min( ( ( x + 1 ) * sw + w - 1 ) / w - 1, sw - 1 );
+            float depth = 0.f;
+            for( uint32_t j = 0; j < 3; ++j )
+            {
+                for( uint32_t i = 0; i < 3; ++i )
+                {
+                    depth = std::max( depth, InDepth[static_cast<size_t>( std::min( y0 + j, y1 ) ) * sw + std::min( x0 + i, x1 )] );
+                }
+            }
+            mips[0][static_cast<size_t>( y ) * w + x] = depth;
+        }
+    }
+    // Every later mip: the max of the 2x2 texels below it that exist (the groupshared reduction
+    // counts missing ones as 0, a pass's first mip clamps to the edge: the same max).
+    for( uint32_t m = 1; m < InLayout.Mips; ++m )
+    {
+        const uint32_t pw = InLayout.GetMipWidth( m - 1 );
+        const uint32_t ph = InLayout.GetMipHeight( m - 1 );
+        const uint32_t mw = InLayout.GetMipWidth( m );
+        const uint32_t mh = InLayout.GetMipHeight( m );
+        mips[m].assign( static_cast<size_t>( mw ) * mh, 0.f );
+        for( uint32_t y = 0; y < mh; ++y )
+        {
+            for( uint32_t x = 0; x < mw; ++x )
+            {
+                float depth = 0.f;
+                for( uint32_t j = 0; j < 2; ++j )
+                {
+                    for( uint32_t i = 0; i < 2; ++i )
+                    {
+                        const uint32_t px = x * 2 + i;
+                        const uint32_t py = y * 2 + j;
+                        if( px < pw && py < ph )
+                        {
+                            depth = std::max( depth, mips[m - 1][static_cast<size_t>( py ) * pw + px] );
+                        }
+                    }
+                }
+                mips[m][static_cast<size_t>( y ) * mw + x] = depth;
+            }
+        }
+    }
+    return mips;
+}
+
+
+bool Moonlight::HiZBoxVisible( const HiZLayout& InLayout, const HiZProjection& InProjection, const glm::vec3& InMin, const glm::vec3& InMax,
+    const std::function<float( uint32_t InMip, uint32_t InX, uint32_t InY )>& InTexel )
+{
+    // GpuCullOcclusion.sh's hizVisible, step for step.
+    glm::vec3 low( 1.0e30f );
+    glm::vec3 high( -1.0e30f );
+    for( uint32_t corner = 0; corner < 8; ++corner )
+    {
+        const glm::vec3 p( ( corner & 1u ) ? InMax.x : InMin.x, ( corner & 2u ) ? InMax.y : InMin.y, ( corner & 4u ) ? InMax.z : InMin.z );
+        const glm::mat4& m = InProjection.ViewProjection;
+        const glm::vec4 clip = m[0] * p.x + m[1] * p.y + m[2] * p.z + m[3];
+        if( clip.w <= 1.0e-6f )
+        {
+            return true;
+        }
+        const glm::vec3 ndc = glm::vec3( clip ) / clip.w;
+        low = glm::min( low, ndc );
+        high = glm::max( high, ndc );
+    }
+    if( low.z < ( InProjection.HomogeneousDepth ? -1.f : 0.f ) )
+    {
+        return true;
+    }
+    const float nearest = InProjection.HomogeneousDepth ? low.z * 0.5f + 0.5f : low.z;
+    const float u0 = low.x * 0.5f + 0.5f - 1.0e-5f;
+    const float u1 = high.x * 0.5f + 0.5f + 1.0e-5f;
+    float v0 = 0.5f - high.y * 0.5f - 1.0e-5f;
+    float v1 = 0.5f - low.y * 0.5f + 1.0e-5f;
+    if( InProjection.OriginBottomLeft )
+    {
+        v0 = low.y * 0.5f + 0.5f - 1.0e-5f;
+        v1 = high.y * 0.5f + 0.5f + 1.0e-5f;
+    }
+    if( u1 < 0.f || u0 > 1.f || v1 < 0.f || v0 > 1.f )
+    {
+        return true;
+    }
+    const uint32_t width = InLayout.Width;
+    const uint32_t height = InLayout.Height;
+    const auto texelOf = []( float InUv, uint32_t InSize ) {
+        return static_cast<uint32_t>( std::clamp( std::floor( InUv * static_cast<float>( InSize ) ), 0.f, static_cast<float>( InSize - 1 ) ) );
+    };
+    uint32_t x0 = texelOf( u0, width );
+    uint32_t x1 = texelOf( u1, width );
+    uint32_t y0 = texelOf( v0, height );
+    uint32_t y1 = texelOf( v1, height );
+    uint32_t mip = 0;
+    for( uint32_t k = 0; k < 16; ++k )
+    {
+        if( ( x1 >> mip ) - ( x0 >> mip ) <= 1u && ( y1 >> mip ) - ( y0 >> mip ) <= 1u )
+        {
+            break;
+        }
+        ++mip;
+    }
+    if( mip >= InLayout.Mips )
+    {
+        return true;
+    }
+    x0 >>= mip;
+    x1 >>= mip;
+    y0 >>= mip;
+    y1 >>= mip;
+    const float farthest = std::max( std::max( InTexel( mip, x0, y0 ), InTexel( mip, x1, y0 ) ), std::max( InTexel( mip, x0, y1 ), InTexel( mip, x1, y1 ) ) );
+    return nearest <= farthest + InProjection.DepthEpsilon;
+}
+
+
 void Moonlight::GpuCullState::Reset()
 {
     for( MeshBatchRegistry& registry : m_registries )
@@ -346,9 +520,11 @@ bool Moonlight::GpuCullState::Finish( const std::function<uint32_t( uint32_t InI
         for( size_t s = 0; s < static_cast<size_t>( Set::Count ); ++s )
         {
             BuildGpuCullSet( m_registries[s], batchBase, m_layouts[s], m_members, m_groupBatch, std::max( m_minMembers, 1u ) );
+            m_layouts[s].Triangles = 0;
             for( GpuCullBatch& batch : m_layouts[s].Batches )
             {
                 batch.IndexCount = InIndexCount ? InIndexCount( batch.Representative ) : 0u;
+                m_layouts[s].Triangles += static_cast<uint64_t>( batch.MemberCount ) * ( batch.IndexCount / 3 );
             }
             batchBase += m_layouts[s].GetBatchCount();
             m_boundsDirty[s] = true;
@@ -418,8 +594,22 @@ Moonlight::GpuMeshCulling::GpuMeshCulling()
     m_offsets = AcquireComputeProgram( kOffsetsShader );
     m_write = AcquireComputeProgram( kWriteShader );
     m_scatter = AcquireComputeProgram( kScatterShader );
+    m_occlusionCount = AcquireComputeProgram( kOcclusionCountShader );
+    m_occlusionWrite = AcquireComputeProgram( kOcclusionWriteShader );
+    m_pyramid = AcquireComputeProgram( kPyramidShader );
     u_gpuCull = bgfx::createUniform( "u_gpuCull", bgfx::UniformType::Vec4, kCullParams );
     u_gpuCullScatter = bgfx::createUniform( "u_gpuCullScatter", bgfx::UniformType::Vec4 );
+    u_gpuCullOcc = bgfx::createUniform( "u_gpuCullOcc", bgfx::UniformType::Vec4, kHiZCullParams );
+    u_hizBuild = bgfx::createUniform( "u_hizBuild", bgfx::UniformType::Vec4, 2 );
+    s_hizSource = bgfx::createUniform( "s_hizSource", bgfx::UniformType::Sampler );
+    for( uint32_t t = 0; t < kHiZMaxTextures; ++t )
+    {
+        s_hiz[t] = bgfx::createUniform( ( "s_hiz" + std::to_string( t ) ).c_str(), bgfx::UniformType::Sampler );
+    }
+    // Stands in for pyramid textures a cull doesn't read (a small pyramid, phase 2 without one).
+    const float farthest = 1.f;
+    m_hizDummy = bgfx::createTexture2D( 1, 1, false, 1, bgfx::TextureFormat::R32F, kPointClamp, bgfx::copy( &farthest, sizeof( farthest ) ) );
+    bgfx::setName( m_hizDummy, "GPU Cull Pyramid Dummy" );
 }
 
 
@@ -430,8 +620,21 @@ Moonlight::GpuMeshCulling::~GpuMeshCulling()
         return;
     }
     DestroyBuffers();
+    for( auto& [key, history] : m_histories )
+    {
+        DestroyHistory( history );
+    }
+    m_histories.clear();
     DestroyHandle( u_gpuCull );
     DestroyHandle( u_gpuCullScatter );
+    DestroyHandle( u_gpuCullOcc );
+    DestroyHandle( u_hizBuild );
+    DestroyHandle( s_hizSource );
+    for( bgfx::UniformHandle& sampler : s_hiz )
+    {
+        DestroyHandle( sampler );
+    }
+    DestroyHandle( m_hizDummy );
 }
 
 
@@ -453,8 +656,10 @@ void Moonlight::GpuMeshCulling::DestroyBuffers()
     DestroyHandle( m_totals );
     DestroyHandle( m_instances );
     DestroyHandle( m_drawArgs );
+    DestroyHandle( m_occlusionState );
     m_recordCapacity = m_stagingCapacity = m_memberCapacity = m_groupCapacity = m_batchCapacity = 0;
     m_groupScratchCapacity = m_totalsCapacity = m_instanceCapacity = m_argsCapacity = 0;
+    m_occlusionStateCapacity = 0;
 }
 
 
@@ -611,8 +816,23 @@ void Moonlight::GpuMeshCulling::BeginFrame()
 {
     m_lastDispatches = m_dispatches;
     m_lastFallbacks = m_fallbacks;
+    m_lastPyramids = m_pyramids;
     m_dispatches = 0;
     m_fallbacks = 0;
+    m_pyramids = 0;
+    ++m_frame;
+    for( auto it = m_histories.begin(); it != m_histories.end(); )
+    {
+        if( it->second.UsedFrame + kHiZHistoryFrames < m_frame )
+        {
+            DestroyHistory( it->second );
+            it = m_histories.erase( it );
+        }
+        else
+        {
+            ++it;
+        }
+    }
     // Room for what the last frame asked for; a first guess of a camera and four cascades.
     uint32_t instances = m_instanceDemand;
     uint32_t args = m_argsDemand;
@@ -672,35 +892,7 @@ Moonlight::GpuMeshCulling::CullResult Moonlight::GpuMeshCulling::Cull( bgfx::Vie
     m_instanceUsed += instances;
     m_argsUsed += args;
 
-    glm::vec4 params[kCullParams] = {};
-    params[0] = glm::vec4( static_cast<float>( layout.MemberBase ), static_cast<float>( layout.Padded ), static_cast<float>( layout.Groups ), static_cast<float>( batches ) );
-    params[1] = glm::vec4( static_cast<float>( layout.BatchBase ), static_cast<float>( InViewCount ), static_cast<float>( result.ArgsBase ), static_cast<float>( result.OutBase ) );
-    params[2] = glm::vec4( InReverse ? 1.f : 0.f, InShadowMatrices ? 1.f : 0.f, static_cast<float>( layout.GroupBase ), 0.f );
-    std::memcpy( &params[3], InPlanes, sizeof( glm::vec4 ) * 6 * InViewCount );
-
-    bgfx::setUniform( u_gpuCull, params, kCullParams );
-    bgfx::setBuffer( 0, m_memberBuffer, bgfx::Access::Read );
-    bgfx::setBuffer( 1, m_recordBuffer, bgfx::Access::Read );
-    bgfx::setBuffer( 2, m_groupScratch, bgfx::Access::Write );
-    bgfx::dispatch( InView, m_count->Handle, layout.Groups, InViewCount, 1 );
-
-    bgfx::setUniform( u_gpuCull, params, kCullParams );
-    bgfx::setBuffer( 0, m_batchInfoBuffer, bgfx::Access::Read );
-    bgfx::setBuffer( 1, m_groupScratch, bgfx::Access::ReadWrite );
-    bgfx::setBuffer( 2, m_totals, bgfx::Access::Write );
-    bgfx::setBuffer( 3, m_drawArgs, bgfx::Access::Write );
-    bgfx::dispatch( InView, m_offsets->Handle, args, 1, 1 );
-
-    bgfx::setUniform( u_gpuCull, params, kCullParams );
-    bgfx::setBuffer( 0, m_memberBuffer, bgfx::Access::Read );
-    bgfx::setBuffer( 1, m_recordBuffer, bgfx::Access::Read );
-    bgfx::setBuffer( 2, m_groupScratch, bgfx::Access::Read );
-    bgfx::setBuffer( 3, m_groupBatchBuffer, bgfx::Access::Read );
-    bgfx::setBuffer( 4, m_batchInfoBuffer, bgfx::Access::Read );
-    bgfx::setBuffer( 5, m_totals, bgfx::Access::Read );
-    bgfx::setBuffer( 6, m_instances, bgfx::Access::Write );
-    bgfx::dispatch( InView, m_write->Handle, layout.Groups, InViewCount, 1 );
-    m_dispatches += 3;
+    DispatchCull( InView, InSet, InPlanes, InViewCount, InReverse, InShadowMatrices, result.OutBase, result.ArgsBase, nullptr, nullptr );
     return result;
 }
 
@@ -716,4 +908,264 @@ void Moonlight::GpuMeshCulling::SetInstances( const CullResult& InCull, uint32_t
 uint32_t Moonlight::GpuMeshCulling::GetArgsIndex( const CullResult& InCull, uint32_t InView, uint32_t InBatch ) const
 {
     return GpuCullArgsIndex( InCull.ArgsBase, GetLayout( InCull.Which ).GetBatchCount(), InView, InBatch );
+}
+
+
+void Moonlight::GpuMeshCulling::DispatchCull( bgfx::ViewId InView, Set InSet, const glm::vec4* InPlanes, uint32_t InViewCount, bool InReverse, bool InShadowMatrices, uint32_t InOutBase, uint32_t InArgsBase,
+    const glm::vec4* InOcclusion, const HiZHistory* InPyramid )
+{
+    const GpuCullSetLayout& layout = GetLayout( InSet );
+    const uint32_t batches = layout.GetBatchCount();
+    glm::vec4 params[kCullParams] = {};
+    params[0] = glm::vec4( static_cast<float>( layout.MemberBase ), static_cast<float>( layout.Padded ), static_cast<float>( layout.Groups ), static_cast<float>( batches ) );
+    params[1] = glm::vec4( static_cast<float>( layout.BatchBase ), static_cast<float>( InViewCount ), static_cast<float>( InArgsBase ), static_cast<float>( InOutBase ) );
+    params[2] = glm::vec4( InReverse ? 1.f : 0.f, InShadowMatrices ? 1.f : 0.f, static_cast<float>( layout.GroupBase ), 0.f );
+    std::memcpy( &params[3], InPlanes, sizeof( glm::vec4 ) * 6 * InViewCount );
+    const bool occlusion = InOcclusion != nullptr;
+
+    bgfx::setUniform( u_gpuCull, params, kCullParams );
+    bgfx::setBuffer( 0, m_memberBuffer, bgfx::Access::Read );
+    bgfx::setBuffer( 1, m_recordBuffer, bgfx::Access::Read );
+    bgfx::setBuffer( 2, m_groupScratch, bgfx::Access::Write );
+    if( occlusion )
+    {
+        bgfx::setUniform( u_gpuCullOcc, InOcclusion, kHiZCullParams );
+        bgfx::setBuffer( kOcclusionStateStage, m_occlusionState, bgfx::Access::ReadWrite );
+        for( uint32_t t = 0; t < kHiZMaxTextures; ++t )
+        {
+            const bgfx::TextureHandle texture = InPyramid && bgfx::isValid( InPyramid->Textures[t] ) ? InPyramid->Textures[t] : m_hizDummy;
+            bgfx::setTexture( static_cast<uint8_t>( kOcclusionPyramidStage + t ), s_hiz[t], texture, kPointClamp );
+        }
+    }
+    bgfx::dispatch( InView, occlusion ? m_occlusionCount->Handle : m_count->Handle, layout.Groups, InViewCount, 1 );
+
+    bgfx::setUniform( u_gpuCull, params, kCullParams );
+    bgfx::setBuffer( 0, m_batchInfoBuffer, bgfx::Access::Read );
+    bgfx::setBuffer( 1, m_groupScratch, bgfx::Access::ReadWrite );
+    bgfx::setBuffer( 2, m_totals, bgfx::Access::Write );
+    bgfx::setBuffer( 3, m_drawArgs, bgfx::Access::Write );
+    bgfx::dispatch( InView, m_offsets->Handle, batches * InViewCount, 1, 1 );
+
+    bgfx::setUniform( u_gpuCull, params, kCullParams );
+    bgfx::setBuffer( 0, m_memberBuffer, bgfx::Access::Read );
+    bgfx::setBuffer( 1, m_recordBuffer, bgfx::Access::Read );
+    bgfx::setBuffer( 2, m_groupScratch, bgfx::Access::Read );
+    bgfx::setBuffer( 3, m_groupBatchBuffer, bgfx::Access::Read );
+    bgfx::setBuffer( 4, m_batchInfoBuffer, bgfx::Access::Read );
+    bgfx::setBuffer( 5, m_totals, bgfx::Access::Read );
+    bgfx::setBuffer( 6, m_instances, bgfx::Access::Write );
+    if( occlusion )
+    {
+        bgfx::setBuffer( kOcclusionStateStage, m_occlusionState, bgfx::Access::Read );
+    }
+    bgfx::dispatch( InView, occlusion ? m_occlusionWrite->Handle : m_write->Handle, layout.Groups, InViewCount, 1 );
+    m_dispatches += 3;
+}
+
+
+bool Moonlight::GpuMeshCulling::IsOcclusionReady() const
+{
+    const auto ready = []( const SharedPtr<ProgramRef>& InProgram ) { return InProgram && bgfx::isValid( InProgram->Handle ); };
+    const uint32_t r32f = bgfx::getCaps()->formats[bgfx::TextureFormat::R32F];
+    return IsReady() && ready( m_occlusionCount ) && ready( m_occlusionWrite ) && ready( m_pyramid ) && bgfx::isValid( m_hizDummy )
+        && ( r32f & BGFX_CAPS_FORMAT_TEXTURE_2D ) != 0 && ( r32f & BGFX_CAPS_FORMAT_TEXTURE_IMAGE_WRITE ) != 0;
+}
+
+
+void Moonlight::GpuMeshCulling::DestroyHistory( HiZHistory& InOutHistory )
+{
+    for( bgfx::TextureHandle& texture : InOutHistory.Textures )
+    {
+        DestroyHandle( texture );
+    }
+    InOutHistory.BuiltFrame = 0;
+}
+
+
+Moonlight::GpuMeshCulling::HiZHistory* Moonlight::GpuMeshCulling::AcquireHistory( const void* InKey, uint32_t InDepthWidth, uint32_t InDepthHeight )
+{
+    const HiZLayout layout = MakeHiZLayout( InDepthWidth, InDepthHeight );
+    if( !layout.IsValid() )
+    {
+        return nullptr;
+    }
+    HiZHistory& history = m_histories[InKey];
+    history.UsedFrame = m_frame;
+    if( history.Layout == layout && bgfx::isValid( history.Textures[0] ) )
+    {
+        return &history;
+    }
+    // A new size: new textures, and no history until it is built.
+    DestroyHistory( history );
+    history.Layout = layout;
+    for( uint32_t pass = 0; pass < layout.GetPasses(); ++pass )
+    {
+        const uint32_t first = pass * kHiZMipsPerPass;
+        const uint32_t mips = std::min( kHiZMipsPerPass, layout.Mips - first );
+        history.Textures[pass] = bgfx::createTexture2D( static_cast<uint16_t>( layout.GetMipWidth( first ) ), static_cast<uint16_t>( layout.GetMipHeight( first ) ), mips > 1, 1,
+            bgfx::TextureFormat::R32F, BGFX_TEXTURE_COMPUTE_WRITE | kPointClamp );
+        if( !bgfx::isValid( history.Textures[pass] ) )
+        {
+            DestroyHistory( history );
+            history.Layout = HiZLayout();
+            return nullptr;
+        }
+        bgfx::setName( history.Textures[pass], "GPU Cull Depth Pyramid" );
+    }
+    return &history;
+}
+
+
+bool Moonlight::GpuMeshCulling::HasHistory( const HiZHistory& InHistory, bool InOrthographic ) const
+{
+    return InHistory.BuiltFrame != 0 && InHistory.BuiltFrame + 1 == m_frame && InHistory.Orthographic == InOrthographic && bgfx::isValid( InHistory.Textures[0] );
+}
+
+
+Moonlight::GpuMeshCulling::OcclusionCull Moonlight::GpuMeshCulling::CullOcclusion( bgfx::ViewId InView, const glm::vec4* InPlanes, bool InReverse, const HiZHistory& InHistory )
+{
+    OcclusionCull result;
+    result.Phase1.Which = Set::Opaque;
+    result.Phase1.Views = 1;
+    const GpuCullSetLayout& layout = GetLayout( Set::Opaque );
+    const uint32_t batches = layout.GetBatchCount();
+    if( batches == 0 )
+    {
+        result.Phase1.Valid = true;
+        return result;
+    }
+    if( InView == UINT16_MAX || !IsOcclusionReady() || !bgfx::isValid( m_recordBuffer ) || !bgfx::isValid( m_memberBuffer ) )
+    {
+        ++m_fallbacks;
+        return result;
+    }
+    // Both phases' output at once: phase 2 must never find it full after phase 1 rejected meshes.
+    const uint32_t instances = layout.Padded * 2;
+    const uint32_t args = batches * 2;
+    m_instanceDemand += instances;
+    m_argsDemand += args;
+    if( m_instanceUsed + instances > m_instanceCapacity || m_argsUsed + args > m_argsCapacity || !bgfx::isValid( m_instances ) || !bgfx::isValid( m_drawArgs ) )
+    {
+        ++m_fallbacks;
+        return result;
+    }
+    if( layout.Padded > m_occlusionStateCapacity || !bgfx::isValid( m_occlusionState ) )
+    {
+        DestroyHandle( m_occlusionState );
+        m_occlusionStateCapacity = GrownCapacity( layout.Padded );
+        m_occlusionState = bgfx::createDynamicVertexBuffer( m_occlusionStateCapacity, Vec4Layout(), BGFX_BUFFER_COMPUTE_READ_WRITE );
+        if( !bgfx::isValid( m_occlusionState ) )
+        {
+            m_occlusionStateCapacity = 0;
+            ++m_fallbacks;
+            return result;
+        }
+    }
+    result.Phase1.Valid = true;
+    result.Phase1.OutBase = m_instanceUsed;
+    result.Phase1.ArgsBase = m_argsUsed;
+    result.Phase2OutBase = m_instanceUsed + layout.Padded;
+    result.Phase2ArgsBase = m_argsUsed + batches;
+    m_instanceUsed += instances;
+    m_argsUsed += args;
+
+    glm::vec4 occlusion[kHiZCullParams];
+    const glm::mat4& viewProjection = InHistory.Projection.ViewProjection;
+    for( uint32_t c = 0; c < 4; ++c )
+    {
+        occlusion[c] = viewProjection[c];
+    }
+    occlusion[4] = glm::vec4( static_cast<float>( InHistory.Layout.Width ), static_cast<float>( InHistory.Layout.Height ), static_cast<float>( InHistory.Layout.Mips ), 1.f );
+    occlusion[5] = glm::vec4( InHistory.Projection.HomogeneousDepth ? 1.f : 0.f, InHistory.Projection.OriginBottomLeft ? 1.f : 0.f, InHistory.Projection.DepthEpsilon, m_phase2Only ? 1.f : 0.f );
+    DispatchCull( InView, Set::Opaque, InPlanes, 1, InReverse, false, result.Phase1.OutBase, result.Phase1.ArgsBase, occlusion, &InHistory );
+    return result;
+}
+
+
+bool Moonlight::GpuMeshCulling::BuildPyramid( HiZHistory& InOutHistory, const bgfx::ViewId* InViews, bgfx::TextureHandle InDepth, const HiZProjection& InProjection, bool InOrthographic )
+{
+    const HiZLayout& layout = InOutHistory.Layout;
+    InOutHistory.BuiltFrame = 0;
+    if( !m_pyramid || !bgfx::isValid( m_pyramid->Handle ) || !bgfx::isValid( InDepth ) || !layout.IsValid() )
+    {
+        return false;
+    }
+    for( uint32_t pass = 0; pass < layout.GetPasses(); ++pass )
+    {
+        if( InViews[pass] == UINT16_MAX || !bgfx::isValid( InOutHistory.Textures[pass] ) )
+        {
+            return false;
+        }
+    }
+    for( uint32_t pass = 0; pass < layout.GetPasses(); ++pass )
+    {
+        const uint32_t first = pass * kHiZMipsPerPass;
+        const uint32_t mips = std::min( kHiZMipsPerPass, layout.Mips - first );
+        const uint32_t width = layout.GetMipWidth( first );
+        const uint32_t height = layout.GetMipHeight( first );
+        // The depth buffer, or the last mip of the pass before.
+        const uint32_t sourceWidth = pass == 0 ? layout.SourceWidth : layout.GetMipWidth( first - 1 );
+        const uint32_t sourceHeight = pass == 0 ? layout.SourceHeight : layout.GetMipHeight( first - 1 );
+        const glm::vec4 params[2] = {
+            glm::vec4( static_cast<float>( sourceWidth ), static_cast<float>( sourceHeight ), static_cast<float>( width ), static_cast<float>( height ) ),
+            glm::vec4( pass == 0 ? 1.f : 0.f, static_cast<float>( mips ), pass == 0 ? 0.f : static_cast<float>( kHiZMipsPerPass - 1 ), 0.f ),
+        };
+        bgfx::setUniform( u_hizBuild, params, 2 );
+        bgfx::setTexture( 0, s_hizSource, pass == 0 ? InDepth : InOutHistory.Textures[pass - 1], kPointClamp );
+        for( uint32_t m = 0; m < kHiZMipsPerPass; ++m )
+        {
+            // Every image stage gets a mip; the ones past this pass's last are never written.
+            bgfx::setImage( static_cast<uint8_t>( 1 + m ), InOutHistory.Textures[pass], static_cast<uint8_t>( std::min( m, mips - 1 ) ), bgfx::Access::Write, bgfx::TextureFormat::R32F );
+        }
+        bgfx::dispatch( InViews[pass], m_pyramid->Handle, ComputeGroupCount( width, kHiZGroup ), ComputeGroupCount( height, kHiZGroup ), 1 );
+        ++m_dispatches;
+    }
+    InOutHistory.Projection = InProjection;
+    InOutHistory.Orthographic = InOrthographic;
+    InOutHistory.BuiltFrame = m_frame;
+    ++m_pyramids;
+    return true;
+}
+
+
+Moonlight::GpuMeshCulling::CullResult Moonlight::GpuMeshCulling::CullOcclusionPhase2( bgfx::ViewId InView, const OcclusionCull& InPhase1, bool InReverse, const HiZHistory* InHistory )
+{
+    CullResult result;
+    result.Which = Set::Opaque;
+    result.Views = 1;
+    result.OutBase = InPhase1.Phase2OutBase;
+    result.ArgsBase = InPhase1.Phase2ArgsBase;
+    const GpuCullSetLayout& layout = GetLayout( Set::Opaque );
+    if( !InPhase1.Phase1.Valid || layout.GetBatchCount() == 0 )
+    {
+        result.Valid = InPhase1.Phase1.Valid;
+        return result;
+    }
+    if( InView == UINT16_MAX )
+    {
+        // Phase 1's rejects would be missing: the caller can't draw this camera at all (its later
+        // views are out of the band too).
+        ++m_fallbacks;
+        return result;
+    }
+    result.Valid = true;
+    const bool pyramid = InHistory && InHistory->BuiltFrame == m_frame;
+    glm::vec4 occlusion[kHiZCullParams] = {};
+    if( pyramid )
+    {
+        for( uint32_t c = 0; c < 4; ++c )
+        {
+            occlusion[c] = InHistory->Projection.ViewProjection[c];
+        }
+        occlusion[4] = glm::vec4( static_cast<float>( InHistory->Layout.Width ), static_cast<float>( InHistory->Layout.Height ), static_cast<float>( InHistory->Layout.Mips ), 2.f );
+        occlusion[5] = glm::vec4( InHistory->Projection.HomogeneousDepth ? 1.f : 0.f, InHistory->Projection.OriginBottomLeft ? 1.f : 0.f, InHistory->Projection.DepthEpsilon, 0.f );
+    }
+    else
+    {
+        occlusion[4] = glm::vec4( 1.f, 1.f, 1.f, 3.f );     // every candidate
+    }
+    // Phase 2 tests only phase 1's candidates, which passed the frustum already.
+    const glm::vec4 planes[6] = {};
+    DispatchCull( InView, Set::Opaque, planes, 1, InReverse, false, result.OutBase, result.ArgsBase, occlusion, pyramid ? InHistory : nullptr );
+    return result;
 }

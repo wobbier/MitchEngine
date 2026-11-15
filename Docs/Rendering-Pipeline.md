@@ -17,7 +17,7 @@ Rendering is split into CPU **producers** and a serial **consumer**:
 
 Ambient light comes from per-camera image-based-lighting probes. This doc maps the frame, the view-ID scheme, the lighting data paths and the sharp edges.
 
-> Verified against engine commit 1fa55311, 2026-10-09 (overhaul Wave 3); skinned meshes against 07617c5f, 2026-10-09; fog against b7c61e56, 2026-10-10; decals against 8d958c0b plus the `Decal` component, 2026-10-15; background sky box loads against ac23d33f plus the background loads change, 2026-10-16; feature caps and scene draw statistics against 3f04199c plus the hardware profiles change, 2026-10-22; rectangle beams and temporal volumetric fog against 94407e9d plus the concert lighting change, 2026-10-29; volumetric light samples against 78e47156 plus that change (ME-364), 2026-11-12; render textures, the camera order and lazy post targets against 89e036be plus the render texture change, 2026-10-29; the depth prepass against 78e47156 plus the depth prepass change, 2026-11-12; per-instance data against 78e47156 plus that change (ME-365), 2026-11-12; GPU particles and the frame compute pass against ff71f21c plus the GPU particles change, 2026-11-14; the particle instance limit against f8240c1b plus the ME-379 change, 2026-11-15; compute environment probe filtering against f8240c1b plus the ME-385 change, 2026-11-15; froxel fog against f8240c1b plus the ME-376 change, 2026-11-15; retained mesh commands against 35a9c19b plus the ME-390 change, 2026-11-15; GPU-driven culling against a4d109f1 plus the ME-389 change, 2026-11-15.
+> Verified against engine commit 1fa55311, 2026-10-09 (overhaul Wave 3); skinned meshes against 07617c5f, 2026-10-09; fog against b7c61e56, 2026-10-10; decals against 8d958c0b plus the `Decal` component, 2026-10-15; background sky box loads against ac23d33f plus the background loads change, 2026-10-16; feature caps and scene draw statistics against 3f04199c plus the hardware profiles change, 2026-10-22; rectangle beams and temporal volumetric fog against 94407e9d plus the concert lighting change, 2026-10-29; volumetric light samples against 78e47156 plus that change (ME-364), 2026-11-12; render textures, the camera order and lazy post targets against 89e036be plus the render texture change, 2026-10-29; the depth prepass against 78e47156 plus the depth prepass change, 2026-11-12; per-instance data against 78e47156 plus that change (ME-365), 2026-11-12; GPU particles and the frame compute pass against ff71f21c plus the GPU particles change, 2026-11-14; the particle instance limit against f8240c1b plus the ME-379 change, 2026-11-15; compute environment probe filtering against f8240c1b plus the ME-385 change, 2026-11-15; froxel fog against f8240c1b plus the ME-376 change, 2026-11-15; retained mesh commands against 35a9c19b plus the ME-390 change, 2026-11-15; GPU-driven culling against a4d109f1 plus the ME-389 change, 2026-11-15; occlusion culling against 61d842f9 plus the ME-400 change, 2026-11-15.
 
 ## Overview
 
@@ -46,7 +46,8 @@ Backend selection: Vulkan is forced on Linux and D3D11 on UWP; other platforms t
 | `Modules/Moonlight/Source/RenderViews.h` | The fixed view IDs and the per-frame `ViewAllocator` |
 | `Modules/Moonlight/Source/RenderCommands.h` | `MeshCommand`, `LightCommand`, `ParticleInstance` / `ParticleBatch` |
 | `Modules/Moonlight/Source/MeshBatchRegistry.h`, `Utils/CommandCache.h` | Retained mesh commands: stable instance-batch ids by mesh command id, and the mesh cache's change marks |
-| `Modules/Moonlight/Source/Culling/GpuMeshCulling.h` / `.cpp`, `Assets/Shaders/Culling/GpuCull*.comp`, `GpuCull.sh` | GPU-driven culling and indirect draws (ME-389): the CPU bookkeeping (`GpuCullState`), the buffers and the cull dispatches (`GpuMeshCulling`) |
+| `Modules/Moonlight/Source/Culling/GpuMeshCulling.h` / `.cpp`, `Assets/Shaders/Culling/GpuCull*.comp`, `GpuCull.sh`, `GpuCullCount.sh`, `GpuCullWrite.sh` | GPU-driven culling and indirect draws (ME-389): the CPU bookkeeping (`GpuCullState`), the buffers and the cull dispatches (`GpuMeshCulling`) |
+| `Assets/Shaders/Culling/GpuCullDepthPyramid.comp`, `GpuCullOcclusion.sh`, `GpuCullOcclusionCount.comp`, `GpuCullOcclusionWrite.comp` | Occlusion culling (ME-400): the depth pyramid and the two-phase test; `HiZLayout`, `BuildHiZ` and `HiZBoxVisible` in `GpuMeshCulling.h` are their CPU mirrors |
 | `Modules/Moonlight/Source/Device/FrameBuffer.h` | Per-camera targets: HDR scene, final, post, bloom mips, AO, fog (march, history, blur), luminance, cluster textures |
 | `Modules/Moonlight/Source/Graphics/Texture.h`, `RenderTextureSettings.h` | Render textures: a `.rendertexture` loads as a `Texture` that owns its render target; `Texture::Sampleable` keeps a camera from sampling its own |
 | `Modules/Moonlight/Source/Lighting/ClusterBuilder.cpp` | CPU light-to-froxel assignment for clustered forward |
@@ -190,6 +191,7 @@ ME-389. On a backend with compute and draw indirect, retained static meshes that
   - Materials and shaders are unchanged: `Standard.vert`, `ShadowDepth.vert` and graph shaders read the same `i_data0..3`.
 - **What the CPU doesn't know.** There is no readback, so a GPU batch counts every member in the draw and triangle statistics (an upper bound): the scene's triangle count reads high while the path is on. Draw counts are real. `RenderCore` still culls every mesh on its gather workers for the cameras' `VisibleFlags` (picking and the CPU path read them).
 - **Switches.** `BGFXRenderer::EnableGpuCulling` (RenderCore inspector > Rendering > GPU Culling, which also shows the member and dispatch counts; `--no-gpu-culling` starts with it off). The path also needs `IsComputeActive()`, `BGFX_CAPS_DRAW_INDIRECT`, `FeatureCaps.Instancing` and `RetainMeshCommands`. Without any of them every mesh takes the CPU path, as before. The renderer logs which applies at startup ("GPU culling: ...").
+- **Occlusion** (ME-400): the camera's opaque cull can also test against a depth pyramid, in two phases. See the next section.
 - **Measured** (ME-389, 2026-11-15; Release, Vulkan, RTX 4090, 1920x1080 window on the desktop, under the GPU lock, load average about 3 to 5 on 32 threads; 400 frames, 100 warm-up, medians of three runs each, taken back to back with `--no-gpu-culling` on the same build; `.tmp/ME-389/cubes57k.lvl`, 57,600 retained cubes in 8 colours, four sun cascades):
 
 | Scope (main thread median, ms) | CPU path | GPU path | CPU path, camera inside | GPU path, camera inside |
@@ -206,6 +208,80 @@ ME-389. On a backend with compute and draw indirect, retained static meshes that
   Drumsmith's venue (the RenderDocBench shot, Release, 1780x1366 window as the window manager gave it, two runs each) is a scene this was not built for: few large batches, many small ones, and four cameras. The frame went from 4.37 / 4.38 to 3.89 / 3.96 ms median: `Render Camera` 0.90 to 0.54 ms, sun shadows 0.32 to 0.05 ms. `Renderer::Frame` went from 2.03 to 2.1-2.3 ms. Draws are 1,313 against the CPU path's 1,243 to 1,657, which varies with the screen feeds' phase. On the GPU (RenderDoc, Debug) the whole frame is 9.215 against 9.143 ms, within capture noise, and the shadow views are the same 0.568 ms. Screenshots differ from the CPU path's by 5-14k pixels of 2.4 M, as two CPU runs differ from each other (the screen feeds' phase and particles).
 
   Before batches below 16 members were kept on the CPU and draws were skipped by batch bounds, the venue regressed: about 2,000-2,450 draws, mostly empty indirect draws of small batches into every cascade and local shadow view, and `Renderer::Frame` +0.9 ms.
+
+### Occlusion culling (two-phase, depth pyramid)
+
+ME-400. On top of the GPU-driven path, a camera's opaque cull can also drop the meshes hidden behind others. It tests each mesh's bounds against a depth pyramid made from the depth prepass, in two phases, so a mesh that comes out from behind something is drawn in the frame it appears, never a frame late.
+
+- **Which cameras and meshes.**
+  - Cameras: the main camera and the editor camera, when the GPU-driven path is on for them, the depth prepass is on, and the camera's era look doesn't snap vertices (`EraVertexSnap`: snapped vertices leave the bounds).
+  - Not render texture cameras (they render now and then, so their history would be stale), split-screen or overlay cameras, editor previews, the overdraw and wireframe views.
+  - Only the GPU path's opaque set. Its shadow casters stay frustum-only. Meshes on the CPU path are never occlusion-culled, but they are occluders: they are in the prepass.
+  - **Scene size.** Only while the opaque set adds up to `BGFXRenderer::OcclusionMinTriangles` (4 M by default; `--occlusion-min-triangles N`, 0 for always). Below that the pyramid and the second phase cost more than they save. The renderer logs its decision when it changes ("Occlusion culling: on ..." or "... idle, the GPU-culled meshes have N triangles").
+- **The depth pyramid** (Hi-Z; `GpuMeshCulling::BuildPyramid`, `Assets/Shaders/Culling/GpuCullDepthPyramid.comp`). Each texel keeps the farthest depth under it (the engine draws 0 near, 1 far with `LESS`, so far is the max).
+  - **Size.** Mip 0 is the previous powers of two of the depth size: 4096x1024 for 5120x1440, 1024x1024 for 1920x1080. A mip 0 texel then covers 1 to 3 depth texels per axis, and the first pass reads all of them, in integer arithmetic. Each mip halves the last, down to 1x1.
+  - **Passes.** One pass writes 5 mips: a 16x16 group makes a texel each of the first, then reduces in groupshared memory to 8x8, 4x4, 2x2 and 1x1. Texels outside a mip count as 0, so they never raise a max.
+  - **Textures.** Each pass writes its own R32F texture (`BGFX_TEXTURE_COMPUTE_WRITE`, written with `IMAGE2D_WO`), because the next pass reads its last mip through a sampler (see the image rules in `Materials-and-Shaders.md`). So up to three textures: 15 mips, enough for a 16384-texel-wide image. A bigger one, or a backend without R32F image writes, gets no occlusion.
+  - **Per camera.** The pyramid lives with the view-projection it was drawn with (jitter included) in a `HiZHistory`, keyed by the camera's `FrameBuffer` (`AcquireHistory`). A new depth size makes new textures; a pyramid nobody built for 300 frames is dropped.
+- **The test** (`GpuCullOcclusion.sh`, mirrored on the CPU by `Moonlight::HiZBoxVisible`).
+  1. Project the box's 8 corners. A corner at or behind the eye, or in front of the near plane, makes the box visible.
+  2. The screen rectangle of the corners (texture space: row 0 at the top, or at the bottom where `originBottomLeft`), with a little slack. A rectangle off the image is visible: nothing is known there.
+  3. The nearest corner's depth (NDC z, or `z * 0.5 + 0.5` with `homogeneousDepth`).
+  4. The finest mip where the rectangle spans at most 2x2 texels, and the farthest depth of those 4 texels. A rectangle that needs a mip past the last one is visible.
+  5. Hidden only when the nearest depth is farther than that by more than `DepthEpsilon` (1e-6, or 4e-5 for a 16-bit depth buffer).
+- **Two phases**, per camera, in the views around the prepass:
+  1. **Phase 1**, in the camera's "GPU Cull" view: the frustum, then last frame's pyramid with last frame's view-projection (`CullOcclusion`). Survivors are drawn in the prepass and the opaque view as before. Meshes in the frustum that the old pyramid rejects are marked as candidates.
+  2. **"`<label>` Depth Pyramid 0..2"** (one view per pass, after the prepass): this frame's pyramid, from the prepass depth. That depth holds phase 1's survivors and the CPU path's Standard draws.
+  3. **"`<label>` Occlusion Cull"**: phase 2 (`CullOcclusionPhase2`) tests only the candidates, against this frame's pyramid and view-projection.
+  4. **"`<label>` Depth Prepass 2"**: phase 2's survivors, depth only.
+  5. The **opaque view** draws both phases' colour: phase 2's batches right after phase 1's.
+
+  A mesh visible this frame is either not hidden in last frame's pyramid (phase 1 draws it), or not hidden in this frame's (phase 2 draws it), so nothing pops. Phase 1 is only a guess. This frame's depth only gets nearer after the pyramid (more draws), so anything phase 2 rejects is behind the final depth too.
+  - **Each member's result** goes into a buffer (`s_occState`: visible, candidate) in pass 1. The write pass reads it rather than testing again, since another program could round differently. Phase 2 reads phase 1's candidates from it.
+  - **Room.** Phase 1 takes phase 2's output regions (instances and arguments) at the same time, so phase 2 can't find the buffers full once phase 1 has rejected something. If phase 1 doesn't fit, the camera falls back to the frustum cull.
+  - **No usable history:** the first frame, a new size, a camera that didn't render last frame, or a change between perspective and orthographic. Phase 1 is then the plain frustum cull, and there is no phase 2. The pyramid is still built for the next frame.
+  - **Cuts, FOV changes, fast motion and moved meshes** need no special case. They only make phase 1's guess worse, so phase 2 draws more that frame.
+  - If the pyramid can't be built that frame, phase 2 draws every candidate (`u_gpuCullOcc[4].w` 3).
+- **Order.** Each batch is now two draws, phase 1's and phase 2's, both backwards under the prepass. Only exactly coplanar surfaces could resolve their ties differently from the frustum-only path (the prepass's own limit). No difference showed in the measurements below.
+- **Not occluders:** materials with their own shaders (not in the prepass), and phase 2's draws (they come after the pyramid). Both only make the test more conservative. The next frame's phase 1 sees phase 2's meshes as visible against this frame's pyramid anyway.
+- **Statistics.** Phase 2's draws count as draws but add no triangles (phase 1 already counts every member, an upper bound). Inspector > Rendering > Occlusion Culling shows the pyramids built last frame.
+- **Switches.**
+  - `BGFXRenderer::EnableOcclusionCulling` (RenderCore inspector > Rendering > Occlusion Culling; `--no-occlusion-culling` starts with it off) and `OcclusionMinTriangles`. Off, the camera culls by the frustum only, exactly as before. The frustum-only path is the fallback for everything above.
+  - `--occlusion-phase2-only` is a check: phase 1 rejects everything, so every mesh is drawn by phase 2. The image must match `--no-occlusion-culling` to the pixel.
+- **Measured** (ME-400, 2026-11-15; RTX 4090, Vulkan; scenes from `.tmp/ME-400/gen_city.py`):
+  - **City block.** 12x12 buildings (30 m footprints, 10 m streets, 12 to 60 m tall) and about 48,000 small instanced props (spheres and cubes) in the streets. The camera is at street level. The GPU opaque set is 53.6 M triangles.
+  - **GPU**, RenderDoc on a Debug build, one replayed frame, 1920x1080, static camera:
+    - frame 4.221 → 0.624 ms (6.8x faster);
+    - main opaque view 28,624 → 498 instances, 31.5 M → 0.52 M triangles, 1.909 → 0.093 ms;
+    - prepass 1.797 → 0.023 ms;
+    - draws 49 → 73 (the empty phase 2 draws);
+    - the pyramid's three passes 13 + 3 + 3 us, phase 2's cull 13 us, phase 1's occlusion count 7 us against 6 us for the frustum count.
+  - **Wall frame** (Release, a window on the desktop that the window manager made 1759x1366, under the GPU lock, load average about 2.3; 400 frames, 100 warm-up, three pairs alternating off and on; median ms). The frame is GPU-bound, so the win shows in `Renderer::Frame` (bgfx's submit and present wait on the GPU). The CPU scopes barely move: `SubmitGpuOpaque` 0.012 → 0.018 ms.
+
+    | Median ms (three runs) | Off | On |
+    | -- | -- | -- |
+    | Frame (`MainLoop`), static camera | 3.65 / 3.38 / 3.81 | **0.89 / 0.91 / 0.93** |
+    | `Renderer::Frame`, static camera | 3.06 / 2.78 / 3.18 | 0.41 / 0.41 / 0.43 |
+    | Frame, walking down the street | 3.05 / 3.15 / 3.06 | **1.10 / 1.13 / 1.16** |
+    | `Renderer::Frame`, walking | 2.21 / 2.23 / 2.15 | 0.37 / 0.39 / 0.40 |
+
+  - **The engine's own triangle count** (`--perf-report`'s `Triangles`, bgfx's statistics) counts each indirect draw at the instance count it was given room for, every member, so phase 2's draws double it on the GPU path's batches (107 M to 214 M here). RenderDoc counts what was drawn.
+  - **Popping**: a numbered screenshot every frame, with occlusion on and off, on the 4090 (Xvfb, 1920x1080, `--frame-time` fixed). Paths:
+    - walking down a street past intersections (370 frames);
+    - the same at 4x speed (170 frames);
+    - turning on the spot (370 frames, and a full turn in 120 frames);
+    - a camera cut every 20 frames (370 frames).
+
+    Every frame is identical to the pixel. So is `--occlusion-phase2-only`.
+  - **Drumsmith's venue** (the RenderDocBench shot, 5120x1440). Its GPU opaque set is 1.7 M triangles, so occlusion is idle by default. Forced on (`--occlusion-min-triangles 0`, RenderDoc, Debug):
+    - main opaque view 464,705 → 460,824 triangles and 5.708 → 5.671 ms;
+    - the pyramid and phase 2 cost 0.059 ms more compute, and phase 1's occlusion count 0.018 ms;
+    - the main camera drew 100 more draws (phase 2, mostly empty);
+    - on the CPU (Release, three pairs) the frame median moved from 4.23-4.30 ms to 4.18-4.58 ms, with `Render Camera` +0.06-0.08 ms and `SubmitGpuOpaque` 0.07 → 0.11 ms.
+
+    A small loss, hence the triangle threshold. With the default threshold occlusion is idle there, and the venue's frame is unchanged: 3.28 / 3.73 / 3.69 ms off against 3.69 / 3.28 / 3.66 ms on (three pairs, Release, the window manager's size), the same spread both ways. Its screenshots with occlusion forced on differ from the frustum-only path's by 3,900 to 4,800 pixels of 2.1 M, at most 8 levels of 255: less than two frustum-only runs differ from each other (4,045 pixels, up to 150 levels: the screen feeds' phase and particles).
+  - **cubes57k** (`.tmp/ME-389`; 57,600 cubes on a plane, 0.7 M triangles, so idle by default): forced on, the corner, inside and top shots are identical to the pixel to the frustum-only path's.
+  - The 22 showcase scenes of the engine's screenshot regression are identical at tolerance 0 with it on (lavapipe; only Playground has a GPU set to cull, and this ran before the threshold existed, so with occlusion forced on), with `--verify-retained-meshes` reporting nothing. So did the city street walk (Release) and the venue (forced on). Havana's `TrackEditorFlows` passes with it on in an `editor_debug` build, and Debug game runs of the city with camera cuts raised no bgfx assert.
 
 ### Views
 
@@ -231,17 +307,18 @@ bgfx runs views in ascending ID order, so producers must have lower IDs than the
    2. "`<label>` GPU Cull" (the camera's cascade and opaque culls, when the GPU-driven path is on).
    3. 4 shadow cascades.
    4. Depth prepass (when on, see Depth prepass below).
-   5. Opaque.
-   6. SSAO (3 views).
-   7. Fog: with froxel fog, `Fog Froxel Inject`, `Fog Froxel Blend` (temporal only) and `Fog Froxel Integrate` (compute, one view each), then the `Fog` composite; otherwise `Fog Scatter`, `Fog Resolve` (temporal only), `Fog Blur` and `Fog`.
-   8. Transparent.
-   9. Particles.
-   10. Temporal AA resolve (when on).
-   11. Depth of field (when on, 7 views).
-   12. Bloom down/up chain.
-   13. Luminance + adaptation.
-   14. Tonemap.
-   15. FXAA.
+   5. Occlusion culling (main and editor cameras, see above): "`<label>` Depth Pyramid 0..2" (one per pass), then, when phase 1 tested against last frame's pyramid, "`<label>` Occlusion Cull" and "`<label>` Depth Prepass 2".
+   6. Opaque.
+   7. SSAO (3 views).
+   8. Fog: with froxel fog, `Fog Froxel Inject`, `Fog Froxel Blend` (temporal only) and `Fog Froxel Integrate` (compute, one view each), then the `Fog` composite; otherwise `Fog Scatter`, `Fog Resolve` (temporal only), `Fog Blur` and `Fog`.
+   9. Transparent.
+   10. Particles.
+   11. Temporal AA resolve (when on).
+   12. Depth of field (when on, 7 views).
+   13. Bloom down/up chain.
+   14. Luminance + adaptation.
+   15. Tonemap.
+   16. FXAA.
 
 ### Render groups
 
@@ -809,7 +886,8 @@ The dispatch is small and linear in slots (about 0.2 ms per million slots per fr
 - **Transparent sorting is per object** (plus per particle within alpha systems, on the CPU or GPU path); intersecting transparents sort wrong (no OIT).
 - **`CommandCache::Update`/`Pop` are unlocked**: safe only because mesh jobs write distinct slots and nothing `Push`es while they run. The same goes for the change marks (`Changed`, one byte per id), which only `Push` resizes.
 - **A command edited in place must be marked**: code writing a mesh command through `Get()` or `Commands[]` instead of `Update` calls `GetMeshCache().MarkChanged( id )`, or the retained shadow casters keep the old values (`--verify-retained-meshes` reports it).
-- **GPU-driven culling** (ME-389) has only run on Vulkan, on an RTX 4090 and on lavapipe (ME-403 for the other backends). The CPU never learns how many instances survive, so the triangle statistics of GPU batches count every member (an upper bound). Every big-enough batch whose bounds touch a view costs a draw in that view even when nothing in it is visible; batches below 16 members stay on the CPU path for that reason. `RenderCore` still culls the GPU meshes on the CPU for the cameras' flags (ME-401). There is no occlusion culling (ME-400).
+- **GPU-driven culling** (ME-389) has only run on Vulkan, on an RTX 4090 and on lavapipe (ME-403 for the other backends). The CPU never learns how many instances survive, so the triangle statistics of GPU batches count every member (an upper bound). Every big-enough batch whose bounds touch a view costs a draw in that view even when nothing in it is visible; batches below 16 members stay on the CPU path for that reason. `RenderCore` still culls the GPU meshes on the CPU for the cameras' flags (ME-401).
+- **Occlusion culling** (ME-400) has only run on Vulkan (RTX 4090, lavapipe). It covers only the GPU path's opaque set, for main and editor cameras with a depth prepass, and is idle below 4 M triangles in that set. Each GPU batch costs two more draws in a camera that culls against a pyramid (phase 2's depth and colour), even when phase 2 finds nothing (ME-404 would fold the colour one into phase 1's), and the pyramid costs about 0.02 ms (1080p) to 0.06 ms (5120x1440) of GPU time per camera.
 - **Uniform names are global in bgfx**: the lighting uniforms (`u_lightParams`, `u_shadowMatrix`, `s_envSpecular`, …) must not be reused with other types.
 
 ## Related Docs

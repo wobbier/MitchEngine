@@ -317,6 +317,12 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         RetainMeshCommands = !CommandLine::Has( "--no-retained-meshes" );
         VerifyRetainedMeshes = CommandLine::Has( "--verify-retained-meshes" );
         EnableGpuCulling = !CommandLine::Has( "--no-gpu-culling" );
+        EnableOcclusionCulling = !CommandLine::Has( "--no-occlusion-culling" );
+        OcclusionPhase2Only = CommandLine::Has( "--occlusion-phase2-only" );
+        if( CommandLine::Has( "--occlusion-min-triangles" ) )
+        {
+            OcclusionMinTriangles = static_cast<uint64_t>( std::max( 0, CommandLine::GetInt( "--occlusion-min-triangles", 0 ) ) );
+        }
         m_outlineHullProgram = Moonlight::ShaderCommand( "Assets/Shaders/OutlineHull", "Assets/Shaders/OutlineHull" );
         m_outlineHullSkinnedProgram = Moonlight::ShaderCommand( "Assets/Shaders/OutlineHullSkinned", "Assets/Shaders/OutlineHull" );
         u_outlineHull = bgfx::createUniform( "u_outlineHull", bgfx::UniformType::Vec4 );
@@ -1243,6 +1249,8 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     // the GPU path's shadow casters for the cascades and its opaque meshes for this camera. Not for
     // editor previews (other render groups), overdraw or wireframe, which draw on the CPU path.
     const bool gpuCamera = m_gpuCullingActive && camera.RenderGroup == 0 && !overdraw && !wireframe;
+    // Depth prepass (ME-363), decided here because occlusion culling builds on it.
+    const bool depthPrepass = EnableDepthPrepass && FeatureCaps.DepthPrepass && !overdraw && !wireframe;
     bgfx::ViewId gpuCullView = UINT16_MAX;
     if( gpuCamera )
     {
@@ -1264,11 +1272,51 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     // reversed under a depth prepass as the CPU path's batches are.
     Moonlight::GpuMeshCulling::CullResult gpuOpaque;
     Frustum gpuFrustum;
+    const bool reverseGpu = EnableDepthPrepass && FeatureCaps.DepthPrepass;
+    // Occlusion culling (ME-400): the main and editor cameras, on top of the depth prepass. Phase 1
+    // here, against last frame's depth pyramid; the pyramid is rebuilt from this frame's prepass, and
+    // phase 2 draws what phase 1 rejected and this frame's pyramid doesn't hide (see below). Not for
+    // render texture cameras (they render now and then, so their history would be stale), split
+    // screen or overlay cameras, or vertex-snapping era looks (snapped vertices leave the bounds).
+    Moonlight::GpuMeshCulling::HiZHistory* hiz = nullptr;
+    Moonlight::GpuMeshCulling::OcclusionCull occlusionCull;
+    bool occlusionPhase1 = false;
+    if( gpuCullView != UINT16_MAX && EnableOcclusionCulling && depthPrepass && !renderTexture && ( camera.IsMain || camera.IsEditorView )
+        && camera.Post.EraVertexSnap <= 0.f && m_gpuCulling->GetLayout( Moonlight::GpuMeshCulling::Set::Opaque ).GetBatchCount() > 0 )
+    {
+        const uint64_t triangles = m_gpuCulling->GetLayout( Moonlight::GpuMeshCulling::Set::Opaque ).Triangles;
+        const bool ready = m_gpuCulling->IsOcclusionReady();
+        const bool big = triangles >= OcclusionMinTriangles;
+        if( ready && big )
+        {
+            hiz = m_gpuCulling->AcquireHistory( camera.Buffer, width, height );
+        }
+        const int decision = !ready ? 3 : ( big ? 1 : 2 );
+        if( decision != m_loggedOcclusion )
+        {
+            m_loggedOcclusion = decision;
+            const std::string count = std::to_string( triangles );
+            CLog::Log( CLog::LogType::Info, decision == 1 ? "Occlusion culling: on (two-phase, depth pyramid; GPU-culled meshes " + count + " triangles)"
+                : decision == 2 ? "Occlusion culling: idle, the GPU-culled meshes have " + count + " triangles (below " + std::to_string( OcclusionMinTriangles ) + ", --occlusion-min-triangles)"
+                : std::string( "Occlusion culling: not supported (needs R32F image writes), frustum only" ) );
+        }
+    }
     if( gpuCullView != UINT16_MAX )
     {
         gpuFrustum.Update( camera.ProjectionMatrix.GetInternalMatrix() * camera.View.GetInternalMatrix() );
-        const bool reverse = EnableDepthPrepass && FeatureCaps.DepthPrepass;
-        gpuOpaque = m_gpuCulling->Cull( gpuCullView, Moonlight::GpuMeshCulling::Set::Opaque, gpuFrustum.GetPlanes(), 1, reverse, false );
+        if( hiz && m_gpuCulling->HasHistory( *hiz, camera.Projection == Moonlight::ProjectionType::Orthographic ) )
+        {
+            m_gpuCulling->SetPhase2Only( OcclusionPhase2Only );
+            occlusionCull = m_gpuCulling->CullOcclusion( gpuCullView, gpuFrustum.GetPlanes(), reverseGpu, *hiz );
+            gpuOpaque = occlusionCull.Phase1;
+            occlusionPhase1 = gpuOpaque.Valid;
+        }
+        // No history (first frame, a new size, the camera didn't draw last frame) or no room:
+        // phase 1 is the frustum cull, and there is nothing for phase 2.
+        if( !occlusionPhase1 )
+        {
+            gpuOpaque = m_gpuCulling->Cull( gpuCullView, Moonlight::GpuMeshCulling::Set::Opaque, gpuFrustum.GetPlanes(), 1, reverseGpu, false );
+        }
     }
 
     const char* label = camera.IsEditorView ? "Editor" : ( camera.IsMain ? "Main" : ( renderTexture ? "Texture" : "Camera" ) );
@@ -1283,9 +1331,30 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     // depth. The opaque view then shades each pixel's front surface once, however many layers
     // lie behind it. Not for overdraw (which counts every layer) or wireframe (nothing to shade).
     // Out of views, the camera draws without one.
-    const bool depthPrepass = EnableDepthPrepass && FeatureCaps.DepthPrepass && !overdraw && !wireframe;
     bx::snprintf( viewName, sizeof( viewName ), "%s Depth Prepass", label );
     const bgfx::ViewId prepassView = depthPrepass ? m_views.Allocate( viewName ) : UINT16_MAX;
+    // Occlusion (ME-400): after the prepass (phase 1's survivors and the CPU path's draws), the
+    // depth pyramid, one view per pass; then phase 2's cull, and a second prepass view for what it
+    // finds. The colour draws of both phases go in the opaque view. Views come out of the band in
+    // order, so if any of these is missing the opaque view is too and the camera isn't drawn.
+    bgfx::ViewId pyramidViews[Moonlight::kHiZMaxTextures] = { UINT16_MAX, UINT16_MAX, UINT16_MAX };
+    bgfx::ViewId occlusionView = UINT16_MAX;
+    bgfx::ViewId prepass2View = UINT16_MAX;
+    if( hiz && prepassView != UINT16_MAX )
+    {
+        for( uint32_t pass = 0; pass < hiz->Layout.GetPasses(); ++pass )
+        {
+            bx::snprintf( viewName, sizeof( viewName ), "%s Depth Pyramid %u", label, pass );
+            pyramidViews[pass] = m_views.Allocate( viewName );
+        }
+        if( occlusionPhase1 )
+        {
+            bx::snprintf( viewName, sizeof( viewName ), "%s Occlusion Cull", label );
+            occlusionView = m_views.Allocate( viewName );
+            bx::snprintf( viewName, sizeof( viewName ), "%s Depth Prepass 2", label );
+            prepass2View = m_views.Allocate( viewName );
+        }
+    }
     bx::snprintf( viewName, sizeof( viewName ), "%s Opaque", label );
     const bgfx::ViewId id = m_views.Allocate( viewName );
     if( id == UINT16_MAX )
@@ -1338,6 +1407,28 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     if( prepassView != UINT16_MAX )
     {
         setupSceneView( prepassView );
+    }
+
+    // This frame's pyramid (for phase 2, and phase 1 next frame), made from the depth the prepass
+    // laid down with the projection it drew with; then phase 2.
+    Moonlight::GpuMeshCulling::CullResult gpuOpaque2;
+    if( hiz && prepassView != UINT16_MAX )
+    {
+        Moonlight::HiZProjection projection;
+        projection.ViewProjection = camera.ProjectionMatrix.GetInternalMatrix() * camera.View.GetInternalMatrix();
+        projection.HomogeneousDepth = bgfx::getCaps()->homogeneousDepth;
+        projection.OriginBottomLeft = bgfx::getCaps()->originBottomLeft;
+        // A 16-bit depth buffer rounds coarser than the test's default slack.
+        projection.DepthEpsilon = Moonlight::FrameBuffer::GetDepthFormat() == bgfx::TextureFormat::D16 ? 4.0e-5f : 1.0e-6f;
+        const bool built = m_gpuCulling->BuildPyramid( *hiz, pyramidViews, camera.Buffer->DepthTexture, projection, camera.Projection == Moonlight::ProjectionType::Orthographic );
+        if( occlusionPhase1 )
+        {
+            gpuOpaque2 = m_gpuCulling->CullOcclusionPhase2( occlusionView, occlusionCull, reverseGpu, built ? hiz : nullptr );
+            if( prepass2View != UINT16_MAX )
+            {
+                setupSceneView( prepass2View );
+            }
+        }
     }
 
     // Clear colours are authored in sRGB.
@@ -1626,6 +1717,12 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
             if( gpuDraws )
             {
                 SubmitGpuOpaque( id, gpuOpaque, state, prepassView, gpuFrustum );
+                // Occlusion phase 2 (ME-400): its depth in the second prepass view, after the
+                // pyramid; its colour here with phase 1's.
+                if( gpuOpaque2.Valid && prepass2View != UINT16_MAX )
+                {
+                    SubmitGpuOpaque( id, gpuOpaque2, state, prepass2View, gpuFrustum, false );
+                }
             }
             // With a prepass the whole order runs backwards: last batch first, its instances
             // last to first, then the single draws last to first. Without one, the first
@@ -2885,6 +2982,12 @@ uint32_t BGFXRenderer::GetGpuCullDispatches() const
 }
 
 
+uint32_t BGFXRenderer::GetOcclusionPyramids() const
+{
+    return m_gpuCullingActive && m_gpuCulling ? m_gpuCulling->GetPyramidCount() : 0;
+}
+
+
 const std::vector<uint32_t>& BGFXRenderer::GetCpuShadowCasters()
 {
     if( m_cpuShadowCastersDirty )
@@ -3030,7 +3133,7 @@ void BGFXRenderer::SubmitGpuShadowCasters( bgfx::ViewId InView, const Moonlight:
 }
 
 
-void BGFXRenderer::SubmitGpuOpaque( bgfx::ViewId InView, const Moonlight::GpuMeshCulling::CullResult& InCull, uint64_t InState, bgfx::ViewId InPrepassView, const Frustum& InFrustum )
+void BGFXRenderer::SubmitGpuOpaque( bgfx::ViewId InView, const Moonlight::GpuMeshCulling::CullResult& InCull, uint64_t InState, bgfx::ViewId InPrepassView, const Frustum& InFrustum, bool InCountTriangles )
 {
     OPTICK_EVENT( "Renderer::SubmitGpuOpaque" );
     const Moonlight::GpuCullSetLayout& layout = m_gpuCulling->GetLayout( Moonlight::GpuMeshCulling::Set::Opaque );
@@ -3053,11 +3156,12 @@ void BGFXRenderer::SubmitGpuOpaque( bgfx::ViewId InView, const Moonlight::GpuMes
         m_gpuCulling->SetInstances( InCull, 0, b );
         m_bindIndirect = m_gpuCulling->GetDrawArgs();
         m_bindIndirectIndex = m_gpuCulling->GetArgsIndex( InCull, 0, b );
-        const bgfx::ProgramHandle program = BindMeshDrawState( mesh, InState, InPrepassView, false, batch.MemberCount );
+        const uint32_t counted = InCountTriangles ? batch.MemberCount : 0u;
+        const bgfx::ProgramHandle program = BindMeshDrawState( mesh, InState, InPrepassView, false, counted );
         m_bindIndirect = BGFX_INVALID_HANDLE;
         bgfx::submit( InView, program, m_gpuCulling->GetDrawArgs(), m_gpuCulling->GetArgsIndex( InCull, 0, b ), 1 );
         // Every member counted: the CPU doesn't learn how many the cull kept (an upper bound).
-        CountTriangles( InView, mesh, batch.MemberCount );
+        CountTriangles( InView, mesh, counted );
     }
 }
 

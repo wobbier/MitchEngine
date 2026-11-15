@@ -1,8 +1,10 @@
 #pragma once
 #include <bgfx/bgfx.h>
 #include <glm/glm.hpp>
+#include <algorithm>
 #include <cstdint>
 #include <functional>
+#include <unordered_map>
 #include <vector>
 #include "MeshBatchRegistry.h"
 #include "Math/Bounds.h"
@@ -60,6 +62,7 @@ namespace Moonlight
         uint32_t BatchBase = 0;     // its first batch in the shared batch table
         uint32_t Padded = 0;        // members with padding: Groups * kGpuCullGroup
         uint32_t Groups = 0;
+        uint64_t Triangles = 0;     // every member's triangles (what a frame draws with nothing culled)
         std::vector<GpuCullBatch> Batches;     // ordered by their lowest member
         uint32_t GetBatchCount() const { return static_cast<uint32_t>( Batches.size() ); }
     };
@@ -99,6 +102,78 @@ namespace Moonlight
 
     // A mesh's record: the instance matrix as BGFXRenderer::InstanceMatrix makes it, and its bounds.
     void PackGpuCullRecord( const glm::mat4& InInstance, const AABB& InBounds, glm::vec4 OutRecord[kGpuCullRecordVec4s] );
+
+    // ---- Occlusion culling against a depth pyramid (ME-400; CPU mirrors of the shaders) ----
+    //
+    // A camera's depth pyramid (Hi-Z) keeps, per texel, the farthest depth of the depth prepass under
+    // it. Mip 0 is the previous powers of two of the depth size (each texel covers 1 to 3 depth texels
+    // per axis), each mip halves the last, down to 1x1. It is built in passes of kHiZMipsPerPass mips
+    // (a 16x16 group reduces in groupshared memory), each pass into its own R32F texture, since a
+    // pass reads the last mip of the pass before through a sampler and writes its own through images.
+    // GpuCullDepthPyramid.comp builds it; GpuCullOcclusion.sh tests boxes against it.
+    constexpr uint32_t kHiZGroup = 16;          // HIZ_GROUP
+    constexpr uint32_t kHiZMipsPerPass = 5;     // HIZ_MIPS_PER_PASS: 16, 8, 4, 2, 1 texels a group
+    constexpr uint32_t kHiZMaxTextures = 3;     // HIZ_TEXTURES: up to 15 mips (a 16384 texel mip 0)
+    // vec4s of u_gpuCullOcc: the view-projection's columns, the pyramid, the depth convention.
+    constexpr uint32_t kHiZCullParams = 6;
+
+    struct HiZLayout
+    {
+        uint32_t SourceWidth = 0;   // the depth buffer
+        uint32_t SourceHeight = 0;
+        uint32_t Width = 0;         // mip 0
+        uint32_t Height = 0;
+        uint32_t Mips = 0;          // down to 1x1
+        uint32_t GetPasses() const { return ( Mips + kHiZMipsPerPass - 1 ) / kHiZMipsPerPass; }
+        uint32_t GetMipWidth( uint32_t InMip ) const { return std::max<uint32_t>( 1u, Width >> InMip ); }
+        uint32_t GetMipHeight( uint32_t InMip ) const { return std::max<uint32_t>( 1u, Height >> InMip ); }
+        bool IsValid() const { return Mips > 0 && GetPasses() <= kHiZMaxTextures; }
+        bool operator==( const HiZLayout& InOther ) const
+        {
+            return SourceWidth == InOther.SourceWidth && SourceHeight == InOther.SourceHeight && Width == InOther.Width && Height == InOther.Height && Mips == InOther.Mips;
+        }
+    };
+    HiZLayout MakeHiZLayout( uint32_t InDepthWidth, uint32_t InDepthHeight );
+
+    // The pyramid as the build passes make it, from a depth buffer (InDepth: SourceWidth x
+    // SourceHeight, texture rows): per mip, GetMipWidth x GetMipHeight depths.
+    std::vector<std::vector<float>> BuildHiZ( const HiZLayout& InLayout, const std::vector<float>& InDepth );
+
+    // How the pyramid's depths were made: the (jittered) view-projection the depth was drawn with,
+    // and the backend's conventions (bgfx: depth 0 near, 1 far, LESS; homogeneous NDC z on GL).
+    struct HiZProjection
+    {
+        glm::mat4 ViewProjection = glm::mat4( 1.f );
+        bool HomogeneousDepth = false;  // NDC z in -1..1 (GL)
+        bool OriginBottomLeft = false;  // texture row 0 is the bottom of the image (GL)
+        float DepthEpsilon = 1e-6f;     // depth quantisation slack: the box must be behind by more
+    };
+    // The box test GpuCullOcclusion.sh makes: false only when the box is certainly behind every
+    // depth under its screen rectangle (all its corners in front of the eye and past the near
+    // plane, and its nearest corner farther than the pyramid's farthest depth over the 2x2 texels
+    // of the finest mip whose texels cover the rectangle). A box that crosses the near plane, leaves
+    // the image, or needs a mip coarser than the last is visible. InTexel reads one pyramid texel.
+    bool HiZBoxVisible( const HiZLayout& InLayout, const HiZProjection& InProjection, const glm::vec3& InMin, const glm::vec3& InMax,
+        const std::function<float( uint32_t InMip, uint32_t InX, uint32_t InY )>& InTexel );
+
+    // Two-phase occlusion (per member of a cull): phase 1 draws what is in the frustum and visible
+    // against last frame's pyramid; phase 2 draws what phase 1 rejected for occlusion and is visible
+    // against this frame's pyramid. Never both, and a member visible against this frame's pyramid
+    // is always drawn by one of them.
+    struct GpuOcclusionPhases
+    {
+        bool Phase1 = false;
+        bool Candidate = false;     // in the frustum, rejected by phase 1: phase 2 tests it
+        bool Phase2 = false;
+    };
+    inline GpuOcclusionPhases GpuOcclusionClassify( bool InFrustum, bool InVisibleLast, bool InVisibleNow )
+    {
+        GpuOcclusionPhases result;
+        result.Phase1 = InFrustum && InVisibleLast;
+        result.Candidate = InFrustum && !result.Phase1;
+        result.Phase2 = result.Candidate && InVisibleNow;
+        return result;
+    }
 
     // A frame's membership and record bookkeeping, on the CPU (GpuMeshCulling uploads what it
     // decides). Begin, Set for every changed mesh command id (every id when all changed), Finish.
@@ -231,8 +306,75 @@ namespace Moonlight
         uint32_t GetDispatchCount() const { return m_lastDispatches; }
         uint32_t GetFallbackCount() const { return m_lastFallbacks; }
 
+        // ---- Occlusion culling, two-phase (ME-400; opaque set, main cameras) ----
+
+        // A camera's depth pyramid and the projection it was built with, kept across frames. Keyed by
+        // the camera's target (AcquireHistory); dropped when unused for a few seconds.
+        struct HiZHistory
+        {
+            HiZLayout Layout;
+            bgfx::TextureHandle Textures[kHiZMaxTextures] = { BGFX_INVALID_HANDLE, BGFX_INVALID_HANDLE, BGFX_INVALID_HANDLE };
+            HiZProjection Projection;
+            bool Orthographic = false;
+            uint64_t BuiltFrame = 0;    // this object's frame count when it was last built (0: never)
+            uint64_t UsedFrame = 0;
+        };
+
+        // The occlusion programs are loaded and R32F images can be written (the backend's caps).
+        bool IsOcclusionReady() const;
+        // A camera target's pyramid at this depth size: its textures are (re)made when the size
+        // changes, which forgets the history. Null when the size needs more than kHiZMaxTextures.
+        HiZHistory* AcquireHistory( const void* InKey, uint32_t InDepthWidth, uint32_t InDepthHeight );
+        // It holds last frame's pyramid, made with the same kind of projection.
+        bool HasHistory( const HiZHistory& InHistory, bool InOrthographic ) const;
+
+        // Phase 1: the opaque set against InPlanes (one view) and last frame's pyramid (InHistory).
+        // Reserves phase 2's output with it, so phase 2 can't run out of room once phase 1 has
+        // rejected anything. Invalid as Cull is (the caller draws on the CPU path).
+        struct OcclusionCull
+        {
+            CullResult Phase1;
+            uint32_t Phase2OutBase = 0;
+            uint32_t Phase2ArgsBase = 0;
+        };
+        OcclusionCull CullOcclusion( bgfx::ViewId InView, const glm::vec4* InPlanes, bool InReverse, const HiZHistory& InHistory );
+        // This frame's pyramid from InDepth (the depth prepass), one pass per view of InViews
+        // (GetPasses() of them, after the prepass, before phase 2). False when it couldn't be built.
+        bool BuildPyramid( HiZHistory& InOutHistory, const bgfx::ViewId* InViews, bgfx::TextureHandle InDepth, const HiZProjection& InProjection, bool InOrthographic );
+        // Phase 2: phase 1's rejects against this frame's pyramid (null: no pyramid was built, so
+        // every reject is drawn). In a view after the pyramid's; drawn after phase 1's draws.
+        CullResult CullOcclusionPhase2( bgfx::ViewId InView, const OcclusionCull& InPhase1, bool InReverse, const HiZHistory* InHistory );
+        // A check of phase 2 (--occlusion-phase2-only): phase 1 rejects every mesh, so phase 2 draws
+        // everything visible; the image must match the frustum-only path's.
+        void SetPhase2Only( bool InOnly ) { m_phase2Only = InOnly; }
+        // Pyramids built last frame (for the inspector).
+        uint32_t GetPyramidCount() const { return m_lastPyramids; }
+
     private:
         void DestroyBuffers();
+        void DestroyHistory( HiZHistory& InOutHistory );
+        // The three dispatches of a cull into regions already taken (InOcclusion: the occlusion
+        // programs with u_gpuCullOcc and the pyramid bound).
+        void DispatchCull( bgfx::ViewId InView, Set InSet, const glm::vec4* InPlanes, uint32_t InViewCount, bool InReverse, bool InShadowMatrices, uint32_t InOutBase, uint32_t InArgsBase,
+            const glm::vec4* InOcclusion, const HiZHistory* InPyramid );
+
+        SharedPtr<ProgramRef> m_occlusionCount;
+        SharedPtr<ProgramRef> m_occlusionWrite;
+        SharedPtr<ProgramRef> m_pyramid;
+        bgfx::UniformHandle u_gpuCullOcc = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_hizBuild = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_hizSource = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_hiz[kHiZMaxTextures] = { BGFX_INVALID_HANDLE, BGFX_INVALID_HANDLE, BGFX_INVALID_HANDLE };
+        bgfx::TextureHandle m_hizDummy = BGFX_INVALID_HANDLE;    // bound for missing pyramid textures
+        // Per opaque member: (visible, phase 2 candidate). Written by the occlusion count pass,
+        // read by its write pass and by phase 2.
+        bgfx::DynamicVertexBufferHandle m_occlusionState = BGFX_INVALID_HANDLE;
+        uint32_t m_occlusionStateCapacity = 0;
+        std::unordered_map<const void*, HiZHistory> m_histories;
+        uint64_t m_frame = 0;
+        bool m_phase2Only = false;
+        uint32_t m_pyramids = 0;
+        uint32_t m_lastPyramids = 0;
 
         GpuCullState m_state;
         bool m_layoutChanged = false;

@@ -1494,6 +1494,16 @@ void RenderCore::OnEditorInspect()
             ImGui::SameLine();
             ImGui::TextDisabled( "%u meshes, %u casters, %u dispatches", renderer.GetGpuCulledCount( false ), renderer.GetGpuCulledCount( true ), renderer.GetGpuCullDispatches() );
         }
+        checkbox( "Occlusion Culling", renderer.EnableOcclusionCulling );
+        if( ImGui::IsItemHovered() )
+        {
+            ImGui::SetTooltip( "With GPU culling and the depth prepass: main and editor cameras also cull the GPU-drawn meshes hidden behind others, against a depth pyramid, in two phases so nothing pops. Off culls by the frustum only" );
+        }
+        if( renderer.IsGpuCullingActive() && renderer.EnableOcclusionCulling )
+        {
+            ImGui::SameLine();
+            ImGui::TextDisabled( "%u pyramids", renderer.GetOcclusionPyramids() );
+        }
         checkbox( "Depth Prepass", renderer.EnableDepthPrepass );
         if( ImGui::IsItemHovered() )
         {

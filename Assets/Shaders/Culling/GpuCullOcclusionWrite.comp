@@ -1,0 +1,6 @@
+// GPU culling with occlusion (ME-400), pass 3: GpuCullWrite.sh, each member visible as pass 1 found
+// it (phase 1 or phase 2, s_occState.x).
+#define CULL_OCCLUSION 1
+#include "GpuCull.sh"
+BUFFER_RO(s_occState, vec4, 11);
+#include "GpuCullWrite.sh"

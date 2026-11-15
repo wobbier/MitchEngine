@@ -2,7 +2,9 @@
 
 #include "Culling/GpuMeshCulling.h"
 #include "Path.h"
+#include <glm/gtc/matrix_transform.hpp>
 #include <algorithm>
+#include <cmath>
 #include <fstream>
 #include <random>
 #include <set>
@@ -404,4 +406,328 @@ TEST_CASE( "GPU culling: the shaders' constants match the CPU's" )
     CHECK( source.find( "#define CULL_MAX_VIEWS " + std::to_string( Moonlight::kGpuCullMaxViews ) + "u" ) != std::string::npos );
     CHECK( source.find( "#define CULL_RECORD_VEC4S " + std::to_string( Moonlight::kGpuCullRecordVec4s ) + "u" ) != std::string::npos );
     CHECK( source.find( "uniform vec4 u_gpuCull[3 + 6 * " + std::to_string( Moonlight::kGpuCullMaxViews ) + "];" ) != std::string::npos );
+}
+
+
+// ME-400: occlusion culling against a depth pyramid. BuildHiZ and HiZBoxVisible are the CPU mirrors of
+// GpuCullDepthPyramid.comp and GpuCullOcclusion.sh; the scenes below are ray cast on the CPU, so a box
+// the test calls hidden can be checked pixel by pixel against the depth it would have to pass.
+namespace GpuOcclusionTest
+{
+    struct Box
+    {
+        glm::vec3 Min;
+        glm::vec3 Max;
+    };
+
+    struct Camera
+    {
+        glm::mat4 ViewProjection;
+        glm::mat4 Inverse;
+        bool Homogeneous = false;
+        bool BottomLeft = false;
+        uint32_t Width = 0;
+        uint32_t Height = 0;
+    };
+
+    Camera MakeCamera( bool InOrthographic, bool InHomogeneous, bool InBottomLeft, uint32_t InWidth, uint32_t InHeight )
+    {
+        Camera camera;
+        const float aspect = static_cast<float>( InWidth ) / static_cast<float>( InHeight );
+        glm::mat4 projection;
+        if( InOrthographic )
+        {
+            projection = InHomogeneous ? glm::orthoLH_NO( -30.f * aspect, 30.f * aspect, -30.f, 30.f, 0.5f, 400.f ) : glm::orthoLH_ZO( -30.f * aspect, 30.f * aspect, -30.f, 30.f, 0.5f, 400.f );
+        }
+        else
+        {
+            projection = InHomogeneous ? glm::perspectiveLH_NO( glm::radians( 70.f ), aspect, 0.1f, 1000.f ) : glm::perspectiveLH_ZO( glm::radians( 70.f ), aspect, 0.1f, 1000.f );
+        }
+        const glm::mat4 view = glm::lookAtLH( glm::vec3( 0.f, 2.f, -60.f ), glm::vec3( 3.f, 1.f, 0.f ), glm::vec3( 0.f, 1.f, 0.f ) );
+        camera.ViewProjection = projection * view;
+        camera.Inverse = glm::inverse( camera.ViewProjection );
+        camera.Homogeneous = InHomogeneous;
+        camera.BottomLeft = InBottomLeft;
+        camera.Width = InWidth;
+        camera.Height = InHeight;
+        return camera;
+    }
+
+    // The pixel's ray (through its centre), as a near point and a direction.
+    void PixelRay( const Camera& InCamera, uint32_t InX, uint32_t InY, glm::vec3& OutOrigin, glm::vec3& OutDirection )
+    {
+        const float x = ( static_cast<float>( InX ) + 0.5f ) / static_cast<float>( InCamera.Width ) * 2.f - 1.f;
+        const float row = ( static_cast<float>( InY ) + 0.5f ) / static_cast<float>( InCamera.Height ) * 2.f - 1.f;
+        const float y = InCamera.BottomLeft ? row : -row;
+        const glm::vec4 nearPoint = InCamera.Inverse * glm::vec4( x, y, InCamera.Homogeneous ? -1.f : 0.f, 1.f );
+        const glm::vec4 farPoint = InCamera.Inverse * glm::vec4( x, y, 1.f, 1.f );
+        OutOrigin = glm::vec3( nearPoint ) / nearPoint.w;
+        OutDirection = glm::vec3( farPoint ) / farPoint.w - OutOrigin;
+    }
+
+    // Entry parameter of the ray into the box (0..1 along the near-to-far segment), or < 0.
+    float Hit( const Box& InBox, const glm::vec3& InOrigin, const glm::vec3& InDirection )
+    {
+        float t0 = 0.f;
+        float t1 = 1.f;
+        for( int a = 0; a < 3; ++a )
+        {
+            if( std::abs( InDirection[a] ) < 1e-12f )
+            {
+                if( InOrigin[a] < InBox.Min[a] || InOrigin[a] > InBox.Max[a] ) return -1.f;
+                continue;
+            }
+            float n = ( InBox.Min[a] - InOrigin[a] ) / InDirection[a];
+            float f = ( InBox.Max[a] - InOrigin[a] ) / InDirection[a];
+            if( n > f ) std::swap( n, f );
+            t0 = std::max( t0, n );
+            t1 = std::min( t1, f );
+            if( t0 > t1 ) return -1.f;
+        }
+        return t0;
+    }
+
+    float DepthAt( const Camera& InCamera, const glm::vec3& InPoint )
+    {
+        const glm::vec4 clip = InCamera.ViewProjection * glm::vec4( InPoint, 1.f );
+        const float z = clip.z / clip.w;
+        return InCamera.Homogeneous ? z * 0.5f + 0.5f : z;
+    }
+
+    // The depth buffer of the occluders (1 where nothing is hit).
+    std::vector<float> Render( const Camera& InCamera, const std::vector<Box>& InBoxes )
+    {
+        std::vector<float> depth( static_cast<size_t>( InCamera.Width ) * InCamera.Height, 1.f );
+        for( uint32_t y = 0; y < InCamera.Height; ++y )
+        {
+            for( uint32_t x = 0; x < InCamera.Width; ++x )
+            {
+                glm::vec3 origin, direction;
+                PixelRay( InCamera, x, y, origin, direction );
+                for( const Box& box : InBoxes )
+                {
+                    const float t = Hit( box, origin, direction );
+                    if( t >= 0.f )
+                    {
+                        depth[static_cast<size_t>( y ) * InCamera.Width + x] = std::min( depth[static_cast<size_t>( y ) * InCamera.Width + x], DepthAt( InCamera, origin + direction * t ) );
+                    }
+                }
+            }
+        }
+        return depth;
+    }
+
+    // Whether any pixel the box covers would pass the depth test against InDepth (LEQUAL).
+    bool AnyPixelVisible( const Camera& InCamera, const std::vector<float>& InDepth, const Box& InBox )
+    {
+        for( uint32_t y = 0; y < InCamera.Height; ++y )
+        {
+            for( uint32_t x = 0; x < InCamera.Width; ++x )
+            {
+                glm::vec3 origin, direction;
+                PixelRay( InCamera, x, y, origin, direction );
+                const float t = Hit( InBox, origin, direction );
+                if( t >= 0.f && DepthAt( InCamera, origin + direction * t ) <= InDepth[static_cast<size_t>( y ) * InCamera.Width + x] )
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+}
+
+
+TEST_CASE( "GPU occlusion: the pyramid's layout is the depth size's previous powers of two, in passes of five mips" )
+{
+    const Moonlight::HiZLayout wide = Moonlight::MakeHiZLayout( 5120, 1440 );
+    CHECK( wide.Width == 4096 );
+    CHECK( wide.Height == 1024 );
+    CHECK( wide.Mips == 13 );
+    CHECK( wide.GetPasses() == 3 );
+    CHECK( wide.GetMipWidth( 12 ) == 1 );
+    CHECK( wide.GetMipHeight( 11 ) == 1 );
+    CHECK( wide.IsValid() );
+
+    const Moonlight::HiZLayout hd = Moonlight::MakeHiZLayout( 1920, 1080 );
+    CHECK( hd.Width == 1024 );
+    CHECK( hd.Height == 1024 );
+    CHECK( hd.Mips == 11 );
+
+    const Moonlight::HiZLayout exact = Moonlight::MakeHiZLayout( 256, 64 );
+    CHECK( exact.Width == 256 );
+    CHECK( exact.Height == 64 );
+    CHECK( exact.Mips == 9 );
+    CHECK( exact.GetPasses() == 2 );
+
+    const Moonlight::HiZLayout tiny = Moonlight::MakeHiZLayout( 1, 1 );
+    CHECK( tiny.Mips == 1 );
+    CHECK( tiny.IsValid() );
+
+    CHECK_FALSE( Moonlight::MakeHiZLayout( 0, 10 ).IsValid() );
+    // 32768 texels wide needs 16 mips: more than three textures of five.
+    CHECK_FALSE( Moonlight::MakeHiZLayout( 40000, 8 ).IsValid() );
+}
+
+
+TEST_CASE( "GPU occlusion: every pyramid texel is at least the farthest depth under it" )
+{
+    std::mt19937 random( 400 );
+    std::uniform_real_distribution<float> depth( 0.f, 1.f );
+    for( const auto& [width, height] : { std::pair<uint32_t, uint32_t>{ 333, 197 }, { 64, 64 }, { 2, 1 }, { 255, 129 }, { 1, 7 } } )
+    {
+        const Moonlight::HiZLayout layout = Moonlight::MakeHiZLayout( width, height );
+        std::vector<float> buffer( static_cast<size_t>( width ) * height );
+        for( float& d : buffer ) d = depth( random );
+        const std::vector<std::vector<float>> mips = Moonlight::BuildHiZ( layout, buffer );
+        REQUIRE( mips.size() == layout.Mips );
+        // Every depth texel, in the texel of every mip that holds its centre.
+        bool covered = true;
+        for( uint32_t y = 0; y < height && covered; ++y )
+        {
+            for( uint32_t x = 0; x < width && covered; ++x )
+            {
+                const float u = ( static_cast<float>( x ) + 0.5f ) / static_cast<float>( width );
+                const float v = ( static_cast<float>( y ) + 0.5f ) / static_cast<float>( height );
+                for( uint32_t m = 0; m < layout.Mips; ++m )
+                {
+                    const uint32_t mw = layout.GetMipWidth( m );
+                    const uint32_t mh = layout.GetMipHeight( m );
+                    const uint32_t tx = std::min( static_cast<uint32_t>( u * static_cast<float>( layout.Width ) ) >> m, mw - 1 );
+                    const uint32_t ty = std::min( static_cast<uint32_t>( v * static_cast<float>( layout.Height ) ) >> m, mh - 1 );
+                    if( mips[m][static_cast<size_t>( ty ) * mw + tx] < buffer[static_cast<size_t>( y ) * width + x] )
+                    {
+                        covered = false;
+                        DOCTEST_INFO( width << "x" << height << " texel " << x << "," << y << " mip " << m );
+                        CHECK( covered );
+                        break;
+                    }
+                }
+            }
+        }
+        // The last mip is the farthest depth of all.
+        CHECK( mips.back()[0] == *std::max_element( buffer.begin(), buffer.end() ) );
+    }
+}
+
+
+TEST_CASE( "GPU occlusion: a box the pyramid hides is hidden at every pixel it covers" )
+{
+    using namespace GpuOcclusionTest;
+    struct Variant
+    {
+        bool Orthographic;
+        bool Homogeneous;
+        bool BottomLeft;
+    };
+    for( const Variant& variant : { Variant{ false, false, false }, Variant{ false, true, true }, Variant{ true, false, false }, Variant{ true, true, true } } )
+    {
+        DOCTEST_INFO( "orthographic " << variant.Orthographic << ", homogeneous " << variant.Homogeneous << ", bottom left " << variant.BottomLeft );
+        const Camera camera = MakeCamera( variant.Orthographic, variant.Homogeneous, variant.BottomLeft, 160, 90 );
+        std::mt19937 random( 4000 );
+        std::uniform_real_distribution<float> unit( 0.f, 1.f );
+        // Walls across the view, part way down.
+        std::vector<Box> occluders;
+        for( int i = 0; i < 6; ++i )
+        {
+            const float x = -40.f + 16.f * static_cast<float>( i ) + unit( random ) * 4.f;
+            const float z = -10.f + unit( random ) * 20.f;
+            occluders.push_back( { glm::vec3( x, 0.f, z ), glm::vec3( x + 10.f + unit( random ) * 6.f, 6.f + unit( random ) * 20.f, z + 2.f ) } );
+        }
+        const std::vector<float> depth = Render( camera, occluders );
+        const Moonlight::HiZLayout layout = Moonlight::MakeHiZLayout( camera.Width, camera.Height );
+        const std::vector<std::vector<float>> mips = Moonlight::BuildHiZ( layout, depth );
+        Moonlight::HiZProjection projection;
+        projection.ViewProjection = camera.ViewProjection;
+        projection.HomogeneousDepth = camera.Homogeneous;
+        projection.OriginBottomLeft = camera.BottomLeft;
+        const auto texel = [&]( uint32_t InMip, uint32_t InX, uint32_t InY ) {
+            return mips[InMip][static_cast<size_t>( InY ) * layout.GetMipWidth( InMip ) + InX];
+        };
+
+        int hidden = 0;
+        int visible = 0;
+        for( int i = 0; i < 400; ++i )
+        {
+            // Small props behind, between and in front of the walls, some straddling the near plane.
+            const glm::vec3 at( -50.f + unit( random ) * 100.f, unit( random ) * 4.f, -62.f + unit( random ) * 120.f );
+            const float size = 0.3f + unit( random ) * 3.f;
+            const Box box{ at, at + glm::vec3( size ) };
+            if( Moonlight::HiZBoxVisible( layout, projection, box.Min, box.Max, texel ) )
+            {
+                ++visible;
+                continue;
+            }
+            ++hidden;
+            DOCTEST_INFO( "box " << box.Min.x << "," << box.Min.y << "," << box.Min.z << " size " << size );
+            CHECK_FALSE( AnyPixelVisible( camera, depth, box ) );
+        }
+        // The test isn't trivially passing everything.
+        CHECK( hidden > 20 );
+        CHECK( visible > 20 );
+    }
+}
+
+
+TEST_CASE( "GPU occlusion: a box across the near plane, off the image, or past the last mip is visible" )
+{
+    const Moonlight::HiZLayout layout = Moonlight::MakeHiZLayout( 64, 32 );
+    Moonlight::HiZProjection projection;
+    projection.ViewProjection = glm::perspectiveLH_ZO( glm::radians( 60.f ), 2.f, 0.1f, 100.f );
+    // A pyramid at depth 0: everything would be hidden.
+    const auto nearest = []( uint32_t, uint32_t, uint32_t ) { return 0.f; };
+    CHECK( Moonlight::HiZBoxVisible( layout, projection, glm::vec3( -1.f, -1.f, -1.f ), glm::vec3( 1.f, 1.f, 1.f ), nearest ) );      // around the eye
+    CHECK( Moonlight::HiZBoxVisible( layout, projection, glm::vec3( -1.f, -1.f, 0.05f ), glm::vec3( 1.f, 1.f, 2.f ), nearest ) );    // across the near plane
+    CHECK( Moonlight::HiZBoxVisible( layout, projection, glm::vec3( 500.f, -1.f, 10.f ), glm::vec3( 501.f, 1.f, 11.f ), nearest ) ); // off to the side
+    CHECK_FALSE( Moonlight::HiZBoxVisible( layout, projection, glm::vec3( -1.f, -1.f, 10.f ), glm::vec3( 1.f, 1.f, 11.f ), nearest ) );
+    // Covering the whole image needs the last mip; one past it (a layout claiming fewer mips) is visible.
+    Moonlight::HiZLayout shallow = layout;
+    shallow.Mips = 2;
+    CHECK( Moonlight::HiZBoxVisible( shallow, projection, glm::vec3( -50.f, -50.f, 10.f ), glm::vec3( 50.f, 50.f, 11.f ), nearest ) );
+    // The far plane (nothing drawn) never hides anything in front of it.
+    const auto empty = []( uint32_t, uint32_t, uint32_t ) { return 1.f; };
+    CHECK( Moonlight::HiZBoxVisible( layout, projection, glm::vec3( -1.f, -1.f, 90.f ), glm::vec3( 1.f, 1.f, 95.f ), empty ) );
+}
+
+
+TEST_CASE( "GPU occlusion: the two phases draw every mesh visible this frame exactly once" )
+{
+    for( int bits = 0; bits < 8; ++bits )
+    {
+        const bool frustum = bits & 1;
+        const bool last = bits & 2;
+        const bool now = bits & 4;
+        const Moonlight::GpuOcclusionPhases phases = Moonlight::GpuOcclusionClassify( frustum, last, now );
+        CHECK_FALSE( ( phases.Phase1 && phases.Phase2 ) );
+        if( frustum && now )
+        {
+            CHECK( ( phases.Phase1 || phases.Phase2 ) );
+        }
+        if( !frustum )
+        {
+            CHECK_FALSE( ( phases.Phase1 || phases.Phase2 ) );
+        }
+        CHECK( phases.Candidate == ( frustum && !last ) );
+    }
+}
+
+
+TEST_CASE( "GPU occlusion: the shaders' constants match the CPU's" )
+{
+    const auto read = []( const char* InPath ) {
+        std::ifstream file( Path( InPath ).FullPath );
+        std::stringstream text;
+        text << file.rdbuf();
+        return text.str();
+    };
+    const std::string occlusion = read( "Assets/Shaders/Culling/GpuCullOcclusion.sh" );
+    const std::string pyramid = read( "Assets/Shaders/Culling/GpuCullDepthPyramid.comp" );
+    REQUIRE_FALSE( occlusion.empty() );
+    REQUIRE_FALSE( pyramid.empty() );
+    CHECK( occlusion.find( "#define HIZ_MIPS_PER_PASS " + std::to_string( Moonlight::kHiZMipsPerPass ) + "u" ) != std::string::npos );
+    CHECK( occlusion.find( "#define HIZ_TEXTURES " + std::to_string( Moonlight::kHiZMaxTextures ) + "u" ) != std::string::npos );
+    CHECK( occlusion.find( "uniform vec4 u_gpuCullOcc[" + std::to_string( Moonlight::kHiZCullParams ) + "];" ) != std::string::npos );
+    CHECK( pyramid.find( "#define HIZ_GROUP " + std::to_string( Moonlight::kHiZGroup ) + "u" ) != std::string::npos );
+    CHECK( pyramid.find( "#define HIZ_MIPS_PER_PASS " + std::to_string( Moonlight::kHiZMipsPerPass ) + "u" ) != std::string::npos );
+    CHECK( pyramid.find( "NUM_THREADS(" + std::to_string( Moonlight::kHiZGroup ) + ", " + std::to_string( Moonlight::kHiZGroup ) + ", 1)" ) != std::string::npos );
 }

@@ -158,6 +158,20 @@ public:
     // The GPU path's members (Opaque or Shadow set) and last frame's dispatches, for the inspector.
     uint32_t GetGpuCulledCount( bool InShadows ) const;
     uint32_t GetGpuCullDispatches() const;
+    // Occlusion culling (ME-400) on top of the GPU path: main and editor cameras with a depth prepass
+    // also cull the GPU path's opaque meshes against a depth pyramid, in two phases (last frame's
+    // pyramid, then this frame's for what that rejected), so nothing pops. --no-occlusion-culling
+    // (or the RenderCore inspector) turns it off: frustum culling only, as before.
+    bool EnableOcclusionCulling = true;
+    // Occlusion runs only while the GPU path's opaque meshes add up to at least this many triangles
+    // (--occlusion-min-triangles N; 0: always). Below it the pyramid and the second phase cost more
+    // than culling can save: Drumsmith's venue (1.7 M) lost about 0.1 ms with it, the ME-400 city
+    // block (54 M) went 6.8x faster on the GPU. Scenes in between are unmeasured.
+    uint64_t OcclusionMinTriangles = 4000000;
+    // A check (--occlusion-phase2-only): phase 1 draws nothing, phase 2 everything it finds visible.
+    bool OcclusionPhase2Only = false;
+    // Depth pyramids built last frame (one per camera that culled against one).
+    uint32_t GetOcclusionPyramids() const;
 
     // Meshes
     void UpdateMeshMatrix( unsigned int Id, const glm::mat4& matrix );
@@ -426,7 +440,10 @@ private:
     // Batches whose bounds miss InFrustum are not submitted.
     void SubmitGpuShadowCasters( bgfx::ViewId InView, const Moonlight::GpuMeshCulling::CullResult& InCull, uint32_t InViewIndex, const Frustum& InFrustum );
     // A camera's GPU-culled opaque batches (backwards under a prepass).
-    void SubmitGpuOpaque( bgfx::ViewId InView, const Moonlight::GpuMeshCulling::CullResult& InCull, uint64_t InState, bgfx::ViewId InPrepassView, const Frustum& InFrustum );
+    // InCountTriangles false: a second phase of the same meshes (ME-400), already counted.
+    void SubmitGpuOpaque( bgfx::ViewId InView, const Moonlight::GpuMeshCulling::CullResult& InCull, uint64_t InState, bgfx::ViewId InPrepassView, const Frustum& InFrustum, bool InCountTriangles = true );
+    // The occlusion decision last logged: 0 none yet, 1 on, 2 below OcclusionMinTriangles, 3 unsupported.
+    int m_loggedOcclusion = 0;
     // Set while BindMeshDrawState binds an indirect draw: its prepass submit is indirect too.
     bgfx::IndirectBufferHandle m_bindIndirect = BGFX_INVALID_HANDLE;
     uint32_t m_bindIndirectIndex = 0;

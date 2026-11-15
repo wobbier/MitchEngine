@@ -1,0 +1,135 @@
+// Depth pyramid for occlusion culling (ME-400; Moonlight::GpuMeshCulling::BuildPyramid, and BuildHiZ
+// in GpuMeshCulling.cpp, which this mirrors): the farthest depth per texel. One pass writes up to
+// HIZ_MIPS_PER_PASS mips into one R32F texture: each thread makes a texel of the pass's first mip,
+// and the 16x16 group reduces it to 8x8, 4x4, 2x2 and 1x1 in groupshared memory.
+//   first pass: from the depth buffer. Mip 0 is the previous powers of two of the depth size, so a
+//               texel covers 1 to 3 depth texels per axis: all of them are read (a covering max).
+//   later passes: from the last mip of the pass before (another texture, through a sampler: images
+//               are only written, D3D11 can't load typed UAVs portably), 2x2 texels per texel.
+// Texels outside a mip count as 0 (nearest), so they never raise a max.
+#include "bgfx_compute.sh"
+
+#define HIZ_GROUP 16u
+#define HIZ_MIPS_PER_PASS 5u
+
+SAMPLER2D(s_hizSource, 0);
+IMAGE2D_WO(s_hizMip0, r32f, 1);
+IMAGE2D_WO(s_hizMip1, r32f, 2);
+IMAGE2D_WO(s_hizMip2, r32f, 3);
+IMAGE2D_WO(s_hizMip3, r32f, 4);
+IMAGE2D_WO(s_hizMip4, r32f, 5);
+
+// [0]: source width, height, this pass's first mip's width, height.
+// [1]: x 1 when the source is the depth buffer, y mips this pass writes, z the source's lod.
+uniform vec4 u_hizBuild[2];
+
+SHARED float s_tile[HIZ_GROUP * HIZ_GROUP];
+
+uint hizUint(float value)
+{
+	return uint(value + 0.5);
+}
+
+float hizSource(uint x, uint y, uint width, uint height, float lod)
+{
+	vec2 uv = vec2((float(x) + 0.5) / float(width), (float(y) + 0.5) / float(height));
+	return texture2DLod(s_hizSource, uv, lod).x;
+}
+
+void hizStore(uint level, uvec2 texel, float depth)
+{
+	ivec2 at = ivec2(texel);
+	vec4 value = vec4(depth, depth, depth, depth);
+	if (level == 0u)
+	{
+		imageStore(s_hizMip0, at, value);
+	}
+	else if (level == 1u)
+	{
+		imageStore(s_hizMip1, at, value);
+	}
+	else if (level == 2u)
+	{
+		imageStore(s_hizMip2, at, value);
+	}
+	else if (level == 3u)
+	{
+		imageStore(s_hizMip3, at, value);
+	}
+	else
+	{
+		imageStore(s_hizMip4, at, value);
+	}
+}
+
+NUM_THREADS(16, 16, 1)
+void main()
+{
+	uint sourceWidth = hizUint(u_hizBuild[0].x);
+	uint sourceHeight = hizUint(u_hizBuild[0].y);
+	uint width = hizUint(u_hizBuild[0].z);
+	uint height = hizUint(u_hizBuild[0].w);
+	uint mips = hizUint(u_hizBuild[1].y);
+	float lod = u_hizBuild[1].z;
+	uvec2 local = gl_LocalInvocationID.xy;
+	uvec2 texel = gl_GlobalInvocationID.xy;
+
+	float depth = 0.0;
+	if (texel.x < width && texel.y < height)
+	{
+		if (u_hizBuild[1].x > 0.5)
+		{
+			// Every depth texel the pyramid texel overlaps (at most 3 per axis).
+			uint x0 = (texel.x * sourceWidth) / width;
+			uint x1 = min(((texel.x + 1u) * sourceWidth + width - 1u) / width - 1u, sourceWidth - 1u);
+			uint y0 = (texel.y * sourceHeight) / height;
+			uint y1 = min(((texel.y + 1u) * sourceHeight + height - 1u) / height - 1u, sourceHeight - 1u);
+			for (uint j = 0u; j < 3u; ++j)
+			{
+				for (uint i = 0u; i < 3u; ++i)
+				{
+					depth = max(depth, hizSource(min(x0 + i, x1), min(y0 + j, y1), sourceWidth, sourceHeight, 0.0));
+				}
+			}
+		}
+		else
+		{
+			uint x0 = min(texel.x * 2u, sourceWidth - 1u);
+			uint x1 = min(texel.x * 2u + 1u, sourceWidth - 1u);
+			uint y0 = min(texel.y * 2u, sourceHeight - 1u);
+			uint y1 = min(texel.y * 2u + 1u, sourceHeight - 1u);
+			depth = max(max(hizSource(x0, y0, sourceWidth, sourceHeight, lod), hizSource(x1, y0, sourceWidth, sourceHeight, lod)),
+				max(hizSource(x0, y1, sourceWidth, sourceHeight, lod), hizSource(x1, y1, sourceWidth, sourceHeight, lod)));
+		}
+		hizStore(0u, texel, depth);
+	}
+	s_tile[local.y * HIZ_GROUP + local.x] = depth;
+	barrier();
+
+	// The rest of the pass's mips from groupshared memory (every thread reaches every barrier).
+	uint size = HIZ_GROUP / 2u;
+	for (uint level = 1u; level < HIZ_MIPS_PER_PASS; ++level)
+	{
+		bool busy = local.x < size && local.y < size;
+		float reduced = 0.0;
+		if (busy)
+		{
+			uint at = (local.y * 2u) * HIZ_GROUP + local.x * 2u;
+			reduced = max(max(s_tile[at], s_tile[at + 1u]), max(s_tile[at + HIZ_GROUP], s_tile[at + HIZ_GROUP + 1u]));
+		}
+		barrier();
+		if (busy)
+		{
+			s_tile[local.y * HIZ_GROUP + local.x] = reduced;
+			uvec2 mipTexel = gl_WorkGroupID.xy * size + local;
+			uint mipWidth = max(width >> level, 1u);
+			uint mipHeight = max(height >> level, 1u);
+			if (level < mips && mipTexel.x < mipWidth && mipTexel.y < mipHeight)
+			{
+				hizStore(level, mipTexel, reduced);
+			}
+		}
+		barrier();
+		size = size / 2u;
+	}
+}

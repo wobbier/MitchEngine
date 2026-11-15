@@ -838,14 +838,15 @@ TEST_CASE( "shader compiler: the froxel fog shaders compile for every portable p
 
 
 // ME-389: the GPU culling passes (index buffer reads, groupshared scans, indirect argument writes)
-// build everywhere compute does.
+// build everywhere compute does; ME-400's occlusion passes too (a depth pyramid written through R32F
+// images and read through samplers).
 TEST_CASE( "shader compiler: the GPU culling shaders compile for every portable profile" )
 {
     const std::filesystem::path directory = std::filesystem::path( Path( ".tmp/GpuCullShaderTests" ).FullPath );
     std::filesystem::remove_all( directory );
     std::filesystem::create_directories( directory );
     std::string failures;
-    for( const char* name : { "GpuCullCount", "GpuCullOffsets", "GpuCullWrite", "GpuCullScatter" } )
+    for( const char* name : { "GpuCullCount", "GpuCullOffsets", "GpuCullWrite", "GpuCullScatter", "GpuCullOcclusionCount", "GpuCullOcclusionWrite", "GpuCullDepthPyramid" } )
     {
         const std::string source = Path( std::string( "Assets/Shaders/Culling/" ) + name + ".comp" ).FullPath;
         REQUIRE( std::filesystem::exists( source ) );
