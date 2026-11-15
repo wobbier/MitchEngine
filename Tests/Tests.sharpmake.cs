@@ -15,6 +15,12 @@ public class EngineTests : BaseProject
         SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../Modules/Havana/Source/Editor/UndoStack.cpp"));
         SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../Modules/Havana/Source/Editor/SequenceDocument.cpp"));
         SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../Modules/Havana/Source/Widgets/SequenceTimeline.cpp"));
+        // A game's own unit tests (Game/Tests/Source) build into the same runner.
+        string gameTests = Path.Combine(Globals.RootDir, "Game/Tests/Source");
+        if (Globals.HasGameModule && Directory.Exists(gameTests))
+        {
+            AdditionalSourceRootPaths.Add(gameTests);
+        }
     }
 
     public override void ConfigureAll(Project.Configuration conf, CommonTarget target)
