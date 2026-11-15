@@ -1,0 +1,50 @@
+// Pass 1 of a texture histogram (Moonlight::TextureHistogram). One group of 16x16 threads covers
+// a 16x16 tile of a sample grid laid over the source texture, bins those 256 samples, and writes
+// that group's 64-bin histogram (16 vec4s). No atomics: they are not portable through bgfx, so
+// each thread bins one sample into groupshared memory and 16 threads then count four bins each.
+// HistogramMerge.comp adds the groups up.
+//
+// The binned value is dot(texel, u_histWeights), through log2 when u_histParams.w is 1. The bins
+// span [u_histRange.x, u_histRange.y] of that value; values outside land in the first/last bin.
+#include "bgfx_compute.sh"
+
+SAMPLER2D(s_histSource, 0);
+BUFFER_WO(s_groupHistograms, vec4, 1);
+
+uniform vec4 u_histGrid;    // xy: samples across / down (groups * 16), zw: unused
+uniform vec4 u_histWeights; // weights applied to the texel's rgba
+uniform vec4 u_histRange;   // x min, y max (of the value, in log2 units when logarithmic), z 1 / (max - min)
+uniform vec4 u_histParams;  // x bins (64), y groups across, w 1 = log2 of the value
+
+#define HIST_BINS 64
+#define HIST_GROUP 256
+
+SHARED float s_sampleBin[HIST_GROUP];
+
+NUM_THREADS(16, 16, 1)
+void main()
+{
+	uint index = gl_LocalInvocationID.y * 16u + gl_LocalInvocationID.x;
+	vec2 uv = (vec2(gl_GlobalInvocationID.xy) + 0.5) / u_histGrid.xy;
+	float value = dot(texture2DLod(s_histSource, uv, 0.0), u_histWeights);
+	if (u_histParams.w > 0.5)
+	{
+		value = log2(max(value, 0.00001));
+	}
+	float bin = floor((value - u_histRange.x) * u_histRange.z * float(HIST_BINS));
+	s_sampleBin[index] = clamp(bin, 0.0, float(HIST_BINS - 1));
+	barrier();
+
+	if (index < 16u)
+	{
+		vec4 counts = vec4(0.0, 0.0, 0.0, 0.0);
+		float first = float(index * 4u);
+		for (uint i = 0u; i < uint(HIST_GROUP); ++i)
+		{
+			float b = s_sampleBin[i] - first;
+			counts += vec4(b == 0.0 ? 1.0 : 0.0, b == 1.0 ? 1.0 : 0.0, b == 2.0 ? 1.0 : 0.0, b == 3.0 ? 1.0 : 0.0);
+		}
+		uint group = gl_WorkGroupID.y * uint(u_histParams.y + 0.5) + gl_WorkGroupID.x;
+		s_groupHistograms[group * 16u + index] = counts;
+	}
+}

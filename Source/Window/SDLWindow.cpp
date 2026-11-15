@@ -32,6 +32,7 @@
 #include <bgfx/bgfx.h>
 
 #include "CLog.h"
+#include "Core/CommandLine.h"
 #include "Engine/AutomationRunner.h"
 #include "Input/Gamepads.h"
 #include "Engine/Input.h"
@@ -120,7 +121,9 @@ SDLWindow::SDLWindow( const std::string& title, std::function<void( const Vector
     int yPos = ( Y == 0 ) ? SDL_WINDOWPOS_UNDEFINED : Y;
     Uint32 windowFlags = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE;
 #if USING( ME_PLATFORM_LINUX )
-    windowFlags |= SDL_WINDOW_VULKAN;
+    // ME-375: --renderer gl needs a window made for OpenGL (a Vulkan one can't take a GL surface).
+    const std::string rendererArg = CommandLine::GetString( "--renderer" );
+    windowFlags |= ( rendererArg == "gl" || rendererArg == "opengl" ) ? SDL_WINDOW_OPENGL : SDL_WINDOW_VULKAN;
 #endif
     WindowHandle = SDL_CreateWindow( title.c_str(), xPos, yPos, static_cast<int>( windowSize.x ), static_cast<int>( windowSize.y ), windowFlags );
     if( WindowHandle == nullptr ) {

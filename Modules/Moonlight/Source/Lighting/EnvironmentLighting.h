@@ -1,6 +1,7 @@
 #pragma once
 #include <bgfx/bgfx.h>
 #include "Graphics/ShaderCommand.h"
+#include "Utils/BGFXUtils.h"
 #include <array>
 #include <cstdint>
 #include <vector>
@@ -15,8 +16,10 @@ namespace Moonlight
     // panorama or the procedural sky. Each distinct source gets a probe: the environment captured into
     // a cube, GGX-prefiltered into a specular mip chain (roughness = mip / (kSpecularMips - 1)) and
     // convolved into diffuse irradiance, plus one shared split-sum BRDF table. Probes refresh when their
-    // source changes (e.g. the sky's sun moves), one step a frame over kRefreshSteps frames: each
-    // step's six faces need a framebuffer apiece until the frame is done, and bgfx's pool is small.
+    // source changes (e.g. the sky's sun moves). With compute (UseCompute) a refresh is the capture draw
+    // plus a few dispatch-only views in the same frame: the filters write the cube faces as image layers
+    // and need no framebuffers. Without it the refresh is one step a frame over kRefreshSteps frames:
+    // each step's six faces need a framebuffer apiece until the frame is done, and bgfx's pool is small.
     class EnvironmentLighting
     {
     public:
@@ -38,6 +41,8 @@ namespace Moonlight
             uint64_t LastUsedFrame = 0;
             uint8_t NextStep = 0;    // mid-refresh (captured, still filtering) when not 0
             bool Ready = false;      // filtered at least once
+            bool Compute = false;    // textures made for the compute filters (else for the framebuffer path)
+            uint64_t RefreshStartFrame = 0;
         };
 
         void Init();
@@ -52,6 +57,10 @@ namespace Moonlight
         bool IsBrdfLutReady() const { return m_brdfReady; }
 
         float Intensity = 1.f;
+
+        // Filter probes with compute dispatches when the programs are available. The renderer sets this
+        // each frame from IsComputeActive(); the framebuffer path stays the fallback and the reference.
+        bool UseCompute = false;
 
     private:
         enum SourceType : int
@@ -70,10 +79,13 @@ namespace Moonlight
         };
 
         SourceDesc DescribeSource( const CameraData& InCamera, DynamicSky* InSky ) const;
-        void CreateProbe( Probe& OutProbe );
+        void CreateProbe( Probe& OutProbe, bool InCompute );
+        void LogRefresh( uint64_t InFrames, bool InCompute, uint64_t InDoneFrame );
         void DestroyProbe( Probe& InProbe );
-        bool Capture( Probe& InProbe, const SourceDesc& InSource, ViewAllocator& InViews, DynamicSky* InSky );
+        bool Capture( Probe& InProbe, const SourceDesc& InSource, ViewAllocator& InViews, DynamicSky* InSky, bool InCompute );
         bool RefreshStep( Probe& InProbe, uint8_t InStep, ViewAllocator& InViews );
+        bool FilterCompute( Probe& InProbe, ViewAllocator& InViews );
+        bool IsComputeFilterReady() const;
         bool RenderBrdfLut( ViewAllocator& InViews );
         bgfx::ViewId BeginPass( ViewAllocator& InViews, const char* InName, bgfx::TextureHandle InTarget, uint16_t InLayer, uint16_t InMip, uint16_t InSize );
         void Submit( bgfx::ViewId InView, const ShaderCommand& InProgram );
@@ -89,6 +101,10 @@ namespace Moonlight
         ShaderCommand m_prefilterProgram;
         ShaderCommand m_irradianceProgram;
         ShaderCommand m_brdfProgram;
+        SharedPtr<ProgramRef> m_downsampleCs;
+        SharedPtr<ProgramRef> m_prefilterCs;
+        SharedPtr<ProgramRef> m_irradianceCs;
+        uint32_t m_loggedRefreshes = 0;
         bgfx::UniformHandle u_envFace = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_envSource = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_envColor = BGFX_INVALID_HANDLE;

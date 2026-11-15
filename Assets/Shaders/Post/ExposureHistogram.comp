@@ -1,0 +1,45 @@
+// Metering from a luminance histogram (Moonlight::TextureHistogram bins log2 luminance): the
+// average log luminance of the samples between two percentiles, so the brightest and darkest few
+// percent (a lamp in a dark room) don't steer the exposure. Writes the linear luminance into a
+// 1x1 R32F image, where the Adapt pass takes over like it does after the log-average chain.
+#include "bgfx_compute.sh"
+
+BUFFER_RO(s_mergedHistogram, vec4, 0);
+IMAGE2D_WO(s_meteredLuminance, r32f, 1);
+
+uniform vec4 u_histRange;   // x min, y max (log2 luminance), z 1 / (max - min)
+uniform vec4 u_meterParams; // x low percentile (0..1), y high percentile, z fallback luminance
+
+#define HIST_BINS 64
+
+NUM_THREADS(1, 1, 1)
+void main()
+{
+	float total = 0.0;
+	for (uint k = 0u; k < 16u; ++k)
+	{
+		vec4 c = s_mergedHistogram[k];
+		total += c.x + c.y + c.z + c.w;
+	}
+	float low = total * u_meterParams.x;
+	float high = total * u_meterParams.y;
+	float binWidth = 1.0 / (u_histRange.z * float(HIST_BINS));
+	float cumulative = 0.0;
+	float weighted = 0.0;
+	float weight = 0.0;
+	for (uint k = 0u; k < 16u; ++k)
+	{
+		vec4 c = s_mergedHistogram[k];
+		for (uint j = 0u; j < 4u; ++j)
+		{
+			float count = j == 0u ? c.x : (j == 1u ? c.y : (j == 2u ? c.z : c.w));
+			float inside = max(min(cumulative + count, high) - max(cumulative, low), 0.0);
+			float center = u_histRange.x + (float(k * 4u + j) + 0.5) * binWidth;
+			weighted += inside * center;
+			weight += inside;
+			cumulative += count;
+		}
+	}
+	float luminance = weight > 0.0 ? exp2(weighted / weight) : u_meterParams.z;
+	imageStore(s_meteredLuminance, ivec2(0, 0), vec4(luminance, luminance, luminance, luminance));
+}

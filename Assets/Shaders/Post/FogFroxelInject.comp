@@ -1,0 +1,76 @@
+// Froxel fog, pass 1 of 3 (PostProcess::RenderFog with compute): lights every cell of the camera's
+// froxel grid. One thread per cell; z is the dispatch's third dimension. The light is what the
+// fragment march (FogScatter.frag) gathers at a step: the ambient fog colour, the sun through its
+// cascaded shadow (Henyey-Greenstein phase), and the local lights of the cell's cluster with their
+// shadows, cones and own phase. Output: rgb that light (radiance before extinction), a the fog's
+// extinction per metre at the cell. The sample sits at a jittered point of the cell when the fog is
+// temporal (FogFroxelBlend accumulates it), at the centre otherwise.
+//
+// No Common.sh: ShaderLib.sh samples with implicit LOD, which compute shaders can't. The image is
+// write-only (D3D11 can't load typed RGBA16F UAVs); later passes read it through a sampler.
+#include "bgfx_compute.sh"
+#include "PostCommon.sh"
+#include "../Lighting.sh"
+#include "../Fog.sh"
+#include "FogFroxel.sh"
+
+IMAGE3D_WO(s_froxelOut, rgba16f, 0);
+// Stages 8-15 are Lighting.sh's (BGFXRenderer::BindLighting).
+
+NUM_THREADS(8, 8, 1)
+void main()
+{
+	ivec3 cell = ivec3(gl_GlobalInvocationID.xyz);
+	if (float(cell.x) >= u_froxelGrid.x || float(cell.y) >= u_froxelGrid.y || float(cell.z) >= u_froxelGrid.z)
+	{
+		return;
+	}
+	vec3 j = vec3_splat(0.5);
+	if (u_froxelDepth.w >= 0.0)
+	{
+		// A different point of the cell every frame, decorrelated between neighbours.
+		float n = interleavedGradientNoise(vec2(cell.xy) + vec2(float(cell.z) * 7.0, float(cell.z) * 3.0));
+		j = fract(vec3(n, n + 0.61803398875, n + 0.38196601125) + u_froxelDepth.w * vec3(1.0, 0.75487766625, 0.56984029100));
+	}
+	vec2 uv = (vec2(cell.xy) + j.xy) / u_froxelGrid.xy;   // top-left origin, like fogRay
+	float viewZ = froxelCellDepth(float(cell.z), j.z);
+	vec3 dir;
+	float distance;
+	float viewZPerMetre;
+	float originViewZ;
+	vec3 origin = fogRay(uv, viewZ, dir, distance, viewZPerMetre, originViewZ);
+	vec3 p = origin + dir * distance;
+	float sigma = fogDensity(p.y);
+
+	vec3 light = u_fogColor.rgb;
+	for (int i = 0; i < MAX_DIRECTIONAL_LIGHTS; ++i)
+	{
+		if (float(i) >= u_lightParams.x) break;
+		float visibility = i == 0 ? sunShadowVolume(p, viewZ) : 1.0;
+		light += u_dirLightColor[i].rgb * henyeyGreenstein(dot(dir, -u_dirLightDirection[i].xyz), u_fogVolume.y) * u_fogVolume.x
+			* directionalEclipse(i, p) * visibility;
+	}
+	if (u_lightParams.y > 0.5)
+	{
+		// About half a cell, in metres at this depth (the cells are square on screen).
+		float cell = (u_fogProjection.z > 0.5 ? 1.0 : viewZ) * 2.0 / (u_fogProjection2.y * u_froxelGrid.y);
+		float nearField = 0.25 * cell * cell;
+		vec2 range = clusterRangeAt(uv * u_fogScreen.xy, viewZ);
+		int count = int(range.y);
+		vec3 local = vec3_splat(0.0);
+		for (int i = 0; i < MAX_LIGHTS_PER_CLUSTER; ++i)
+		{
+			if (i >= count)
+			{
+				break;
+			}
+			vec3 toLight;
+			vec3 radiance = froxelLocalLight(p, clusterLight(range, i), nearField, toLight);
+			local += radiance * henyeyGreenstein(dot(dir, toLight), u_fogVolume2.x);
+		}
+		light += local * u_fogVolume.x;
+	}
+	// Stored wherever the fog is thin too (the integration weighs it by the extinction), kept
+	// inside half-float range.
+	imageStore(s_froxelOut, cell, vec4(min(light, vec3_splat(60000.0)), sigma));
+}

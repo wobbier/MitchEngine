@@ -56,6 +56,8 @@ public:
         uint32_t SceneDrawCalls = 0;
         // Sprite batches drawn (every camera): one per run of sprites sharing a texture and state.
         uint32_t SpriteBatches = 0;
+        // CPU particle instances that did not fit bgfx's transient instance buffer this frame (every camera): not drawn.
+        uint32_t DroppedParticles = 0;
         uint64_t SceneTriangles = 0;
         // Output size of the main game camera (else the scene view), and this frame's lights.
         uint32_t SceneWidth = 0;

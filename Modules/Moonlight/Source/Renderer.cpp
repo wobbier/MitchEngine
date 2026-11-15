@@ -75,6 +75,10 @@ namespace
         BGFX_STATE_PT_POINTS,
     };
     static_assert( BX_COUNTOF( s_ptState ) == BX_COUNTOF( s_ptNames ) );
+
+    // bgfx's transient vertex buffer, which backs every instance-data allocation (bgfx's default is 6 MB). 64 MB holds
+    // ~1M 64-byte particle instances a frame; it is allocated once per frame in flight, host visible.
+    constexpr uint32_t kTransientInstanceBufferBytes = 64u << 20;
 }
 
 
@@ -110,6 +114,9 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
     init.swapChain.ndt  = settings.DisplayPtr;
     init.platformData.type = settings.WindowType;
     init.callback = &m_bgfxCallback;
+    // Instance data (CPU particles, mesh instances) comes from the transient vertex buffer, one per frame in flight.
+    // bgfx's default is 6 MB, which holds ~98k 64-byte particle instances; the rest of a frame's were dropped silently.
+    init.limits.maxTransientVbSize = kTransientInstanceBufferBytes;
     init.swapChain.width  = static_cast<uint32_t>( PreviousSize.x );
     init.swapChain.height = static_cast<uint32_t>( PreviousSize.y );
 #if USING( ME_PLATFORM_MACOS )
@@ -128,6 +135,18 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
     {
         init.type = settings.Type;
     }
+    else if( CommandLine::Has( "--renderer" ) )
+    {
+        // ME-375: pick the backend by name to test the others (the default is the platform's).
+        const std::string api = CommandLine::GetString( "--renderer" );
+        if( api == "gl" || api == "opengl" ) init.type = bgfx::RendererType::OpenGL;
+        else if( api == "vulkan" ) init.type = bgfx::RendererType::Vulkan;
+        else if( api == "d3d11" ) init.type = bgfx::RendererType::Direct3D11;
+        else if( api == "d3d12" ) init.type = bgfx::RendererType::Direct3D12;
+        else if( api == "metal" ) init.type = bgfx::RendererType::Metal;
+        else CLog::Log( CLog::LogType::Warning, "Unknown --renderer " + api + " (gl, vulkan, d3d11, d3d12, metal)" );
+    }
+    m_bgfxCallback.EnableTrace = CommandLine::Has( "--bgfx-trace" ); // ME-375: bgfx's own init messages
     m_resetFlags = init.reset;
     CurrentSize = settings.InitialSize;
 #if USING( ME_ENABLE_RENDERDOC )
@@ -156,6 +175,12 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
 
     m_hasAssets = settings.InitAssets;
     m_drawsNothing = settings.Type == bgfx::RendererType::Noop;
+    {
+        const bgfx::Caps* initCaps = bgfx::getCaps();
+        char gpuText[128];
+        snprintf( gpuText, sizeof( gpuText ), "GPU: vendor 0x%04x device 0x%04x (%s)", initCaps->vendorId, initCaps->deviceId, bgfx::getRendererName( bgfx::getRendererType() ) );
+        CLog::Log( CLog::LogType::Info, gpuText );
+    }
     CLog::Log( CLog::LogType::Info, std::string( "Compute shaders: " ) + ( IsComputeSupported() ? "supported" : "not supported" ) + " (" + bgfx::getRendererName( bgfx::getRendererType() ) + ")" );
     if( settings.InitAssets )
     {
@@ -288,6 +313,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         m_depthPrepassPrograms[1][0] = Moonlight::ShaderCommand( "Assets/Shaders/StandardSkinned", "Assets/Shaders/StandardDepthSolid" );
         m_depthPrepassPrograms[1][1] = Moonlight::ShaderCommand( "Assets/Shaders/StandardSkinned", "Assets/Shaders/StandardDepth" );
         EnableDepthPrepass = !CommandLine::Has( "--no-depth-prepass" );
+        EnableFroxelFog = CommandLine::Has( "--froxel-fog" );
         m_outlineHullProgram = Moonlight::ShaderCommand( "Assets/Shaders/OutlineHull", "Assets/Shaders/OutlineHull" );
         m_outlineHullSkinnedProgram = Moonlight::ShaderCommand( "Assets/Shaders/OutlineHullSkinned", "Assets/Shaders/OutlineHull" );
         u_outlineHull = bgfx::createUniform( "u_outlineHull", bgfx::UniformType::Vec4 );
@@ -345,7 +371,9 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
             if( IsComputeSupported() )
             {
                 m_gpuParticles = MakeUnique<Moonlight::GpuParticleSimulator>();
+                m_gpuParticleSorter = MakeUnique<Moonlight::GpuParticleSorter>();
             }
+            EnableGpuParticleSort = !CommandLine::Has( "--no-gpu-particle-sort" );
 
             const uint32_t white = 0xffffffff;
             m_spriteWhite = bgfx::createTexture2D( 1, 1, false, 1, bgfx::TextureFormat::RGBA8, BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP, bgfx::copy( &white, sizeof( white ) ) );
@@ -577,6 +605,8 @@ void BGFXRenderer::Destroy()
     // while bgfx is alive.
     m_particleBatches.clear();
     m_gpuParticles.reset();
+    m_gpuParticleSorter.reset();
+    m_particleSortTargets.clear();
     m_decals.clear();
     for( auto& sampler : GraphSamplers() )
     {
@@ -956,6 +986,8 @@ void BGFXRenderer::GatherFrameStats()
     out.SceneDrawCalls = scene.Draws + m_frameCounts.Draws + m_textureCounts.Draws;
     out.SpriteBatches = m_spriteBatches;
     m_spriteBatches = 0;
+    out.DroppedParticles = m_droppedParticles;
+    m_droppedParticles = 0;
     out.SceneTriangles = scene.Triangles + m_frameCounts.Triangles + m_textureCounts.Triangles;
     out.SceneWidth = scene.Width;
     out.SceneHeight = scene.Height;
@@ -1192,6 +1224,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     m_lighting.EraParams[3] = 0.f;
 
     // Ambient: the camera's environment probe (captured and filtered on demand).
+    m_environment->UseCompute = IsComputeActive();
     const Moonlight::EnvironmentLighting::Probe* probe = lit && EnableEnvironmentLighting && FeatureCaps.EnvironmentLighting ? m_environment->Prepare( m_views, camera, m_dynamicSky.get(), m_frameIndex ) : nullptr;
     m_lighting.EnvSpecular = probe ? probe->Specular : m_environment->GetFallbackCube();
     m_lighting.EnvIrradiance = probe ? probe->Irradiance : m_environment->GetFallbackCube();
@@ -1587,7 +1620,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     if( sceneEffects && options.Decals && world ) RenderDecals( camera );
     m_postProcess->RenderAmbientOcclusion( m_views, camera, *camera.Buffer );
     m_postProcess->RenderOutlineEdges( m_views, camera, *camera.Buffer );
-    m_postProcess->RenderFog( m_views, camera, *camera.Buffer, [this]() { BindLighting(); } );
+    m_postProcess->RenderFog( m_views, camera, *camera.Buffer, [this]() { BindLighting(); }, IsComputeActive() && EnableFroxelFog );
     // Everything drawn from here on (transparents, particles) is in front of the fogged scene.
     m_lighting.FogForward[0] = camera.Post.Fog && camera.Post.FogDensity > 0.f && camera.Post.FogMaxOpacity > 0.f ? 1.f : 0.f;
 
@@ -1670,6 +1703,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     m_postProcess->RenderTemporalAA( m_views, camera, *camera.Buffer );
     camera.Buffer->PostInput = RenderGraphPostPasses( *m_postProcess, m_views, camera, *camera.Buffer, "BeforeTonemap", camera.Buffer->PostInput, BGFX_INVALID_HANDLE, 0, 0 );
     // Eye adaptation follows the time since this camera last rendered (render textures can skip frames).
+    m_postProcess->UseComputeMetering = IsComputeActive();
     m_postProcess->DeltaSeconds = std::max( camera.RenderDeltaSeconds > 0.f ? camera.RenderDeltaSeconds : m_time.x, 0.0001f );
     const bool displayGraphs = std::any_of( camera.Post.Graphs.begin(), camera.Post.Graphs.end(), []( const SharedPtr<Moonlight::ShaderGraphAsset>& InGraph ) {
         return InGraph && InGraph->GetManifest().value( "Injection", std::string() ) == "AfterTonemap" && bgfx::isValid( InGraph->GetProgramHandle( "Forward" ) );
@@ -2526,6 +2560,47 @@ void BGFXRenderer::RenderParticles( Moonlight::CameraData& camera )
     }
     std::sort( m_particleOrder.begin(), m_particleOrder.end(), []( const auto& a, const auto& b ) { return a.first > b.first; } );
 
+    // Alpha GPU systems sort back to front on the GPU, for this camera's view (ME-381). The sort needs
+    // the camera, so it can't run in RunFrameCompute: it gets a view of its own here, allocated after
+    // the frame compute view (the simulation it reads) and before this camera's particle view (the
+    // draws that read its result); views run in id order. Only the systems this camera draws sort.
+    m_particleSortTargets.assign( m_particleOrder.size(), nullptr );
+    if( m_gpuParticleSorter && EnableGpuParticleSort && IsComputeActive() && m_gpuParticleSorter->IsReady() )
+    {
+        bgfx::ViewId sortView = UINT16_MAX;
+        // The view-space depth the CPU path sorts by (no translation: it's the same for every particle).
+        const glm::vec3 viewDepth( viewMatrix[0][2], viewMatrix[1][2], viewMatrix[2][2] );
+        for( size_t i = 0; i < m_particleOrder.size(); ++i )
+        {
+            const Moonlight::ParticleBatch& batch = m_particleBatches[m_particleOrder[i].second];
+            if( !batch.Gpu || batch.Blend != Moonlight::ParticleBlend::Alpha || !batch.Gpu->Initialized || batch.GpuInstanceCount == 0 || batch.GpuLiveCount == 0 )
+            {
+                continue;
+            }
+            if( sortView == UINT16_MAX )
+            {
+                sortView = m_views.Allocate( camera.IsEditorView ? "Editor Particle Sort" : "Particle Sort" );
+                if( sortView == UINT16_MAX )
+                {
+                    break;
+                }
+            }
+            Moonlight::GpuParticleSorter::Request request;
+            // The camera's frame buffer stands for the camera: it is per camera and lives as long.
+            request.Camera = camera.Buffer;
+            request.ExtraCamera = RendersToTexture( camera );
+            request.ReuseMainOrder = batch.GpuSortCameras == Moonlight::ParticleSortCameras::MainCamera;
+            request.ViewDepth = viewDepth;
+            request.Frame = m_frameIndex;
+            request.Count = batch.GpuLiveCount;
+            request.RingEnd = batch.GpuRingEnd;
+            request.SpawnStart = batch.GpuStep.SpawnStart;
+            request.SpawnCount = batch.GpuStep.SpawnCount;
+            request.Reset = batch.GpuStep.Reset;
+            m_particleSortTargets[i] = m_gpuParticleSorter->Sort( sortView, *batch.Gpu, request );
+        }
+    }
+
     const bgfx::ViewId view = m_views.Allocate( camera.IsEditorView ? "Editor Particles" : "Particles" );
     if( view == UINT16_MAX )
     {
@@ -2544,9 +2619,9 @@ void BGFXRenderer::RenderParticles( Moonlight::CameraData& camera )
     constexpr uint16_t kInstanceStride = sizeof( Moonlight::ParticleInstance );
     static_assert( sizeof( Moonlight::ParticleInstance ) == 64, "particle instances are four vec4s" );
 
-    for( const auto& entry : m_particleOrder )
+    for( size_t orderIndex = 0; orderIndex < m_particleOrder.size(); ++orderIndex )
     {
-        const Moonlight::ParticleBatch& batch = m_particleBatches[entry.second];
+        const Moonlight::ParticleBatch& batch = m_particleBatches[m_particleOrder[orderIndex].second];
         const Moonlight::ParticleInstance* instances = batch.Instances.data();
         if( batch.Blend == Moonlight::ParticleBlend::Alpha && !batch.Gpu )
         {
@@ -2569,8 +2644,9 @@ void BGFXRenderer::RenderParticles( Moonlight::CameraData& camera )
         // A particle shader graph replaces the fragment shader (it keeps Particle.vert).
         const bgfx::ProgramHandle graphProgram = batch.Graph ? batch.Graph->GetProgramHandle( "Forward" ) : bgfx::ProgramHandle( BGFX_INVALID_HANDLE );
 
-        // Everything but the instance data, shared by the GPU and CPU paths.
-        auto submitDraw = [&]() {
+        // Everything but the instance data, shared by the GPU and CPU paths. An indirect buffer
+        // (a sorted GPU system) supplies the instance count the GPU wrote.
+        auto submitDraw = [&]( bgfx::IndirectBufferHandle indirect = BGFX_INVALID_HANDLE ) {
             bgfx::setVertexBuffer( 0, m_particleQuadVB );
             bgfx::setIndexBuffer( m_particleQuadIB );
             if( bgfx::isValid( graphProgram ) )
@@ -2590,13 +2666,29 @@ void BGFXRenderer::RenderParticles( Moonlight::CameraData& camera )
             // The particle shader includes the lighting code, so its samplers are always bound.
             BindLighting();
             bgfx::setState( BGFX_STATE_WRITE_RGB | blend );
-            bgfx::submit( view, bgfx::isValid( graphProgram ) ? graphProgram : m_particleProgram.GetProgram() );
+            const bgfx::ProgramHandle program = bgfx::isValid( graphProgram ) ? graphProgram : m_particleProgram.GetProgram();
+            if( bgfx::isValid( indirect ) )
+            {
+                bgfx::submit( view, program, indirect, 0, 1 );
+            }
+            else
+            {
+                bgfx::submit( view, program );
+            }
         };
 
         if( batch.Gpu )
         {
-            // GPU-simulated (Additive, so unsorted): the compute pass wrote the instances this frame.
-            if( batch.Gpu->Initialized && batch.GpuInstanceCount > 0 )
+            // GPU-simulated: the compute pass wrote the instances this frame. Additive draws them in
+            // slot order; Alpha draws this camera's sorted copy (or, while the sort programs load or
+            // with the sort off, the slot order too).
+            const Moonlight::GpuParticleSortTarget* sorted = m_particleSortTargets[orderIndex];
+            if( sorted && sorted->Ready && sorted->DrawCount > 0 )
+            {
+                bgfx::setInstanceDataBuffer( sorted->GetInstances(), 0, sorted->DrawCount );
+                submitDraw( sorted->DrawIndirect ? sorted->GetDrawArgs() : bgfx::IndirectBufferHandle( BGFX_INVALID_HANDLE ) );
+            }
+            else if( batch.Gpu->Initialized && batch.GpuInstanceCount > 0 )
             {
                 bgfx::setInstanceDataBuffer( batch.Gpu->GetInstances(), 0, std::min( batch.GpuInstanceCount, batch.Gpu->GetCapacity() ) );
                 submitDraw();
@@ -2611,6 +2703,16 @@ void BGFXRenderer::RenderParticles( Moonlight::CameraData& camera )
             const uint32_t available = bgfx::getAvailInstanceDataBuffer( count - offset, kInstanceStride );
             if( available == 0 )
             {
+                // The frame's transient instance buffer (Create: maxTransientVbSize) is used up: the rest of this
+                // system, and any later one, is not drawn. Count it, and say so once.
+                m_droppedParticles += count - offset;
+                static bool s_warned = false;
+                if( !s_warned )
+                {
+                    s_warned = true;
+                    CLog::Log( CLog::LogType::Warning, "Particles: the transient instance buffer ("
+                        + std::to_string( kTransientInstanceBufferBytes >> 20 ) + " MB) is full; particles past it are not drawn this frame (FrameStats DroppedParticles counts them)." );
+                }
                 break;
             }
             bgfx::InstanceDataBuffer idb;

@@ -1,0 +1,48 @@
+// Froxel fog, pass 3 of 3: one thread per grid column walks its cells front to back and writes the
+// light scattered towards the camera and the transmittance from the fog's start to the far
+// boundary of each cell (cell k holds the fog up to slice boundary k + 1), with the march's
+// accumulation (FogScatter.frag). FogFroxel.frag then reads the fog in front of any pixel with one
+// filtered lookup.
+#include "bgfx_compute.sh"
+#include "../Fog.sh"
+#include "FogFroxel.sh"
+
+IMAGE3D_WO(s_froxelOut, rgba16f, 0);   // integrated: rgb in-scattering, a transmittance
+SAMPLER3D(s_froxelIn, 1);              // lit cells: rgb light, a extinction (history, or this frame's injection)
+
+#define FROXEL_MAX_DEPTH 128   // PostProcess::kFroxelMaxDepth
+
+NUM_THREADS(8, 8, 1)
+void main()
+{
+	ivec2 column = ivec2(gl_GlobalInvocationID.xy);
+	if (float(column.x) >= u_froxelGrid.x || float(column.y) >= u_froxelGrid.y)
+	{
+		return;
+	}
+	vec2 uv = (vec2(column) + 0.5) / u_froxelGrid.xy;
+	vec3 dir;
+	float distance;
+	float viewZPerMetre;
+	float originViewZ;
+	fogRay(uv, 1.0, dir, distance, viewZPerMetre, originViewZ);   // metres of ray per unit of view depth: 1 / viewZPerMetre
+
+	vec3 scattered = vec3_splat(0.0);
+	float transmittance = 1.0;
+	float z0 = min(u_froxelParams.y, u_froxelDepth.x);
+	for (int k = 0; k < FROXEL_MAX_DEPTH; ++k)
+	{
+		if (float(k) >= u_froxelGrid.z)
+		{
+			break;
+		}
+		float z1 = froxelViewDepth(float(k + 1));
+		float stepLength = (z1 - z0) / max(viewZPerMetre, 1e-4);
+		vec4 lit = texture3DLod(s_froxelIn, vec3(uv, (float(k) + 0.5) / u_froxelGrid.z), 0.0);
+		float stepTransmittance = exp(-lit.a * stepLength);
+		scattered += transmittance * lit.rgb * (1.0 - stepTransmittance);
+		transmittance *= stepTransmittance;
+		imageStore(s_froxelOut, ivec3(column, k), vec4(scattered, transmittance));
+		z0 = z1;
+	}
+}

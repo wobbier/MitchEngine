@@ -1,0 +1,22 @@
+// Halves a cube (compute version of EnvDownsample.frag): the bilinear fetch at the destination texel
+// centre averages 2x2 source texels. One thread per destination texel; the face is the z group index.
+// The destination is a write-only image (D3D11 can't read typed UAVs), the source goes through a sampler.
+// u_envFace.z is the destination size in texels.
+#include "bgfx_compute.sh"
+#include "EnvMath.sh"
+
+SAMPLERCUBE(s_envSource, 0);
+IMAGE2D_ARRAY_WO(s_envDest, rgba16f, 1);
+
+NUM_THREADS(8, 8, 1)
+void main()
+{
+	float size = u_envFace.z;
+	if (float(gl_GlobalInvocationID.x) >= size || float(gl_GlobalInvocationID.y) >= size)
+	{
+		return;
+	}
+	vec2 st = (vec2(gl_GlobalInvocationID.xy) + 0.5) / size;
+	vec3 dir = cubeFaceDirection(float(gl_GlobalInvocationID.z), st);
+	imageStore(s_envDest, ivec3(gl_GlobalInvocationID.xyz), vec4(envCubeLod(s_envSource, dir, 0.0).rgb, 1.0));
+}

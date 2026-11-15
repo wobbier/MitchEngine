@@ -1,0 +1,74 @@
+// GPU alpha sort, last pass: writes one camera's instances in sorted order (see ParticleSort.sh).
+// Instance i is the simulation's instance of the slot the i-th entry names; for i past the order's
+// entries it is the slot appendStart + (i - orderCount) (the births a reused order hasn't seen).
+// Slots past the capacity (padding) write a zero-size, zero-alpha instance, like a dead slot does.
+//
+// With u_writeArgs set (the camera sorted this frame and the backend draws indirect), the thread at
+// the last live entry also writes the draw's indexed indirect arguments: 6 indices, that many
+// instances. So dead particles, which sort to the end, are cut without a readback.
+#include "bgfx_compute.sh"
+#include "ParticleSort.sh"
+
+BUFFER_RO(s_sortEntries, vec4, 0);
+BUFFER_RO(s_particleInstances, vec4, 1);
+BUFFER_WO(s_sortedInstances, vec4, 2);
+BUFFER_WO(s_drawArgs, uvec4, 3);
+
+// Packed by Moonlight::GpuParticleSorter (GpuParticles.cpp).
+uniform vec4 u_particleSort[3];
+#define u_capacity    u_particleSort[0].x
+#define u_drawCount   u_particleSort[0].y
+#define u_appendStart u_particleSort[0].z
+#define u_orderCount  u_particleSort[0].w
+#define u_writeArgs   u_particleSort[2].w
+
+bool isLive(uint index)
+{
+	return s_sortEntries[index].x < SORT_DEAD_KEY * 0.5;
+}
+
+NUM_THREADS(64, 1, 1)
+void main()
+{
+	uint index = gl_GlobalInvocationID.x;
+	uint drawCount = uint(u_drawCount + 0.5);
+	if (index >= drawCount)
+	{
+		return;
+	}
+	uint capacity = uint(u_capacity + 0.5);
+	uint orderCount = uint(u_orderCount + 0.5);
+	uint slot = index < orderCount
+		? uint(s_sortEntries[index].y + 0.5)
+		: (uint(u_appendStart + 0.5) + index - orderCount) % capacity;
+
+	uint base = index * 4u;
+	if (slot < capacity)
+	{
+		uint source = slot * 4u;
+		s_sortedInstances[base + 0u] = s_particleInstances[source + 0u];
+		s_sortedInstances[base + 1u] = s_particleInstances[source + 1u];
+		s_sortedInstances[base + 2u] = s_particleInstances[source + 2u];
+		s_sortedInstances[base + 3u] = s_particleInstances[source + 3u];
+	}
+	else
+	{
+		s_sortedInstances[base + 0u] = vec4_splat(0.0);
+		s_sortedInstances[base + 1u] = vec4_splat(0.0);
+		s_sortedInstances[base + 2u] = vec4_splat(0.0);
+		s_sortedInstances[base + 3u] = vec4_splat(0.0);
+	}
+
+	if (u_writeArgs > 0.5)
+	{
+		// Exactly one thread writes: the last live entry, or entry 0 when nothing lives. The
+		// arguments are written whole (firstIndex 0: the quad's index buffer is a static one).
+		bool live = isLive(index);
+		bool nextLive = index + 1u < orderCount && isLive(index + 1u);
+		if ((live && !nextLive) || (index == 0u && !live))
+		{
+			s_drawArgs[0] = uvec4(6u, live ? index + 1u : 0u, 0u, 0u);
+			s_drawArgs[1] = uvec4(0u, 0u, 0u, 0u);
+		}
+	}
+}

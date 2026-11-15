@@ -19,7 +19,7 @@ show-window Localization
 wait 3
 assert-window Localization | true
 action View.ResetLayout
-wait-log Layout: reset workspace 3 (Shader) | 120
+wait-log Layout: reset workspace 3 (Shader, | 120
 wait 5
 assert-window Localization | false
 assert-window Shader Graph | true

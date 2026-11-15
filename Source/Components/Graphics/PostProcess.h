@@ -24,6 +24,8 @@ public:
     float AutoExposureMinEV = -4.f;
     float AutoExposureMaxEV = 8.f;
     float AutoExposureSpeed = 2.f;
+    float AutoExposureLowPercentile = 0.1f;
+    float AutoExposureHighPercentile = 0.9f;
     Moonlight::Tonemapper Tonemapper = Moonlight::Tonemapper::ACES;
 
     // Bloom

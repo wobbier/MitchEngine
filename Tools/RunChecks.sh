@@ -18,6 +18,8 @@
 #      a frame of the shipped build with Tests/Templates/<Id>/Reference.
 #  10. runs the headless server build and a client against it over UDP on localhost
 #      (Tools/RunNetSmoke.py on Assets/Scenes/Tests/NetTest.lvl).
+#  11. runs the CPU vs GPU particle parity scene (Tools/GpuParticlesCompare.py), with compute on
+#      and under a "Compute": false profile.
 # GUI runs go through Tools/Headless.sh (a private virtual display with software Vulkan), so nothing
 # opens on your desktop and nothing plays through your speakers.
 #
@@ -246,9 +248,9 @@ if [[ -d $sample && -d $sample_checks/Reference ]]; then
                     --server-game "$projects/Server/$server_launcher" --client-game "$projects/Game/$launcher" --wrapper "$here/Headless.sh" \
                     --scene Assets/Scenes/Main.lvl --reference "" --frames 300 --out "$PWD/.tmp/NetSmoke/ScriptOnlyShipped" ); then
                 failed+=("C#-only project shipped server")
-            elif ! grep -q "Content: mounting" .tmp/NetSmoke/ScriptOnlyShipped/server.log \
-                    || ! grep -q "Scripts: .NET runtime from the app-local install" .tmp/NetSmoke/ScriptOnlyShipped/server.log \
-                    || ! grep -q "Loaded 1 type(s) from Game.Script.dll" .tmp/NetSmoke/ScriptOnlyShipped/server.log; then
+            elif ! grep -q "Content: mounting" "$projects/Empty/.tmp/NetSmoke/ScriptOnlyShipped/server.log" \
+                    || ! grep -q "Scripts: .NET runtime from the app-local install" "$projects/Empty/.tmp/NetSmoke/ScriptOnlyShipped/server.log" \
+                    || ! grep -q "Loaded 1 type(s) from Game.Script.dll" "$projects/Empty/.tmp/NetSmoke/ScriptOnlyShipped/server.log"; then
                 echo "The shipped server didn't run from its pak on the app-local .NET (see .tmp/NetSmoke/ScriptOnlyShipped/server.log)"
                 failed+=("C#-only project shipped server runtime")
             fi
@@ -395,6 +397,18 @@ if [[ -f Assets/Scenes/Tests/NetTest.lvl ]]; then
             --expect-client "NetProbe: dash fx once" --expect-observer "NetProbe: observer dash fx once"; then
         # ME-291: a second client that owns nothing sees the dash's predicted event once too.
         failed+=("networking smoke (observer)")
+    fi
+fi
+
+# GPU particles (ME-377): the same additive emitters simulated on the CPU (left) and by the compute
+# shader (right), four cases (Assets/Scenes/Tests/GpuParticlesCompare.lvl, cases in
+# Tools/GpuParticlesCompare.py). Compute on: the log must show the compute dispatch and the halves'
+# coverage and mean colour must agree. Under a profile with "Compute": false: no dispatch, and the
+# halves must agree again (the fallback). Both runs are lavapipe, which does run compute.
+if [[ -f "$here/../Assets/Scenes/Tests/GpuParticlesCompare.lvl" ]]; then
+    step "GPU particles (CPU vs GPU)"
+    if ! python3 "$here/GpuParticlesCompare.py" --game .build/Game_linux_Debug/Game_EntryPoint_x64 --wrapper "$here/Headless.sh"; then
+        failed+=("GPU particle parity")
     fi
 fi
 

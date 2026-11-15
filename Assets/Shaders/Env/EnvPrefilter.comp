@@ -1,0 +1,51 @@
+// GGX-prefiltered radiance for one roughness (compute version of EnvPrefilter.frag; split-sum, N = V = R).
+// Samples come from a source cube already downsampled to suit the roughness. One thread per texel of
+// the mip the image is bound at; the face is the z group index.
+// u_envFace: y roughness, z destination size in texels, w sample count.
+#include "bgfx_compute.sh"
+#include "EnvMath.sh"
+
+SAMPLERCUBE(s_envSource, 0);
+IMAGE2D_ARRAY_WO(s_envDest, rgba16f, 1);
+
+NUM_THREADS(8, 8, 1)
+void main()
+{
+	float size = u_envFace.z;
+	if (float(gl_GlobalInvocationID.x) >= size || float(gl_GlobalInvocationID.y) >= size)
+	{
+		return;
+	}
+	vec2 st = (vec2(gl_GlobalInvocationID.xy) + 0.5) / size;
+	vec3 N = cubeFaceDirection(float(gl_GlobalInvocationID.z), st);
+	float roughness = u_envFace.y;
+	vec3 result;
+	if (roughness < 0.01)
+	{
+		result = envCubeLod(s_envSource, N, 0.0).rgb;
+	}
+	else
+	{
+		float a = roughness * roughness;
+		float count = u_envFace.w;
+		vec3 sum = vec3_splat(0.0);
+		float weight = 0.0;
+		for (int i = 0; i < 256; ++i)
+		{
+			if (float(i) >= count)
+			{
+				break;
+			}
+			vec3 H = importanceSampleGGX(hammersley(float(i), count), N, a);
+			vec3 L = 2.0 * dot(N, H) * H - N;
+			float NoL = dot(N, L);
+			if (NoL > 0.0)
+			{
+				sum += envCubeLod(s_envSource, L, 0.0).rgb * NoL;
+				weight += NoL;
+			}
+		}
+		result = sum / max(weight, 1e-4);
+	}
+	imageStore(s_envDest, ivec3(gl_GlobalInvocationID.xyz), vec4(result, 1.0));
+}

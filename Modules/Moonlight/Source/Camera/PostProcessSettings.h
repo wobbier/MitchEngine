@@ -28,6 +28,10 @@ namespace Moonlight
         float AutoExposureMinEV = -4.f;
         float AutoExposureMaxEV = 8.f;
         float AutoExposureSpeed = 2.f;      // adaptation rate (1/s)
+        // Metering on a compute-built luminance histogram averages only between these fractions of
+        // the pixels, darkest first (the log-average fallback ignores them).
+        float AutoExposureLowPercentile = 0.1f;
+        float AutoExposureHighPercentile = 0.9f;
 
         Tonemapper Operator = Tonemapper::ACES;
 

@@ -16,6 +16,8 @@ ME_REFLECT_BEGIN( PostProcess )
     ME_FIELD( AutoExposureMinEV ).Category( "Exposure" ).Range( -10.f, 20.f ).Unit( Reflection::Unit::EV );
     ME_FIELD( AutoExposureMaxEV ).Category( "Exposure" ).Range( -10.f, 20.f ).Unit( Reflection::Unit::EV );
     ME_FIELD( AutoExposureSpeed ).Category( "Exposure" ).Range( 0.1f, 10.f ).Log();
+    ME_FIELD( AutoExposureLowPercentile ).Display( "Low Percentile" ).Category( "Exposure" ).Range( 0.f, 1.f ).Unit( Reflection::Unit::Percent ).Tooltip( "Auto exposure ignores this share of the darkest pixels. Needs compute shaders (a luminance histogram); without them it meters on the plain log average" );
+    ME_FIELD( AutoExposureHighPercentile ).Display( "High Percentile" ).Category( "Exposure" ).Range( 0.f, 1.f ).Unit( Reflection::Unit::Percent ).Tooltip( "Auto exposure ignores everything brighter than this share of the pixels, so a small lamp in a dark room doesn't darken the image. Needs compute shaders" );
     ME_FIELD( Tonemapper ).Category( "Exposure" );
     ME_FIELD( Bloom ).Category( "Bloom" );
     ME_FIELD( BloomIntensity ).Category( "Bloom" ).Range( 0.f, 1.f ).Log().SoftRange( 0.f, 0.3f );
@@ -50,10 +52,10 @@ ME_REFLECT_BEGIN( PostProcess )
     ME_FIELD( FogAnisotropy ).Category( "Fog" ).Range( 0.f, 0.95f ).Tooltip( "0 scatters evenly; towards 1 the fog glows around the sun" );
     ME_FIELD( VolumetricFog ).Category( "Fog" ).Tooltip( "Raymarch the fog's lighting: shafts through the sun's shadows, point and spot lights" );
     ME_FIELD( VolumetricDistance ).Category( "Fog" ).Range( 5.f, 300.f ).Unit( Reflection::Unit::Meters ).Log().Tooltip( "Metres raymarched (fog beyond is analytic)" );
-    ME_FIELD( VolumetricSteps ).Category( "Fog" ).Range( 4.f, 256.f ).Log().Tooltip( "Raymarch samples per pixel (hardware profiles may cap it)" );
-    ME_FIELD( VolumetricTemporal ).Display( "Volumetric Temporal" ).Category( "Fog" ).Tooltip( "Accumulate the raymarch over frames against a reprojected history (independent of Temporal AA): smooth shafts for the same step count; a fast cut or a moving light trails for a few frames" );
+    ME_FIELD( VolumetricSteps ).Category( "Fog" ).Range( 4.f, 256.f ).Log().Tooltip( "Raymarch samples per pixel (hardware profiles may cap it). With the renderer's Froxel Fog on (and compute active) this is the froxel grid's depth in slices instead (8-128)" );
+    ME_FIELD( VolumetricTemporal ).Display( "Volumetric Temporal" ).Category( "Fog" ).Tooltip( "Accumulate the raymarch over frames against a reprojected history (independent of Temporal AA): smooth shafts for the same step count; a fast cut or a moving light trails for a few frames. With Froxel Fog it jitters and blends the grid's cells the same way" );
     ME_FIELD( FogLocalAnisotropy ).Display( "Local Light Anisotropy" ).Category( "Fog" ).Range( 0.f, 0.95f ).Tooltip( "Henyey-Greenstein g for point, spot and area lights in volumetric fog: 0 scatters evenly; towards 1 beams brighten when seen from in front of the fixture" );
-    ME_FIELD( VolumetricLightSamples ).Display( "Volumetric Light Samples" ).Category( "Fog" ).Range( 0.f, 32.f ).Tooltip( "0: every raymarch step lights itself from its cluster's point, spot and area lights. Above 0: each light is integrated on its own with this many samples along the part of the ray inside its range and cone, which costs far less with many narrow beams and resolves thin ones; 8 is a good start" );
+    ME_FIELD( VolumetricLightSamples ).Display( "Volumetric Light Samples" ).Category( "Fog" ).Range( 0.f, 32.f ).Tooltip( "0: every raymarch step lights itself from its cluster's point, spot and area lights. Above 0: each light is integrated on its own with this many samples along the part of the ray inside its range and cone, which costs far less with many narrow beams and resolves thin ones; 8 is a good start. The march only: Froxel Fog's grid lights every cell from its cluster" );
     ME_FIELD( Saturation ).Category( "Color Grading" ).Range( 0.f, 2.f ).Unit( Reflection::Unit::Percent );
     ME_FIELD( Contrast ).Category( "Color Grading" ).Range( 0.f, 2.f ).Unit( Reflection::Unit::Percent );
     ME_FIELD( Temperature ).Category( "Color Grading" ).Range( -1.f, 1.f );
@@ -124,6 +126,8 @@ Moonlight::PostProcessSettings PostProcess::ToSettings() const
     settings.AutoExposureMinEV = AutoExposureMinEV;
     settings.AutoExposureMaxEV = AutoExposureMaxEV;
     settings.AutoExposureSpeed = AutoExposureSpeed;
+    settings.AutoExposureLowPercentile = AutoExposureLowPercentile;
+    settings.AutoExposureHighPercentile = AutoExposureHighPercentile;
     settings.Operator = Tonemapper;
     settings.Bloom = Bloom;
     settings.BloomIntensity = BloomIntensity;

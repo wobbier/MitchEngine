@@ -14,6 +14,7 @@ ME_REFLECT_ENUM( ParticleShape, { { "Point", ParticleShape::Point }, { "Sphere",
 ME_REFLECT_ENUM( ParticleSpace, { { "World", ParticleSpace::World }, { "Local", ParticleSpace::Local } } )
 ME_REFLECT_ENUM( ParticleSimulation, { { "CPU", ParticleSimulation::CPU }, { "GPU", ParticleSimulation::GPU } } )
 ME_REFLECT_ENUM( Moonlight::ParticleBlend, { { "Additive", Moonlight::ParticleBlend::Additive }, { "Alpha", Moonlight::ParticleBlend::Alpha } } )
+ME_REFLECT_ENUM( Moonlight::ParticleSortCameras, { { "Every", Moonlight::ParticleSortCameras::Every }, { "MainCamera", Moonlight::ParticleSortCameras::MainCamera } } )
 ME_REFLECT_ENUM( Moonlight::ParticleAlignment, { { "Billboard", Moonlight::ParticleAlignment::Billboard }, { "Stretched", Moonlight::ParticleAlignment::Stretched }, { "Horizontal", Moonlight::ParticleAlignment::Horizontal } } )
 
 ME_REFLECT_BEGIN( ParticleSystem )
@@ -23,7 +24,7 @@ ME_REFLECT_BEGIN( ParticleSystem )
     ME_FIELD( BurstCount ).Category( "Emission" ).Range( 0.f, 10000.f ).Tooltip( "Particles emitted at once when the system starts (and each loop)" ).Log().SoftRange( 0.f, 500.f );
     ME_FIELD( MaxParticles ).Category( "Emission" ).Range( 1.f, 100000.f ).Log();
     ME_FIELD( SimulationSpace ).Category( "Emission" );
-    ME_FIELD( Simulation ).Category( "Emission" ).Tooltip( "Where the particles are stepped. GPU: a compute shader, for many particles; Additive systems only, and the CPU path is used where compute isn't available. When the pool is full a GPU system replaces its oldest particle (CPU skips the new one)" );
+    ME_FIELD( Simulation ).Category( "Emission" ).Tooltip( "Where the particles are stepped. GPU: a compute shader, for many particles (Alpha systems are sorted back to front on the GPU too); the CPU path is used where compute isn't available. When the pool is full a GPU system replaces its oldest particle (CPU skips the new one)" );
     ME_FIELD( Shape ).Category( "Shape" );
     ME_FIELD( ShapeRadius ).Category( "Shape" ).Range( 0.f, 100.f ).Unit( Reflection::Unit::Meters ).Log().SoftRange( 0.f, 10.f );
     ME_FIELD( ConeAngle ).Category( "Shape" ).Range( 0.f, 90.f ).Unit( Reflection::Unit::Degrees );
@@ -48,6 +49,7 @@ ME_REFLECT_BEGIN( ParticleSystem )
     ME_FIELD( NoiseFrequency ).Category( "Over Lifetime" ).Range( 0.01f, 20.f ).Unit( Reflection::Unit::PerMeter ).Log();
     ME_FIELD( Texture ).Category( "Rendering" ).Asset( "Texture" );
     ME_FIELD( Blend ).Category( "Rendering" );
+    ME_FIELD( GpuSortCameras ).Category( "Rendering" ).Display( "GPU Sort Cameras" ).Tooltip( "Alpha with Simulation GPU: which cameras sort the particles back to front. Every: each camera, for its own view. MainCamera: render texture cameras (screen feeds) draw with the main camera's latest order, which saves their sort but can show order mistakes from their angle" );
     ME_FIELD( Alignment ).Category( "Rendering" );
     ME_FIELD( StretchFactor ).Category( "Rendering" ).Range( 0.f, 5.f ).Tooltip( "Stretched: extra length per m/s" );
     ME_FIELD( FlipbookColumns ).Category( "Rendering" ).Range( 1.f, 64.f );
@@ -325,6 +327,7 @@ void ParticleSystem::FillBatch( Moonlight::ParticleBatch& OutBatch, const glm::m
     OutBatch.GpuStepPending = false;
     OutBatch.GpuInstanceCount = 0;
     OutBatch.GpuLiveCount = 0;
+    OutBatch.GpuRingEnd = 0;
     OutBatch.Bounds = AABB();
     OutBatch.Instances.clear();
     OutBatch.Instances.reserve( m_particles.size() );
@@ -359,7 +362,7 @@ void ParticleSystem::FillBatch( Moonlight::ParticleBatch& OutBatch, const glm::m
 
 void ParticleSystem::UpdateSimulationMode( bool InComputeActive )
 {
-    const bool gpu = Simulation == ParticleSimulation::GPU && Blend == Moonlight::ParticleBlend::Additive && InComputeActive;
+    const bool gpu = Simulation == ParticleSimulation::GPU && InComputeActive;
     const uint32_t capacity = GpuCapacity();
     if( gpu != m_gpuActive || ( gpu && capacity != m_gpuCapacity ) )
     {
@@ -531,6 +534,9 @@ void ParticleSystem::StepGpu( float InDeltaSeconds, const glm::mat4& InWorld, Mo
     OutBatch.GpuStepPending = true;
     OutBatch.GpuInstanceCount = m_gpuHighWater;
     OutBatch.GpuLiveCount = static_cast<uint32_t>( m_gpuLiveEstimate );
+    // Every live particle was born within the last GpuLiveCount slots before the cursor.
+    OutBatch.GpuRingEnd = m_gpuCursor;
+    OutBatch.GpuSortCameras = GpuSortCameras;
 
     Moonlight::GpuParticleStep& step = OutBatch.GpuStep;
     step.World = InWorld;
@@ -590,9 +596,13 @@ void ParticleSystem::OnEditorInspect()
     }
     if( Simulation == ParticleSimulation::GPU && !m_gpuActive )
     {
-        ImGui::TextWrapped( Blend != Moonlight::ParticleBlend::Additive
-            ? "Simulated on the CPU: GPU simulation is for Additive systems (Alpha needs a back-to-front sort)."
-            : "Simulated on the CPU: compute shaders are unavailable here (the backend, the Compute feature cap or a headless renderer)." );
+        ImGui::TextWrapped( "Simulated on the CPU: compute shaders are unavailable here (the backend, the Compute feature cap or a headless renderer)." );
+    }
+    else if( m_gpuActive && Blend == Moonlight::ParticleBlend::Alpha )
+    {
+        ImGui::TextWrapped( GpuSortCameras == Moonlight::ParticleSortCameras::MainCamera
+            ? "Sorted back to front on the GPU by the main camera; render texture cameras reuse its order."
+            : "Sorted back to front on the GPU for every camera that draws it." );
     }
 }
 #endif

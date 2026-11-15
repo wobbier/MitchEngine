@@ -174,6 +174,11 @@ void Moonlight::FrameBuffer::Release()
         DestroyIfValid( fog.Buffer );
         DestroyIfValid( fog.Color );
     }
+    for( bgfx::TextureHandle* froxels : { &FroxelRaw, &FroxelHistory[0], &FroxelHistory[1], &FroxelIntegrated } )
+    {
+        DestroyIfValid( *froxels );
+    }
+    FroxelWidth = FroxelHeight = FroxelDepth = 0;
     FogHistoryValid = false;
     for( Mip* graph : { &GraphHdr[0], &GraphHdr[1], &GraphLdr[0], &GraphLdr[1], &GraphSceneMips, &UpscaleInput, &EraInput } )
     {
@@ -315,6 +320,47 @@ void Moonlight::FrameBuffer::EnsureFogHistoryTargets()
             FogHistoryValid = false;
         }
     }
+}
+
+
+bool Moonlight::FrameBuffer::EnsureFroxelTargets( uint16_t InWidth, uint16_t InHeight, uint16_t InDepth )
+{
+    if( bgfx::isValid( FroxelIntegrated ) && FroxelWidth == InWidth && FroxelHeight == InHeight && FroxelDepth == InDepth )
+    {
+        return true;
+    }
+    const bgfx::Caps* caps = bgfx::getCaps();
+    const uint32_t format = caps->formats[bgfx::TextureFormat::RGBA16F];
+    if( !( format & BGFX_CAPS_FORMAT_TEXTURE_3D ) || !( format & BGFX_CAPS_FORMAT_TEXTURE_IMAGE_WRITE ) )
+    {
+        static bool s_logged = false;
+        if( !s_logged )
+        {
+            s_logged = true;
+            YIKES( "Froxel fog: RGBA16F 3D image writes are unsupported here, using the fragment march" );
+        }
+        return false;
+    }
+    for( bgfx::TextureHandle* froxels : { &FroxelRaw, &FroxelHistory[0], &FroxelHistory[1], &FroxelIntegrated } )
+    {
+        DestroyIfValid( *froxels );
+    }
+    const uint64_t flags = BGFX_TEXTURE_COMPUTE_WRITE | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP | BGFX_SAMPLER_W_CLAMP;
+    FroxelRaw = bgfx::createTexture3D( InWidth, InHeight, InDepth, false, bgfx::TextureFormat::RGBA16F, flags );
+    bgfx::setName( FroxelRaw, "Froxel Fog Injected" );
+    for( bgfx::TextureHandle& history : FroxelHistory )
+    {
+        history = bgfx::createTexture3D( InWidth, InHeight, InDepth, false, bgfx::TextureFormat::RGBA16F, flags );
+        bgfx::setName( history, "Froxel Fog History" );
+    }
+    FroxelIntegrated = bgfx::createTexture3D( InWidth, InHeight, InDepth, false, bgfx::TextureFormat::RGBA16F, flags );
+    bgfx::setName( FroxelIntegrated, "Froxel Fog Integrated" );
+    FroxelWidth = InWidth;
+    FroxelHeight = InHeight;
+    FroxelDepth = InDepth;
+    FroxelHistoryIndex = 0;
+    FogHistoryValid = false;
+    return bgfx::isValid( FroxelRaw ) && bgfx::isValid( FroxelHistory[0] ) && bgfx::isValid( FroxelHistory[1] ) && bgfx::isValid( FroxelIntegrated );
 }
 
 

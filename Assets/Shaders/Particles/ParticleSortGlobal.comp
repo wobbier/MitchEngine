@@ -1,0 +1,30 @@
+// GPU alpha sort, one step whose blocks are larger than SORT_BLOCK (see ParticleSort.sh): a flip(h)
+// or a disperse(d) over the whole entry buffer, one compare per thread (entries / 2 threads).
+#include "bgfx_compute.sh"
+#include "ParticleSort.sh"
+
+BUFFER_RW(s_sortEntries, vec4, 0);
+
+// Packed by Moonlight::GpuParticleSorter (GpuParticles.cpp).
+uniform vec4 u_particleSort[3];
+#define u_entries  u_particleSort[0].w
+#define u_stepSize u_particleSort[2].x    // h (flip) or d (disperse)
+#define u_stepFlip u_particleSort[2].z
+
+NUM_THREADS(SORT_THREADS, 1, 1)
+void main()
+{
+	uint thread = gl_GlobalInvocationID.x;
+	if (thread >= uint(u_entries + 0.5) / 2u)
+	{
+		return;
+	}
+	uvec2 pair = sortPair(thread, uint(u_stepSize + 0.5), u_stepFlip > 0.5);
+	vec4 a = s_sortEntries[pair.x];
+	vec4 b = s_sortEntries[pair.y];
+	if (sortAfter(a.xy, b.xy))
+	{
+		s_sortEntries[pair.x] = b;
+		s_sortEntries[pair.y] = a;
+	}
+}

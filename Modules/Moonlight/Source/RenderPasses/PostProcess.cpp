@@ -6,6 +6,9 @@
 #include "Graphics/Texture.h"
 #include "Primitives/Cube.h"
 #include "RenderViews.h"
+#include "TextureHistogram.h"
+#include "Core/CommandLine.h"
+#include <CLog.h>
 #include "Utils/BGFXUtils.h"
 #include "optick.h"
 #include <bx/math.h>
@@ -78,6 +81,7 @@ namespace Moonlight
         m_ssaoBlurProgram = LoadPost( "SSAOBlur" );
         m_ssaoApplyProgram = LoadPost( "SSAOApply" );
         m_outlineProgram = LoadPost( "Outline" );
+        m_histogramMeteringDisabled = CommandLine::Has( "--no-histogram-exposure" );
         m_luminanceProgram = LoadPost( "Luminance" );
         m_adaptProgram = LoadPost( "Adapt" );
         m_fogScatterProgram = LoadPost( "FogScatter" );
@@ -85,6 +89,10 @@ namespace Moonlight
         m_fogBlurProgram = LoadPost( "FogBlur" );
         m_fogResolveProgram = LoadPost( "FogResolve" );
         m_fogProgram = LoadPost( "Fog" );
+        m_fogFroxelProgram = LoadPost( "FogFroxel" );
+        FroxelGridRows = std::clamp( CommandLine::GetInt( "--froxel-grid-rows", kFroxelGridRows ), 16, 256 );
+        FroxelSlices = std::clamp( CommandLine::GetInt( "--froxel-slices", 0 ), 0, kFroxelMaxDepth );
+        FroxelNearDepth = std::max( CommandLine::GetFloat( "--froxel-near", kFroxelNearDepth ), 0.05f );
         m_taaProgram = LoadPost( "TAA" );
         m_copyProgram = LoadPost( "Copy" );
         m_upscaleProgram = LoadPost( "Upscale" );
@@ -138,6 +146,14 @@ namespace Moonlight
         u_fogScatter = bgfx::createUniform( "u_fogScatter", bgfx::UniformType::Vec4 );
         u_fogReproject = bgfx::createUniform( "u_fogReproject", bgfx::UniformType::Mat4 );
         s_fogHistory = bgfx::createUniform( "s_fogHistory", bgfx::UniformType::Sampler );
+        u_froxelGrid = bgfx::createUniform( "u_froxelGrid", bgfx::UniformType::Vec4 );
+        u_froxelDepth = bgfx::createUniform( "u_froxelDepth", bgfx::UniformType::Vec4 );
+        u_froxelParams = bgfx::createUniform( "u_froxelParams", bgfx::UniformType::Vec4 );
+        u_froxelPrevView = bgfx::createUniform( "u_froxelPrevView", bgfx::UniformType::Mat4 );
+        s_froxelRaw = bgfx::createUniform( "s_froxelRaw", bgfx::UniformType::Sampler );
+        s_froxelHistory = bgfx::createUniform( "s_froxelHistory", bgfx::UniformType::Sampler );
+        s_froxelIn = bgfx::createUniform( "s_froxelIn", bgfx::UniformType::Sampler );
+        s_froxelVolume = bgfx::createUniform( "s_froxelVolume", bgfx::UniformType::Sampler );
         s_taaCurrent = bgfx::createUniform( "s_taaCurrent", bgfx::UniformType::Sampler );
         s_taaHistory = bgfx::createUniform( "s_taaHistory", bgfx::UniformType::Sampler );
         s_taaDepth = bgfx::createUniform( "s_taaDepth", bgfx::UniformType::Sampler );
@@ -164,11 +180,14 @@ namespace Moonlight
     PostProcess::~PostProcess()
     {
         for( bgfx::UniformHandle* uniform : { &s_input0, &s_input1, &s_hdrColor, &s_bloom, &s_exposure, &s_ldrColor, &u_tonemap, &u_grading, &u_grading2, &u_exposure, &u_bloom, &u_ssao, &u_ssaoProjection, &u_ssaoScreen, &u_ssaoInvProjection, &u_adapt,
-            &u_fogProjection, &u_fogProjection2, &u_fogScreen, &u_fogInvView, &u_fogVolume2, &u_fogScatter, &u_fogReproject, &s_fogHistory, &s_taaCurrent, &s_taaHistory, &s_taaDepth, &u_taaParams, &u_taaJitter, &u_taaReproject, &u_graphSceneFilter,
+            &u_fogProjection, &u_fogProjection2, &u_fogScreen, &u_fogInvView, &u_fogVolume2, &u_fogScatter, &u_fogReproject, &s_fogHistory,
+            &u_froxelGrid, &u_froxelDepth, &u_froxelParams, &u_froxelPrevView, &s_froxelRaw, &s_froxelHistory, &s_froxelIn, &s_froxelVolume, &s_taaCurrent, &s_taaHistory, &s_taaDepth, &u_taaParams, &u_taaJitter, &u_taaReproject, &u_graphSceneFilter,
             &s_dof0, &s_dof1, &s_dof2, &s_dof3, &s_dof4, &u_dofLens, &u_dofSplit, &u_dofProjection, &u_dofScreen, &u_dofPass, &u_dofJitter, &s_lut, &s_lutStrip, &u_lut, &u_outline, &u_outlineParams, &u_upscaleParams, &u_upscaleSize, &u_overlayParams, &u_overlayFade, &u_overlayLook, &u_eraPost, &u_grain, &u_lens } )
         {
             DestroyUniform( *uniform );
         }
+        if( bgfx::isValid( m_meteredLuminance ) ) bgfx::destroy( m_meteredLuminance );
+        DestroyUniform( u_meterParams );
         if( bgfx::isValid( m_blackTexture ) ) bgfx::destroy( m_blackTexture );
         if( bgfx::isValid( m_whiteTexture ) ) bgfx::destroy( m_whiteTexture );
         if( bgfx::isValid( m_identityVolume ) ) bgfx::destroy( m_identityVolume );
@@ -303,7 +322,7 @@ namespace Moonlight
     }
 
 
-    void PostProcess::RenderFog( ViewAllocator& InViews, const CameraData& InCamera, FrameBuffer& InTargets, const std::function<void()>& InBindLighting )
+    void PostProcess::RenderFog( ViewAllocator& InViews, const CameraData& InCamera, FrameBuffer& InTargets, const std::function<void()>& InBindLighting, bool InFroxelFog )
     {
         const PostProcessSettings& settings = InCamera.Post;
         if( !settings.Fog || settings.FogDensity <= 0.f || settings.FogMaxOpacity <= 0.f || !bgfx::isValid( InTargets.ParticleBuffer ) )
@@ -321,7 +340,40 @@ namespace Moonlight
         float fogVolume[4];
         FogUniforms( settings, fogParams, fogColor, fogVolume );
         const bool volumetric = fogVolume[3] > 0.f;
-        if( volumetric )
+        // The froxel path (compute): its programs and volumes are made on its first frame, and the
+        // march stands in while a program loads or where 3D image writes aren't supported.
+        bool froxel = false;
+        uint16_t froxelSize[3] = { 0, 0, 0 };
+        if( volumetric && InFroxelFog && m_fogFroxelProgram.IsLoaded() )
+        {
+            if( !m_froxelInjectProgram )
+            {
+                m_froxelInjectProgram = AcquireComputeProgram( "Assets/Shaders/Post/FogFroxelInject.comp" );
+                m_froxelBlendProgram = AcquireComputeProgram( "Assets/Shaders/Post/FogFroxelBlend.comp" );
+                m_froxelIntegrateProgram = AcquireComputeProgram( "Assets/Shaders/Post/FogFroxelIntegrate.comp" );
+            }
+            froxel = m_froxelInjectProgram && bgfx::isValid( m_froxelInjectProgram->Handle ) && m_froxelBlendProgram && bgfx::isValid( m_froxelBlendProgram->Handle )
+                && m_froxelIntegrateProgram && bgfx::isValid( m_froxelIntegrateProgram->Handle );
+            if( froxel )
+            {
+                // Square cells of a fixed angle (rows), as many columns as the aspect needs; the
+                // slices follow VolumetricSteps (which the hardware profile's MaxVolumetricSteps
+                // has already capped).
+                const float aspect = static_cast<float>( std::max<uint32_t>( InTargets.Width, 1 ) ) / static_cast<float>( std::max<uint32_t>( InTargets.Height, 1 ) );
+                froxelSize[0] = static_cast<uint16_t>( std::clamp( static_cast<int>( std::lround( FroxelGridRows * aspect ) ), 16, kFroxelMaxColumns ) );
+                froxelSize[1] = static_cast<uint16_t>( FroxelGridRows );
+                froxelSize[2] = static_cast<uint16_t>( std::clamp( FroxelSlices > 0 ? FroxelSlices : settings.VolumetricSteps, kFroxelMinDepth, kFroxelMaxDepth ) );
+                froxel = InTargets.EnsureFroxelTargets( froxelSize[0], froxelSize[1], froxelSize[2] );
+            }
+        }
+        // Each path keeps its own history: switching drops it.
+        if( InTargets.FogHistoryFroxel != froxel )
+        {
+            InTargets.FogHistoryValid = false;
+            InTargets.FogFrame = 0;
+            InTargets.FogHistoryFroxel = froxel;
+        }
+        if( volumetric && !froxel )
         {
             // Created on first use: cameras with analytic fog never allocate them.
             InTargets.EnsureVolumetricFogTargets();
@@ -353,9 +405,25 @@ namespace Moonlight
         // The history is reprojected through the opaque depth: unjittered clip space now -> last
         // frame's. A cut (the camera jumping or turning away) drops it rather than smearing.
         glm::mat4 reproject( 1.f );
+        // The froxel history is reprojected through last frame's view and projection scale.
+        glm::mat4 froxelPreviousView( 1.f );
+        float froxelPreviousProjection[2] = { projection[0][0], projection[1][1] };
         if( temporal )
         {
-            InTargets.EnsureFogHistoryTargets();
+            if( froxel )
+            {
+                froxelPreviousView = glm::make_mat4( InTargets.FogPreviousView );
+                froxelPreviousProjection[0] = InTargets.FogPreviousProjection[0];
+                froxelPreviousProjection[1] = InTargets.FogPreviousProjection[1];
+                const glm::mat4& view = InCamera.View.GetInternalMatrix();
+                std::copy( &view[0][0], &view[0][0] + 16, InTargets.FogPreviousView );
+                InTargets.FogPreviousProjection[0] = projection[0][0];
+                InTargets.FogPreviousProjection[1] = projection[1][1];
+            }
+            else
+            {
+                InTargets.EnsureFogHistoryTargets();
+            }
             const glm::vec3 origin( invView[3] );
             const glm::vec3 forward = glm::normalize( glm::vec3( invView[2] ) );
             if( InTargets.FogHistoryValid )
@@ -395,7 +463,71 @@ namespace Moonlight
             bgfx::setUniform( u_fogReproject, &reproject[0][0] );
         };
 
-        if( volumetric )
+        // Froxel grid: exponential slices from gridNear to the march distance (in view depth); fog
+        // from its start up to gridNear is lit with the first slice, fog beyond gridFar is analytic.
+        const float fogStart = fogParams[3];
+        const float gridNear = std::max( { InCamera.Near, fogStart, FroxelNearDepth } );
+        const float gridFar = std::max( fogVolume[2], gridNear + 1.f );
+        const float froxelGrid[4] = { static_cast<float>( froxelSize[0] ), static_cast<float>( froxelSize[1] ), static_cast<float>( froxelSize[2] ), InTargets.FogHistoryValid ? 1.f : 0.f };
+        // w: the frame's place in the cells' jitter sequence (-1: cell centres, nothing accumulates them).
+        const float froxelDepth[4] = { gridNear, gridFar, 1.f / std::log( gridFar / gridNear ), temporal ? static_cast<float>( InTargets.FogFrame % 1024 ) : -1.f };
+        const float froxelParams[4] = { kFogHistoryWeight, std::min( fogStart, gridNear ), froxelPreviousProjection[0], froxelPreviousProjection[1] };
+        auto setFroxelState = [&]() {
+            setFogState();
+            bgfx::setUniform( u_froxelGrid, froxelGrid );
+            bgfx::setUniform( u_froxelDepth, froxelDepth );
+            bgfx::setUniform( u_froxelParams, froxelParams );
+            bgfx::setUniform( u_froxelPrevView, &froxelPreviousView[0][0] );
+        };
+        const uint64_t linearClamp3D = BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP | BGFX_SAMPLER_W_CLAMP;
+
+        if( froxel )
+        {
+            // One view per pass: each reads the previous pass's volume through a sampler, and bgfx
+            // orders views, not dispatches within one. They follow both shadow passes and the
+            // opaque view (the camera's list), and precede the apply draw.
+            const bgfx::ViewId injectView = InViews.Allocate( "Fog Froxel Inject" );
+            const bgfx::ViewId blendView = temporal ? InViews.Allocate( "Fog Froxel Blend" ) : injectView;
+            const bgfx::ViewId integrateView = InViews.Allocate( "Fog Froxel Integrate" );
+            if( integrateView == UINT16_MAX || blendView == UINT16_MAX )
+            {
+                InTargets.FogHistoryValid = false;
+                return;
+            }
+            const uint32_t groupsX = ComputeGroupCount( froxelSize[0], 8 );
+            const uint32_t groupsY = ComputeGroupCount( froxelSize[1], 8 );
+
+            setFroxelState();
+            bgfx::setImage( 0, InTargets.FroxelRaw, 0, bgfx::Access::Write, bgfx::TextureFormat::RGBA16F );
+            bgfx::dispatch( injectView, m_froxelInjectProgram->Handle, groupsX, groupsY, froxelSize[2] );
+
+            bgfx::TextureHandle integrateInput = InTargets.FroxelRaw;
+            if( temporal )
+            {
+                const uint32_t read = InTargets.FroxelHistoryIndex;
+                const uint32_t write = 1 - read;
+                setFroxelState();
+                bgfx::setImage( 0, InTargets.FroxelHistory[write], 0, bgfx::Access::Write, bgfx::TextureFormat::RGBA16F );
+                bgfx::setTexture( 1, s_froxelRaw, InTargets.FroxelRaw, linearClamp3D );
+                bgfx::setTexture( 2, s_froxelHistory, InTargets.FogHistoryValid ? InTargets.FroxelHistory[read] : m_identityVolume, linearClamp3D );
+                bgfx::dispatch( blendView, m_froxelBlendProgram->Handle, groupsX, groupsY, froxelSize[2] );
+                InTargets.FroxelHistoryIndex = write;
+                InTargets.FogHistoryValid = true;
+                ++InTargets.FogFrame;
+                integrateInput = InTargets.FroxelHistory[write];
+            }
+
+            setFroxelState();
+            bgfx::setImage( 0, InTargets.FroxelIntegrated, 0, bgfx::Access::Write, bgfx::TextureFormat::RGBA16F );
+            bgfx::setTexture( 1, s_froxelIn, integrateInput, linearClamp3D );
+            bgfx::dispatch( integrateView, m_froxelIntegrateProgram->Handle, groupsX, groupsY, 1 );
+            if( !m_loggedFroxelFog )
+            {
+                m_loggedFroxelFog = true;
+                CLog::Log( CLog::LogType::Info, "Froxel fog: first compute dispatch (" + std::to_string( froxelSize[0] ) + "x" + std::to_string( froxelSize[1] ) + "x" + std::to_string( froxelSize[2] ) + ")" );
+            }
+        }
+        else if( volumetric )
         {
             const bgfx::ViewId scatterView = InViews.Allocate( "Fog Scatter" );
             const bgfx::ViewId resolveView = temporal ? InViews.Allocate( "Fog Resolve" ) : scatterView;
@@ -442,6 +574,14 @@ namespace Moonlight
             return;
         }
         SetupFullscreenView( applyView, InTargets.ParticleBuffer, static_cast<uint16_t>( InTargets.Width ), static_cast<uint16_t>( InTargets.Height ) );
+        if( froxel )
+        {
+            setFroxelState();
+            bgfx::setTexture( 0, s_froxelVolume, InTargets.FroxelIntegrated, linearClamp3D );
+            bgfx::setTexture( 1, s_input1, InTargets.DepthTexture, pointClamp );
+            SubmitFullscreen( applyView, m_fogFroxelProgram, BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_FUNC( BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_SRC_ALPHA ) );
+            return;
+        }
         setFogState();
         bgfx::setTexture( 0, s_input0, volumetric ? InTargets.FogBlurBuffer.Color : m_blackTexture, pointClamp );
         bgfx::setTexture( 1, s_input1, InTargets.DepthTexture, pointClamp );
@@ -486,6 +626,55 @@ namespace Moonlight
     }
 
 
+    bool PostProcess::RenderHistogramLuminance( ViewAllocator& InViews, const PostProcessSettings& InSettings, FrameBuffer& InTargets, bgfx::TextureHandle& OutLuminance )
+    {
+        if( !m_histogram )
+        {
+            // Only where compute is active: a GL backend without compute aborts on a .comp that
+            // fails to compile.
+            m_histogram = MakeUnique<TextureHistogram>();
+            m_exposureHistogramProgram = AcquireComputeProgram( "Assets/Shaders/Post/ExposureHistogram.comp" );
+            m_meteredLuminance = bgfx::createTexture2D( 1, 1, false, 1, bgfx::TextureFormat::R32F, BGFX_TEXTURE_COMPUTE_WRITE | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP | BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT, nullptr );
+            bgfx::setName( m_meteredLuminance, "Metered Luminance" );
+            u_meterParams = bgfx::createUniform( "u_meterParams", bgfx::UniformType::Vec4 );
+        }
+        if( !m_histogram->IsReady() || !m_exposureHistogramProgram || !bgfx::isValid( m_exposureHistogramProgram->Handle ) || !bgfx::isValid( m_meteredLuminance ) || !bgfx::isValid( InTargets.PostInput ) )
+        {
+            return false;
+        }
+        const bgfx::ViewId binView = InViews.Allocate( "Luminance Histogram" );
+        const bgfx::ViewId mergeView = InViews.Allocate( "Luminance Histogram Merge" );
+        const bgfx::ViewId meterView = InViews.Allocate( "Metering" );
+        if( meterView == UINT16_MAX )
+        {
+            return false;
+        }
+        // Log2 luminance over the adaptation range plus two stops each side (values outside land
+        // in the end bins, and the adaptation clamps to the range anyway).
+        const float minLuminance = std::pow( 2.f, InSettings.AutoExposureMinEV ) * 0.125f;
+        const float maxLuminance = std::pow( 2.f, InSettings.AutoExposureMaxEV ) * 0.125f;
+        TextureHistogram::Params params;
+        params.Min = std::log2( minLuminance ) - 2.f;
+        params.Max = std::max( std::log2( maxLuminance ) + 2.f, params.Min + 1.f );
+        params.Logarithmic = true;
+        if( !m_histogram->Dispatch( binView, mergeView, InTargets.PostInput, params ) )
+        {
+            return false;
+        }
+
+        const float low = std::clamp( InSettings.AutoExposureLowPercentile, 0.f, 1.f );
+        const float high = std::clamp( InSettings.AutoExposureHighPercentile, low, 1.f );
+        const float meter[4] = { low, high, std::sqrt( minLuminance * maxLuminance ), 0.f };
+        bgfx::setUniform( u_meterParams, meter );
+        m_histogram->SetRangeUniform( params );
+        bgfx::setBuffer( 0, m_histogram->GetMerged(), bgfx::Access::Read );
+        bgfx::setImage( 1, m_meteredLuminance, 0, bgfx::Access::Write, bgfx::TextureFormat::R32F );
+        bgfx::dispatch( meterView, m_exposureHistogramProgram->Handle, 1, 1, 1 );
+        OutLuminance = m_meteredLuminance;
+        return true;
+    }
+
+
     bgfx::TextureHandle PostProcess::RenderAutoExposure( ViewAllocator& InViews, const PostProcessSettings& InSettings, FrameBuffer& InTargets )
     {
         OPTICK_EVENT( "PostProcess::AutoExposure" );
@@ -493,15 +682,25 @@ namespace Moonlight
         {
             return m_whiteTexture;
         }
-        const bgfx::ViewId luminanceView = InViews.Allocate( "Luminance" );
+        // The average luminance, from the histogram where compute runs, else the log-average chain.
+        bgfx::TextureHandle averageLuminance = BGFX_INVALID_HANDLE;
+        if( !( UseComputeMetering && !m_histogramMeteringDisabled && RenderHistogramLuminance( InViews, InSettings, InTargets, averageLuminance ) ) )
+        {
+            const bgfx::ViewId luminanceView = InViews.Allocate( "Luminance" );
+            if( luminanceView == UINT16_MAX )
+            {
+                return m_whiteTexture;
+            }
+            SetupFullscreenView( luminanceView, InTargets.LuminanceBuffer.Buffer, 1, 1 );
+            bgfx::setTexture( 0, s_input0, InTargets.PostInput );
+            SubmitFullscreen( luminanceView, m_luminanceProgram );
+            averageLuminance = InTargets.LuminanceBuffer.Color;
+        }
         const bgfx::ViewId adaptView = InViews.Allocate( "Eye Adaptation" );
         if( adaptView == UINT16_MAX )
         {
             return m_whiteTexture;
         }
-        SetupFullscreenView( luminanceView, InTargets.LuminanceBuffer.Buffer, 1, 1 );
-        bgfx::setTexture( 0, s_input0, InTargets.PostInput );
-        SubmitFullscreen( luminanceView, m_luminanceProgram );
 
         FrameBuffer::Mip& previous = InTargets.AdaptedLuminance[InTargets.AdaptedIndex];
         FrameBuffer::Mip& next = InTargets.AdaptedLuminance[1 - InTargets.AdaptedIndex];
@@ -511,7 +710,7 @@ namespace Moonlight
         const float maxLuminance = std::pow( 2.f, InSettings.AutoExposureMaxEV ) * 0.125f;
         const float adapt[4] = { 1.f - std::exp( -DeltaSeconds * InSettings.AutoExposureSpeed ), minLuminance, maxLuminance, 0.f };
         bgfx::setUniform( u_adapt, adapt );
-        bgfx::setTexture( 0, s_input0, InTargets.LuminanceBuffer.Color );
+        bgfx::setTexture( 0, s_input0, averageLuminance );
         bgfx::setTexture( 1, s_input1, previous.Color );
         SubmitFullscreen( adaptView, m_adaptProgram );
         InTargets.AdaptedIndex = 1 - InTargets.AdaptedIndex;

@@ -740,3 +740,98 @@ TEST_CASE( "shader compiler: a compute shader compiles for every portable profil
     CHECK_MESSAGE( failures.empty(), failures );
     std::filesystem::remove_all( directory );
 }
+
+
+TEST_CASE( "shader compiler: the luminance histogram compute shaders compile for every portable profile" )
+{
+    const std::filesystem::path directory = std::filesystem::path( Path( ".tmp/HistogramShaderTests" ).FullPath );
+    std::filesystem::remove_all( directory );
+    std::filesystem::create_directories( directory );
+    std::string failures;
+    for( const char* name : { "HistogramBin", "HistogramMerge", "ExposureHistogram" } )
+    {
+        const std::string source = Path( std::string( "Assets/Shaders/Post/" ) + name + ".comp" ).FullPath;
+        REQUIRE( std::filesystem::exists( source ) );
+        for( const Moonlight::ShaderCompiler::Profile& profile : Moonlight::ShaderCompiler::GetPortableProfiles() )
+        {
+            Moonlight::ShaderCompiler::Request request;
+            request.SourcePath = source;
+            request.OutputPath = ( directory / ( std::string( name ) + ".comp." + profile.Name + ".bin" ) ).string();
+            request.ShaderStage = Moonlight::ShaderCompiler::Stage::Compute;
+            request.TargetProfile = profile;
+            const Moonlight::ShaderCompiler::Result result = Moonlight::ShaderCompiler::Compile( request );
+            if( !result.Success || !std::filesystem::exists( request.OutputPath ) )
+            {
+                failures += std::string( name ) + " [" + profile.Name + "]\n" + result.Log + "\n";
+            }
+        }
+    }
+    CHECK_MESSAGE( failures.empty(), failures );
+    std::filesystem::remove_all( directory );
+}
+
+
+TEST_CASE( "shader compiler: the environment probe filter compute shaders compile for every portable profile" )
+{
+    const std::filesystem::path directory = std::filesystem::path( Path( ".tmp/EnvFilterShaderTests" ).FullPath );
+    std::filesystem::remove_all( directory );
+    std::filesystem::create_directories( directory );
+    std::string failures;
+    for( const char* name : { "EnvDownsample", "EnvPrefilter", "EnvIrradiance" } )
+    {
+        const std::string source = Path( std::string( "Assets/Shaders/Env/" ) + name + ".comp" ).FullPath;
+        REQUIRE( std::filesystem::exists( source ) );
+        for( const Moonlight::ShaderCompiler::Profile& profile : Moonlight::ShaderCompiler::GetPortableProfiles() )
+        {
+            Moonlight::ShaderCompiler::Request request;
+            request.SourcePath = source;
+            request.OutputPath = ( directory / ( std::string( name ) + ".comp." + profile.Name + ".bin" ) ).string();
+            request.ShaderStage = Moonlight::ShaderCompiler::Stage::Compute;
+            request.TargetProfile = profile;
+            const Moonlight::ShaderCompiler::Result result = Moonlight::ShaderCompiler::Compile( request );
+            if( !result.Success || !std::filesystem::exists( request.OutputPath ) )
+            {
+                failures += std::string( name ) + " [" + profile.Name + "]\n" + result.Log + "\n";
+            }
+        }
+    }
+    CHECK_MESSAGE( failures.empty(), failures );
+    std::filesystem::remove_all( directory );
+}
+
+
+// ME-376: the froxel fog passes include Lighting.sh in compute (explicit-LOD and compare sampling only),
+// and the apply pass samples a 3D texture; both have to build everywhere the fragment march does.
+TEST_CASE( "shader compiler: the froxel fog shaders compile for every portable profile" )
+{
+    const std::filesystem::path directory = std::filesystem::path( Path( ".tmp/FroxelFogShaderTests" ).FullPath );
+    std::filesystem::remove_all( directory );
+    std::filesystem::create_directories( directory );
+    std::string failures;
+    const std::pair<const char*, Moonlight::ShaderCompiler::Stage> shaders[] = {
+        { "FogFroxelInject.comp", Moonlight::ShaderCompiler::Stage::Compute },
+        { "FogFroxelBlend.comp", Moonlight::ShaderCompiler::Stage::Compute },
+        { "FogFroxelIntegrate.comp", Moonlight::ShaderCompiler::Stage::Compute },
+        { "FogFroxel.frag", Moonlight::ShaderCompiler::Stage::Fragment },
+    };
+    for( const auto& [name, stage] : shaders )
+    {
+        const std::string source = Path( std::string( "Assets/Shaders/Post/" ) + name ).FullPath;
+        REQUIRE( std::filesystem::exists( source ) );
+        for( const Moonlight::ShaderCompiler::Profile& profile : Moonlight::ShaderCompiler::GetPortableProfiles() )
+        {
+            Moonlight::ShaderCompiler::Request request;
+            request.SourcePath = source;
+            request.OutputPath = ( directory / ( std::string( name ) + "." + profile.Name + ".bin" ) ).string();
+            request.ShaderStage = stage;
+            request.TargetProfile = profile;
+            const Moonlight::ShaderCompiler::Result result = Moonlight::ShaderCompiler::Compile( request );
+            if( !result.Success || !std::filesystem::exists( request.OutputPath ) )
+            {
+                failures += std::string( name ) + " [" + profile.Name + "]\n" + result.Log + "\n";
+            }
+        }
+    }
+    CHECK_MESSAGE( failures.empty(), failures );
+    std::filesystem::remove_all( directory );
+}

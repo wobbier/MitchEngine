@@ -1,0 +1,21 @@
+// Pass 2 of a texture histogram: adds every group's 64-bin histogram (16 vec4s each, written by
+// HistogramBin.comp) into one 64-bin histogram. One thread per vec4 of bins, so no atomics.
+#include "bgfx_compute.sh"
+
+BUFFER_RO(s_groupHistograms, vec4, 0);
+BUFFER_WO(s_mergedHistogram, vec4, 1);
+
+uniform vec4 u_histParams;  // x groups to add up
+
+NUM_THREADS(16, 1, 1)
+void main()
+{
+	uint k = gl_GlobalInvocationID.x;
+	uint groups = uint(u_histParams.x + 0.5);
+	vec4 sum = vec4(0.0, 0.0, 0.0, 0.0);
+	for (uint g = 0u; g < groups; ++g)
+	{
+		sum += s_groupHistograms[g * 16u + k];
+	}
+	s_mergedHistogram[k] = sum;
+}

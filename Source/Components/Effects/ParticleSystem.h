@@ -31,7 +31,7 @@ enum class ParticleSpace : uint8_t
 enum class ParticleSimulation : uint8_t
 {
     CPU = 0,    // the reference: simulated on job threads, uploaded each frame
-    GPU,        // a compute shader steps the particles where they are drawn (Additive only; falls back to CPU)
+    GPU,        // a compute shader steps the particles where they are drawn (falls back to CPU without compute)
 };
 
 // Particle emitter. Particles spawn from a shape at a rate (plus an optional burst), take
@@ -41,8 +41,8 @@ enum class ParticleSimulation : uint8_t
 // scene. Simulates in the editor too, so effects preview while you edit them. Simulation picks
 // where the particles are stepped: on the CPU (the reference), or on the GPU by a compute shader
 // (Moonlight/Particles/GpuParticles.h), where the CPU still runs the emitter and only sends what
-// to spawn. GPU systems fall back to the CPU when they blend Alpha (they need a sort) or compute
-// isn't available.
+// to spawn; Alpha systems are then sorted back to front per camera on the GPU too. GPU systems fall
+// back to the CPU when compute isn't available.
 class ParticleSystem
     : public Component<ParticleSystem>
 {
@@ -92,6 +92,8 @@ public:
     // Rendering
     Path Texture;
     Moonlight::ParticleBlend Blend = Moonlight::ParticleBlend::Additive;
+    // Alpha + GPU: which cameras sort (render texture cameras can reuse the main camera's order).
+    Moonlight::ParticleSortCameras GpuSortCameras = Moonlight::ParticleSortCameras::Every;
     Moonlight::ParticleAlignment Alignment = Moonlight::ParticleAlignment::Billboard;
     float StretchFactor = 0.1f;
     int FlipbookColumns = 1;
@@ -121,7 +123,7 @@ public:
     bool IsEmitting() const { return !m_stopped && ( Looping || m_time < Duration ); }
 
     // GPU simulation (main thread, before stepping): decides the path for this frame. The GPU path
-    // runs when Simulation is GPU, Blend is Additive and InComputeActive (the renderer's
+    // runs when Simulation is GPU and InComputeActive (the renderer's
     // IsComputeActive()). Switching paths or changing MaxParticles restarts the system.
     void UpdateSimulationMode( bool InComputeActive );
     bool UsesGpuSimulation() const { return m_gpuActive; }

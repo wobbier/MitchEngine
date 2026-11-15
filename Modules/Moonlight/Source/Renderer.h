@@ -29,6 +29,8 @@ namespace Moonlight {
     class ClusterBuilder;
     class EnvironmentLighting;
     class GpuParticleSimulator;
+    class GpuParticleSorter;
+    class GpuParticleSortTarget;
 }
 
 struct RendererCreationSettings
@@ -171,6 +173,16 @@ public:
     // view of its own before the opaque view, which then shades every pixel once instead of once
     // per layer. FeatureCaps.DepthPrepass masks it; --no-depth-prepass starts with it off.
     bool EnableDepthPrepass = true;
+
+    // Froxel volumetric fog (ME-376): where compute is active, volumetric fog is lit into a froxel
+    // grid and integrated in compute instead of ray marched per pixel. Off by default: it is several
+    // times cheaper than the march but softens narrow beams (Rendering-Pipeline.md > Fog);
+    // --froxel-fog starts with it on.
+    bool EnableFroxelFog = false;
+
+    // Alpha GPU particle systems sort back to front on the GPU per camera (ME-381);
+    // --no-gpu-particle-sort starts with it off (they then draw in slot order: a debug/cost switch).
+    bool EnableGpuParticleSort = true;
 
     // What the target hardware can do (an enforced hardware profile sets these). They mask the
     // settings above and every camera's post-processing as frames render, without changing them,
@@ -358,6 +370,7 @@ private:
     void RenderSprites( Moonlight::CameraData& camera );
     std::vector<Moonlight::SpriteCommand> m_sprites;
     std::vector<std::pair<float, uint32_t>> m_spriteOrder;
+    uint32_t m_droppedParticles = 0;    // this frame's CPU particle instances that found no transient buffer room (FrameStats::RenderStats::DroppedParticles)
     uint32_t m_spriteBatches = 0;       // this frame's (FrameStats::RenderStats::SpriteBatches)
     Moonlight::ShaderCommand m_spriteProgram;
     bgfx::TextureHandle m_spriteWhite = BGFX_INVALID_HANDLE;
@@ -383,6 +396,10 @@ private:
     bgfx::UniformHandle s_sceneDepth = BGFX_INVALID_HANDLE;
     // GPU particle simulation (compute); null when compute isn't supported.
     UniquePtr<Moonlight::GpuParticleSimulator> m_gpuParticles;
+    // The per-camera back-to-front sort of Alpha GPU systems (ME-381); null without compute.
+    UniquePtr<Moonlight::GpuParticleSorter> m_gpuParticleSorter;
+    // Per m_particleOrder entry this camera: the sorted copy an Alpha GPU system draws from.
+    std::vector<Moonlight::GpuParticleSortTarget*> m_particleSortTargets;
     std::vector<Moonlight::DecalCommand> m_decals;
     std::vector<const Moonlight::DecalCommand*> m_decalOrder;
     Moonlight::ShaderCommand m_decalProgram;

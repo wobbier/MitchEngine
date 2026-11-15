@@ -1,0 +1,82 @@
+// Froxel fog, pass 2 of 3 (only when the camera's fog is temporal): the 3D twin of FogResolve.frag.
+// Each cell's centre is reprojected into last frame's grid through the previous view matrix, and
+// the history found there, clamped to the box of this frame's cell and its six face neighbours, is
+// blended with this frame's injection (u_froxelParams.x of it kept). A moving light therefore
+// can't leave a trail longer than the clamp allows. History is dropped (u_froxelGrid.w 0) on a cut,
+// resize, Play/Stop, grid change or a path switch, as for the fragment march.
+#include "bgfx_compute.sh"
+#include "../Fog.sh"
+#include "FogFroxel.sh"
+
+IMAGE3D_WO(s_froxelOut, rgba16f, 0);   // the history written this frame
+SAMPLER3D(s_froxelRaw, 1);             // this frame's injection
+SAMPLER3D(s_froxelHistory, 2);         // last frame's history
+
+uniform mat4 u_froxelPrevView;         // world -> last frame's view space
+
+NUM_THREADS(8, 8, 1)
+void main()
+{
+	ivec3 cell = ivec3(gl_GlobalInvocationID.xyz);
+	if (float(cell.x) >= u_froxelGrid.x || float(cell.y) >= u_froxelGrid.y || float(cell.z) >= u_froxelGrid.z)
+	{
+		return;
+	}
+	vec3 size = u_froxelGrid.xyz;
+	vec3 texel = (vec3(cell) + 0.5) / size;
+	vec4 current = texture3DLod(s_froxelRaw, texel, 0.0);
+	if (u_froxelGrid.w < 0.5)
+	{
+		imageStore(s_froxelOut, cell, current);
+		return;
+	}
+
+	// This frame's neighbourhood, widened by half its extent (FogResolve's 3x3, in 3D).
+	vec4 boxMin = current;
+	vec4 boxMax = current;
+	vec4 taps[6];
+	taps[0] = texture3DLod(s_froxelRaw, texel + vec3(1.0, 0.0, 0.0) / size, 0.0);
+	taps[1] = texture3DLod(s_froxelRaw, texel - vec3(1.0, 0.0, 0.0) / size, 0.0);
+	taps[2] = texture3DLod(s_froxelRaw, texel + vec3(0.0, 1.0, 0.0) / size, 0.0);
+	taps[3] = texture3DLod(s_froxelRaw, texel - vec3(0.0, 1.0, 0.0) / size, 0.0);
+	taps[4] = texture3DLod(s_froxelRaw, texel + vec3(0.0, 0.0, 1.0) / size, 0.0);
+	taps[5] = texture3DLod(s_froxelRaw, texel - vec3(0.0, 0.0, 1.0) / size, 0.0);
+	for (int i = 0; i < 6; ++i)
+	{
+		boxMin = min(boxMin, taps[i]);
+		boxMax = max(boxMax, taps[i]);
+	}
+	vec4 extent = (boxMax - boxMin) * 0.5;
+	boxMin -= extent;
+	boxMax += extent;
+
+	// The cell centre in the world, then in last frame's view and grid.
+	vec2 uv = texel.xy;
+	float viewZ = froxelCellDepth(float(cell.z), 0.5);
+	vec3 dir;
+	float distance;
+	float viewZPerMetre;
+	float originViewZ;
+	vec3 origin = fogRay(uv, viewZ, dir, distance, viewZPerMetre, originViewZ);
+	vec3 world = origin + dir * distance;
+	vec3 previous = mul(u_froxelPrevView, vec4(world, 1.0)).xyz;
+	vec2 ndc = previous.xy * u_froxelParams.zw;   // last frame's P[0][0], P[1][1]
+	if (u_fogProjection.z < 0.5)
+	{
+		if (previous.z <= 1e-4)
+		{
+			imageStore(s_froxelOut, cell, current);
+			return;
+		}
+		ndc /= previous.z;
+	}
+	float previousSlice = froxelCellCoord(previous.z);
+	vec3 previousTexel = vec3(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5, previousSlice / size.z);
+	if (any(lessThan(previousTexel, vec3_splat(0.0))) || any(greaterThan(previousTexel, vec3_splat(1.0))))
+	{
+		imageStore(s_froxelOut, cell, current);
+		return;
+	}
+	vec4 history = clamp(texture3DLod(s_froxelHistory, previousTexel, 0.0), boxMin, boxMax);
+	imageStore(s_froxelOut, cell, mix(current, history, u_froxelParams.x));
+}

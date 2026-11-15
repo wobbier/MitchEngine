@@ -3,12 +3,15 @@
 #include <functional>
 #include "Camera/PostProcessSettings.h"
 #include "Graphics/ShaderCommand.h"
+#include "Pointers.h"
 
 namespace Moonlight
 {
     struct CameraData;
     struct FrameBuffer;
     class ViewAllocator;
+    class TextureHistogram;
+    struct ProgramRef;
 
     // The fog uniforms shared by the fog pass and the forward shaders (Fog.sh): u_fogParams,
     // u_fogColor, u_fogVolume.
@@ -36,7 +39,10 @@ namespace Moonlight
         // With VolumetricTemporal the half-resolution march is resolved against its reprojected
         // history (InTargets.FogHistory, its own frame counter and previous matrix, so it works
         // without temporal AA) before the blur.
-        void RenderFog( ViewAllocator& InViews, const CameraData& InCamera, FrameBuffer& InTargets, const std::function<void()>& InBindLighting );
+        // InFroxelFog (compute active and BGFXRenderer::EnableFroxelFog): volumetric fog is lit into
+        // a camera-aligned froxel grid, blended with its history and integrated in compute, and the
+        // apply pass reads that volume (ME-376). Otherwise, or while those shaders load, the march.
+        void RenderFog( ViewAllocator& InViews, const CameraData& InCamera, FrameBuffer& InTargets, const std::function<void()>& InBindLighting, bool InFroxelFog = false );
 
         // Temporal anti-aliasing (PostProcessSettings::TemporalAA) once the HDR scene is complete:
         // resolves SceneColor against the reprojected history into InTargets.PostInput (SceneColor
@@ -72,9 +78,29 @@ namespace Moonlight
         // The most samples a local light takes along a ray with VolumetricLightSamples
         // (FogScatterLights.frag's FOG_MAX_LIGHT_SAMPLES).
         static constexpr int kMaxVolumetricLightSamples = 32;
+        // Froxel fog grid: FroxelGridRows rows (a fixed angle per cell, whatever the resolution),
+        // columns to keep the cells square (16..kFroxelMaxColumns), and VolumetricSteps slices deep
+        // (kFroxelMinDepth..kFroxelMaxDepth, FogFroxelIntegrate's bound).
+        static constexpr int kFroxelGridRows = 90;
+        static constexpr int kFroxelMaxColumns = 512;
+        static constexpr int kFroxelMinDepth = 8;
+        static constexpr int kFroxelMaxDepth = 128;
+        // The froxel grid's nearest boundary never comes closer than this (metres of view depth): the
+        // exponential slices would otherwise spend themselves in the first metre. Fog in front of it
+        // is lit with the first slice.
+        static constexpr float kFroxelNearDepth = 0.5f;
 
         // Seconds since the last frame, for eye adaptation.
         float DeltaSeconds = 1.f / 60.f;
+        // Auto exposure meters on a luminance histogram built in compute (AutoExposureLow/HighPercentile)
+        // instead of the log-average chain. The renderer sets it from IsComputeActive() each frame;
+        // --no-histogram-exposure keeps the chain, for comparing the two.
+        bool UseComputeMetering = false;
+        // Froxel fog tuning, for comparing (set from the command line): --froxel-grid-rows N (16..256),
+        // --froxel-slices N (0: VolumetricSteps), --froxel-near M (metres, kFroxelNearDepth).
+        int FroxelGridRows = kFroxelGridRows;
+        int FroxelSlices = 0;
+        float FroxelNearDepth = kFroxelNearDepth;
         // A render texture's target on a backend whose framebuffers start at the bottom (OpenGL):
         // passes writing it flip vertically, so it holds its top row first like an image.
         bgfx::FrameBufferHandle FlippedTarget = BGFX_INVALID_HANDLE;
@@ -84,6 +110,9 @@ namespace Moonlight
         void SubmitFullscreen( bgfx::ViewId InView, const ShaderCommand& InProgram, uint64_t InState = 0 );
         void RenderBloom( ViewAllocator& InViews, const PostProcessSettings& InSettings, FrameBuffer& InTargets );
         void RenderDepthOfField( ViewAllocator& InViews, const CameraData& InCamera, FrameBuffer& InTargets );
+        // The histogram path of RenderAutoExposure: bins the HDR image, averages between the
+        // percentiles into m_meteredLuminance. False (nothing submitted) while a shader loads.
+        bool RenderHistogramLuminance( ViewAllocator& InViews, const PostProcessSettings& InSettings, FrameBuffer& InTargets, bgfx::TextureHandle& OutLuminance );
         bgfx::TextureHandle RenderAutoExposure( ViewAllocator& InViews, const PostProcessSettings& InSettings, FrameBuffer& InTargets );
 
         ShaderCommand m_tonemapProgram;
@@ -101,6 +130,7 @@ namespace Moonlight
         ShaderCommand m_fogBlurProgram;
         ShaderCommand m_fogResolveProgram;
         ShaderCommand m_fogProgram;
+        ShaderCommand m_fogFroxelProgram;           // the froxel path's apply (FogFroxel.frag)
         ShaderCommand m_taaProgram;
         ShaderCommand m_copyProgram;
         ShaderCommand m_upscaleProgram;
@@ -154,6 +184,19 @@ namespace Moonlight
         bgfx::UniformHandle u_fogScatter = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_fogReproject = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_fogHistory = BGFX_INVALID_HANDLE;
+        // Froxel fog (FogFroxel.sh); the compute programs are acquired on the first froxel frame.
+        bgfx::UniformHandle u_froxelGrid = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_froxelDepth = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_froxelParams = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_froxelPrevView = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_froxelRaw = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_froxelHistory = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_froxelIn = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_froxelVolume = BGFX_INVALID_HANDLE;
+        SharedPtr<ProgramRef> m_froxelInjectProgram;
+        SharedPtr<ProgramRef> m_froxelBlendProgram;
+        SharedPtr<ProgramRef> m_froxelIntegrateProgram;
+        bool m_loggedFroxelFog = false;
         bgfx::UniformHandle s_taaCurrent = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_taaHistory = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_taaDepth = BGFX_INVALID_HANDLE;
@@ -173,6 +216,12 @@ namespace Moonlight
 
         bgfx::TextureHandle m_blackTexture = BGFX_INVALID_HANDLE;
         bgfx::TextureHandle m_whiteTexture = BGFX_INVALID_HANDLE;
+        // Compute metering, made on first use (only where compute is active).
+        UniquePtr<TextureHistogram> m_histogram;
+        SharedPtr<ProgramRef> m_exposureHistogramProgram;
+        bgfx::TextureHandle m_meteredLuminance = BGFX_INVALID_HANDLE;   // 1x1 R32F the compute pass writes
+        bgfx::UniformHandle u_meterParams = BGFX_INVALID_HANDLE;
+        bool m_histogramMeteringDisabled = false;
         // Bound to the volume LUT slot when no LUT is active (samplers must always be bound).
         bgfx::TextureHandle m_identityVolume = BGFX_INVALID_HANDLE;
     };

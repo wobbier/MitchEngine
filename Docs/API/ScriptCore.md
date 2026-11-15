@@ -1491,7 +1491,7 @@ NET-6: the session from scripts. Without a session (offline play, the editor) Ro
 - `RoleServer` (field): This peer is the server.
 - `RoundTripMs` (property): Smoothed round trip in ms: a client's to the server, or (server) to one client.
 - `RoundTripMsTo(System.Int32)` (method): Server: the round trip to one client, in ms.
-- `SendKillcam(ScriptCore.Entity,ScriptCore.Entity,System.Single)` (method): Server: sends the victim's owner a killcam (ME-323), the last
+- `SendKillcam(ScriptCore.Entity,ScriptCore.Entity,System.Single,System.Single)` (method): Server: sends the victim's owner a killcam (ME-323), the last
 - `SendRpc(ScriptCore.Entity,System.Int32,System.Int32,System.ReadOnlySpan{System.Byte},ScriptCore.INetScript)` (method): Generated RPC stubs call this. kind: 0 to the server, 1 to the owner, 2 to every client. Offline both sides are local, and an RPC addressed to the side we're on runs here directly.
 - `SessionId` (property): ME-343: the id of the script world's net session (unique in the process: a new one for each host, connect, and replay or killcam played; 0 when there's none). Net.Events keeps a ledger per session.
 - `SetAim(System.Single,System.Single)` (method): The local player's absolute aim (NET-15), sent with every command until cleared: degrees, yaw about +Y (0 down +Z, 90 down +X), pitch up from level. Set it from where the view looks each frame; the pawn's script reads Net.Command(Entity).Yaw / Pitch / AimDirection in OnFixedUpdate on both sides, so a predicted shot and the server's aim the same way.
@@ -1502,10 +1502,10 @@ NET-6: the session from scripts. Without a session (offline play, the editor) Ro
 
 ## Net.Killcam
 
-Client: the newest killcam the server sent (ME-323). It arrives a chunk at a time; a newer one replaces it. The Player plays each one as soon as its first chunk is in, into a replay world of its own beside the live one (which keeps its session, prediction and simulation): the screen, the camera and the audio listener show the killer's eye along its recorded aim until the death tick has held a second, then switch straight back. Started and Ended say when; Skip ends one early. The game's UI stays over it. Scripts marked [ReplayWorld] run in the replay world too, presentation only: InReplayWorld tells them which world they're in.
+Client: the newest killcam the server sent (ME-323). It arrives a chunk at a time; a newer one replaces it. The Player plays each one as soon as its first chunk is in, into a replay world of its own beside the live one (which keeps its session, prediction and simulation): the screen, the camera and the audio listener show the killer's eye along its recorded aim until the death tick has held a second (or, for one sent with seconds after the death, until those have played and held a moment), then switch straight back. Started and Ended say when; Skip ends one early. The game's UI stays over it. Scripts marked [ReplayWorld] run in the replay world too, presentation only: InReplayWorld tells them which world they're in.
 
-- `DeathTick` (property): The death's tick, the killcam's last.
-- `Duration` (property): Seconds it plays: its ticks at the tick rate, then a second on the death.
+- `DeathTick` (property): The death's tick: the killcam's last, unless it was sent with seconds after the death.
+- `Duration` (property): Seconds it plays: its ticks at the tick rate, then a second on the death (a moment on its last tick, for one that runs past the death).
 - `Elapsed` (property): Seconds it has played.
 - `Ended` (event): A killcam ended: played, skipped, replaced, stopped or failed (EventBus KillcamEnded; a script's handler goes with it).
 - `EyeHeight` (property): Where the game puts its eye above a pawn's origin, in metres: the killer's eye in its killcams (ME-343). Set it from the live world (a pawn's OnStart); below 0 (the default): the engine's guess, the CharacterController's top less 0.15 m.
@@ -1520,7 +1520,7 @@ Client: the newest killcam the server sent (ME-323). It arrives a chunk at a tim
 - `Received` (property): Whether the newest one is here whole.
 - `Skip` (method): Ends the killcam playing: the screen switches back to the live world (this frame from a live world's script, the next from the replay world's). With none playing, the newest killcam received that hasn't played yet (still arriving) never plays. Either way its download stops.
 - `Started` (event): A killcam started playing (EventBus KillcamStarted; a script's handler goes with it).
-- `Tick` (property): The tick the killcam shows (fractional between ticks), from FirstTick to DeathTick.
+- `Tick` (property): The tick the killcam shows (fractional between ticks), from FirstTick to DeathTick (and past it, for one sent with seconds after the death).
 - `Victim` (property): The victim in this world (Entity.Null when it isn't here any more).
 - `VictimId` (property): The victim's NetId in the killcam playing, or the last one played (0: none yet).
 
@@ -1781,7 +1781,7 @@ Match replays (ME-316): a server started with --record-replay records every tick
 - `Event(System.String,System.String)` (method): An event at the current tick: a short name (up to 64 bytes) and a payload (JSON by convention, up to 4000 bytes; longer is cut). Nothing unless recording.
 - `Event(System.String,System.String,ScriptCore.Entity)` (method): An event about an entity (its NetId goes in the replay; --entity filters on it). Nothing unless recording.
 - `IsPlaying` (property): Whether this process plays a replay back (a Player started with --replay file.mreplay). The world follows the recording, Net.IsClient is true and networked scripts present rather than simulate. Nothing is owned or predicted here (Net.LocalClientId is 0), so a game hides its "connecting" UI and its own player's view when this is set.
-- `IsRecording` (property): Whether this process records: a server with --record-replay, or one keeping the replay ring killcams are cut from (every server, unless started with --no-replay-ring). Events go to both.
+- `IsRecording` (property): Whether this process records: a server with --record-replay, or one keeping the replay ring killcams are cut from (every server, unless started with --no-replay-ring), or an offline session started with --record-replay (a playtest, ME-215). Events go to all of them.
 - `Quote(System.String)` (method): A JSON string literal for a payload: quotes, backslashes and control characters escaped.
 - `Tick` (property): The recorded server tick the replay shows (-1 when none plays).
 

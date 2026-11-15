@@ -1,0 +1,93 @@
+// GPU alpha sort, groupshared part (see ParticleSort.sh). One group of SORT_THREADS threads holds
+// SORT_BLOCK entries.
+//   u_sortFull 1: the first pass. Builds the entries from the simulation's buffers (the ring segment
+//                 that can hold live particles, padded) and sorts each block completely.
+//   u_sortFull 0: the end of a merge: disperse(d) for d = SORT_BLOCK .. 2 on each block.
+#include "bgfx_compute.sh"
+#include "ParticleSort.sh"
+
+BUFFER_RW(s_sortEntries, vec4, 0);
+// The system's ParticleSim.comp buffers: state (for the lifetime: 0 = dead) and instances (world position).
+BUFFER_RO(s_particleState, vec4, 1);
+BUFFER_RO(s_particleInstances, vec4, 2);
+
+// Packed by Moonlight::GpuParticleSorter (GpuParticles.cpp).
+uniform vec4 u_particleSort[3];
+#define u_capacity  u_particleSort[0].x
+#define u_count     u_particleSort[0].y    // entries that map to slots; the rest is padding
+#define u_ringEnd   u_particleSort[0].z    // they are the slots [ringEnd - count, ringEnd) mod capacity
+#define u_viewDepth u_particleSort[1].xyz  // the view matrix's depth row (no translation, like the CPU sort)
+#define u_sortFull  u_particleSort[2].y
+
+SHARED vec2 s_entries[SORT_BLOCK];
+
+vec2 makeEntry(uint index)
+{
+	uint capacity = uint(u_capacity + 0.5);
+	uint count = uint(u_count + 0.5);
+	if (index >= count)
+	{
+		return vec2(SORT_DEAD_KEY, float(capacity + index));
+	}
+	uint ringEnd = uint(u_ringEnd + 0.5);
+	uint slot = (ringEnd + capacity - count + index) % capacity;
+	if (s_particleState[slot * 4u + 1u].w <= 0.0)
+	{
+		return vec2(SORT_DEAD_KEY, float(slot));
+	}
+	vec3 position = s_particleInstances[slot * 4u + 0u].xyz;
+	return vec2(-dot(u_viewDepth, position), float(slot));
+}
+
+void compareSwap(uvec2 pair)
+{
+	vec2 a = s_entries[pair.x];
+	vec2 b = s_entries[pair.y];
+	if (sortAfter(a, b))
+	{
+		s_entries[pair.x] = b;
+		s_entries[pair.y] = a;
+	}
+}
+
+NUM_THREADS(SORT_THREADS, 1, 1)
+void main()
+{
+	uint thread = gl_LocalInvocationID.x;
+	uint first = gl_WorkGroupID.x * SORT_BLOCK;
+	uint second = thread + SORT_BLOCK / 2u;
+	bool full = u_sortFull > 0.5;
+	if (full)
+	{
+		s_entries[thread] = makeEntry(first + thread);
+		s_entries[second] = makeEntry(first + second);
+	}
+	else
+	{
+		s_entries[thread] = s_sortEntries[first + thread].xy;
+		s_entries[second] = s_sortEntries[first + second].xy;
+	}
+	barrier();
+
+	// Full: h = 2 .. SORT_BLOCK, each a flip and its disperse steps. Merge: one round at
+	// h = 2 * SORT_BLOCK with no flip (the global passes did it), so disperse(SORT_BLOCK .. 2).
+	// The loop bounds come from a uniform, so every barrier is in uniform control flow.
+	uint hFirst = full ? 2u : 2u * SORT_BLOCK;
+	uint hLast = full ? SORT_BLOCK : 2u * SORT_BLOCK;
+	for (uint h = hFirst; h <= hLast; h *= 2u)
+	{
+		if (h <= SORT_BLOCK)
+		{
+			compareSwap(sortPair(thread, h, true));
+		}
+		barrier();
+		for (uint d = h / 2u; d >= 2u; d /= 2u)
+		{
+			compareSwap(sortPair(thread, d, false));
+			barrier();
+		}
+	}
+
+	s_sortEntries[first + thread] = vec4(s_entries[thread], 0.0, 0.0);
+	s_sortEntries[first + second] = vec4(s_entries[second], 0.0, 0.0);
+}

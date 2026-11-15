@@ -67,6 +67,22 @@ namespace Moonlight
         float FogPreviousOrigin[3] = {};            // last frame's camera position and forward axis
         float FogPreviousForward[3] = {};
         void EnsureFogHistoryTargets();
+        // Froxel fog (the compute path, ME-376): RGBA16F 3D textures, not framebuffers, made on the
+        // first froxel frame and remade (dropping the history) when the grid size changes. Raw is
+        // this frame's lit cells, FroxelHistory the cells accumulated over frames (ping-pong, written
+        // last at FroxelHistoryIndex), FroxelIntegrated the fog in front of each cell's far boundary.
+        // False when the backend can't write RGBA16F 3D images (the march is used instead).
+        bgfx::TextureHandle FroxelRaw = BGFX_INVALID_HANDLE;
+        bgfx::TextureHandle FroxelHistory[2] = { BGFX_INVALID_HANDLE, BGFX_INVALID_HANDLE };
+        bgfx::TextureHandle FroxelIntegrated = BGFX_INVALID_HANDLE;
+        uint32_t FroxelHistoryIndex = 0;
+        uint16_t FroxelWidth = 0;
+        uint16_t FroxelHeight = 0;
+        uint16_t FroxelDepth = 0;
+        float FogPreviousView[16] = {};             // last frame's world -> view, for the froxel reprojection
+        float FogPreviousProjection[2] = {};        // last frame's P[0][0], P[1][1]: a zoom drops the froxel history
+        bool FogHistoryFroxel = false;              // which path FogHistoryValid belongs to
+        bool EnsureFroxelTargets( uint16_t InWidth, uint16_t InHeight, uint16_t InDepth );
 
         // Auto exposure (created on first use): this frame's average luminance and the adapted
         // value (ping-pong). False when they couldn't all be made.

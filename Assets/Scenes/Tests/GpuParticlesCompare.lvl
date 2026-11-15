@@ -1,0 +1,1067 @@
+{
+    "Version": 2,
+    "Cores": [],
+    "Entities": [
+        {
+            "GUID": "a000000000000001",
+            "Name": "Camera",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0,
+                        0,
+                        -18.249330206226077
+                    ],
+                    "Rotation": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "Scale": [
+                        1,
+                        1,
+                        1
+                    ]
+                },
+                {
+                    "Type": "Camera",
+                    "ClearType": "Color",
+                    "ClearColor": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "IsCurrent": true,
+                    "Near": 0.1,
+                    "Far": 100.0,
+                    "FieldOfView": 55.0
+                }
+            ]
+        },
+        {
+            "GUID": "c000000000000101",
+            "Name": "Cone fire CPU",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        -2.7,
+                        5.9,
+                        0
+                    ],
+                    "Rotation": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "Scale": [
+                        1,
+                        1,
+                        1
+                    ]
+                },
+                {
+                    "Type": "ParticleSystem",
+                    "Looping": true,
+                    "EmissionRate": 500,
+                    "BurstCount": 0,
+                    "MaxParticles": 6000,
+                    "SimulationSpace": "World",
+                    "Shape": "Cone",
+                    "ShapeRadius": 0.25,
+                    "ConeAngle": 20,
+                    "EmitFromShell": false,
+                    "Lifetime": [
+                        1.0,
+                        1.5
+                    ],
+                    "Speed": [
+                        1.5,
+                        2.5
+                    ],
+                    "Size": [
+                        0.08,
+                        0.14
+                    ],
+                    "Rotation": [
+                        0,
+                        0
+                    ],
+                    "AngularVelocity": [
+                        0,
+                        0
+                    ],
+                    "StartColor": [
+                        1.0,
+                        0.5,
+                        0.15
+                    ],
+                    "StartColor2": [
+                        1.0,
+                        0.8,
+                        0.3
+                    ],
+                    "StartAlpha": 1.0,
+                    "Intensity": 1.0,
+                    "EndSize": 0.6,
+                    "EndColor": [
+                        0.6,
+                        0.15,
+                        0.05
+                    ],
+                    "EndAlpha": 0.0,
+                    "FadeIn": 0.1,
+                    "Gravity": -0.2,
+                    "Drag": 0.2,
+                    "NoiseStrength": 0.3,
+                    "NoiseFrequency": 1.0,
+                    "Blend": "Additive",
+                    "Alignment": "Billboard",
+                    "StretchFactor": 0.1,
+                    "SoftParticleDistance": 0.0,
+                    "Simulation": "CPU"
+                }
+            ]
+        },
+        {
+            "GUID": "c000000000000102",
+            "Name": "Cone fire GPU",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        2.7,
+                        5.9,
+                        0
+                    ],
+                    "Rotation": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "Scale": [
+                        1,
+                        1,
+                        1
+                    ]
+                },
+                {
+                    "Type": "ParticleSystem",
+                    "Looping": true,
+                    "EmissionRate": 500,
+                    "BurstCount": 0,
+                    "MaxParticles": 6000,
+                    "SimulationSpace": "World",
+                    "Shape": "Cone",
+                    "ShapeRadius": 0.25,
+                    "ConeAngle": 20,
+                    "EmitFromShell": false,
+                    "Lifetime": [
+                        1.0,
+                        1.5
+                    ],
+                    "Speed": [
+                        1.5,
+                        2.5
+                    ],
+                    "Size": [
+                        0.08,
+                        0.14
+                    ],
+                    "Rotation": [
+                        0,
+                        0
+                    ],
+                    "AngularVelocity": [
+                        0,
+                        0
+                    ],
+                    "StartColor": [
+                        1.0,
+                        0.5,
+                        0.15
+                    ],
+                    "StartColor2": [
+                        1.0,
+                        0.8,
+                        0.3
+                    ],
+                    "StartAlpha": 1.0,
+                    "Intensity": 1.0,
+                    "EndSize": 0.6,
+                    "EndColor": [
+                        0.6,
+                        0.15,
+                        0.05
+                    ],
+                    "EndAlpha": 0.0,
+                    "FadeIn": 0.1,
+                    "Gravity": -0.2,
+                    "Drag": 0.2,
+                    "NoiseStrength": 0.3,
+                    "NoiseFrequency": 1.0,
+                    "Blend": "Additive",
+                    "Alignment": "Billboard",
+                    "StretchFactor": 0.1,
+                    "SoftParticleDistance": 0.0,
+                    "Simulation": "GPU"
+                }
+            ]
+        },
+        {
+            "GUID": "c000000000000103",
+            "Name": "Sphere shell burst CPU",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        -2.7,
+                        3.6,
+                        0
+                    ],
+                    "Rotation": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "Scale": [
+                        1,
+                        1,
+                        1
+                    ]
+                },
+                {
+                    "Type": "ParticleSystem",
+                    "Looping": false,
+                    "EmissionRate": 0,
+                    "BurstCount": 2500,
+                    "MaxParticles": 6000,
+                    "SimulationSpace": "World",
+                    "Shape": "Sphere",
+                    "ShapeRadius": 0.4,
+                    "ConeAngle": 20,
+                    "EmitFromShell": true,
+                    "Lifetime": [
+                        3.0,
+                        4.0
+                    ],
+                    "Speed": [
+                        0.6,
+                        1.0
+                    ],
+                    "Size": [
+                        0.08,
+                        0.14
+                    ],
+                    "Rotation": [
+                        0,
+                        0
+                    ],
+                    "AngularVelocity": [
+                        0,
+                        0
+                    ],
+                    "StartColor": [
+                        0.3,
+                        0.8,
+                        1.0
+                    ],
+                    "StartColor2": [
+                        0.6,
+                        0.5,
+                        1.0
+                    ],
+                    "StartAlpha": 1.0,
+                    "Intensity": 1.0,
+                    "EndSize": 0.6,
+                    "EndColor": [
+                        0.1,
+                        0.2,
+                        0.6
+                    ],
+                    "EndAlpha": 0.0,
+                    "FadeIn": 0.1,
+                    "Gravity": 0.0,
+                    "Drag": 1.0,
+                    "NoiseStrength": 0.0,
+                    "NoiseFrequency": 1.0,
+                    "Blend": "Additive",
+                    "Alignment": "Billboard",
+                    "StretchFactor": 0.1,
+                    "SoftParticleDistance": 0.0,
+                    "Duration": 0.05,
+                    "Simulation": "CPU"
+                }
+            ]
+        },
+        {
+            "GUID": "c000000000000104",
+            "Name": "Sphere shell burst GPU",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        2.7,
+                        3.6,
+                        0
+                    ],
+                    "Rotation": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "Scale": [
+                        1,
+                        1,
+                        1
+                    ]
+                },
+                {
+                    "Type": "ParticleSystem",
+                    "Looping": false,
+                    "EmissionRate": 0,
+                    "BurstCount": 2500,
+                    "MaxParticles": 6000,
+                    "SimulationSpace": "World",
+                    "Shape": "Sphere",
+                    "ShapeRadius": 0.4,
+                    "ConeAngle": 20,
+                    "EmitFromShell": true,
+                    "Lifetime": [
+                        3.0,
+                        4.0
+                    ],
+                    "Speed": [
+                        0.6,
+                        1.0
+                    ],
+                    "Size": [
+                        0.08,
+                        0.14
+                    ],
+                    "Rotation": [
+                        0,
+                        0
+                    ],
+                    "AngularVelocity": [
+                        0,
+                        0
+                    ],
+                    "StartColor": [
+                        0.3,
+                        0.8,
+                        1.0
+                    ],
+                    "StartColor2": [
+                        0.6,
+                        0.5,
+                        1.0
+                    ],
+                    "StartAlpha": 1.0,
+                    "Intensity": 1.0,
+                    "EndSize": 0.6,
+                    "EndColor": [
+                        0.1,
+                        0.2,
+                        0.6
+                    ],
+                    "EndAlpha": 0.0,
+                    "FadeIn": 0.1,
+                    "Gravity": 0.0,
+                    "Drag": 1.0,
+                    "NoiseStrength": 0.0,
+                    "NoiseFrequency": 1.0,
+                    "Blend": "Additive",
+                    "Alignment": "Billboard",
+                    "StretchFactor": 0.1,
+                    "SoftParticleDistance": 0.0,
+                    "Duration": 0.05,
+                    "Simulation": "GPU"
+                }
+            ]
+        },
+        {
+            "GUID": "c000000000000105",
+            "Name": "Stretched sparks CPU",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        -2.7,
+                        0.4,
+                        0
+                    ],
+                    "Rotation": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "Scale": [
+                        1,
+                        1,
+                        1
+                    ]
+                },
+                {
+                    "Type": "ParticleSystem",
+                    "Looping": true,
+                    "EmissionRate": 400,
+                    "BurstCount": 0,
+                    "MaxParticles": 6000,
+                    "SimulationSpace": "World",
+                    "Shape": "Cone",
+                    "ShapeRadius": 0.25,
+                    "ConeAngle": 45,
+                    "EmitFromShell": false,
+                    "Lifetime": [
+                        0.5,
+                        0.9
+                    ],
+                    "Speed": [
+                        2.5,
+                        4.0
+                    ],
+                    "Size": [
+                        0.04,
+                        0.07
+                    ],
+                    "Rotation": [
+                        0,
+                        0
+                    ],
+                    "AngularVelocity": [
+                        0,
+                        0
+                    ],
+                    "StartColor": [
+                        1.0,
+                        0.9,
+                        0.5
+                    ],
+                    "StartColor2": [
+                        1.0,
+                        1.0,
+                        0.8
+                    ],
+                    "StartAlpha": 1.0,
+                    "Intensity": 1.0,
+                    "EndSize": 1.0,
+                    "EndColor": [
+                        1.0,
+                        0.4,
+                        0.1
+                    ],
+                    "EndAlpha": 0.0,
+                    "FadeIn": 0.1,
+                    "Gravity": 1.0,
+                    "Drag": 0.0,
+                    "NoiseStrength": 0.0,
+                    "NoiseFrequency": 1.0,
+                    "Blend": "Additive",
+                    "Alignment": "Stretched",
+                    "StretchFactor": 0.12,
+                    "SoftParticleDistance": 0.0,
+                    "Simulation": "CPU"
+                }
+            ]
+        },
+        {
+            "GUID": "c000000000000106",
+            "Name": "Stretched sparks GPU",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        2.7,
+                        0.4,
+                        0
+                    ],
+                    "Rotation": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "Scale": [
+                        1,
+                        1,
+                        1
+                    ]
+                },
+                {
+                    "Type": "ParticleSystem",
+                    "Looping": true,
+                    "EmissionRate": 400,
+                    "BurstCount": 0,
+                    "MaxParticles": 6000,
+                    "SimulationSpace": "World",
+                    "Shape": "Cone",
+                    "ShapeRadius": 0.25,
+                    "ConeAngle": 45,
+                    "EmitFromShell": false,
+                    "Lifetime": [
+                        0.5,
+                        0.9
+                    ],
+                    "Speed": [
+                        2.5,
+                        4.0
+                    ],
+                    "Size": [
+                        0.04,
+                        0.07
+                    ],
+                    "Rotation": [
+                        0,
+                        0
+                    ],
+                    "AngularVelocity": [
+                        0,
+                        0
+                    ],
+                    "StartColor": [
+                        1.0,
+                        0.9,
+                        0.5
+                    ],
+                    "StartColor2": [
+                        1.0,
+                        1.0,
+                        0.8
+                    ],
+                    "StartAlpha": 1.0,
+                    "Intensity": 1.0,
+                    "EndSize": 1.0,
+                    "EndColor": [
+                        1.0,
+                        0.4,
+                        0.1
+                    ],
+                    "EndAlpha": 0.0,
+                    "FadeIn": 0.1,
+                    "Gravity": 1.0,
+                    "Drag": 0.0,
+                    "NoiseStrength": 0.0,
+                    "NoiseFrequency": 1.0,
+                    "Blend": "Additive",
+                    "Alignment": "Stretched",
+                    "StretchFactor": 0.12,
+                    "SoftParticleDistance": 0.0,
+                    "Simulation": "GPU"
+                }
+            ]
+        },
+        {
+            "GUID": "b000000000000107",
+            "Name": "Local space on a moving parent CPU parent",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        -2.7,
+                        -3.6000000000000005,
+                        0
+                    ],
+                    "Rotation": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "Scale": [
+                        1,
+                        1,
+                        1
+                    ]
+                }
+            ]
+        },
+        {
+            "GUID": "c000000000000108",
+            "Name": "Local space on a moving parent CPU",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0,
+                        -0.8,
+                        0
+                    ],
+                    "Rotation": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "Scale": [
+                        1,
+                        1,
+                        1
+                    ]
+                },
+                {
+                    "Type": "ParticleSystem",
+                    "Looping": true,
+                    "EmissionRate": 400,
+                    "BurstCount": 0,
+                    "MaxParticles": 6000,
+                    "SimulationSpace": "Local",
+                    "Shape": "Cone",
+                    "ShapeRadius": 0.25,
+                    "ConeAngle": 20,
+                    "EmitFromShell": false,
+                    "Lifetime": [
+                        1.0,
+                        1.4
+                    ],
+                    "Speed": [
+                        1.0,
+                        1.8
+                    ],
+                    "Size": [
+                        0.08,
+                        0.14
+                    ],
+                    "Rotation": [
+                        0,
+                        0
+                    ],
+                    "AngularVelocity": [
+                        0,
+                        0
+                    ],
+                    "StartColor": [
+                        0.5,
+                        1.0,
+                        0.4
+                    ],
+                    "StartColor2": [
+                        0.8,
+                        1.0,
+                        0.5
+                    ],
+                    "StartAlpha": 1.0,
+                    "Intensity": 1.0,
+                    "EndSize": 0.6,
+                    "EndColor": [
+                        0.1,
+                        0.5,
+                        0.2
+                    ],
+                    "EndAlpha": 0.0,
+                    "FadeIn": 0.1,
+                    "Gravity": -0.1,
+                    "Drag": 0.2,
+                    "NoiseStrength": 0.3,
+                    "NoiseFrequency": 1.0,
+                    "Blend": "Additive",
+                    "Alignment": "Billboard",
+                    "StretchFactor": 0.1,
+                    "SoftParticleDistance": 0.0,
+                    "Simulation": "CPU"
+                }
+            ],
+            "Parent": "b000000000000107"
+        },
+        {
+            "GUID": "b000000000000109",
+            "Name": "Local space on a moving parent GPU parent",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        2.7,
+                        -3.6000000000000005,
+                        0
+                    ],
+                    "Rotation": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "Scale": [
+                        1,
+                        1,
+                        1
+                    ]
+                }
+            ]
+        },
+        {
+            "GUID": "c00000000000010a",
+            "Name": "Local space on a moving parent GPU",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0,
+                        -0.8,
+                        0
+                    ],
+                    "Rotation": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "Scale": [
+                        1,
+                        1,
+                        1
+                    ]
+                },
+                {
+                    "Type": "ParticleSystem",
+                    "Looping": true,
+                    "EmissionRate": 400,
+                    "BurstCount": 0,
+                    "MaxParticles": 6000,
+                    "SimulationSpace": "Local",
+                    "Shape": "Cone",
+                    "ShapeRadius": 0.25,
+                    "ConeAngle": 20,
+                    "EmitFromShell": false,
+                    "Lifetime": [
+                        1.0,
+                        1.4
+                    ],
+                    "Speed": [
+                        1.0,
+                        1.8
+                    ],
+                    "Size": [
+                        0.08,
+                        0.14
+                    ],
+                    "Rotation": [
+                        0,
+                        0
+                    ],
+                    "AngularVelocity": [
+                        0,
+                        0
+                    ],
+                    "StartColor": [
+                        0.5,
+                        1.0,
+                        0.4
+                    ],
+                    "StartColor2": [
+                        0.8,
+                        1.0,
+                        0.5
+                    ],
+                    "StartAlpha": 1.0,
+                    "Intensity": 1.0,
+                    "EndSize": 0.6,
+                    "EndColor": [
+                        0.1,
+                        0.5,
+                        0.2
+                    ],
+                    "EndAlpha": 0.0,
+                    "FadeIn": 0.1,
+                    "Gravity": -0.1,
+                    "Drag": 0.2,
+                    "NoiseStrength": 0.3,
+                    "NoiseFrequency": 1.0,
+                    "Blend": "Additive",
+                    "Alignment": "Billboard",
+                    "StretchFactor": 0.1,
+                    "SoftParticleDistance": 0.0,
+                    "Simulation": "GPU"
+                }
+            ],
+            "Parent": "b000000000000109"
+        },
+        {
+            "GUID": "c00000000000010b",
+            "Name": "Alpha toward the camera CPU",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        -2.7,
+                        -7.2,
+                        0
+                    ],
+                    "Rotation": [
+                        -68.68,
+                        -8.4159,
+                        0
+                    ],
+                    "Scale": [
+                        1,
+                        1,
+                        1
+                    ]
+                },
+                {
+                    "Type": "ParticleSystem",
+                    "Looping": true,
+                    "EmissionRate": 250,
+                    "BurstCount": 0,
+                    "MaxParticles": 6000,
+                    "SimulationSpace": "World",
+                    "Shape": "Cone",
+                    "ShapeRadius": 0.25,
+                    "ConeAngle": 25,
+                    "EmitFromShell": false,
+                    "Lifetime": [
+                        1.4,
+                        1.8
+                    ],
+                    "Speed": [
+                        1.0,
+                        1.4
+                    ],
+                    "Size": [
+                        0.3,
+                        0.4
+                    ],
+                    "Rotation": [
+                        0,
+                        0
+                    ],
+                    "AngularVelocity": [
+                        0,
+                        0
+                    ],
+                    "StartColor": [
+                        1.0,
+                        0.1,
+                        0.05
+                    ],
+                    "StartColor2": [
+                        1.0,
+                        0.2,
+                        0.1
+                    ],
+                    "StartAlpha": 1.0,
+                    "Intensity": 1.0,
+                    "EndSize": 1.0,
+                    "EndColor": [
+                        0.05,
+                        0.2,
+                        1.0
+                    ],
+                    "EndAlpha": 0.9,
+                    "FadeIn": 0.0,
+                    "Gravity": 0.0,
+                    "Drag": 0.0,
+                    "NoiseStrength": 0.0,
+                    "NoiseFrequency": 1.0,
+                    "Blend": "Alpha",
+                    "Alignment": "Billboard",
+                    "StretchFactor": 0.1,
+                    "SoftParticleDistance": 0.0,
+                    "Simulation": "CPU"
+                }
+            ]
+        },
+        {
+            "GUID": "c00000000000010c",
+            "Name": "Alpha toward the camera GPU",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        2.7,
+                        -7.2,
+                        0
+                    ],
+                    "Rotation": [
+                        -68.68,
+                        8.4159,
+                        0
+                    ],
+                    "Scale": [
+                        1,
+                        1,
+                        1
+                    ]
+                },
+                {
+                    "Type": "ParticleSystem",
+                    "Looping": true,
+                    "EmissionRate": 250,
+                    "BurstCount": 0,
+                    "MaxParticles": 6000,
+                    "SimulationSpace": "World",
+                    "Shape": "Cone",
+                    "ShapeRadius": 0.25,
+                    "ConeAngle": 25,
+                    "EmitFromShell": false,
+                    "Lifetime": [
+                        1.4,
+                        1.8
+                    ],
+                    "Speed": [
+                        1.0,
+                        1.4
+                    ],
+                    "Size": [
+                        0.3,
+                        0.4
+                    ],
+                    "Rotation": [
+                        0,
+                        0
+                    ],
+                    "AngularVelocity": [
+                        0,
+                        0
+                    ],
+                    "StartColor": [
+                        1.0,
+                        0.1,
+                        0.05
+                    ],
+                    "StartColor2": [
+                        1.0,
+                        0.2,
+                        0.1
+                    ],
+                    "StartAlpha": 1.0,
+                    "Intensity": 1.0,
+                    "EndSize": 1.0,
+                    "EndColor": [
+                        0.05,
+                        0.2,
+                        1.0
+                    ],
+                    "EndAlpha": 0.9,
+                    "FadeIn": 0.0,
+                    "Gravity": 0.0,
+                    "Drag": 0.0,
+                    "NoiseStrength": 0.0,
+                    "NoiseFrequency": 1.0,
+                    "Blend": "Alpha",
+                    "Alignment": "Billboard",
+                    "StretchFactor": 0.1,
+                    "SoftParticleDistance": 0.0,
+                    "Simulation": "GPU"
+                }
+            ]
+        },
+        {
+            "GUID": "a000000000000002",
+            "Name": "Parent motion",
+            "DestroyOnLoad": true,
+            "Components": [
+                {
+                    "Type": "Transform",
+                    "Position": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "Rotation": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "Scale": [
+                        1,
+                        1,
+                        1
+                    ]
+                },
+                {
+                    "Type": "Sequence",
+                    "Name": "Swing",
+                    "FrameRate": 30,
+                    "DurationFrames": 90,
+                    "PlayOnStart": true,
+                    "Loop": true,
+                    "Tracks": [
+                        {
+                            "Target": "b000000000000107",
+                            "Component": "Transform",
+                            "Property": "Position",
+                            "Keys": [
+                                {
+                                    "Frame": 0,
+                                    "Value": [
+                                        -3.6,
+                                        -3.6000000000000005,
+                                        0,
+                                        0
+                                    ],
+                                    "Interpolation": "SmoothStep"
+                                },
+                                {
+                                    "Frame": 45,
+                                    "Value": [
+                                        -1.8000000000000003,
+                                        -3.6000000000000005,
+                                        0,
+                                        0
+                                    ],
+                                    "Interpolation": "SmoothStep"
+                                },
+                                {
+                                    "Frame": 90,
+                                    "Value": [
+                                        -3.6,
+                                        -3.6000000000000005,
+                                        0,
+                                        0
+                                    ],
+                                    "Interpolation": "SmoothStep"
+                                }
+                            ]
+                        },
+                        {
+                            "Target": "b000000000000109",
+                            "Component": "Transform",
+                            "Property": "Position",
+                            "Keys": [
+                                {
+                                    "Frame": 0,
+                                    "Value": [
+                                        1.8000000000000003,
+                                        -3.6000000000000005,
+                                        0,
+                                        0
+                                    ],
+                                    "Interpolation": "SmoothStep"
+                                },
+                                {
+                                    "Frame": 45,
+                                    "Value": [
+                                        3.6,
+                                        -3.6000000000000005,
+                                        0,
+                                        0
+                                    ],
+                                    "Interpolation": "SmoothStep"
+                                },
+                                {
+                                    "Frame": 90,
+                                    "Value": [
+                                        1.8000000000000003,
+                                        -3.6000000000000005,
+                                        0,
+                                        0
+                                    ],
+                                    "Interpolation": "SmoothStep"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

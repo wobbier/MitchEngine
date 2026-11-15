@@ -17,6 +17,7 @@ namespace Moonlight
 {
     namespace
     {
+        constexpr uint32_t kEnvGroupSize = 8;    // NUM_THREADS( 8, 8, 1 ) in Env*.comp
         constexpr uint64_t kCubeSampler = BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP | BGFX_SAMPLER_W_CLAMP;
 
         uint64_t Mix( uint64_t h, uint64_t v )
@@ -44,6 +45,14 @@ namespace Moonlight
     void EnvironmentLighting::Init()
     {
         m_supported = bgfx::isTextureValid( 0, true, 1, bgfx::TextureFormat::RGBA16F, BGFX_TEXTURE_RT | kCubeSampler );
+
+        if( ( bgfx::getCaps()->supported & BGFX_CAPS_COMPUTE ) != 0
+            && bgfx::isTextureValid( 0, true, 1, bgfx::TextureFormat::RGBA16F, BGFX_TEXTURE_COMPUTE_WRITE | kCubeSampler ) )
+        {
+            m_downsampleCs = AcquireComputeProgram( "Assets/Shaders/Env/EnvDownsample.comp" );
+            m_prefilterCs = AcquireComputeProgram( "Assets/Shaders/Env/EnvPrefilter.comp" );
+            m_irradianceCs = AcquireComputeProgram( "Assets/Shaders/Env/EnvIrradiance.comp" );
+        }
 
         m_captureProgram = LoadEnvProgram( "EnvCapture" );
         m_downsampleProgram = LoadEnvProgram( "EnvDownsample" );
@@ -81,6 +90,9 @@ namespace Moonlight
         {
             DestroyProbe( probe );
         }
+        m_downsampleCs.reset();
+        m_prefilterCs.reset();
+        m_irradianceCs.reset();
         for( ShaderCommand* program : { &m_captureProgram, &m_downsampleProgram, &m_prefilterProgram, &m_irradianceProgram, &m_brdfProgram } )
         {
             *program = ShaderCommand();
@@ -185,6 +197,12 @@ namespace Moonlight
                 }
             }
         }
+        // A probe's textures are made for one filter path; recreate them if the path changed.
+        const bool compute = UseCompute && IsComputeFilterReady();
+        if( bgfx::isValid( probe->Specular ) && probe->Compute != compute )
+        {
+            DestroyProbe( *probe );
+        }
         probe->LastUsedFrame = InFrame;
 
         // One refresh step per frame across all probes: capture, then filter on later frames.
@@ -198,6 +216,7 @@ namespace Moonlight
                     {
                         probe->NextStep = 0;
                         probe->Ready = true;
+                        LogRefresh( InFrame - probe->RefreshStartFrame + 1, false, InFrame );
                     }
                     m_lastUpdateFrame = InFrame;
                 }
@@ -208,12 +227,27 @@ namespace Moonlight
                 {
                     probe->Ready = false;
                 }
-                if( HasFrameBufferHeadroom( 6 ) && Capture( *probe, source, InViews, InSky ) )
+                if( HasFrameBufferHeadroom( 6 ) && Capture( *probe, source, InViews, InSky, compute ) )
                 {
-                    probe->Key = source.Key;
-                    probe->SourceType = source.Type;
-                    probe->NextStep = 1;
                     m_lastUpdateFrame = InFrame;
+                    probe->RefreshStartFrame = InFrame;
+                    if( compute )
+                    {
+                        // The filter views come after the capture views, so the whole refresh lands this frame.
+                        if( FilterCompute( *probe, InViews ) )
+                        {
+                            probe->Key = source.Key;
+                            probe->SourceType = source.Type;
+                            probe->Ready = true;
+                            LogRefresh( InFrame - probe->RefreshStartFrame + 1, true, InFrame );
+                        }
+                    }
+                    else
+                    {
+                        probe->Key = source.Key;
+                        probe->SourceType = source.Type;
+                        probe->NextStep = 1;
+                    }
                 }
             }
             ReleaseFrameBuffers();
@@ -222,14 +256,34 @@ namespace Moonlight
     }
 
 
-    void EnvironmentLighting::CreateProbe( Probe& OutProbe )
+    void EnvironmentLighting::LogRefresh( uint64_t InFrames, bool InCompute, uint64_t InDoneFrame )
     {
-        const uint64_t flags = BGFX_TEXTURE_RT | kCubeSampler;
+        // The first few only: a moving sky refreshes its probe all the time.
+        if( m_loggedRefreshes < 8 )
+        {
+            ++m_loggedRefreshes;
+            CLog::Log( CLog::LogType::Info, std::string( "Environment probe refreshed in " ) + std::to_string( InFrames ) + ( InFrames == 1 ? " frame (" : " frames (" ) + ( InCompute ? "compute" : "framebuffers" ) + "), done at frame " + std::to_string( InDoneFrame ) );
+        }
+    }
+
+
+    bool EnvironmentLighting::IsComputeFilterReady() const
+    {
+        return m_downsampleCs && m_prefilterCs && m_irradianceCs
+            && bgfx::isValid( m_downsampleCs->Handle ) && bgfx::isValid( m_prefilterCs->Handle ) && bgfx::isValid( m_irradianceCs->Handle );
+    }
+
+
+    void EnvironmentLighting::CreateProbe( Probe& OutProbe, bool InCompute )
+    {
+        // Compute filters write the cubes as images (no render target needed); the capture is always drawn.
+        const uint64_t flags = ( InCompute ? BGFX_TEXTURE_COMPUTE_WRITE : BGFX_TEXTURE_RT ) | kCubeSampler;
+        OutProbe.Compute = InCompute;
         for( uint8_t level = 0; level < kSourceLevels; ++level )
         {
             if( !bgfx::isValid( OutProbe.Source[level] ) )
             {
-                OutProbe.Source[level] = bgfx::createTextureCube( static_cast<uint16_t>( kCaptureSize >> level ), false, 1, bgfx::TextureFormat::RGBA16F, flags );
+                OutProbe.Source[level] = bgfx::createTextureCube( static_cast<uint16_t>( kCaptureSize >> level ), false, 1, bgfx::TextureFormat::RGBA16F, level == 0 ? ( BGFX_TEXTURE_RT | kCubeSampler ) : flags );
                 bgfx::setName( OutProbe.Source[level], "Environment Capture" );
             }
         }
@@ -338,9 +392,9 @@ namespace Moonlight
     }
 
 
-    bool EnvironmentLighting::Capture( Probe& InProbe, const SourceDesc& InSource, ViewAllocator& InViews, DynamicSky* InSky )
+    bool EnvironmentLighting::Capture( Probe& InProbe, const SourceDesc& InSource, ViewAllocator& InViews, DynamicSky* InSky, bool InCompute )
     {
-        CreateProbe( InProbe );
+        CreateProbe( InProbe, InCompute );
         const float mode[4] = { static_cast<float>( InSource.Type ), 0.f, 0.f, 0.f };
         for( uint16_t face = 0; face < 6; ++face )
         {
@@ -366,6 +420,50 @@ namespace Moonlight
             Submit( view, m_captureProgram );
         }
 
+        return true;
+    }
+
+
+    bool EnvironmentLighting::FilterCompute( Probe& InProbe, ViewAllocator& InViews )
+    {
+        // Cube faces are image layers (the z group index); each dispatch writes one mip of one cube and
+        // samples its source through a sampler, so no typed UAV is ever read. A view runs its dispatches
+        // before its draws, and a dispatch must see the previous one's result, so each link of the
+        // downsample chain gets its own view (all after the capture views), and the filters that only
+        // read finished cubes share the last.
+        const auto bindAndDispatch = [&]( bgfx::ViewId InView, const SharedPtr<ProgramRef>& InProgram, bgfx::TextureHandle InSource, bgfx::TextureHandle InDest, uint8_t InMip, uint16_t InSize, float InRoughness, float InSamples )
+        {
+            const float params[4] = { 0.f, InRoughness, static_cast<float>( InSize ), InSamples };
+            bgfx::setUniform( u_envFace, params );
+            bgfx::setTexture( 0, s_envSource, InSource, kCubeSampler );
+            bgfx::setImage( 1, InDest, InMip, bgfx::Access::Write, bgfx::TextureFormat::RGBA16F );
+            const uint32_t groups = ComputeGroupCount( InSize, kEnvGroupSize );
+            bgfx::dispatch( InView, InProgram->Handle, groups, groups, 6 );
+        };
+
+        for( uint8_t level = 1; level < kSourceLevels; ++level )
+        {
+            const bgfx::ViewId view = InViews.Allocate( "Environment Downsample" );
+            if( view == UINT16_MAX )
+            {
+                return false;
+            }
+            bindAndDispatch( view, m_downsampleCs, InProbe.Source[level - 1], InProbe.Source[level], 0, static_cast<uint16_t>( kCaptureSize >> level ), 0.f, 0.f );
+        }
+
+        const bgfx::ViewId view = InViews.Allocate( "Environment Filter" );
+        if( view == UINT16_MAX )
+        {
+            return false;
+        }
+        for( uint8_t mip = 0; mip < kSpecularMips; ++mip )
+        {
+            const float roughness = static_cast<float>( mip ) / static_cast<float>( kSpecularMips - 1 );
+            const uint8_t sourceLevel = std::min<uint8_t>( mip, kSourceLevels - 1 );
+            const float samples = mip == 0 ? 1.f : ( mip == 1 ? 48.f : 96.f );
+            bindAndDispatch( view, m_prefilterCs, InProbe.Source[sourceLevel], InProbe.Specular, mip, static_cast<uint16_t>( kCaptureSize >> mip ), roughness, samples );
+        }
+        bindAndDispatch( view, m_irradianceCs, InProbe.Source[kSourceLevels - 1], InProbe.Irradiance, 0, kIrradianceSize, 1.f, 128.f );
         return true;
     }
 

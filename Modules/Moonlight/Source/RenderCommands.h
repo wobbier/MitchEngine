@@ -227,6 +227,13 @@ namespace Moonlight
         Alpha,          // matter: smoke, dust, debris
     };
 
+    // Which cameras sort an Alpha system simulated on the GPU (ParticleSystem::GpuSortCameras).
+    enum class ParticleSortCameras : uint8_t
+    {
+        Every = 0,      // every camera that draws it sorts for its own view
+        MainCamera,     // render texture cameras (screen feeds) draw with the main camera's order
+    };
+
     // Sprites (LOOK-S2): textured quads from SpriteRenderer, drawn after transparents.
     enum class SpriteBlend : uint8_t
     {
@@ -314,6 +321,10 @@ namespace Moonlight
         bool GpuStepPending = false;
         uint32_t GpuInstanceCount = 0;
         uint32_t GpuLiveCount = 0;
+        // Alpha GPU systems: the live particles are within the GpuLiveCount ring slots ending at
+        // GpuRingEnd (the sort covers only those), and which cameras sort.
+        uint32_t GpuRingEnd = 0;
+        ParticleSortCameras GpuSortCameras = ParticleSortCameras::Every;
         // A Particle-target shader graph colouring the quads (null: the built-in particle shader).
         SharedPtr<ShaderGraphAsset> Graph;
         // The particle system's values for the graph's properties.

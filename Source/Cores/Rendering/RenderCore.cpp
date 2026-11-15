@@ -1192,6 +1192,11 @@ void RenderCore::OnEditorInspect()
         {
             ImGui::SetTooltip( "Opaque Standard surfaces draw depth-only first, so the lit pass shades each pixel once instead of once per layer. Off draws every mesh once, as before" );
         }
+        checkbox( "Froxel Fog", renderer.EnableFroxelFog );
+        if( ImGui::IsItemHovered() )
+        {
+            ImGui::SetTooltip( "Volumetric fog is lit into a 3D grid and integrated in compute (where compute is active) instead of ray marched per pixel: several times cheaper, but narrow beams come out softer. Off (the default) uses the march" );
+        }
         ImGui::TreePop();
     }
 

@@ -1,10 +1,16 @@
 #include <doctest/doctest.h>
 #include "Components/Effects/ParticleSystem.h"
 #include "Graphics/ShaderCompiler.h"
+#include "Particles/GpuParticles.h"
 #include "Path.h"
 #include <glm/gtc/matrix_transform.hpp>
+#include <algorithm>
+#include <cmath>
 #include <filesystem>
+#include <random>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace
 {
@@ -270,9 +276,11 @@ TEST_CASE( "Particles: GPU simulation falls back to the CPU and restarts on a sw
     MakeQuiet( system );
     system.Simulation = ParticleSimulation::GPU;
 
-    // Alpha needs a sort the GPU path doesn't do.
+    // Alpha runs on the GPU too (sorted there, ME-381); without compute it doesn't.
     system.Blend = Moonlight::ParticleBlend::Alpha;
     system.UpdateSimulationMode( true );
+    CHECK( system.UsesGpuSimulation() );
+    system.UpdateSimulationMode( false );
     CHECK_FALSE( system.UsesGpuSimulation() );
     // No compute: CPU.
     system.Blend = Moonlight::ParticleBlend::Additive;
@@ -413,27 +421,193 @@ TEST_CASE( "Particles: GPU bounds hold every particle of the same CPU simulation
     }
 }
 
-TEST_CASE( "Particles: the GPU simulation shader compiles for every portable profile" )
+TEST_CASE( "Particles: the GPU simulation and alpha sort shaders compile for every portable profile" )
 {
-    const std::string source = Path( "Assets/Shaders/Particles/ParticleSim.comp" ).FullPath;
-    REQUIRE( std::filesystem::exists( source ) );
     const std::filesystem::path directory = std::filesystem::path( Path( ".tmp/ParticleSimShaderTests" ).FullPath );
     std::filesystem::remove_all( directory );
     std::filesystem::create_directories( directory );
     std::string failures;
-    for( const Moonlight::ShaderCompiler::Profile& profile : Moonlight::ShaderCompiler::GetPortableProfiles() )
+    for( const char* name : { "ParticleSim", "ParticleSortLocal", "ParticleSortGlobal", "ParticleSortGather" } )
     {
-        Moonlight::ShaderCompiler::Request request;
-        request.SourcePath = source;
-        request.OutputPath = ( directory / ( "ParticleSim.comp." + profile.Name + ".bin" ) ).string();
-        request.ShaderStage = Moonlight::ShaderCompiler::Stage::Compute;
-        request.TargetProfile = profile;
-        const Moonlight::ShaderCompiler::Result result = Moonlight::ShaderCompiler::Compile( request );
-        if( !result.Success || !std::filesystem::exists( request.OutputPath ) )
+        const std::string source = Path( std::string( "Assets/Shaders/Particles/" ) + name + ".comp" ).FullPath;
+        REQUIRE( std::filesystem::exists( source ) );
+        for( const Moonlight::ShaderCompiler::Profile& profile : Moonlight::ShaderCompiler::GetPortableProfiles() )
         {
-            failures += "[" + profile.Name + "]\n" + result.Log + "\n";
+            Moonlight::ShaderCompiler::Request request;
+            request.SourcePath = source;
+            request.OutputPath = ( directory / ( std::string( name ) + ".comp." + profile.Name + ".bin" ) ).string();
+            request.ShaderStage = Moonlight::ShaderCompiler::Stage::Compute;
+            request.TargetProfile = profile;
+            const Moonlight::ShaderCompiler::Result result = Moonlight::ShaderCompiler::Compile( request );
+            if( !result.Success || !std::filesystem::exists( request.OutputPath ) )
+            {
+                failures += std::string( name ) + " [" + profile.Name + "]\n" + result.Log + "\n";
+            }
         }
     }
     CHECK_MESSAGE( failures.empty(), failures );
     std::filesystem::remove_all( directory );
+}
+
+namespace
+{
+    // The alpha sort's network on the CPU, step for step as ParticleSort.sh / ParticleSortLocal.comp /
+    // ParticleSortGlobal.comp run it: entries are (key, slot), a sorts after b by key, then slot.
+    using SortEntry = std::pair<float, float>;
+
+    bool SortAfter( const SortEntry& a, const SortEntry& b )
+    {
+        return a.first > b.first || ( a.first == b.first && a.second > b.second );
+    }
+
+    void SortStep( std::vector<SortEntry>& InEntries, uint32_t InFirst, uint32_t InCount, uint32_t InSize, bool InFlip )
+    {
+        // One "thread" per compare: InCount / 2 of them, over the entries [InFirst, InFirst + InCount).
+        for( uint32_t thread = 0; thread < InCount / 2; ++thread )
+        {
+            const uint32_t halfSize = InSize / 2;
+            const uint32_t base = ( thread / halfSize ) * InSize;
+            const uint32_t offset = thread % halfSize;
+            const uint32_t i = InFirst + base + offset;
+            const uint32_t j = InFirst + ( InFlip ? base + InSize - 1 - offset : base + offset + halfSize );
+            if( SortAfter( InEntries[i], InEntries[j] ) )
+            {
+                std::swap( InEntries[i], InEntries[j] );
+            }
+        }
+    }
+
+    void RunGpuSortOnCpu( std::vector<SortEntry>& InEntries )
+    {
+        const uint32_t entries = static_cast<uint32_t>( InEntries.size() );
+        const uint32_t block = Moonlight::kGpuParticleSortBlock;
+        std::vector<Moonlight::GpuSortPass> passes;
+        Moonlight::BuildGpuSortPasses( entries, passes );
+        for( const Moonlight::GpuSortPass& pass : passes )
+        {
+            switch( pass.Type )
+            {
+            case Moonlight::GpuSortPass::Kind::LocalSort:
+                for( uint32_t first = 0; first < entries; first += block )
+                {
+                    for( uint32_t h = 2; h <= block; h *= 2 )
+                    {
+                        SortStep( InEntries, first, block, h, true );
+                        for( uint32_t d = h / 2; d >= 2; d /= 2 )
+                        {
+                            SortStep( InEntries, first, block, d, false );
+                        }
+                    }
+                }
+                break;
+            case Moonlight::GpuSortPass::Kind::LocalMerge:
+                for( uint32_t first = 0; first < entries; first += block )
+                {
+                    for( uint32_t d = block; d >= 2; d /= 2 )
+                    {
+                        SortStep( InEntries, first, block, d, false );
+                    }
+                }
+                break;
+            case Moonlight::GpuSortPass::Kind::Flip:
+            case Moonlight::GpuSortPass::Kind::Disperse:
+                SortStep( InEntries, 0, entries, pass.Size, pass.Type == Moonlight::GpuSortPass::Kind::Flip );
+                break;
+            }
+        }
+    }
+}
+
+TEST_CASE( "Particles: the GPU alpha sort's schedule sorts like the CPU (back to front, dead and padding last)" )
+{
+    CHECK( Moonlight::GpuSortEntryCount( 1 ) == Moonlight::kGpuParticleSortBlock );
+    CHECK( Moonlight::GpuSortEntryCount( 512 ) == 512 );
+    CHECK( Moonlight::GpuSortEntryCount( 513 ) == 1024 );
+    CHECK( Moonlight::GpuSortEntryCount( 100000 ) == 131072 );
+    std::vector<Moonlight::GpuSortPass> passes;
+    Moonlight::BuildGpuSortPasses( 131072, passes );
+    CHECK( passes.size() == 45 );
+
+    std::mt19937 rng( 381 );
+    std::uniform_real_distribution<float> depth( -20.f, 20.f );
+    for( uint32_t count : { 1u, 7u, 512u, 513u, 3000u, 20000u } )
+    {
+        const uint32_t entries = Moonlight::GpuSortEntryCount( count );
+        const uint32_t capacity = count + 17;
+        std::vector<SortEntry> gpu( entries );
+        for( uint32_t i = 0; i < entries; ++i )
+        {
+            if( i >= count )
+            {
+                gpu[i] = { 3.0e38f, static_cast<float>( capacity + i ) };   // padding
+            }
+            else if( rng() % 5 == 0 )
+            {
+                gpu[i] = { 3.0e38f, static_cast<float>( i ) };              // a dead slot
+            }
+            else
+            {
+                // Coarse depths so ties happen; the key is minus the view-space depth.
+                gpu[i] = { -std::round( depth( rng ) * 4.f ) / 4.f, static_cast<float>( i ) };
+            }
+        }
+        std::vector<SortEntry> reference = gpu;
+        RunGpuSortOnCpu( gpu );
+        // The CPU path's order: view-space depth descending (back to front); ties by slot here.
+        std::sort( reference.begin(), reference.end(), []( const SortEntry& a, const SortEntry& b ) { return SortAfter( b, a ); } );
+        CHECK_MESSAGE( gpu == reference, "count " << count );
+    }
+}
+
+TEST_CASE( "Particles: a render texture camera reuses the main camera's order only when it still fits" )
+{
+    Moonlight::GpuSortInputs inputs;
+    inputs.ReuseAllowed = true;
+    inputs.HasSource = true;
+    inputs.Capacity = 1000;
+    inputs.Frame = 10;
+    inputs.SourceFrame = 9;
+    inputs.SourceCount = 300;
+    inputs.SourceRingEnd = 400;
+    inputs.SpawnStart = 400;
+    inputs.SpawnCount = 20;
+    inputs.RingEnd = 420;
+    Moonlight::GpuSortPlan plan = Moonlight::PlanGpuSort( inputs );
+    CHECK( plan.Reuse );
+    CHECK( plan.AppendCount == 20 );
+
+    // The main camera already sorted this frame: nothing to append.
+    Moonlight::GpuSortInputs same = inputs;
+    same.SourceFrame = 10;
+    same.SourceRingEnd = 420;
+    plan = Moonlight::PlanGpuSort( same );
+    CHECK( plan.Reuse );
+    CHECK( plan.AppendCount == 0 );
+
+    // Births wrapping the ring still follow it.
+    Moonlight::GpuSortInputs wrap = inputs;
+    wrap.SourceRingEnd = wrap.SpawnStart = 990;
+    wrap.RingEnd = 10;
+    plan = Moonlight::PlanGpuSort( wrap );
+    CHECK( plan.Reuse );
+    CHECK( plan.AppendCount == 20 );
+
+    // Anything else sorts: not allowed, no order, a reset, a stale order, an overflowing burst,
+    // or too many particles for one copy.
+    for( int variant = 0; variant < 6; ++variant )
+    {
+        Moonlight::GpuSortInputs bad = inputs;
+        switch( variant )
+        {
+        case 0: bad.ReuseAllowed = false; break;
+        case 1: bad.HasSource = false; break;
+        case 2: bad.Reset = true; break;
+        case 3: bad.SourceFrame = 7; break;
+        case 4: bad.SpawnStart = 0; bad.SpawnCount = 1000; bad.RingEnd = 900; break;
+        case 5: bad.SourceCount = 990; break;
+        }
+        plan = Moonlight::PlanGpuSort( bad );
+        CHECK_MESSAGE( plan.Sort, "variant " << variant );
+        CHECK_FALSE( plan.Reuse );
+    }
 }
