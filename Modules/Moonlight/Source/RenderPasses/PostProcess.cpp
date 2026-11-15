@@ -149,6 +149,7 @@ namespace Moonlight
         s_lutStrip = bgfx::createUniform( "s_lutStrip", bgfx::UniformType::Sampler );
         u_lut = bgfx::createUniform( "u_lut", bgfx::UniformType::Vec4 );
         u_grain = bgfx::createUniform( "u_grain", bgfx::UniformType::Vec4 );
+        u_lens = bgfx::createUniform( "u_lens", bgfx::UniformType::Vec4 );
         u_outline = bgfx::createUniform( "u_outline", bgfx::UniformType::Vec4 );
         u_outlineParams = bgfx::createUniform( "u_outlineParams", bgfx::UniformType::Vec4 );
 
@@ -164,7 +165,7 @@ namespace Moonlight
     {
         for( bgfx::UniformHandle* uniform : { &s_input0, &s_input1, &s_hdrColor, &s_bloom, &s_exposure, &s_ldrColor, &u_tonemap, &u_grading, &u_grading2, &u_exposure, &u_bloom, &u_ssao, &u_ssaoProjection, &u_ssaoScreen, &u_ssaoInvProjection, &u_adapt,
             &u_fogProjection, &u_fogProjection2, &u_fogScreen, &u_fogInvView, &u_fogVolume2, &u_fogScatter, &u_fogReproject, &s_fogHistory, &s_taaCurrent, &s_taaHistory, &s_taaDepth, &u_taaParams, &u_taaJitter, &u_taaReproject, &u_graphSceneFilter,
-            &s_dof0, &s_dof1, &s_dof2, &s_dof3, &s_dof4, &u_dofLens, &u_dofSplit, &u_dofProjection, &u_dofScreen, &u_dofPass, &u_dofJitter, &s_lut, &s_lutStrip, &u_lut, &u_outline, &u_outlineParams, &u_upscaleParams, &u_upscaleSize, &u_overlayParams, &u_overlayFade, &u_overlayLook, &u_eraPost, &u_grain } )
+            &s_dof0, &s_dof1, &s_dof2, &s_dof3, &s_dof4, &u_dofLens, &u_dofSplit, &u_dofProjection, &u_dofScreen, &u_dofPass, &u_dofJitter, &s_lut, &s_lutStrip, &u_lut, &u_outline, &u_outlineParams, &u_upscaleParams, &u_upscaleSize, &u_overlayParams, &u_overlayFade, &u_overlayLook, &u_eraPost, &u_grain, &u_lens } )
         {
             DestroyUniform( *uniform );
         }
@@ -881,6 +882,8 @@ namespace Moonlight
         const uint32_t grainFrame = settings.FilmGrainFrame >= 0 ? static_cast<uint32_t>( settings.FilmGrainFrame ) : m_grainCounter++;
         const float grain[4] = { settings.FilmGrain, std::max( settings.FilmGrainSize, 1.f ), static_cast<float>( grainFrame % 4096u ), 0.f };
         bgfx::setUniform( u_grain, grain );
+        const float lens[4] = { PostProcessSettings::LensDistortionAngle( settings.LensDistortion ), settings.LensFringe, static_cast<float>( InTargets.Width ) / static_cast<float>( std::max<uint32_t>( InTargets.Height, 1u ) ), 0.f };
+        bgfx::setUniform( u_lens, lens );
         bgfx::setTexture( 0, s_hdrColor, InTargets.PostInput );
         bgfx::setTexture( 1, s_bloom, bloom ? InTargets.BloomMips[0].Color : m_blackTexture );
         bgfx::setTexture( 2, s_exposure, exposureTexture );

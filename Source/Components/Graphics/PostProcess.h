@@ -103,6 +103,10 @@ public:
     float FilmGrainSize = 1.5f;
     int FilmGrainFrame = -1;
 
+    // Lens distortion (PostProcessSettings documents each)
+    float LensDistortion = 0.f;
+    float LensFringe = 0.f;
+
     bool FXAA = true;
     bool TemporalAA = false;
     float TemporalSharpness = 0.25f;

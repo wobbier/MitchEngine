@@ -1,4 +1,5 @@
 #pragma once
+#include <cmath>
 #include <cstdint>
 #include <vector>
 #include "Pointers.h"
@@ -119,6 +120,22 @@ namespace Moonlight
         float FilmGrain = 0.f;
         float FilmGrainSize = 1.5f;
         int FilmGrainFrame = -1;
+
+        // Lens distortion, in the tonemap pass: the picture is bent like a fisheye's (straight
+        // lines bow outward, the middle swells), 0 = off .. 1 = strongest. The corners stay the
+        // picture's corners, so the middle is magnified by LensDistortionZoom: a camera that
+        // widens its field of view by that keeps what it framed. LensFringe (0..1) splits the
+        // colours toward the edges, like cheap glass.
+        float LensDistortion = 0.f;
+        float LensFringe = 0.f;
+        // The half angle (radians) the picture's diagonal is bent over; Tonemap.frag has the map.
+        static float LensDistortionAngle( float inDistortion ) { return ( inDistortion < 0.f ? 0.f : inDistortion > 1.f ? 1.f : inDistortion ) * 1.35f; }
+        // How much the middle of the picture is magnified at inDistortion.
+        static float LensDistortionZoom( float inDistortion )
+        {
+            const float angle = LensDistortionAngle( inDistortion );
+            return angle > 1e-3f ? std::tan( angle ) / angle : 1.f;
+        }
 
         bool FXAA = true;
         // Temporal anti-aliasing: the projection is jittered by a sub-pixel each frame and the HDR

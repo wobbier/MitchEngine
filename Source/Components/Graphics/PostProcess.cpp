@@ -74,6 +74,8 @@ ME_REFLECT_BEGIN( PostProcess )
     ME_FIELD( FilmGrain ).Category( "Film Grain" ).Display( "Intensity" ).Range( 0.f, 1.f ).Unit( Reflection::Unit::Percent ).Tooltip( "Monochrome film grain over the final image, strongest in the midtones (0 = off; try 0.08)" );
     ME_FIELD( FilmGrainSize ).Category( "Film Grain" ).Display( "Size" ).Range( 1.f, 8.f ).Unit( Reflection::Unit::Pixels ).Tooltip( "Screen pixels per grain" );
     ME_FIELD( FilmGrainFrame ).Category( "Film Grain" ).Display( "Pattern Frame" ).Range( -1.f, 100000.f ).Tooltip( "Which grain pattern to show: -1 is a new one every rendered frame; a fixed number holds it (to step the grain with a held image)" );
+    ME_FIELD( LensDistortion ).Category( "Lens" ).Display( "Distortion" ).Range( 0.f, 1.f ).Unit( Reflection::Unit::Percent ).Tooltip( "Fisheye: straight lines bow outward and the middle of the picture swells (0 = off). Widen the camera's field of view to keep the framing" );
+    ME_FIELD( LensFringe ).Category( "Lens" ).Display( "Fringe" ).Range( 0.f, 1.f ).Unit( Reflection::Unit::Percent ).Tooltip( "Colour fringing toward the edges of the picture (chromatic aberration)" );
     ME_FIELD( EraPalette ).Category( "Era" ).Display( "Palette" ).Asset( "Texture" ).Tooltip( "Quantize to these colours: an image one row tall (Format None, no mips). Stock: Engine/Assets/Textures/Palettes" );
     ME_FIELD( Graphs ).Category( "Shader Graphs" ).Asset( "ShaderGraph" ).Tooltip( "Post Process shader graphs, applied in order (each before or after tonemapping, per the graph)" );
     ME_FIELD( GraphParams ).Category( "Shader Graphs" ).Display( "Graph Properties" ).Tooltip( "This volume's values for each graph's exposed properties" );
@@ -197,6 +199,8 @@ Moonlight::PostProcessSettings PostProcess::ToSettings() const
     settings.FilmGrain = std::clamp( FilmGrain, 0.f, 1.f );
     settings.FilmGrainSize = std::clamp( FilmGrainSize, 1.f, 8.f );
     settings.FilmGrainFrame = std::max( FilmGrainFrame, -1 );
+    settings.LensDistortion = std::clamp( LensDistortion, 0.f, 1.f );
+    settings.LensFringe = std::clamp( LensFringe, 0.f, 1.f );
     const std::string& palette = EraPalette.GetLocalPathString();
     if( palette != m_loadedEraPalette )
     {

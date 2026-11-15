@@ -341,6 +341,7 @@ Per camera, from `CameraData::Post`, which `CameraCore` copies from a `PostProce
 - **Eye adaptation**: log-average luminance into 1×1, adapted between min/max EV (`AutoExposure`) over the time since the camera last rendered (render texture cameras can skip frames).
 - **Edge outlines** (`PostProcess.Outline`): a fullscreen pass over the opaque depth, before fog, inking view-depth silhouettes and crease folds (`OutlineThickness`, `OutlineDepthThreshold`, `OutlineNormalThreshold`, `OutlineColor`). **Per-object outlines** use the `Outline` component instead (colour + width in metres): the mesh is re-drawn inflated along its normals with the opposite cull after the sky — an inverted hull, so occlusion, skinning and vertex animation all apply. The opaque loop notes the outlined commands it passes, so the hull pass draws just those instead of scanning every mesh command again. On a compact model's root the component outlines every part.
 - **Tonemap**:
+  - Lens distortion (`LensDistortion`, off at 0): the HDR image and bloom are sampled through a fisheye map (the angle from the middle grows evenly, over up to 1.35 rad at the corners), corners held, so the middle is magnified by `PostProcessSettings::LensDistortionZoom`; a camera widens its field of view by that to keep its framing. `LensFringe` samples red and blue a little inside and outside toward the edges.
   - Exposure (manual stops or adapted), bloom mix and white balance.
   - ACES / AgX / Reinhard / none.
   - Saturation, contrast, lift/gamma/gain and vignette.

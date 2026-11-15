@@ -1,6 +1,6 @@
 $input v_texcoord0
 
-// HDR -> display: exposure, bloom add, white balance, tonemapping, grading, vignette, gamma
+// HDR -> display: lens distortion, exposure, bloom add, white balance, tonemapping, grading, vignette, gamma
 // encode, LUT, film grain, dither. Writes luma to alpha when FXAA follows.
 #include "../Common.sh"
 #include "PostCommon.sh"
@@ -17,6 +17,21 @@ uniform vec4 u_grading2;  // x vignette smoothness, y gamma, z lift, w gain
 uniform vec4 u_exposure;  // x auto exposure on, y compensation multiplier (2^EV), z luma in alpha (FXAA follows), w dither (0 for pixel-perfect cameras)
 uniform vec4 u_lut;       // x LUT size N, y contribution, z mode (0 off, 1 volume, 2 strip)
 uniform vec4 u_grain;     // x film grain intensity (0 off), y cell size in pixels, z pattern seed
+uniform vec4 u_lens;      // x fisheye half angle over the diagonal in radians (0 off), y colour fringe, z aspect (width / height)
+
+// Where a fisheye lens of half angle u_lens.x over the diagonal sees this pixel in the straight
+// (rectilinear) picture: the angle grows evenly with the distance from the middle, so the source
+// distance is its tangent. The corners map to the corners; _spread widens or narrows the map a
+// touch (the colour fringe).
+vec2 lensUv(vec2 _uv, float _spread)
+{
+	vec2 p = (_uv - 0.5) * vec2(u_lens.z, 1.0);
+	float corner = 0.5 * sqrt(u_lens.z * u_lens.z + 1.0);
+	float r = length(p) / corner;
+	float bent = tan(min(r * _spread, 1.0) * u_lens.x) / tan(u_lens.x);
+	p *= bent / max(r, 0.0001);
+	return p / vec2(u_lens.z, 1.0) + 0.5;
+}
 
 // A hash of a 2D cell (Dave Hoskins' hash12): no sine, so it's the same on every GPU.
 float grainHash(vec2 _p)
@@ -28,8 +43,26 @@ float grainHash(vec2 _p)
 
 void main()
 {
-	vec3 color = texture2D(s_hdrColor, v_texcoord0).rgb;
-	color = mix(color, texture2D(s_bloom, v_texcoord0).rgb, u_tonemap.z);
+	vec2 uv = v_texcoord0;
+	vec3 color;
+	if (u_lens.x > 0.0)
+	{
+		uv = lensUv(v_texcoord0, 1.0);
+		color = texture2D(s_hdrColor, uv).rgb;
+		if (u_lens.y > 0.0)
+		{
+			// Red lands a little inside, blue a little outside, more toward the edges.
+			vec2 centered = v_texcoord0 - 0.5;
+			float split = 0.012 * u_lens.y * dot(centered, centered) * 4.0;
+			color.r = texture2D(s_hdrColor, lensUv(v_texcoord0, 1.0 - split)).r;
+			color.b = texture2D(s_hdrColor, lensUv(v_texcoord0, 1.0 + split)).b;
+		}
+	}
+	else
+	{
+		color = texture2D(s_hdrColor, uv).rgb;
+	}
+	color = mix(color, texture2D(s_bloom, uv).rgb, u_tonemap.z);
 	float exposure = u_tonemap.x;
 	if (u_exposure.x > 0.5)
 	{
