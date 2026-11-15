@@ -105,8 +105,18 @@ void RenderCore::PrepareFoliageDraw( Entity& entity, TerrainFoliage& foliage, st
         {
             auto& mesh = found->second.Parts[p]; mesh->CastShadows = foliage.CastShadows; submit( mesh.get(), Matrix4( matrix * source.Parts[p].Local.GetInternalMatrix() ) ); ++foliage.m_drawCount;
         }
+        found->second.Frame = m_gatherCount;
     }
     // Distance-hidden instances must not leave last frame's commands visible or casting shadows.
-    for( const auto& [key, instance] : draw.Instances ) for( const auto& mesh : instance.Parts )
-        if( auto* command = GetEngine().GetRenderer().GetMeshCache().Get( mesh->GetId() ) ) command->Visible = command->CastShadows = false;
+    // Drawn ones are refilled by the mesh job; a hidden one's command changes once (ME-390).
+    auto& cache = GetEngine().GetRenderer().GetMeshCache();
+    for( const auto& [key, instance] : draw.Instances )
+    {
+        if( instance.Frame == m_gatherCount ) continue;
+        for( const auto& mesh : instance.Parts ) if( auto* command = cache.Get( mesh->GetId() ) )
+        {
+            command->Visible = false;
+            if( command->CastShadows ) { command->CastShadows = false; cache.MarkChanged( mesh->GetId() ); }
+        }
+    }
 }

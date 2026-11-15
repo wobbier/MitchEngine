@@ -130,6 +130,23 @@ namespace Moonlight
     // Mesh components; editor previews fill their own). InLod is clamped to the mesh's levels.
     void FillMeshCommand( MeshCommand& OutCommand, MeshData* InMesh, const SharedPtr<Material>& InMaterial, uint8_t InLod = 0 );
 
+    // Whether two commands draw the same: every field but Visible (which follows the cameras each
+    // frame and is not a change, ME-390). Data behind the pointers (material values, a skin
+    // palette's contents) is not compared.
+    inline bool SameMeshCommand( const MeshCommand& InA, const MeshCommand& InB )
+    {
+        return InA.SingleMesh == InB.SingleMesh && InA.MeshMaterial.get() == InB.MeshMaterial.get() && InA.Transform == InB.Transform
+            && InA.Type == InB.Type && InA.ID == InB.ID && InA.VisibilityIndex == InB.VisibilityIndex && InA.BatchKey == InB.BatchKey
+            && InA.VertexBufferIdx == InB.VertexBufferIdx && InA.IndexBufferIdx == InB.IndexBufferIdx && InA.Lod == InB.Lod
+            && InA.DitherFade == InB.DitherFade && InA.PortalClipPlane == InB.PortalClipPlane && InA.InstanceData == InB.InstanceData
+            && InA.CrossfadeLod == InB.CrossfadeLod && InA.IsTransparent == InB.IsTransparent && InA.SupportsInstancing == InB.SupportsInstancing
+            && InA.CastShadows == InB.CastShadows && InA.Outlined == InB.Outlined && InA.OutlineColor.InternalVector == InB.OutlineColor.InternalVector
+            && InA.OutlineWidth == InB.OutlineWidth && InA.AlphaCutoff == InB.AlphaCutoff && InA.CustomShadow == InB.CustomShadow
+            && InA.WorldBounds.Min.InternalVector == InB.WorldBounds.Min.InternalVector && InA.WorldBounds.Max.InternalVector == InB.WorldBounds.Max.InternalVector
+            && InA.SkinPalette == InB.SkinPalette && InA.SkinBoneCount == InB.SkinBoneCount && InA.PosedVertices.idx == InB.PosedVertices.idx
+            && InA.RenderGroup == InB.RenderGroup;
+    }
+
     enum class LightType : uint8_t
     {
         Directional = 0,

@@ -68,7 +68,8 @@ private:
     {
         struct Prototype { Moonlight::MeshData* Geometry; Matrix4 Local; };
         struct Source { std::string Path; SharedPtr<ModelResource> Resource; std::vector<Prototype> Parts; std::string Error; bool Prepared = false; };
-        struct Instance { unsigned Species; std::vector<std::unique_ptr<Mesh>> Parts; };
+        // Frame: the renderer frame it was last drawn for (a hidden one's commands are emptied once).
+        struct Instance { unsigned Species; std::vector<std::unique_ptr<Mesh>> Parts; uint64_t Frame = 0; };
         std::vector<Source> Sources;
         std::map<uint64_t, Instance> Instances;
     };
@@ -92,6 +93,15 @@ private:
     std::unordered_map<uint64_t, std::shared_ptr<Moonlight::MeshIndexData>> m_terrainTopology;
     std::unordered_map<uint64_t, std::vector<unsigned int>> m_compactCommands;
     std::unordered_map<uint64_t, unsigned int> m_meshCommands;
+    // Retained mesh commands (ME-390): per mesh cache id, the entity whose own Mesh last wrote a
+    // command that can be kept across frames (0: none). Such a command is checked against its
+    // sources each frame (RetainedCommandHolds) and rebuilt only when one changed. Reset when the
+    // renderer's mesh cache generation changes.
+    std::vector<uint64_t> m_retainedOwner;
+    uint32_t m_retainedGeneration = UINT32_MAX;
+    void ForgetRetained( unsigned int InId ) { if( InId < m_retainedOwner.size() ) m_retainedOwner[InId] = 0; }
+    // Counts Updates that gathered (foliage notes which instances it drew in which one).
+    uint64_t m_gatherCount = 0;
     bool EnableDebugDraw = false;
     bool m_sharesRenderer = false;
     bool m_presented = true;

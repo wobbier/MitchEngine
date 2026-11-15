@@ -17,7 +17,7 @@ Rendering is split into CPU **producers** and a serial **consumer**:
 
 Ambient light comes from per-camera image-based-lighting probes. This doc maps the frame, the view-ID scheme, the lighting data paths and the sharp edges.
 
-> Verified against engine commit 1fa55311, 2026-10-09 (overhaul Wave 3); skinned meshes against 07617c5f, 2026-10-09; fog against b7c61e56, 2026-10-10; decals against 8d958c0b plus the `Decal` component, 2026-10-15; background sky box loads against ac23d33f plus the background loads change, 2026-10-16; feature caps and scene draw statistics against 3f04199c plus the hardware profiles change, 2026-10-22; rectangle beams and temporal volumetric fog against 94407e9d plus the concert lighting change, 2026-10-29; volumetric light samples against 78e47156 plus that change (ME-364), 2026-11-12; render textures, the camera order and lazy post targets against 89e036be plus the render texture change, 2026-10-29; the depth prepass against 78e47156 plus the depth prepass change, 2026-11-12; per-instance data against 78e47156 plus that change (ME-365), 2026-11-12; GPU particles and the frame compute pass against ff71f21c plus the GPU particles change, 2026-11-14; the particle instance limit against f8240c1b plus the ME-379 change, 2026-11-15; compute environment probe filtering against f8240c1b plus the ME-385 change, 2026-11-15; froxel fog against f8240c1b plus the ME-376 change, 2026-11-15.
+> Verified against engine commit 1fa55311, 2026-10-09 (overhaul Wave 3); skinned meshes against 07617c5f, 2026-10-09; fog against b7c61e56, 2026-10-10; decals against 8d958c0b plus the `Decal` component, 2026-10-15; background sky box loads against ac23d33f plus the background loads change, 2026-10-16; feature caps and scene draw statistics against 3f04199c plus the hardware profiles change, 2026-10-22; rectangle beams and temporal volumetric fog against 94407e9d plus the concert lighting change, 2026-10-29; volumetric light samples against 78e47156 plus that change (ME-364), 2026-11-12; render textures, the camera order and lazy post targets against 89e036be plus the render texture change, 2026-10-29; the depth prepass against 78e47156 plus the depth prepass change, 2026-11-12; per-instance data against 78e47156 plus that change (ME-365), 2026-11-12; GPU particles and the frame compute pass against ff71f21c plus the GPU particles change, 2026-11-14; the particle instance limit against f8240c1b plus the ME-379 change, 2026-11-15; compute environment probe filtering against f8240c1b plus the ME-385 change, 2026-11-15; froxel fog against f8240c1b plus the ME-376 change, 2026-11-15; retained mesh commands against 35a9c19b plus the ME-390 change, 2026-11-15.
 
 ## Overview
 
@@ -45,6 +45,7 @@ Backend selection: Vulkan is forced on Linux and D3D11 on UWP; other platforms t
 | `Modules/Moonlight/Source/Renderer.cpp` / `Renderer.h` | Consumer: `BGFXRenderer` — views, lighting setup, shadows, opaque/transparent/particle passes |
 | `Modules/Moonlight/Source/RenderViews.h` | The fixed view IDs and the per-frame `ViewAllocator` |
 | `Modules/Moonlight/Source/RenderCommands.h` | `MeshCommand`, `LightCommand`, `ParticleInstance` / `ParticleBatch` |
+| `Modules/Moonlight/Source/MeshBatchRegistry.h`, `Utils/CommandCache.h` | Retained mesh commands: stable instance-batch ids by mesh command id, and the mesh cache's change marks |
 | `Modules/Moonlight/Source/Device/FrameBuffer.h` | Per-camera targets: HDR scene, final, post, bloom mips, AO, fog (march, history, blur), luminance, cluster textures |
 | `Modules/Moonlight/Source/Graphics/Texture.h`, `RenderTextureSettings.h` | Render textures: a `.rendertexture` loads as a `Texture` that owns its render target; `Texture::Sampleable` keeps a camera from sampling its own |
 | `Modules/Moonlight/Source/Lighting/ClusterBuilder.cpp` | CPU light-to-froxel assignment for clustered forward |
@@ -74,9 +75,11 @@ flowchart LR
         PC["ParticleCore::Update<br/>(job per system)"] --> PB["ParticleBatch per system"]
         RC["RenderCore::Update"] --> TU["Transform::UpdateAll"]
         TU --> LG["gather LightCommands"]
-        TU --> MJ["ParallelFor mesh job:<br/>AABB vs each camera frustum,<br/>fill MeshCommand (every mesh)"]
+        TU --> GA["ParallelFor gather:<br/>a kept command that still holds<br/>only culls (retained)"]
+        GA --> MJ["ParallelFor mesh job (the rest):<br/>AABB vs each camera frustum,<br/>fill MeshCommand"]
     end
-    MJ --> MC["CommandCache&lt;MeshCommand&gt;"]
+    GA --> MC["CommandCache&lt;MeshCommand&gt;<br/>(change marks)"]
+    MJ --> MC
     subgraph R["BGFXRenderer::Render (serial)"]
         F["PrepareFrameLighting:<br/>sun, light data texture,<br/>spot and point shadow maps"] --> C["per camera: RenderCameraView"]
         C --> P["UI composite → ImGui → bgfx::frame"]
@@ -86,9 +89,62 @@ flowchart LR
     PB --> C
 ```
 
-`RenderCore` refreshes the command of **every** mesh each frame, visible or not. Shadow passes need casters outside the camera, and each command's `VisibilityIndex` always matches this frame's per-camera `VisibleFlags`. After the mesh jobs, `RenderCore` compacts each camera's flags into `CameraData::VisibleMeshes`: the mesh cache ids it sees, sorted ascending. That is the order a full scan visits commands, so instance batches, and with them draw order, come out the same. The opaque loop walks that list instead of the whole cache. It still applies the per-command checks (`Visible`, material, render group, the camera's flag), so the list only decides which commands get looked at, not what is drawn.
+Every mesh has a command every frame, visible or not: shadow passes need casters outside the camera. Most commands are not rebuilt, though: a static mesh keeps its command across frames (see Retained mesh commands below), and only its visibility runs. Each camera's `VisibleFlags` holds one byte per mesh cache id, and a command's `VisibilityIndex` is its own id, so a kept command always matches this frame's flags. After the mesh jobs, `RenderCore` compacts each camera's flags into `CameraData::VisibleMeshes`: the mesh cache ids it sees, ascending (they come out of the flags in id order, with no sort). That is the order a full scan visits commands, so instance batches, and with them draw order, come out the same. The opaque loop walks that list instead of the whole cache. It still applies the per-command checks (`Visible`, material, render group, the camera's flag), so the list only decides which commands get looked at, not what is drawn.
 
-The list is stamped with the renderer frame it was built for (`VisibleMeshesFrame`, against `BGFXRenderer::GetFrameIndex()`). A camera whose list isn't from this frame scans every command as before. That covers editor previews (render group != 0, no `RenderCore` visibility), cameras that don't cull, and any frame no presented world's `RenderCore` prepared (killcams share one mesh cache, ME-323). Shadow caster gathering still scans every command. In Drumsmith's ~16k-mesh festival venue (debug build, three cameras) the summed `Meshes` scopes dropped from ~2.4 ms to ~0.55 ms a frame; compacting costs ~0.1 ms per camera, one job per camera. Picking still scans the flags; it only runs on a click.
+The list is stamped with the renderer frame it was built for (`VisibleMeshesFrame`, against `BGFXRenderer::GetFrameIndex()`). A camera whose list isn't from this frame scans every command as before. That covers editor previews (render group != 0, no `RenderCore` visibility), cameras that don't cull, and any frame no presented world's `RenderCore` prepared (killcams share one mesh cache, ME-323). In Drumsmith's ~16k-mesh festival venue (debug build, three cameras) the summed `Meshes` scopes dropped from ~2.4 ms to ~0.55 ms a frame; compacting costs ~0.1 ms per camera, one job per camera. Picking still scans the flags; it only runs on a click.
+
+### Retained mesh commands
+
+ME-390. Mesh cache ids are stable slots: a mesh keeps its id from the frame it is registered until it goes, and `CommandCache` hands freed ids out again. Before ME-390, `RenderCore` rebuilt every command from the ECS every frame and the renderer re-gathered every shadow caster. On a scene of 57,600 static cubes that was most of the frame. Now both are kept, and only what changed is rebuilt.
+
+- **What is kept.** The command of an entity's own `Mesh` component, once the mesh job has built it. The mesh must not be skinned, have vertex animation or posed vertices, or be a portal image. `RenderCore::m_retainedOwner` records, per cache id, the entity whose command it is. Compact model parts, terrain patches and foliage are still gathered every frame, but their commands are written only when they differ (see Changes below), so an unchanged one is not a change either.
+- **The check** (`retainedHolds` in `RenderCore::Update`, run on the gather workers). A kept command still holds when all of these are true:
+  - the entity's transform is clean and its world matrix equals the command's;
+  - the mesh's geometry and material pointers, `CastShadows` (with the entity's active state), `InstanceData`, `PortalClipPlane` and type match the command;
+  - the material's shader is loaded, and its `IsTransparent`, `SupportsInstancing`, `GetAlphaCutoff`, custom shadow program, `CastsShadows` and `GetInstanceBatchKey` match;
+  - no screen-door fade, occluder fade or LOD crossfade is running;
+  - the level of detail this frame's LOD camera picks is the one shown, with the same vertex and index buffers;
+  - the `Outline` is unchanged.
+
+  Then only its visibility runs: the cull against every camera on the kept `WorldBounds`, the camera flags, and the command's `Visible` byte, written in place. Anything else goes to the mesh job as before. `PrepareForDraw` still runs once a frame for every mesh.
+- **Why the material is checked every frame.** Materials are plain objects. Game code and the editor write their fields (colours, textures arriving from an async load, a shader graph's synced asset) directly, with no change notification. The batch key is where a change shows, so it is recomputed for every kept mesh. That is the biggest part of what a static frame still costs: on the 4090, about 0.36 ms of the 57,600-cube gather's 1.2 ms, all memory latency on 57,600 separate material objects. A material revision counter would remove it.
+- **Changes.** The mesh cache tracks them (`CommandCache::TrackChanges`, on for the mesh cache):
+  - `Push`, `Pop` and `Update` mark the id in `Changed`. That is one byte per id, so parallel writers of different ids don't race.
+  - Code that edits a command in place calls `MarkChanged( id )`: foliage hiding a distant instance, `UpdateMeshMatrix`.
+  - `Clear` and `ClearMeshes` set `AllChanged`.
+  - The mesh job compares a rebuilt command with the kept one (`Moonlight::SameMeshCommand`: every field but `Visible`), and writes and marks it only if it differs.
+
+  Once a frame, at the start of `PrepareFrameLighting`, the renderer takes the marks (`TakeMeshChanges`). `BGFXRenderer::GetMeshChanges()` lists the ids changed since the last frame, ascending. `AreAllMeshesChanged()` says to treat every id as changed (the cache was cleared, tracking was off, or retention is off). `Visible` is not a change: it follows the cameras every frame. Data behind a command's pointers (material values, a skin palette's contents) isn't tracked either; the draw reads it live.
+- **Shadow casters** follow the changes (`GatherShadowCasters` calls `UpdateShadowCasters`):
+  - The caster records are dense and in no particular order (a shadow map keeps only depth, so caster order never shows). `m_shadowCasterOf` maps a cache id to its record, and each changed id is re-made, updated or removed.
+  - A frame where more than an eighth of the commands changed, or all of them, rebuilds every record in parallel (`RebuildShadowCasters`), as every frame did before.
+  - Each render group's caster bounds grow as casters arrive. They are recomputed only when a caster moved or went.
+  - Batches come from a `Moonlight::MeshBatchRegistry` (`MeshBatchRegistry.h`): stable batch ids keyed by geometry, material key and group, membership by command id, and an emptied id reused by the next new key.
+  - `CullShadowCasters` builds each view's caster list during its parallel sweep, so `SubmitShadowCasters` walks only that view's casters, instead of every caster once per view. Any member of a batch binds it: they share geometry, and the material where it matters.
+- **Invalidation**:
+  - A scene load or `ClearMeshes` bumps the cache generation, so `RenderCore` forgets every kept command, and sets `AllChanged`.
+  - An entity removed, or a mesh disabled or released, forgets its id.
+  - A prefab spawn or a new mesh is gathered and built like any new mesh.
+  - Material swaps, `CastShadows` edits, `InstanceData`, transform moves, outline edits and LOD changes fail the check.
+  - `DitherFade` and occluder fades fail it while they run.
+  - Portal images, skinned and vertex-animated meshes are never kept.
+  - A killcam's `HideCommands` empties commands through `Update`, so they fail the check and are rebuilt when the world is presented again.
+- **Not noticed:** a `MeshData` whose `Bounds` is edited in place while it keeps its vertex and index buffers: the kept world bounds stay the old ones. Nothing in the engine does that; replacing the geometry changes the buffers.
+- **Switches.** `BGFXRenderer::RetainMeshCommands` (RenderCore inspector > Rendering > Retained Mesh Commands; `--no-retained-meshes` starts with it off) rebuilds every command and re-gathers every caster each frame, as before: the A/B switch. `--verify-retained-meshes` (`VerifyRetainedMeshes`) rebuilds every kept command anyway and logs an error naming the first one that differs from the rebuild. It also checks the retained casters, their batches and their bounds against a full rebuild every frame. It is a debug mode and costs more than the old path.
+- **Measured** (ME-390, 2026-11-15; Release, Vulkan, RTX 4090, 1920x1080 window on the desktop, `.tmp/ME-389/cubes57k.lvl`: 57,600 static instanced cubes in 8 colours, four sun cascades, 400 frames, medians of three runs each, load average about 5 to 8 on 32 threads):
+
+| Scope (main thread, ms) | Before | Retained | `--no-retained-meshes` |
+| -- | -- | -- | -- |
+| Frame (`MainLoop`) | 7.52 | 3.80 | 7.07 |
+| `RenderCore::Update` | 4.03 | 1.35 | 3.27 |
+| . `RenderCore::Gather` | 1.22 | 1.30 | 1.23 |
+| . `Render Prep: Mesh Commands` | 0.87 | (no items) | 0.92 |
+| . `RenderCore::VertexAnimation` | 0.42 | 0.00 | 0.43 |
+| `Renderer::GatherShadowCasters` | 0.65 | 0.003 | 0.99 |
+| `Renderer::SubmitShadowCasters` (4 cascades) | 0.50 | 0.35 | 0.48 |
+
+  With the camera inside the field (15k visible): frame 6.03 to 2.95 ms, `RenderCore::Update` 3.28 to 1.32 ms. Screenshots with `--frame-time` fixed are identical to the pixel (without it the clouds differ run to run, because the frame times do), and so are the 22 showcase scenes of the engine's screenshot regression at tolerance 0 (`--verify-retained-meshes` on, nothing reported). What a static frame still pays is the gather's check, mostly the material reads (see above), the camera loops (`Meshes`, `Instanced Meshes`) and the cascades' matrix copies: the GPU-driven path (ME-389) is what would remove those. With retention off the casters cost more than before ME-390 (the full rebuild also keeps the batch registry), so the switch is for comparisons, not a fallback. In Drumsmith's venue (5120x1440, a busy machine, so read as indicative) `RenderCore::Update` went from about 1.0 to 0.43 ms and `GatherShadowCasters` from 0.19 to 0.05 ms; about one frame in five rebuilds the casters, because the band, crowd and stage effects change more than an eighth of the commands.
+- **For a GPU-driven path** (ME-389): a persistent per-instance buffer can be indexed by mesh cache id and updated from `GetMeshChanges()`, or rewritten whole on `AreAllMeshesChanged()`. A persistent batch list can come from a `MeshBatchRegistry` fed the same way, as the shadow casters' is. A batch's id only changes when its members' key does.
 
 ### Views
 
@@ -129,9 +185,9 @@ bgfx runs views in ascending ID order, so producers must have lower IDs than the
 `MeshCommand::RenderGroup` and `CameraData::RenderGroup` keep separate scenes in one renderer. A camera draws, shadows and picks only the meshes of its own group (`kMaxRenderGroups`). Group 0 is the world: `RenderCore`'s commands, its lights, the local shadow atlas, decals, particles and debug drawing. Other groups are editor previews (the MitchTree window, `Docs/MitchTree.md`). A preview pushes its own mesh commands, filled with `Moonlight::FillMeshCommand`, and its own camera into the camera cache.
 
 - **Lighting**: other groups light with their camera's `GroupLights`, directional only, which a procedural sky still drives, plus their sky's ambient.
-- **Shadows**: casters are gathered once per frame and batched per group. `SubmitShadowCasters` submits one group, and cascades fit that group's caster bounds.
+- **Shadows**: casters are kept across frames, updated from the mesh cache's changes, and batched per group (see Retained mesh commands). `SubmitShadowCasters` submits one group, and cascades fit that group's caster bounds.
 - **Statistics**: preview cameras aren't counted in the scene's statistics. RenderCore skips them for culling, LOD selection and terrain views.
-- **Mesh IDs**: `ClearMeshes` empties the cache on scene changes and bumps `GetMeshCacheGeneration()`; holders of command IDs push again when it changes.
+- **Mesh IDs**: `ClearMeshes` empties the cache on scene changes and bumps `GetMeshCacheGeneration()`; holders of command IDs push again when it changes. A preview that writes its commands through `Push`/`Update` gets its shadow casters updated like any other change.
 
 ### Inside `RenderCameraView`
 
@@ -272,6 +328,7 @@ Shading (`Lighting.sh`) is GGX distribution, height-correlated Smith visibility,
 - **Point lights**: the first 2 shadowed point lights get six 90° faces each (a hair wider, so PCF at a face edge stays inside it) in the same atlas: `Shadows.PointResolution` (default 512) tiles in a 4×4 block to the right of the 2×2 spot block, so the atlas is 4096×2048 by default. The shader picks the face from the light-to-fragment direction's major axis. Spot and point faces share `u_localShadowMatrix[16]` (0-3 spots, 4-15 faces), the sampler and the PCF.
 - **Casters**:
   - Drawn with one instanced depth-only shader (`ShadowDepth`) for every material, culled per cascade or spot frustum by `WorldBounds`.
+  - Kept across frames: only casters whose mesh command changed are re-made (Retained mesh commands above).
   - Alpha-tested materials (`Material::GetAlphaCutoff() > 0`) bind their textures and discard in the depth pass too.
   - `Mesh::CastShadows` opts a mesh out.
 - **Lookup**:
@@ -660,7 +717,7 @@ A camera can render below its output size and upscale the result (LOOK-S1): chea
 
 ## Caveats & Fragility
 
-- **Shadow cost on huge scenes**: the casters are gathered once a frame (a parallel scan of the mesh commands into compact records, grouped into instance batches) and culled against all of a pass's views in one parallel sweep (a bit per view). Each view then collects its casters' indices and copies their matrices straight into the instance buffer. At 57k meshes the four cascades cost about 1.4 ms of CPU in release on the software-rendering test machine, against 1.84 ms before; the frame's local shadow views share one cull. On the lavapipe software renderer the 57k-cube bench goes from 44 to 82 ms/frame with shadows; real GPUs pay far less, but this hasn't been measured on hardware yet.
+- **Shadow cost on huge scenes**: the caster records and their instance batches are kept across frames and updated from the mesh cache's changes (ME-390), so a static frame doesn't gather them at all. They are culled against all of a pass's views in one parallel sweep that lists each view's casters, and each view copies its casters' matrices straight into the instance buffer. That copy is what is left: about 0.35 ms for the four cascades at 57.6k casters on an RTX 4090 workstation (Release), down from 0.50 ms when every view walked every caster. A frame where more than an eighth of the commands changed rebuilds the records in parallel, as every frame did before. On the lavapipe software renderer the 57k-cube bench goes from 44 to 82 ms/frame with shadows.
 - **Temporal AA reprojects camera motion only**: there are no per-object motion vectors, so moving and skinned objects rely on the neighbourhood clip, which trades their ghosting for a little softness while they move. Debug lines and gizmos drawn into the scene are resolved with it.
 - **Cluster capacity**: more than 64 lights in one froxel silently drops the extras; more than 256 point/spot lights per frame are ignored.
 - **Shadow budgets are fixed**: 4 spots, 2 point lights (12 extra shadow views a frame) and 1 directional light get shadows; further shadowed lights render unshadowed.
@@ -687,7 +744,8 @@ The dispatch is small and linear in slots (about 0.2 ms per million slots per fr
 - **Decals paint everything opaque in their box**: there is no receiver mask, so a character walking through a floor decal gets it projected onto its legs. Transparents and particles never receive decals (they draw later).
 - **Decals replace, they don't modulate**: a decal is lit and alpha-blended over the finished surface. It can't change only the roughness or normal of what's underneath (no DBuffer), and the surface's own normal map doesn't show through its coverage.
 - **Transparent sorting is per object** (plus per particle within alpha systems, on the CPU or GPU path); intersecting transparents sort wrong (no OIT).
-- **`CommandCache::Update`/`Pop` are unlocked**: safe only because mesh jobs write distinct slots and nothing `Push`es while they run.
+- **`CommandCache::Update`/`Pop` are unlocked**: safe only because mesh jobs write distinct slots and nothing `Push`es while they run. The same goes for the change marks (`Changed`, one byte per id), which only `Push` resizes.
+- **A command edited in place must be marked**: code writing a mesh command through `Get()` or `Commands[]` instead of `Update` calls `GetMeshCache().MarkChanged( id )`, or the retained shadow casters keep the old values (`--verify-retained-meshes` reports it).
 - **Uniform names are global in bgfx**: the lighting uniforms (`u_lightParams`, `u_shadowMatrix`, `s_envSpecular`, …) must not be reused with other types.
 
 ## Related Docs

@@ -314,6 +314,8 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         m_depthPrepassPrograms[1][1] = Moonlight::ShaderCommand( "Assets/Shaders/StandardSkinned", "Assets/Shaders/StandardDepth" );
         EnableDepthPrepass = !CommandLine::Has( "--no-depth-prepass" );
         EnableFroxelFog = CommandLine::Has( "--froxel-fog" );
+        RetainMeshCommands = !CommandLine::Has( "--no-retained-meshes" );
+        VerifyRetainedMeshes = CommandLine::Has( "--verify-retained-meshes" );
         m_outlineHullProgram = Moonlight::ShaderCommand( "Assets/Shaders/OutlineHull", "Assets/Shaders/OutlineHull" );
         m_outlineHullSkinnedProgram = Moonlight::ShaderCommand( "Assets/Shaders/OutlineHullSkinned", "Assets/Shaders/OutlineHull" );
         u_outlineHull = bgfx::createUniform( "u_outlineHull", bgfx::UniformType::Vec4 );
@@ -448,6 +450,8 @@ BGFXRenderer::BGFXRenderer()
     : m_pt( 0 )
     , m_timeOffset( 0 )
 {
+    // Before any command is pushed: the retained shadow casters follow its change marks (ME-390).
+    m_meshCache.TrackChanges = true;
 }
 
 
@@ -2131,105 +2135,306 @@ glm::mat4 BGFXRenderer::ShadowAtlasMatrix( uint32_t tile, const glm::mat4& viewP
 }
 
 
-void BGFXRenderer::GatherShadowCasters()
+namespace
 {
-    OPTICK_EVENT( "Renderer::GatherShadowCasters" );
-    for( size_t b = 0; b < m_activeShadowBatchCount; ++b )
+    bool SameBounds( const AABB& InA, const AABB& InB )
     {
-        m_shadowBatches[b].commands.clear();
+        return InA.Min.x == InB.Min.x && InA.Min.y == InB.Min.y && InA.Min.z == InB.Min.z
+            && InA.Max.x == InB.Max.x && InA.Max.y == InB.Max.y && InA.Max.z == InB.Max.z;
     }
-    m_activeShadowBatchCount = 0;
-    m_shadowBatchLookup.clear();
-    m_casterBounds.fill( AABB() );
 
+
+    Moonlight::MeshBatchRegistry::Key ShadowBatchKey( uint64_t InMaterialKey, uint16_t InVertexBuffer, uint16_t InIndexBuffer, uint8_t InGroup )
+    {
+        Moonlight::MeshBatchRegistry::Key key;
+        key.Material = InMaterialKey;
+        key.VertexBuffer = InVertexBuffer;
+        key.IndexBuffer = InIndexBuffer;
+        key.Group = InGroup;
+        return key;
+    }
+}
+
+
+void BGFXRenderer::TakeMeshChanges()
+{
+    CommandCache<Moonlight::MeshCommand>& cache = m_meshCache;
+    const size_t count = cache.Commands.size();
+    m_meshChanges.clear();
+    // Marks short of the cache (tracking started late) can't say what changed: everything did.
+    m_allMeshesChanged = cache.AllChanged || !cache.TrackChanges || !RetainMeshCommands || cache.Changed.size() < count;
+    cache.AllChanged = false;
+    cache.Changed.resize( count, 0 );
+    if( m_allMeshesChanged )
+    {
+        std::fill( cache.Changed.begin(), cache.Changed.end(), uint8_t( 0 ) );
+        return;
+    }
+    // Eight marks at a time: a static frame has none.
+    uint8_t* marks = cache.Changed.data();
+    size_t i = 0;
+    for( ; i + 8 <= count; i += 8 )
+    {
+        uint64_t word = 0;
+        std::memcpy( &word, marks + i, sizeof( word ) );
+        if( word == 0 )
+        {
+            continue;
+        }
+        for( size_t k = i; k < i + 8; ++k )
+        {
+            if( marks[k] )
+            {
+                m_meshChanges.push_back( static_cast<uint32_t>( k ) );
+                marks[k] = 0;
+            }
+        }
+    }
+    for( ; i < count; ++i )
+    {
+        if( marks[i] )
+        {
+            m_meshChanges.push_back( static_cast<uint32_t>( i ) );
+            marks[i] = 0;
+        }
+    }
+}
+
+
+bool BGFXRenderer::MakeShadowCaster( const Moonlight::MeshCommand& mesh, uint32_t InCommand, ShadowCaster& caster )
+{
+    if( !mesh.MeshMaterial || !mesh.SingleMesh || !mesh.CastShadows || mesh.IsTransparent || mesh.VertexBufferIdx == UINT16_MAX || !mesh.WorldBounds.IsValid() )
+    {
+        return false;
+    }
+    caster.Command = InCommand;
+    caster.Batch = UINT32_MAX;
+    caster.Group = std::min<uint8_t>( mesh.RenderGroup, Moonlight::kMaxRenderGroups - 1 );
+    // Opaque casters only differ by geometry; alpha-tested ones and materials with their
+    // own caster program also by their material.
+    caster.MaterialKey = ( mesh.AlphaCutoff > 0.f || mesh.CustomShadow || glm::dot( mesh.PortalClipPlane, mesh.PortalClipPlane ) > 0.f ) ? mesh.BatchKey : 0u;
+    // A fading mesh's caster dithers by its own amount (ME-279): its own batch.
+    if( mesh.DitherFade != 0.f && mesh.CrossfadeLod == 0xFF )
+    {
+        uint32_t fadeBits = 0;
+        std::memcpy( &fadeBits, &mesh.DitherFade, sizeof( fadeBits ) );
+        caster.MaterialKey = ( caster.MaterialKey ? caster.MaterialKey : mesh.BatchKey ) ^ ( ( uint64_t( fadeBits ) + 1 ) * 0xD6E8FEB86659FD93ull );
+    }
+    caster.VertexBuffer = mesh.VertexBufferIdx;
+    caster.IndexBuffer = mesh.IndexBufferIdx;
+    caster.Skinned = mesh.SkinBoneCount > 0 || bgfx::isValid( mesh.PosedVertices );
+    caster.Bounds = mesh.WorldBounds;
+    return true;
+}
+
+
+void BGFXRenderer::RebuildShadowCasters()
+{
+    OPTICK_EVENT( "Renderer::RebuildShadowCasters" );
     // Scan the (large) mesh commands in parallel chunks, keeping the casters compactly in order.
     constexpr uint32_t kChunk = 2048;
     const uint32_t commandCount = static_cast<uint32_t>( m_meshCache.Commands.size() );
     const uint32_t chunkCount = ( commandCount + kChunk - 1 ) / kChunk;
-    if( m_shadowCasterChunks.size() < chunkCount )
+    if( m_shadowRebuildChunks.size() < chunkCount )
     {
-        m_shadowCasterChunks.resize( chunkCount );
+        m_shadowRebuildChunks.resize( chunkCount );
     }
-    m_shadowCasterChunkCount = chunkCount;
-    m_shadowCasterChunkOffsets.resize( chunkCount );
     Jobs::JobSystem::Get().ParallelFor( "Shadow Caster Chunks", chunkCount, 1, [this, commandCount]( uint32_t InBegin, uint32_t InEnd ) {
         for( uint32_t chunk = InBegin; chunk < InEnd; ++chunk )
         {
-            std::vector<ShadowCaster>& casters = m_shadowCasterChunks[chunk];
+            std::vector<ShadowCaster>& casters = m_shadowRebuildChunks[chunk];
             casters.clear();
             const uint32_t last = std::min( commandCount, ( chunk + 1 ) * kChunk );
+            ShadowCaster caster;
             for( uint32_t i = chunk * kChunk; i < last; ++i )
             {
-                const Moonlight::MeshCommand& mesh = m_meshCache.Commands[i];
-                if( !mesh.MeshMaterial || !mesh.SingleMesh || !mesh.CastShadows || mesh.IsTransparent || mesh.VertexBufferIdx == UINT16_MAX || !mesh.WorldBounds.IsValid() )
+                if( MakeShadowCaster( m_meshCache.Commands[i], i, caster ) )
                 {
-                    continue;
+                    casters.push_back( caster );
                 }
-                ShadowCaster caster;
-                caster.Command = i;
-                caster.Group = std::min<uint8_t>( mesh.RenderGroup, Moonlight::kMaxRenderGroups - 1 );
-                // Opaque casters only differ by geometry; alpha-tested ones and materials with their
-                // own caster program also by their material.
-                caster.MaterialKey = ( mesh.AlphaCutoff > 0.f || mesh.CustomShadow || glm::dot( mesh.PortalClipPlane, mesh.PortalClipPlane ) > 0.f ) ? mesh.BatchKey : 0u;
-                // A fading mesh's caster dithers by its own amount (ME-279): its own batch.
-                if( mesh.DitherFade != 0.f && mesh.CrossfadeLod == 0xFF )
-                {
-                    uint32_t fadeBits = 0;
-                    std::memcpy( &fadeBits, &mesh.DitherFade, sizeof( fadeBits ) );
-                    caster.MaterialKey = ( caster.MaterialKey ? caster.MaterialKey : mesh.BatchKey ) ^ ( ( uint64_t( fadeBits ) + 1 ) * 0xD6E8FEB86659FD93ull );
-                }
-                caster.VertexBuffer = mesh.VertexBufferIdx;
-                caster.IndexBuffer = mesh.IndexBufferIdx;
-                caster.Skinned = mesh.SkinBoneCount > 0 || bgfx::isValid( mesh.PosedVertices );
-                caster.Bounds = mesh.WorldBounds;
-                casters.push_back( caster );
             }
         }
     } );
 
-    // Group into instance batches in place (serial, so batch order is stable).
-    uint32_t previousBatch = UINT32_MAX;
-    m_shadowCasterCount = 0;
+    // Batch serially (stable ids: a caster already in the right batch stays without a lookup).
+    m_shadowCasters.clear();
+    m_shadowCasterOf.assign( commandCount, UINT32_MAX );
+    m_casterBounds.fill( AABB() );
+    uint32_t previousBatch = Moonlight::MeshBatchRegistry::kNone;
+    uint32_t next = 0;
     for( uint32_t chunk = 0; chunk < chunkCount; ++chunk )
     {
-        m_shadowCasterChunkOffsets[chunk] = m_shadowCasterCount;
-        m_shadowCasterCount += static_cast<uint32_t>( m_shadowCasterChunks[chunk].size() );
-        for( ShadowCaster& caster : m_shadowCasterChunks[chunk] )
+        for( ShadowCaster& caster : m_shadowRebuildChunks[chunk] )
         {
-            m_casterBounds[caster.Group].Encapsulate( caster.Bounds );
-            if( !caster.Skinned )
+            // Commands before this caster cast nothing now.
+            for( ; next < caster.Command; ++next )
             {
-                auto matches = [&caster]( const InstanceBatch& InBatch ) {
-                    return InBatch.vertexBuffer == caster.VertexBuffer && InBatch.indexBuffer == caster.IndexBuffer && InBatch.materialKey == caster.MaterialKey && InBatch.group == caster.Group;
-                };
-                const uint64_t lookup = caster.MaterialKey * 0x9E3779B97F4A7C15ull ^ ( static_cast<uint64_t>( caster.Group ) << 32 | static_cast<uint64_t>( caster.VertexBuffer ) << 16 | caster.IndexBuffer );
-                // Runs of the same mesh are common (scattered copies of a prop): skip the lookup for them.
-                if( previousBatch != UINT32_MAX && matches( m_shadowBatches[previousBatch] ) )
-                {
-                    caster.Batch = previousBatch;
-                }
-                else if( auto found = m_shadowBatchLookup.find( lookup ); found != m_shadowBatchLookup.end() && matches( m_shadowBatches[found->second] ) )
-                {
-                    caster.Batch = found->second;
-                }
-                else
-                {
-                    if( m_activeShadowBatchCount == m_shadowBatches.size() )
-                    {
-                        m_shadowBatches.emplace_back();
-                    }
-                    caster.Batch = static_cast<uint32_t>( m_activeShadowBatchCount++ );
-                    InstanceBatch& batch = m_shadowBatches[caster.Batch];
-                    batch.vertexBuffer = caster.VertexBuffer;
-                    batch.indexBuffer = caster.IndexBuffer;
-                    batch.materialKey = caster.MaterialKey;
-                    batch.group = caster.Group;
-                    batch.representativeIndex = caster.Command;
-                    m_shadowBatchLookup.emplace( lookup, caster.Batch );
-                }
+                m_shadowBatchRegistry.Remove( next );
+            }
+            next = caster.Command + 1;
+            m_casterBounds[caster.Group].Encapsulate( caster.Bounds );
+            if( caster.Skinned )
+            {
+                m_shadowBatchRegistry.Remove( caster.Command );
+            }
+            else
+            {
+                caster.Batch = m_shadowBatchRegistry.Assign( caster.Command, ShadowBatchKey( caster.MaterialKey, caster.VertexBuffer, caster.IndexBuffer, caster.Group ), previousBatch );
                 previousBatch = caster.Batch;
             }
+            m_shadowCasterOf[caster.Command] = static_cast<uint32_t>( m_shadowCasters.size() );
+            m_shadowCasters.push_back( caster );
         }
+    }
+    const uint32_t registered = m_shadowBatchRegistry.GetCommandCapacity();
+    for( ; next < registered; ++next )
+    {
+        m_shadowBatchRegistry.Remove( next );
+    }
+}
+
+
+void BGFXRenderer::RecomputeCasterBounds()
+{
+    m_casterBounds.fill( AABB() );
+    for( const ShadowCaster& caster : m_shadowCasters )
+    {
+        m_casterBounds[caster.Group].Encapsulate( caster.Bounds );
+    }
+}
+
+
+void BGFXRenderer::UpdateShadowCasters()
+{
+    const uint32_t commandCount = static_cast<uint32_t>( m_meshCache.Commands.size() );
+    // A frame where much changed (the first, a scene load, a fully dynamic scene) rebuilds in
+    // parallel; otherwise only the changed commands are looked at.
+    if( m_allMeshesChanged || m_meshChanges.size() > commandCount / 8 )
+    {
+        RebuildShadowCasters();
+        return;
+    }
+    if( m_meshChanges.empty() )
+    {
+        return;
+    }
+    OPTICK_EVENT( "Renderer::UpdateShadowCasters" );
+    m_shadowCasterOf.resize( commandCount, UINT32_MAX );
+    bool boundsShrink = false;
+    ShadowCaster caster;
+    for( uint32_t id : m_meshChanges )
+    {
+        const uint32_t slot = id < m_shadowCasterOf.size() ? m_shadowCasterOf[id] : UINT32_MAX;
+        const bool casts = id < commandCount && MakeShadowCaster( m_meshCache.Commands[id], id, caster );
+        if( casts )
+        {
+            if( caster.Skinned )
+            {
+                m_shadowBatchRegistry.Remove( id );
+            }
+            else
+            {
+                caster.Batch = m_shadowBatchRegistry.Assign( id, ShadowBatchKey( caster.MaterialKey, caster.VertexBuffer, caster.IndexBuffer, caster.Group ) );
+            }
+            if( slot != UINT32_MAX )
+            {
+                const ShadowCaster& previous = m_shadowCasters[slot];
+                // A caster that moved or changed group may have held up the bounds.
+                boundsShrink |= previous.Group != caster.Group || !SameBounds( previous.Bounds, caster.Bounds );
+                m_shadowCasters[slot] = caster;
+            }
+            else
+            {
+                m_shadowCasterOf[id] = static_cast<uint32_t>( m_shadowCasters.size() );
+                m_shadowCasters.push_back( caster );
+            }
+            m_casterBounds[caster.Group].Encapsulate( caster.Bounds );
+        }
+        else if( slot != UINT32_MAX )
+        {
+            m_shadowBatchRegistry.Remove( id );
+            const uint32_t last = static_cast<uint32_t>( m_shadowCasters.size() - 1 );
+            if( slot != last )
+            {
+                m_shadowCasters[slot] = m_shadowCasters[last];
+                m_shadowCasterOf[m_shadowCasters[slot].Command] = slot;
+            }
+            m_shadowCasters.pop_back();
+            m_shadowCasterOf[id] = UINT32_MAX;
+            boundsShrink = true;
+        }
+    }
+    if( boundsShrink )
+    {
+        RecomputeCasterBounds();
+    }
+}
+
+
+void BGFXRenderer::VerifyShadowCasters()
+{
+    OPTICK_EVENT( "Renderer::VerifyShadowCasters" );
+    const uint32_t commandCount = static_cast<uint32_t>( m_meshCache.Commands.size() );
+    uint32_t wrong = 0;
+    std::string first;
+    std::array<AABB, Moonlight::kMaxRenderGroups> bounds;
+    ShadowCaster expected;
+    uint32_t casters = 0;
+    for( uint32_t id = 0; id < commandCount; ++id )
+    {
+        const bool casts = MakeShadowCaster( m_meshCache.Commands[id], id, expected );
+        const uint32_t slot = id < m_shadowCasterOf.size() ? m_shadowCasterOf[id] : UINT32_MAX;
+        bool ok = casts == ( slot != UINT32_MAX );
+        if( ok && casts )
+        {
+            ++casters;
+            bounds[expected.Group].Encapsulate( expected.Bounds );
+            const ShadowCaster& kept = m_shadowCasters[slot];
+            ok = kept.Command == id && kept.MaterialKey == expected.MaterialKey && kept.VertexBuffer == expected.VertexBuffer && kept.IndexBuffer == expected.IndexBuffer
+                && kept.Group == expected.Group && kept.Skinned == expected.Skinned && SameBounds( kept.Bounds, expected.Bounds );
+            if( ok && !kept.Skinned )
+            {
+                ok = kept.Batch == m_shadowBatchRegistry.GetBatch( id ) && kept.Batch != Moonlight::MeshBatchRegistry::kNone
+                    && m_shadowBatchRegistry.GetKey( kept.Batch ) == ShadowBatchKey( expected.MaterialKey, expected.VertexBuffer, expected.IndexBuffer, expected.Group );
+            }
+        }
+        if( ok && !casts )
+        {
+            ok = m_shadowBatchRegistry.GetBatch( id ) == Moonlight::MeshBatchRegistry::kNone;
+        }
+        if( !ok && wrong++ == 0 )
+        {
+            first = "mesh command " + std::to_string( id );
+        }
+    }
+    if( casters != m_shadowCasters.size() )
+    {
+        ++wrong;
+        first += " (caster count " + std::to_string( m_shadowCasters.size() ) + " vs " + std::to_string( casters ) + ")";
+    }
+    for( uint8_t g = 0; g < Moonlight::kMaxRenderGroups; ++g )
+    {
+        if( bounds[g].IsValid() != m_casterBounds[g].IsValid() || ( bounds[g].IsValid() && !SameBounds( bounds[g], m_casterBounds[g] ) ) )
+        {
+            ++wrong;
+            first += " (caster bounds of group " + std::to_string( g ) + ")";
+        }
+    }
+    if( wrong )
+    {
+        CLog::Log( CLog::LogType::Error, "Retained shadow casters: " + std::to_string( wrong ) + " wrong in frame " + std::to_string( m_frameIndex ) + ", first " + first );
+    }
+}
+
+
+void BGFXRenderer::GatherShadowCasters()
+{
+    OPTICK_EVENT( "Renderer::GatherShadowCasters" );
+    TakeMeshChanges();
+    UpdateShadowCasters();
+    if( VerifyRetainedMeshes )
+    {
+        VerifyShadowCasters();
     }
 }
 
@@ -2237,24 +2442,34 @@ void BGFXRenderer::GatherShadowCasters()
 void BGFXRenderer::CullShadowCasters( const Frustum* InFrustums, uint32_t InCount )
 {
     OPTICK_EVENT( "Renderer::CullShadowCasters" );
-    m_shadowCasterViews.assign( m_shadowCasterCount, 0u );
-    const uint32_t count = std::min<uint32_t>( InCount, 32u );
-    Jobs::JobSystem::Get().ParallelFor( "Cull Shadow Casters", m_shadowCasterChunkCount, 1, [this, InFrustums, count]( uint32_t InBegin, uint32_t InEnd ) {
+    const uint32_t count = std::min<uint32_t>( InCount, kMaxShadowCullViews );
+    const uint32_t casterCount = static_cast<uint32_t>( m_shadowCasters.size() );
+    m_shadowCullViews = count;
+    m_shadowCullChunks = ( casterCount + kShadowCullChunk - 1 ) / kShadowCullChunk;
+    if( m_shadowCullLists.size() < static_cast<size_t>( m_shadowCullChunks ) * kMaxShadowCullViews )
+    {
+        m_shadowCullLists.resize( static_cast<size_t>( m_shadowCullChunks ) * kMaxShadowCullViews );
+    }
+    // Each view's casters, listed as the sweep finds them, so a view's submit walks only its own.
+    Jobs::JobSystem::Get().ParallelFor( "Cull Shadow Casters", m_shadowCullChunks, 1, [this, InFrustums, count, casterCount]( uint32_t InBegin, uint32_t InEnd ) {
         for( uint32_t chunk = InBegin; chunk < InEnd; ++chunk )
         {
-            const std::vector<ShadowCaster>& casters = m_shadowCasterChunks[chunk];
-            uint32_t* views = m_shadowCasterViews.data() + m_shadowCasterChunkOffsets[chunk];
-            for( size_t i = 0; i < casters.size(); ++i )
+            std::vector<uint32_t>* lists = m_shadowCullLists.data() + static_cast<size_t>( chunk ) * kMaxShadowCullViews;
+            for( uint32_t v = 0; v < count; ++v )
             {
-                uint32_t bits = 0;
+                lists[v].clear();
+            }
+            const uint32_t last = std::min( casterCount, ( chunk + 1 ) * kShadowCullChunk );
+            for( uint32_t i = chunk * kShadowCullChunk; i < last; ++i )
+            {
+                const AABB& bounds = m_shadowCasters[i].Bounds;
                 for( uint32_t v = 0; v < count; ++v )
                 {
-                    if( InFrustums[v].Intersects( casters[i].Bounds ) )
+                    if( InFrustums[v].Intersects( bounds ) )
                     {
-                        bits |= 1u << v;
+                        lists[v].push_back( i );
                     }
                 }
-                views[i] = bits;
             }
         }
     } );
@@ -2282,19 +2497,26 @@ void BGFXRenderer::BindStockShadowCaster( const Moonlight::MeshCommand& InMesh, 
 void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, uint32_t InViewIndex, uint8_t InGroup )
 {
     OPTICK_EVENT( "Renderer::SubmitShadowCasters" );
-    for( size_t b = 0; b < m_activeShadowBatchCount; ++b )
+    if( m_shadowBatches.size() < m_shadowBatchRegistry.GetBatchCapacity() )
     {
-        m_shadowBatches[b].commands.clear();
+        m_shadowBatches.resize( m_shadowBatchRegistry.GetBatchCapacity() );
+    }
+    for( InstanceBatch& batch : m_shadowBatches )
+    {
+        batch.commands.clear();
     }
     m_skinnedShadowCasters.clear();
-    const uint32_t bit = 1u << InViewIndex;
-    const uint32_t* views = m_shadowCasterViews.data();
-    for( uint32_t chunk = 0; chunk < m_shadowCasterChunkCount; ++chunk )
+    if( InViewIndex < m_shadowCullViews )
     {
-        for( const ShadowCaster& caster : m_shadowCasterChunks[chunk] )
+        for( uint32_t chunk = 0; chunk < m_shadowCullChunks; ++chunk )
         {
-            if( ( *views++ & bit ) && caster.Group == InGroup )
+            for( uint32_t index : m_shadowCullLists[static_cast<size_t>( chunk ) * kMaxShadowCullViews + InViewIndex] )
             {
+                const ShadowCaster& caster = m_shadowCasters[index];
+                if( caster.Group != InGroup )
+                {
+                    continue;
+                }
                 if( caster.Batch == UINT32_MAX )
                 {
                     m_skinnedShadowCasters.push_back( caster.Command );   // each has its own pose: drawn one by one below
@@ -2309,14 +2531,15 @@ void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, uint32_t InViewIndex,
 
     constexpr uint16_t kInstanceStride = sizeof( glm::mat4 );
     const uint64_t state = BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS;
-    for( size_t b = 0; b < m_activeShadowBatchCount; ++b )
+    for( size_t b = 0; b < m_shadowBatches.size(); ++b )
     {
         const InstanceBatch& batch = m_shadowBatches[b];
         if( batch.commands.empty() )
         {
             continue;
         }
-        const Moonlight::MeshCommand& mesh = m_meshCache.Commands[batch.representativeIndex];
+        // Any member binds for the batch: they share geometry, and the material where it matters.
+        const Moonlight::MeshCommand& mesh = m_meshCache.Commands[batch.commands.front()];
         // Fading meshes cast dithered shadows; a LOD crossfade casts the incoming level's, whole.
         const float alpha[4] = { mesh.AlphaCutoff, mesh.MeshMaterial->Tiling.x, mesh.MeshMaterial->Tiling.y, mesh.CrossfadeLod != 0xFF ? 0.f : mesh.DitherFade };
         const uint32_t count = static_cast<uint32_t>( batch.commands.size() );
@@ -3209,6 +3432,7 @@ void BGFXRenderer::UpdateMeshMatrix( unsigned int Id, const glm::mat4& matrix )
     OPTICK_CATEGORY( "UpdateMeshMatrix", Optick::Category::Rendering );
 
     m_meshCache.Commands[Id].Transform = matrix;
+    m_meshCache.MarkChanged( Id );
 }
 
 void BGFXRenderer::ClearMeshes()
@@ -3219,6 +3443,8 @@ void BGFXRenderer::ClearMeshes()
     {
         m_meshCache.FreeIndicies.pop();
     }
+    m_meshCache.Changed.clear();
+    m_meshCache.AllChanged = true;
 }
 
 SharedPtr<Moonlight::DynamicSky> BGFXRenderer::GetSky()

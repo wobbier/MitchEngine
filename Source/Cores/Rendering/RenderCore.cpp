@@ -45,7 +45,26 @@
 #include <limits>
 #include <unordered_set>
 #include <chrono>
+#include <atomic>
 #include "Terrain/TerrainStreamCache.h"
+
+
+namespace
+{
+    // --verify-retained-meshes: the first field a kept command got wrong (ME-390).
+    std::string DescribeCommandDifference( const Moonlight::MeshCommand& InKept, const Moonlight::MeshCommand& InBuilt )
+    {
+        if( InKept.Visible != InBuilt.Visible ) return "Visible";
+        if( InKept.Transform != InBuilt.Transform ) return "Transform";
+        if( InKept.BatchKey != InBuilt.BatchKey ) return "BatchKey";
+        if( InKept.CastShadows != InBuilt.CastShadows ) return "CastShadows";
+        if( InKept.Lod != InBuilt.Lod || InKept.IndexBufferIdx != InBuilt.IndexBufferIdx || InKept.CrossfadeLod != InBuilt.CrossfadeLod ) return "Lod";
+        if( InKept.DitherFade != InBuilt.DitherFade ) return "DitherFade";
+        if( InKept.WorldBounds.Min.InternalVector != InBuilt.WorldBounds.Min.InternalVector || InKept.WorldBounds.Max.InternalVector != InBuilt.WorldBounds.Max.InternalVector ) return "WorldBounds";
+        if( InKept.Outlined != InBuilt.Outlined || InKept.OutlineWidth != InBuilt.OutlineWidth || InKept.OutlineColor.InternalVector != InBuilt.OutlineColor.InternalVector ) return "Outline";
+        return "another field";
+    }
+}
 
 
 struct RenderCore::TerrainDraw
@@ -427,6 +446,7 @@ void RenderCore::OnEntityRemoved( Entity& InEntity )
     auto direct = m_meshCommands.find( InEntity.GetId().Value() );
     if( direct != m_meshCommands.end() )
     {
+        ForgetRetained( direct->second );
         GetEngine().GetRenderer().GetMeshCache().Pop( direct->second );
         m_meshCommands.erase( direct );
         if( Mesh* mesh = InEntity.TryGetComponent<Mesh>() ) mesh->Id = std::numeric_limits<unsigned int>::max();
@@ -474,6 +494,8 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         bool Outlined = false;
         Vector3 OutlineColor;
         float OutlineWidth = 0.f;
+        bool Retainable = false;    // an entity's own Mesh: its command may be kept across frames (ME-390)
+        bool Verify = false;        // --verify-retained-meshes: rebuilt only to check the kept command
     };
     std::vector<RenderItem> items;
     // The Outline component sits on the mesh's entity, or on a compact model's root for its parts.
@@ -507,6 +529,176 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
 #if USING( ME_EDITOR )
     addTerrainView( engine.EditorCamera );
 #endif
+
+    // Retained mesh commands (ME-390): a cleared cache's ids mean nothing any more.
+    ++m_gatherCount;
+    auto& meshCache = renderer.GetMeshCache();
+    if( m_retainedGeneration != renderer.GetMeshCacheGeneration() )
+    {
+        m_retainedOwner.clear();
+        m_retainedGeneration = renderer.GetMeshCacheGeneration();
+    }
+    const bool retain = renderer.RetainMeshCommands;
+    const bool verifyRetained = retain && renderer.VerifyRetainedMeshes;
+    auto& cameras = renderer.GetCameraCache();
+
+    // Levels of detail follow the view being looked through: the scene view's camera while
+    // editing, else the main camera (one level per mesh per frame, shared by every pass).
+    const Moonlight::CameraData* lodCamera = nullptr;
+#if USING( ME_EDITOR )
+    if( !m_playing )
+    {
+        lodCamera = &engine.EditorCamera;
+    }
+#endif
+    for( const Moonlight::CameraData& cam : cameras.Commands )
+    {
+        if( !lodCamera && cam.IsMain && cam.ShouldRender && cam.RenderGroup == 0 )
+        {
+            lodCamera = &cam;
+        }
+    }
+    const float lodBias = LodBias;
+    const double now = inUpdateContext.GetTotalTime();
+    const float lodCrossfade = LodCrossfadeSeconds;
+    const float fadeStep = m_occluderFadeRate * inUpdateContext.GetDeltaTime();
+    UpdateOccluderFades();
+    const auto selectLod = [&]( const Moonlight::MeshData* InMesh, const AABB& InWorldBounds ) -> uint8_t {
+        const uint8_t lodCount = InMesh->GetLodCount();
+        if( lodCount == 0 || !lodCamera )
+        {
+            return 0;
+        }
+        const float radius = InWorldBounds.GetExtents().Length();
+        const float distance = ( InWorldBounds.GetCenter() - lodCamera->Position ).Length();
+        const float height = Moonlight::RelativeScreenHeight( radius, distance, lodCamera->FOV, lodCamera->Projection == Moonlight::ProjectionType::Orthographic, lodCamera->OrthographicSize );
+        return Moonlight::SelectLod( height, InMesh->GetLodHeights(), lodCount, lodBias );
+    };
+
+#if USING( ME_EDITOR )
+    Moonlight::CameraData& editorCamera = engine.EditorCamera;
+#endif
+    // Each camera's visibility flags, one per mesh cache id (a command's VisibilityIndex is its
+    // id, so a kept command stays valid). Sized again after the gather, which can push commands.
+    const auto sizeVisibleFlags = [&]( bool InClear ) {
+        const size_t commandCount = meshCache.Commands.size();
+#if USING( ME_EDITOR )
+        InClear ? editorCamera.VisibleFlags.assign( commandCount, 0 ) : editorCamera.VisibleFlags.resize( commandCount, 0 );
+#endif
+        for( Moonlight::CameraData& cam : cameras.Commands )
+        {
+            InClear ? cam.VisibleFlags.assign( commandCount, 0 ) : cam.VisibleFlags.resize( commandCount, 0 );
+        }
+    };
+    {
+        OPTICK_EVENT( "RenderCore::VisibleFlags" );
+        sizeVisibleFlags( true );
+    }
+    // Culls world bounds against every world camera, flagging the ones that see command InId.
+    const auto cullBounds = [&]( const AABB& InBounds, unsigned int InId ) -> bool {
+        bool isVisible = false;
+        for( Moonlight::CameraData& cam : cameras.Commands )
+        {
+            // Editor previews draw their own meshes only.
+            if( cam.RenderGroup != 0 )
+            {
+                continue;
+            }
+            if( !cam.ShouldCull )
+            {
+                isVisible = true;
+                continue;
+            }
+            if( cam.ViewFrustum.Intersects( InBounds ) )
+            {
+                isVisible = true;
+                if( InId < cam.VisibleFlags.size() ) cam.VisibleFlags[InId] = 1;
+            }
+        }
+#if USING( ME_EDITOR )
+        if( editorCamera.ViewFrustum.Intersects( InBounds ) )
+        {
+            isVisible = true;
+            if( InId < editorCamera.VisibleFlags.size() ) editorCamera.VisibleFlags[InId] = 1;
+        }
+#endif
+        return isVisible;
+    };
+    // An entity's own Mesh whose kept command still matches everything it was built from: then
+    // only its visibility runs this frame (ME-390). Anything else is rebuilt by the mesh job.
+    // Runs on gather workers: it reads the entity, writes only this command's Visible and flags.
+    const auto retainedHolds = [&]( Entity& entity, Mesh& mesh, uint64_t id ) -> bool {
+        const unsigned int slot = mesh.Id;
+        if( slot >= m_retainedOwner.size() || m_retainedOwner[slot] != id || slot >= meshCache.Commands.size() )
+        {
+            return false;
+        }
+        Moonlight::MeshCommand& command = meshCache.Commands[slot];
+        Moonlight::Material* material = mesh.MeshMaterial.get();
+        Moonlight::MeshData* geometry = mesh.MeshReferece;
+        if( !geometry || !material || command.SingleMesh != geometry || command.MeshMaterial.get() != material || command.ID != id || mesh.PortalImage
+            || mesh.IsSkinned() || mesh.HasVertexAnimation() || bgfx::isValid( mesh.m_posedVertices ) )
+        {
+            return false;
+        }
+        Transform* transform = entity.TryGetComponent<Transform>();
+        if( !transform || transform->IsDirty() || transform->GetLocalToWorldMatrix().GetInternalMatrix() != command.Transform )
+        {
+            return false;
+        }
+        // Screen-door fades and LOD crossfades change every frame they run.
+        if( mesh.DitherFade != 0.f || command.DitherFade != 0.f || mesh.m_lodCrossfade.From != 0xFF || command.CrossfadeLod != 0xFF
+            || ( !m_occluderTargets.empty() && m_occluderTargets.contains( id ) ) )
+        {
+            return false;
+        }
+        // The material: once a frame per drawn mesh, then everything the command takes from it.
+        material->PrepareForDraw();
+        if( !material->MeshShader.IsLoaded() )
+        {
+            return false;
+        }
+        const bool active = entity.IsActiveInHierarchy();
+        if( command.CastShadows != ( mesh.CastShadows && active && material->CastsShadows() ) || command.IsTransparent != material->IsTransparent()
+            || command.SupportsInstancing != material->SupportsInstancing || command.AlphaCutoff != material->GetAlphaCutoff()
+            || command.CustomShadow != bgfx::isValid( material->GetShadowProgram( false ) ) )
+        {
+            return false;
+        }
+        if( command.PortalClipPlane != mesh.PortalClipPlane || command.InstanceData != mesh.InstanceData || command.Type != mesh.GetType() )
+        {
+            return false;
+        }
+        uint64_t batchKey = material->GetInstanceBatchKey();
+        if( glm::dot( command.PortalClipPlane, command.PortalClipPlane ) > 0.f )
+        {
+            batchKey ^= id * 0x9E3779B97F4A7C15ull;
+        }
+        if( batchKey != command.BatchKey )
+        {
+            return false;
+        }
+        // The level this frame's camera picks must be the one shown, with no crossfade to start.
+        const uint8_t lod = selectLod( geometry, command.WorldBounds );
+        const uint8_t shown = std::min<uint8_t>( lod, geometry->GetLodCount() );
+        if( mesh.m_lodCrossfade.Shown != lod || command.Lod != shown || command.VertexBufferIdx != geometry->GetVertexBuffer().idx
+            || command.IndexBufferIdx != geometry->GetIndexBuffer( shown ).idx )
+        {
+            return false;
+        }
+        const Outline* outline = entity.TryGetComponent<Outline>();
+        const bool outlined = outline && outline->IsEnabled();
+        if( command.Outlined != outlined || ( outlined && ( command.OutlineColor.InternalVector != outline->Color.InternalVector || command.OutlineWidth != outline->Width ) ) )
+        {
+            return false;
+        }
+        const bool visible = cullBounds( command.WorldBounds, slot ) && active;
+        if( command.Visible != visible )
+        {
+            command.Visible = visible;
+        }
+        return true;
+    };
     {
         OPTICK_EVENT( "RenderCore::Gather" );
         // Everything an entity can need, on the main thread: registering or releasing its mesh
@@ -532,6 +724,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                 if( mesh->Id == std::numeric_limits<unsigned int>::max() ) mesh->Id = renderer.GetMeshCache().Push( Moonlight::MeshCommand() );
                 m_meshCommands[entity.GetId().Value()] = mesh->Id;
                 items.push_back( { mesh, mesh->PortalImage ? mesh->PortalImageWorld : entity.GetComponent<Transform>().GetLocalToWorldMatrix(), entity.GetHandle() } );
+                items.back().Retainable = true;
                 applyOutline( items.back(), entity );
             }
             else
@@ -539,6 +732,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                 auto previous = m_meshCommands.find( entity.GetId().Value() );
                 if( previous != m_meshCommands.end() )
                 {
+                    ForgetRetained( previous->second );
                     renderer.GetMeshCache().Pop( previous->second ); m_meshCommands.erase( previous );
                     if( directMesh ) directMesh->Id = std::numeric_limits<unsigned int>::max();
                 }
@@ -578,8 +772,20 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
             {
                 return false;
             }
-            const auto command = m_meshCommands.find( id );
             Mesh* mesh = entity.TryGetComponent<Mesh>();
+            // Most often its kept command still holds, and there's nothing to gather (ME-390).
+            if( retain && mesh && mesh->IsEnabled() && retainedHolds( entity, *mesh, id ) )
+            {
+                if( verifyRetained )
+                {
+                    outItems.push_back( { mesh, entity.GetComponent<Transform>().GetLocalToWorldMatrix(), entity.GetHandle() } );
+                    outItems.back().Retainable = true;
+                    outItems.back().Verify = true;
+                    applyOutline( outItems.back(), entity );
+                }
+                return true;
+            }
+            const auto command = m_meshCommands.find( id );
             if( !mesh || !mesh->IsEnabled() )
             {
                 return command == m_meshCommands.end();   // else its command is released
@@ -594,6 +800,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                 return false;
             }
             outItems.push_back( { mesh, mesh->PortalImage ? mesh->PortalImageWorld : transform->GetLocalToWorldMatrix(), entity.GetHandle() } );
+            outItems.back().Retainable = true;
             applyOutline( outItems.back(), entity );
             return true;
         };
@@ -612,7 +819,10 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
             for( uint32_t c = begin; c < end; ++c )
             {
                 GatherChunk& chunk = chunks[c];
-                chunk.Items.reserve( kGatherChunkSize );
+                if( !retain )
+                {
+                    chunk.Items.reserve( kGatherChunkSize );
+                }
                 const uint32_t last = std::min( entityCount, ( c + 1 ) * kGatherChunkSize );
                 for( uint32_t i = c * kGatherChunkSize; i < last; ++i )
                 {
@@ -642,6 +852,12 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
             }
             items.insert( items.end(), chunk.Items.begin() + copied, chunk.Items.end() );
         }
+    }
+    // The serial part of the gather may have pushed commands.
+    sizeVisibleFlags( false );
+    if( m_retainedOwner.size() < meshCache.Commands.size() )
+    {
+        m_retainedOwner.resize( meshCache.Commands.size(), 0 );
     }
     {
         OPTICK_EVENT( "RenderCore::PruneDraws" );
@@ -751,11 +967,6 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         } );
     }
 
-    if( items.empty() )
-    {
-        return;
-    }
-
     // Allocation/uploads stay on this thread. Workers fill disjoint vertex ranges so a
     // large material mesh doesn't monopolize one worker, and paused poses do no sampling.
     struct VertexAnimationJob
@@ -798,48 +1009,10 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         }
     }
 
-    auto& cameras = renderer.GetCameraCache();
-
-    // Levels of detail follow the view being looked through: the scene view's camera while
-    // editing, else the main camera (one level per mesh per frame, shared by every pass).
-    const Moonlight::CameraData* lodCamera = nullptr;
-#if USING( ME_EDITOR )
-    if( !m_playing )
-    {
-        lodCamera = &engine.EditorCamera;
-    }
-#endif
-    for( const Moonlight::CameraData& cam : cameras.Commands )
-    {
-        if( !lodCamera && cam.IsMain && cam.ShouldRender && cam.RenderGroup == 0 )
-        {
-            lodCamera = &cam;
-        }
-    }
-    const float lodBias = LodBias;
-    const double now = inUpdateContext.GetTotalTime();
-    const float lodCrossfade = LodCrossfadeSeconds;
-    const float fadeStep = m_occluderFadeRate * inUpdateContext.GetDeltaTime();
-    UpdateOccluderFades();
-
-#if USING( ME_EDITOR )
-    Moonlight::CameraData& editorCamera = engine.EditorCamera;
-#endif
-    // Resize visible flag vector
-    {
-        OPTICK_EVENT( "RenderCore::VisibleFlags" );
-#if USING( ME_EDITOR )
-        editorCamera.VisibleFlags.clear();
-        editorCamera.VisibleFlags.resize( items.size() );
-#endif
-
-        for( Moonlight::CameraData& cam : cameras.Commands )
-        {
-            cam.VisibleFlags.clear();
-            cam.VisibleFlags.resize( items.size() );
-        }
-    }
-
+    // --verify-retained-meshes: kept commands that differ from a rebuild (the first one's id).
+    std::atomic<uint32_t> retainedWrong{ 0 };
+    std::atomic<uint32_t> retainedWrongFirst{ UINT32_MAX };
+    std::string retainedWrongField;
     engine.GetJobSystem().ParallelFor( "Render Prep: Mesh Commands", static_cast<uint32_t>( items.size() ), 128, [&]( uint32_t batchBegin, uint32_t batchEnd )
             {
                 OPTICK_CATEGORY( "Mesh Job", Optick::Category::Debug );
@@ -849,6 +1022,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                     const RenderItem& item = items[entIndex];
                     {
                         Mesh& model = *item.Instance;
+                        const unsigned int id = model.GetId();
                         if( model.MeshMaterial )
                         {
                             model.MeshMaterial->PrepareForDraw();
@@ -857,10 +1031,10 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                         // shaders are still loading have nothing to draw yet.
                         if( !model.MeshReferece || !model.MeshMaterial || !model.MeshMaterial->MeshShader.IsLoaded() )
                         {
+                            ForgetRetained( id );
                             continue;
                         }
 
-                        bool isVisible = false;
                         const glm::mat4& meshMatrix = item.World.GetInternalMatrix();
                         // Cull the mesh's world-space bounding box, not just its origin: big
                         // objects whose pivot leaves the view must still be drawn.
@@ -868,44 +1042,11 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                         const bool skinned = model.IsSkinned();
                         const AABB worldBounds = model.HasVertexAnimation() ? model.GetWorldBounds( item.World )
                             : skinned ? model.UpdateSkin( meshMatrix ) : model.MeshReferece->Bounds.Transformed( item.World );
+                        const bool isVisible = cullBounds( worldBounds, id );
 
-                        {
-                            for( Moonlight::CameraData& cam : cameras.Commands )
-                            {
-                                // Editor previews draw their own meshes only.
-                                if( cam.RenderGroup != 0 )
-                                {
-                                    continue;
-                                }
-                                if( !cam.ShouldCull )
-                                {
-                                    isVisible = true;
-                                    continue;
-                                }
-
-                                if( cam.ViewFrustum.Intersects( worldBounds ) )
-                                {
-                                    isVisible = true;
-                                    cam.VisibleFlags[entIndex] = 1;
-                                }
-                            }
-#if USING( ME_EDITOR )
-                            //if( !cam.ShouldCull )
-                            //{
-                            //    isVisible = true;
-                            //}
-
-                            if( editorCamera.ViewFrustum.Intersects( worldBounds ) )
-                            {
-                                isVisible = true;
-                                editorCamera.VisibleFlags[entIndex] = 1;
-                            }
-#endif
-                        }
-
-                        // Every mesh gets a fresh command each frame, visible or not: shadow passes
-                        // need casters outside the camera views, and VisibilityIndex must always
-                        // match this frame's visibility flags.
+                        // Every mesh gathered gets a fresh command, visible or not: shadow passes
+                        // need casters outside the camera views. VisibilityIndex is the command's
+                        // own id, so a command kept from an earlier frame matches this frame's flags.
                         {
                             Moonlight::MeshCommand command;
                             command.Visible = isVisible && item.Owner->IsActiveInHierarchy();
@@ -917,24 +1058,13 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                             command.PortalClipPlane = model.PortalClipPlane;
                             command.InstanceData = model.InstanceData;
                             command.Type = model.GetType();
-                            command.VisibilityIndex = entIndex;
+                            command.VisibilityIndex = static_cast<int>( id );
                             command.ID = item.Owner->GetId().Value();
                             command.Outlined = item.Outlined;
                             command.OutlineColor = item.OutlineColor;
                             command.OutlineWidth = item.OutlineWidth;
 
-                            uint8_t lod = 0;
-                            if( model.MeshReferece )
-                            {
-                                const uint8_t lodCount = model.MeshReferece->GetLodCount();
-                                if( lodCount > 0 && lodCamera )
-                                {
-                                    const float radius = worldBounds.GetExtents().Length();
-                                    const float distance = ( worldBounds.GetCenter() - lodCamera->Position ).Length();
-                                    const float height = Moonlight::RelativeScreenHeight( radius, distance, lodCamera->FOV, lodCamera->Projection == Moonlight::ProjectionType::Orthographic, lodCamera->OrthographicSize );
-                                    lod = Moonlight::SelectLod( height, model.MeshReferece->GetLodHeights(), lodCount, lodBias );
-                                }
-                            }
+                            uint8_t lod = selectLod( model.MeshReferece, worldBounds );
                             // A new level fades in over the old one through complementary dithers
                             // (ME-279), rather than popping.
                             float crossfade = 1.f;
@@ -977,17 +1107,61 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                                 command.SupportsInstancing = false;
                             }
 
-                            renderer.GetMeshCache().Update( model.GetId(), command);
+                            if( id >= meshCache.Commands.size() )
+                            {
+                                continue;
+                            }
+                            Moonlight::MeshCommand& kept = meshCache.Commands[id];
+                            if( item.Verify )
+                            {
+                                // Only built to check the kept command: it must match.
+                                if( !Moonlight::SameMeshCommand( kept, command ) || kept.Visible != command.Visible )
+                                {
+                                    if( retainedWrong.fetch_add( 1 ) == 0 )
+                                    {
+                                        retainedWrongFirst = id;
+                                        retainedWrongField = DescribeCommandDifference( kept, command );
+                                    }
+                                }
+                                continue;
+                            }
+                            // Kept across frames: an entity's own static Mesh (ME-390).
+                            const bool keep = retain && item.Retainable && !model.PortalImage && !skinned && !model.HasVertexAnimation() && !bgfx::isValid( model.m_posedVertices );
+                            if( id < m_retainedOwner.size() )
+                            {
+                                m_retainedOwner[id] = keep ? command.ID : 0;
+                            }
+                            if( !retain )
+                            {
+                                meshCache.Update( id, command );
+                            }
+                            else if( Moonlight::SameMeshCommand( kept, command ) )
+                            {
+                                // Nothing the renderer keeps changed (terrain, foliage and compact
+                                // model parts are gathered every frame): no change to note.
+                                kept.Visible = command.Visible;
+                            }
+                            else
+                            {
+                                kept = command;
+                                meshCache.MarkChanged( id );
+                            }
                         }
                     }
                 }
             } );
+    if( retainedWrong > 0 )
+    {
+        CLog::Log( CLog::LogType::Error, "Retained mesh commands: " + std::to_string( retainedWrong.load() ) + " differ from a rebuild in frame "
+            + std::to_string( renderer.GetFrameIndex() + 1 ) + ", first mesh command " + std::to_string( retainedWrongFirst.load() ) + " (" + retainedWrongField + ")" );
+    }
 
     // Each camera's visible meshes as a list of mesh cache ids, so its draw loop walks those rather
     // than every command. Ascending, the order a full scan visits them: instance batches (and their
     // draw order) are made first-seen. Stamped with the frame about to render: only that frame's
     // Render uses them, so a camera this core didn't refresh falls back to the scan.
     {
+        OPTICK_EVENT( "RenderCore::VisibleMeshes" );
         std::vector<Moonlight::CameraData*> listed;
         for( Moonlight::CameraData& cam : cameras.Commands )
         {
@@ -1003,21 +1177,28 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                 for( uint32_t c = begin; c < end; ++c )
                 {
                     Moonlight::CameraData& cam = *listed[c];
+                    // Flags are by command id, so the list comes out ascending and unique.
                     cam.VisibleMeshes.clear();
-                    for( size_t entIndex = 0; entIndex < cam.VisibleFlags.size(); ++entIndex )
+                    const size_t count = std::min( cam.VisibleFlags.size(), commandCount );
+                    const uint8_t* flags = cam.VisibleFlags.data();
+                    size_t id = 0;
+                    for( ; id + 8 <= count; id += 8 )
                     {
-                        if( !cam.VisibleFlags[entIndex] )
+                        uint64_t word = 0;
+                        std::memcpy( &word, flags + id, sizeof( word ) );
+                        if( word == 0 )
                         {
                             continue;
                         }
-                        const unsigned int id = items[entIndex].Instance->GetId();
-                        if( id < commandCount )
+                        for( size_t k = id; k < id + 8; ++k )
                         {
-                            cam.VisibleMeshes.push_back( id );
+                            if( flags[k] ) cam.VisibleMeshes.push_back( static_cast<uint32_t>( k ) );
                         }
                     }
-                    std::sort( cam.VisibleMeshes.begin(), cam.VisibleMeshes.end() );
-                    cam.VisibleMeshes.erase( std::unique( cam.VisibleMeshes.begin(), cam.VisibleMeshes.end() ), cam.VisibleMeshes.end() );
+                    for( ; id < count; ++id )
+                    {
+                        if( flags[id] ) cam.VisibleMeshes.push_back( static_cast<uint32_t>( id ) );
+                    }
                     cam.VisibleMeshesFrame = frame;
                 }
             } );
@@ -1141,7 +1322,7 @@ void RenderCore::OnStop()
         for( const auto& entry : m_meshCommands ) cache.Pop( entry.second );
         for( const auto& entry : m_compactCommands ) for( unsigned int id : entry.second ) cache.Pop( id );
     }
-    m_compactCommands.clear(); m_meshCommands.clear();
+    m_compactCommands.clear(); m_meshCommands.clear(); m_retainedOwner.clear();
     if( !m_sharesRenderer )
     {
         GetEngine().GetRenderer().ClearMeshes();
@@ -1186,6 +1367,11 @@ void RenderCore::OnEditorInspect()
         if( ImGui::IsItemHovered() )
         {
             ImGui::SetTooltip( "Scales mesh screen size before choosing LOD: above 1 keeps detail longer; 0 draws the coarsest level" );
+        }
+        checkbox( "Retained Mesh Commands", renderer.RetainMeshCommands );
+        if( ImGui::IsItemHovered() )
+        {
+            ImGui::SetTooltip( "Static meshes keep their draw commands and shadow casters across frames; only what changed is rebuilt. Off rebuilds every mesh each frame, as before" );
         }
         checkbox( "Depth Prepass", renderer.EnableDepthPrepass );
         if( ImGui::IsItemHovered() )

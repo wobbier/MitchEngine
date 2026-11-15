@@ -13,6 +13,7 @@
 
 class RenderDocManager;
 #include <Utils/CommandCache.h>
+#include <MeshBatchRegistry.h>
 #include <array>
 #include "Core/ISystem.h"
 #include "Math/Vector4.h"
@@ -122,6 +123,25 @@ public:
     // Counts Render calls; the one in progress (or last finished) has this index, the next one +1.
     uint64_t GetFrameIndex() const { return m_frameIndex; }
     CommandCache<Moonlight::DebugColliderCommand>& GetDebugDrawCache();
+
+    // Retained mesh commands (ME-390). Mesh cache ids are stable per mesh: RenderCore rewrites a
+    // command only when something it is built from changed, and every write (Push, Pop, Update,
+    // or MarkChanged after an in-place edit) marks the id in the cache. Once a frame, at the start
+    // of Render's lighting setup, the renderer takes those marks: GetMeshChanges() lists the ids
+    // changed since the previous frame (ascending, valid until the next frame);
+    // AreAllMeshesChanged() means treat every id as changed (the cache was cleared, or retention
+    // is off). A command's Visible flag is rewritten in place every frame and is not a change:
+    // it follows the cameras. The shadow casters and their batches update from this list.
+    const std::vector<uint32_t>& GetMeshChanges() const { return m_meshChanges; }
+    bool AreAllMeshesChanged() const { return m_allMeshesChanged; }
+    // Off (--no-retained-meshes, or the RenderCore inspector): every mesh command is rebuilt and
+    // every shadow caster re-gathered each frame, as before ME-390. The A/B switch.
+    bool RetainMeshCommands = true;
+    // Debug (--verify-retained-meshes): RenderCore rebuilds every retained command anyway and logs
+    // any field the retained one got wrong; the renderer checks its casters the same way.
+    bool VerifyRetainedMeshes = false;
+    // The shadow batch registry: stable batch ids and membership by mesh command id.
+    const Moonlight::MeshBatchRegistry& GetShadowBatches() const { return m_shadowBatchRegistry; }
 
     // Meshes
     void UpdateMeshMatrix( unsigned int Id, const glm::mat4& matrix );
@@ -338,13 +358,34 @@ private:
         bool Skinned = false;
         AABB Bounds;
     };
-    // Casters by chunk of mesh commands (gathered in parallel); a chunk's views start at its offset.
-    std::vector<std::vector<ShadowCaster>> m_shadowCasterChunks;
-    std::vector<uint32_t> m_shadowCasterChunkOffsets;
-    uint32_t m_shadowCasterChunkCount = 0;
-    uint32_t m_shadowCasterCount = 0;
-    std::vector<uint32_t> m_shadowCasterViews;  // per caster: bit v = inside the pass's view v
-    std::unordered_map<uint64_t, uint32_t> m_shadowBatchLookup;
+    // Whether a mesh command casts, and its record (false: not a caster).
+    static bool MakeShadowCaster( const Moonlight::MeshCommand& InMesh, uint32_t InCommand, ShadowCaster& OutCaster );
+    // The casters, retained across frames (ME-390): dense and in no particular order (shadow maps
+    // only keep depth, so caster order never shows). m_shadowCasterOf maps a mesh command id to its
+    // record. Changed commands (the mesh cache's change marks) are re-made each frame; everything
+    // is re-made when the cache was cleared, too much changed, or retention is off.
+    std::vector<ShadowCaster> m_shadowCasters;
+    std::vector<uint32_t> m_shadowCasterOf;
+    Moonlight::MeshBatchRegistry m_shadowBatchRegistry;
+    std::vector<std::vector<ShadowCaster>> m_shadowRebuildChunks;  // RebuildShadowCasters' scratch
+    void RebuildShadowCasters();
+    void UpdateShadowCasters();
+    void RecomputeCasterBounds();
+    // CullShadowCasters' output: per chunk of casters and per view (up to 32), the casters inside
+    // it, so a view's submit walks only its own casters.
+    static constexpr uint32_t kShadowCullChunk = 2048;
+    static constexpr uint32_t kMaxShadowCullViews = 32;
+    std::vector<std::vector<uint32_t>> m_shadowCullLists;   // [chunk * kMaxShadowCullViews + view]
+    uint32_t m_shadowCullChunks = 0;
+    uint32_t m_shadowCullViews = 0;
+    // The mesh command ids changed since the last frame (ascending), taken from the mesh cache's
+    // change marks once a frame (TakeMeshChanges); m_allMeshesChanged: treat every id as changed.
+    std::vector<uint32_t> m_meshChanges;
+    bool m_allMeshesChanged = true;
+    void TakeMeshChanges();
+    // VerifyRetainedMeshes: checks the retained casters against a full rebuild and logs any
+    // difference.
+    void VerifyShadowCasters();
     bool m_shadowsSupported = false;
     int m_directionalLightCount = 0;
     bool m_hasSunShadow = false;
@@ -517,8 +558,8 @@ private:
     };
     std::vector<OpaqueDraw> m_opaqueDraws;
     std::unordered_map<uint64_t, uint32_t> m_batchLookup;   // key hash -> m_instanceBatches index
+    // Shadow batches by m_shadowBatchRegistry id (unused ids have no members).
     std::vector<InstanceBatch> m_shadowBatches;
-    size_t m_activeShadowBatchCount = 0;
 
     Vector2 PreviousSize;
     Vector2 CurrentSize;
