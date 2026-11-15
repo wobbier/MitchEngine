@@ -24,15 +24,27 @@ public:
     void OnEditorInspect() override;
 #endif
 
-    float Opacity = 1.f;
-    float Metallic = 0.f;
-    float Roughness = 0.5f;
-    float NormalStrength = 1.f;
-    float OcclusionStrength = 1.f;
-    Vector3 EmissiveColor = Vector3( 0.f, 0.f, 0.f );
-    float EmissiveIntensity = 1.f;
-    float AlphaCutoff = 0.f;
-    bool InvertRoughness = false;
+    // All of these are in the instancing batch key: write them through the setters, or call
+    // MarkChanged() after writing a field (ME-399).
+    void SetOpacity( float InValue );
+    void SetMetallic( float InValue );
+    void SetRoughness( float InValue );
+    void SetNormalStrength( float InValue );
+    void SetOcclusionStrength( float InValue );
+    void SetEmissiveColor( const Vector3& InValue );
+    void SetEmissiveIntensity( float InValue );
+    void SetAlphaCutoff( float InValue );
+    void SetInvertRoughness( bool InValue );
+
+    ME_MATERIAL_FIELD float Opacity = 1.f;
+    ME_MATERIAL_FIELD float Metallic = 0.f;
+    ME_MATERIAL_FIELD float Roughness = 0.5f;
+    ME_MATERIAL_FIELD float NormalStrength = 1.f;
+    ME_MATERIAL_FIELD float OcclusionStrength = 1.f;
+    ME_MATERIAL_FIELD Vector3 EmissiveColor = Vector3( 0.f, 0.f, 0.f );
+    ME_MATERIAL_FIELD float EmissiveIntensity = 1.f;
+    ME_MATERIAL_FIELD float AlphaCutoff = 0.f;
+    ME_MATERIAL_FIELD bool InvertRoughness = false;
 
 protected:
     // Subclasses that keep their own registry name (e.g. the legacy DiffuseMaterial), or also draw

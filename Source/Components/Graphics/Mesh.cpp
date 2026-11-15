@@ -103,7 +103,7 @@ void Mesh::BindModelMesh( Moonlight::MeshData* InMesh )
     auto registered = registry.find( type );
     MeshMaterial = type != InMesh->MeshMaterial->GetTypeName() && registered != registry.end()
         ? registered->second.CreateFunc() : InMesh->MeshMaterial->CreateInstance();
-    MeshMaterial->GetTextures().assign( Moonlight::TextureType::Count, nullptr );
+    MeshMaterial->ClearTextures();
     MeshMaterial->OnDeserialize( merged );
     MeshMaterial->Init();
     m_importedMaterialDefaults = imported;
@@ -365,9 +365,9 @@ void Mesh::OnEditorInspect()
             const Vector3 diffuse = MeshMaterial->DiffuseColor;
             MeshMaterial = reg["StandardMaterial"].CreateFunc();
             MeshMaterial->Init();
-            MeshMaterial->DiffuseColor = diffuse;
-            MeshMaterial->Tiling = tiling;
-            MeshMaterial->Offset = offset;
+            MeshMaterial->SetDiffuseColor( diffuse );
+            MeshMaterial->SetTiling( tiling );
+            MeshMaterial->SetOffset( offset );
         }
         HavanaUtils::SkipLabel();
         if( ImGui::Button( "Save As Material File..." ) )
@@ -382,7 +382,14 @@ void Mesh::OnEditorInspect()
         }
         if( ImGui::TreeNodeEx( "Material Properties", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding ) )
         {
+            // The material inspectors write through setters; this catches one that does not, so a
+            // retained mesh command still sees the edit (ME-399).
+            const uint64_t drawState = MeshMaterial->GetDrawStateHash();
             MeshMaterial->OnEditorInspect();
+            if( MeshMaterial->GetDrawStateHash() != drawState )
+            {
+                MeshMaterial->MarkChanged();
+            }
             ImGui::TreePop();
         }
     }
@@ -422,9 +429,9 @@ void Mesh::SelectMaterial( const std::pair<std::string, MaterialInfo*>& ptr, Mat
         {
             MeshMaterial->SetTexture( (Moonlight::TextureType)i, textures[i] );
         }
-        MeshMaterial->DiffuseColor = diffuse;
-        MeshMaterial->Tiling = tiling;
-        MeshMaterial->Offset = offset;
+        MeshMaterial->SetDiffuseColor( diffuse );
+        MeshMaterial->SetTiling( tiling );
+        MeshMaterial->SetOffset( offset );
 
     }
 }

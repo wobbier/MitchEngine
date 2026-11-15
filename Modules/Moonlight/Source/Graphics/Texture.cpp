@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <assert.h>
 #include "Texture.h"
+#include "MaterialRevision.h"
 #include "CLog.h"
 #include "Resource/ResourceCache.h"
 #include "Utils/StringUtils.h"
@@ -240,6 +241,8 @@ namespace Moonlight
             const uint32_t size = imageContainer->m_size - static_cast<uint32_t>( data - static_cast<const uint8_t*>( imageContainer->m_data ) );
             const bgfx::Memory* mem = bgfx::makeRef( data, size, ImageReleaseCb, imageContainer );
             TexHandle = bgfx::createTexture2D( static_cast<uint16_t>( mWidth ), static_cast<uint16_t>( mHeight ), 1 < m_mips, imageContainer->m_numLayers, bgfx::TextureFormat::Enum( imageContainer->m_format ), m_flags, mem );
+            // Materials hash the handle into their batch keys (ME-399).
+            MaterialRevision::MarkExternalChange();
             if( bgfx::isValid( TexHandle ) )
             {
                 bgfx::setName( TexHandle, FilePath.GetLocalPath().data() );
@@ -273,6 +276,7 @@ namespace Moonlight
         {
             bgfx::destroy( TexHandle );
             TexHandle = BGFX_INVALID_HANDLE;
+            MaterialRevision::MarkExternalChange();
         }
         Load();
     }
@@ -286,6 +290,8 @@ namespace Moonlight
             bgfx::destroy( TexHandle );
         }
         TexHandle = BGFX_INVALID_HANDLE;
+        // Materials hash the handle into their batch keys (ME-399).
+        MaterialRevision::MarkExternalChange();
 
         const RenderTextureSettings& settings = m_renderSettings;
         mWidth = settings.Width;
@@ -326,6 +332,7 @@ namespace Moonlight
             black->data[alpha] = 0xff;
         }
         TexHandle = bgfx::createTexture2D( width, height, mips, 1, kFormat, m_flags, black );
+        MaterialRevision::MarkExternalChange();
         if( !bgfx::isValid( TexHandle ) )
         {
             CLog::Log( CLog::LogType::Error, "Render texture " + FilePath.GetLocalPathString() + ": couldn't create the texture" );

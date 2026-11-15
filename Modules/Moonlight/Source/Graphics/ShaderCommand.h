@@ -29,6 +29,12 @@ namespace Moonlight
             return m_programRef ? m_programRef->Handle : kInvalid;
         }
 
+        // The same shared program (materials compare shaders when one is set, ME-399).
+        bool operator==( const ShaderCommand& InOther ) const
+        {
+            return m_programRef == InOther.m_programRef;
+        }
+
         const bool IsLoaded() const
         {
             return m_programRef && bgfx::isValid( m_programRef->Handle );

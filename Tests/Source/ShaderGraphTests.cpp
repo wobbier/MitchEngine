@@ -835,3 +835,34 @@ TEST_CASE( "shader compiler: the froxel fog shaders compile for every portable p
     CHECK_MESSAGE( failures.empty(), failures );
     std::filesystem::remove_all( directory );
 }
+
+
+// ME-389: the GPU culling passes (index buffer reads, groupshared scans, indirect argument writes)
+// build everywhere compute does.
+TEST_CASE( "shader compiler: the GPU culling shaders compile for every portable profile" )
+{
+    const std::filesystem::path directory = std::filesystem::path( Path( ".tmp/GpuCullShaderTests" ).FullPath );
+    std::filesystem::remove_all( directory );
+    std::filesystem::create_directories( directory );
+    std::string failures;
+    for( const char* name : { "GpuCullCount", "GpuCullOffsets", "GpuCullWrite", "GpuCullScatter" } )
+    {
+        const std::string source = Path( std::string( "Assets/Shaders/Culling/" ) + name + ".comp" ).FullPath;
+        REQUIRE( std::filesystem::exists( source ) );
+        for( const Moonlight::ShaderCompiler::Profile& profile : Moonlight::ShaderCompiler::GetPortableProfiles() )
+        {
+            Moonlight::ShaderCompiler::Request request;
+            request.SourcePath = source;
+            request.OutputPath = ( directory / ( std::string( name ) + ".comp." + profile.Name + ".bin" ) ).string();
+            request.ShaderStage = Moonlight::ShaderCompiler::Stage::Compute;
+            request.TargetProfile = profile;
+            const Moonlight::ShaderCompiler::Result result = Moonlight::ShaderCompiler::Compile( request );
+            if( !result.Success || !std::filesystem::exists( request.OutputPath ) )
+            {
+                failures += std::string( name ) + " [" + profile.Name + "]\n" + result.Log + "\n";
+            }
+        }
+    }
+    CHECK_MESSAGE( failures.empty(), failures );
+    std::filesystem::remove_all( directory );
+}

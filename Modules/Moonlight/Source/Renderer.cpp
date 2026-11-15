@@ -316,6 +316,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         EnableFroxelFog = CommandLine::Has( "--froxel-fog" );
         RetainMeshCommands = !CommandLine::Has( "--no-retained-meshes" );
         VerifyRetainedMeshes = CommandLine::Has( "--verify-retained-meshes" );
+        EnableGpuCulling = !CommandLine::Has( "--no-gpu-culling" );
         m_outlineHullProgram = Moonlight::ShaderCommand( "Assets/Shaders/OutlineHull", "Assets/Shaders/OutlineHull" );
         m_outlineHullSkinnedProgram = Moonlight::ShaderCommand( "Assets/Shaders/OutlineHullSkinned", "Assets/Shaders/OutlineHull" );
         u_outlineHull = bgfx::createUniform( "u_outlineHull", bgfx::UniformType::Vec4 );
@@ -374,6 +375,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
             {
                 m_gpuParticles = MakeUnique<Moonlight::GpuParticleSimulator>();
                 m_gpuParticleSorter = MakeUnique<Moonlight::GpuParticleSorter>();
+                m_gpuCulling = MakeUnique<Moonlight::GpuMeshCulling>();
             }
             EnableGpuParticleSort = !CommandLine::Has( "--no-gpu-particle-sort" );
 
@@ -610,6 +612,7 @@ void BGFXRenderer::Destroy()
     m_particleBatches.clear();
     m_gpuParticles.reset();
     m_gpuParticleSorter.reset();
+    m_gpuCulling.reset();
     m_particleSortTargets.clear();
     m_decals.clear();
     for( auto& sampler : GraphSamplers() )
@@ -1236,13 +1239,36 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     m_lighting.EnvParams[1] = static_cast<float>( Moonlight::EnvironmentLighting::kSpecularMips - 1 );
     m_lighting.EnvParams[2] = probe ? 1.f : 0.f;
 
+    // GPU-driven culling (ME-389): one compute view before the cascades and the scene views culls
+    // the GPU path's shadow casters for the cascades and its opaque meshes for this camera. Not for
+    // editor previews (other render groups), overdraw or wireframe, which draw on the CPU path.
+    const bool gpuCamera = m_gpuCullingActive && camera.RenderGroup == 0 && !overdraw && !wireframe;
+    bgfx::ViewId gpuCullView = UINT16_MAX;
+    if( gpuCamera )
+    {
+        char cullName[64];
+        bx::snprintf( cullName, sizeof( cullName ), "%s GPU Cull", camera.IsEditorView ? "Editor" : ( camera.IsMain ? "Main" : ( renderTexture ? "Texture" : "Camera" ) ) );
+        gpuCullView = m_views.Allocate( cullName );
+    }
+
     if( lit && AreShadowsActive() && camera.SunShadows )
     {
-        RenderSunShadows( camera );
+        RenderSunShadows( camera, gpuCullView );
     }
     else
     {
         m_lighting.ShadowParams[3] = 0.f;
+    }
+
+    // The camera's own cull: against the frustum it draws with (jitter included), in member order,
+    // reversed under a depth prepass as the CPU path's batches are.
+    Moonlight::GpuMeshCulling::CullResult gpuOpaque;
+    Frustum gpuFrustum;
+    if( gpuCullView != UINT16_MAX )
+    {
+        gpuFrustum.Update( camera.ProjectionMatrix.GetInternalMatrix() * camera.View.GetInternalMatrix() );
+        const bool reverse = EnableDepthPrepass && FeatureCaps.DepthPrepass;
+        gpuOpaque = m_gpuCulling->Cull( gpuCullView, Moonlight::GpuMeshCulling::Set::Opaque, gpuFrustum.GetPlanes(), 1, reverse, false );
     }
 
     const char* label = camera.IsEditorView ? "Editor" : ( camera.IsMain ? "Main" : ( renderTexture ? "Texture" : "Camera" ) );
@@ -1470,6 +1496,8 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
             RenderSingleMesh( id, mesh, state, prepassView );
         }
     };
+    // The GPU path draws its meshes for this camera (ME-389): its cull went through.
+    const bool gpuDraws = gpuOpaque.Valid && m_gpuCullingActive;
     {
         OPTICK_CATEGORY( "Meshes", Optick::Category::GPU_Scene );
         bool hasCullingInfo = camera.ShouldCull && !camera.VisibleFlags.empty();
@@ -1520,19 +1548,49 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         // RenderCore's list of what this camera sees, when it built one for this frame; otherwise
         // (editor previews, a frame RenderCore didn't prepare) every command, as the checks above
         // still decide. Both visit commands in ascending order.
-        if( hasCullingInfo && camera.VisibleMeshesFrame == m_frameIndex )
+        // The GPU path's meshes (ME-389) are drawn after the loop when this camera's cull went
+        // through; RenderCore left them out of the list (VisibleMeshesExcludeGpu). Meshes that left
+        // the GPU path this frame weren't in the GPU set RenderCore saw, so they are visited from
+        // GetOpaqueLeft() too. If the cull didn't go through, a list without them is no use: scan.
+        static const std::vector<uint8_t> kNoMask;
+        const std::vector<uint8_t>& gpuMask = gpuDraws ? m_gpuCulling->GetOpaqueMask() : kNoMask;
+        const auto visitUnlessGpu = [&]( size_t i ) {
+            if( gpuDraws && i < gpuMask.size() && gpuMask[i] )
+            {
+                return;
+            }
+            visitCommand( i );
+        };
+        const bool listUsable = !camera.VisibleMeshesExcludeGpu || gpuDraws;
+        if( hasCullingInfo && camera.VisibleMeshesFrame == m_frameIndex && listUsable )
         {
             const size_t commandCount = m_meshCache.Commands.size();
+            static const std::vector<uint32_t> kNone;
+            const std::vector<uint32_t>& left = camera.VisibleMeshesExcludeGpu ? m_gpuCulling->GetOpaqueLeft() : kNone;
+            // Both ascending: merged, so the visit order stays a full scan's.
+            size_t l = 0;
             for( uint32_t i : camera.VisibleMeshes )
             {
-                if( i < commandCount ) visitCommand( i );
+                for( ; l < left.size() && left[l] < i; ++l )
+                {
+                    if( left[l] < commandCount ) visitUnlessGpu( left[l] );
+                }
+                if( l < left.size() && left[l] == i )
+                {
+                    ++l;
+                }
+                if( i < commandCount ) visitUnlessGpu( i );
+            }
+            for( ; l < left.size(); ++l )
+            {
+                if( left[l] < commandCount ) visitUnlessGpu( left[l] );
             }
         }
         else
         {
             for( size_t i = 0; i < m_meshCache.Commands.size(); ++i )
             {
-                visitCommand( i );
+                visitUnlessGpu( i );
             }
         }
 
@@ -1556,9 +1614,19 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
                 InstanceBatch& batch = m_instanceBatches[b];
                 RenderMeshInstanced( id, m_meshCache.Commands[batch.representativeIndex], batch.transforms.data(), (uint32_t)batch.transforms.size(), state );
             }
+            // The GPU path's batches after the CPU path's (the whole order runs backwards under a
+            // prepass, so there they come first).
+            if( gpuDraws )
+            {
+                SubmitGpuOpaque( id, gpuOpaque, state, prepassView, gpuFrustum );
+            }
         }
         else
         {
+            if( gpuDraws )
+            {
+                SubmitGpuOpaque( id, gpuOpaque, state, prepassView, gpuFrustum );
+            }
             // With a prepass the whole order runs backwards: last batch first, its instances
             // last to first, then the single draws last to first. Without one, the first
             // surface drawn at a depth keeps the pixel (LESS, and it writes that depth). With
@@ -1820,6 +1888,8 @@ void BGFXRenderer::PrepareFrameLighting()
 
     // This frame's shadow casters, and their bounds (cascades extend towards the light to include them).
     GatherShadowCasters();
+    // The GPU-driven path's members and records follow the same changes (before any cull view).
+    UpdateGpuCulling();
 
     // Local shadows: the first four shadowed spots get an atlas tile each, the first two shadowed
     // point lights six (one per cube face).
@@ -2223,6 +2293,7 @@ bool BGFXRenderer::MakeShadowCaster( const Moonlight::MeshCommand& mesh, uint32_
     caster.VertexBuffer = mesh.VertexBufferIdx;
     caster.IndexBuffer = mesh.IndexBufferIdx;
     caster.Skinned = mesh.SkinBoneCount > 0 || bgfx::isValid( mesh.PosedVertices );
+    caster.Retained = mesh.Retained && mesh.Active;
     caster.Bounds = mesh.WorldBounds;
     return true;
 }
@@ -2436,14 +2507,21 @@ void BGFXRenderer::GatherShadowCasters()
     {
         VerifyShadowCasters();
     }
+    // Caster records move when others go: the CPU's share is listed again.
+    if( m_allMeshesChanged || !m_meshChanges.empty() )
+    {
+        m_cpuShadowCastersDirty = true;
+    }
 }
 
 
-void BGFXRenderer::CullShadowCasters( const Frustum* InFrustums, uint32_t InCount )
+void BGFXRenderer::CullShadowCasters( const Frustum* InFrustums, uint32_t InCount, const std::vector<uint32_t>* InSubset )
 {
     OPTICK_EVENT( "Renderer::CullShadowCasters" );
     const uint32_t count = std::min<uint32_t>( InCount, kMaxShadowCullViews );
-    const uint32_t casterCount = static_cast<uint32_t>( m_shadowCasters.size() );
+    // With a subset the sweep walks its entries (caster record indices) instead of every record.
+    const uint32_t casterCount = static_cast<uint32_t>( InSubset ? InSubset->size() : m_shadowCasters.size() );
+    const uint32_t* subset = InSubset ? InSubset->data() : nullptr;
     m_shadowCullViews = count;
     m_shadowCullChunks = ( casterCount + kShadowCullChunk - 1 ) / kShadowCullChunk;
     if( m_shadowCullLists.size() < static_cast<size_t>( m_shadowCullChunks ) * kMaxShadowCullViews )
@@ -2451,7 +2529,7 @@ void BGFXRenderer::CullShadowCasters( const Frustum* InFrustums, uint32_t InCoun
         m_shadowCullLists.resize( static_cast<size_t>( m_shadowCullChunks ) * kMaxShadowCullViews );
     }
     // Each view's casters, listed as the sweep finds them, so a view's submit walks only its own.
-    Jobs::JobSystem::Get().ParallelFor( "Cull Shadow Casters", m_shadowCullChunks, 1, [this, InFrustums, count, casterCount]( uint32_t InBegin, uint32_t InEnd ) {
+    Jobs::JobSystem::Get().ParallelFor( "Cull Shadow Casters", m_shadowCullChunks, 1, [this, InFrustums, count, casterCount, subset]( uint32_t InBegin, uint32_t InEnd ) {
         for( uint32_t chunk = InBegin; chunk < InEnd; ++chunk )
         {
             std::vector<uint32_t>* lists = m_shadowCullLists.data() + static_cast<size_t>( chunk ) * kMaxShadowCullViews;
@@ -2460,8 +2538,9 @@ void BGFXRenderer::CullShadowCasters( const Frustum* InFrustums, uint32_t InCoun
                 lists[v].clear();
             }
             const uint32_t last = std::min( casterCount, ( chunk + 1 ) * kShadowCullChunk );
-            for( uint32_t i = chunk * kShadowCullChunk; i < last; ++i )
+            for( uint32_t entry = chunk * kShadowCullChunk; entry < last; ++entry )
             {
+                const uint32_t i = subset ? subset[entry] : entry;
                 const AABB& bounds = m_shadowCasters[i].Bounds;
                 for( uint32_t v = 0; v < count; ++v )
                 {
@@ -2630,9 +2709,22 @@ void BGFXRenderer::RenderLocalShadows()
     {
         frustums[i].Update( m_spotShadows[i].Projection * m_spotShadows[i].View );
     }
+    // GPU-driven path (ME-389): its casters are culled for every local view at once, in a view
+    // before the shadow views; the CPU culls the rest.
+    Moonlight::GpuMeshCulling::CullResult gpu;
+    if( m_gpuCullingActive && !frustums.empty() && frustums.size() <= Moonlight::kGpuCullMaxViews && m_gpuCulling->GetLayout( Moonlight::GpuMeshCulling::Set::Shadow ).GetBatchCount() > 0 )
+    {
+        const bgfx::ViewId cullView = m_views.Allocate( "GPU Cull Local Shadows" );
+        glm::vec4 planes[Moonlight::kGpuCullMaxViews * Frustum::kPlaneCount];
+        for( size_t i = 0; i < frustums.size(); ++i )
+        {
+            std::copy( frustums[i].GetPlanes(), frustums[i].GetPlanes() + Frustum::kPlaneCount, planes + i * Frustum::kPlaneCount );
+        }
+        gpu = m_gpuCulling->Cull( cullView, Moonlight::GpuMeshCulling::Set::Shadow, planes, static_cast<uint32_t>( frustums.size() ), false, true );
+    }
     if( !frustums.empty() )
     {
-        CullShadowCasters( frustums.data(), static_cast<uint32_t>( frustums.size() ) );
+        CullShadowCasters( frustums.data(), static_cast<uint32_t>( frustums.size() ), gpu.Valid ? &GetCpuShadowCasters() : nullptr );
     }
     for( size_t i = 0; i < m_spotShadows.size() && i < 32; ++i )
     {
@@ -2650,11 +2742,15 @@ void BGFXRenderer::RenderLocalShadows()
         bgfx::setViewTransform( view, &shadow.View[0][0], &shadow.Projection[0][0] );
         bgfx::touch( view );
         SubmitShadowCasters( view, static_cast<uint32_t>( i ), 0 );
+        if( gpu.Valid )
+        {
+            SubmitGpuShadowCasters( view, gpu, static_cast<uint32_t>( i ), frustums[i] );
+        }
     }
 }
 
 
-void BGFXRenderer::RenderSunShadows( Moonlight::CameraData& camera )
+void BGFXRenderer::RenderSunShadows( Moonlight::CameraData& camera, bgfx::ViewId InCullView )
 {
     OPTICK_EVENT( "Renderer::RenderSunShadows" );
     m_lighting.ShadowParams[3] = 0.f;
@@ -2684,7 +2780,19 @@ void BGFXRenderer::RenderSunShadows( Moonlight::CameraData& camera )
     {
         frustums[i].Update( cascades[i].ViewProjection );
     }
-    CullShadowCasters( frustums, Moonlight::kMaxCascades );
+    // GPU-driven path (ME-389): its casters are culled for the four cascades in the camera's cull
+    // view (ordered before the cascade views); the CPU culls the rest (all of them if that fails).
+    Moonlight::GpuMeshCulling::CullResult gpu;
+    if( InCullView != UINT16_MAX && m_gpuCullingActive && camera.RenderGroup == 0 )
+    {
+        glm::vec4 planes[Moonlight::kMaxCascades * Frustum::kPlaneCount];
+        for( uint32_t i = 0; i < Moonlight::kMaxCascades; ++i )
+        {
+            std::copy( frustums[i].GetPlanes(), frustums[i].GetPlanes() + Frustum::kPlaneCount, planes + i * Frustum::kPlaneCount );
+        }
+        gpu = m_gpuCulling->Cull( InCullView, Moonlight::GpuMeshCulling::Set::Shadow, planes, Moonlight::kMaxCascades, false, true );
+    }
+    CullShadowCasters( frustums, Moonlight::kMaxCascades, gpu.Valid ? &GetCpuShadowCasters() : nullptr );
 
     const uint16_t tile = m_sunShadowAtlas.TileSize;
     for( uint32_t i = 0; i < Moonlight::kMaxCascades; ++i )
@@ -2703,6 +2811,10 @@ void BGFXRenderer::RenderSunShadows( Moonlight::CameraData& camera )
         bgfx::setViewTransform( view, &cascade.View[0][0], &cascade.Projection[0][0] );
         bgfx::touch( view );
         SubmitShadowCasters( view, i, camera.RenderGroup );
+        if( gpu.Valid )
+        {
+            SubmitGpuShadowCasters( view, gpu, i, frustums[i] );
+        }
 
         m_lighting.ShadowMatrix[i] = ShadowAtlasMatrix( i, cascade.ViewProjection );
         m_lighting.CascadeSplits[i] = cascade.SplitFar;
@@ -2712,6 +2824,241 @@ void BGFXRenderer::RenderSunShadows( Moonlight::CameraData& camera )
     m_lighting.ShadowParams[1] = m_sunShadowLight.ShadowNormalBias;
     m_lighting.ShadowParams[2] = 1.f / ( 2.f * static_cast<float>( tile ) );
     m_lighting.ShadowParams[3] = Shadows.DebugCascades ? 2.f : 1.f;
+}
+
+
+bool BGFXRenderer::GpuOpaqueKey( const Moonlight::MeshCommand& InMesh, Moonlight::MeshBatchRegistry::Key& OutKey ) const
+{
+    // What the camera loop would put in an instance batch, retained and static, in the world group,
+    // without an outline (drawn as a hull from the CPU path's list) or a LOD crossfade (two draws).
+    if( !InMesh.Retained || !InMesh.Active || !InMesh.SingleMesh || !InMesh.MeshMaterial || InMesh.RenderGroup != 0 || InMesh.IsTransparent
+        || !InMesh.SupportsInstancing || InMesh.SkinBoneCount > 0 || bgfx::isValid( InMesh.PosedVertices ) || InMesh.VertexBufferIdx == UINT16_MAX
+        || InMesh.IndexBufferIdx == UINT16_MAX || InMesh.CrossfadeLod != 0xFF || InMesh.Outlined || !InMesh.WorldBounds.IsValid() )
+    {
+        return false;
+    }
+    OutKey = Moonlight::MeshBatchRegistry::Key();
+    OutKey.Material = InMesh.BatchKey;
+    OutKey.VertexBuffer = InMesh.VertexBufferIdx;
+    OutKey.IndexBuffer = InMesh.IndexBufferIdx;
+    OutKey.Group = 0;
+    return true;
+}
+
+
+bool BGFXRenderer::GpuShadowKey( const Moonlight::MeshCommand& InMesh, uint32_t InId, Moonlight::MeshBatchRegistry::Key& OutKey ) const
+{
+    ShadowCaster caster;
+    if( !MakeShadowCaster( InMesh, InId, caster ) || !caster.OnGpuPath() )
+    {
+        return false;
+    }
+    OutKey = ShadowBatchKey( caster.MaterialKey, caster.VertexBuffer, caster.IndexBuffer, caster.Group );
+    return true;
+}
+
+
+const std::vector<uint8_t>& BGFXRenderer::GetGpuCulledMeshes() const
+{
+    static const std::vector<uint8_t> kNone;
+    if( !m_gpuCullingActive || !m_gpuCulling || m_gpuCulling->GetLayout( Moonlight::GpuMeshCulling::Set::Opaque ).GetBatchCount() == 0 )
+    {
+        return kNone;
+    }
+    return m_gpuCulling->GetOpaqueMask();
+}
+
+
+uint32_t BGFXRenderer::GetGpuCulledCount( bool InShadows ) const
+{
+    if( !m_gpuCullingActive || !m_gpuCulling )
+    {
+        return 0;
+    }
+    return m_gpuCulling->GetMemberCount( InShadows ? Moonlight::GpuMeshCulling::Set::Shadow : Moonlight::GpuMeshCulling::Set::Opaque );
+}
+
+
+uint32_t BGFXRenderer::GetGpuCullDispatches() const
+{
+    return m_gpuCullingActive && m_gpuCulling ? m_gpuCulling->GetDispatchCount() : 0;
+}
+
+
+const std::vector<uint32_t>& BGFXRenderer::GetCpuShadowCasters()
+{
+    if( m_cpuShadowCastersDirty )
+    {
+        m_cpuShadowCastersDirty = false;
+        m_cpuShadowCasters.clear();
+        for( uint32_t i = 0; i < m_shadowCasters.size(); ++i )
+        {
+            // In a batch the GPU path draws (big enough batches only, GpuCullState).
+            if( !m_gpuCullingActive || !m_gpuCulling->IsShadowMember( m_shadowCasters[i].Command ) )
+            {
+                m_cpuShadowCasters.push_back( i );
+            }
+        }
+    }
+    return m_cpuShadowCasters;
+}
+
+
+void BGFXRenderer::UpdateGpuCulling()
+{
+    OPTICK_EVENT( "Renderer::UpdateGpuCulling" );
+    const uint64_t caps = bgfx::getCaps()->supported;
+    const bool wanted = EnableGpuCulling && RetainMeshCommands && FeatureCaps.Instancing && IsComputeActive() && m_gpuCulling
+        && ( caps & BGFX_CAPS_DRAW_INDIRECT ) != 0 && m_gpuCulling->IsReady();
+    if( !m_loggedGpuCulling && m_hasAssets )
+    {
+        m_loggedGpuCulling = true;
+        CLog::Log( CLog::LogType::Info, std::string( "GPU culling: " ) + ( m_gpuCulling && ( caps & BGFX_CAPS_DRAW_INDIRECT ) != 0
+            ? ( EnableGpuCulling ? "on (compute and draw indirect)" : "available, off (--no-gpu-culling)" ) : "not supported (needs compute and draw indirect)" ) );
+    }
+    if( !wanted )
+    {
+        if( m_gpuCullingActive || ( m_gpuCulling && !m_gpuCulling->IsEmpty() ) )
+        {
+            m_gpuCulling->Reset();
+            m_cpuShadowCastersDirty = true;
+        }
+        m_gpuCullingActive = false;
+        return;
+    }
+    const bool all = !m_gpuCullingActive || m_allMeshesChanged || m_gpuCulling->IsEmpty();
+    if( !m_gpuCullingActive )
+    {
+        m_cpuShadowCastersDirty = true;
+    }
+    m_gpuCullingActive = true;
+
+    const uint32_t commandCount = static_cast<uint32_t>( m_meshCache.Commands.size() );
+    m_gpuCulling->BeginUpdate( commandCount, all );
+    const auto feed = [this]( uint32_t InId ) {
+        const Moonlight::MeshCommand& mesh = m_meshCache.Commands[InId];
+        Moonlight::MeshBatchRegistry::Key opaque;
+        Moonlight::MeshBatchRegistry::Key shadow;
+        const bool inOpaque = GpuOpaqueKey( mesh, opaque );
+        const bool inShadow = GpuShadowKey( mesh, InId, shadow );
+        m_gpuCulling->SetMesh( InId, inOpaque ? &opaque : nullptr, inShadow ? &shadow : nullptr, inOpaque || inShadow ? InstanceMatrix( mesh ) : glm::mat4( 1.f ), mesh.WorldBounds );
+    };
+    if( all )
+    {
+        for( uint32_t id = 0; id < commandCount; ++id )
+        {
+            feed( id );
+        }
+    }
+    else
+    {
+        for( uint32_t id : m_meshChanges )
+        {
+            if( id < commandCount )
+            {
+                feed( id );
+            }
+        }
+    }
+    const bool scatter = m_gpuCulling->EndUpdate( [this]( uint32_t InId ) {
+        const Moonlight::MeshCommand& mesh = m_meshCache.Commands[InId];
+        return mesh.SingleMesh ? mesh.SingleMesh->GetIndexCount( mesh.Lod ) : 0u;
+    } );
+    if( m_gpuCulling->EndUpdateChangedLayout() )
+    {
+        m_cpuShadowCastersDirty = true;
+    }
+    if( scatter )
+    {
+        // Before every cull view (local shadows and cameras come after this).
+        const bgfx::ViewId view = m_views.Allocate( "GPU Cull Update" );
+        if( view == UINT16_MAX )
+        {
+            // The records would be stale: the CPU path draws everything this frame.
+            m_gpuCulling->Reset();
+            m_gpuCullingActive = false;
+            m_cpuShadowCastersDirty = true;
+            return;
+        }
+        m_gpuCulling->DispatchScatter( view );
+    }
+    m_gpuCulling->BeginFrame();
+}
+
+
+void BGFXRenderer::SubmitGpuShadowCasters( bgfx::ViewId InView, const Moonlight::GpuMeshCulling::CullResult& InCull, uint32_t InViewIndex, const Frustum& InFrustum )
+{
+    OPTICK_EVENT( "Renderer::SubmitGpuShadowCasters" );
+    const Moonlight::GpuCullSetLayout& layout = m_gpuCulling->GetLayout( Moonlight::GpuMeshCulling::Set::Shadow );
+    const uint64_t state = BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS;
+    for( uint32_t b = 0; b < layout.GetBatchCount(); ++b )
+    {
+        const Moonlight::GpuCullBatch& batch = layout.Batches[b];
+        // A batch no part of which is in the view would draw nothing: no submit.
+        if( !InFrustum.Intersects( batch.Bounds ) )
+        {
+            continue;
+        }
+        // Any member binds for the batch, as on the CPU path: they share geometry, and the material
+        // where it matters.
+        const Moonlight::MeshCommand& mesh = m_meshCache.Commands[batch.Representative];
+        if( !mesh.SingleMesh || !mesh.MeshMaterial )
+        {
+            continue;
+        }
+        const float alpha[4] = { mesh.AlphaCutoff, mesh.MeshMaterial->Tiling.x, mesh.MeshMaterial->Tiling.y, mesh.CrossfadeLod != 0xFF ? 0.f : mesh.DitherFade };
+        mesh.SingleMesh->BindVertexBuffer( mesh.PosedVertices );
+        bgfx::setIndexBuffer( mesh.SingleMesh->GetIndexBuffer( mesh.Lod ) );
+        m_gpuCulling->SetInstances( InCull, InViewIndex, b );
+        const bgfx::ProgramHandle custom = mesh.CustomShadow ? mesh.MeshMaterial->GetShadowProgram( false ) : bgfx::ProgramHandle( BGFX_INVALID_HANDLE );
+        if( bgfx::isValid( custom ) )
+        {
+            const float drawParams[4] = { alpha[3], 0.f, 0.f, 0.f };
+            bgfx::setUniform( u_drawParams, drawParams );
+            bgfx::setUniform( u_portalClipPlane, &mesh.PortalClipPlane );
+            mesh.MeshMaterial->UseShadowCaster();
+        }
+        else
+        {
+            BindStockShadowCaster( mesh, alpha );
+        }
+        bgfx::setState( state );
+        bgfx::submit( InView, bgfx::isValid( custom ) ? custom : m_shadowProgram.GetProgram(), m_gpuCulling->GetDrawArgs(), m_gpuCulling->GetArgsIndex( InCull, InViewIndex, b ), 1 );
+        // The CPU doesn't know how many survived the cull: every member is counted (an upper bound).
+        CountTriangles( InView, mesh, batch.MemberCount );
+    }
+}
+
+
+void BGFXRenderer::SubmitGpuOpaque( bgfx::ViewId InView, const Moonlight::GpuMeshCulling::CullResult& InCull, uint64_t InState, bgfx::ViewId InPrepassView, const Frustum& InFrustum )
+{
+    OPTICK_EVENT( "Renderer::SubmitGpuOpaque" );
+    const Moonlight::GpuCullSetLayout& layout = m_gpuCulling->GetLayout( Moonlight::GpuMeshCulling::Set::Opaque );
+    const uint32_t count = layout.GetBatchCount();
+    for( uint32_t k = 0; k < count; ++k )
+    {
+        const uint32_t b = InPrepassView != UINT16_MAX ? count - 1 - k : k;
+        const Moonlight::GpuCullBatch& batch = layout.Batches[b];
+        if( !InFrustum.Intersects( batch.Bounds ) )
+        {
+            continue;
+        }
+        const Moonlight::MeshCommand& mesh = m_meshCache.Commands[batch.Representative];
+        if( !mesh.SingleMesh || !mesh.MeshMaterial || !bgfx::isValid( mesh.SingleMesh->GetVertexBuffer() ) )
+        {
+            continue;
+        }
+        // The instance data first (the prepass submit inside BindMeshDrawState shares it), and the
+        // indirect arguments for that submit.
+        m_gpuCulling->SetInstances( InCull, 0, b );
+        m_bindIndirect = m_gpuCulling->GetDrawArgs();
+        m_bindIndirectIndex = m_gpuCulling->GetArgsIndex( InCull, 0, b );
+        const bgfx::ProgramHandle program = BindMeshDrawState( mesh, InState, InPrepassView, false, batch.MemberCount );
+        m_bindIndirect = BGFX_INVALID_HANDLE;
+        bgfx::submit( InView, program, m_gpuCulling->GetDrawArgs(), m_gpuCulling->GetArgsIndex( InCull, 0, b ), 1 );
+        // Every member counted: the CPU doesn't learn how many the cull kept (an upper bound).
+        CountTriangles( InView, mesh, batch.MemberCount );
+    }
 }
 
 
@@ -3160,7 +3507,14 @@ bgfx::ProgramHandle BGFXRenderer::BindMeshDrawState( const Moonlight::MeshComman
                 material.Use();
             }
             bgfx::setState( ( state & ~( BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_DEPTH_TEST_MASK ) ) | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS );
-            bgfx::submit( InPrepassView, depthProgram, 0, BGFX_DISCARD_NONE );
+            if( bgfx::isValid( m_bindIndirect ) )
+            {
+                bgfx::submit( InPrepassView, depthProgram, m_bindIndirect, m_bindIndirectIndex, 1, 0, BGFX_DISCARD_NONE );
+            }
+            else
+            {
+                bgfx::submit( InPrepassView, depthProgram, 0, BGFX_DISCARD_NONE );
+            }
             CountTriangles( InPrepassView, mesh, InInstances );
             // The colour draw shades what the prepass left in front. LEQUAL rather than EQUAL: a
             // fragment in front of the prepass depth still draws, so a backend whose two

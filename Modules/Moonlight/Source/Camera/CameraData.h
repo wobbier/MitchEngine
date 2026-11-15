@@ -180,5 +180,9 @@ namespace Moonlight
         // a camera that frame's RenderCore didn't refresh scans every command instead.
         std::vector<uint32_t> VisibleMeshes;
         uint64_t VisibleMeshesFrame = 0;
+        // VisibleMeshes leaves out the meshes the GPU culls and draws (ME-389,
+        // BGFXRenderer::GetGpuCulledMeshes() as RenderCore read it): a camera that draws them on the
+        // CPU after all scans every command instead.
+        bool VisibleMeshesExcludeGpu = false;
     };
 }

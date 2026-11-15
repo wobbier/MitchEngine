@@ -55,7 +55,9 @@ public:
     void OnEditorInspect() override;
 #endif
 
-    FoliageSettings Foliage;
+    // In the instancing batch key: SetFoliage, or MarkChanged() after writing it (ME-399).
+    void SetFoliage( const FoliageSettings& InSettings );
+    ME_MATERIAL_FIELD FoliageSettings Foliage;
 
 private:
     void SetFoliageUniforms();

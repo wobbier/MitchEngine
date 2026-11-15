@@ -2,6 +2,7 @@
 
 #include "Path.h"
 #include "Graphics/ShaderFile.h"
+#include "Graphics/MaterialRevision.h"
 #include "Resource/ResourceCache.h"
 #include "Resource/CookedAssets.h"
 #include "Pointers.h"
@@ -223,6 +224,8 @@ void Moonlight::RebuildProgramsUsing( const ShaderFile* InShader )
                 bgfx::destroy( ref->Handle );
             }
             ref->Handle = rebuilt;
+            // Materials' batch keys and "shader loaded" checks read this handle (ME-399).
+            Moonlight::MaterialRevision::MarkExternalChange();
         }
     }
 }

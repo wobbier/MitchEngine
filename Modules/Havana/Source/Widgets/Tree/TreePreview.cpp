@@ -255,10 +255,14 @@ void TreePreview::SubmitCommands()
         {
             // The recipe's settings, with the wind switched off on request.
             const auto source = std::static_pointer_cast<FoliageMaterial>( part.Mesh->MeshMaterial );
-            part.Material->Foliage = source->Foliage;
+            FoliageSettings foliage = source->Foliage;
             if( !Wind )
             {
-                part.Material->Foliage.TrunkLean = part.Material->Foliage.BranchSway = part.Material->Foliage.LeafFlutter = 0.f;
+                foliage.TrunkLean = foliage.BranchSway = foliage.LeafFlutter = 0.f;
+            }
+            if( foliage.Hash( 0 ) != part.Material->Foliage.Hash( 0 ) )
+            {
+                part.Material->SetFoliage( foliage );
             }
             material = part.Material;
         }
@@ -280,8 +284,8 @@ void TreePreview::SubmitCommands()
         {
             auto ground = MakeShared<StandardMaterial>();
             ground->Init();
-            ground->DiffuseColor = Vector3( 0.46f, 0.47f, 0.4f );
-            ground->Roughness = 0.95f;
+            ground->SetDiffuseColor( Vector3( 0.46f, 0.47f, 0.4f ) );
+            ground->SetRoughness( 0.95f );
             m_groundMaterial = ground;
         }
         const Vector3 size = m_boundsMax - m_boundsMin;

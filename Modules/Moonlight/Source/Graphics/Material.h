@@ -3,11 +3,13 @@
 #include <string>
 #include <unordered_map>
 #include <cstring>
+#include <type_traits>
 
 #include "Math/Vector3.h"
 #include "Math/Vector2.h"
 #include "ShaderCommand.h"
 #include "MaterialDetail.h"
+#include "MaterialRevision.h"
 #include "Dementia.h"
 // move once I move the material??
 #include "Core/Assert.h"
@@ -32,6 +34,12 @@
     }}
 #define ME_REGISTER_MATERIAL_NAME(TYPE, NAME) ME_REGISTER_MATERIAL_NAME_FOLDER(TYPE, NAME, "")
 #define ME_REGISTER_MATERIAL(TYPE) ME_REGISTER_MATERIAL_NAME(TYPE, #TYPE)
+
+// Empty. Defining ME_MATERIAL_FIELD as const in a syntax-only compile lists every direct write to
+// a material's draw-state fields (ME-399 audit); writers must use the setters or MarkChanged().
+#ifndef ME_MATERIAL_FIELD
+#define ME_MATERIAL_FIELD
+#endif
 
 namespace Moonlight
 {
@@ -120,7 +128,31 @@ namespace Moonlight
         virtual void LoadShader( const std::string& inShaderName );
 
         const bool IsTransparent() const;
+
+        // Draw-state revision (ME-399). Anything a mesh command takes from a material (the fields
+        // GetInstanceBatchKey hashes, textures, the shader, transparency, instancing, alpha cutoff,
+        // shadow casting) changes through a setter, or the writer calls MarkChanged() after writing
+        // the public field. A missed bump leaves a static mesh drawing with its old batch key or
+        // flags; --verify-retained-meshes reports it (Rendering-Pipeline.md, "Retained mesh commands").
+        uint32_t GetRevision() const
+        {
+            return m_revision.Get();
+        }
+        void MarkChanged()
+        {
+            m_revision.Bump();
+        }
+        // Everything RenderCore takes from this material into a mesh command, hashed. Inspectors
+        // compare it around an edit (ImGui writes the fields through pointers).
+        uint64_t GetDrawStateHash();
+
         void SetRenderMode( RenderingMode newMode );
+        void SetDiffuseColor( const Vector3& InColor );
+        void SetTiling( const Vector2& InTiling );
+        void SetOffset( const Vector2& InOffset );
+        void SetFaceMode( RenderFaceMode InMode );
+        void SetBlendMode( BlendMode InMode );
+        void SetSupportsInstancing( bool InSupports );
 
         virtual void OnSerialize( json& OutJson );
 
@@ -144,24 +176,29 @@ namespace Moonlight
 
         void SetTexture( const TextureType& textureType, std::shared_ptr<Moonlight::Texture> loadedTexture );
         const Texture* GetTexture( const TextureType& type ) const;
-        std::vector<std::shared_ptr<Texture>>& GetTextures();
-        RenderingMode RenderMode = RenderingMode::Opaque;
-        bool SupportsInstancing = false;
+        const std::vector<std::shared_ptr<Texture>>& GetTextures() const;
+        // Empties every texture slot.
+        void ClearTextures();
+
+        // Read freely; write through the setters above (or call MarkChanged() after a write).
+        ME_MATERIAL_FIELD RenderingMode RenderMode = RenderingMode::Opaque;
+        ME_MATERIAL_FIELD bool SupportsInstancing = false;
         // Runtime only: the camera (cache id) whose output the renderer binds to the diffuse slot,
         // sampled in screen space (PortalMaterial). -1 = none.
         int ScreenViewCamera = -1;
-        Vector3 DiffuseColor;
-        Vector2 Tiling;
+        ME_MATERIAL_FIELD Vector3 DiffuseColor;
+        ME_MATERIAL_FIELD Vector2 Tiling;
         // Added after tiling (uv * Tiling + Offset). Tiling (1, -1) with Offset (0, 1) flips an image
         // vertically within the edges: what upright images on the built-in primitives need.
-        Vector2 Offset;
+        ME_MATERIAL_FIELD Vector2 Offset;
         std::string ShaderName;
-        RenderFaceMode FaceMode = RenderFaceMode::Front;
-        BlendMode AlphaBlendMode = BlendMode::Alpha;
+        ME_MATERIAL_FIELD RenderFaceMode FaceMode = RenderFaceMode::Front;
+        ME_MATERIAL_FIELD BlendMode AlphaBlendMode = BlendMode::Alpha;
         // Defaults produced by the former importer, used to migrate saved model materials.
         json LegacyImportDefaults;
 
-        Moonlight::ShaderCommand MeshShader;
+        // Set through LoadShader (or MarkChanged() after assigning it).
+        ME_MATERIAL_FIELD Moonlight::ShaderCommand MeshShader;
         const std::string& GetTypeName() const;
 
         bool Load() override
@@ -174,9 +211,41 @@ namespace Moonlight
         {
         }
 
+    protected:
+        // Assigns and bumps the revision only when the value differs.
+        template<typename T, typename U>
+        void SetDrawValue( T& InOutField, const U& InValue )
+        {
+            auto& field = Writable( InOutField );
+            if( !SameDrawValue( field, InValue ) )
+            {
+                field = InValue;
+                MarkChanged();
+            }
+        }
+        // The field itself, for the material's own bulk writes (deserialising, syncing): call
+        // MarkChanged() too. Fields are const in the ME_MATERIAL_FIELD audit compile only.
+        template<typename T>
+        static std::remove_const_t<T>& Writable( T& InField )
+        {
+            return const_cast<std::remove_const_t<T>&>( InField );
+        }
+
+    private:
+        template<typename T, typename U>
+        static bool SameDrawValue( const T& InA, const U& InB )
+        {
+            return InA == InB;
+        }
+        static bool SameDrawValue( const Vector3& InA, const Vector3& InB )
+        {
+            return InA.InternalVector == InB.InternalVector;
+        }
+
     private:
         std::vector<std::shared_ptr<Texture>> Textures;
         std::string TypeName;
+        MaterialRevision m_revision;
     public:
         virtual uint64_t GetRenderState( uint64_t state ) const;
 

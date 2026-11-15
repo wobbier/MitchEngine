@@ -23,7 +23,7 @@ namespace
 ShaderGraphMaterial::ShaderGraphMaterial()
     : Moonlight::Material( "ShaderGraphMaterial", "" )
 {
-    SupportsInstancing = true;
+    SetSupportsInstancing( true );
 }
 
 
@@ -37,8 +37,9 @@ void ShaderGraphMaterial::SetGraph( const std::string& InGraphPath )
 {
     m_graphPath = InGraphPath;
     m_asset.reset();
-    MeshShader = Moonlight::ShaderCommand();
+    Writable( MeshShader ) = Moonlight::ShaderCommand();
     m_syncedRevision = 0;
+    MarkChanged();
     if( !InGraphPath.empty() )
     {
         m_asset = ResourceCache::GetInstance().Get<Moonlight::ShaderGraphAsset>( Moonlight::ShaderGraphAsset::ManifestPathFor( InGraphPath ) );
@@ -62,6 +63,8 @@ void ShaderGraphMaterial::LoadShader( const std::string& InShaderName )
 
 
 // Runs on render job threads (PrepareForDraw): only touches this material and reads the asset.
+// An asset recompile is an external change (ShaderGraphAsset::Parse), so RenderCore calls
+// PrepareForDraw on every kept command's material in the frame after one (ME-399).
 void ShaderGraphMaterial::SyncWithAsset()
 {
     if( !m_asset )
@@ -72,20 +75,25 @@ void ShaderGraphMaterial::SyncWithAsset()
     {
         return;
     }
+    // A forced resync (parameter edits reset m_syncedRevision) or a new compile is a change; a
+    // retry while the program is still loading is not, unless it brought the program.
+    const bool changed = m_syncedRevision != m_asset->GetRevision();
+    const uint16_t program = MeshShader.GetProgram().idx;
     m_syncedRevision = m_asset->GetRevision();
     if( const Moonlight::ShaderCommand* forward = m_asset->GetProgram( "Forward" ) )
     {
-        MeshShader = *forward;
+        Writable( MeshShader ) = *forward;
     }
     ShaderName = m_graphPath;
-    RenderMode = m_asset->IsTransparent() ? Moonlight::RenderingMode::Transparent : Moonlight::RenderingMode::Opaque;
+    // Written directly (one bump below covers the whole sync).
+    Writable( RenderMode ) = m_asset->IsTransparent() ? Moonlight::RenderingMode::Transparent : Moonlight::RenderingMode::Opaque;
     const std::string& blend = m_asset->GetBlend();
-    AlphaBlendMode = blend == "Additive" ? Moonlight::BlendMode::Additive
+    Writable( AlphaBlendMode ) = blend == "Additive" ? Moonlight::BlendMode::Additive
         : blend == "Premultiply" ? Moonlight::BlendMode::Premultiply
         : blend == "Multiply" ? Moonlight::BlendMode::Multiply
         : Moonlight::BlendMode::Alpha;
     const std::string& faces = m_asset->GetRenderFace();
-    FaceMode = faces == "Both" ? Moonlight::RenderFaceMode::Both : faces == "Back" ? Moonlight::RenderFaceMode::Back : Moonlight::RenderFaceMode::Front;
+    Writable( FaceMode ) = faces == "Both" ? Moonlight::RenderFaceMode::Both : faces == "Back" ? Moonlight::RenderFaceMode::Back : Moonlight::RenderFaceMode::Front;
 
     m_asset->PackParameters( m_params.Values, m_block );
     m_blockHash = 0;
@@ -97,6 +105,10 @@ void ShaderGraphMaterial::SyncWithAsset()
         {
             m_blockHash = Mix( m_blockHash, component );
         }
+    }
+    if( changed || MeshShader.GetProgram().idx != program )
+    {
+        MarkChanged();
     }
 }
 

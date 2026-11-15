@@ -5,6 +5,8 @@
 
 // Four PBR layers: linear RGBA8 weights and shared base-color/normal/ORM arrays or padded atlases.
 // Material bindings occupy stages 0-3; lighting retains stages 8-15.
+// Terrain patches are rebuilt every frame (never retained mesh commands), so RenderCore writes the
+// layer fields below directly and they are not revision-tracked (ME-399).
 class TerrainMaterial final : public StandardMaterial
 {
 public:

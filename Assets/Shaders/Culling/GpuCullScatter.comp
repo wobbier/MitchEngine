@@ -1,0 +1,24 @@
+// GPU culling (ME-389): writes this frame's changed per-mesh records into the persistent record buffer.
+// Each staged row is CULL_RECORD_VEC4S + 1 vec4s: (mesh command id, 0, 0, 0), then the record.
+#include "GpuCull.sh"
+
+BUFFER_RO(s_staging, vec4, 0);
+BUFFER_WO(s_records, vec4, 1);
+
+uniform vec4 u_gpuCullScatter;   // x: rows
+
+NUM_THREADS(64, 1, 1)
+void main()
+{
+	uint row = gl_GlobalInvocationID.x;
+	if (row >= cullUint(u_gpuCullScatter.x))
+	{
+		return;
+	}
+	uint source = row * (CULL_RECORD_VEC4S + 1u);
+	uint target = cullUint(s_staging[source].x) * CULL_RECORD_VEC4S;
+	for (uint k = 0u; k < CULL_RECORD_VEC4S; ++k)
+	{
+		s_records[target + k] = s_staging[source + 1u + k];
+	}
+}

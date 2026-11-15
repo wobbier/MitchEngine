@@ -12,7 +12,7 @@ TerrainMaterial::TerrainMaterial() : StandardMaterial( "TerrainMaterial" )
         bgfx::isTextureValid( 0, false, 4, bgfx::TextureFormat::RGBA8, BGFX_TEXTURE_NONE ) )
         m_arrayShader = Moonlight::ShaderCommand( "Assets/Shaders/TerrainSurface", "Assets/Shaders/TerrainSurfaceArray", Moonlight::ShaderLoad::Async );
     // The batch key includes every layer value and the patch weight texture.
-    SupportsInstancing = true;
+    SetSupportsInstancing( true );
 }
 
 
@@ -43,6 +43,7 @@ bool TerrainMaterial::SetWeights( std::vector<std::array<uint8_t, 4>> weights, u
     if( !bgfx::isValid( texture->TexHandle ) ) return false;
     texture->mWidth = texture->mHeight = side; texture->mChannels = 4;
     m_weights = std::move( texture ); m_weightData = std::move( weights ); m_side = side;
+    MarkChanged();
     return true;
 }
 
@@ -50,7 +51,8 @@ bool TerrainMaterial::SetWeights( std::vector<std::array<uint8_t, 4>> weights, u
 void TerrainMaterial::SetLayerTextures( std::shared_ptr<Moonlight::TerrainTextureSet> textures )
 {
     m_layerTextures = std::move( textures );
-    MeshShader = m_layerTextures && m_layerTextures->IsReady() && m_layerTextures->GetLayout() == Moonlight::TerrainTextureLayout::Array ? m_arrayShader : m_atlasShader;
+    Writable( MeshShader ) = m_layerTextures && m_layerTextures->IsReady() && m_layerTextures->GetLayout() == Moonlight::TerrainTextureLayout::Array ? m_arrayShader : m_atlasShader;
+    MarkChanged();
 }
 
 

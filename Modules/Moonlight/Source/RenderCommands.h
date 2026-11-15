@@ -124,6 +124,13 @@ namespace Moonlight
         uint16_t SkinBoneCount = 0;
         bgfx::DynamicVertexBufferHandle PosedVertices = BGFX_INVALID_HANDLE;
         uint8_t RenderGroup = 0;
+        // The owning entity is active (RenderCore). Visible folds it in with the camera culls each
+        // frame; this copy is part of the command, so turning an entity off or on is a change.
+        bool Active = true;
+        // An entity's own static Mesh whose command RenderCore keeps across frames and refreshes when
+        // anything it is built from changes (ME-390). Only these go to the GPU-driven path (ME-389):
+        // a retained command is current every frame without being rewritten.
+        bool Retained = false;
     };
 
     // Fills the geometry and material fields of a static mesh's command (what RenderCore does for
@@ -144,7 +151,7 @@ namespace Moonlight
             && InA.OutlineWidth == InB.OutlineWidth && InA.AlphaCutoff == InB.AlphaCutoff && InA.CustomShadow == InB.CustomShadow
             && InA.WorldBounds.Min.InternalVector == InB.WorldBounds.Min.InternalVector && InA.WorldBounds.Max.InternalVector == InB.WorldBounds.Max.InternalVector
             && InA.SkinPalette == InB.SkinPalette && InA.SkinBoneCount == InB.SkinBoneCount && InA.PosedVertices.idx == InB.PosedVertices.idx
-            && InA.RenderGroup == InB.RenderGroup;
+            && InA.RenderGroup == InB.RenderGroup && InA.Active == InB.Active && InA.Retained == InB.Retained;
     }
 
     enum class LightType : uint8_t

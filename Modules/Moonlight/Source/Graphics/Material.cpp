@@ -11,6 +11,10 @@
 
 namespace Moonlight
 {
+    std::atomic<uint64_t> MaterialRevision::s_changes{ 0 };
+    std::atomic<uint64_t> MaterialRevision::s_external{ 0 };
+
+
     Material::Material( const std::string& MaterialTypeName, const std::string& ShaderPath )
         : Resource( Path( ShaderPath ) )
         , Textures( TextureType::Count, nullptr )
@@ -34,12 +38,13 @@ namespace Moonlight
 
     void Material::LoadShader( const std::string& inShaderName )
     {
+        MarkChanged();
         ShaderName = inShaderName;
         if( inShaderName.length() > 0 )
         {
             // Materials come and go with scenes, spawns and model loads: never block on a shader
             // (meshes draw once it's ready; the engine's own shaders are loaded at startup).
-            MeshShader = ShaderCommand( inShaderName, ShaderLoad::Async );
+            Writable( MeshShader ) = ShaderCommand( inShaderName, ShaderLoad::Async );
         }
     }
 
@@ -58,7 +63,62 @@ namespace Moonlight
 
     void Material::SetRenderMode( RenderingMode newMode )
     {
-        RenderMode = newMode;
+        SetDrawValue( RenderMode, newMode );
+    }
+
+
+    void Material::SetDiffuseColor( const Vector3& InColor )
+    {
+        SetDrawValue( DiffuseColor, InColor );
+    }
+
+
+    void Material::SetTiling( const Vector2& InTiling )
+    {
+        SetDrawValue( Tiling, InTiling );
+    }
+
+
+    void Material::SetOffset( const Vector2& InOffset )
+    {
+        SetDrawValue( Offset, InOffset );
+    }
+
+
+    void Material::SetFaceMode( RenderFaceMode InMode )
+    {
+        SetDrawValue( FaceMode, InMode );
+    }
+
+
+    void Material::SetBlendMode( BlendMode InMode )
+    {
+        SetDrawValue( AlphaBlendMode, InMode );
+    }
+
+
+    void Material::SetSupportsInstancing( bool InSupports )
+    {
+        SetDrawValue( SupportsInstancing, InSupports );
+    }
+
+
+    uint64_t Material::GetDrawStateHash()
+    {
+        auto mix = []( uint64_t h, uint64_t v ) {
+            return h ^ ( v + 0x9e3779b97f4a7c15ULL + ( h << 6 ) + ( h >> 2 ) );
+        };
+        float cutoff = GetAlphaCutoff();
+        uint32_t cutoffBits = 0u;
+        std::memcpy( &cutoffBits, &cutoff, sizeof( cutoffBits ) );
+        uint64_t h = GetInstanceBatchKey();
+        h = mix( h, IsTransparent() );
+        h = mix( h, SupportsInstancing );
+        h = mix( h, cutoffBits );
+        h = mix( h, CastsShadows() );
+        h = mix( h, bgfx::isValid( GetShadowProgram( false ) ) );
+        h = mix( h, MeshShader.IsLoaded() );
+        return h;
     }
 
     void Material::OnSerialize( json& OutJson )
@@ -93,29 +153,30 @@ namespace Moonlight
         }
         if( InJson.contains( "DiffuseColor" ) )
         {
-            DiffuseColor = Vector3( (float)InJson["DiffuseColor"][0], (float)InJson["DiffuseColor"][1], (float)InJson["DiffuseColor"][2] );
+            SetDiffuseColor( Vector3( (float)InJson["DiffuseColor"][0], (float)InJson["DiffuseColor"][1], (float)InJson["DiffuseColor"][2] ) );
         }
         if( InJson.contains( "Tiling" ) )
         {
-            Tiling = Vector2( (float)InJson["Tiling"][0], (float)InJson["Tiling"][1] );
+            SetTiling( Vector2( (float)InJson["Tiling"][0], (float)InJson["Tiling"][1] ) );
         }
         // Saved only when set: a missing key is no offset (undo and pasting values rely on that).
-        Offset = Vector2( 0.f, 0.f );
+        Vector2 offset( 0.f, 0.f );
         if( InJson.contains( "Offset" ) && InJson["Offset"].is_array() && InJson["Offset"].size() >= 2 )
         {
-            Offset = Vector2( (float)InJson["Offset"][0], (float)InJson["Offset"][1] );
+            offset = Vector2( (float)InJson["Offset"][0], (float)InJson["Offset"][1] );
         }
+        SetOffset( offset );
         if( InJson.contains( "FaceMode" ) )
         {
-            FaceMode = (RenderFaceMode)InJson["FaceMode"];
+            SetFaceMode( (RenderFaceMode)InJson["FaceMode"] );
         }
         if( InJson.contains( "BlendMode" ) )
         {
-            AlphaBlendMode = (BlendMode)InJson["BlendMode"];
+            SetBlendMode( (BlendMode)InJson["BlendMode"] );
         }
         if( InJson.contains( "RenderMode" ) )
         {
-            RenderMode = (RenderingMode)InJson["RenderMode"];
+            SetRenderMode( (RenderingMode)InJson["RenderMode"] );
         }
         if( InJson.contains( "Textures" ) )
         {
@@ -128,17 +189,19 @@ namespace Moonlight
                 }
             }
         }
+        MarkChanged();
     }
 
     void Material::CopyValues( Material* mat )
     {
-        DiffuseColor = mat->DiffuseColor;
+        SetDiffuseColor( mat->DiffuseColor );
         Textures = mat->Textures;
-        RenderMode = mat->RenderMode;
-        Tiling = mat->Tiling;
-        Offset = mat->Offset;
-        MeshShader = mat->MeshShader;
-        AlphaBlendMode = mat->AlphaBlendMode;
+        SetRenderMode( mat->RenderMode );
+        SetTiling( mat->Tiling );
+        SetOffset( mat->Offset );
+        SetDrawValue( MeshShader, mat->MeshShader );
+        SetBlendMode( mat->AlphaBlendMode );
+        MarkChanged();
     }
 
 #if USING( ME_TOOLS )
@@ -155,7 +218,18 @@ namespace Moonlight
 
     void Material::SetTexture( const TextureType& textureType, std::shared_ptr<Moonlight::Texture> loadedTexture )
     {
-        Textures[textureType] = loadedTexture;
+        if( Textures[textureType] != loadedTexture )
+        {
+            Textures[textureType] = std::move( loadedTexture );
+            MarkChanged();
+        }
+    }
+
+
+    void Material::ClearTextures()
+    {
+        Textures.assign( TextureType::Count, nullptr );
+        MarkChanged();
     }
 
     const Moonlight::Texture* Material::GetTexture( const TextureType& type ) const
@@ -167,7 +241,7 @@ namespace Moonlight
         return nullptr;
     }
 
-    std::vector<std::shared_ptr<Moonlight::Texture>>& Material::GetTextures()
+    const std::vector<std::shared_ptr<Moonlight::Texture>>& Material::GetTextures() const
     {
         return Textures;
     }
@@ -242,7 +316,7 @@ namespace Moonlight
                     {
                         if( ImGui::Selectable( GetBlendModeString( (Moonlight::BlendMode)blendMode ).c_str(), ( blendMode == (unsigned int)AlphaBlendMode ) ) )
                         {
-                            AlphaBlendMode = (Moonlight::BlendMode)blendMode;
+                            SetBlendMode( (Moonlight::BlendMode)blendMode );
                         }
                     }
                     ImGui::EndCombo();
@@ -261,14 +335,18 @@ namespace Moonlight
             {
                 if( ImGui::Selectable( GetRenderFaceModeString( (Moonlight::RenderFaceMode)faceMode ).c_str(), ( faceMode == (unsigned int)FaceMode ) ) )
                 {
-                    FaceMode = (Moonlight::RenderFaceMode)faceMode;
+                    SetFaceMode( (Moonlight::RenderFaceMode)faceMode );
                 }
             }
             ImGui::EndCombo();
         }
 
-        HavanaUtils::EditableVector( "Tiling", Tiling );
-        HavanaUtils::EditableVector( "Offset", Offset );
+        Vector2 tiling = Tiling;
+        Vector2 offset = Offset;
+        HavanaUtils::EditableVector( "Tiling", tiling );
+        HavanaUtils::EditableVector( "Offset", offset );
+        SetTiling( tiling );
+        SetOffset( offset );
 
         //static std::vector<Path> Textures;
         //Path path = Path("Assets");
@@ -298,7 +376,9 @@ namespace Moonlight
         //		}
         //	}
         //}
-        HavanaUtils::ColorButton( "Diffuse Color", DiffuseColor );
+        Vector3 diffuse = DiffuseColor;
+        HavanaUtils::ColorButton( "Diffuse Color", diffuse );
+        SetDiffuseColor( diffuse );
 
         {
             int i = 0;

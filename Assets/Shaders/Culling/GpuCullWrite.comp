@@ -1,0 +1,72 @@
+// GPU culling, pass 3 (see GpuCull.sh): every member inside a view writes its instance matrix to its
+// rank among the batch's visible members in that view: the group's first slot (pass 2) plus its place
+// in the group (a scan in groupshared memory). Shadow sets get the plain world matrix: the per-instance
+// values in the first three w components are only for the Standard program's colour and depth draws.
+#include "GpuCull.sh"
+
+BUFFER_RO(s_members, uint, 0);
+BUFFER_RO(s_records, vec4, 1);
+BUFFER_RO(s_groupScratch, vec4, 2);
+BUFFER_RO(s_groupBatch, vec4, 3);
+BUFFER_RO(s_batchInfo, vec4, 4);
+BUFFER_RO(s_totals, vec4, 5);
+BUFFER_WO(s_instances, vec4, 6);
+
+SHARED uint s_scan[CULL_GROUP];
+
+NUM_THREADS(256, 1, 1)
+void main()
+{
+	uint local = gl_LocalInvocationID.x;
+	uint group = gl_WorkGroupID.x;
+	uint view = gl_WorkGroupID.y;
+	uint id = s_members[cullUint(u_memberBase) + group * CULL_GROUP + local];
+	uint record = id * CULL_RECORD_VEC4S;
+	uint visible = 0u;
+	if (id != CULL_NO_MEMBER)
+	{
+		visible = cullVisible(s_records[record + 4u], s_records[record + 5u], view) ? 1u : 0u;
+	}
+
+	// Inclusive scan of the visible flags (Hillis-Steele; every thread reaches every barrier).
+	s_scan[local] = visible;
+	barrier();
+	for (uint offset = 1u; offset < CULL_GROUP; offset = offset * 2u)
+	{
+		uint add = 0u;
+		if (local >= offset)
+		{
+			add = s_scan[local - offset];
+		}
+		barrier();
+		s_scan[local] = s_scan[local] + add;
+		barrier();
+	}
+	if (visible == 0u)
+	{
+		return;
+	}
+
+	uint batch = cullUint(s_groupBatch[cullUint(u_groupBase) + group].x);
+	vec4 info0 = s_batchInfo[(cullUint(u_batchBase) + batch) * 2u];
+	uint rank = cullUint(s_groupScratch[view * cullUint(u_groups) + group].y) + s_scan[local] - 1u;
+	if (u_reverse > 0.5)
+	{
+		rank = cullUint(s_totals[view * cullUint(u_batches) + batch].x) - 1u - rank;
+	}
+	uint slot = cullUint(u_outBase) + view * cullUint(u_padded) + cullUint(info0.x) + rank;
+	vec4 c0 = s_records[record + 0u];
+	vec4 c1 = s_records[record + 1u];
+	vec4 c2 = s_records[record + 2u];
+	vec4 c3 = s_records[record + 3u];
+	if (u_shadow > 0.5)
+	{
+		c0.w = 0.0;
+		c1.w = 0.0;
+		c2.w = 0.0;
+	}
+	s_instances[slot * 4u + 0u] = c0;
+	s_instances[slot * 4u + 1u] = c1;
+	s_instances[slot * 4u + 2u] = c2;
+	s_instances[slot * 4u + 3u] = c3;
+}

@@ -20,6 +20,7 @@ class RenderDocManager;
 #include "Core/FrameRenderData.h"
 #include <RenderViews.h>
 #include "Utils/BGFXCallback.h"
+#include "Culling/GpuMeshCulling.h"
 
 class ImGuiRenderer;
 
@@ -142,6 +143,21 @@ public:
     bool VerifyRetainedMeshes = false;
     // The shadow batch registry: stable batch ids and membership by mesh command id.
     const Moonlight::MeshBatchRegistry& GetShadowBatches() const { return m_shadowBatchRegistry; }
+
+    // GPU-driven culling and indirect draws (ME-389): retained static opaque instanced meshes and
+    // their shadow casters are culled per camera, cascade and local shadow view in compute and drawn
+    // with indirect draws; everything else stays on the CPU path. Needs compute, draw indirect and
+    // instancing, and retained mesh commands; --no-gpu-culling (or the RenderCore inspector) turns
+    // it off, and the CPU path draws everything as before.
+    bool EnableGpuCulling = true;
+    // On this frame (EnableGpuCulling, and everything it needs is there).
+    bool IsGpuCullingActive() const { return m_gpuCullingActive; }
+    // The mesh command ids the GPU path draws in camera views (one byte per id; empty when it draws
+    // none). RenderCore leaves them out of the cameras' VisibleMeshes.
+    const std::vector<uint8_t>& GetGpuCulledMeshes() const;
+    // The GPU path's members (Opaque or Shadow set) and last frame's dispatches, for the inspector.
+    uint32_t GetGpuCulledCount( bool InShadows ) const;
+    uint32_t GetGpuCullDispatches() const;
 
     // Meshes
     void UpdateMeshMatrix( unsigned int Id, const glm::mat4& matrix );
@@ -289,12 +305,14 @@ private:
     // Spot tiles in a 2x2 block, point light faces in a 4x4 block of smaller tiles to its right.
     void EnsureLocalShadowAtlas( uint16_t spotTile, uint16_t pointTile );
     void DestroyShadowAtlas( ShadowAtlas& atlas );
-    void RenderSunShadows( Moonlight::CameraData& camera );
+    // InCullView: the camera's GPU cull view (UINT16_MAX: the casters are culled on the CPU only).
+    void RenderSunShadows( Moonlight::CameraData& camera, bgfx::ViewId InCullView = UINT16_MAX );
     void RenderLocalShadows();
     // Shadow casters: gathered and grouped into instance batches once a frame, culled against all
     // of a pass's views in one parallel sweep (a bit per view), then submitted view by view.
     void GatherShadowCasters();
-    void CullShadowCasters( const Frustum* InFrustums, uint32_t InCount );
+    // InSubset: only these caster records (the ones the GPU path doesn't draw); null: all of them.
+    void CullShadowCasters( const Frustum* InFrustums, uint32_t InCount, const std::vector<uint32_t>* InSubset = nullptr );
     // The renderer's own depth-only caster: alpha cutoff, tiling and the diffuse/opacity maps.
     void BindStockShadowCaster( const Moonlight::MeshCommand& InMesh, const float InAlpha[4] );
     // The casters of one render group inside pass view InViewIndex (see CullShadowCasters).
@@ -356,7 +374,10 @@ private:
         uint16_t IndexBuffer = 0;
         uint8_t Group = 0;
         bool Skinned = false;
+        bool Retained = false;              // a retained, active command (the GPU path may draw it)
         AABB Bounds;
+        // It may be in the GPU-driven path's shadow set (ME-389; GpuShadowKey).
+        bool OnGpuPath() const { return Retained && !Skinned && Group == 0; }
     };
     // Whether a mesh command casts, and its record (false: not a caster).
     static bool MakeShadowCaster( const Moonlight::MeshCommand& InMesh, uint32_t InCommand, ShadowCaster& OutCaster );
@@ -386,6 +407,29 @@ private:
     // VerifyRetainedMeshes: checks the retained casters against a full rebuild and logs any
     // difference.
     void VerifyShadowCasters();
+
+    // GPU-driven culling (ME-389). Null without compute support.
+    UniquePtr<Moonlight::GpuMeshCulling> m_gpuCulling;
+    bool m_gpuCullingActive = false;
+    bool m_loggedGpuCulling = false;
+    // Once a frame after the shadow casters: membership and records from the mesh changes, the
+    // record scatter, and the per-frame output.
+    void UpdateGpuCulling();
+    // The batch keys a command has in the GPU path's sets (false: not in that set).
+    bool GpuOpaqueKey( const Moonlight::MeshCommand& InMesh, Moonlight::MeshBatchRegistry::Key& OutKey ) const;
+    bool GpuShadowKey( const Moonlight::MeshCommand& InMesh, uint32_t InId, Moonlight::MeshBatchRegistry::Key& OutKey ) const;
+    // The caster records the CPU culls while the GPU path draws the rest (rebuilt when casters change).
+    const std::vector<uint32_t>& GetCpuShadowCasters();
+    std::vector<uint32_t> m_cpuShadowCasters;
+    bool m_cpuShadowCastersDirty = true;
+    // One GPU-culled shadow view: every shadow batch, indirect, from view InViewIndex of InCull.
+    // Batches whose bounds miss InFrustum are not submitted.
+    void SubmitGpuShadowCasters( bgfx::ViewId InView, const Moonlight::GpuMeshCulling::CullResult& InCull, uint32_t InViewIndex, const Frustum& InFrustum );
+    // A camera's GPU-culled opaque batches (backwards under a prepass).
+    void SubmitGpuOpaque( bgfx::ViewId InView, const Moonlight::GpuMeshCulling::CullResult& InCull, uint64_t InState, bgfx::ViewId InPrepassView, const Frustum& InFrustum );
+    // Set while BindMeshDrawState binds an indirect draw: its prepass submit is indirect too.
+    bgfx::IndirectBufferHandle m_bindIndirect = BGFX_INVALID_HANDLE;
+    uint32_t m_bindIndirectIndex = 0;
     bool m_shadowsSupported = false;
     int m_directionalLightCount = 0;
     bool m_hasSunShadow = false;

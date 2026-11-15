@@ -17,7 +17,7 @@ Rendering is split into CPU **producers** and a serial **consumer**:
 
 Ambient light comes from per-camera image-based-lighting probes. This doc maps the frame, the view-ID scheme, the lighting data paths and the sharp edges.
 
-> Verified against engine commit 1fa55311, 2026-10-09 (overhaul Wave 3); skinned meshes against 07617c5f, 2026-10-09; fog against b7c61e56, 2026-10-10; decals against 8d958c0b plus the `Decal` component, 2026-10-15; background sky box loads against ac23d33f plus the background loads change, 2026-10-16; feature caps and scene draw statistics against 3f04199c plus the hardware profiles change, 2026-10-22; rectangle beams and temporal volumetric fog against 94407e9d plus the concert lighting change, 2026-10-29; volumetric light samples against 78e47156 plus that change (ME-364), 2026-11-12; render textures, the camera order and lazy post targets against 89e036be plus the render texture change, 2026-10-29; the depth prepass against 78e47156 plus the depth prepass change, 2026-11-12; per-instance data against 78e47156 plus that change (ME-365), 2026-11-12; GPU particles and the frame compute pass against ff71f21c plus the GPU particles change, 2026-11-14; the particle instance limit against f8240c1b plus the ME-379 change, 2026-11-15; compute environment probe filtering against f8240c1b plus the ME-385 change, 2026-11-15; froxel fog against f8240c1b plus the ME-376 change, 2026-11-15; retained mesh commands against 35a9c19b plus the ME-390 change, 2026-11-15.
+> Verified against engine commit 1fa55311, 2026-10-09 (overhaul Wave 3); skinned meshes against 07617c5f, 2026-10-09; fog against b7c61e56, 2026-10-10; decals against 8d958c0b plus the `Decal` component, 2026-10-15; background sky box loads against ac23d33f plus the background loads change, 2026-10-16; feature caps and scene draw statistics against 3f04199c plus the hardware profiles change, 2026-10-22; rectangle beams and temporal volumetric fog against 94407e9d plus the concert lighting change, 2026-10-29; volumetric light samples against 78e47156 plus that change (ME-364), 2026-11-12; render textures, the camera order and lazy post targets against 89e036be plus the render texture change, 2026-10-29; the depth prepass against 78e47156 plus the depth prepass change, 2026-11-12; per-instance data against 78e47156 plus that change (ME-365), 2026-11-12; GPU particles and the frame compute pass against ff71f21c plus the GPU particles change, 2026-11-14; the particle instance limit against f8240c1b plus the ME-379 change, 2026-11-15; compute environment probe filtering against f8240c1b plus the ME-385 change, 2026-11-15; froxel fog against f8240c1b plus the ME-376 change, 2026-11-15; retained mesh commands against 35a9c19b plus the ME-390 change, 2026-11-15; GPU-driven culling against a4d109f1 plus the ME-389 change, 2026-11-15.
 
 ## Overview
 
@@ -46,6 +46,7 @@ Backend selection: Vulkan is forced on Linux and D3D11 on UWP; other platforms t
 | `Modules/Moonlight/Source/RenderViews.h` | The fixed view IDs and the per-frame `ViewAllocator` |
 | `Modules/Moonlight/Source/RenderCommands.h` | `MeshCommand`, `LightCommand`, `ParticleInstance` / `ParticleBatch` |
 | `Modules/Moonlight/Source/MeshBatchRegistry.h`, `Utils/CommandCache.h` | Retained mesh commands: stable instance-batch ids by mesh command id, and the mesh cache's change marks |
+| `Modules/Moonlight/Source/Culling/GpuMeshCulling.h` / `.cpp`, `Assets/Shaders/Culling/GpuCull*.comp`, `GpuCull.sh` | GPU-driven culling and indirect draws (ME-389): the CPU bookkeeping (`GpuCullState`), the buffers and the cull dispatches (`GpuMeshCulling`) |
 | `Modules/Moonlight/Source/Device/FrameBuffer.h` | Per-camera targets: HDR scene, final, post, bloom mips, AO, fog (march, history, blur), luminance, cluster textures |
 | `Modules/Moonlight/Source/Graphics/Texture.h`, `RenderTextureSettings.h` | Render textures: a `.rendertexture` loads as a `Texture` that owns its render target; `Texture::Sampleable` keeps a camera from sampling its own |
 | `Modules/Moonlight/Source/Lighting/ClusterBuilder.cpp` | CPU light-to-froxel assignment for clustered forward |
@@ -81,7 +82,7 @@ flowchart LR
     GA --> MC["CommandCache&lt;MeshCommand&gt;<br/>(change marks)"]
     MJ --> MC
     subgraph R["BGFXRenderer::Render (serial)"]
-        F["PrepareFrameLighting:<br/>sun, light data texture,<br/>spot and point shadow maps"] --> C["per camera: RenderCameraView"]
+        F["PrepareFrameLighting:<br/>sun, light data texture,<br/>shadow casters, GPU cull records,<br/>spot and point shadow maps"] --> C["per camera: RenderCameraView<br/>(GPU cull view, cascades, scene)"]
         C --> P["UI composite → ImGui → bgfx::frame"]
     end
     MC --> F
@@ -90,6 +91,8 @@ flowchart LR
 ```
 
 Every mesh has a command every frame, visible or not: shadow passes need casters outside the camera. Most commands are not rebuilt, though: a static mesh keeps its command across frames (see Retained mesh commands below), and only its visibility runs. Each camera's `VisibleFlags` holds one byte per mesh cache id, and a command's `VisibilityIndex` is its own id, so a kept command always matches this frame's flags. After the mesh jobs, `RenderCore` compacts each camera's flags into `CameraData::VisibleMeshes`: the mesh cache ids it sees, ascending (they come out of the flags in id order, with no sort). That is the order a full scan visits commands, so instance batches, and with them draw order, come out the same. The opaque loop walks that list instead of the whole cache. It still applies the per-command checks (`Visible`, material, render group, the camera's flag), so the list only decides which commands get looked at, not what is drawn.
+
+Meshes the GPU-driven path draws (see GPU-driven culling below) are left out of the list: `RenderCore` masks them off with `BGFXRenderer::GetGpuCulledMeshes()` and marks the camera `VisibleMeshesExcludeGpu`.
 
 The list is stamped with the renderer frame it was built for (`VisibleMeshesFrame`, against `BGFXRenderer::GetFrameIndex()`). A camera whose list isn't from this frame scans every command as before. That covers editor previews (render group != 0, no `RenderCore` visibility), cameras that don't cull, and any frame no presented world's `RenderCore` prepared (killcams share one mesh cache, ME-323). In Drumsmith's ~16k-mesh festival venue (debug build, three cameras) the summed `Meshes` scopes dropped from ~2.4 ms to ~0.55 ms a frame; compacting costs ~0.1 ms per camera, one job per camera. Picking still scans the flags; it only runs on a click.
 
@@ -101,13 +104,19 @@ ME-390. Mesh cache ids are stable slots: a mesh keeps its id from the frame it i
 - **The check** (`retainedHolds` in `RenderCore::Update`, run on the gather workers). A kept command still holds when all of these are true:
   - the entity's transform is clean and its world matrix equals the command's;
   - the mesh's geometry and material pointers, `CastShadows` (with the entity's active state), `InstanceData`, `PortalClipPlane` and type match the command;
-  - the material's shader is loaded, and its `IsTransparent`, `SupportsInstancing`, `GetAlphaCutoff`, custom shadow program, `CastsShadows` and `GetInstanceBatchKey` match;
+  - what the command took from its material still holds (see Material revisions below): its shader is loaded, and its `IsTransparent`, `SupportsInstancing`, `GetAlphaCutoff`, custom shadow program, `CastsShadows` and `GetInstanceBatchKey` match;
   - no screen-door fade, occluder fade or LOD crossfade is running;
   - the level of detail this frame's LOD camera picks is the one shown, with the same vertex and index buffers;
   - the `Outline` is unchanged.
 
-  Then only its visibility runs: the cull against every camera on the kept `WorldBounds`, the camera flags, and the command's `Visible` byte, written in place. Anything else goes to the mesh job as before. `PrepareForDraw` still runs once a frame for every mesh.
-- **Why the material is checked every frame.** Materials are plain objects. Game code and the editor write their fields (colours, textures arriving from an async load, a shader graph's synced asset) directly, with no change notification. The batch key is where a change shows, so it is recomputed for every kept mesh. That is the biggest part of what a static frame still costs: on the 4090, about 0.36 ms of the 57,600-cube gather's 1.2 ms, all memory latency on 57,600 separate material objects. A material revision counter would remove it.
+  Then only its visibility runs: the cull against every camera on the kept `WorldBounds`, the camera flags, and the command's `Visible` byte, written in place. Anything else goes to the mesh job as before. `PrepareForDraw` runs for every rebuilt mesh, and for a kept one whenever its material is re-checked.
+- **Material revisions** (ME-399). Re-reading 57,600 separate material objects every frame (the batch key alone was about 0.36 ms of a 1.2 ms gather, all memory latency) is what a static frame used to cost. Now a material says when it changed (`Moonlight::MaterialRevision`, `Graphics/MaterialRevision.h`):
+  - Each `Material` has a revision. Its setters (`SetDiffuseColor`, `SetTiling`, `SetOffset`, `SetRenderMode`, `SetFaceMode`, `SetBlendMode`, `SetSupportsInstancing`, `SetTexture`, `ClearTextures`, `LoadShader`; `StandardMaterial::SetOpacity` ... `SetInvertRoughness`; `FoliageMaterial::SetFoliage`) bump it when the value differs, and so do `OnDeserialize`, `CopyValues`, assigning one material over another, and a `ShaderGraphMaterial` sync that changed something. Code that writes a public field directly calls `MarkChanged()` after.
+  - A global change count moves with every bump. An *external* count moves when something materials read but don't own changes: a texture's GPU handle (async load finishing, reload, render target re-creation; `Texture.cpp`), a shader program rebuilt (`RebuildProgramsUsing`: hot reloads and async loads finishing), a shader graph asset re-parsed.
+  - `RenderCore` reads both counts before the gather and keeps, per cache id, the material revision and `CastsShadows()` the command was last checked against (`m_retainedMaterial`). No count moved since the last gather: a kept command doesn't touch its material at all. Only material revisions moved: it compares its material's revision, and re-checks the material when that moved. The external count moved: every kept command re-checks its material once (and calls `PrepareForDraw`, so shader graph materials sync).
+  - A kept command's material check is the old one (`retainedMaterialDiffers`); a revision only decides whether it runs.
+  - **A missed bump** (a field written directly, no `MarkChanged()`) leaves a static mesh drawing with its old batch key, transparency or flags until something else rebuilds it. `--verify-retained-meshes` runs the material check on every kept command whose revision said "unchanged" and logs `materials changed without a revision bump`, naming the material type, entity and the first value that differs (and the rebuild comparison still runs). Debug builds also check one kept command in 61 each frame, so a missed bump shows in the log without the flag. `Engine/Tools/AuditMaterialWrites.py` lists direct writes statically: it compiles every file that mentions a material with the draw-state fields made `const` (`ME_MATERIAL_FIELD`). The one expected hit is `PrepareTerrainDraw`, whose terrain patch materials are never kept commands.
+  - `--no-material-revisions` re-checks every kept command's material every frame (the A/B switch).
 - **Changes.** The mesh cache tracks them (`CommandCache::TrackChanges`, on for the mesh cache):
   - `Push`, `Pop` and `Update` mark the id in `Changed`. That is one byte per id, so parallel writers of different ids don't race.
   - Code that edits a command in place calls `MarkChanged( id )`: foliage hiding a distant instance, `UpdateMeshMatrix`.
@@ -143,8 +152,60 @@ ME-390. Mesh cache ids are stable slots: a mesh keeps its id from the frame it i
 | `Renderer::GatherShadowCasters` | 0.65 | 0.003 | 0.99 |
 | `Renderer::SubmitShadowCasters` (4 cascades) | 0.50 | 0.35 | 0.48 |
 
-  With the camera inside the field (15k visible): frame 6.03 to 2.95 ms, `RenderCore::Update` 3.28 to 1.32 ms. Screenshots with `--frame-time` fixed are identical to the pixel (without it the clouds differ run to run, because the frame times do), and so are the 22 showcase scenes of the engine's screenshot regression at tolerance 0 (`--verify-retained-meshes` on, nothing reported). What a static frame still pays is the gather's check, mostly the material reads (see above), the camera loops (`Meshes`, `Instanced Meshes`) and the cascades' matrix copies: the GPU-driven path (ME-389) is what would remove those. With retention off the casters cost more than before ME-390 (the full rebuild also keeps the batch registry), so the switch is for comparisons, not a fallback. In Drumsmith's venue (5120x1440, a busy machine, so read as indicative) `RenderCore::Update` went from about 1.0 to 0.43 ms and `GatherShadowCasters` from 0.19 to 0.05 ms; about one frame in five rebuilds the casters, because the band, crowd and stage effects change more than an eighth of the commands.
-- **For a GPU-driven path** (ME-389): a persistent per-instance buffer can be indexed by mesh cache id and updated from `GetMeshChanges()`, or rewritten whole on `AreAllMeshesChanged()`. A persistent batch list can come from a `MeshBatchRegistry` fed the same way, as the shadow casters' is. A batch's id only changes when its members' key does.
+  With the camera inside the field (15k visible): frame 6.03 to 2.95 ms, `RenderCore::Update` 3.28 to 1.32 ms. Screenshots with `--frame-time` fixed are identical to the pixel (without it the clouds differ run to run, because the frame times do), and so are the 22 showcase scenes of the engine's screenshot regression at tolerance 0 (`--verify-retained-meshes` on, nothing reported). What a static frame still paid then was the gather's check, mostly the material reads (removed by ME-399, below), the camera loops (`Meshes`, `Instanced Meshes`) and the cascades' matrix copies: the GPU-driven path (ME-389) is what would remove those. With retention off the casters cost more than before ME-390 (the full rebuild also keeps the batch registry), so the switch is for comparisons, not a fallback. In Drumsmith's venue (5120x1440, a busy machine, so read as indicative) `RenderCore::Update` went from about 1.0 to 0.43 ms and `GatherShadowCasters` from 0.19 to 0.05 ms; about one frame in five rebuilds the casters, because the band, crowd and stage effects change more than an eighth of the commands.
+- **Measured, material revisions** (ME-399, 2026-11-15; Release, Vulkan, RTX 4090, 1920x1080 window on the desktop, under the GPU lock, load average 7 to 11 on 32 threads; 400 frames, 100 warm-up; three runs each, alternating with `--no-material-revisions` on the same build; GPU culling on unless said): on `cubes57k.lvl`, `RenderCore::Gather` went from 1.04-1.20 ms to 0.44-0.46 ms (`RenderCore::Update` 1.05-1.22 to 0.45-0.47). The frame itself (`MainLoop` about 1.9 ms) didn't move with GPU culling on; with `--no-gpu-culling` it went from 3.74 to 2.99 ms (gather 1.23 to 0.53). In Drumsmith's venue (the RenderDocBench shot at 2560x1440, `--frame-time` fixed, 1305 draws) the gather went from 0.28-0.29 ms to 0.19-0.21 ms. `--verify-retained-meshes` costs about 2 ms more on the cubes (every kept command is rebuilt).
+- **The GPU-driven path** (ME-389, next section) is built on this: its per-mesh records are indexed by mesh cache id and updated from `GetMeshChanges()` (all of them on `AreAllMeshesChanged()`), and its batches come from `MeshBatchRegistry`s fed the same way. Commands carry `Retained` and `Active` (both part of `SameMeshCommand`) so that path knows which commands stay current without being rewritten, and an entity turned off or on is a change.
+
+### GPU-driven culling and indirect draws
+
+ME-389. On a backend with compute and draw indirect, retained static meshes that would go into an opaque instance batch are culled per view in compute and drawn with indirect draws, and so are their shadow casters. The CPU never walks them per camera or per cascade and never copies their matrices. Everything else stays on the CPU path, which is unchanged.
+
+- **Who is on it.** Two sets share one record per mesh command id:
+  - **Opaque** (`BGFXRenderer::GpuOpaqueKey`): a command RenderCore keeps across frames (`MeshCommand::Retained`, an entity's own static `Mesh`, see Retained mesh commands), active, in render group 0, opaque, instancing-capable, not skinned or posed, no LOD crossfade running, no `Outline`. Its batch key is the CPU path's: geometry and `BatchKey`.
+  - **Shadow** (`GpuShadowKey`): a retained, active caster as `MakeShadowCaster` makes it, not skinned, in group 0, keyed like the CPU's shadow batches.
+  - Only batches with at least `kGpuCullMinBatchMembers` (16) members are drawn by the GPU path. Smaller ones stay on the CPU path, which culls them exactly and skips the ones no view sees. The GPU path submits one draw per batch per view, even when nothing in it survives.
+  - Terrain patches, foliage, compact model parts, transparents, skinned and vertex-animated meshes, outlined meshes and LOD crossfades stay on the CPU path. So do editor previews (other render groups), the overdraw and wireframe views, and picking.
+- **Bookkeeping on the CPU** (`Moonlight::GpuCullState`, `Culling/GpuMeshCulling.h`). `UpdateGpuCulling` runs once a frame right after `GatherShadowCasters` and reads the same change list (`GetMeshChanges()`; every id on `AreAllMeshesChanged()`, the first frame, or when the path comes back on).
+  - Membership lives in two `MeshBatchRegistry`s, one per set.
+  - Each member's record is six vec4s: the instance matrix as `InstanceMatrix` makes it (with `InstanceData` in the spare row), then its world bounds.
+  - A membership change lays the sets out again (`BuildGpuCullSet`). Batches go in order of their lowest member, members ascend inside a batch, and each batch is padded to whole groups of 256, so a compute group belongs to one batch. A relayout also rebuilds the opaque mask and lists the ids that left the path.
+  - Each batch keeps the union of its members' bounds. A view whose frustum misses that box skips the batch's draw, which is what keeps local shadow views and far batches from turning into empty draws.
+- **Records on the GPU.** The record buffer is written by compute, and bgfx does not allow a CPU update of a compute-write buffer (Debug builds assert "Can't update GPU write buffer from CPU"). So rows always go up through a staging buffer, and `GpuCullScatter.comp` writes them into place in a "GPU Cull Update" view. Every record is staged on the first frame, after a reset, when the buffer grows, or when a quarter or more of the records changed (`PlanGpuCullUpload`); otherwise only the changed rows are. The view is allocated before every cull view; when the band is full, the frame falls back to the CPU path. A static frame uploads nothing. The other compute-written buffers (group scratch, totals, culled instances, indirect arguments) are never updated from the CPU either; the member list and the group and batch tables are compute-read only.
+- **The cull** (`GpuMeshCulling::Cull`, `Assets/Shaders/Culling/GpuCull.sh`). One cull covers one set and up to 16 views at once (dispatch y = view). It takes three dispatches:
+  1. `GpuCullCount.comp`: each group counts its members inside the view, using the CPU's `Frustum::Intersects` test on the record's bounds.
+  2. `GpuCullOffsets.comp`: one 256-thread workgroup per (batch, view) scans the batch's group counts in groupshared memory (a chunk of 256 groups at a time, carrying the running sum, so any batch size works) to give each group its first output slot, and writes the draw's indexed indirect arguments (`indexCount, visible, 0, 0`, then `0`).
+  3. `GpuCullWrite.comp`: each visible member writes its matrix at its rank, found with a groupshared scan.
+
+  The output keeps member order, which is the CPU path's order when every member is visible, and does not depend on thread timing. Under a depth prepass it is written backwards, as the CPU path reverses its batches. Shadow sets get the plain world matrix (the `InstanceData` row cleared).
+- **Views.** Each camera on the path allocates "`<label>` GPU Cull" right before its cascades: the cascade cull (the shadow set, four views) and the camera cull (the opaque set, one view, against the projection it draws with) both run there. Local shadows get "GPU Cull Local Shadows" before their views. RenderDoc labels these compute blocks with the preceding view's name (bgfx's Vulkan markers), so look for the dispatches just before the first cascade.
+- **Output and fallbacks.** Each cull takes a region of one per-frame instance buffer (`padded members × views` 64-byte matrices) and of one indirect buffer (`batches × views` entries). When either is full, that cull fails and its meshes are drawn by the CPU path this frame:
+  - shadows: `CullShadowCasters` over every caster;
+  - opaque: the camera scans every command, because RenderCore's list left the GPU meshes out.
+
+  The buffers then grow to the frame's demand.
+- **Draws.**
+  - Opaque: `SubmitGpuOpaque` binds each batch's region as instance data (`setInstanceDataBuffer` on the dynamic buffer), sets `m_bindIndirect` so `BindMeshDrawState`'s prepass submit is indirect too, and submits the colour draw with the indirect buffer. The batches go after the CPU path's batches, or first under a prepass, since the whole order runs backwards there.
+  - Shadows: `SubmitGpuShadowCasters` does the same per cascade or local view. The CPU's caster cull then runs only over the casters the path doesn't draw (`GetCpuShadowCasters`).
+  - The camera loops skip the GPU path's meshes. RenderCore leaves them out of `VisibleMeshes`; ids that left the path this frame (`GetOpaqueLeft`) are merged back in, in order.
+  - Materials and shaders are unchanged: `Standard.vert`, `ShadowDepth.vert` and graph shaders read the same `i_data0..3`.
+- **What the CPU doesn't know.** There is no readback, so a GPU batch counts every member in the draw and triangle statistics (an upper bound): the scene's triangle count reads high while the path is on. Draw counts are real. `RenderCore` still culls every mesh on its gather workers for the cameras' `VisibleFlags` (picking and the CPU path read them).
+- **Switches.** `BGFXRenderer::EnableGpuCulling` (RenderCore inspector > Rendering > GPU Culling, which also shows the member and dispatch counts; `--no-gpu-culling` starts with it off). The path also needs `IsComputeActive()`, `BGFX_CAPS_DRAW_INDIRECT`, `FeatureCaps.Instancing` and `RetainMeshCommands`. Without any of them every mesh takes the CPU path, as before. The renderer logs which applies at startup ("GPU culling: ...").
+- **Measured** (ME-389, 2026-11-15; Release, Vulkan, RTX 4090, 1920x1080 window on the desktop, under the GPU lock, load average about 3 to 5 on 32 threads; 400 frames, 100 warm-up, medians of three runs each, taken back to back with `--no-gpu-culling` on the same build; `.tmp/ME-389/cubes57k.lvl`, 57,600 retained cubes in 8 colours, four sun cascades):
+
+| Scope (main thread median, ms) | CPU path | GPU path | CPU path, camera inside | GPU path, camera inside |
+| -- | -- | -- | -- | -- |
+| Frame (`MainLoop`) | 3.71 | **1.89** | 2.88 | **1.74** |
+| `RenderCore::Update` | 1.23 | 1.00 | 1.19 | 0.99 |
+| `Renderer::Render` | 2.34 | 0.80 | 1.57 | 0.60 |
+| . `Render Camera` (camera loops, cascades) | 1.51 | 0.05 | 0.87 | 0.05 |
+| . . `RenderSunShadows` | 0.50 | 0.008 | 0.58 | 0.008 |
+| . `Renderer::Frame` (bgfx encode, present) | 0.80 | 0.74 | 0.66 | 0.51 |
+
+  `RenderCore::Update` drops too, because the cameras' lists no longer carry the 57,600 ids. Screenshots are identical to the pixel with `--frame-time 0.016` in all four camera variants (corner, inside, top, no shadows). On the GPU (RenderDoc, Debug build, one replayed frame) the six cull dispatches (cascades plus camera) take 0.078 ms. The cascades' offsets pass was 0.037 ms in that capture (one thread walked 225 groups); ME-402 made it a workgroup scan, and repeat captures of the same scene measure the offsets dispatches at 3 to 6 us both ways, so that 0.037 ms was a one-off. They replace a 0.058 ms copy of the transient instance data, so the frame's GPU total moved from 1.467 to 1.493 ms. The draws are the same 40, with the same instance counts.
+
+  Drumsmith's venue (the RenderDocBench shot, Release, 1780x1366 window as the window manager gave it, two runs each) is a scene this was not built for: few large batches, many small ones, and four cameras. The frame went from 4.37 / 4.38 to 3.89 / 3.96 ms median: `Render Camera` 0.90 to 0.54 ms, sun shadows 0.32 to 0.05 ms. `Renderer::Frame` went from 2.03 to 2.1-2.3 ms. Draws are 1,313 against the CPU path's 1,243 to 1,657, which varies with the screen feeds' phase. On the GPU (RenderDoc, Debug) the whole frame is 9.215 against 9.143 ms, within capture noise, and the shadow views are the same 0.568 ms. Screenshots differ from the CPU path's by 5-14k pixels of 2.4 M, as two CPU runs differ from each other (the screen feeds' phase and particles).
+
+  Before batches below 16 members were kept on the CPU and draws were skipped by batch bounds, the venue regressed: about 2,000-2,450 draws, mostly empty indirect draws of small batches into every cascade and local shadow view, and `Renderer::Frame` +0.9 ms.
 
 ### Views
 
@@ -163,22 +224,24 @@ bgfx runs views in ascending ID order, so producers must have lower IDs than the
 `ViewAllocator::Allocate(name)` names each view for RenderDoc and returns `UINT16_MAX` when the band is exhausted; callers skip that pass. Allocation order per frame:
 
 1. Spot-light and point-light shadow maps (the local shadow atlas).
-2. Frame compute (`RunFrameCompute`): work that runs once a frame before any camera reads it. Today that is one `GPU Particles` view, allocated only when a GPU particle system stepped. Compute that reads a camera's own results (its shadows, depth or lights) cannot go here: it runs inside the camera's list instead, like froxel fog below.
-3. For each camera: render texture cameras first (by entity GUID, see Render textures below), so every later view samples this frame's image; then the editor camera, the other cameras, the main camera, and split-screen cameras last (they draw into the main camera's output):
+2. GPU-driven culling (ME-389): "GPU Cull Update" (the changed records' scatter, only on frames with changes) is allocated in `PrepareFrameLighting` before the local shadow maps above; "GPU Cull Local Shadows" right before the local shadow views.
+3. Frame compute (`RunFrameCompute`): work that runs once a frame before any camera reads it. Today that is one `GPU Particles` view, allocated only when a GPU particle system stepped. Compute that reads a camera's own results (its shadows, depth or lights) cannot go here: it runs inside the camera's list instead, like froxel fog below.
+4. For each camera: render texture cameras first (by entity GUID, see Render textures below), so every later view samples this frame's image; then the editor camera, the other cameras, the main camera, and split-screen cameras last (they draw into the main camera's output):
    1. Environment probe updates.
-   2. 4 shadow cascades.
-   3. Depth prepass (when on, see Depth prepass below).
-   4. Opaque.
-   5. SSAO (3 views).
-   6. Fog: with froxel fog, `Fog Froxel Inject`, `Fog Froxel Blend` (temporal only) and `Fog Froxel Integrate` (compute, one view each), then the `Fog` composite; otherwise `Fog Scatter`, `Fog Resolve` (temporal only), `Fog Blur` and `Fog`.
-   7. Transparent.
-   8. Particles.
-   9. Temporal AA resolve (when on).
-   10. Depth of field (when on, 7 views).
-   11. Bloom down/up chain.
-   12. Luminance + adaptation.
-   13. Tonemap.
-   14. FXAA.
+   2. "`<label>` GPU Cull" (the camera's cascade and opaque culls, when the GPU-driven path is on).
+   3. 4 shadow cascades.
+   4. Depth prepass (when on, see Depth prepass below).
+   5. Opaque.
+   6. SSAO (3 views).
+   7. Fog: with froxel fog, `Fog Froxel Inject`, `Fog Froxel Blend` (temporal only) and `Fog Froxel Integrate` (compute, one view each), then the `Fog` composite; otherwise `Fog Scatter`, `Fog Resolve` (temporal only), `Fog Blur` and `Fog`.
+   8. Transparent.
+   9. Particles.
+   10. Temporal AA resolve (when on).
+   11. Depth of field (when on, 7 views).
+   12. Bloom down/up chain.
+   13. Luminance + adaptation.
+   14. Tonemap.
+   15. FXAA.
 
 ### Render groups
 
@@ -746,6 +809,7 @@ The dispatch is small and linear in slots (about 0.2 ms per million slots per fr
 - **Transparent sorting is per object** (plus per particle within alpha systems, on the CPU or GPU path); intersecting transparents sort wrong (no OIT).
 - **`CommandCache::Update`/`Pop` are unlocked**: safe only because mesh jobs write distinct slots and nothing `Push`es while they run. The same goes for the change marks (`Changed`, one byte per id), which only `Push` resizes.
 - **A command edited in place must be marked**: code writing a mesh command through `Get()` or `Commands[]` instead of `Update` calls `GetMeshCache().MarkChanged( id )`, or the retained shadow casters keep the old values (`--verify-retained-meshes` reports it).
+- **GPU-driven culling** (ME-389) has only run on Vulkan, on an RTX 4090 and on lavapipe (ME-403 for the other backends). The CPU never learns how many instances survive, so the triangle statistics of GPU batches count every member (an upper bound). Every big-enough batch whose bounds touch a view costs a draw in that view even when nothing in it is visible; batches below 16 members stay on the CPU path for that reason. `RenderCore` still culls the GPU meshes on the CPU for the cameras' flags (ME-401). There is no occlusion culling (ME-400).
 - **Uniform names are global in bgfx**: the lighting uniforms (`u_lightParams`, `u_shadowMatrix`, `s_envSpecular`, …) must not be reused with other types.
 
 ## Related Docs

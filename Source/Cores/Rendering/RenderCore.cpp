@@ -62,6 +62,8 @@ namespace
         if( InKept.DitherFade != InBuilt.DitherFade ) return "DitherFade";
         if( InKept.WorldBounds.Min.InternalVector != InBuilt.WorldBounds.Min.InternalVector || InKept.WorldBounds.Max.InternalVector != InBuilt.WorldBounds.Max.InternalVector ) return "WorldBounds";
         if( InKept.Outlined != InBuilt.Outlined || InKept.OutlineWidth != InBuilt.OutlineWidth || InKept.OutlineColor.InternalVector != InBuilt.OutlineColor.InternalVector ) return "Outline";
+        if( InKept.Active != InBuilt.Active ) return "Active";
+        if( InKept.Retained != InBuilt.Retained ) return "Retained";
         return "another field";
     }
 }
@@ -536,10 +538,25 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
     if( m_retainedGeneration != renderer.GetMeshCacheGeneration() )
     {
         m_retainedOwner.clear();
+        m_retainedMaterial.clear();
         m_retainedGeneration = renderer.GetMeshCacheGeneration();
     }
     const bool retain = renderer.RetainMeshCommands;
     const bool verifyRetained = retain && renderer.VerifyRetainedMeshes;
+    // Material revisions (ME-399), read once before the gather: a change during it shows next frame.
+    // No material changed since the last gather: kept commands skip their materials entirely. No
+    // texture, program or graph changed: they compare their material's revision. Else full checks.
+    // --no-material-revisions: the full check every frame (the A/B switch).
+    static const bool useMaterialRevisions = !CommandLine::Has( "--no-material-revisions" );
+    const uint64_t materialChanges = Moonlight::MaterialRevision::GetChangeCount();
+    const uint64_t materialExternalChanges = Moonlight::MaterialRevision::GetExternalChangeCount();
+    const bool materialsExternalQuiet = useMaterialRevisions && materialExternalChanges == m_materialExternalChanges;
+    const bool materialsQuiet = materialsExternalQuiet && materialChanges == m_materialChanges;
+    // Kept commands whose material check the revision skipped but a full check failed: a material
+    // write that missed MarkChanged(). Checked on every one under --verify-retained-meshes, and on
+    // one in 61 in debug builds.
+    std::atomic<uint32_t> materialMissed{ 0 };
+    std::string materialMissedWhat;
     auto& cameras = renderer.GetCameraCache();
 
     // Levels of detail follow the view being looked through: the scene view's camera while
@@ -624,6 +641,38 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
 #endif
         return isVisible;
     };
+    // What a kept command took from its material and no longer matches (nullptr: all of it holds).
+    // CastsShadows is kept per command (RetainedMaterial), with the mesh's own flags.
+    const auto retainedMaterialDiffers = []( const Moonlight::MeshCommand& InCommand, Moonlight::Material& InMaterial, uint64_t InId ) -> const char* {
+        // Once a frame per drawn mesh: materials whose program comes from a reloadable asset sync here.
+        InMaterial.PrepareForDraw();
+        if( !InMaterial.MeshShader.IsLoaded() )
+        {
+            return "shader not loaded";
+        }
+        if( InCommand.IsTransparent != InMaterial.IsTransparent() )
+        {
+            return "IsTransparent";
+        }
+        if( InCommand.SupportsInstancing != InMaterial.SupportsInstancing )
+        {
+            return "SupportsInstancing";
+        }
+        if( InCommand.AlphaCutoff != InMaterial.GetAlphaCutoff() )
+        {
+            return "AlphaCutoff";
+        }
+        if( InCommand.CustomShadow != bgfx::isValid( InMaterial.GetShadowProgram( false ) ) )
+        {
+            return "CustomShadow";
+        }
+        uint64_t batchKey = InMaterial.GetInstanceBatchKey();
+        if( glm::dot( InCommand.PortalClipPlane, InCommand.PortalClipPlane ) > 0.f )
+        {
+            batchKey ^= InId * 0x9E3779B97F4A7C15ull;
+        }
+        return batchKey != InCommand.BatchKey ? "BatchKey" : nullptr;
+    };
     // An entity's own Mesh whose kept command still matches everything it was built from: then
     // only its visibility runs this frame (ME-390). Anything else is rebuilt by the mesh job.
     // Runs on gather workers: it reads the entity, writes only this command's Visible and flags.
@@ -652,16 +701,9 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         {
             return false;
         }
-        // The material: once a frame per drawn mesh, then everything the command takes from it.
-        material->PrepareForDraw();
-        if( !material->MeshShader.IsLoaded() )
-        {
-            return false;
-        }
         const bool active = entity.IsActiveInHierarchy();
-        if( command.CastShadows != ( mesh.CastShadows && active && material->CastsShadows() ) || command.IsTransparent != material->IsTransparent()
-            || command.SupportsInstancing != material->SupportsInstancing || command.AlphaCutoff != material->GetAlphaCutoff()
-            || command.CustomShadow != bgfx::isValid( material->GetShadowProgram( false ) ) )
+        // Turning the entity off or on is a change (the GPU-driven path, ME-389, has no Visible).
+        if( command.Active != active )
         {
             return false;
         }
@@ -669,12 +711,40 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         {
             return false;
         }
-        uint64_t batchKey = material->GetInstanceBatchKey();
-        if( glm::dot( command.PortalClipPlane, command.PortalClipPlane ) > 0.f )
+        // The material (ME-399): read only when it, or a texture, program or graph it reads, may have
+        // changed since this command was last checked. Else what the command took from it holds.
+        if( slot >= m_retainedMaterial.size() )
         {
-            batchKey ^= id * 0x9E3779B97F4A7C15ull;
+            return false;
         }
-        if( batchKey != command.BatchKey )
+        RetainedMaterial& keptMaterial = m_retainedMaterial[slot];
+        const bool materialSame = materialsQuiet || ( materialsExternalQuiet && material->GetRevision() == keptMaterial.Revision );
+#if USING( ME_DEBUG )
+        const bool auditMaterial = materialSame && ( verifyRetained || ( slot + m_gatherCount ) % 61 == 0 );
+#else
+        const bool auditMaterial = materialSame && verifyRetained;
+#endif
+        if( !materialSame || auditMaterial )
+        {
+            // Read before PrepareForDraw: a sync it makes is checked again next frame.
+            const uint32_t revision = material->GetRevision();
+            const char* differs = retainedMaterialDiffers( command, *material, id );
+            if( !differs && auditMaterial && material->CastsShadows() != keptMaterial.CastsShadows )
+            {
+                differs = "CastsShadows";
+            }
+            if( differs )
+            {
+                if( auditMaterial && materialMissed.fetch_add( 1 ) == 0 )
+                {
+                    materialMissedWhat = material->GetTypeName() + " on entity " + std::to_string( id ) + ", " + differs;
+                }
+                return false;
+            }
+            keptMaterial.Revision = revision;
+            keptMaterial.CastsShadows = material->CastsShadows();
+        }
+        if( command.CastShadows != ( mesh.CastShadows && active && keptMaterial.CastsShadows ) )
         {
             return false;
         }
@@ -859,6 +929,10 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
     {
         m_retainedOwner.resize( meshCache.Commands.size(), 0 );
     }
+    if( m_retainedMaterial.size() < m_retainedOwner.size() )
+    {
+        m_retainedMaterial.resize( m_retainedOwner.size() );
+    }
     {
         OPTICK_EVENT( "RenderCore::PruneDraws" );
         for( auto it = m_terrainDraws.begin(); it != m_terrainDraws.end(); )
@@ -1023,6 +1097,8 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                     {
                         Mesh& model = *item.Instance;
                         const unsigned int id = model.GetId();
+                        // Read first (ME-399): a change made while this builds is checked next frame.
+                        const uint32_t materialRevision = model.MeshMaterial ? model.MeshMaterial->GetRevision() : 0;
                         if( model.MeshMaterial )
                         {
                             model.MeshMaterial->PrepareForDraw();
@@ -1032,6 +1108,13 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                         if( !model.MeshReferece || !model.MeshMaterial || !model.MeshMaterial->MeshShader.IsLoaded() )
                         {
                             ForgetRetained( id );
+                            // Its last command stays in the cache but is not current: no longer
+                            // retained, so the GPU-driven path (ME-389) stops drawing it.
+                            if( id < meshCache.Commands.size() && meshCache.Commands[id].Retained )
+                            {
+                                meshCache.Commands[id].Retained = false;
+                                meshCache.MarkChanged( id );
+                            }
                             continue;
                         }
 
@@ -1050,6 +1133,9 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                         {
                             Moonlight::MeshCommand command;
                             command.Visible = isVisible && item.Owner->IsActiveInHierarchy();
+                            command.Active = item.Owner->IsActiveInHierarchy();
+                            // Kept across frames: an entity's own static Mesh (ME-390).
+                            command.Retained = retain && item.Retainable && !model.PortalImage && !skinned && !model.HasVertexAnimation() && !bgfx::isValid( model.m_posedVertices );
                             command.WorldBounds = worldBounds;
                             command.CastShadows = model.CastShadows && item.Owner->IsActiveInHierarchy() && ( !model.MeshMaterial || model.MeshMaterial->CastsShadows() );
                             command.SingleMesh = model.MeshReferece;
@@ -1125,11 +1211,15 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                                 }
                                 continue;
                             }
-                            // Kept across frames: an entity's own static Mesh (ME-390).
-                            const bool keep = retain && item.Retainable && !model.PortalImage && !skinned && !model.HasVertexAnimation() && !bgfx::isValid( model.m_posedVertices );
+                            const bool keep = command.Retained;
                             if( id < m_retainedOwner.size() )
                             {
                                 m_retainedOwner[id] = keep ? command.ID : 0;
+                                // What it was built from (ME-399).
+                                if( keep && id < m_retainedMaterial.size() )
+                                {
+                                    m_retainedMaterial[id] = { materialRevision, model.MeshMaterial->CastsShadows() };
+                                }
                             }
                             if( !retain )
                             {
@@ -1155,6 +1245,14 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         CLog::Log( CLog::LogType::Error, "Retained mesh commands: " + std::to_string( retainedWrong.load() ) + " differ from a rebuild in frame "
             + std::to_string( renderer.GetFrameIndex() + 1 ) + ", first mesh command " + std::to_string( retainedWrongFirst.load() ) + " (" + retainedWrongField + ")" );
     }
+    if( materialMissed > 0 )
+    {
+        CLog::Log( CLog::LogType::Error, "Retained mesh commands: " + std::to_string( materialMissed.load() ) + " materials changed without a revision bump in frame "
+            + std::to_string( renderer.GetFrameIndex() + 1 ) + ", first " + materialMissedWhat + " (write through a setter or call Material::MarkChanged)" );
+    }
+    // Every kept command was checked or rebuilt against the counts read before the gather (ME-399).
+    m_materialChanges = materialChanges;
+    m_materialExternalChanges = materialExternalChanges;
 
     // Each camera's visible meshes as a list of mesh cache ids, so its draw loop walks those rather
     // than every command. Ascending, the order a full scan visits them: instance batches (and their
@@ -1172,6 +1270,9 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
 #endif
         const uint64_t frame = renderer.GetFrameIndex() + 1;
         const size_t commandCount = renderer.GetMeshCache().Commands.size();
+        // The meshes the GPU culls and draws (ME-389) stay out of the lists; one byte per id, so
+        // eight at a time come off with a mask.
+        const std::vector<uint8_t>& gpuCulled = renderer.GetGpuCulledMeshes();
         engine.GetJobSystem().ParallelFor( "Render Prep: Visible Meshes", static_cast<uint32_t>( listed.size() ), 1, [&]( uint32_t begin, uint32_t end )
             {
                 for( uint32_t c = begin; c < end; ++c )
@@ -1181,25 +1282,35 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                     cam.VisibleMeshes.clear();
                     const size_t count = std::min( cam.VisibleFlags.size(), commandCount );
                     const uint8_t* flags = cam.VisibleFlags.data();
+                    const size_t masked = cam.RenderGroup == 0 ? std::min( gpuCulled.size(), count ) : 0;
+                    const uint8_t* mask = gpuCulled.data();
+                    const auto listed = [&]( size_t InId ) { return flags[InId] && ( InId >= masked || !mask[InId] ); };
                     size_t id = 0;
                     for( ; id + 8 <= count; id += 8 )
                     {
                         uint64_t word = 0;
                         std::memcpy( &word, flags + id, sizeof( word ) );
+                        if( id + 8 <= masked )
+                        {
+                            uint64_t gpuWord = 0;
+                            std::memcpy( &gpuWord, mask + id, sizeof( gpuWord ) );
+                            word &= ~gpuWord;
+                        }
                         if( word == 0 )
                         {
                             continue;
                         }
                         for( size_t k = id; k < id + 8; ++k )
                         {
-                            if( flags[k] ) cam.VisibleMeshes.push_back( static_cast<uint32_t>( k ) );
+                            if( listed( k ) ) cam.VisibleMeshes.push_back( static_cast<uint32_t>( k ) );
                         }
                     }
                     for( ; id < count; ++id )
                     {
-                        if( flags[id] ) cam.VisibleMeshes.push_back( static_cast<uint32_t>( id ) );
+                        if( listed( id ) ) cam.VisibleMeshes.push_back( static_cast<uint32_t>( id ) );
                     }
                     cam.VisibleMeshesFrame = frame;
+                    cam.VisibleMeshesExcludeGpu = masked > 0;
                 }
             } );
     }
@@ -1372,6 +1483,16 @@ void RenderCore::OnEditorInspect()
         if( ImGui::IsItemHovered() )
         {
             ImGui::SetTooltip( "Static meshes keep their draw commands and shadow casters across frames; only what changed is rebuilt. Off rebuilds every mesh each frame, as before" );
+        }
+        checkbox( "GPU Culling", renderer.EnableGpuCulling );
+        if( ImGui::IsItemHovered() )
+        {
+            ImGui::SetTooltip( "Retained static opaque meshes and their shadow casters are culled per camera and shadow view in compute and drawn indirect (needs compute and draw indirect). Off culls and batches them on the CPU, as before" );
+        }
+        if( renderer.IsGpuCullingActive() )
+        {
+            ImGui::SameLine();
+            ImGui::TextDisabled( "%u meshes, %u casters, %u dispatches", renderer.GetGpuCulledCount( false ), renderer.GetGpuCulledCount( true ), renderer.GetGpuCullDispatches() );
         }
         checkbox( "Depth Prepass", renderer.EnableDepthPrepass );
         if( ImGui::IsItemHovered() )

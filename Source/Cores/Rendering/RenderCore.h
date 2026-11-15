@@ -100,6 +100,17 @@ private:
     std::vector<uint64_t> m_retainedOwner;
     uint32_t m_retainedGeneration = UINT32_MAX;
     void ForgetRetained( unsigned int InId ) { if( InId < m_retainedOwner.size() ) m_retainedOwner[InId] = 0; }
+    // Per mesh cache id beside m_retainedOwner (ME-399): the material revision the kept command was
+    // last checked against, and the material's CastsShadows() then. While no material changed
+    // (Moonlight::MaterialRevision), a kept command skips reading its material at all.
+    struct RetainedMaterial
+    {
+        uint32_t Revision = 0;
+        bool CastsShadows = false;
+    };
+    std::vector<RetainedMaterial> m_retainedMaterial;
+    uint64_t m_materialChanges = UINT64_MAX;    // MaterialRevision counts at the last gather
+    uint64_t m_materialExternalChanges = UINT64_MAX;
     // Counts Updates that gathered (foliage notes which instances it drew in which one).
     uint64_t m_gatherCount = 0;
     bool EnableDebugDraw = false;

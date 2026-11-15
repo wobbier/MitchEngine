@@ -889,7 +889,7 @@ TEST_CASE( "Models: glTF alpha factors are not applied twice and cutout maps sta
     CHECK( material.IsTransparent() );
     material.Cutoff = 0.5f;
     CHECK_FALSE( material.IsTransparent() );
-    material.RenderMode = Moonlight::RenderingMode::Transparent;
+    material.SetRenderMode( Moonlight::RenderingMode::Transparent );
     CHECK( material.IsTransparent() );
 }
 

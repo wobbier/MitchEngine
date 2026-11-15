@@ -318,7 +318,7 @@ void Model::AddCompactNode( const Moonlight::Node& InNode, int InParent, const s
         }
         part.Renderer->BindModelMesh( mesh );
         if( InNode.IsFlipped && part.Renderer->MeshMaterial->FaceMode != Moonlight::RenderFaceMode::Both )
-            part.Renderer->MeshMaterial->FaceMode = Moonlight::RenderFaceMode::Back;
+            part.Renderer->MeshMaterial->SetFaceMode( Moonlight::RenderFaceMode::Back );
         m_parts.push_back( std::move( part ) );
     }
     std::unordered_map<std::string, size_t> occurrences;
@@ -631,7 +631,7 @@ void Model::RecursiveLoadMesh( Moonlight::Node& root, EntityHandle& parentEnt, f
         meshRef.BindModelMesh( root.Meshes[0] );
         if( root.IsFlipped && meshRef.MeshMaterial->FaceMode != Moonlight::RenderFaceMode::Both )
         {
-            meshRef.MeshMaterial->FaceMode = Moonlight::RenderFaceMode::Back;
+            meshRef.MeshMaterial->SetFaceMode( Moonlight::RenderFaceMode::Back );
         }
     }
     else
@@ -665,7 +665,7 @@ void Model::RecursiveLoadMesh( Moonlight::Node& root, EntityHandle& parentEnt, f
             }
             Mesh& meshRef = ent->AddComponent<Mesh>( child );
             meshRef.BindModelMesh( child );
-            if( root.IsFlipped && meshRef.MeshMaterial->FaceMode != Moonlight::RenderFaceMode::Both ) meshRef.MeshMaterial->FaceMode = Moonlight::RenderFaceMode::Back;
+            if( root.IsFlipped && meshRef.MeshMaterial->FaceMode != Moonlight::RenderFaceMode::Both ) meshRef.MeshMaterial->SetFaceMode( Moonlight::RenderFaceMode::Back );
         }
     }
 }

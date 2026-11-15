@@ -710,16 +710,16 @@ Moonlight::MeshData* ModelResource::ProcessMesh( aiMesh* mesh, Moonlight::Node& 
         const aiMaterial& material = *scene->mMaterials[mesh->mMaterialIndex];
         const Moonlight::ImportedMaterial imported = Moonlight::ReadImportedMaterial( material );
         auto apply = []( StandardMaterial& target, const Moonlight::ImportedMaterial& data ) {
-            target.DiffuseColor = data.Color;
-            target.EmissiveColor = data.Emissive;
-            target.Opacity = data.Opacity;
-            target.Metallic = data.Metallic;
-            target.Roughness = data.Roughness;
-            target.NormalStrength = data.NormalStrength;
-            target.AlphaCutoff = data.AlphaCutoff;
-            target.InvertRoughness = data.InvertRoughness;
-            target.RenderMode = data.Transparent ? Moonlight::RenderingMode::Transparent : Moonlight::RenderingMode::Opaque;
-            target.FaceMode = data.DoubleSided ? Moonlight::RenderFaceMode::Both : Moonlight::RenderFaceMode::Front;
+            target.SetDiffuseColor( data.Color );
+            target.SetEmissiveColor( data.Emissive );
+            target.SetOpacity( data.Opacity );
+            target.SetMetallic( data.Metallic );
+            target.SetRoughness( data.Roughness );
+            target.SetNormalStrength( data.NormalStrength );
+            target.SetAlphaCutoff( data.AlphaCutoff );
+            target.SetInvertRoughness( data.InvertRoughness );
+            target.SetRenderMode( data.Transparent ? Moonlight::RenderingMode::Transparent : Moonlight::RenderingMode::Opaque );
+            target.SetFaceMode( data.DoubleSided ? Moonlight::RenderFaceMode::Both : Moonlight::RenderFaceMode::Front );
         };
         apply( *static_cast<StandardMaterial*>( newMaterial.get() ), imported );
         for( unsigned int t = 0; t < Moonlight::TextureType::Count; ++t )
@@ -728,14 +728,14 @@ Moonlight::MeshData* ModelResource::ProcessMesh( aiMesh* mesh, Moonlight::Node& 
             if( !imported.Textures[t].empty() ) LoadMaterialTexture( newMaterial, imported.Textures[t], static_cast<Moonlight::TextureType>( t ), imported.Wrap[t] );
         }
         if( newMaterial->GetTexture( Moonlight::TextureType::Emissive ) && imported.Emissive.LengthSquared() <= 0.f )
-            static_cast<StandardMaterial*>( newMaterial.get() )->EmissiveColor = Vector3( 1.f );
+            static_cast<StandardMaterial*>( newMaterial.get() )->SetEmissiveColor( Vector3( 1.f ) );
 
         // Saved scenes contain copies of the previous importer's defaults. Keep a comparison
         // baseline so binding fresh geometry can update those values while retaining user edits.
         const Moonlight::ImportedMaterial old = Moonlight::ReadImportedMaterial( material, true );
         auto legacy = newMaterial->CreateInstance();
         apply( *static_cast<StandardMaterial*>( legacy.get() ), old );
-        legacy->GetTextures().assign( Moonlight::TextureType::Count, nullptr );
+        legacy->ClearTextures();
         for( unsigned int t = 0; t < Moonlight::TextureType::Count; ++t )
         {
             if( !old.Textures[t].empty() ) LoadMaterialTexture( legacy, old.Textures[t], static_cast<Moonlight::TextureType>( t ), old.Wrap[t] );

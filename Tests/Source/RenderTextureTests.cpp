@@ -331,8 +331,8 @@ TEST_CASE( "Scripts: Camera.MakeCurrent switches the main camera, Camera.Main fi
 TEST_CASE( "Materials: a UV offset round-trips and keeps instance batches apart" )
 {
     StandardMaterial flipped;
-    flipped.Tiling = Vector2( 1.f, -1.f );
-    flipped.Offset = Vector2( 0.f, 1.f );
+    flipped.SetTiling( Vector2( 1.f, -1.f ) );
+    flipped.SetOffset( Vector2( 0.f, 1.f ) );
     json saved;
     flipped.OnSerialize( saved );
     REQUIRE( saved.contains( "Offset" ) );
@@ -349,9 +349,9 @@ TEST_CASE( "Materials: a UV offset round-trips and keeps instance batches apart"
     CHECK_FALSE( plainSaved.contains( "Offset" ) );
 
     StandardMaterial shifted;
-    shifted.Tiling = Vector2( 1.f, -1.f );
+    shifted.SetTiling( Vector2( 1.f, -1.f ) );
     CHECK( shifted.GetInstanceBatchKey() != flipped.GetInstanceBatchKey() );
-    shifted.Offset = flipped.Offset;
+    shifted.SetOffset( flipped.Offset );
     CHECK( shifted.GetInstanceBatchKey() == flipped.GetInstanceBatchKey() );
 }
 

@@ -146,6 +146,13 @@ uint64_t FoliageMaterial::GetInstanceBatchKey() const
 }
 
 
+void FoliageMaterial::SetFoliage( const FoliageSettings& InSettings )
+{
+    Writable( Foliage ) = InSettings;
+    MarkChanged();
+}
+
+
 bgfx::ProgramHandle FoliageMaterial::GetShadowProgram( bool InSkinned )
 {
     return InSkinned ? bgfx::ProgramHandle( BGFX_INVALID_HANDLE ) : m_shadowShader.GetProgram();
@@ -162,7 +169,8 @@ void FoliageMaterial::OnSerialize( json& OutJson )
 void FoliageMaterial::OnDeserialize( const json& InJson )
 {
     StandardMaterial::OnDeserialize( InJson );
-    Foliage.Read( InJson );
+    Writable( Foliage ).Read( InJson );
+    MarkChanged();
 }
 
 
@@ -170,32 +178,38 @@ void FoliageMaterial::OnDeserialize( const json& InJson )
 void FoliageMaterial::OnEditorInspect()
 {
     StandardMaterial::OnEditorInspect();
+    // Edited on a copy, set back when it changed (ME-399).
+    FoliageSettings foliage = Foliage;
     HavanaUtils::Label( "Part" );
-    int mode = static_cast<int>( Foliage.Mode );
+    int mode = static_cast<int>( foliage.Mode );
     if( ImGui::Combo( "##FoliagePart", &mode, "Bark\0Leaves\0" ) )
     {
-        Foliage.Mode = static_cast<FoliageSettings::Part>( mode );
+        foliage.Mode = static_cast<FoliageSettings::Part>( mode );
     }
-    const bool leaves = Foliage.Mode == FoliageSettings::Part::Leaves;
+    const bool leaves = foliage.Mode == FoliageSettings::Part::Leaves;
     if( leaves )
     {
         HavanaUtils::Label( "Translucency" );
-        ImGui::SliderFloat( "##Translucency", &Foliage.Translucency, 0.f, 2.f );
+        ImGui::SliderFloat( "##Translucency", &foliage.Translucency, 0.f, 2.f );
     }
     HavanaUtils::Label( "Tint Variation" );
-    ImGui::SliderFloat( "##Variation", &Foliage.Variation, 0.f, 1.f );
+    ImGui::SliderFloat( "##Variation", &foliage.Variation, 0.f, 1.f );
     HavanaUtils::Label( "Tree Height" );
-    ImGui::DragFloat( "##TreeHeight", &Foliage.TreeHeight, 0.05f, 0.1f, 200.f );
+    ImGui::DragFloat( "##TreeHeight", &foliage.TreeHeight, 0.05f, 0.1f, 200.f );
     HavanaUtils::Label( "Trunk Lean" );
-    ImGui::SliderFloat( "##TrunkLean", &Foliage.TrunkLean, 0.f, 0.1f );
+    ImGui::SliderFloat( "##TrunkLean", &foliage.TrunkLean, 0.f, 0.1f );
     HavanaUtils::Label( "Branch Sway (m)" );
-    ImGui::SliderFloat( "##BranchSway", &Foliage.BranchSway, 0.f, 2.f );
+    ImGui::SliderFloat( "##BranchSway", &foliage.BranchSway, 0.f, 2.f );
     if( leaves )
     {
         HavanaUtils::Label( "Leaf Flutter (m)" );
-        ImGui::SliderFloat( "##LeafFlutter", &Foliage.LeafFlutter, 0.f, 0.2f );
+        ImGui::SliderFloat( "##LeafFlutter", &foliage.LeafFlutter, 0.f, 0.2f );
     }
     HavanaUtils::Label( "Wind Frequency" );
-    ImGui::SliderFloat( "##WindFrequency", &Foliage.WindFrequency, 0.1f, 4.f );
+    ImGui::SliderFloat( "##WindFrequency", &foliage.WindFrequency, 0.1f, 4.f );
+    if( foliage.Hash( 0 ) != Foliage.Hash( 0 ) )
+    {
+        SetFoliage( foliage );
+    }
 }
 #endif

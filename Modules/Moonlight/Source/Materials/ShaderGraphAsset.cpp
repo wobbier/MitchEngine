@@ -3,6 +3,7 @@
 #include "File.h"
 #include "Resource/ResourceCache.h"
 #include "Utils/BGFXUtils.h"
+#include "Graphics/MaterialRevision.h"
 #include <cmath>
 
 namespace Moonlight
@@ -127,6 +128,8 @@ namespace Moonlight
     bool ShaderGraphAsset::Parse()
     {
         ++m_revision;
+        // Materials sync with the asset in PrepareForDraw; this makes RenderCore call it (ME-399).
+        MaterialRevision::MarkExternalChange();
         m_valid = false;
         File file( FilePath );
         if( !FilePath.Exists )

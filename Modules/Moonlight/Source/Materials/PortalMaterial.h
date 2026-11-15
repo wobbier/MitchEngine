@@ -15,9 +15,9 @@ public:
     PortalMaterial()
         : Moonlight::Material( "PortalMaterial", "Assets/Shaders/Portal" )
     {
-        DiffuseColor = Vector3( 0.05f, 0.05f, 0.08f );
+        SetDiffuseColor( Vector3( 0.05f, 0.05f, 0.08f ) );
         // Inside faces too: stepping through puts the camera inside the surface's box.
-        FaceMode = Moonlight::RenderFaceMode::Both;
+        SetFaceMode( Moonlight::RenderFaceMode::Both );
     }
 
     void Init() final

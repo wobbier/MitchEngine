@@ -4,7 +4,7 @@ Materials are code-defined `Material` subclasses (a `Resource` specialization) r
 
 Shaders are bgfx `.vert`/`.frag` (and `.comp` compute) sources compiled to per-backend binaries by `shaderc`, either in batch (`Tools/BuildShaders.sh`) or on demand by the resource-metadata cook. In tools builds they **hot reload**: editing a shader, a shared `.sh` include or a `.var` file recompiles it and swaps the program in place. This doc covers the material contract, the instancing batch key, the shader pipeline, compute shaders and how to add a material.
 
-> Verified against engine commit 1fa55311, 2026-10-09 (overhaul Wave 3); shader loading and the program registry against 488b07f1 plus the non-blocking shaders change, 2026-10-16; `Offset` and render texture inputs against 89e036be plus the render texture change, 2026-10-29; per-instance data in `Standard.vert` against 78e47156 plus that change (ME-365), 2026-11-12; compute shaders against 367830e4 plus the compute plumbing change, 2026-11-14, and against ff71f21c plus the GPU particles change (the first dispatch), 2026-11-14.
+> Verified against engine commit 1fa55311, 2026-10-09 (overhaul Wave 3); shader loading and the program registry against 488b07f1 plus the non-blocking shaders change, 2026-10-16; `Offset` and render texture inputs against 89e036be plus the render texture change, 2026-10-29; per-instance data in `Standard.vert` against 78e47156 plus that change (ME-365), 2026-11-12; compute shaders against 367830e4 plus the compute plumbing change, 2026-11-14, and against ff71f21c plus the GPU particles change (the first dispatch), 2026-11-14; the GPU culling patterns against a4d109f1 plus the ME-389 change, 2026-11-15.
 
 ## Overview
 
@@ -15,6 +15,7 @@ A material type *is* a C++ class that knows its shader pair, its uniforms, and h
 | Path | Role |
 |------|------|
 | `Modules/Moonlight/Source/Graphics/Material.h` / `Material.cpp` | Base class: render/blend/face modes, textures, batch key, alpha cutoff hook, registry macros |
+| `Modules/Moonlight/Source/Graphics/MaterialRevision.h` | Draw-state revisions: per material, and the global and external change counts retained mesh commands compare (ME-399) |
 | `Modules/Moonlight/Source/Materials/StandardMaterial.h` / `.cpp` | PBR material (the default for meshes, primitives and imported models) |
 | `Modules/Moonlight/Source/Materials/DiffuseMaterial.h` | Legacy names `DiffuseMaterial` / `WhiteMaterial`, now `StandardMaterial` subclasses so old scenes load |
 | `Modules/Moonlight/Source/Shaders/UnlitMaterial.h` | Unlit material (note: under `Shaders/`, not `Materials/`) |
@@ -141,6 +142,8 @@ A material that draws with other shaders is left out of the prepass and renders 
 
 **The invariant to preserve:** anything your material reads in `Use()` or contributes to `GetRenderState` **must be mixed into the batch key**. If it isn't, visually different instances batch together and silently render with the representative's values.
 
+**And the second one:** a change to anything the key hashes (or to transparency, instancing, the alpha cutoff, the shadow program or `CastsShadows`) must bump the material's revision (ME-399). Static meshes keep their draw commands across frames and only re-read a material whose revision moved (`Docs/Rendering-Pipeline.md`, "Material revisions"). Write fields through the setters (`SetDiffuseColor`, `SetTiling`, `SetOffset`, `SetRenderMode`, `SetFaceMode`, `SetBlendMode`, `SetSupportsInstancing`, `SetTexture`, `ClearTextures`, `LoadShader`, `StandardMaterial::Set*`, `FoliageMaterial::SetFoliage`), which bump only when the value differs, or call `MarkChanged()` after writing a public field. Inside a material class, bulk writes (deserialising, syncing) use `Writable( Field ) = ...` and one `MarkChanged()`; `SetDrawValue( Field, value )` is the compare-and-bump helper for a new setter. Mark a new draw-state field `ME_MATERIAL_FIELD` so `Engine/Tools/AuditMaterialWrites.py` finds its direct writes. Texture handles and shader programs changing under a material are tracked globally (`MaterialRevision::MarkExternalChange`), so a material holding them needs nothing extra. A missed bump shows as a static mesh keeping its old look; `--verify-retained-meshes` (and debug builds, sampled) log it.
+
 The one way past the key is per-instance data (`Mesh::InstanceData`, `Docs/Rendering-Pipeline.md` Per-instance data): three floats per mesh that ride in the instance buffer, not the material, for the stock Standard program only. `Standard.vert` reads `xy` as an offset added to the mesh's uv before `Tiling` and `Offset`, so meshes drawing different tiles of one atlas (the same texture, `Tiling` one tile) batch together.
 
 Instancing-capable vertex shaders are **instance-only**: they read the model matrix from `i_data0..3` (`TEXCOORD7..4` in the `.var`), so every draw of that material, transparent ones included, feeds an instance buffer. `Standard.vert` takes the bottom row (`i_data0..2.w`) as the per-instance data and rebuilds it as (0, 0, 0, 1); a shader of your own that builds the matrix with `mtxFromCols(i_data0, i_data1, i_data2, i_data3)` as it is never gets non-zero values there.
@@ -205,6 +208,14 @@ The worked example is GPU particles (`Modules/Moonlight/Source/Particles/GpuPart
 
 A pass that reads what was drawn this frame is the second example: the luminance histogram for eye adaptation (`RenderPasses/TextureHistogram.cpp`, `Assets/Shaders/Post/Histogram*.comp`, `ExposureHistogram.comp`; `Rendering-Pipeline.md` > Eye adaptation). It samples a texture from a compute shader (`SAMPLER2D` + `texture2DLod`, bound with `bgfx::setTexture`), keeps per-group counts in `SHARED` memory with `barrier()` instead of atomics, merges them in a second dispatch in the next view, and writes a 1x1 `BGFX_TEXTURE_COMPUTE_WRITE` image (`IMAGE2D_WO( name, r32f, stage )`, `bgfx::setImage`) that a later fragment pass samples.
 
+GPU-driven culling (ME-389; `Culling/GpuMeshCulling.cpp`, `Assets/Shaders/Culling/GpuCull*.comp`, `Rendering-Pipeline.md` > GPU-driven culling and indirect draws) shows a few other patterns:
+- **Ordered stream compaction without atomics**: count per group (a groupshared reduction), a running offset per segment, then a write at each item's rank (a groupshared Hillis-Steele scan). The output keeps input order, so the result does not depend on thread timing. Each segment (instance batch) is padded to whole groups, so a group never straddles two.
+- **Integer ids in an index buffer** (`createDynamicIndexBuffer( n, BGFX_BUFFER_INDEX32 | BGFX_BUFFER_COMPUTE_READ )`, declared `BUFFER_RO( name, uint, stage )`).
+- **One dispatch for several views**, with the view as `gl_WorkGroupID.y` and the planes in a uniform array.
+- **Persistent records with a scatter pass**: a frame's changed rows go up as one small dynamic buffer, and a dispatch writes them into place.
+- **Indirect draws over a region of a compute-written instance buffer**: `setInstanceDataBuffer( dynamicVb, start, num )`, then `bgfx::submit( view, program, indirect, index )`. That also works for a submit with `BGFX_DISCARD_NONE` followed by a second submit (the depth prepass).
+`GpuCullingTests.cpp` runs the passes' arithmetic on the CPU (`SimulateGpuCull`) against a plain cull, and checks the shader's constants against the C++ ones.
+
 The third is froxel volumetric fog (`PostProcess::RenderFog`, `Assets/Shaders/Post/FogFroxel*.comp`, `FogFroxel.sh`, `FogFroxel.frag`; `Rendering-Pipeline.md` > Fog): a per-camera chain of three dispatches, each in its own view, over RGBA16F 3D textures. It shows the rules for compute that reads the scene's lighting:
 
 - **Write images write-only, read through samplers.** D3D11 can't load a typed RGBA16F UAV without typed-UAV-load support, so each volume is written with `IMAGE3D_WO( name, rgba16f, stage )` and the next pass reads it with `SAMPLER3D` + `texture3DLod` (bound with `bgfx::setTexture`), ping-ponging two volumes where a pass needs last frame's. Images and samplers share one stage array: keep their stages apart (the fog passes use 0 for the image, 1-2 for their samplers, and `Lighting.sh` owns 8-15).
@@ -236,10 +247,11 @@ public:
         return MakeShared<ClearcoatMaterial>( *this );
     }
 
-    // Any extra state read in Use() must be folded into the key.
+    // Any extra state read in Use() must be folded into the key, and changes bump the revision.
     uint64_t GetInstanceBatchKey() const override;
+    void SetClearcoat( float InValue ) { SetDrawValue( Clearcoat, InValue ); }
 
-    float Clearcoat = 1.f;
+    ME_MATERIAL_FIELD float Clearcoat = 1.f;
 };
 ME_REGISTER_MATERIAL_NAME( ClearcoatMaterial, "Clearcoat" )
 ```
@@ -257,6 +269,7 @@ ME_REGISTER_MATERIAL_NAME( ClearcoatMaterial, "Clearcoat" )
 ## Caveats & Fragility
 
 - **Batch-key completeness is on you.** A missing field causes silent, scene-dependent mis-batching.
+- **So are revision bumps.** A direct write to a material field without `MarkChanged()` is not seen by a static mesh's kept command (ME-399). TerrainMaterial's layer fields are the exception: `RenderCore` writes them every frame for terrain patches, which are never kept.
 - **Uniform names are global in bgfx.** Two materials declaring the same name with different types collide; the lighting library reserves `u_light*`, `u_cluster*`, `u_shadow*`, `u_cascade*`, `u_spotShadow*`, `u_env*`, `u_ambient*` and samplers on stages 8–15.
 - **Blocking requests still block.** `ShaderLoad::Blocking`, `ShaderCommand`'s default, cooks and loads a missing shader on the spot; the renderer's passes ask that way, right after the startup prefetch has loaded everything. Hot reloads compile in the background, and until a recompile lands the old program keeps drawing. Editing `Common.sh` recompiles every loaded shader.
 - **Shader graph limits**: 16 parameter vec4s (`u_sgParams`) and 8 textures (stages 0-7) per graph; picking ignores a graph's vertex offset.

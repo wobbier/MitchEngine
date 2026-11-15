@@ -50,7 +50,7 @@ StandardMaterial::StandardMaterial( const std::string& InTypeName )
 StandardMaterial::StandardMaterial( const std::string& InTypeName, const std::string& InShaderPath )
     : Moonlight::Material( InTypeName, InShaderPath )
 {
-    SupportsInstancing = true;
+    SetSupportsInstancing( true );
 }
 
 
@@ -100,6 +100,60 @@ SharedPtr<Moonlight::Material> StandardMaterial::CreateInstance()
 }
 
 
+void StandardMaterial::SetOpacity( float InValue )
+{
+    SetDrawValue( Opacity, InValue );
+}
+
+
+void StandardMaterial::SetMetallic( float InValue )
+{
+    SetDrawValue( Metallic, InValue );
+}
+
+
+void StandardMaterial::SetRoughness( float InValue )
+{
+    SetDrawValue( Roughness, InValue );
+}
+
+
+void StandardMaterial::SetNormalStrength( float InValue )
+{
+    SetDrawValue( NormalStrength, InValue );
+}
+
+
+void StandardMaterial::SetOcclusionStrength( float InValue )
+{
+    SetDrawValue( OcclusionStrength, InValue );
+}
+
+
+void StandardMaterial::SetEmissiveColor( const Vector3& InValue )
+{
+    SetDrawValue( EmissiveColor, InValue );
+}
+
+
+void StandardMaterial::SetEmissiveIntensity( float InValue )
+{
+    SetDrawValue( EmissiveIntensity, InValue );
+}
+
+
+void StandardMaterial::SetAlphaCutoff( float InValue )
+{
+    SetDrawValue( AlphaCutoff, InValue );
+}
+
+
+void StandardMaterial::SetInvertRoughness( bool InValue )
+{
+    SetDrawValue( InvertRoughness, InValue );
+}
+
+
 uint64_t StandardMaterial::GetInstanceBatchKey() const
 {
     uint64_t h = Material::GetInstanceBatchKey();
@@ -139,19 +193,19 @@ void StandardMaterial::OnSerialize( json& OutJson )
 void StandardMaterial::OnDeserialize( const json& InJson )
 {
     Material::OnDeserialize( InJson );
-    Opacity = ReadFloat( InJson, "Opacity", Opacity );
-    Metallic = ReadFloat( InJson, "Metallic", Metallic );
+    SetOpacity( ReadFloat( InJson, "Opacity", Opacity ) );
+    SetMetallic( ReadFloat( InJson, "Metallic", Metallic ) );
     const float roughness = ReadFloat( InJson, "Roughness", Roughness );
-    Roughness = std::isfinite( roughness ) && roughness >= 0.f && roughness <= 1.f ? roughness : 0.5f;
-    NormalStrength = ReadFloat( InJson, "NormalStrength", NormalStrength );
-    OcclusionStrength = ReadFloat( InJson, "OcclusionStrength", OcclusionStrength );
-    EmissiveIntensity = ReadFloat( InJson, "EmissiveIntensity", EmissiveIntensity );
-    AlphaCutoff = ReadFloat( InJson, "AlphaCutoff", AlphaCutoff );
-    InvertRoughness = InJson.value( "InvertRoughness", InvertRoughness );
+    SetRoughness( std::isfinite( roughness ) && roughness >= 0.f && roughness <= 1.f ? roughness : 0.5f );
+    SetNormalStrength( ReadFloat( InJson, "NormalStrength", NormalStrength ) );
+    SetOcclusionStrength( ReadFloat( InJson, "OcclusionStrength", OcclusionStrength ) );
+    SetEmissiveIntensity( ReadFloat( InJson, "EmissiveIntensity", EmissiveIntensity ) );
+    SetAlphaCutoff( ReadFloat( InJson, "AlphaCutoff", AlphaCutoff ) );
+    SetInvertRoughness( InJson.value( "InvertRoughness", InvertRoughness ) );
     auto emissive = InJson.find( "EmissiveColor" );
     if( emissive != InJson.end() && emissive->is_array() && emissive->size() == 3 )
     {
-        EmissiveColor = Vector3( ( *emissive )[0].get<float>(), ( *emissive )[1].get<float>(), ( *emissive )[2].get<float>() );
+        SetEmissiveColor( Vector3( ( *emissive )[0].get<float>(), ( *emissive )[1].get<float>(), ( *emissive )[2].get<float>() ) );
     }
 }
 
@@ -173,48 +227,54 @@ void StandardMaterial::OnEditorInspect()
         result.Decimals = InDecimals;
         return result;
     };
-    auto row = []( const char* InLabel, float& InOutValue, const MeWidgets::NumberSpec& InSpec ) {
-        double value = InOutValue;
+    // Every edit goes through a setter, which bumps the draw-state revision (ME-399).
+    using Setter = void ( StandardMaterial::* )( float );
+    auto row = [this]( const char* InLabel, float InValue, Setter InSet, const MeWidgets::NumberSpec& InSpec ) {
+        double value = InValue;
         if( MeWidgets::UnitRow( InLabel, value, InSpec ) )
         {
-            InOutValue = static_cast<float>( value );
+            ( this->*InSet )( static_cast<float>( value ) );
         }
     };
     const float baseColor[3] = { DiffuseColor.x, DiffuseColor.y, DiffuseColor.z };
-    row( "Opacity", Opacity, spec( MeWidgets::Unit::Percent, 1.0, 1.0, -1 ) );
+    row( "Opacity", Opacity, &StandardMaterial::SetOpacity, spec( MeWidgets::Unit::Percent, 1.0, 1.0, -1 ) );
 
     double metallic = Metallic;
     double roughness = Roughness;
     if( MeWidgets::MetalRoughPad( "Surface", metallic, roughness, baseColor ) )
     {
-        Metallic = static_cast<float>( metallic );
-        Roughness = static_cast<float>( roughness );
+        SetMetallic( static_cast<float>( metallic ) );
+        SetRoughness( static_cast<float>( roughness ) );
     }
-    row( "Metallic", Metallic, spec( MeWidgets::Unit::None, 1.0, 0.0, 2 ) );
-    row( "Roughness", Roughness, spec( MeWidgets::Unit::None, 1.0, 0.5, 2 ) );
+    row( "Metallic", Metallic, &StandardMaterial::SetMetallic, spec( MeWidgets::Unit::None, 1.0, 0.0, 2 ) );
+    row( "Roughness", Roughness, &StandardMaterial::SetRoughness, spec( MeWidgets::Unit::None, 1.0, 0.5, 2 ) );
 
     const MeWidgets::NumberSpec normal = spec( MeWidgets::Unit::Multiplier, 2.0, 1.0, 2 );
-    row( "Normal Strength", NormalStrength, normal );
+    row( "Normal Strength", NormalStrength, &StandardMaterial::SetNormalStrength, normal );
     double normalStrength = NormalStrength;
     if( MeWidgets::BumpPreview( "Relief", normalStrength, normal, baseColor ) )
     {
-        NormalStrength = static_cast<float>( normalStrength );
+        SetNormalStrength( static_cast<float>( normalStrength ) );
     }
-    row( "Occlusion Strength", OcclusionStrength, spec( MeWidgets::Unit::Percent, 1.0, 1.0, -1 ) );
+    row( "Occlusion Strength", OcclusionStrength, &StandardMaterial::SetOcclusionStrength, spec( MeWidgets::Unit::Percent, 1.0, 1.0, -1 ) );
 
     HavanaUtils::Label( "Emissive" );
-    ImGui::ColorEdit3( "##Emissive", &EmissiveColor.x );
+    Vector3 emissiveColor = EmissiveColor;
+    if( ImGui::ColorEdit3( "##Emissive", &emissiveColor.x ) )
+    {
+        SetEmissiveColor( emissiveColor );
+    }
     double ev = MeWidgets::MaterialMath::IntensityToEV( EmissiveIntensity );
     if( MeWidgets::UnitRow( "Emissive Intensity", ev, MeWidgets::MaterialMath::EmissiveSpec() ) )
     {
-        EmissiveIntensity = static_cast<float>( MeWidgets::MaterialMath::EVToIntensity( ev ) );
+        SetEmissiveIntensity( static_cast<float>( MeWidgets::MaterialMath::EVToIntensity( ev ) ) );
     }
     const float emissive[3] = { EmissiveColor.x, EmissiveColor.y, EmissiveColor.z };
     double intensity = EmissiveIntensity;
     if( MeWidgets::EmissiveStrip( "Glow", intensity, emissive ) )
     {
-        EmissiveIntensity = static_cast<float>( intensity );
+        SetEmissiveIntensity( static_cast<float>( intensity ) );
     }
-    row( "Alpha Cutoff", AlphaCutoff, spec( MeWidgets::Unit::Percent, 1.0, 0.0, -1 ) );
+    row( "Alpha Cutoff", AlphaCutoff, &StandardMaterial::SetAlphaCutoff, spec( MeWidgets::Unit::Percent, 1.0, 0.0, -1 ) );
 }
 #endif

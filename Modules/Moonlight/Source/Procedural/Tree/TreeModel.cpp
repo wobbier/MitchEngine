@@ -24,7 +24,7 @@ namespace MitchTree
         {
             auto material = MakeShared<FoliageMaterial>();
             material->Init();
-            FoliageSettings& foliage = material->Foliage;
+            FoliageSettings foliage = material->Foliage;
             foliage.Mode = InLeaves ? FoliageSettings::Part::Leaves : FoliageSettings::Part::Bark;
             foliage.TreeHeight = std::max( InTree.Height, 0.1f );
             // Wind response in metres: a flexible twig on a 12 m tree swings about 0.3 m in a strong breeze.
@@ -36,18 +36,22 @@ namespace MitchTree
             if( InLeaves )
             {
                 foliage.Translucency = InRecipe.Foliage.Translucency;
-                material->DiffuseColor = InRecipe.Foliage.Tint;
-                material->Roughness = InRecipe.Foliage.Roughness;
-                material->AlphaCutoff = InRecipe.Foliage.AlphaCutoff;
-                material->FaceMode = Moonlight::RenderFaceMode::Both;
+            }
+            material->SetFoliage( foliage );
+            if( InLeaves )
+            {
+                material->SetDiffuseColor( InRecipe.Foliage.Tint );
+                material->SetRoughness( InRecipe.Foliage.Roughness );
+                material->SetAlphaCutoff( InRecipe.Foliage.AlphaCutoff );
+                material->SetFaceMode( Moonlight::RenderFaceMode::Both );
                 const bool generated = InRecipe.LeafTextures.Generate;
                 SetTexture( *material, InTextures, generated ? "leaf-color" : InRecipe.Foliage.BaseColorMap, generated, Moonlight::TextureType::Diffuse, Moonlight::WrapMode::Clamp );
                 SetTexture( *material, InTextures, generated ? "leaf-normal" : InRecipe.Foliage.NormalMap, generated, Moonlight::TextureType::Normal, Moonlight::WrapMode::Clamp );
                 return material;
             }
-            material->DiffuseColor = InRecipe.Bark.Tint;
-            material->Roughness = InRecipe.Bark.Roughness;
-            material->NormalStrength = InRecipe.Bark.NormalStrength;
+            material->SetDiffuseColor( InRecipe.Bark.Tint );
+            material->SetRoughness( InRecipe.Bark.Roughness );
+            material->SetNormalStrength( InRecipe.Bark.NormalStrength );
             const bool generated = InRecipe.BarkTextures.Generate;
             SetTexture( *material, InTextures, generated ? "bark-color" : InRecipe.Bark.BaseColorMap, generated, Moonlight::TextureType::Diffuse, Moonlight::WrapMode::Wrap );
             SetTexture( *material, InTextures, generated ? "bark-normal" : InRecipe.Bark.NormalMap, generated, Moonlight::TextureType::Normal, Moonlight::WrapMode::Wrap );
@@ -57,7 +61,7 @@ namespace MitchTree
             {
                 SetTexture( *material, InTextures, orm, generated, Moonlight::TextureType::Occlusion, Moonlight::WrapMode::Wrap );
                 // The map holds the roughness.
-                material->Roughness = 1.f;
+                material->SetRoughness( 1.f );
             }
             return material;
         }

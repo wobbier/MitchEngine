@@ -33,6 +33,11 @@ public:
     bool Intersects( const AABB& inBox ) const;
     bool Intersects( const Sphere& inSphere ) const;
 
+    // Top, bottom, left, right, near, far: (normal, distance), normalized; a point p is inside a
+    // plane when dot( normal, p ) + distance >= 0 (the GPU cull, ME-389, tests the same way).
+    const glm::vec4* GetPlanes() const { return Planes; }
+    static constexpr uint32_t kPlaneCount = 6;
+
 private:
     bool IsOnPositiveSide( const glm::vec4& inPlane, const glm::vec3& inPoint );
 
