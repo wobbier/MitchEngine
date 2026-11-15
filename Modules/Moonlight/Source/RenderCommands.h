@@ -131,14 +131,19 @@ namespace Moonlight
         // anything it is built from changes (ME-390). Only these go to the GPU-driven path (ME-389):
         // a retained command is current every frame without being rewritten.
         bool Retained = false;
+        // RenderCore's last update kept this command in the GPU path's set (ME-401) and left its
+        // camera culls to that path: no camera's VisibleFlags has it set, and Visible holds only
+        // Active. A camera that draws or picks it on the CPU after all (a fallback, a mesh that left
+        // the GPU set) tests WorldBounds against its own frustum: CameraSeesMesh (CameraData.h).
+        bool CullDeferred = false;
     };
 
     // Fills the geometry and material fields of a static mesh's command (what RenderCore does for
     // Mesh components; editor previews fill their own). InLod is clamped to the mesh's levels.
     void FillMeshCommand( MeshCommand& OutCommand, MeshData* InMesh, const SharedPtr<Material>& InMaterial, uint8_t InLod = 0 );
 
-    // Whether two commands draw the same: every field but Visible (which follows the cameras each
-    // frame and is not a change, ME-390). Data behind the pointers (material values, a skin
+    // Whether two commands draw the same: every field but Visible and CullDeferred (which follow the
+    // cameras each frame and are not a change, ME-390, ME-401). Data behind the pointers (material values, a skin
     // palette's contents) is not compared.
     inline bool SameMeshCommand( const MeshCommand& InA, const MeshCommand& InB )
     {

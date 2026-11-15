@@ -2,7 +2,9 @@
 
 #include "MeshBatchRegistry.h"
 #include "RenderCommands.h"
+#include "Camera/CameraData.h"
 #include "Utils/CommandCache.h"
+#include <glm/gtc/matrix_transform.hpp>
 #include <algorithm>
 #include <map>
 #include <random>
@@ -182,6 +184,8 @@ TEST_CASE( "Retained meshes: Visible is not a change, everything a draw uses is"
     CHECK( Moonlight::SameMeshCommand( a, b ) );
     b.Visible = !a.Visible;
     CHECK( Moonlight::SameMeshCommand( a, b ) );
+    b.CullDeferred = !a.CullDeferred;
+    CHECK( Moonlight::SameMeshCommand( a, b ) );
 
     b = a;
     b.Transform[3][0] += 1.f;
@@ -201,4 +205,43 @@ TEST_CASE( "Retained meshes: Visible is not a change, everything a draw uses is"
     b = a;
     b.DitherFade = 0.5f;
     CHECK_FALSE( Moonlight::SameMeshCommand( a, b ) );
+}
+
+
+TEST_CASE( "Retained meshes: a cull left to the GPU path is tested when a camera reads it" )
+{
+    // ME-401: RenderCore skips the camera test for the GPU path's members and leaves their flags at
+    // 0; whoever draws or picks one on the CPU tests its bounds against the camera's own frustum.
+    Moonlight::CameraData camera;
+    const glm::mat4 projection = glm::perspectiveLH( glm::radians( 60.f ), 16.f / 9.f, 0.1f, 100.f );
+    const glm::mat4 view = glm::lookAtLH( glm::vec3( 0.f, 0.f, -10.f ), glm::vec3( 0.f ), glm::vec3( 0.f, 1.f, 0.f ) );
+    camera.ViewFrustum.Update( projection * view );
+    camera.VisibleFlags.assign( 4, 0 );
+
+    Moonlight::MeshCommand inView;
+    inView.WorldBounds = AABB( Vector3( -1.f, -1.f, -1.f ), Vector3( 1.f, 1.f, 1.f ) );
+    inView.VisibilityIndex = 1;
+    Moonlight::MeshCommand behind = inView;
+    behind.WorldBounds = AABB( Vector3( -1.f, -1.f, -30.f ), Vector3( 1.f, 1.f, -28.f ) );
+    REQUIRE( camera.ViewFrustum.Intersects( inView.WorldBounds ) );
+    REQUIRE_FALSE( camera.ViewFrustum.Intersects( behind.WorldBounds ) );
+
+    // Culled by RenderCore: the flag decides alone.
+    CHECK_FALSE( Moonlight::CameraSeesMesh( camera, inView ) );
+    camera.VisibleFlags[1] = 1;
+    CHECK( Moonlight::CameraSeesMesh( camera, inView ) );
+    CHECK( Moonlight::CameraSeesMesh( camera, behind ) );
+    camera.VisibleFlags[1] = 0;
+
+    // Left to the GPU path: the frustum decides.
+    inView.CullDeferred = true;
+    behind.CullDeferred = true;
+    CHECK( Moonlight::CameraSeesMesh( camera, inView ) );
+    CHECK_FALSE( Moonlight::CameraSeesMesh( camera, behind ) );
+
+    // An id outside the camera's flags (a camera RenderCore didn't size) sees nothing.
+    inView.VisibilityIndex = 9;
+    CHECK_FALSE( Moonlight::CameraSeesMesh( camera, inView ) );
+    inView.VisibilityIndex = -1;
+    CHECK_FALSE( Moonlight::CameraSeesMesh( camera, inView ) );
 }

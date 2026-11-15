@@ -1599,7 +1599,9 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
             // Resident foliage can retain a hidden command whose old visibility index
             // exceeds this frame's smaller draw list. Ignore it before reading that list.
             if( !mesh.Visible || !mesh.MeshMaterial || mesh.RenderGroup != camera.RenderGroup ) return;
-            if( hasCullingInfo && ( mesh.VisibilityIndex >= camera.VisibleFlags.size() || !camera.VisibleFlags[mesh.VisibilityIndex] ) )
+            // A GPU path mesh RenderCore didn't cull (ME-401) reaches here only when this camera draws
+            // it on the CPU after all: CameraSeesMesh tests it against the frustum then.
+            if( hasCullingInfo && !Moonlight::CameraSeesMesh( camera, mesh ) )
             {
                 return;
             }

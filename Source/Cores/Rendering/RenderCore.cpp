@@ -51,10 +51,10 @@
 
 namespace
 {
-    // --verify-retained-meshes: the first field a kept command got wrong (ME-390).
+    // --verify-retained-meshes: the first field a kept command got wrong (ME-390; Visible and
+    // CullDeferred are checked by the caller, ME-401).
     std::string DescribeCommandDifference( const Moonlight::MeshCommand& InKept, const Moonlight::MeshCommand& InBuilt )
     {
-        if( InKept.Visible != InBuilt.Visible ) return "Visible";
         if( InKept.Transform != InBuilt.Transform ) return "Transform";
         if( InKept.BatchKey != InBuilt.BatchKey ) return "BatchKey";
         if( InKept.CastShadows != InBuilt.CastShadows ) return "CastShadows";
@@ -641,6 +641,12 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
 #endif
         return isVisible;
     };
+    // The meshes the GPU path culls and draws (ME-389), as of its last update: a kept command among
+    // them skips cullBounds (ME-401), and the visible lists below leave them out. Membership changes
+    // in the renderer's next update are covered there: a mesh that leaves is visited from
+    // GetOpaqueLeft() and tested by CameraSeesMesh. --no-defer-gpu-culls: cull them here too (A/B).
+    const std::vector<uint8_t>& gpuCulled = renderer.GetGpuCulledMeshes();
+    static const bool deferGpuCulls = !CommandLine::Has( "--no-defer-gpu-culls" );
     // What a kept command took from its material and no longer matches (nullptr: all of it holds).
     // CastsShadows is kept per command (RetainedMaterial), with the mesh's own flags.
     const auto retainedMaterialDiffers = []( const Moonlight::MeshCommand& InCommand, Moonlight::Material& InMaterial, uint64_t InId ) -> const char* {
@@ -762,7 +768,14 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         {
             return false;
         }
-        const bool visible = cullBounds( command.WorldBounds, slot ) && active;
+        // In the GPU path's set (ME-401): its cull runs on the GPU, so the cameras' test is left to
+        // whoever draws or picks it on the CPU after all (Moonlight::CameraSeesMesh). Its flags stay 0.
+        const bool deferCull = deferGpuCulls && slot < gpuCulled.size() && gpuCulled[slot] != 0;
+        if( command.CullDeferred != deferCull )
+        {
+            command.CullDeferred = deferCull;
+        }
+        const bool visible = ( deferCull || cullBounds( command.WorldBounds, slot ) ) && active;
         if( command.Visible != visible )
         {
             command.Visible = visible;
@@ -1115,6 +1128,11 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                                 meshCache.Commands[id].Retained = false;
                                 meshCache.MarkChanged( id );
                             }
+                            // Not culled this frame, so no camera sees it (its flags stay 0).
+                            if( id < meshCache.Commands.size() )
+                            {
+                                meshCache.Commands[id].CullDeferred = false;
+                            }
                             continue;
                         }
 
@@ -1200,13 +1218,18 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                             Moonlight::MeshCommand& kept = meshCache.Commands[id];
                             if( item.Verify )
                             {
-                                // Only built to check the kept command: it must match.
-                                if( !Moonlight::SameMeshCommand( kept, command ) || kept.Visible != command.Visible )
+                                // Only built to check the kept command: it must match. One whose cull
+                                // was left to the GPU path (ME-401) is visible when active, and must be
+                                // in the GPU set; the rebuild's cull set its flags, which agree.
+                                const bool deferredRight = !kept.CullDeferred || ( id < gpuCulled.size() && gpuCulled[id] != 0 );
+                                const bool keptVisible = kept.CullDeferred ? command.Active : command.Visible;
+                                if( !Moonlight::SameMeshCommand( kept, command ) || kept.Visible != keptVisible || !deferredRight )
                                 {
                                     if( retainedWrong.fetch_add( 1 ) == 0 )
                                     {
                                         retainedWrongFirst = id;
-                                        retainedWrongField = DescribeCommandDifference( kept, command );
+                                        retainedWrongField = !deferredRight ? "CullDeferred outside the GPU set"
+                                            : kept.Visible != keptVisible ? "Visible" : DescribeCommandDifference( kept, command );
                                     }
                                 }
                                 continue;
@@ -1230,6 +1253,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                                 // Nothing the renderer keeps changed (terrain, foliage and compact
                                 // model parts are gathered every frame): no change to note.
                                 kept.Visible = command.Visible;
+                                kept.CullDeferred = false;
                             }
                             else
                             {
@@ -1270,9 +1294,8 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
 #endif
         const uint64_t frame = renderer.GetFrameIndex() + 1;
         const size_t commandCount = renderer.GetMeshCache().Commands.size();
-        // The meshes the GPU culls and draws (ME-389) stay out of the lists; one byte per id, so
-        // eight at a time come off with a mask.
-        const std::vector<uint8_t>& gpuCulled = renderer.GetGpuCulledMeshes();
+        // The meshes the GPU culls and draws (gpuCulled, read before the gather) stay out of the
+        // lists; one byte per id, so eight at a time come off with a mask.
         engine.GetJobSystem().ParallelFor( "Render Prep: Visible Meshes", static_cast<uint32_t>( listed.size() ), 1, [&]( uint32_t begin, uint32_t end )
             {
                 for( uint32_t c = begin; c < end; ++c )

@@ -186,7 +186,8 @@ void PickingPass::Render( ::BGFXRenderer* inRenderer, CameraData* inCamData, Fra
             {
                 continue;
             }
-            if( hasCullingInfo && ( mesh.VisibilityIndex < 0 || static_cast<size_t>( mesh.VisibilityIndex ) >= inCamData->VisibleFlags.size() || !inCamData->VisibleFlags[mesh.VisibilityIndex] ) )
+            // GPU path meshes RenderCore didn't cull (ME-401) are tested against the frustum here, on the click.
+            if( hasCullingInfo && !Moonlight::CameraSeesMesh( *inCamData, mesh ) )
             {
                 continue;
             }

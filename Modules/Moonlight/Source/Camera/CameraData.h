@@ -185,4 +185,16 @@ namespace Moonlight
         // CPU after all scans every command instead.
         bool VisibleMeshesExcludeGpu = false;
     };
+
+    // Whether a camera RenderCore culls for (one with VisibleFlags, ShouldCull) sees InMesh: its flag,
+    // or for a command whose cull RenderCore left to the GPU path (MeshCommand::CullDeferred, ME-401)
+    // its world bounds against the camera's frustum, the test RenderCore would have made.
+    inline bool CameraSeesMesh( const CameraData& InCamera, const MeshCommand& InMesh )
+    {
+        if( InMesh.VisibilityIndex < 0 || static_cast<size_t>( InMesh.VisibilityIndex ) >= InCamera.VisibleFlags.size() )
+        {
+            return false;
+        }
+        return InCamera.VisibleFlags[InMesh.VisibilityIndex] != 0 || ( InMesh.CullDeferred && InCamera.ViewFrustum.Intersects( InMesh.WorldBounds ) );
+    }
 }
