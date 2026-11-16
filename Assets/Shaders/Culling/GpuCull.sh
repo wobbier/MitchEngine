@@ -35,6 +35,8 @@ uniform vec4 u_gpuCull[3 + 6 * 16];
 #define u_reverse    u_gpuCull[2].x
 #define u_shadow     u_gpuCull[2].y
 #define u_groupBase  u_gpuCull[2].z
+// Occlusion culls (ME-404): 1 phase 1, 2 phase 2 (its survivors also join phase 1's colour draw).
+#define u_occPhase   u_gpuCull[2].w
 
 uint cullUint(float value)
 {

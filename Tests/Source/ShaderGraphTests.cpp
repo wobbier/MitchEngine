@@ -846,7 +846,7 @@ TEST_CASE( "shader compiler: the GPU culling shaders compile for every portable 
     std::filesystem::remove_all( directory );
     std::filesystem::create_directories( directory );
     std::string failures;
-    for( const char* name : { "GpuCullCount", "GpuCullOffsets", "GpuCullWrite", "GpuCullScatter", "GpuCullOcclusionCount", "GpuCullOcclusionWrite", "GpuCullDepthPyramid" } )
+    for( const char* name : { "GpuCullCount", "GpuCullOffsets", "GpuCullWrite", "GpuCullScatter", "GpuCullOcclusionCount", "GpuCullOcclusionOffsets", "GpuCullOcclusionWrite", "GpuCullDepthPyramid" } )
     {
         const std::string source = Path( std::string( "Assets/Shaders/Culling/" ) + name + ".comp" ).FullPath;
         REQUIRE( std::filesystem::exists( source ) );

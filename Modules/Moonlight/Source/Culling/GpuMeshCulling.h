@@ -293,6 +293,9 @@ namespace Moonlight
             uint32_t Views = 0;
             uint32_t ArgsBase = 0;
             uint32_t OutBase = 0;
+            // Where the colour draw's arguments start: ArgsBase, or after occlusion phase 2 the merged
+            // arguments (ME-404; OcclusionCull::MergedArgsBase), which count both phases' survivors.
+            uint32_t ColourArgsBase = 0;
         };
         CullResult Cull( bgfx::ViewId InView, Set InSet, const glm::vec4* InPlanes, uint32_t InViewCount, bool InReverse, bool InShadowMatrices );
 
@@ -300,6 +303,7 @@ namespace Moonlight
         // GetDrawArgs() at GetArgsIndex().
         void SetInstances( const CullResult& InCull, uint32_t InView, uint32_t InBatch ) const;
         uint32_t GetArgsIndex( const CullResult& InCull, uint32_t InView, uint32_t InBatch ) const;
+        uint32_t GetColourArgsIndex( const CullResult& InCull, uint32_t InView, uint32_t InBatch ) const;
         bgfx::IndirectBufferHandle GetDrawArgs() const { return m_drawArgs; }
 
         // Last frame's dispatches, and culls that fell back to the CPU path.
@@ -331,18 +335,27 @@ namespace Moonlight
         // Phase 1: the opaque set against InPlanes (one view) and last frame's pyramid (InHistory).
         // Reserves phase 2's output with it, so phase 2 can't run out of room once phase 1 has
         // rejected anything. Invalid as Cull is (the caller draws on the CPU path).
+        //
+        // Phase 2's survivors join phase 1's colour draw (ME-404): its write pass appends them to
+        // phase 1's instances (each batch's region holds all its members, and no member survives
+        // both phases), and its offsets pass writes merged arguments (phase 1's total plus its
+        // own) at MergedArgsBase. Phase 1's own arguments stay as the first prepass read them, and
+        // phase 2's own region and arguments feed only the second prepass's depth draws.
         struct OcclusionCull
         {
             CullResult Phase1;
             uint32_t Phase2OutBase = 0;
             uint32_t Phase2ArgsBase = 0;
+            uint32_t MergedArgsBase = 0;
         };
         OcclusionCull CullOcclusion( bgfx::ViewId InView, const glm::vec4* InPlanes, bool InReverse, const HiZHistory& InHistory );
         // This frame's pyramid from InDepth (the depth prepass), one pass per view of InViews
         // (GetPasses() of them, after the prepass, before phase 2). False when it couldn't be built.
         bool BuildPyramid( HiZHistory& InOutHistory, const bgfx::ViewId* InViews, bgfx::TextureHandle InDepth, const HiZProjection& InProjection, bool InOrthographic );
         // Phase 2: phase 1's rejects against this frame's pyramid (null: no pyramid was built, so
-        // every reject is drawn). In a view after the pyramid's; drawn after phase 1's draws.
+        // every reject is drawn). In a view after the pyramid's and before the opaque view. Once it
+        // is valid, phase 1's colour draws take GetColourArgsIndex with ColourArgsBase set to
+        // MergedArgsBase; phase 2 itself draws only depth (into the second prepass).
         CullResult CullOcclusionPhase2( bgfx::ViewId InView, const OcclusionCull& InPhase1, bool InReverse, const HiZHistory* InHistory );
         // A check of phase 2 (--occlusion-phase2-only): phase 1 rejects every mesh, so phase 2 draws
         // everything visible; the image must match the frustum-only path's.
@@ -355,10 +368,12 @@ namespace Moonlight
         void DestroyHistory( HiZHistory& InOutHistory );
         // The three dispatches of a cull into regions already taken (InOcclusion: the occlusion
         // programs with u_gpuCullOcc and the pyramid bound).
+        // InOcclusionPhase: 0 a frustum cull, else the occlusion phase (1, or 2 for phase 2, which merges).
         void DispatchCull( bgfx::ViewId InView, Set InSet, const glm::vec4* InPlanes, uint32_t InViewCount, bool InReverse, bool InShadowMatrices, uint32_t InOutBase, uint32_t InArgsBase,
-            const glm::vec4* InOcclusion, const HiZHistory* InPyramid );
+            const glm::vec4* InOcclusion, const HiZHistory* InPyramid, uint32_t InOcclusionPhase = 0 );
 
         SharedPtr<ProgramRef> m_occlusionCount;
+        SharedPtr<ProgramRef> m_occlusionOffsets;
         SharedPtr<ProgramRef> m_occlusionWrite;
         SharedPtr<ProgramRef> m_pyramid;
         bgfx::UniformHandle u_gpuCullOcc = BGFX_INVALID_HANDLE;

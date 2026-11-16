@@ -10,6 +10,9 @@
 //   phase 3: phase 2 without a pyramid (it could not be built): every candidate.
 // s_occState (per member of the set: x visible in this phase, y candidate) carries phase 1's
 // rejects to phase 2 and each member's result to pass 3, which reads it instead of testing again.
+// Its w, in each batch's first member, carries phase 1's total to phase 2 (ME-404): phase 2's write
+// pass appends its survivors to phase 1's, so the opaque view draws each batch once, and also
+// writes them into its own region for the second depth prepass.
 //
 // The pyramid (GpuCullDepthPyramid.comp): the farthest depth per texel, mip 0 the previous powers of
 // two of the depth size, HIZ_MIPS_PER_PASS mips per texture (s_hiz0 has mips 0-4, s_hiz1 5-9...).
@@ -128,6 +131,9 @@ bool occlusionCount(uint member, bool valid, vec4 boundsMin, vec4 boundsMax, uin
 	uint phase = cullUint(u_gpuCullOcc[4].w);
 	bool visible = false;
 	bool candidate = false;
+	// w: phase 1's total for the batch, in its first member's state (GpuCullOffsets.sh); phase 1's
+	// offsets pass writes it after this, phase 2 keeps it.
+	vec4 earlier = s_occState[member];
 	if (valid)
 	{
 		if (phase == 1u)
@@ -139,10 +145,10 @@ bool occlusionCount(uint member, bool valid, vec4 boundsMin, vec4 boundsMax, uin
 		}
 		else
 		{
-			candidate = s_occState[member].y > 0.5;
+			candidate = earlier.y > 0.5;
 			visible = candidate && (phase == 3u || hizVisible(boundsMin.xyz, boundsMax.xyz));
 		}
 	}
-	s_occState[member] = vec4(visible ? 1.0 : 0.0, candidate ? 1.0 : 0.0, 0.0, 0.0);
+	s_occState[member] = vec4(visible ? 1.0 : 0.0, candidate ? 1.0 : 0.0, 0.0, phase == 1u ? 0.0 : earlier.w);
 	return visible;
 }

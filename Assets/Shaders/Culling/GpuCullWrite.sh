@@ -1,5 +1,6 @@
 // GPU culling, pass 3 (see GpuCull.sh): the body of GpuCullWrite.comp and GpuCullOcclusionWrite.comp
-// (CULL_OCCLUSION: visibility comes from pass 1's s_occState instead of the frustum test).
+// (CULL_OCCLUSION: visibility comes from pass 1's s_occState instead of the frustum test, and phase 2
+// writes each survivor twice).
 
 BUFFER_RO(s_members, uint, 0);
 BUFFER_RO(s_records, vec4, 1);
@@ -71,4 +72,16 @@ void main()
 	s_instances[slot * 4u + 1u] = c1;
 	s_instances[slot * 4u + 2u] = c2;
 	s_instances[slot * 4u + 3u] = c3;
+#if defined(CULL_OCCLUSION)
+	// Phase 2 (ME-404): again after phase 1's survivors in phase 1's region (the region before this
+	// one), for the merged colour draw; s_totals.y is phase 1's total (GpuCullOffsets.sh).
+	if (cullUint(u_occPhase) == 2u)
+	{
+		uint merged = slot - cullUint(u_padded) + cullUint(s_totals[view * cullUint(u_batches) + batch].y);
+		s_instances[merged * 4u + 0u] = c0;
+		s_instances[merged * 4u + 1u] = c1;
+		s_instances[merged * 4u + 2u] = c2;
+		s_instances[merged * 4u + 3u] = c3;
+	}
+#endif
 }

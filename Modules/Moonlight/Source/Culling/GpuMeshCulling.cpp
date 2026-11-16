@@ -14,6 +14,7 @@ namespace
     constexpr const char* kWriteShader = "Assets/Shaders/Culling/GpuCullWrite.comp";
     constexpr const char* kScatterShader = "Assets/Shaders/Culling/GpuCullScatter.comp";
     constexpr const char* kOcclusionCountShader = "Assets/Shaders/Culling/GpuCullOcclusionCount.comp";
+    constexpr const char* kOcclusionOffsetsShader = "Assets/Shaders/Culling/GpuCullOcclusionOffsets.comp";
     constexpr const char* kOcclusionWriteShader = "Assets/Shaders/Culling/GpuCullOcclusionWrite.comp";
     constexpr const char* kPyramidShader = "Assets/Shaders/Culling/GpuCullDepthPyramid.comp";
     // Stages the occlusion passes add (GpuCullOcclusion.sh): the member state, then the pyramid's textures.
@@ -595,6 +596,7 @@ Moonlight::GpuMeshCulling::GpuMeshCulling()
     m_write = AcquireComputeProgram( kWriteShader );
     m_scatter = AcquireComputeProgram( kScatterShader );
     m_occlusionCount = AcquireComputeProgram( kOcclusionCountShader );
+    m_occlusionOffsets = AcquireComputeProgram( kOcclusionOffsetsShader );
     m_occlusionWrite = AcquireComputeProgram( kOcclusionWriteShader );
     m_pyramid = AcquireComputeProgram( kPyramidShader );
     u_gpuCull = bgfx::createUniform( "u_gpuCull", bgfx::UniformType::Vec4, kCullParams );
@@ -889,6 +891,7 @@ Moonlight::GpuMeshCulling::CullResult Moonlight::GpuMeshCulling::Cull( bgfx::Vie
     result.Valid = true;
     result.OutBase = m_instanceUsed;
     result.ArgsBase = m_argsUsed;
+    result.ColourArgsBase = result.ArgsBase;
     m_instanceUsed += instances;
     m_argsUsed += args;
 
@@ -911,15 +914,21 @@ uint32_t Moonlight::GpuMeshCulling::GetArgsIndex( const CullResult& InCull, uint
 }
 
 
+uint32_t Moonlight::GpuMeshCulling::GetColourArgsIndex( const CullResult& InCull, uint32_t InView, uint32_t InBatch ) const
+{
+    return GpuCullArgsIndex( InCull.ColourArgsBase, GetLayout( InCull.Which ).GetBatchCount(), InView, InBatch );
+}
+
+
 void Moonlight::GpuMeshCulling::DispatchCull( bgfx::ViewId InView, Set InSet, const glm::vec4* InPlanes, uint32_t InViewCount, bool InReverse, bool InShadowMatrices, uint32_t InOutBase, uint32_t InArgsBase,
-    const glm::vec4* InOcclusion, const HiZHistory* InPyramid )
+    const glm::vec4* InOcclusion, const HiZHistory* InPyramid, uint32_t InOcclusionPhase )
 {
     const GpuCullSetLayout& layout = GetLayout( InSet );
     const uint32_t batches = layout.GetBatchCount();
     glm::vec4 params[kCullParams] = {};
     params[0] = glm::vec4( static_cast<float>( layout.MemberBase ), static_cast<float>( layout.Padded ), static_cast<float>( layout.Groups ), static_cast<float>( batches ) );
     params[1] = glm::vec4( static_cast<float>( layout.BatchBase ), static_cast<float>( InViewCount ), static_cast<float>( InArgsBase ), static_cast<float>( InOutBase ) );
-    params[2] = glm::vec4( InReverse ? 1.f : 0.f, InShadowMatrices ? 1.f : 0.f, static_cast<float>( layout.GroupBase ), 0.f );
+    params[2] = glm::vec4( InReverse ? 1.f : 0.f, InShadowMatrices ? 1.f : 0.f, static_cast<float>( layout.GroupBase ), static_cast<float>( InOcclusionPhase ) );
     std::memcpy( &params[3], InPlanes, sizeof( glm::vec4 ) * 6 * InViewCount );
     const bool occlusion = InOcclusion != nullptr;
 
@@ -944,7 +953,12 @@ void Moonlight::GpuMeshCulling::DispatchCull( bgfx::ViewId InView, Set InSet, co
     bgfx::setBuffer( 1, m_groupScratch, bgfx::Access::ReadWrite );
     bgfx::setBuffer( 2, m_totals, bgfx::Access::Write );
     bgfx::setBuffer( 3, m_drawArgs, bgfx::Access::Write );
-    bgfx::dispatch( InView, m_offsets->Handle, batches * InViewCount, 1, 1 );
+    if( occlusion )
+    {
+        // Phase 1 hands its totals to phase 2 here; phase 2 writes the merged arguments (ME-404).
+        bgfx::setBuffer( kOcclusionStateStage, m_occlusionState, bgfx::Access::ReadWrite );
+    }
+    bgfx::dispatch( InView, occlusion ? m_occlusionOffsets->Handle : m_offsets->Handle, batches * InViewCount, 1, 1 );
 
     bgfx::setUniform( u_gpuCull, params, kCullParams );
     bgfx::setBuffer( 0, m_memberBuffer, bgfx::Access::Read );
@@ -967,7 +981,7 @@ bool Moonlight::GpuMeshCulling::IsOcclusionReady() const
 {
     const auto ready = []( const SharedPtr<ProgramRef>& InProgram ) { return InProgram && bgfx::isValid( InProgram->Handle ); };
     const uint32_t r32f = bgfx::getCaps()->formats[bgfx::TextureFormat::R32F];
-    return IsReady() && ready( m_occlusionCount ) && ready( m_occlusionWrite ) && ready( m_pyramid ) && bgfx::isValid( m_hizDummy )
+    return IsReady() && ready( m_occlusionCount ) && ready( m_occlusionOffsets ) && ready( m_occlusionWrite ) && ready( m_pyramid ) && bgfx::isValid( m_hizDummy )
         && ( r32f & BGFX_CAPS_FORMAT_TEXTURE_2D ) != 0 && ( r32f & BGFX_CAPS_FORMAT_TEXTURE_IMAGE_WRITE ) != 0;
 }
 
@@ -1040,8 +1054,9 @@ Moonlight::GpuMeshCulling::OcclusionCull Moonlight::GpuMeshCulling::CullOcclusio
         return result;
     }
     // Both phases' output at once: phase 2 must never find it full after phase 1 rejected meshes.
+    // Arguments for phase 1, phase 2 and the merged colour draws (ME-404).
     const uint32_t instances = layout.Padded * 2;
-    const uint32_t args = batches * 2;
+    const uint32_t args = batches * 3;
     m_instanceDemand += instances;
     m_argsDemand += args;
     if( m_instanceUsed + instances > m_instanceCapacity || m_argsUsed + args > m_argsCapacity || !bgfx::isValid( m_instances ) || !bgfx::isValid( m_drawArgs ) )
@@ -1064,8 +1079,11 @@ Moonlight::GpuMeshCulling::OcclusionCull Moonlight::GpuMeshCulling::CullOcclusio
     result.Phase1.Valid = true;
     result.Phase1.OutBase = m_instanceUsed;
     result.Phase1.ArgsBase = m_argsUsed;
+    result.Phase1.ColourArgsBase = m_argsUsed;
     result.Phase2OutBase = m_instanceUsed + layout.Padded;
     result.Phase2ArgsBase = m_argsUsed + batches;
+    // GpuCullOffsets.sh writes them right after phase 2's.
+    result.MergedArgsBase = m_argsUsed + batches * 2;
     m_instanceUsed += instances;
     m_argsUsed += args;
 
@@ -1077,7 +1095,7 @@ Moonlight::GpuMeshCulling::OcclusionCull Moonlight::GpuMeshCulling::CullOcclusio
     }
     occlusion[4] = glm::vec4( static_cast<float>( InHistory.Layout.Width ), static_cast<float>( InHistory.Layout.Height ), static_cast<float>( InHistory.Layout.Mips ), 1.f );
     occlusion[5] = glm::vec4( InHistory.Projection.HomogeneousDepth ? 1.f : 0.f, InHistory.Projection.OriginBottomLeft ? 1.f : 0.f, InHistory.Projection.DepthEpsilon, m_phase2Only ? 1.f : 0.f );
-    DispatchCull( InView, Set::Opaque, InPlanes, 1, InReverse, false, result.Phase1.OutBase, result.Phase1.ArgsBase, occlusion, &InHistory );
+    DispatchCull( InView, Set::Opaque, InPlanes, 1, InReverse, false, result.Phase1.OutBase, result.Phase1.ArgsBase, occlusion, &InHistory, 1 );
     return result;
 }
 
@@ -1135,6 +1153,7 @@ Moonlight::GpuMeshCulling::CullResult Moonlight::GpuMeshCulling::CullOcclusionPh
     result.Views = 1;
     result.OutBase = InPhase1.Phase2OutBase;
     result.ArgsBase = InPhase1.Phase2ArgsBase;
+    result.ColourArgsBase = InPhase1.Phase2ArgsBase;
     const GpuCullSetLayout& layout = GetLayout( Set::Opaque );
     if( !InPhase1.Phase1.Valid || layout.GetBatchCount() == 0 )
     {
@@ -1166,6 +1185,6 @@ Moonlight::GpuMeshCulling::CullResult Moonlight::GpuMeshCulling::CullOcclusionPh
     }
     // Phase 2 tests only phase 1's candidates, which passed the frustum already.
     const glm::vec4 planes[6] = {};
-    DispatchCull( InView, Set::Opaque, planes, 1, InReverse, false, result.OutBase, result.ArgsBase, occlusion, pyramid ? InHistory : nullptr );
+    DispatchCull( InView, Set::Opaque, planes, 1, InReverse, false, result.OutBase, result.ArgsBase, occlusion, pyramid ? InHistory : nullptr, 2 );
     return result;
 }

@@ -287,7 +287,9 @@ private:
     // InSkinned: the material's skinned program, with the mesh's weights stream and bone palette.
     // With a prepass view, a draw of the stock Standard programs is submitted to it here first,
     // depth only (InInstances: its instance count, for the statistics).
-    bgfx::ProgramHandle BindMeshDrawState( const Moonlight::MeshCommand& mesh, uint64_t state, bgfx::ViewId InPrepassView = UINT16_MAX, bool InSkinned = false, uint32_t InInstances = 1 );
+    // InDepthOnly: only that prepass draw, if the mesh takes part; nothing stays bound and the
+    // result is invalid (ME-404: occlusion phase 2's depth, whose colour joins phase 1's draw).
+    bgfx::ProgramHandle BindMeshDrawState( const Moonlight::MeshCommand& mesh, uint64_t state, bgfx::ViewId InPrepassView = UINT16_MAX, bool InSkinned = false, uint32_t InInstances = 1, bool InDepthOnly = false );
     // A render texture camera: it has a loaded target texture and isn't the main camera.
     static bool RendersToTexture( const Moonlight::CameraData& InCamera );
 
@@ -439,9 +441,11 @@ private:
     // One GPU-culled shadow view: every shadow batch, indirect, from view InViewIndex of InCull.
     // Batches whose bounds miss InFrustum are not submitted.
     void SubmitGpuShadowCasters( bgfx::ViewId InView, const Moonlight::GpuMeshCulling::CullResult& InCull, uint32_t InViewIndex, const Frustum& InFrustum );
-    // A camera's GPU-culled opaque batches (backwards under a prepass).
-    // InCountTriangles false: a second phase of the same meshes (ME-400), already counted.
-    void SubmitGpuOpaque( bgfx::ViewId InView, const Moonlight::GpuMeshCulling::CullResult& InCull, uint64_t InState, bgfx::ViewId InPrepassView, const Frustum& InFrustum, bool InCountTriangles = true );
+    // A camera's GPU-culled opaque batches (backwards under a prepass): depth from the cull's own
+    // arguments, colour from its colour arguments (ME-404: with occlusion, both phases' survivors).
+    // InDepthOnly: just the prepass draws (occlusion phase 2, whose meshes phase 1's colour draws
+    // include and count).
+    void SubmitGpuOpaque( bgfx::ViewId InView, const Moonlight::GpuMeshCulling::CullResult& InCull, uint64_t InState, bgfx::ViewId InPrepassView, const Frustum& InFrustum, bool InDepthOnly = false );
     // The occlusion decision last logged: 0 none yet, 1 on, 2 below OcclusionMinTriangles, 3 unsupported.
     int m_loggedOcclusion = 0;
     // Set while BindMeshDrawState binds an indirect draw: its prepass submit is indirect too.

@@ -1424,6 +1424,11 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         if( occlusionPhase1 )
         {
             gpuOpaque2 = m_gpuCulling->CullOcclusionPhase2( occlusionView, occlusionCull, reverseGpu, built ? hiz : nullptr );
+            // Phase 1's colour draws now count phase 2's survivors too (ME-404).
+            if( gpuOpaque2.Valid && gpuOpaque.Valid )
+            {
+                gpuOpaque.ColourArgsBase = occlusionCull.MergedArgsBase;
+            }
             if( prepass2View != UINT16_MAX )
             {
                 setupSceneView( prepass2View );
@@ -1718,12 +1723,12 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         {
             if( gpuDraws )
             {
+                // Occlusion phase 2 (ME-400): its colour is in phase 1's draws (ME-404), its depth
+                // in the second prepass view, after the pyramid.
                 SubmitGpuOpaque( id, gpuOpaque, state, prepassView, gpuFrustum );
-                // Occlusion phase 2 (ME-400): its depth in the second prepass view, after the
-                // pyramid; its colour here with phase 1's.
                 if( gpuOpaque2.Valid && prepass2View != UINT16_MAX )
                 {
-                    SubmitGpuOpaque( id, gpuOpaque2, state, prepass2View, gpuFrustum, false );
+                    SubmitGpuOpaque( id, gpuOpaque2, state, prepass2View, gpuFrustum, true );
                 }
             }
             // With a prepass the whole order runs backwards: last batch first, its instances
@@ -3135,7 +3140,7 @@ void BGFXRenderer::SubmitGpuShadowCasters( bgfx::ViewId InView, const Moonlight:
 }
 
 
-void BGFXRenderer::SubmitGpuOpaque( bgfx::ViewId InView, const Moonlight::GpuMeshCulling::CullResult& InCull, uint64_t InState, bgfx::ViewId InPrepassView, const Frustum& InFrustum, bool InCountTriangles )
+void BGFXRenderer::SubmitGpuOpaque( bgfx::ViewId InView, const Moonlight::GpuMeshCulling::CullResult& InCull, uint64_t InState, bgfx::ViewId InPrepassView, const Frustum& InFrustum, bool InDepthOnly )
 {
     OPTICK_EVENT( "Renderer::SubmitGpuOpaque" );
     const Moonlight::GpuCullSetLayout& layout = m_gpuCulling->GetLayout( Moonlight::GpuMeshCulling::Set::Opaque );
@@ -3154,14 +3159,19 @@ void BGFXRenderer::SubmitGpuOpaque( bgfx::ViewId InView, const Moonlight::GpuMes
             continue;
         }
         // The instance data first (the prepass submit inside BindMeshDrawState shares it), and the
-        // indirect arguments for that submit.
+        // indirect arguments for that submit. The colour draw's arguments may count more instances
+        // (occlusion phase 2's, appended after them in the same region).
         m_gpuCulling->SetInstances( InCull, 0, b );
         m_bindIndirect = m_gpuCulling->GetDrawArgs();
         m_bindIndirectIndex = m_gpuCulling->GetArgsIndex( InCull, 0, b );
-        const uint32_t counted = InCountTriangles ? batch.MemberCount : 0u;
-        const bgfx::ProgramHandle program = BindMeshDrawState( mesh, InState, InPrepassView, false, counted );
+        const uint32_t counted = InDepthOnly ? 0u : batch.MemberCount;
+        const bgfx::ProgramHandle program = BindMeshDrawState( mesh, InState, InPrepassView, false, counted, InDepthOnly );
         m_bindIndirect = BGFX_INVALID_HANDLE;
-        bgfx::submit( InView, program, m_gpuCulling->GetDrawArgs(), m_gpuCulling->GetArgsIndex( InCull, 0, b ), 1 );
+        if( InDepthOnly )
+        {
+            continue;
+        }
+        bgfx::submit( InView, program, m_gpuCulling->GetDrawArgs(), m_gpuCulling->GetColourArgsIndex( InCull, 0, b ), 1 );
         // Every member counted: the CPU doesn't learn how many the cull kept (an upper bound).
         CountTriangles( InView, mesh, counted );
     }
@@ -3524,7 +3534,7 @@ void BGFXRenderer::BindLighting()
 }
 
 
-bgfx::ProgramHandle BGFXRenderer::BindMeshDrawState( const Moonlight::MeshCommand& mesh, uint64_t state, bgfx::ViewId InPrepassView, bool InSkinned, uint32_t InInstances )
+bgfx::ProgramHandle BGFXRenderer::BindMeshDrawState( const Moonlight::MeshCommand& mesh, uint64_t state, bgfx::ViewId InPrepassView, bool InSkinned, uint32_t InInstances, bool InDepthOnly )
 {
     Moonlight::Material& material = *mesh.MeshMaterial;
     const bgfx::ProgramHandle program = InSkinned ? material.GetSkinnedProgram() : material.MeshShader.GetProgram();
@@ -3613,20 +3623,32 @@ bgfx::ProgramHandle BGFXRenderer::BindMeshDrawState( const Moonlight::MeshComman
                 material.Use();
             }
             bgfx::setState( ( state & ~( BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_DEPTH_TEST_MASK ) ) | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS );
+            const uint8_t discard = InDepthOnly ? BGFX_DISCARD_ALL : BGFX_DISCARD_NONE;
             if( bgfx::isValid( m_bindIndirect ) )
             {
-                bgfx::submit( InPrepassView, depthProgram, m_bindIndirect, m_bindIndirectIndex, 1, 0, BGFX_DISCARD_NONE );
+                bgfx::submit( InPrepassView, depthProgram, m_bindIndirect, m_bindIndirectIndex, 1, 0, discard );
             }
             else
             {
-                bgfx::submit( InPrepassView, depthProgram, 0, BGFX_DISCARD_NONE );
+                bgfx::submit( InPrepassView, depthProgram, 0, discard );
             }
             CountTriangles( InPrepassView, mesh, InInstances );
+            if( InDepthOnly )
+            {
+                return BGFX_INVALID_HANDLE;
+            }
             // The colour draw shades what the prepass left in front. LEQUAL rather than EQUAL: a
             // fragment in front of the prepass depth still draws, so a backend whose two
             // pipelines round a position differently loses pixels on one side of the error only.
             state = ( state & ~( BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_MASK ) ) | BGFX_STATE_DEPTH_TEST_LEQUAL;
         }
+    }
+
+    // Depth only, and the mesh draws no prepass: nothing to submit.
+    if( InDepthOnly )
+    {
+        bgfx::discard();
+        return BGFX_INVALID_HANDLE;
     }
 
     bgfx::setTexture( 1, s_texNormal, textureOr( Moonlight::TextureType::Normal, m_flatNormalTexture ) );

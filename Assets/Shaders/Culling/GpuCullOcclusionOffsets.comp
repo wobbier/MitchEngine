@@ -1,0 +1,6 @@
+// GPU culling with occlusion (ME-400, ME-404), pass 2: GpuCullOffsets.sh, which also hands phase 1's
+// totals to phase 2 through the member state and writes the merged colour draw's arguments.
+#define CULL_OCCLUSION 1
+#include "GpuCull.sh"
+BUFFER_RW(s_occState, vec4, 11);
+#include "GpuCullOffsets.sh"
