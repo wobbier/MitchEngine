@@ -3862,25 +3862,11 @@ void BGFXRenderer::WindowResized( const Vector2& newSize )
     {
         return;
     }
+    // The back buffer resets at the start of the next Render. Camera targets aren't rebuilt here:
+    // RenderCameraView rebuilds each one once, at its render-scaled size, when its OutputSize
+    // follows the window. Rebuilding here as well (at the unscaled size) rebuilt every camera twice
+    // per resize event and threw away its temporal, fog and eye-adaptation history each time.
     CurrentSize = newSize;
-
-#if USING( ME_EDITOR )
-    if( EditorCameraBuffer )
-    {
-        EditorCameraBuffer->Width = EditorCameraBuffer->OutputWidth = newSize.x;
-        EditorCameraBuffer->Height = EditorCameraBuffer->OutputHeight = newSize.y;
-        EditorCameraBuffer->ReCreate( m_resetFlags );
-    }
-#endif
-    for( auto cam : m_cameraCache.Commands )
-    {
-        if( cam.Buffer && ( cam.IsMain || cam.Buffer->MatchMainBufferSize ) )
-        {
-            cam.Buffer->Width = cam.Buffer->OutputWidth = newSize.x;
-            cam.Buffer->Height = cam.Buffer->OutputHeight = newSize.y;
-            cam.Buffer->ReCreate( m_resetFlags );
-        }
-    }
 }
 
 
