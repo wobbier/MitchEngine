@@ -12,7 +12,7 @@
 //
 // Frame order:
 //   Clear -> game UI (RmlUi) -> per-camera passes (dynamic) -> picking
-//   -> UI composite -> editor offscreen (previews) -> ImGui
+//   -> UI composite -> present (game) -> editor offscreen (previews) -> ImGui
 namespace Moonlight::RenderView
 {
     // Backbuffer clear.
@@ -37,8 +37,11 @@ namespace Moonlight::RenderView
     // Composites the game UI texture over the main camera's output.
     constexpr bgfx::ViewId UIComposite = PickingBlit + 1;
 
+    // Game builds: copies the main camera's finished image (UI included) to the back buffer.
+    constexpr bgfx::ViewId Present = UIComposite + 1;
+
     // Editor offscreen work submitted from the UI (shader graph node previews), sampled by ImGui.
-    constexpr bgfx::ViewId EditorOffscreenFirst = UIComposite + 1;
+    constexpr bgfx::ViewId EditorOffscreenFirst = Present + 1;
     constexpr bgfx::ViewId EditorOffscreenCount = 16;
     // The browser inspector has its own preview, including while graph documents are open.
     constexpr bgfx::ViewId AssetPreviewTiles = EditorOffscreenFirst + EditorOffscreenCount - 3;

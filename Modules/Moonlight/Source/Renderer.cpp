@@ -872,9 +872,9 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
     }
 
     // The editor shows the main camera inside the scene view widget, so it renders to its buffer.
-    constexpr bool kMainCameraToBackbuffer = false;
+    const bool kMainCameraToBackbuffer = false;
 #else
-    constexpr bool kMainCameraToBackbuffer = true;
+    const bool kMainCameraToBackbuffer = !PresentMainOffscreen;
 #endif
 
     auto isSplit = []( const Moonlight::CameraData& camData ) {
@@ -957,6 +957,14 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
                 m_postProcess->RenderOverlayComposite( m_views, *overlay, *overlay->Buffer, mainOutput, mainWidth, mainHeight );
             }
         }
+
+#if !USING( ME_EDITOR )
+        // Offscreen: the finished image (overlays, then the UI composite) onto the back buffer.
+        if( !kMainCameraToBackbuffer && bgfx::isValid( mainCamera->Buffer->Texture ) && !CurrentSize.IsZero() )
+        {
+            m_postProcess->RenderPresent( Moonlight::RenderView::Present, mainCamera->Buffer->Texture, static_cast<uint16_t>( CurrentSize.x ), static_cast<uint16_t>( CurrentSize.y ) );
+        }
+#endif
     }
 
     {

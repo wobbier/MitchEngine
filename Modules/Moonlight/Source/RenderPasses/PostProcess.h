@@ -66,6 +66,9 @@ namespace Moonlight
         // replaces the scene where the overlay's depth shows it drew, and adds on top elsewhere.
         void RenderOverlayComposite( ViewAllocator& InViews, const CameraData& InOverlayCamera, const FrameBuffer& InOverlay, bgfx::FrameBufferHandle InOutput, uint16_t InOutputWidth, uint16_t InOutputHeight );
 
+        // InImage stretched over the whole back buffer (InWidth x InHeight) on the fixed view InView.
+        void RenderPresent( bgfx::ViewId InView, bgfx::TextureHandle InImage, uint16_t InWidth, uint16_t InHeight );
+
         // The sub-pixel jitter (in pixels, -0.5..0.5) of frame InFrame of the temporal sequence
         // (Halton 2, 3 over 8 frames).
         static void TemporalJitter( uint32_t InFrame, float OutJitter[2] );

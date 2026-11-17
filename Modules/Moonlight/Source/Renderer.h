@@ -199,6 +199,12 @@ public:
     // Skips compositing the HTML UI over the main camera (used by unattended captures).
     bool EnableUIComposite = true;
 
+    // Game builds: the main camera renders into its own output, which a final pass stretches over
+    // the back buffer, instead of rendering straight into the back buffer. While the window is
+    // being resized the camera's size can lag the back buffer's; stretched, the image still fills
+    // the window. (The editor always renders the main camera offscreen, for the scene view.)
+    bool PresentMainOffscreen = true;
+
     // Global wind for the foliage shaders (RenderCore gathers it from the scene's WindZone).
     void SetWind( const Moonlight::WindCommand& InWind ) { m_wind = InWind; }
     const Moonlight::WindCommand& GetWind() const { return m_wind; }

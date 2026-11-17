@@ -832,6 +832,24 @@ namespace Moonlight
     }
 
 
+    void PostProcess::RenderPresent( bgfx::ViewId InView, bgfx::TextureHandle InImage, uint16_t InWidth, uint16_t InHeight )
+    {
+        // Set up here rather than with SetupFullscreenView: its framebuffer guard would send the
+        // back buffer to an incomplete camera's scene buffer.
+        float ortho[16];
+        bx::mtxOrtho( ortho, 0.f, 1.f, 1.f, 0.f, 0.f, 100.f, 0.f, bgfx::getCaps()->homogeneousDepth );
+        bgfx::setViewName( InView, "Present" );
+        bgfx::setViewMode( InView, bgfx::ViewMode::Sequential );
+        bgfx::setViewFrameBuffer( InView, BGFX_INVALID_HANDLE );
+        bgfx::setViewRect( InView, 0, 0, InWidth, InHeight );
+        bgfx::setViewTransform( InView, nullptr, ortho );
+        bgfx::setTexture( 0, s_input0, InImage, BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP );
+        const float unfiltered[4] = { -1.f, 0.f, 0.f, 0.f };
+        bgfx::setUniform( u_graphSceneFilter, unfiltered );
+        SubmitFullscreen( InView, m_copyProgram );
+    }
+
+
     void PostProcess::RenderOverlayComposite( ViewAllocator& InViews, const CameraData& InOverlayCamera, const FrameBuffer& InOverlay, bgfx::FrameBufferHandle InOutput, uint16_t InOutputWidth, uint16_t InOutputHeight )
     {
         if( !m_overlayProgram.IsLoaded() || !bgfx::isValid( InOverlay.Texture ) || !bgfx::isValid( InOverlay.DepthTexture ) )
