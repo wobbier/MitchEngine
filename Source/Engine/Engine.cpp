@@ -46,6 +46,7 @@
 #include "Resource/ResourceCache.h"
 #include "optick.h"
 #include "Profiling/BasicFrameProfile.h"
+#include "Profiling/FrameCapture.h"
 #include "Renderer.h"
 #include "Window/SDLWindow.h"
 #if USING( ME_HEADLESS )
@@ -838,6 +839,16 @@ void Engine::Run()
         {
             GetRenderer().CaptureRenderDocFrame();
         }
+
+#if ( USING( ME_PROFILING ) || USING( ME_EDITOR ) ) && !USING( ME_HEADLESS )
+        // F9: a profiler capture of the next frames (FrameCapture.h), whichever of the editor and
+        // the playing game has the keyboard. Game builds have it in Debug, Release and Profile.
+        FrameCapture::Update( GetInput().WasKeyPressed( KeyCode::F9 )
+#if USING( ME_EDITOR )
+            || GetEditorInput().WasKeyPressed( KeyCode::F9 )
+#endif
+        );
+#endif
 
 #if !USING( ME_EDITOR ) && USING( ME_IMGUI )
         if( GetInput().WasKeyPressed( KeyCode::F3 ) && !CommandLine::Has( "--no-debug-overlay" ) )
