@@ -136,6 +136,9 @@ public:
     float GetFixedTimeStep() const { return m_fixedTimeStep; }
     // 0 = uncapped.
     void SetMaxFrameRate( float InFramesPerSecond );
+    // The player's Graphics.VSync and Graphics.MaxFrameRate (PlayerSettings), in game builds: a
+    // cap of 0 restores the project's (Engine.cfg MaxFrameRate); --max-fps keeps its cap.
+    void ApplyPlayerFrameLimits( bool InVSync, float InMaxFrameRate );
     float GetMaxFrameRate() const { return m_maxFrameRate; }
     // PLAY-9: crash reports an earlier session left (found at start-up, then marked seen), oldest
     // first: what a game's upload hook would send.
@@ -169,6 +172,8 @@ private:
     float m_fixedFrameDelta = 0.f;
     float m_timeScale = 1.f;
     float m_maxFrameRate = 0.f;
+    // Engine.cfg's MaxFrameRate (0 without one): what a player cap of 0 goes back to.
+    float m_configuredMaxFrameRate = 0.f;
     bool m_isPaused = false;
     // Game builds: the ImGui debug overlay (Debug Tools window, profiler bar). F3 toggles it;
     // --debug-overlay starts with it shown, --no-debug-overlay keeps it hidden.

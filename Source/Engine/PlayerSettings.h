@@ -2,6 +2,7 @@
 #include "Dementia.h"
 #include "JSON.h"
 #include <cstdint>
+#include <functional>
 #include <string>
 
 class AudioCore;
@@ -16,6 +17,9 @@ class RmlUiCore;
 //   Graphics.RenderScale        0.5..1, a scale on every game camera's render scale (ME-275)
 //   Graphics.DynamicResolution  bool, dynamic resolution on every game camera
 //   Graphics.Upscale            "" (each camera's own) or Bilinear / Nearest / Pixel / Sharp
+//   Graphics.VSync              bool, wait for the display's refresh (game builds; on by default)
+//   Graphics.MaxFrameRate       0..1000 frames a second; 0 = no player cap (the project's
+//                               Engine.cfg MaxFrameRate, uncapped without one). --max-fps wins
 //   Audio.Master|Music|SFX|UI|Voice   0..1, scaling the project's bus mix
 //   Language                    "" or a string table code (Assets/UI/Strings/<code>.json)
 //   Accessibility.TextScale     0.5..3, the UI's dp text scale
@@ -45,6 +49,8 @@ public:
         AudioCore* Audio = nullptr;
         RmlUiCore* UI = nullptr;
         HardwareBudget* Budget = nullptr;
+        // Graphics.VSync and Graphics.MaxFrameRate, always together (Engine::ApplyPlayerFrameLimits).
+        std::function<void( bool InVSync, float InMaxFrameRate )> FrameLimits;
     };
 
     PlayerSettings();

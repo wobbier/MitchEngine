@@ -367,6 +367,7 @@ void Engine::Init( Game* game )
         {
             SetMaxFrameRate( configRoot["MaxFrameRate"].get<float>() );
         }
+        m_configuredMaxFrameRate = m_maxFrameRate;
         if( CommandLine::Has( "--fixed-step" ) )
         {
             SetFixedTimeStep( CommandLine::GetFloat( "--fixed-step", m_fixedTimeStep ) );
@@ -536,7 +537,8 @@ void Engine::Init( Game* game )
 
     InitGame();
     // The player's settings (quality, volumes, rebinds, language), once the action map is loaded.
-    PlayerSettings::Get().Init( { &m_input.GetActions(), AudioThread, RmlUi, &HardwareBudget::Get() } );
+    PlayerSettings::Get().Init( { &m_input.GetActions(), AudioThread, RmlUi, &HardwareBudget::Get(),
+        [this]( bool InVSync, float InMaxFrameRate ) { ApplyPlayerFrameLimits( InVSync, InMaxFrameRate ); } } );
 
     ResizeFunc( engineConfig.WindowSize );
 
@@ -1461,6 +1463,25 @@ void Engine::SetFixedTimeStep( float InSeconds )
 void Engine::SetMaxFrameRate( float InFramesPerSecond )
 {
     m_maxFrameRate = std::max( 0.f, InFramesPerSecond );
+}
+
+
+void Engine::ApplyPlayerFrameLimits( bool InVSync, float InMaxFrameRate )
+{
+#if USING( ME_EDITOR ) || USING( ME_HEADLESS )
+    // The editor has its own (the renderer's VSync checkbox); a server has no display to wait on.
+    (void)InVSync;
+    (void)InMaxFrameRate;
+#else
+    if( NewRenderer )
+    {
+        NewRenderer->SetVSyncEnabled( InVSync );
+    }
+    if( !CommandLine::Has( "--max-fps" ) )
+    {
+        SetMaxFrameRate( InMaxFrameRate > 0.f ? InMaxFrameRate : m_configuredMaxFrameRate );
+    }
+#endif
 }
 
 

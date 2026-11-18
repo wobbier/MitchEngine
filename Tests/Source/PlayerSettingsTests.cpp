@@ -274,3 +274,39 @@ TEST_CASE( "Player settings: Toggle instead of hold latches Toggle buttons on a 
     frame( kLeftShift, false );
     CHECK_FALSE( actions.GetAction( "Sprint" ).IsPressed() );
 }
+
+
+TEST_CASE( "Player settings: VSync and the frame rate cap reach the engine together" )
+{
+    PlayerSettings settings;
+    CHECK( settings.GetValue( "Graphics.VSync" ) == true );
+    CHECK( settings.GetValue( "Graphics.MaxFrameRate" ).get<double>() == doctest::Approx( 0.0 ) );
+
+    int calls = 0;
+    bool vsync = false;
+    float maxFrameRate = -1.f;
+    PlayerSettings::Targets targets;
+    targets.FrameLimits = [&]( bool InVSync, float InMaxFrameRate ) {
+        ++calls;
+        vsync = InVSync;
+        maxFrameRate = InMaxFrameRate;
+    };
+    settings.SetTargets( targets );
+
+    CHECK( settings.SetValue( "Graphics.MaxFrameRate", 144 ) );
+    CHECK( calls == 1 );
+    CHECK( vsync );
+    CHECK( maxFrameRate == doctest::Approx( 144.f ) );
+
+    CHECK( settings.SetValue( "Graphics.VSync", false ) );
+    CHECK( calls == 2 );
+    CHECK_FALSE( vsync );
+    CHECK( maxFrameRate == doctest::Approx( 144.f ) );
+
+    // Clamped to 0..1000; 0 is "no player cap".
+    CHECK( settings.SetValue( "Graphics.MaxFrameRate", 5000 ) );
+    CHECK( maxFrameRate == doctest::Approx( 1000.f ) );
+    CHECK( settings.SetValue( "Graphics.MaxFrameRate", -10 ) );
+    CHECK( maxFrameRate == doctest::Approx( 0.f ) );
+    CHECK_FALSE( settings.SetValue( "Graphics.VSync", 1 ) );
+}

@@ -49,6 +49,21 @@
 				<span class="label">Dynamic resolution</span>
 				<button class="choice" id="dynamic-resolution" onclick="setting-toggle:Graphics.DynamicResolution" data-setting-text="Graphics.DynamicResolution" data-format="onoff"></button>
 			</div>
+			<div class="row">
+				<span class="label">VSync</span>
+				<button class="choice" id="vsync" onclick="setting-toggle:Graphics.VSync" data-setting-text="Graphics.VSync" data-format="onoff"></button>
+			</div>
+			<div class="row">
+				<span class="label">Frame rate limit</span>
+				<div class="choices">
+					<button class="choice" id="max-fps-0" onclick="setting:Graphics.MaxFrameRate|0" data-setting-selected="Graphics.MaxFrameRate|0">None</button>
+					<button class="choice" id="max-fps-30" onclick="setting:Graphics.MaxFrameRate|30" data-setting-selected="Graphics.MaxFrameRate|30">30</button>
+					<button class="choice" id="max-fps-60" onclick="setting:Graphics.MaxFrameRate|60" data-setting-selected="Graphics.MaxFrameRate|60">60</button>
+					<button class="choice" id="max-fps-120" onclick="setting:Graphics.MaxFrameRate|120" data-setting-selected="Graphics.MaxFrameRate|120">120</button>
+					<button class="choice" id="max-fps-144" onclick="setting:Graphics.MaxFrameRate|144" data-setting-selected="Graphics.MaxFrameRate|144">144</button>
+					<button class="choice" id="max-fps-240" onclick="setting:Graphics.MaxFrameRate|240" data-setting-selected="Graphics.MaxFrameRate|240">240</button>
+				</div>
+			</div>
 		</div>
 
 		<div class="tab-page" id="page-audio" style="display: none;">

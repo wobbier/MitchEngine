@@ -108,6 +108,10 @@ namespace
         {
             return std::make_pair( 0.5, 1.0 );
         }
+        if( InKey == "Graphics.MaxFrameRate" )
+        {
+            return std::make_pair( 0.0, 1000.0 );
+        }
         return std::nullopt;
     }
 
@@ -259,7 +263,7 @@ json PlayerSettings::Defaults()
     }
     return {
         { "Version", kVersion },
-        { "Graphics", { { "Quality", "" }, { "RenderScale", 1.0 }, { "DynamicResolution", false }, { "Upscale", "" } } },
+        { "Graphics", { { "Quality", "" }, { "RenderScale", 1.0 }, { "DynamicResolution", false }, { "Upscale", "" }, { "VSync", true }, { "MaxFrameRate", 0.0 } } },
         { "Audio", audio },
         { "Language", "" },
         { "Accessibility", { { "TextScale", 1.0 }, { "ReduceMotion", false }, { "HighContrast", false }, { "Subtitles", true }, { "SpeakerNames", true },
@@ -509,6 +513,7 @@ void PlayerSettings::Apply()
 {
     ApplyKey( "Graphics.Quality" );
     ApplyKey( "Graphics.RenderScale" );
+    ApplyKey( "Graphics.VSync" );
     for( int bus = 0; bus < static_cast<int>( AudioBus::Count ); ++bus )
     {
         ApplyKey( std::string( "Audio." ) + AudioBusName( static_cast<AudioBus>( bus ) ) );
@@ -552,6 +557,12 @@ void PlayerSettings::ApplyKey( const std::string& InKey )
             }
         }
         m_targets.Budget->SetPlayerGraphics( scale && scale->is_number() ? scale->get<float>() : 1.f, dynamic && dynamic->is_boolean() && dynamic->get<bool>(), filter );
+    }
+    else if( ( InKey == "Graphics.VSync" || InKey == "Graphics.MaxFrameRate" ) && m_targets.FrameLimits )
+    {
+        const json* vsync = Find( m_document, "Graphics.VSync" );
+        const json* maxFrameRate = Find( m_document, "Graphics.MaxFrameRate" );
+        m_targets.FrameLimits( !vsync || !vsync->is_boolean() || vsync->get<bool>(), maxFrameRate && maxFrameRate->is_number() ? maxFrameRate->get<float>() : 0.f );
     }
     else if( InKey.rfind( "Audio.", 0 ) == 0 && m_targets.Audio && value->is_number() )
     {
