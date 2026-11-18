@@ -48,7 +48,7 @@ Engine/Tools/Headless.sh ./.build/Editor_Debug/Havana --build-game --scene Asset
 | `--profile <file.json>` | Build the profile in this file instead (one `Build.Profiles` entry; the editor window hands its profile over this way) |
 | `--out <dir>` | Where the build goes (default: the profile's, else `Builds/<Profile>`) |
 | `--scene <lvl>` (repeatable) | The scenes to ship (default: the profile's, else the project's `Build.Scenes` plus its `StartupScene`) |
-| `--configuration Retail\|Release\|Debug` | The game configuration (default `Retail`). Release and Debug keep the tools code (automation, cooking) |
+| `--configuration Retail\|Profile\|Release\|Debug` | The game configuration (default `Retail`). Profile is Retail with the frame profiler (F3) and captures (F9), games only. Release and Debug keep the tools code (automation, cooking) |
 | `--dedicated-server` | Ship the headless Server build instead (the profile's `Server`, below) |
 | `--no-compile` | Package the configuration's existing executable (`.build/Game_<platform>_<Configuration>/`) instead of building it |
 | `--loose` | Ship the cooked tree as files instead of `Game.mpak` |
@@ -68,7 +68,7 @@ A build profile is one way to build the project. Profiles are saved in
 | Field | Default | Meaning |
 |---|---|---|
 | `Name` | `Default` | Picks it on the command line; names the default output folder |
-| `Configuration` | `Retail` | `Retail` ships. `Release` and `Debug` keep the tools code |
+| `Configuration` | `Retail` | `Retail` ships. `Profile` is Retail with the profilers (no server). `Release` and `Debug` keep the tools code |
 | `Output` | `""` (`Builds/<Name>`) | Where the build goes. It is replaced each build |
 | `Scenes` | `[]` | The scenes to ship. Empty: `Build.Scenes` and the `StartupScene` |
 | `Pak` | `true` | The content in one `Game.mpak` (true) or as a loose cooked tree |

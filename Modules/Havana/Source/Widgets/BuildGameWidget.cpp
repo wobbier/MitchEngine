@@ -19,7 +19,7 @@ namespace
 {
     BuildGameWidget* s_instance = nullptr;
     constexpr size_t kMaxLines = 5000;
-    const char* const kConfigurations[] = { "Retail", "Release", "Debug" };
+    const char* const kConfigurations[] = { "Retail", "Profile", "Release", "Debug" };
 
 
     // The build runs as another invocation of this editor's own executable.
@@ -376,7 +376,7 @@ void BuildGameWidget::DrawProfile( ProjectSettings::BuildProfile& InProfile )
         }
         ImGui::EndCombo();
     }
-    ImGui::SetItemTooltip( "Retail ships. Release and Debug keep the tools code (automation, cooking)." );
+    ImGui::SetItemTooltip( "Retail ships. Profile is Retail with the frame profiler (F3) and captures (F9). Release and Debug keep the tools code (automation, cooking)." );
 
     HavanaUtils::Label( "Output folder" );
     ProjectSettings::BuildProfile defaults = InProfile;

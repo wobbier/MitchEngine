@@ -92,8 +92,14 @@ public abstract class BaseProject : Project
         }
 
 
-        // Optick
-        if (target.Optimization == Optimization.Retail)
+        // Profile (CommonTarget.Flavor): Retail's code generation with the profilers kept in.
+        if (target.IsProfile)
+        {
+            conf.Defines.Add("DEFINE_ME_PROFILE");
+        }
+
+        // Optick (Profile keeps it)
+        if (target.Optimization == Optimization.Retail && !target.IsProfile)
         {
             conf.Defines.Add("USE_OPTICK=0");
         }
@@ -376,14 +382,28 @@ public abstract class BaseProject : Project
 
         // Undo Hot-Reloading
         {
-            conf.Options.Add(Options.Vc.General.DebugInformation.Disable);
+            if (!target.IsProfile)
+            {
+                conf.Options.Add(Options.Vc.General.DebugInformation.Disable);
+            }
             conf.Options.Add(Options.Vc.Compiler.FunctionLevelLinking.Disable);
             conf.Options.Add(Options.Vc.Linker.Incremental.Disable);
         }
 
         conf.Defines.Add("DEFINE_ME_RETAIL");
-        conf.Options.Add(Options.Makefile.Compiler.GenerateDebugInformation.Disable);
-        conf.Options.Add(Options.XCode.Compiler.GenerateDebuggingSymbols.Disable);
+
+        if (target.IsProfile)
+        {
+            // Symbols for the captures and native profilers; they don't change the generated code.
+            conf.Options.Add(Options.Vc.General.DebugInformation.ProgramDatabase);
+            conf.Options.Add(Options.Makefile.Compiler.GenerateDebugInformation.Enable);
+            conf.Options.Add(Options.XCode.Compiler.GenerateDebuggingSymbols.Enable);
+        }
+        else
+        {
+            conf.Options.Add(Options.Makefile.Compiler.GenerateDebugInformation.Disable);
+            conf.Options.Add(Options.XCode.Compiler.GenerateDebuggingSymbols.Disable);
+        }
     }
 
     #endregion

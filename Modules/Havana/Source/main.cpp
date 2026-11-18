@@ -133,7 +133,7 @@ static int CookProject()
 
 
 // --build-game [<profile> | --profile <file.json>] [--out <dir>] [--scene <lvl>]...
-//              [--configuration Retail|Release|Debug] [--no-compile] [--loose] [--archive]
+//              [--configuration Retail|Profile|Release|Debug] [--no-compile] [--loose] [--archive]
 //              [--dedicated-server] [--game <exe> | --no-record] [--cancel-file <file>] [--verbose]
 // Build Game (SHIP-3, Engine/Docs/Building.md) without opening the editor: a shippable build of
 // the project from a build profile (the named one, one written to a file, else the first in Project

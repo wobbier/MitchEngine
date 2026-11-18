@@ -45,6 +45,33 @@ public class CommonTarget : Sharpmake.ITarget
         Server = 1 << 2
     }
     public Mode SelectedMode = Mode.Game;
+
+    // Profile: a Game build compiled like Retail (Optimization.Retail) with the profilers kept in
+    // (DEFINE_ME_PROFILE: F3 frame profiler, F9 capture, symbols) and no tools code. Sharpmake's
+    // Optimization has no fourth value, so it is a flavor of Retail: config=game_linux_profile.
+    [Fragment, Flags]
+    public enum Flavor
+    {
+        Standard = 1 << 0,
+        Profile = 1 << 1,
+    }
+    public Flavor SelectedFlavor = Flavor.Standard;
+    public bool IsProfile => SelectedFlavor == Flavor.Profile;
+
+    // The configuration's name in target names and folders: "Profile" for the Profile flavor.
+    public string ConfigurationName(Optimization InOptimization)
+    {
+        return IsProfile ? "Profile" : InOptimization.ToString();
+    }
+
+    // A Game target per platform for the Profile flavor (Retail optimization).
+    static CommonTarget ProfileTarget(Platform platform, DevEnv devEnv, DotNetFramework framework, SubPlatformType subPlatform)
+    {
+        var target = new CommonTarget(platform, devEnv, Optimization.Retail, framework, dotNetOS: 0);
+        target.SubPlatform = subPlatform;
+        target.SelectedFlavor = Flavor.Profile;
+        return target;
+    }
     // Whether the target plays audio (links FMOD when its SDK is there): not headless servers.
     public bool HasAudio => SelectedMode != Mode.Server;
 
@@ -109,11 +136,13 @@ public class CommonTarget : Sharpmake.ITarget
                     serverTarget.SubPlatform = SubPlatformType.Win64;
                     serverTarget.SelectedMode = Mode.Server;
 
+                    var profileTarget = ProfileTarget(Platform.win64, DevEnv.vs2022, DotNetFramework.net8_0, SubPlatformType.Win64);
+
                     if(Globals.IsUWPEnabled)
                     {
-                        return new[] { baseTarget, uwpTarget, editorTarget, serverTarget };
+                        return new[] { baseTarget, uwpTarget, editorTarget, serverTarget, profileTarget };
                     }
-                    return new[] { baseTarget, editorTarget, serverTarget };
+                    return new[] { baseTarget, editorTarget, serverTarget, profileTarget };
                 }
             case Platform.mac:
                 {
@@ -141,7 +170,9 @@ public class CommonTarget : Sharpmake.ITarget
                     macServer.SelectedMode = Mode.Server;
                     macServer.SubPlatform = SubPlatformType.macOS;
 
-                    return new[] { macOSTarget, macEditor, macServer };
+                    var macProfile = ProfileTarget(Platform.mac, DevEnv.xcode, DotNetFramework.v4_8, SubPlatformType.macOS);
+
+                    return new[] { macOSTarget, macEditor, macServer, macProfile };
                 }
             case Platform.linux:
                 {
@@ -169,7 +200,9 @@ public class CommonTarget : Sharpmake.ITarget
                     linuxServer.SelectedMode = Mode.Server;
                     linuxServer.SubPlatform = SubPlatformType.linux;
 
-                    return new[] { linuxTarget, linuxEditor, linuxServer };
+                    var linuxProfile = ProfileTarget(Platform.linux, DevEnv.make, DotNetFramework.v4_8, SubPlatformType.linux);
+
+                    return new[] { linuxTarget, linuxEditor, linuxServer, linuxProfile };
                 }
             default:
                 {
@@ -187,7 +220,7 @@ public class CommonTarget : Sharpmake.ITarget
                 var nameParts = new List<string>
                 {
                     SelectedMode.ToString(),
-                    Optimization.ToString(),
+                    ConfigurationName(Optimization),
                 };
                 return string.Join("_", nameParts);
             }
@@ -197,7 +230,7 @@ public class CommonTarget : Sharpmake.ITarget
                 {
                     SelectedMode.ToString(),
                     SubPlatform.ToString(),
-                    Optimization.ToString(),
+                    ConfigurationName(Optimization),
                 };
                 return string.Join("_", nameParts);
             }
@@ -211,7 +244,7 @@ public class CommonTarget : Sharpmake.ITarget
             var dirNameParts = new List<string>()
             {
                 SubPlatform.ToString(),
-                Optimization.ToString(),
+                ConfigurationName(Optimization),
                 SelectedMode.ToString(),
             };
 

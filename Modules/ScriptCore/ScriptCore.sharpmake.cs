@@ -56,9 +56,10 @@ public class ScriptCore : CSharpProject
             {
                 if ((t.Optimization & opt) == 0) continue;
 
+                string config = t.ConfigurationName(opt);
                 string name = t.SelectedMode == CommonTarget.Mode.Editor
-                    ? $"{t.SelectedMode}_{opt}"
-                    : $"{t.SelectedMode}_{t.SubPlatform}_{opt}";
+                    ? $"{t.SelectedMode}_{config}"
+                    : $"{t.SelectedMode}_{t.SubPlatform}_{config}";
                 names.Add(name);
             }
         }

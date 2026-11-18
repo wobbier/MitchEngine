@@ -141,6 +141,14 @@ Class& operator=(Class&&) = delete;
 #define ME_RETAIL NOT_IN_USE
 #endif
 
+// The Profile build (config=game_*_profile): Retail's code generation (ME_RETAIL is in use too)
+// with ME_PROFILING kept on, so the F3 frame profiler and F9 captures work; no ME_TOOLS.
+#if defined( DEFINE_ME_PROFILE )
+#define ME_PROFILE IN_USE
+#else
+#define ME_PROFILE NOT_IN_USE
+#endif
+
 #if defined( DEFINE_ME_DOTNET )
 #define ME_DOTNET IN_USE
 #else
@@ -180,7 +188,7 @@ Class& operator=(Class&&) = delete;
 #define ME_EDITOR_WIN64     USE_IF( USING( ME_EDITOR ) && USING( ME_PLATFORM_WIN64 ) )
 #define ME_EDITOR_MACOS     USE_IF( USING( ME_EDITOR ) && USING( ME_PLATFORM_MACOS ) )
 #define ME_SCRIPTING        USE_IF( USING( ME_DOTNET ) )
-#define ME_PROFILING        USE_IF( USING( ME_DEBUG ) || USING( ME_RELEASE ) )
+#define ME_PROFILING        USE_IF( USING( ME_DEBUG ) || USING( ME_RELEASE ) || USING( ME_PROFILE ) )
 // I'm currently using some ImGui stuff in debug for profiling, TOOLS needs it even that it's currently bundled with the editor.
 // Headless builds (dedicated servers) have no window to draw ImGui into, so none of it.
 #define ME_IMGUI            USE_IF( ( USING( ME_EDITOR ) || USING( ME_TOOLS ) || USING( ME_PROFILING ) ) && !USING( ME_HEADLESS ) )

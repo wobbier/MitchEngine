@@ -111,7 +111,8 @@ public:
     struct BuildProfile
     {
         std::string Name = "Default";
-        // "Retail" ships; "Release" keeps the tools code (automation, cooking); "Debug".
+        // "Retail" ships; "Profile" is Retail with the profilers (F3, F9); "Release" keeps the tools
+        // code (automation, cooking); "Debug".
         std::string Configuration = "Retail";
         // Where the build goes ("" = Builds/<Name>). Replaced each build.
         std::string OutputDirectory;

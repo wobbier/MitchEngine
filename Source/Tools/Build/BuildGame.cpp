@@ -187,7 +187,7 @@ namespace BuildGame
     {
         bool IsKnownConfiguration( const std::string& InConfiguration )
         {
-            return InConfiguration == "Retail" || InConfiguration == "Release" || InConfiguration == "Debug";
+            return InConfiguration == "Retail" || InConfiguration == "Profile" || InConfiguration == "Release" || InConfiguration == "Debug";
         }
 
 
@@ -436,7 +436,13 @@ namespace BuildGame
             {
                 if( !IsKnownConfiguration( m_profile.Configuration ) )
                 {
-                    Error( "Unknown configuration '" + m_profile.Configuration + "' (Retail, Release or Debug)" );
+                    Error( "Unknown configuration '" + m_profile.Configuration + "' (Retail, Profile, Release or Debug)" );
+                    return false;
+                }
+                if( m_profile.Configuration == "Profile" && m_profile.Server )
+                {
+                    // Profile (Retail with the profilers) is a game configuration only.
+                    Error( "There is no Profile server: build the server as Retail, Release or Debug" );
                     return false;
                 }
                 std::error_code error;

@@ -57,6 +57,7 @@ Outputs land in `.build/[target.Name]/` at the game-repo root (e.g. `.build/Edit
 - **Platforms**: `win64`, `uwp`, `mac`, `linux`
 - **Mode fragment**: `Game` and `Editor` (editor targets add `DEFINE_ME_EDITOR` + `DEFINE_ME_TOOLS`)
 - **Optimization**: `Debug`, `Release`, `Retail` — third-party libs map Retail→Release (`GetThirdPartyOptimization`)
+- **Flavor fragment**: `Standard`, or `Profile` on one extra **Game** target per platform (Win64, macOS, Linux; not UWP). Sharpmake's `Optimization` has no fourth value, so Profile is Retail's optimization with `IsProfile`; `ConfigurationName` prints it as `Profile` in the target name and folder
 
 Linux makefile config names follow `<mode>_<platform>_<opt>` lowercased, e.g. `make -f Drumsmith.make Havana config=editor_debug`, `Game_EntryPoint config=game_linux_debug`.
 
@@ -67,6 +68,7 @@ All three optimizations are generated for both game and editor targets on Window
 | Debug | `editor_debug` | `game_linux_debug` | Unoptimized engine code, debug symbols, tools and profiling |
 | Release | `editor_release` | `game_linux_release` | Optimized code with debug symbols, tools and profiling |
 | Retail | `editor_retail` | `game_linux_retail` | Optimized engine code, debug-symbol generation and profiling disabled; game tools disabled, editor tools retained |
+| Retail + Profile flavor | — | `game_linux_profile` | Retail's code generation (`DEFINE_ME_RETAIL`) plus `DEFINE_ME_PROFILE`: the F3 frame profiler, F9 captures, Optick on Win64 and debug symbols, without the tools code. Use it to measure what players get |
 
 Retail uses Release third-party libraries. Release/Retail Linux builds use `-O3` for engine code; the source-built physics and navigation libraries retain their own optimization settings. Prebuilt archives can retain debug information; Retail does not strip the final executable. These configurations are local builds; portable Linux packaging and the distribution toolchain are separate steps.
 
@@ -81,10 +83,11 @@ From `Tools/BaseProject.sharpmake.cs` (+ `Engine.sharpmake.cs` `Globals`):
 | `DEFINE_ME_DEBUG` + `DEFINE_ME_TOOLS` | Debug optimization (tools ride along in debug game builds) |
 | `DEFINE_ME_RELEASE` + `DEFINE_ME_TOOLS` | Release optimization (optimized development build) |
 | `DEFINE_ME_RETAIL` | Retail optimization (tools only if the target is an editor) |
+| `DEFINE_ME_PROFILE` | The Profile flavor (Retail + profiling, `CommonTarget.IsProfile`); also keeps Optick and debug symbols |
 | `DEFINE_ME_RMLUI` | Always (RmlUi + FreeType build from source on every platform) |
 | `DEFINE_ME_FMOD` | `Globals.FMOD_<Platform>_Dir` exists (Win64/UWP: installed SDK path; Linux: SDK dir with `api/core/lib/x86_64`) |
 | `DEFINE_ME_DOTNET` | `Globals.DOTNET_Win64_Dir` (Win64/UWP) or `Globals.DOTNET_Linux_Dir` (Linux) exists — **no macOS path** |
-| `DEFINE_ME_OPTICK` | Win64 (per-optimization lib copy from `ThirdParty/Lib/Optick/Win64/…`) |
+| `DEFINE_ME_OPTICK` | Win64, not Retail unless Profile (per-optimization lib copy from `ThirdParty/Lib/Optick/Win64/…`) |
 | `DEFINE_ME_RENDERDOC` | RenderDoc integration available (Windows, set when RenderDoc is installed; Linux enables it in `Dementia.h` without this define) |
 
 Because these are **generation-time filesystem checks**, two machines with different SDKs silently produce different feature sets from identical source. When a feature "doesn't work", check the generation log/defines before debugging code. The Mono integration is gone; `Globals.MONO_*_Dir` remain only so older game sharpmake files that set them still compile.

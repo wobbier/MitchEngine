@@ -183,6 +183,7 @@ Flags are driven by `DEFINE_ME_*` preprocessor defines that Sharpmake sets per t
 | `ME_PLATFORM_WINDOWS` | `WIN64 \|\| UWP` |
 | `ME_DEBUG` | From `_DEBUG` (not a `DEFINE_ME_*`) |
 | `ME_RELEASE` / `ME_RETAIL` | Build config |
+| `ME_PROFILE` | The Profile build (`DEFINE_ME_PROFILE`): Retail with profiling; `ME_RETAIL` is in use too |
 | `ME_EDITOR` | Havana editor build |
 | `ME_TOOLS` | Effectively always on when `DEFINE_ME_TOOLS` is defined (`USE_IF(EDITOR \|\| IN_USE)`), else only with editor |
 | `ME_GAME_TOOLS` | `TOOLS && !EDITOR && !HEADLESS` — debug tooling in game builds |
@@ -190,7 +191,7 @@ Flags are driven by `DEFINE_ME_*` preprocessor defines that Sharpmake sets per t
 | `ME_DOTNET` → `ME_SCRIPTING` | .NET scripting chain |
 | `ME_RMLUI` | RmlUi game UI (`DEFINE_ME_RMLUI`, on for every platform; Ultralight and `ME_UI` were removed in UI-5) |
 | `ME_OPTICK` | **Value-checked** (`#if DEFINE_ME_OPTICK`), unlike every other flag which is presence-checked — `DEFINE_ME_OPTICK` must be defined *to a value* |
-| `ME_PROFILING` | `DEBUG \|\| RELEASE` (i.e. not RETAIL) |
+| `ME_PROFILING` | `DEBUG \|\| RELEASE \|\| PROFILE` (not plain Retail) |
 | `ME_IMGUI` | `(EDITOR \|\| TOOLS \|\| PROFILING) && !HEADLESS` |
 | `ME_BASIC_PROFILER` | `IMGUI && PROFILING` |
 | `ME_HEADLESS` | No window/rendering: the dedicated Server build (`DEFINE_ME_HEADLESS`, `CommonTarget.Mode.Server`; NullWindow, bgfx Noop). Turns off `ME_IMGUI`, `ME_GAME_TOOLS` and `ME_FMOD` (see Networking.md) |
