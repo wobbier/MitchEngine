@@ -60,9 +60,22 @@ public:
     void Complete( const std::string& name );
 
     void Render( const Vector2& inPosition, const Vector2& inSize );
+
+    // The frame rate over the last kFpsWindowSeconds (End feeds it): what Render's readout shows.
+    static constexpr float kFpsWindowSeconds = 0.5f;
+    float GetFps() const { return DisplayFps; }
+    float GetAverageMs() const { return DisplayAverageMs; }
+    float GetWorstMs() const { return DisplayWorstMs; }
 private:
     int CurrentProfilerSize = kMinProfilerSize;
     int PreviousTooltipHeight = 0;
+
+    float WindowSeconds = 0.f;
+    int WindowFrames = 0;
+    float WindowWorstSeconds = 0.f;
+    float DisplayFps = 0.f;
+    float DisplayAverageMs = 0.f;
+    float DisplayWorstMs = 0.f;
 };
 
 class FrameProfileObject

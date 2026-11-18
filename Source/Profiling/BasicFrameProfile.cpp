@@ -8,6 +8,8 @@
 #include "Core/CommandLine.h"
 #include "UI/Colors.h"
 #include <chrono>
+#include <cstdio>
+#include <algorithm>
 
 FrameProfile::FrameProfile()
 {
@@ -20,6 +22,20 @@ void FrameProfile::Start()
 void FrameProfile::End( float frameDelta )
 {
     MainDelta = frameDelta;
+
+    // The readout's numbers: refreshed every kFpsWindowSeconds so they're readable, not flickering.
+    WindowSeconds += frameDelta;
+    WindowWorstSeconds = std::max( WindowWorstSeconds, frameDelta );
+    ++WindowFrames;
+    if( WindowSeconds >= kFpsWindowSeconds )
+    {
+        DisplayFps = static_cast<float>( WindowFrames ) / WindowSeconds;
+        DisplayAverageMs = WindowSeconds * 1000.f / static_cast<float>( WindowFrames );
+        DisplayWorstMs = WindowWorstSeconds * 1000.f;
+        WindowSeconds = 0.f;
+        WindowFrames = 0;
+        WindowWorstSeconds = 0.f;
+    }
 }
 
 void FrameProfile::Set( const std::string& name, ProfileCategory category )
@@ -58,15 +74,6 @@ void FrameProfile::Render( const Vector2& inPosition, const Vector2& inSize )
     ImGui::PushStyleVar( ImGuiStyleVar_WindowMinSize, ImVec2( 2.f, 5.f ) );
     ImGui::PushStyleVar( ImGuiStyleVar_ItemSpacing, ImVec2( 0.f, 0.f ) );
     ImGui::PushStyleColor( ImGuiCol_WindowBg, { 0.f, 0.f, 0.f, 0.f } );
-
-    static int frameCount = 0;
-    static float frametime = 0.0f;
-
-    // increase the counter by one
-    static int m_fpscount = 0;
-    static int fps = 0;
-    m_fpscount++;
-    ++frameCount;
 
     std::vector<std::pair<std::string, ProfileInfo>> profileShit;
     float totalFrameTime = 0.f;
@@ -141,6 +148,18 @@ void FrameProfile::Render( const Vector2& inPosition, const Vector2& inSize )
 
             ImGui::PopStyleVar( 4 );
             ImGui::PopStyleColor( 1 );
+
+            // The frame rate readout, just above the bar's left end: fps, average and worst frame.
+            if( DisplayFps > 0.f )
+            {
+                char readout[96];
+                std::snprintf( readout, sizeof( readout ), "%.0f fps  %.2f ms  (worst %.2f ms)", DisplayFps, DisplayAverageMs, DisplayWorstMs );
+                ImDrawList* foreground = ImGui::GetForegroundDrawList( ImGui::GetWindowViewport() );
+                const ImVec2 textSize = ImGui::CalcTextSize( readout );
+                const ImVec2 textPos( x + 6.f, y - textSize.y - 8.f );
+                foreground->AddRectFilled( ImVec2( textPos.x - 4.f, textPos.y - 2.f ), ImVec2( textPos.x + textSize.x + 4.f, textPos.y + textSize.y + 2.f ), IM_COL32( 0, 0, 0, 170 ), 3.f );
+                foreground->AddText( textPos, IM_COL32( 255, 255, 255, 255 ), readout );
+            }
 
             if( ImGui::IsWindowHovered() )
             {
