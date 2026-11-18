@@ -25,6 +25,7 @@
 #include "Engine/LoadingScreen.h"
 #include "Engine/Localization.h"
 #include <RmlUi/Core.h>
+#include <algorithm>
 #include <Profiling/FrameStats.h>
 #include <optick.h>
 #include <RmlUi/Debugger.h>
@@ -241,6 +242,19 @@ void RmlUiCore::Init()
             if( !InIsDirectory && Rml::LoadFontFace( InPath, true ) )
             {
                 INFO( "UI", "UI: fallback font " + InPath );
+            }
+        } );
+        // Every other face in Assets/Fonts (the engine's and the game's): RCSS names it by its
+        // family (font-family: "Permanent Marker").
+        VFS::Get().Enumerate( "Assets/Fonts", false, []( const std::string& InPath, bool InIsDirectory )
+        {
+            const size_t dot = InPath.rfind( '.' );
+            std::string extension = dot == std::string::npos ? std::string() : InPath.substr( dot );
+            std::transform( extension.begin(), extension.end(), extension.begin(), []( unsigned char c ) { return static_cast<char>( std::tolower( c ) ); } );
+            const bool face = extension == ".ttf" || extension == ".otf";
+            if( !InIsDirectory && face && InPath.find( "Inter-Regular" ) == std::string::npos && Rml::LoadFontFace( InPath, false ) )
+            {
+                INFO( "UI", "UI: font " + InPath );
             }
         } );
     }
