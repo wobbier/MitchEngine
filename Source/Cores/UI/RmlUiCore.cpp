@@ -152,6 +152,20 @@ namespace
     };
 
     RmlActionInstancer s_actionInstancer;
+
+
+    // Clip masks need stencil. D24S8 is missing on AMD Vulkan (RADV), where D32FS8 is the stencil format.
+    bgfx::TextureFormat::Enum GetStencilFormat()
+    {
+        for( bgfx::TextureFormat::Enum format : { bgfx::TextureFormat::D24S8, bgfx::TextureFormat::D32FS8, bgfx::TextureFormat::D0S8 } )
+        {
+            if( bgfx::isTextureValid( 0, false, 1, format, BGFX_TEXTURE_RT_WRITE_ONLY ) )
+            {
+                return format;
+            }
+        }
+        return bgfx::TextureFormat::D24S8;
+    }
 }
 #endif
 
@@ -312,7 +326,7 @@ void RmlUiCore::EnsureRenderTarget( uint16_t InWidth, uint16_t InHeight )
     const uint64_t colorFlags = BGFX_TEXTURE_RT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
     bgfx::TextureHandle attachments[2];
     attachments[0] = bgfx::createTexture2D( InWidth, InHeight, false, 1, bgfx::TextureFormat::RGBA8, colorFlags );
-    attachments[1] = bgfx::createTexture2D( InWidth, InHeight, false, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT_WRITE_ONLY );
+    attachments[1] = bgfx::createTexture2D( InWidth, InHeight, false, 1, GetStencilFormat(), BGFX_TEXTURE_RT_WRITE_ONLY );
     m_frameBuffer = bgfx::createFrameBuffer( 2, attachments, true );
     m_colorTexture = attachments[0];
     m_targetWidth = InWidth;
