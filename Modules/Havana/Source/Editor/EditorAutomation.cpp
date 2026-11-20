@@ -36,6 +36,7 @@
 #include "Editor/UIAutomation.h"
 #include "Editor/RenderTextureAutomation.h"
 #include "Editor/ImGuiAutomation.h"
+#include "Editor/ColorPicking.h"
 #include "Widgets/Tree/TreeAutomation.h"
 #include "Widgets/ShaderGraph/ShaderGraphPreview.h"
 #include "Components/Audio/AudioSource.h"
@@ -889,9 +890,19 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
     {
         // project-settings-file .tmp/Tests/ProjectSettings.json   saves go there, not the project's file
         // project-set Physics.Gravity | [0,-5,0]   a key of the settings file's JSON, then saves
-        // project-assert Physics.Gravity | [0,-5,0]
+        // project-assert Physics.Gravity | [0,-5,0]   exact, or numbers within a tolerance:
+        // project-assert Audio.Buses.Music | 0.5 ~ 0.001   (UX-17)
         ProjectSettings& settings = ProjectSettings::Get();
         auto [key, valueText] = SplitArgs( args );
+        double tolerance = -1.0;
+        if( command == "project-assert" )
+        {
+            if( const size_t tilde = valueText.find( '~' ); tilde != std::string::npos )
+            {
+                tolerance = std::atof( valueText.c_str() + tilde + 1 );
+                valueText = valueText.substr( 0, tilde );
+            }
+        }
         if( command == "project-settings-file" )
         {
             settings.SetSavePath( Path( args ).FullPath );
@@ -912,7 +923,8 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
                 settings.Deserialize( data.dump() );
                 settings.Save();
             }
-            else if( !data.contains( json::json_pointer( pointer ) ) || data[json::json_pointer( pointer )] != value )
+            else if( !data.contains( json::json_pointer( pointer ) )
+                || ( tolerance < 0.0 ? data[json::json_pointer( pointer )] != value : !NearlyEqual( data[json::json_pointer( pointer )], value, tolerance ) ) )
             {
                 Fail( "project setting " + key + " is " + ( data.contains( json::json_pointer( pointer ) ) ? data[json::json_pointer( pointer )].dump() : std::string( "missing" ) ) + ", expected " + valueText );
             }
@@ -1189,7 +1201,7 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
     else if( command == "imgui-key" || command == "imgui-focus" )
     {
         // imgui-focus Tour          focuses an editor window (as a click on it would)
-        // imgui-key Tab | Space | Enter | Up | Down | Left | Right | Escape
+        // imgui-key Tab | Space | Enter | Up | Down | Left | Right | Escape | Delete | Backspace
         //                           one press (down then up) through ImGui's input queue
         if( command == "imgui-focus" )
         {
@@ -1201,6 +1213,7 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
                 { "Tab", ImGuiKey_Tab }, { "Space", ImGuiKey_Space }, { "Enter", ImGuiKey_Enter },
                 { "Up", ImGuiKey_UpArrow }, { "Down", ImGuiKey_DownArrow }, { "Left", ImGuiKey_LeftArrow },
                 { "Right", ImGuiKey_RightArrow }, { "Escape", ImGuiKey_Escape },
+                { "Delete", ImGuiKey_Delete }, { "Backspace", ImGuiKey_Backspace },
             };
             const auto key = kKeys.find( args );
             if( key == kKeys.end() )
@@ -1370,6 +1383,40 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             }
         }
     }
+    else if( command == "assert-preference" )
+    {
+        // assert-preference Snap.Rotate | 22.5 [~ 0.01]   (UX-17) the editor preference's value:
+        // numbers within 1e-3 (or the tolerance), anything else exactly; "none" for an unset key;
+        // a leading "!=" requires a different value
+        auto [key, valueText] = SplitArgs( args );
+        const bool negate = valueText.rfind( "!=", 0 ) == 0;
+        if( negate )
+        {
+            valueText = Trim( valueText.substr( 2 ) );
+        }
+        double tolerance = 1e-3;
+        if( const size_t tilde = valueText.find( '~' ); tilde != std::string::npos )
+        {
+            tolerance = std::atof( valueText.c_str() + tilde + 1 );
+            valueText = valueText.substr( 0, tilde );
+        }
+        const json& preferences = EditorConfig::GetInstance().Preferences;
+        const auto found = preferences.find( key );
+        const json expected = json::parse( valueText, nullptr, false );
+        const bool wantNone = expected.is_discarded() && valueText.find( "none" ) != std::string::npos;
+        if( key.empty() || ( expected.is_discarded() && !wantNone ) )
+        {
+            Fail( "assert-preference: expected Key | <json value> [~ tolerance]" );
+        }
+        else
+        {
+            const bool matches = wantNone ? found == preferences.end() : ( found != preferences.end() && NearlyEqual( *found, expected, tolerance ) );
+            if( matches == negate )
+            {
+                Fail( "preference " + key + " is " + ( found == preferences.end() ? std::string( "unset" ) : found->dump() ) + ", expected " + ( negate ? "not " : "" ) + valueText );
+            }
+        }
+    }
     else if( command == "clipboard" )
     {
         // clipboard [1, 2, 3]   (puts the text on the clipboard, as copying it would; UX-11)
@@ -1460,6 +1507,81 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         else
         {
             sceneView->RequestClick( Vector2( static_cast<float>( std::atof( xText.c_str() ) ), static_cast<float>( std::atof( yText.c_str() ) ) ) );
+        }
+    }
+    else if( command == "click-viewport" )
+    {
+        // click-viewport 0.5 0.4   (a real left click on the World View image at that fraction of its size)
+        // click-viewport 0.5 0.4 | hover   (moves the pointer there and leaves it)
+        const size_t bar = args.find( '|' );
+        const std::string point = bar == std::string::npos ? args : Trim( args.substr( 0, bar ) );
+        const std::string mode = bar == std::string::npos ? std::string() : Trim( args.substr( bar + 1 ) );
+        auto [xText, yText] = SplitWord( point );
+        SceneViewWidget* sceneView = InApp.Editor ? InApp.Editor->GetSceneView() : nullptr;
+        if( !sceneView || !sceneView->IsImageShown() )
+        {
+            Fail( "click-viewport: the World View isn't showing" );
+        }
+        else
+        {
+            const Vector2 min = sceneView->GetViewportScreenMin();
+            const Vector2 size = sceneView->GetViewportScreenSize();
+            const float x = min.x + size.x * static_cast<float>( std::atof( xText.c_str() ) );
+            const float y = min.y + size.y * static_cast<float>( std::atof( yText.c_str() ) );
+            bool retry = false;
+            ImGuiAutomation::ClickAt( x, y, mode == "hover", retry );
+            if( retry )
+            {
+                --m_nextLine;
+            }
+        }
+    }
+    else if( command == "assert-viewport-pixel" )
+    {
+        // assert-viewport-pixel 0.5 0.4 | Cube | Light.Color [~ 0.02]   (the World View's displayed colour there equals the colour field's rgb)
+        auto [point, rest] = SplitArgs( args );
+        auto [name, fieldText] = SplitArgs( rest );
+        auto [xText, yText] = SplitWord( point );
+        double tolerance = 0.02;
+        std::string fieldPath = fieldText;
+        if( const size_t tilde = fieldText.find( " ~ " ); tilde != std::string::npos )
+        {
+            tolerance = std::atof( fieldText.c_str() + tilde + 3 );
+            fieldPath = Trim( fieldText.substr( 0, tilde ) );
+        }
+        SceneViewWidget* sceneView = InApp.Editor ? InApp.Editor->GetSceneView() : nullptr;
+        EntityHandle entity = FindEntity( name );
+        std::string type;
+        json::json_pointer pointer;
+        if( !sceneView || !entity || !SplitFieldPath( fieldPath, type, pointer ) )
+        {
+            Fail( "assert-viewport-pixel: bad arguments" );
+        }
+        else
+        {
+            std::array<float, 3> pixel {};
+            std::string error;
+            bool retry = false;
+            if( !ColorPicking::ReadViewportPixel( *sceneView, static_cast<float>( std::atof( xText.c_str() ) ), static_cast<float>( std::atof( yText.c_str() ) ), pixel, error, retry ) )
+            {
+                Fail( "assert-viewport-pixel: " + error );
+            }
+            else if( retry )
+            {
+                --m_nextLine;
+            }
+            else
+            {
+                const json state = EditorOps::CaptureComponent( *entity.Get(), type );
+                const json* actual = Resolve( state, pointer );
+                const json expected = { pixel[0], pixel[1], pixel[2] };
+                CLog::Log( CLog::LogType::Info, "[assert-viewport-pixel] " + std::string( xText ) + " " + yText + " shows " + expected.dump() );
+                json rgb = actual && actual->is_array() && actual->size() >= 3 ? json { ( *actual )[0], ( *actual )[1], ( *actual )[2] } : json();
+                if( rgb.is_null() || !NearlyEqual( rgb, expected, tolerance ) )
+                {
+                    Fail( name + " " + fieldPath + " is " + ( actual ? actual->dump() : std::string( "<missing>" ) ) + ", the World View shows " + expected.dump() );
+                }
+            }
         }
     }
     else if( command == "keep-values" )

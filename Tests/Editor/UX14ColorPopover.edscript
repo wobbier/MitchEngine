@@ -1,0 +1,236 @@
+# UX-14: colour fields are swatches that open a popover: a hex field, a blackbody temperature bar,
+# the scene's palette, an HDR intensity in EV and an eyedropper that takes a colour from the World
+# View. Each gesture is one undo step. Right-click copies and pastes the hex. The eyedropper picks
+# the World View's displayed pixel (a real click on the view; Esc cancels and the next click selects
+# as usual). Captures of the open popover in both themes.
+# Havana --scene Assets/Scenes/Tests/LightingTest.lvl --frame-time 0.0166667 --editor-exec Engine/Tests/Editor/UX14ColorPopover.edscript
+wait 20
+preference Appearance.Juice | "Off"
+select Spot
+wait 5
+
+# The swatch reports the hex of the stored colour.
+assert-field Spot | Light.Color | [1, 0.95, 0.85]
+imgui-assert-value Light/Color | #FFF2D9
+imgui-click Light/Color
+wait 3
+imgui-assert-item Color/Hex
+imgui-assert-value Color/Hex | #FFF2D9
+imgui-assert-value Color/Original | #FFF2D9
+# On the blackbody curve: the bar marks its temperature.
+imgui-assert-value Color/Kelvin | 5480 ~ 60
+
+# Hex entry (one undo step).
+imgui-type Color/Hex | #FF8800
+assert-field Spot | Light.Color | [1, 0.5333, 0] ~ 0.002
+imgui-assert-value Light/Color | #FF8800
+imgui-assert-value Color/Hex | #FF8800
+undo
+assert-field Spot | Light.Color | [1, 0.95, 0.85]
+imgui-assert-value Color/Hex | #FFF2D9
+redo
+assert-field Spot | Light.Color | [1, 0.5333, 0] ~ 0.002
+# The other forms, and a refusal that changes nothing.
+imgui-type Color/Hex | rgb(0, 128, 255)
+assert-field Spot | Light.Color | [0, 0.502, 1] ~ 0.002
+undo
+imgui-type Color/Hex | not a colour
+assert-field Spot | Light.Color | [1, 0.5333, 0] ~ 0.002
+imgui-assert-value Color/Hex | not a colour
+# Another gesture changing the colour clears the refusal: the Hex row follows the colour again.
+imgui-click Color/Original
+wait 2
+imgui-assert-value Color/Hex | #FFF2D9
+undo
+wait 2
+imgui-assert-value Color/Hex | #FF8800
+imgui-type Color/Hex | ff8800
+assert-field Spot | Light.Color | [1, 0.5333, 0] ~ 0.002
+
+# The temperature bar: a drag left from its middle (about 4500 K) lands near 2200 K, warm.
+imgui-drag Color/Kelvin | -60 0
+assert-field Spot | Light.Color | != [1, 0.5333, 0]
+assert-field Spot | Light.Color.0 | 1
+assert-field Spot | Light.Color.2 | 0.2 ~ 0.15
+imgui-assert-value Color/Kelvin | 2200 ~ 400
+undo
+assert-field Spot | Light.Color | [1, 0.5333, 0] ~ 0.002
+redo
+assert-field Spot | Light.Color.2 | 0.2 ~ 0.15
+undo
+
+# The scene's palette (gathered when the popover opened): the Red Point's colour is third.
+imgui-assert-value Color/Palette 3 | #FF4026
+imgui-click Color/Palette 3
+assert-field Spot | Light.Color | [1, 0.251, 0.149] ~ 0.003
+imgui-assert-value Light/Color | #FF4026
+undo
+assert-field Spot | Light.Color | [1, 0.5333, 0] ~ 0.002
+redo
+assert-field Spot | Light.Color | [1, 0.251, 0.149] ~ 0.003
+# Original goes back to what the field held when the popover opened.
+imgui-click Color/Original
+assert-field Spot | Light.Color | [1, 0.95, 0.85]
+undo
+assert-field Spot | Light.Color | [1, 0.251, 0.149] ~ 0.003
+
+# Captures of the open popover, dark and light.
+imgui-hover Color/hue
+wait 3
+screenshot .tmp/UX14-Popover.png
+wait 5
+preference Appearance.Theme | "Light"
+wait 5
+screenshot .tmp/UX14-Popover-Light.png
+wait 5
+preference Appearance.Theme | "Dark"
+wait 3
+
+# Right-click: copy and paste the hex (each paste one undo step).
+imgui-click Light/Color | right
+wait 2
+imgui-click Copy
+assert-clipboard #FF4026
+clipboard #00FF00
+imgui-click Light/Color | right
+wait 2
+imgui-click Paste
+assert-field Spot | Light.Color | [0, 1, 0]
+undo
+assert-field Spot | Light.Color | [1, 0.251, 0.149] ~ 0.003
+
+# The eyedropper: the World View, unlit (so the light being edited doesn't change what it shows),
+# framed on the back wall. The click samples instead of selecting.
+select Back Wall
+wait 2
+action View.FrameSelected
+action View.Shading.Unlit
+wait 90
+select Spot
+wait 5
+imgui-click Light/Color
+wait 3
+imgui-click Color/Eyedropper
+wait 2
+imgui-assert-item Color/Hex | false
+# Armed: a crosshair and a loupe follow the pointer over the view.
+click-viewport 0.4 0.55 | hover
+wait 10
+screenshot .tmp/UX14-Eyedropper.png
+wait 5
+# On the wall's top edge: the loupe shows whole pixels (point sampled), not a blur.
+click-viewport 0.4 0.38 | hover
+wait 10
+screenshot .tmp/UX14-Eyedropper-Edge.png
+wait 5
+click-viewport 0.5 0.5
+wait 10
+inspector-assert-entity Spot
+assert-field Spot | Light.Color | != [1, 0.251, 0.149]
+assert-viewport-pixel 0.5 0.5 | Spot | Light.Color ~ 0.02
+undo
+assert-field Spot | Light.Color | [1, 0.251, 0.149] ~ 0.003
+redo
+assert-viewport-pixel 0.5 0.5 | Spot | Light.Color ~ 0.02
+undo
+# Armed, then Esc: the next click in the view selects as usual and the colour stays.
+imgui-click Light/Color
+wait 3
+imgui-click Color/Eyedropper
+wait 2
+imgui-key Escape
+wait 2
+click-viewport 0.5 0.5
+wait 10
+assert-field Spot | Light.Color | [1, 0.251, 0.149] ~ 0.003
+inspector-assert-entity Back Wall
+action View.Shading.Lit
+
+# Two lights selected: the swatch says they differ; an edit sets both (one undo step).
+select Red Point,Blue Point
+wait 5
+imgui-assert-value Light/Color | Mixed
+imgui-click Light/Color
+wait 3
+imgui-type Color/Hex | #00FF00
+assert-field Red Point | Light.Color | [0, 1, 0]
+assert-field Blue Point | Light.Color | [0, 1, 0]
+imgui-assert-value Light/Color | #00FF00
+undo
+assert-field Red Point | Light.Color | [1, 0.25, 0.15]
+assert-field Blue Point | Light.Color | [0.2, 0.45, 1]
+imgui-key Escape
+wait 2
+
+# An HDR colour (Post Process' fog): the swatch shows its stops above white, and the popover's
+# Intensity row takes "+2 EV" or a multiplier, keeping the hue.
+create FogProbe
+add-component PostProcess
+select FogProbe
+wait 5
+assert-field FogProbe | PostProcess.FogColor | [0.55, 0.62, 0.72]
+imgui-assert-value PostProcess/Fog Color | #8C9EB8 0 EV
+imgui-click PostProcess/Fog Color
+wait 3
+imgui-assert-value Color/Intensity | 0.0 EV
+imgui-type Color/Intensity | +2 EV
+assert-field FogProbe | PostProcess.FogColor | [3.0556, 3.4444, 4] ~ 0.003
+imgui-assert-value PostProcess/Fog Color | #C3DCFF +2 EV
+undo
+assert-field FogProbe | PostProcess.FogColor | [0.55, 0.62, 0.72]
+imgui-type Color/Intensity | 8x
+assert-field FogProbe | PostProcess.FogColor | [6.1111, 6.8889, 8] ~ 0.005
+# The hex changes the hue and keeps the intensity.
+imgui-type Color/Hex | #FF8800
+assert-field FogProbe | PostProcess.FogColor | [8, 4.2667, 0] ~ 0.005
+imgui-assert-value PostProcess/Fog Color | #FF8800 +3 EV
+# A dim hex keeps the stops too: its brightest channel goes to 2^EV.
+imgui-type Color/Hex | #808080
+assert-field FogProbe | PostProcess.FogColor | [8, 8, 8] ~ 0.005
+imgui-assert-value PostProcess/Fog Color | #FFFFFF +3 EV
+undo
+assert-field FogProbe | PostProcess.FogColor | [8, 4.2667, 0] ~ 0.005
+imgui-hover Color/hue
+wait 3
+screenshot .tmp/UX14-Popover-HDR.png
+wait 5
+undo
+undo
+assert-field FogProbe | PostProcess.FogColor | [0.55, 0.62, 0.72]
+# The eyedropper into an HDR field: a screen pixel is below full brightness, and the field keeps
+# its +2 EV (the brightest channel lands at 4).
+imgui-type Color/Intensity | +2 EV
+assert-field FogProbe | PostProcess.FogColor | [3.0556, 3.4444, 4] ~ 0.003
+imgui-click Color/Eyedropper
+wait 2
+click-viewport 0.5 0.5
+wait 10
+inspector-assert-entity FogProbe
+assert-field FogProbe | PostProcess.FogColor | != [3.0556, 3.4444, 4]
+imgui-click PostProcess/Fog Color
+wait 3
+imgui-assert-value Color/Intensity | 2 ~ 0.01
+imgui-key Escape
+wait 2
+undo
+assert-field FogProbe | PostProcess.FogColor | [3.0556, 3.4444, 4] ~ 0.003
+undo
+assert-field FogProbe | PostProcess.FogColor | [0.55, 0.62, 0.72]
+
+# A Camera's Clear Color (drawn by its own inspector) is a swatch too.
+create ClearProbe
+add-component Camera
+select ClearProbe
+wait 5
+set Camera.ClearColor [1, 0.5333, 0]
+wait 3
+imgui-assert-value Camera/Clear Color | #FF8800
+imgui-click Camera/Clear Color
+wait 3
+imgui-type Color/Hex | #00FF00
+assert-field ClearProbe | Camera.ClearColor | [0, 1, 0]
+imgui-assert-value Camera/Clear Color | #00FF00
+undo
+assert-field ClearProbe | Camera.ClearColor | [1, 0.5333, 0] ~ 0.002
+imgui-key Escape
+wait 2

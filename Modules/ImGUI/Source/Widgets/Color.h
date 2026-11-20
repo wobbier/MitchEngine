@@ -17,6 +17,8 @@ namespace MeWidgets::ColorTemperature
     // within InTolerance on every channel; false for colours off the blackbody curve (green,
     // magenta, black) or outside kMinKelvin..kMaxKelvin.
     bool FromSrgb( const std::array<float, 3>& InSrgb, double& OutKelvin, float InTolerance = 0.02f );
+    // The same over InMinKelvin..InMaxKelvin (UX-14's colour popover searches 1000 K..20000 K).
+    bool FromSrgbInRange( const std::array<float, 3>& InSrgb, double InMinKelvin, double InMaxKelvin, double& OutKelvin, float InTolerance = 0.02f );
 
     // A named reference temperature for photographers' light (Candle 1900 K, Daylight 5600 K, ...).
     struct Preset

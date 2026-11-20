@@ -32,6 +32,15 @@ namespace MeWidgets::ItemLog
             // Labels seen on earlier frames: clipped widgets skip their label hook, so they keep
             // the name they had when visible (and can still be found and scrolled to).
             std::unordered_map<ImGuiID, std::string> KnownLabels;
+            // PushScope: the row and part forced on items recorded meanwhile in the window
+            // (root) that pushed them; popups opened inside keep their own rows.
+            struct Scope
+            {
+                ImGuiID Window = 0;
+                std::string Row;
+                std::string Part;
+            };
+            std::vector<Scope> Scopes;
         };
 
         State& Get()
@@ -79,6 +88,7 @@ namespace MeWidgets::ItemLog
             state.Last.swap( state.Building );
             state.Building.clear();
             state.Windows.clear();
+            state.Scopes.clear();
         }
 
         void InstallHook( ImGuiContext* InContext )
@@ -101,6 +111,20 @@ namespace MeWidgets::ItemLog
             };
             ImGui::AddContextHook( InContext, &shutdown );
             state.Hooked.push_back( InContext );
+        }
+
+        // Any item drawn so far this frame (a widget naming its part after drawing more).
+        Item* FindAnyBuilding( ImGuiID InId )
+        {
+            auto& items = Get().Building;
+            for( size_t i = items.size(); i > 0; --i )
+            {
+                if( items[i - 1].Id == InId )
+                {
+                    return &items[i - 1];
+                }
+            }
+            return nullptr;
         }
 
         Item* FindBuilding( ImGuiID InId )
@@ -180,6 +204,14 @@ namespace MeWidgets::ItemLog
         if( windowState.HasRow && InRect.Min.y < windowState.RowRect.Max.y && InRect.Max.y > windowState.RowRect.Min.y )
         {
             item.Row = windowState.Row;
+        }
+        if( !state.Scopes.empty() && state.Scopes.back().Window == root->ID )
+        {
+            if( !state.Scopes.back().Row.empty() )
+            {
+                item.Row = state.Scopes.back().Row;
+            }
+            item.Part = state.Scopes.back().Part;
         }
         if( InRect.Overlaps( window->ClipRect ) )
         {
@@ -365,6 +397,50 @@ namespace MeWidgets::ItemLog
         }
     }
 
+    void PushScope( std::string_view InRow, std::string_view InPart )
+    {
+        ImGuiContext* context = ImGui::GetCurrentContext();
+        ImGuiWindow* window = context ? context->CurrentWindow : nullptr;
+        ImGuiWindow* root = window && window->RootWindow ? window->RootWindow : window;
+        Get().Scopes.push_back( { root ? root->ID : 0, std::string( InRow ), std::string( InPart ) } );
+    }
+
+    void PopScope()
+    {
+        if( !Get().Scopes.empty() )
+        {
+            Get().Scopes.pop_back();
+        }
+    }
+
+    void SetItemLabel( ImGuiID InId, std::string_view InLabel )
+    {
+        if( !Get().Enabled )
+        {
+            return;
+        }
+        if( Item* item = FindAnyBuilding( InId ) )
+        {
+            item->Label = std::string( InLabel );
+            if( !item->Label.empty() )
+            {
+                Get().KnownLabels[InId] = item->Label;
+            }
+        }
+    }
+
+    void MarkItemRowScoped( ImGuiID InId )
+    {
+        if( !Get().Enabled )
+        {
+            return;
+        }
+        if( Item* item = FindAnyBuilding( InId ) )
+        {
+            item->NeedsRowScope = true;
+        }
+    }
+
     std::string ItemRow( ImGuiID InId )
     {
         if( !Get().Enabled )
@@ -452,7 +528,7 @@ namespace MeWidgets::ItemLog
         }
         if( InItem.NeedsRowScope && byLabel && !NameMatches( InItem.Row, InQuery.Name ) )
         {
-            const bool rowScoped = std::any_of( InQuery.Scopes.begin(), InQuery.Scopes.end(), [&]( const std::string& InScope ) { return NameMatches( InItem.Row, InScope ); } );
+            const bool rowScoped = std::any_of( InQuery.Scopes.begin(), InQuery.Scopes.end(), [&]( const std::string& InScope ) { return NameMatches( InItem.Row, InScope ) || NameMatches( InItem.Part, InScope ); } );
             if( !rowScoped )
             {
                 return false;
@@ -461,7 +537,7 @@ namespace MeWidgets::ItemLog
         for( const std::string& scope : InQuery.Scopes )
         {
             if( !EqualsNoCase( InItem.Window, scope ) && !NameMatches( InItem.Group, scope ) && !NameMatches( InItem.Section, scope )
-                && !( !InItem.IsRowLabel && NameMatches( InItem.Row, scope ) ) )
+                && !( !InItem.IsRowLabel && NameMatches( InItem.Row, scope ) ) && !NameMatches( InItem.Part, scope ) )
             {
                 return false;
             }
@@ -510,7 +586,7 @@ namespace MeWidgets::ItemLog
         if( !InItem.Group.empty() && InItem.Group != InItem.Section ) text += " / " + InItem.Group;
         if( !InItem.Section.empty() ) text += " / " + InItem.Section;
         text += InItem.IsRowLabel ? " / " + InItem.Label + ":label" : " / " + ( InItem.Label.empty() ? std::string( "<unlabelled>" ) : InItem.Label );
-        if( !InItem.Row.empty() && !InItem.IsRowLabel ) text += " (row " + InItem.Row + ")";
+        if( !InItem.Row.empty() && !InItem.IsRowLabel ) text += " (row " + InItem.Row + ( InItem.Part.empty() ? std::string() : ", part " + InItem.Part ) + ")";
         if( !InItem.Value.empty() ) text += " = " + InItem.Value;
         return text;
     }

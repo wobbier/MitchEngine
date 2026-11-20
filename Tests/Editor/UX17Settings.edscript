@@ -1,0 +1,145 @@
+# UX-17: Preferences and Project Settings numbers are unit fields like the inspector's: typed values
+# take units ("5 min", "0.125 turn", "-6 dB", "25 cm"), labels scrub and double-click back to the
+# default, and what lands in the preference or project setting is the stored unit (seconds,
+# degrees, a linear gain, MiB). Project Settings edits are one undo step each. A few-choice
+# combos are segmented controls. Dark and light captures of both windows.
+# Havana --scene Assets/Scenes/Tests/PhysicsTest.lvl --frame-time 0.0166667 --editor-exec Engine/Tests/Editor/UX17Settings.edscript
+wait 20
+project-settings-file .tmp/UX17/ProjectSettings.json
+project-set AudioBusVolumes | [1, 1, 1, 1, 1]
+project-set Gravity | [0, -9.81, 0]
+project-set TerrainStreaming.CpuBudgetMiB | 256
+preference Autosave.IntervalSeconds | 120
+preference Snap.Translate | 0.5
+preference Snap.Rotate | 15
+preference Snap.Scale | 0.1
+show-window Preferences
+wait 5
+# Floating windows can't be captured: dock them beside the inspector.
+dock-window Preferences | Properties
+wait 5
+
+# Appearance: the font size in px (whole pixels, clamped), the theme and juice as segments.
+imgui-assert-value Preferences/Theme | Dark
+imgui-assert-value Preferences/Juice | Full
+imgui-assert-value Preferences/Size | 18 px
+imgui-type Preferences/Size | 20.4
+wait 3
+assert-preference Appearance.FontSize | 20
+imgui-assert-value Preferences/Size | 20 px
+imgui-type Preferences/Size | 99
+wait 3
+assert-preference Appearance.FontSize | 28
+imgui-click Preferences/Size:label | double
+wait 3
+assert-preference Appearance.FontSize | 18
+imgui-assert-value Preferences/Size | 18 px
+wait 90
+panel-screenshot Preferences | .tmp/UX17-Appearance-Dark.png
+
+# General: the autosave interval in seconds; "Off" at zero.
+imgui-click Preferences/General
+wait 3
+imgui-assert-value Preferences/Autosave interval | 120 s
+imgui-type Preferences/Autosave interval | 5 min
+assert-preference Autosave.IntervalSeconds | 300
+imgui-assert-value Preferences/Autosave interval | 300 s
+# Whole seconds, as the old %.0f drag stored: a typed fraction rounds.
+imgui-type Preferences/Autosave interval | 90.4
+assert-preference Autosave.IntervalSeconds | 90
+imgui-assert-value Preferences/Autosave interval | 90 s
+imgui-type Preferences/Autosave interval | 0
+assert-preference Autosave.IntervalSeconds | 0
+imgui-assert-value Preferences/Autosave interval | Off
+imgui-click Preferences/Autosave interval:label | double
+assert-preference Autosave.IntervalSeconds | 120
+
+# Scene View: snapping in metres and degrees (stored as typed: degrees stay degrees).
+imgui-click Preferences/Scene View
+wait 3
+imgui-assert-value Preferences/Move increment | 0.5 m
+imgui-type Preferences/Move increment | 25 cm
+assert-preference Snap.Translate | 0.25
+imgui-assert-value Preferences/Move increment | 0.25 m
+imgui-type Preferences/Rotate increment | 0.125 turn
+assert-preference Snap.Rotate | 45
+imgui-assert-value Preferences/Rotate increment | 45°
+imgui-scrub Preferences/Rotate increment:label | 40
+assert-preference Snap.Rotate | != 45
+imgui-click Preferences/Rotate increment:label | double
+assert-preference Snap.Rotate | 15
+imgui-assert-value Preferences/Fly speed | 10 m/s
+imgui-assert-value Preferences/Look sensitivity | 0.15°
+# Let the reset's sparks settle before the captures.
+wait 90
+panel-screenshot Preferences | .tmp/UX17-SceneView-Dark.png
+preference Appearance.Theme | "Light"
+wait 5
+panel-screenshot Preferences | .tmp/UX17-SceneView-Light.png
+preference Appearance.Theme | "Dark"
+wait 5
+
+# Project Settings > Audio: bus volumes are linear gains shown in dB.
+show-window Project Settings
+wait 5
+dock-window Project Settings | Properties
+wait 5
+imgui-click Project Settings/Audio
+wait 3
+imgui-assert-value Project Settings/Music | 0.0 dB
+imgui-type Project Settings/Music | -6 dB
+wait 3
+project-assert AudioBusVolumes.1 | 0.501187 ~ 0.0001
+imgui-assert-value Project Settings/Music | -6.0 dB
+undo
+wait 3
+project-assert AudioBusVolumes.1 | 1
+imgui-scrub Project Settings/SFX:label | -60
+wait 3
+project-assert AudioBusVolumes.2 | 0.8 ~ 0.15
+undo
+wait 3
+project-assert AudioBusVolumes.2 | 1
+panel-screenshot Project Settings | .tmp/UX17-Audio-Dark.png
+preference Appearance.Theme | "Light"
+wait 5
+panel-screenshot Project Settings | .tmp/UX17-Audio-Light.png
+preference Appearance.Theme | "Dark"
+wait 5
+
+# Physics: gravity in m/s², per axis.
+imgui-click Project Settings/Physics
+wait 3
+imgui-assert-value Project Settings/Gravity/Y | -9.81 m/s²
+imgui-type Project Settings/Gravity/Y | -3.71
+wait 3
+project-assert Gravity | [0, -3.71, 0] ~ 0.001
+undo
+wait 3
+project-assert Gravity | [0, -9.81, 0] ~ 0.001
+panel-screenshot Project Settings | .tmp/UX17-Physics-Dark.png
+
+# Terrain: whole MiB, reset to the default from the label.
+imgui-click Project Settings/Terrain
+wait 3
+imgui-type Project Settings/CPU budget | 300.6
+wait 3
+project-assert TerrainStreaming.CpuBudgetMiB | 301
+imgui-click Project Settings/CPU budget:label | double
+wait 3
+project-assert TerrainStreaming.CpuBudgetMiB | 256
+wait 90
+panel-screenshot Project Settings | .tmp/UX17-Terrain-Dark.png
+
+# Navigation: agent sizes in metres and degrees in the table's cells.
+imgui-click Project Settings/Navigation
+wait 3
+imgui-assert-value Project Settings/Radius | 0.5 m
+imgui-assert-value Project Settings/Slope | 45°
+panel-screenshot Project Settings | .tmp/UX17-Navigation-Dark.png
+imgui-click Project Settings/Time
+wait 3
+imgui-assert-value Project Settings/Fixed update rate | 60 Hz
+imgui-assert-value Project Settings/Frame rate cap | Uncapped
+panel-screenshot Project Settings | .tmp/UX17-Time-Dark.png
+quit

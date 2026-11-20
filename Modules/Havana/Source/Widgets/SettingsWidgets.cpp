@@ -1,6 +1,9 @@
 #include "SettingsWidgets.h"
 #include <Widgets/Juice.h>
 #include <Widgets/ScrubField.h>
+#include <Widgets/ChoiceWidgets.h>
+#include <Widgets/ColorPopover.h>
+#include <Widgets/ItemLog.h>
 #include "Core/CommandLine.h"
 #include "Editor/EditorActions.h"
 #include "Engine/Engine.h"
@@ -38,6 +41,103 @@
 
 namespace
 {
+	using Reflection::Unit;
+
+	// UX-17: settings numbers are unit fields, like the inspector's: a unit, a hard range (the
+	// clamp the setting always had), log where it spans decades, and a default the row's label
+	// restores on double-click.
+	MeWidgets::NumberSpec SettingSpec(Unit unit, double min, double max, double fallback, bool log = false, int decimals = -1)
+	{
+		MeWidgets::NumberSpec spec;
+		spec.FieldUnit = unit;
+		spec.HasRange = max > min;
+		spec.Min = min;
+		spec.Max = max;
+		spec.Log = log;
+		spec.HasDefault = true;
+		spec.Default = fallback;
+		spec.Decimals = decimals;
+		return spec;
+	}
+
+	// A float setting that holds whole numbers (whole Hz, s, deg): scrubs and typed values round,
+	// as the old "%.0f" drags did, so the field never hides a fraction it stores.
+	MeWidgets::NumberSpec SettingSpecWhole(Unit unit, double min, double max, double fallback, bool log = false)
+	{
+		MeWidgets::NumberSpec spec = SettingSpec(unit, min, max, fallback, log, 0);
+		spec.Integer = true;
+		return spec;
+	}
+
+	MeWidgets::NumberSpec SettingSpecInt(double min, double max, double fallback, bool log = false)
+	{
+		MeWidgets::NumberSpec spec = SettingSpec(Unit::None, min, max, fallback, log, 0);
+		spec.Integer = true;
+		return spec;
+	}
+
+	// A UnitRow over a float setting: writes only when the row changed it.
+	bool FloatRow(const char* label, float& value, const MeWidgets::NumberSpec& spec)
+	{
+		double number = value;
+		if (!MeWidgets::UnitRow(label, number, spec))
+			return false;
+		value = static_cast<float>(number);
+		return true;
+	}
+
+	bool IntRow(const char* label, int& value, const MeWidgets::NumberSpec& spec)
+	{
+		double number = value;
+		if (!MeWidgets::UnitRow(label, number, spec))
+			return false;
+		value = static_cast<int>(std::lround(number));
+		return true;
+	}
+
+	// A unit field alone (a table cell), CalcItemWidth() wide, named for automation by its column.
+	bool FloatField(const char* id, const char* column, float& value, const MeWidgets::NumberSpec& spec)
+	{
+		double number = value;
+		const bool changed = MeWidgets::UnitField(id, number, spec);
+		MeWidgets::ItemLog::SetLastItemLabel(column);
+		if (!changed)
+			return false;
+		value = static_cast<float>(number);
+		return true;
+	}
+
+	// A segmented control (UX-13) for a few named choices, or a combo when the column is too narrow.
+	bool SettingChoice(const char* id, const char* const* labels, int count, int& index, const char* tooltip = nullptr)
+	{
+		if (MeWidgets::SegmentedFits(labels, nullptr, count))
+			return MeWidgets::Segmented(id, labels, nullptr, count, index, false, tooltip);
+		bool changed = false;
+		if (ImGui::BeginCombo(id, index >= 0 && index < count ? labels[index] : ""))
+		{
+			for (int i = 0; i < count; ++i)
+			{
+				if (ImGui::Selectable(labels[i], i == index))
+				{
+					changed = i != index;
+					index = i;
+				}
+			}
+			ImGui::EndCombo();
+		}
+		if (tooltip)
+			ImGui::SetItemTooltip("%s", tooltip);
+		return changed;
+	}
+
+	// A settings tab, named for automation ("Preferences/General", "Project Settings/Audio").
+	bool SettingsTab(const char* name)
+	{
+		const bool open = ImGui::BeginTabItem(name);
+		MeWidgets::ItemLog::SetLastItemLabel(name);
+		return open;
+	}
+
 	ImGuiTheme::Mode AppearanceMode()
 	{
 		return EditorConfig::GetInstance().GetPreference<std::string>("Appearance.Theme", "Dark") == "Light"
@@ -328,9 +428,7 @@ namespace
 		ImGui::SetItemTooltip("Turn off the effects the target lacks and cap texture and shadow sizes, so the game shows the target's look. Off, the caps are only reported. Textures reload when the size cap changes.");
 		// NEXT-11: per machine (an editor preference), not per project.
 		float hostSpeed = budget.GetHostSpeedFactor();
-		HavanaUtils::Label("This machine is");
-		ImGui::SetNextItemWidth(120.f);
-		if (ImGui::DragFloat("##HostSpeed", &hostSpeed, 0.05f, 0.05f, 100.f, "%.2fx faster"))
+		if (FloatRow("Host speed", hostSpeed, SettingSpec(Unit::Multiplier, 0.05, 100.0, 1.0, true, 2)))
 		{
 			budget.SetHostSpeedFactor(hostSpeed);
 			EditorConfig::GetInstance().SetPreference("Budgets.HostSpeedFactor", budget.GetHostSpeedFactor());
@@ -621,22 +719,22 @@ void PreferencesWidget::Render()
 	}
 	if (ImGui::BeginTabBar("##PreferenceTabs"))
 	{
-		if (ImGui::BeginTabItem("Appearance"))
+		if (SettingsTab("Appearance"))
 		{
 			DrawAppearance();
 			ImGui::EndTabItem();
 		}
-		if (ImGui::BeginTabItem("General"))
+		if (SettingsTab("General"))
 		{
 			DrawGeneral();
 			ImGui::EndTabItem();
 		}
-		if (ImGui::BeginTabItem("Scene View"))
+		if (SettingsTab("Scene View"))
 		{
 			DrawSceneView();
 			ImGui::EndTabItem();
 		}
-		if (ImGui::BeginTabItem("Shortcuts"))
+		if (SettingsTab("Shortcuts"))
 		{
 			DrawShortcuts();
 			ImGui::EndTabItem();
@@ -656,7 +754,8 @@ void PreferencesWidget::DrawAppearance()
 
 	int theme = mode == ImGuiTheme::Mode::Light ? 1 : 0;
 	HavanaUtils::Label("Theme");
-	if (ImGui::Combo("##Theme", &theme, "Dark\0Light\0"))
+	const char* const themes[] = { "Dark", "Light" };
+	if (SettingChoice("##Theme", themes, 2, theme))
 	{
 		mode = theme == 1 ? ImGuiTheme::Mode::Light : ImGuiTheme::Mode::Dark;
 		changed = true;
@@ -678,8 +777,9 @@ void PreferencesWidget::DrawAppearance()
 		ImGui::EndCombo();
 	}
 	int fontSize = static_cast<int>(AppearanceBaseFontSize());
-	HavanaUtils::Label("Size");
-	if (ImGui::SliderInt("##Size", &fontSize, static_cast<int>(ImGuiRenderer::kMinFontSize), static_cast<int>(kMaxFontSize), "%d px", ImGuiSliderFlags_AlwaysClamp))
+	MeWidgets::NumberSpec sizeSpec = SettingSpec(Unit::Pixels, ImGuiRenderer::kMinFontSize, kMaxFontSize, ImGuiRenderer::kMinFontSize, false, 0);
+	sizeSpec.Integer = true;
+	if (IntRow("Size", fontSize, sizeSpec))
 		changed = true;
 
 	// ED-1: UI scale multiplies the size (fonts and spacing); Auto follows the monitor's DPI.
@@ -687,23 +787,35 @@ void PreferencesWidget::DrawAppearance()
 		EditorConfig& scaleConfig = EditorConfig::GetInstance();
 		float stored = scaleConfig.GetPreference<float>("Appearance.UIScale", 0.f);
 		bool autoScale = !(stored >= 1.f);
-		HavanaUtils::Label("UI scale");
+		// The row's label scrubs (and double-click resets to the monitor's scale) unless Auto is on.
+		ImGui::PushID("UI scale");
+		const float scaleWidth = HavanaUtils::Label("UI scale");
+		const MeWidgets::NumberSpec scaleSpec = SettingSpec(Unit::Multiplier, 1.0, 3.0, DisplayScale(), false, 2);
+		double scale = AppearanceScale();
+		bool scaleChanged = !autoScale && MeWidgets::ScrubLastItem(scale, scaleSpec, scaleWidth);
+		// The value first (so the row's query reads it), then the Auto toggle ending the row.
+		const ImGuiStyle& style = ImGui::GetStyle();
+		const float autoWidth = ImGui::GetFrameHeight() + style.ItemInnerSpacing.x + ImGui::CalcTextSize("Auto").x;
+		ImGui::SetNextItemWidth(std::max(scaleWidth - autoWidth - ImGuiTheme::InnerGap(), ImGuiTheme::Em(3.f)));
+		ImGui::BeginDisabled(autoScale);
+		scaleChanged |= MeWidgets::UnitField("##value", scale, scaleSpec);
+		ImGui::EndDisabled();
+		ImGui::SameLine(0.f, ImGuiTheme::InnerGap());
 		if (ImGui::Checkbox("Auto##UIScale", &autoScale))
 		{
 			scaleConfig.SetPreference("Appearance.UIScale", autoScale ? 0.f : DisplayScale());
 			m_appearancePending = true;
 			m_appearanceUnsaved = true;
+			scaleChanged = false;
 		}
-		ImGui::SameLine();
-		float scale = AppearanceScale();
-		ImGui::BeginDisabled(autoScale);
-		if (ImGui::SliderFloat("##UIScaleValue", &scale, 1.f, 3.f, "%.2fx", ImGuiSliderFlags_AlwaysClamp))
+		ImGui::PopID();
+		if (scaleChanged && !autoScale)
 		{
-			scaleConfig.SetPreference("Appearance.UIScale", std::round(scale * 4.f) / 4.f);
+			// Quarter steps, as the scale always stored.
+			scaleConfig.SetPreference("Appearance.UIScale", std::round(static_cast<float>(scale) * 4.f) / 4.f);
 			m_appearancePending = true;
 			m_appearanceUnsaved = true;
 		}
-		ImGui::EndDisabled();
 		if (autoScale)
 			ImGui::TextDisabled("This monitor: %.2fx", DisplayScale());
 	}
@@ -737,7 +849,7 @@ void PreferencesWidget::DrawAppearance()
 		}
 	}
 	HavanaUtils::Label("Custom color");
-	changed |= ImGui::ColorEdit3("##CustomColor", &accent.x, ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_DisplayHex | ImGuiColorEditFlags_NoDragDrop);
+	changed |= MeWidgets::ColorSwatchPopover("##CustomColor", &accent.x, 3, false, "Accent");
 
 	const ImGuiTheme::Palette palette = ImGuiTheme::MakePalette(mode, accent);
 	const ImVec4 shades[] = { palette.Accent, palette.Hovered, palette.Pressed };
@@ -754,23 +866,16 @@ void PreferencesWidget::DrawAppearance()
 	ImGui::SeparatorText("Motion");
 	{
 		// UX-3: how much the widgets move, flash and spark.
-		const char* levels[] = { "Off", "Subtle", "Full" };
+		const char* const levels[] = { "Off", "Subtle", "Full" };
 		const std::string current = config.GetPreference<std::string>("Appearance.Juice", "Full");
+		int level = current == "Off" ? 0 : current == "Subtle" ? 1 : current == "Full" ? 2 : -1;
 		HavanaUtils::Label("Juice");
-		if (ImGui::BeginCombo("##Juice", current.c_str()))
+		if (SettingChoice("##Juice", levels, 3, level, "Springs, flashes, detent ticks and sparks on editor widgets. Off keeps them still.") && level >= 0)
 		{
-			for (const char* level : levels)
-			{
-				if (ImGui::Selectable(level, current == level))
-				{
-					config.SetPreference("Appearance.Juice", std::string(level));
-					m_appearancePending = true;
-					m_appearanceUnsaved = true;
-				}
-			}
-			ImGui::EndCombo();
+			config.SetPreference("Appearance.Juice", std::string(levels[level]));
+			m_appearancePending = true;
+			m_appearanceUnsaved = true;
 		}
-		ImGui::SetItemTooltip("Springs, flashes, detent ticks and sparks on editor widgets. Off keeps them still.");
 		bool reduce = config.GetPreference<bool>("Appearance.ReduceMotion", false);
 		HavanaUtils::Label("Reduce motion");
 		if (ImGui::Checkbox("##ReduceMotion", &reduce))
@@ -848,8 +953,9 @@ void PreferencesWidget::DrawGeneral()
 {
 	EditorConfig& config = EditorConfig::GetInstance();
 	float autosave = config.GetPreference<float>("Autosave.IntervalSeconds", 120.f);
-	HavanaUtils::Label("Autosave interval (s)");
-	if (ImGui::DragFloat("##Autosave", &autosave, 5.f, 0.f, 3600.f, autosave <= 0.f ? "Off" : "%.0f"))
+	MeWidgets::NumberSpec autosaveSpec = SettingSpecWhole(Unit::Seconds, 0.0, 3600.0, 120.0, true);
+	autosaveSpec.MinText = "Off";
+	if (FloatRow("Autosave interval", autosave, autosaveSpec))
 	{
 		config.SetPreference("Autosave.IntervalSeconds", std::max(autosave, 0.f));
 	}
@@ -908,12 +1014,15 @@ void PreferencesWidget::DrawSceneView()
 	float translate = config.GetPreference<float>("Snap.Translate", 0.5f);
 	float rotate = config.GetPreference<float>("Snap.Rotate", 15.f);
 	float scale = config.GetPreference<float>("Snap.Scale", 0.1f);
-	HavanaUtils::Label("Move increment (m)");
-	if (ImGui::DragFloat("##SnapTranslate", &translate, 0.05f, 0.001f, 1000.f)) config.SetPreference("Snap.Translate", translate);
-	HavanaUtils::Label("Rotate increment (deg)");
-	if (ImGui::DragFloat("##SnapRotate", &rotate, 1.f, 0.1f, 180.f)) config.SetPreference("Snap.Rotate", rotate);
-	HavanaUtils::Label("Scale increment");
-	if (ImGui::DragFloat("##SnapScale", &scale, 0.01f, 0.001f, 10.f)) config.SetPreference("Snap.Scale", scale);
+	MeWidgets::NumberSpec translateSpec = SettingSpec(Unit::Meters, 0.001, 1000.0, 0.5, true);
+	translateSpec.HasSoftRange = true;
+	translateSpec.SoftMin = 0.01;
+	translateSpec.SoftMax = 10.0;
+	MeWidgets::NumberSpec rotateSpec = SettingSpec(Unit::Degrees, 0.1, 180.0, 15.0, true);
+	MeWidgets::NumberSpec scaleSpec = SettingSpec(Unit::None, 0.001, 10.0, 0.1, true);
+	if (FloatRow("Move increment", translate, translateSpec)) config.SetPreference("Snap.Translate", translate);
+	if (FloatRow("Rotate increment", rotate, rotateSpec)) config.SetPreference("Snap.Rotate", rotate);
+	if (FloatRow("Scale increment", scale, scaleSpec)) config.SetPreference("Snap.Scale", scale);
 	ImGui::TextDisabled("Snap values apply the next time the scene view loads its settings.");
 
 	ImGui::SeparatorText("Camera");
@@ -922,15 +1031,14 @@ void PreferencesWidget::DrawSceneView()
 	{
 		EditorCameraController& camera = app->EditorSceneManager->GetCameraController();
 		float speed = camera.GetFlySpeed();
-		HavanaUtils::Label("Fly speed (m/s)");
-		if (ImGui::DragFloat("##FlySpeed", &speed, 0.1f, 0.1f, 500.f))
+		if (FloatRow("Fly speed", speed, SettingSpec(Unit::MetersPerSecond, 0.1, 500.0, 10.0, true)))
 		{
 			camera.SetFlySpeed(speed);
 		}
-		HavanaUtils::Label("Look sensitivity");
-		ImGui::DragFloat("##LookSensitivity", &camera.LookSensitivity, 0.01f, 0.01f, 2.f);
-		HavanaUtils::Label("Focus smoothing");
-		ImGui::DragFloat("##FocusSmoothing", &camera.FocusSmoothing, 0.1f, 1.f, 60.f);
+		FloatRow("Look sensitivity (per pixel)", camera.LookSensitivity, SettingSpec(Unit::Degrees, 0.01, 2.0, 0.15, true, 2));
+		ImGui::SetItemTooltip("How far the view turns per pixel of mouse movement.");
+		FloatRow("Focus smoothing", camera.FocusSmoothing, SettingSpec(Unit::None, 1.0, 60.0, 14.0, true));
+		ImGui::SetItemTooltip("How quickly framing a selection (F) settles: higher is snappier.");
 	}
 }
 
@@ -1136,6 +1244,11 @@ void ProjectSettingsWidget::Render()
 	TrackChanges();
 	if (!IsOpen)
 	{
+		if (m_pendingSave)
+		{
+			ProjectSettings::Get().Save();
+			m_pendingSave = false;
+		}
 		return;
 	}
 	ImGui::SetNextWindowSize(ImVec2(ImGuiTheme::Em(31.f), ImGuiTheme::Em(31.f)), ImGuiCond_FirstUseEver);
@@ -1151,20 +1264,21 @@ void ProjectSettingsWidget::Render()
 		ImGui::End();
 		return;
 	}
-	if (ImGui::BeginTabItem("Time"))
+	if (SettingsTab("Time"))
 	{
 		float fixedHz = 1.f / std::max(engine.GetFixedTimeStep(), 0.0001f);
-		HavanaUtils::Label("Fixed update rate (Hz)");
-		if (ImGui::DragFloat("##FixedRate", &fixedHz, 1.f, 10.f, 1000.f, "%.0f"))
+		if (FloatRow("Fixed update rate", fixedHz, SettingSpecWhole(Unit::Hertz, 10.0, 1000.0, 60.0, true)))
 		{
 			engine.SetFixedTimeStep(1.f / std::clamp(fixedHz, 10.f, 1000.f));
 		}
 		float maxFps = engine.GetMaxFrameRate();
-		HavanaUtils::Label("Frame rate cap");
-		if (ImGui::DragFloat("##FrameRateCap", &maxFps, 1.f, 0.f, 1000.f, maxFps <= 0.f ? "Uncapped" : "%.0f fps"))
+		MeWidgets::NumberSpec capSpec = SettingSpecWhole(Unit::Hertz, 0.0, 1000.0, 0.0, true);
+		capSpec.MinText = "Uncapped";
+		if (FloatRow("Frame rate cap", maxFps, capSpec))
 		{
 			engine.SetMaxFrameRate(std::max(maxFps, 0.f));
 		}
+		ImGui::SetItemTooltip("Frames per second at most; Uncapped (0) runs as fast as the machine allows.");
 		HavanaUtils::SkipLabel();
 		if (ImGui::Button("Save to Engine.cfg"))
 		{
@@ -1173,25 +1287,25 @@ void ProjectSettingsWidget::Render()
 		ImGui::EndTabItem();
 	}
 
-	if (ImGui::BeginTabItem("Project"))
+	if (SettingsTab("Project"))
 	{
 		DrawProjectTab();
 		ImGui::EndTabItem();
 	}
 
-	if (ImGui::BeginTabItem("Hardware"))
+	if (SettingsTab("Hardware"))
 	{
 		DrawHardwareTab();
 		ImGui::EndTabItem();
 	}
 
-	if (ImGui::BeginTabItem("Look"))
+	if (SettingsTab("Look"))
 	{
 		DrawLookTab();
 		ImGui::EndTabItem();
 	}
 
-	if (ImGui::BeginTabItem("Layers"))
+	if (SettingsTab("Layers"))
 	{
 		ProjectSettings& settings = ProjectSettings::Get();
 		bool changed = false;
@@ -1226,11 +1340,12 @@ void ProjectSettingsWidget::Render()
 		ImGui::EndTabItem();
 	}
 
-	if (ImGui::BeginTabItem("Physics"))
+	if (SettingsTab("Physics"))
 	{
 		ProjectSettings& settings = ProjectSettings::Get();
 		HavanaUtils::Label("Gravity");
-		HavanaUtils::DragAxes("##Gravity", &settings.Gravity.x, 3, 0.05f, "%.2f");
+		// The inspector's vector row (UX-11 axis handles that scrub), in its unit.
+		HavanaUtils::DragAxes("##Gravity", &settings.Gravity.x, 3, 0.05f, "%.2f m/s\xC2\xB2");
 		if (ImGui::IsItemDeactivatedAfterEdit())
 		{
 			settings.Save();
@@ -1289,7 +1404,7 @@ void ProjectSettingsWidget::Render()
 		ImGui::EndTabItem();
 	}
 
-	if (ImGui::BeginTabItem("Input"))
+	if (SettingsTab("Input"))
 	{
 		ProjectSettings& settings = ProjectSettings::Get();
 		Input& input = engine.GetInput();
@@ -1362,7 +1477,7 @@ void ProjectSettingsWidget::Render()
 		ImGui::EndTabItem();
 	}
 
-	if (ImGui::BeginTabItem("Audio"))
+	if (SettingsTab("Audio"))
 	{
 		// Bus volumes apply live and are saved when a slider is released.
 		ProjectSettings& settings = ProjectSettings::Get();
@@ -1374,38 +1489,33 @@ void ProjectSettingsWidget::Render()
 		for (int bus = 0; bus < ProjectSettings::kAudioBusCount; ++bus)
 		{
 			ImGui::PushID(bus);
-			HavanaUtils::Label(AudioBusName(static_cast<AudioBus>(bus)));
-			const bool moved = ImGui::SliderFloat("##Volume", &settings.BusVolumes[bus], 0.f, 1.f, "%.2f");
+			const bool moved = FloatRow(AudioBusName(static_cast<AudioBus>(bus)), settings.BusVolumes[bus], SettingSpec(Unit::LinearGain, 0.0, 1.0, 1.0));
 			ImGui::PopID();
 			if (moved && audio)
 			{
 				audio->SetBusVolume(static_cast<AudioBus>(bus), settings.BusVolumes[bus]);
 			}
-			if (ImGui::IsItemDeactivatedAfterEdit())
-			{
-				settings.Save();
-			}
+			m_pendingSave |= moved;
 		}
 		ImGui::EndTabItem();
 	}
 
-	if (ImGui::BeginTabItem("Terrain"))
+	if (SettingsTab("Terrain"))
 	{
 		ProjectSettings& settings = ProjectSettings::Get();
 		ImGui::TextWrapped("Shared streaming limits across terrain assets in each world. Terrain components retain their individual ceilings. Pending work and retiring consumers remain charged.");
-		const auto budget = [&](const char* label, int& value, int maximum) {
-			ImGui::SliderInt(label, &value, 1, maximum);
-			if (ImGui::IsItemDeactivatedAfterEdit()) settings.Save();
+		const auto budget = [&](const char* label, int& value, int maximum, int fallback) {
+			m_pendingSave |= IntRow(label, value, SettingSpecInt(1.0, maximum, fallback, true));
 		};
-		budget("CPU MiB", settings.TerrainCpuBudgetMiB, 4096);
-		budget("GPU MiB", settings.TerrainGpuBudgetMiB, 4096);
-		budget("Collision MiB", settings.TerrainCollisionBudgetMiB, 4096);
-		budget("Concurrent loads", settings.TerrainMaxLoads, 64);
+		budget("CPU budget (MiB)", settings.TerrainCpuBudgetMiB, 4096, 256);
+		budget("GPU budget (MiB)", settings.TerrainGpuBudgetMiB, 4096, 128);
+		budget("Collision budget (MiB)", settings.TerrainCollisionBudgetMiB, 4096, 512);
+		budget("Concurrent loads", settings.TerrainMaxLoads, 64, 2);
 		ImGui::TextWrapped("Required collision takes priority. Reducing a limit waits for pinned data to retire; existing coarse coverage must fit before detail can stream.");
 		ImGui::EndTabItem();
 	}
 
-	if (ImGui::BeginTabItem("Navigation"))
+	if (SettingsTab("Navigation"))
 	{
 		// Area names show in area pickers; costs multiply the length of paths through an area.
 		ProjectSettings& settings = ProjectSettings::Get();
@@ -1436,11 +1546,7 @@ void ProjectSettingsWidget::Render()
 				ImGui::TableNextColumn();
 				ImGui::BeginDisabled(area == 1);
 				ImGui::SetNextItemWidth(-1.f);
-				ImGui::DragFloat("##cost", &settings.NavAreaCosts[area], 0.05f, 0.01f, 1000.f, "%.2f");
-				if (ImGui::IsItemDeactivatedAfterEdit())
-				{
-					settings.Save();
-				}
+				m_pendingSave |= FloatField("##cost", "Cost", settings.NavAreaCosts[area], SettingSpec(Unit::Multiplier, 0.01, 1000.0, area == 2 ? 2.0 : 1.0, true));
 				ImGui::EndDisabled();
 				ImGui::PopID();
 			}
@@ -1473,20 +1579,16 @@ void ProjectSettingsWidget::Render()
 				agentsChanged |= ImGui::IsItemDeactivatedAfterEdit();
 				ImGui::TableNextColumn();
 				ImGui::SetNextItemWidth(-1.f);
-				ImGui::DragFloat("##radius", &type.Radius, 0.01f, 0.05f, 20.f, "%.2f");
-				agentsChanged |= ImGui::IsItemDeactivatedAfterEdit();
+				m_pendingSave |= FloatField("##radius", "Radius", type.Radius, SettingSpec(Unit::Meters, 0.05, 20.0, 0.5, true));
 				ImGui::TableNextColumn();
 				ImGui::SetNextItemWidth(-1.f);
-				ImGui::DragFloat("##height", &type.Height, 0.01f, 0.1f, 50.f, "%.2f");
-				agentsChanged |= ImGui::IsItemDeactivatedAfterEdit();
+				m_pendingSave |= FloatField("##height", "Height", type.Height, SettingSpec(Unit::Meters, 0.1, 50.0, 2.0, true));
 				ImGui::TableNextColumn();
 				ImGui::SetNextItemWidth(-1.f);
-				ImGui::DragFloat("##climb", &type.MaxClimb, 0.01f, 0.f, 10.f, "%.2f");
-				agentsChanged |= ImGui::IsItemDeactivatedAfterEdit();
+				m_pendingSave |= FloatField("##climb", "Step", type.MaxClimb, SettingSpec(Unit::Meters, 0.0, 10.0, 0.5));
 				ImGui::TableNextColumn();
 				ImGui::SetNextItemWidth(-1.f);
-				ImGui::DragFloat("##slope", &type.MaxSlope, 0.5f, 0.f, 89.f, "%.0f");
-				agentsChanged |= ImGui::IsItemDeactivatedAfterEdit();
+				m_pendingSave |= FloatField("##slope", "Slope", type.MaxSlope, SettingSpecWhole(Unit::Degrees, 0.0, 89.0, 45.0));
 				ImGui::TableNextColumn();
 				ImGui::BeginDisabled(settings.NavAgentTypes.size() <= 1);
 				if (ImGui::Button("x", ImGuiTheme::IconButtonSize()))
@@ -1518,6 +1620,12 @@ void ProjectSettingsWidget::Render()
 		ImGui::EndTabItem();
 	}
 	ImGui::EndTabBar();
+	// Unit fields change every frame of a scrub: save (one undo step) once the gesture ends.
+	if (m_pendingSave && !ImGui::IsAnyItemActive())
+	{
+		ProjectSettings::Get().Save();
+		m_pendingSave = false;
+	}
 	ImGui::End();
 }
 

@@ -16,6 +16,7 @@
 #include "Events/HavanaEvents.h"
 #include "Types/AssetDescriptor.h"
 #include "Utils/ImGuiUtils.h"
+#include "Widgets/ColorPopover.h"
 #endif
 
 ME_REFLECT_ENUM( Moonlight::ProjectionType, { { "Perspective", Moonlight::ProjectionType::Perspective }, { "Orthographic", Moonlight::ProjectionType::Orthographic } } )
@@ -508,7 +509,7 @@ void Camera::OnEditorInspect()
     if( ClearType == Moonlight::ClearColorType::Color )
     {
         HavanaUtils::Label( "Clear Color" );
-        ImGui::ColorEdit3( "##ClearColor", &ClearColor.x, ImGuiColorEditFlags_Float );
+        MeWidgets::ColorSwatchPopover( "##ClearColor", &ClearColor.x, 3, false, "Clear Color" );
     }
     else if( ClearType == Moonlight::ClearColorType::Skybox )
     {
