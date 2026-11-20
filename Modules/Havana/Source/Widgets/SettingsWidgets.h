@@ -54,6 +54,10 @@ public:
 	// ED-13: records saved Project Settings changes on the undo history (before/after snapshots of
 	// the settings file). Runs every frame, open or not, since edscript and other tools save too.
 	static void TrackChanges();
+
+private:
+	// UX-17: a unit field changed a setting; saved once no item is active (one undo step).
+	bool m_pendingSave = false;
 };
 
 #endif

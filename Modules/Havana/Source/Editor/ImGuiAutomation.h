@@ -19,6 +19,8 @@
 //   imgui-dump [<filter>]           logs every item drawn last frame (window, section, label, row)
 //   panel-screenshot <window> | <path.png>   the main window's screenshot cropped to that panel
 //                                   (the pointer is parked on the menu bar first: no hovers)
+//   dock-window <window> | <docked window>   docks a (floating) panel as a tab beside another
+//                                   docked panel, so panel-screenshot can capture it (UX-17)
 //   assert-images a.png | b.png | same|different [| fraction]   compares two captures: the share
 //                                   of pixels with a channel off by more than 24 (same: at most
 //                                   fraction, 0 by default; different: more than it, 0.0005)

@@ -360,7 +360,7 @@ namespace ImGuiAutomation
     {
         return InCommand == "imgui-click" || InCommand == "imgui-drag" || InCommand == "imgui-scrub" || InCommand == "imgui-type"
             || InCommand == "imgui-hover" || InCommand == "imgui-assert-value" || InCommand == "imgui-assert-item"
-            || InCommand == "imgui-dump" || InCommand == "panel-screenshot" || InCommand == "assert-images";
+            || InCommand == "imgui-dump" || InCommand == "panel-screenshot" || InCommand == "assert-images" || InCommand == "dock-window";
     }
 
 
@@ -424,7 +424,7 @@ namespace ImGuiAutomation
 
         // The item log records only once a flow first asks for it (flows that never drive ImGui
         // pay nothing); it needs one drawn frame before there is anything to find.
-        const bool needsItems = InCommand != "panel-screenshot" && InCommand != "assert-images";
+        const bool needsItems = InCommand != "panel-screenshot" && InCommand != "assert-images" && InCommand != "dock-window";
         if( needsItems && !MeWidgets::ItemLog::IsEnabled() )
         {
             MeWidgets::ItemLog::Enable( true );
@@ -487,6 +487,39 @@ namespace ImGuiAutomation
                 OutError = std::string( wantSame ? "images differ: " : "images are the same: " ) + text;
                 return false;
             }
+            return true;
+        }
+
+        if( InCommand == "dock-window" )
+        {
+            // dock-window Preferences | Properties   (UX-17) docks a panel as a tab of another
+            // panel's dock node, so a floating window can be captured with panel-screenshot.
+            static int s_frames = 0;
+            ImGuiWindow* window = parts.size() >= 2 ? ImGui::FindWindowByName( parts[0].c_str() ) : nullptr;
+            ImGuiWindow* target = parts.size() >= 2 ? ImGui::FindWindowByName( parts[1].c_str() ) : nullptr;
+            if( !window || !target || target->DockId == 0 )
+            {
+                s_frames = 0;
+                OutError = parts.size() < 2 ? "usage: dock-window <window> | <docked window>"
+                    : !window ? "no window named '" + parts[0] + "'" : !target ? "no window named '" + parts[1] + "'" : "'" + parts[1] + "' isn't docked";
+                return false;
+            }
+            if( window->DockId == target->DockId && window->DockIsActive && window->Viewport == ImGui::GetMainViewport() && window->WasActive )
+            {
+                s_frames = 0;
+                return true;
+            }
+            if( s_frames == 0 )
+            {
+                ImGui::DockBuilderDockWindow( window->Name, target->DockId );
+            }
+            if( ++s_frames > 60 )
+            {
+                s_frames = 0;
+                OutError = "'" + parts[0] + "' didn't dock";
+                return false;
+            }
+            OutRetry = true;
             return true;
         }
 

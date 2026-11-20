@@ -857,9 +857,19 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
     {
         // project-settings-file .tmp/Tests/ProjectSettings.json   saves go there, not the project's file
         // project-set Physics.Gravity | [0,-5,0]   a key of the settings file's JSON, then saves
-        // project-assert Physics.Gravity | [0,-5,0]
+        // project-assert Physics.Gravity | [0,-5,0]   exact, or numbers within a tolerance:
+        // project-assert Audio.Buses.Music | 0.5 ~ 0.001   (UX-17)
         ProjectSettings& settings = ProjectSettings::Get();
         auto [key, valueText] = SplitArgs( args );
+        double tolerance = -1.0;
+        if( command == "project-assert" )
+        {
+            if( const size_t tilde = valueText.find( '~' ); tilde != std::string::npos )
+            {
+                tolerance = std::atof( valueText.c_str() + tilde + 1 );
+                valueText = valueText.substr( 0, tilde );
+            }
+        }
         if( command == "project-settings-file" )
         {
             settings.SetSavePath( Path( args ).FullPath );
@@ -880,7 +890,8 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
                 settings.Deserialize( data.dump() );
                 settings.Save();
             }
-            else if( !data.contains( json::json_pointer( pointer ) ) || data[json::json_pointer( pointer )] != value )
+            else if( !data.contains( json::json_pointer( pointer ) )
+                || ( tolerance < 0.0 ? data[json::json_pointer( pointer )] != value : !NearlyEqual( data[json::json_pointer( pointer )], value, tolerance ) ) )
             {
                 Fail( "project setting " + key + " is " + ( data.contains( json::json_pointer( pointer ) ) ? data[json::json_pointer( pointer )].dump() : std::string( "missing" ) ) + ", expected " + valueText );
             }
@@ -1274,6 +1285,40 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             if( key == "GameView.MaximizeOnPlay" && gameView && parsed.is_boolean() )
             {
                 gameView->MaximizeOnPlayPreference = parsed.get<bool>();
+            }
+        }
+    }
+    else if( command == "assert-preference" )
+    {
+        // assert-preference Snap.Rotate | 22.5 [~ 0.01]   (UX-17) the editor preference's value:
+        // numbers within 1e-3 (or the tolerance), anything else exactly; "none" for an unset key;
+        // a leading "!=" requires a different value
+        auto [key, valueText] = SplitArgs( args );
+        const bool negate = valueText.rfind( "!=", 0 ) == 0;
+        if( negate )
+        {
+            valueText = Trim( valueText.substr( 2 ) );
+        }
+        double tolerance = 1e-3;
+        if( const size_t tilde = valueText.find( '~' ); tilde != std::string::npos )
+        {
+            tolerance = std::atof( valueText.c_str() + tilde + 1 );
+            valueText = valueText.substr( 0, tilde );
+        }
+        const json& preferences = EditorConfig::GetInstance().Preferences;
+        const auto found = preferences.find( key );
+        const json expected = json::parse( valueText, nullptr, false );
+        const bool wantNone = expected.is_discarded() && valueText.find( "none" ) != std::string::npos;
+        if( key.empty() || ( expected.is_discarded() && !wantNone ) )
+        {
+            Fail( "assert-preference: expected Key | <json value> [~ tolerance]" );
+        }
+        else
+        {
+            const bool matches = wantNone ? found == preferences.end() : ( found != preferences.end() && NearlyEqual( *found, expected, tolerance ) );
+            if( matches == negate )
+            {
+                Fail( "preference " + key + " is " + ( found == preferences.end() ? std::string( "unset" ) : found->dump() ) + ", expected " + ( negate ? "not " : "" ) + valueText );
             }
         }
     }

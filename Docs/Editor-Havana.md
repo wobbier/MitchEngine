@@ -313,6 +313,13 @@ A searchable project-wide table is the default: type icon, name, local path and 
   - **Proof:** `Tests/Editor/LayoutFlows.edscript`, run by RunChecks' "Editor layouts" step in a fresh Empty project. The `assert-window` command checks a panel is open.
   - **Known issue (ME-272):** a project layout with dangling dock ids can still trip ImGui's docking asserts.
 - **Other state** ( the dock layout is per user too, `.tmp/imgui.ini`, and a checkout without one starts from the project's `Assets/Config/imgui.cfg`, which the editor never writes) and **Project Settings**, tabbed into Time, Hardware, Layers, Physics, Input, Audio, Terrain and Navigation. Time holds the fixed update rate and frame cap in `Engine.cfg`. The rest live in the project's `ProjectSettings.json` under `Assets/Config`: the hardware profile and whether it's enforced (with live budget bars and a feature caps table; `Docs/Hardware-Profiles.md`), layer names, gravity, the triangular layer collision matrix over the named layers, the action map path (with connected pads and a live action table), the audio bus volumes, terrain streaming limits, and the navigation area names and costs.
+- **Settings numbers** (UX-17, `Widgets/SettingsWidgets.cpp`): every number in Preferences and Project Settings is a kit unit field (`MeWidgets::UnitRow`, or `UnitField` in a table cell), so it scrubs, takes typed units and resets like an inspector field. Each row has its unit, its old clamp as the hard range, log scale where the range spans decades, and a default that a double-click on the label restores. The stored value is unchanged: seconds, degrees, metres, a linear bus gain (shown in dB), whole MiB.
+  - **Preferences:** font size (px, whole pixels), UI scale (×, stored in quarter steps; disabled under Auto), autosave interval (s, **Off** at 0; "5 min" works), snapping (m, °, plain scale step), fly speed (m/s), look sensitivity (° per pixel), focus smoothing, and this machine's speed against the hardware target (×).
+  - **Project Settings:** fixed update rate (Hz), frame rate cap (Hz, **Uncapped** at 0), bus volumes (dB), terrain budgets (MiB, whole) and concurrent loads, nav area costs (×), and agent radius, height and step (m) and slope (°). Gravity keeps the vector row (axis handles), now in m/s².
+  - **Undo:** a Project Settings field saves once its gesture ends (no item active), so a scrub or a typed value is one undo step.
+  - **Choices and colour:** Theme and Juice are segmented controls (UX-13). The custom accent colour is a swatch with the colour popover (UX-14).
+  - **Automation:** the tabs are named items (`imgui-click Preferences/General`, `Project Settings/Audio`), and table cells are named by column (`Project Settings/Slope`).
+  - **Proof:** `Tests/Editor/UX17Settings.edscript` types and scrubs size, autosave, snapping, a bus volume, gravity and a terrain budget, then checks the stored values with `assert-preference` and `project-assert`, including undo and label resets. It docks both windows (`dock-window`) and captures them dark and light (`.tmp/UX17-*.png`).
 - **Stats overlay** (World View and Game View, including the maximized Game View; each view's View > Stats, saved as `Scene.ShowStats` / `GameView.ShowStats`): fps, CPU and GPU time, draws, triangles and entities, and the job workers (jobs per frame, their summed busy ms, the main thread's wait on them; `Docs/Jobs-and-Events.md`). With a hardware profile chosen, a second box below it gives the verdict ("Xbox 360: 2 over budget") and lists the budgets that are near or over.
 - **Appearance** (Edit > Preferences): dark or light theme, typeface and size, and an accent color (blue by default; Pink, Lavender, Mint, Amber presets or a custom hex). The dark palette is the editor's original one (near-black chrome, charcoal panels, lighter controls) with the accent filling hovered, pressed and focused-tab surfaces, darkened when needed so labels keep 4.5:1 contrast. Fonts are bundled in `Engine/Assets/Fonts` with their licenses: Inter (default), Inconsolata (a Consolas look-alike), JetBrains Mono and Hack, plus the renderer's embedded Roboto as fallback. Sizes run 18 to 28 px; `ImGuiRenderer::kMinFontSize` (18) is enforced for every ImGui font, and `ImGuiRenderer::SetFont` rebuilds the atlas before the next frame. Padding, spacing, indents and roundings are authored at 18 px and scale with the font in whole pixels, as do the layout tokens below, so every size keeps the same proportions. Everything applies live and saves to `Appearance.Theme` / `Accent` / `Font` / `FontSize` in `.tmp/Havana.cfg`. The palette lives in `Modules/ImGUI/Source/ImGuiTheme.h`; it assigns every ImGui color slot, and a compile-time count check catches new slots when ImGui changes.
 
@@ -338,7 +345,7 @@ The script runs one command per frame after a short warm-up and logs `[editor-ex
 | `show-asset path` | Opens the Assets window on a file with its details shown (data assets show their editable contents) |
 | `assert-browser-layout Project` (or `Folder`), `assert-browser-asset path`, `wait-asset-preview` | Check the browser layout and project-wide listing, or wait for the selected graph's GPU preview (fails on graph/shader errors or timeout) |
 | `work-begin label | progress`, `work-end`, `notify message | actionId`, `assert-work label | 0/1` (ED-14: stand-in background work and notices, and what's running) | Status |
-| `asset-rename path | name`, `asset-move path | folder`, `asset-delete path`, `asset-restore path`, `asset-trash-window`, `assert-file path | 0/1`, `project-settings-file path`, `project-set Key | json`, `project-assert Key | json`; `delete-file path | optional` (ED-13: asset operations through the browser, project settings saved to a scratch file) | Undo |
+| `asset-rename path | name`, `asset-move path | folder`, `asset-delete path`, `asset-restore path`, `asset-trash-window`, `assert-file path | 0/1`, `project-settings-file path`, `project-set Key | json`, `project-assert Key | json [~ tol]` (numbers within `tol` when given, UX-17); `delete-file path | optional` (ED-13: asset operations through the browser, project settings saved to a scratch file) | Undo |
 | `palette-search filter | text`, `palette-run filter | text` (ED-15: the command palette lists / runs a result whose "Category: Label" contains the text) | Palette |
 | `console <line>` (PLAY-10: runs a developer console line, a C++ or C# command), `assert-console-output text` (the last line's output contains it) | Console |
 | `assert-mod-loaded id | 0/1` (MOD-6: what loaded at start; a flow header's `--mods` / `--mod-dir <folder>` reach the editor through RunEditorFlows) | Mods |
@@ -350,6 +357,7 @@ The script runs one command per frame after a short warm-up and logs `[editor-ex
 | `create-prefab Entity | path`, `instantiate path`, `prefab-apply/-revert/-unpack Entity` | Prefab workflow |
 | `play`, `stop`, `load path`, `save-as path`, `show-assets folder`, `show-window Title` (opens a panel), `focus-window name`, `screenshot path`, `quit` | Editor state |
 | `preference Key | <json>` | Set an editor preference for this run (never saved by unattended runs); `Appearance.*` keys re-apply the theme, e.g. `preference Appearance.FontSize | 28` or `preference Appearance.Theme | "Light"` |
+| `assert-preference Key | <json> [~ tol]` | (UX-17) The preference's value: numbers within 1e-3 (or `tol`), anything else exactly; `none` for an unset key, a leading `!=` for a different value |
 | `open-project <folder>` | File > Open Project for that folder; an unattended run logs the reopen command instead of starting another editor (`Tests/Samples/ScriptOnly/ScriptOnlyFlows.edscript`) |
 | `assert-project Name`, `project-hub` | The open project's name (its `Game.meproj` ProjectName) / File > Project Hub, which an unattended run logs instead of reopening |
 | `hub-create Template | folder`, `hub-open folder`, `hub-add folder`, `hub-remove folder`, `hub-assert-template Name`, `hub-assert-recent folder | 1/0`, `hub-screenshot path` | Run by the **Project Hub** (Havana started outside a project, or with `--hub`) before it opens a project; the editor it starts runs the same script and skips them (`Tests/Hub/HubFlows.edscript`, `Projects.md`) |
@@ -367,6 +375,7 @@ The script runs one command per frame after a short warm-up and logs `[editor-ex
 | `assert-sky-time Camera | 17.2` (or `!= 17.2`), `assert-sky-animation-time Camera | 0` | Check evaluated sky clocks. `@scene-view` reads the rendered viewport settings; `@editor-camera` reads the persistent editor camera. |
 | `assert-images a.png | b.png | same/different [| fraction]` | Compares two captures (e.g. two `panel-screenshot`s): the share of pixels with a channel off by more than 24. `same` allows at most `fraction` (0); `different` needs more than it (0.0005) (UX-3) |
 | `imgui-click <item> [| right/double] [| shift ctrl alt]`, `imgui-drag <item> | dx dy [| mods]`, `imgui-scrub <item> | dx [| mods]`, `imgui-type <item> | text`, `imgui-hover <item>`, `imgui-assert-value <item> | value [~ tol]`, `imgui-assert-item <item> [| false]`, `imgui-dump [filter]`, `panel-screenshot <window> | path.png` | Drive any ImGui widget the way a person does (UX-1, `Editor/ImGuiAutomation.h`). `<item>` names what is on screen: `Intensity`, `Light/Intensity` (scoped by window, component, tree node or row), `Light/Intensity:label` (the row's label, where scrubbing starts), `Transform/Position/Y` (a vector axis), `Curve/Key 2/In` (a part inside a row's widget, UX-15: `ItemLog::PushScope`), `Name@2` (the second match) or `0x1A2B3C4D`; case and a trailing `(unit)` are ignored. Items come from the previous frame (`MeWidgets::ItemLog`, fed by ImGui's test-engine hooks, which start recording at a flow's first `imgui-*` command); one scrolled out of view is scrolled in first. Gestures are real input spread over frames (the pointer is warped, so ImGui and the SDL backend agree): one input step every other frame, a drag moving at most 8 px a step, and a whole drag is one undo step; `imgui-type` Ctrl+clicks into text entry, selects all, types and presses Enter. `imgui-assert-value` compares what the widget reports it shows (numbers within 0.001; checkboxes report true/false). `imgui-dump` logs every item with its window, component, row and value, to find names. `panel-screenshot` parks the pointer on the menu bar (no hovers or tooltips), then crops the main window's screenshot to a docked panel (`Tests/Editor/UX1ImGuiDriver.edscript`) |
+| `dock-window <window> | <docked window>` | (UX-17) Docks a panel, such as a floating Preferences or Project Settings, as a tab beside a docked one so `panel-screenshot` can capture it, e.g. `dock-window Preferences | Properties` |
 | `clipboard <text>`, `assert-clipboard <text>` | Put text on the clipboard (as a copy would) and check what it holds, exactly (UX-11: a vector row's Copy and Paste, `Tests/Editor/UX11Transform.edscript`) |
 
 `Assets/Scenes/Tests/EditorFlows.edscript` and `PrefabFlows.edscript` (run with `HierarchyTest.lvl`) `PhysicsFlows.edscript` (run with `PhysicsTest.lvl`) and `Physics2DFlows.edscript` (run with `Physics2DTest.lvl`) in the game repository are the regression scripts.
@@ -388,6 +397,68 @@ The script runs one command per frame after a short warm-up and logs `[editor-ex
 - **Registering it.** MitchGame's `.mcp.json` registers it for Claude Code. Elsewhere: `claude mcp add havana -- python3 Engine/Tools/HavanaMCP/havana_mcp.py`, from the project root.
 - **Environment.** Outside the Nix dev shell it starts the editor through `nix develop Engine/nix`, and `HAVANA_EDITOR` picks another editor binary.
 - **Proof:** `Tools/HavanaMCP/test_havana_mcp.py` (RunChecks "MCP server") does a client handshake, then calls each tool.
+
+## Widget kit
+
+The editor's widgets live in `Modules/ImGUI/Source/Widgets/` (namespace `MeWidgets`), with no editor dependencies, so tests and other tools can use them.
+- Every interactive part is a real ImGui item: active while dragged, `MarkItemEdited` on change, its shown value reported to `ItemLog`. An inspector or settings gesture is therefore one undo step, and automation finds the parts by name.
+- **Widget Gallery** (View > Widget Gallery, `Widgets/WidgetGalleryWidget.cpp`) draws each with fixed samples under the section named below.
+- `Tests/Editor/UX4GalleryReference.edscript` compares the gallery with `Tests/Editor/Reference/WidgetGallery.png`.
+
+| Widget | What it is | Header | Automation items | Gallery section |
+|---|---|---|---|---|
+| `Units` | Unit formatting, typed entry with units and arithmetic, log mapping, `NiceStep` (pure) | `Units.h` | (none) | (none) |
+| `NumberSpec`, `UnitField`, `UnitRow`, `ScrubLastItem` | Unit field: value in its unit over a fill bar; the label and box scrub; click to type; double-click the label to reset | `ScrubField.h` | `Row` (value), `Row:label` | Unit fields |
+| `Juice` | Springs, flash, shake, tick, burst, loop time, sound cues; Off / Subtle / Full and reduce motion | `Juice.h` | (none) | all (Poke) |
+| `ItemLog` | Last frame's items with window, section, row, label and value; the query syntax | `ItemLog.h` | (the queries) | (none) |
+| `Graph` | Plot canvas: linear or log axes, grid, plots, drag handles, angle handles, marker buttons | `Graph.h` | `Row/Handle` | Light ... Character widgets |
+| `ColorTemperature` | Blackbody sRGB and back (pure) | `Color.h` | (none) | (none) |
+| `KelvinBar`, `ReferenceLadder`, `ConeWedge`, `FalloffGraph` | Light: temperature bar, intensity rungs, spot cone, falloff | `LightWidgets.h` | `Light/Temperature/Candle`, `Light/Cone/Inner Cone`, `Light/Falloff/Range` | Light widgets |
+| `FocalLengthRow`, `LensWedge`, `RenderScaleBar`, `ApertureDial`, `FocusBar` | Camera: focal length, lens wedge and primes, resolution, iris, focus band | `CameraWidgets.h` | `Camera/Lens/FOV`, `Camera/Lens/50 mm`, `PostProcess/Iris/2.8`, `PostProcess/Focus Band/Focus` | Camera widgets |
+| `ExposureLadder`, `TonemapCurve`, `WhiteBalancePad`, `LiftGammaGainCurve`, `FogVisibilityBar` | Post: lit-like rungs, tonemap plot, white balance pad, grade curve, fog visibility | `PostWidgets.h` | `PostProcess/Lit Like/Sunlight`, `PostProcess/White Balance/Puck`, `PostProcess/Lift Gamma Gain/Gain` | Post widgets |
+| `MassLadder`, `DampingGraph`, `AxisLocks`, `SlideAngleRamp`, `BouncePreview` | Physics: weighs-like rungs, decay plot, lock chips, slide ramp, bounce | `PhysicsWidgets.h` | `Rigidbody/Weighs Like/Cat`, `Rigidbody/Lock Rotation/Y`, `BoxCollider/Slide Angle/Angle` | Physics widgets |
+| `LevelMeter`, `PitchKeyboard`, `SpatialBlendSlider`, `RolloffGraph` | Audio: level meter, semitone keyboard, 2D/3D track, rolloff plot | `AudioWidgets.h` | `AudioSource/Level/Value`, `AudioSource/Keyboard/+7`, `AudioSource/Spatial/3D`, `AudioSource/Falloff/Min Distance` | Audio widgets |
+| `CapsuleSilhouette`, `PaceStrip`, `JumpArc`, `SlopeWedge` | Characters: capsule beside a person, pace rungs, jump arc, walkable slope | `CharacterWidgets.h` | `CharacterController/Capsule/Height`, `CharacterController/Pace/Run`, `CharacterController/Jump/Apex` | Character widgets |
+| `GlyphToggle`, `LockedAxes`, `AngleDials`, `SpringPill` | Transform: chain / dial toggles, scale-locked axes, rotation dials, a one-of-N pill (gizmo modes) | `TransformWidgets.h` | `Transform/Scale/Lock`, `Transform/Dials/Y`, `World View/Rotate` | Transform widgets |
+| `MetalRoughPad`, `EmissiveStrip`, `BumpPreview` | Materials: sphere pad, emissive stops, relief tile | `MaterialWidgets.h` | `Mesh/Surface/Puck`, `Mesh/Glow/Value`, `Mesh/Relief/Tile` | Material widgets |
+| `Segmented`, `MaskChips` (+ `SegmentedFits`, `ChipsFit`) | A segmented control for up to five values and toggle chips for up to eight bits | `ChoiceWidgets.h` | `Rigidbody/Body Type` (value), `Rigidbody/Body Type/Kinematic` | Choice widgets |
+| `ColorSwatchPopover` | Swatch and popover: picker, hex, Kelvin, HDR intensity in EV, palette, eyedropper | `ColorPopover.h` | `Row` (swatch), `Color/Hex`, `Color/Intensity`, `Color/Kelvin`, `Color/Eyedropper` | Colour widgets |
+| `GradientEditor` | Gradient bar with colour + alpha stops | `GradientWidgets.h` | `Caption/Stop 2`, `Caption/Stop 2/Alpha` | Gradient and curve |
+| `CurveEditor` | Hermite curve with keys, tangents and presets | `CurveWidgets.h` | `Caption/Key 2`, `Caption/Key 2/In`, `Caption/Preset/Linear` | Gradient and curve |
+
+The vector row (`HavanaUtils::DragAxes`, `Modules/ImGUI/Source/Utils/HavanaUtils.h`) draws every reflected vector: axis-coloured fields with scrub handles (`Row/X`, `Row/X:axis`).
+
+**Reflection metadata** (`FieldBuilder` in `Modules/Dementia/Source/Reflection/Reflection.h`) and what the inspector (`Editor/ReflectionUI.cpp`) does with it:
+
+| Key | Inspector |
+|---|---|
+| `.Display( name )` | The row label (leave the unit out) |
+| `.Tooltip( text )` | Hover tooltip on the label, ahead of the field's usage hint |
+| `.Category( name )` | Consecutive fields with the same category sit under one open tree node |
+| `.Unit( u )` | Shown, typed and scrubbed in that unit (`Reflection::Unit`) |
+| `.Range( min, max )` | Hard clamp; also the scrub span and fill bar when there's no soft range |
+| `.SoftRange( min, max )` | Scrub span and fill bar; the range still clamps |
+| `.Log()` | Scrub and fill in log space |
+| `.Speed( s )` | Stored units per pixel when there's no range |
+| `.Drag( s )` | Scrubs at that speed; the range only clamps |
+| `.Default( v )` / `( x, y )` / `( x, y, z )` | Double-clicking the label restores it (vectors: per axis); otherwise a new component's value |
+| `.Widget( WidgetKind::Slider )` | A classic ImGui slider instead of the unit field |
+| `.Angle()` | Stored in radians, shown and typed in degrees |
+| `.Color()` / `.HDR()` | Colour swatch and popover (HDR: above 1, intensity in EV) |
+| `.Choices( n, nameFn )` | Named int: segmented when five names or fewer fit, else a combo |
+| `.MaskChoices( n, nameFn )` | Bit mask: chips for up to eight bits that fit, else a combo of checkboxes |
+| `.Asset( filter )` | Path row with a picker, a clear button and drag-drop |
+| `.Multiline()` | Multi-line text box |
+| `.ReadOnly()` | Drawn disabled |
+| `.Hidden()` | Not drawn (still serialized) |
+| `.CustomInspector()` | Not drawn for one entity (its `OnEditorInspect` draws it); drawn when multi-editing |
+| `.NoSerialize()`, `.FormerName( n )`, `.Replicated()`, `.Predicted()` | No inspector effect: serialization and networking only |
+
+**ReflectionUI hooks** (`Editor/ReflectionUI.h`):
+- `RegisterCustomDrawer( cppName, drawer )`: a widget for a custom value type (`EntityHandle`).
+- `RegisterFieldDecorator( type, field, fieldsItEdits, decorator )`: a row under a field. The overload with a fifth `DecoratorFixUp` argument repairs each other selected instance after the copy.
+- `SetVectorRowOptions( type, field, { LockPreference, DialPreference, ReserveTrailing } )`: a lock or dial toggle at the end of a vector row.
+- `NumberSpecFor( field )`: a reflected number's `NumberSpec`, for decorators that edit numbers.
 
 ## How to Extend
 
