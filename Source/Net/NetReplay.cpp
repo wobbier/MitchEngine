@@ -5,6 +5,7 @@
 #include "Net/BitStream.h"
 #include "Net/NetQuantize.h"
 #include "Net/NetVersion.h"
+#include "VFS/VFS.h"
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -1067,6 +1068,15 @@ bool NetReplayFile::DecodeHeader( const uint8_t* InData, size_t InSize, NetRepla
 }
 
 
+namespace
+{
+    bool ReadAt( VfsFileStream& InFile, uint64_t InPosition, void* OutBuffer, size_t InSize )
+    {
+        return InFile.Seek( InPosition ) && InFile.Read( OutBuffer, InSize ) == InSize;
+    }
+}
+
+
 bool NetReplayFileSource::Open( const std::string& InPath )
 {
     m_path = InPath;
@@ -1074,27 +1084,24 @@ bool NetReplayFileSource::Open( const std::string& InPath )
     m_chunks.clear();
     m_offsets.clear();
     m_hasIndex = false;
-    std::ifstream file( InPath, std::ios::binary );
-    if( !file )
+    VfsFileStream file;
+    if( !file.Open( Path( InPath ) ) )
     {
         m_error = "can't open " + InPath;
         return false;
     }
-    file.seekg( 0, std::ios::end );
-    m_fileSize = static_cast<uint64_t>( file.tellg() );
-    file.seekg( 0 );
+    m_fileSize = file.Size();
 
     // The header (it's small: read a generous prefix, more if its size says so).
     std::vector<uint8_t> prefix( static_cast<size_t>( std::min<uint64_t>( m_fileSize, 16 ) ) );
-    file.read( reinterpret_cast<char*>( prefix.data() ), static_cast<std::streamsize>( prefix.size() ) );
+    ReadAt( file, 0, prefix.data(), prefix.size() );
     if( prefix.size() == 16 && std::memcmp( prefix.data(), NetReplayFormat::kMagic, 8 ) == 0 )
     {
         const uint64_t headerSize = 16ull + GetU32( prefix.data() + 12 );
         if( headerSize <= m_fileSize && headerSize < 16ull * 1024 * 1024 )
         {
             prefix.resize( static_cast<size_t>( headerSize ) );
-            file.seekg( 0 );
-            file.read( reinterpret_cast<char*>( prefix.data() ), static_cast<std::streamsize>( prefix.size() ) );
+            ReadAt( file, 0, prefix.data(), prefix.size() );
         }
     }
     size_t headerBytes = 0;
@@ -1108,17 +1115,14 @@ bool NetReplayFileSource::Open( const std::string& InPath )
     if( m_fileSize >= headerBytes + 24 )
     {
         uint8_t trailer[16] = {};
-        file.clear();
-        file.seekg( static_cast<std::streamoff>( m_fileSize - 16 ) );
-        file.read( reinterpret_cast<char*>( trailer ), 16 );
+        const bool readTrailer = ReadAt( file, m_fileSize - 16, trailer, sizeof( trailer ) );
         const uint64_t indexAt = GetU64( trailer );
-        if( file && std::memcmp( trailer + 8, NetReplayFormat::kTrailer, 8 ) == 0 && indexAt >= headerBytes && indexAt + 8 <= m_fileSize - 16 )
+        if( readTrailer && std::memcmp( trailer + 8, NetReplayFormat::kTrailer, 8 ) == 0 && indexAt >= headerBytes && indexAt + 8 <= m_fileSize - 16 )
         {
             std::vector<uint8_t> index( static_cast<size_t>( m_fileSize - 16 - indexAt ) );
-            file.seekg( static_cast<std::streamoff>( indexAt ) );
-            file.read( reinterpret_cast<char*>( index.data() ), static_cast<std::streamsize>( index.size() ) );
+            const bool readIndex = ReadAt( file, indexAt, index.data(), index.size() );
             const uint32_t count = index.size() >= 8 ? GetU32( index.data() + 4 ) : 0;
-            if( file && index.size() >= 8 && GetU32( index.data() ) == NetReplayFormat::kIndexMagic && index.size() == 8 + static_cast<size_t>( count ) * 20 )
+            if( readIndex && index.size() >= 8 && GetU32( index.data() ) == NetReplayFormat::kIndexMagic && index.size() == 8 + static_cast<size_t>( count ) * 20 )
             {
                 for( uint32_t i = 0; i < count; ++i )
                 {
@@ -1141,11 +1145,8 @@ bool NetReplayFileSource::Open( const std::string& InPath )
         uint8_t header[NetReplayFormat::kChunkHeaderBytes] = {};
         while( at + NetReplayFormat::kChunkHeaderBytes <= m_fileSize )
         {
-            file.clear();
-            file.seekg( static_cast<std::streamoff>( at ) );
-            file.read( reinterpret_cast<char*>( header ), sizeof( header ) );
             NetReplayChunk::Info info;
-            if( !file || !NetReplayChunk::ReadInfo( header, sizeof( header ), info ) || at + sizeof( header ) + info.StoredBytes > m_fileSize )
+            if( !ReadAt( file, at, header, sizeof( header ) ) || !NetReplayChunk::ReadInfo( header, sizeof( header ), info ) || at + sizeof( header ) + info.StoredBytes > m_fileSize )
             {
                 break;
             }
@@ -1164,20 +1165,17 @@ bool NetReplayFileSource::ReadChunk( size_t InIndex, std::vector<uint8_t>& OutBy
     {
         return false;
     }
-    std::ifstream file( m_path, std::ios::binary );
+    VfsFileStream file;
     uint8_t header[NetReplayFormat::kChunkHeaderBytes] = {};
-    file.seekg( static_cast<std::streamoff>( m_offsets[InIndex] ) );
-    file.read( reinterpret_cast<char*>( header ), sizeof( header ) );
     NetReplayChunk::Info info;
-    if( !file || !NetReplayChunk::ReadInfo( header, sizeof( header ), info ) )
+    if( !file.Open( Path( m_path ) ) || !ReadAt( file, m_offsets[InIndex], header, sizeof( header ) ) || !NetReplayChunk::ReadInfo( header, sizeof( header ), info ) )
     {
         m_error = "chunk " + std::to_string( InIndex ) + " isn't where the index says";
         return false;
     }
     OutBytes.assign( header, header + sizeof( header ) );
     OutBytes.resize( sizeof( header ) + info.StoredBytes );
-    file.read( reinterpret_cast<char*>( OutBytes.data() + sizeof( header ) ), info.StoredBytes );
-    if( !file )
+    if( file.Read( OutBytes.data() + sizeof( header ), info.StoredBytes ) != info.StoredBytes )
     {
         m_error = "chunk " + std::to_string( InIndex ) + " is cut short";
         return false;

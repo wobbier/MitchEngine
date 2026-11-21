@@ -33,6 +33,7 @@ ALLOWED = {
     "Engine/Source/Tools/Projects/ProjectLibrary.cpp": "the Project Hub reads other projects, templates and the per-user recent list, outside the open project's mounts",
     "Engine/Source/Mods/Mods.cpp": "MOD-1 reads each mod folder's mod.json to decide what to mount, before the mod's mount exists",
     "Engine/Modules/Dementia/Source/Core/CrashHandler.cpp": "crash diagnostics: the crash directory's acknowledgement marker, outside any mount",
+    "Engine/Source/Engine/NetLaunch.cpp": "ReadGitCommit reads the checkout's .git (HEAD, refs, packed-refs) to stamp the build's commit, outside any mount",
 }
 
 TOKEN = re.compile(r"std::ifstream|std::fstream|\bfopen\s*\(")

@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "Net/NetReplayHeatmap.h"
 #include "optick.h"
+#include "VFS/VFS.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -791,8 +792,8 @@ bool NetReplayHeatmap::Save( const std::string& InPath, std::string* OutError ) 
 
 bool NetReplayHeatmap::Load( const std::string& InPath, std::string* OutError )
 {
-    std::ifstream file( InPath, std::ios::binary );
-    if( !file )
+    std::string text;
+    if( !VFS::Get().ReadText( Path( InPath ), text ) )
     {
         if( OutError )
         {
@@ -800,9 +801,7 @@ bool NetReplayHeatmap::Load( const std::string& InPath, std::string* OutError )
         }
         return false;
     }
-    std::stringstream text;
-    text << file.rdbuf();
-    const json parsed = json::parse( text.str(), nullptr, false );
+    const json parsed = json::parse( text, nullptr, false );
     if( parsed.is_discarded() )
     {
         if( OutError )

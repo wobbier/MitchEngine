@@ -3,6 +3,7 @@
 #include "Cores/PhysicsCore.h"
 #include "Jobs/BackgroundLane.h"
 #include "JSON.h"
+#include "VFS/VFS.h"
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -591,8 +592,8 @@ bool NetMispredict::Save( const NetMispredictRecord& InRecord, const std::string
 
 bool NetMispredict::Load( const std::string& InPath, NetMispredictRecord& OutRecord, std::string* OutError )
 {
-    std::ifstream in( InPath, std::ios::binary );
-    if( !in )
+    std::string text;
+    if( !VFS::Get().ReadText( Path( InPath ), text ) )
     {
         if( OutError )
         {
@@ -600,9 +601,7 @@ bool NetMispredict::Load( const std::string& InPath, NetMispredictRecord& OutRec
         }
         return false;
     }
-    std::stringstream text;
-    text << in.rdbuf();
-    return FromJson( text.str(), OutRecord, OutError );
+    return FromJson( text, OutRecord, OutError );
 }
 
 
