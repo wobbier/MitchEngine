@@ -215,13 +215,18 @@ public abstract class BaseProject : Project
     public virtual void ConfigureMac(Configuration conf, CommonTarget target)
     {
         conf.Options.Add(Options.XCode.Compiler.OnlyActiveArch.Enable);
-        conf.Options.Add(Options.XCode.Compiler.CppLanguageStandard.GNU17);
+        conf.Options.Add(Options.XCode.Compiler.CppLanguageStandard.GNU20);
+        // Ventura is the newest macOS on some supported Intel Macs; the SDK default would target the SDK's OS.
+        conf.Options.Add(new Options.XCode.Compiler.MacOSDeploymentTarget("13.3"));
+        // Xcode 15's libc++ (16) only exposes std::format behind -fexperimental-library.
+        conf.AdditionalCompilerOptions.Add("-fexperimental-library");
+        conf.AdditionalLinkerOptions.Add("-fexperimental-library");
         conf.Options.Add(Options.XCode.Compiler.RTTI.Enable);
         conf.Options.Add(Options.XCode.Compiler.CppExceptions.Enable);
         conf.Options.Add(Options.XCode.Compiler.ObjCExceptions.Enable);
         //conf.Options.Add(new Options.XCode.Compiler.SystemFrameworks("Foundation"));
-        conf.XcodeSystemFrameworks.Add("Cocoa", "Metal", "IOKit", "ForceFeedback", "Carbon", "CoreVideo", "Quartz");
-        conf.XcodeUserFrameworks.Add("libiconv.tbd");
+        conf.XcodeSystemFrameworks.Add("Cocoa", "Metal", "IOKit", "ForceFeedback", "Carbon", "CoreVideo", "Quartz", "AudioToolbox", "CoreAudio", "CoreHaptics", "GameController", "CoreMedia", "VideoToolbox");
+        conf.LibraryFiles.Add("iconv");
         conf.Options.Add(new Options.XCode.Compiler.OnlyActiveArch());
 
         conf.Defines.Add("DEFINE_ME_PLATFORM_MACOS");

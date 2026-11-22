@@ -2253,7 +2253,7 @@ void AssetBrowserWidget::DrawTreeDetails()
 {
     std::error_code error;
     const auto written = fs::last_write_time( m_detailsPath, error );
-    const std::string key = m_detailsPath + "@" + std::to_string( error ? 0 : written.time_since_epoch().count() );
+    const std::string key = m_detailsPath + "@" + std::to_string( error ? 0LL : static_cast<long long>( written.time_since_epoch().count() ) );
     if( key != m_treeInfoKey )
     {
         m_treeInfoKey = key;

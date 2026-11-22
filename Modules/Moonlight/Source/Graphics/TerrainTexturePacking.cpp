@@ -138,7 +138,7 @@ namespace Moonlight
             {
                 std::error_code error; const auto time = std::filesystem::last_write_time( file, error );
                 if( error ) result += "missing;";
-                else { result += std::to_string( time.time_since_epoch().count() ) + ':'; result += std::to_string( std::filesystem::file_size( file, error ) ) + ';'; }
+                else { result += std::to_string( static_cast<long long>( time.time_since_epoch().count() ) ) + ':'; result += std::to_string( std::filesystem::file_size( file, error ) ) + ';'; }
             }
         }
         return result;
