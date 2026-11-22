@@ -95,6 +95,6 @@ TEST_CASE( "Terrain: incremental publication rebuilds incompatible data and pres
     CHECK( updated->BuiltPatches == 64 ); CHECK( updated->BuiltCollisionTiles == 4 );
     CHECK( updated->Bounds.Max.x == 32.f );
     field.UnloadTile( { 0, 0 } ); auto retained = updated;
-    CHECK_FALSE( TerrainData::UpdateResidentTerrain( field, 456, original, updated, error ) ); CHECK( retained == updated );
+    CHECK_FALSE( TerrainData::UpdateResidentTerrain( field, 456, original, updated, error ) ); CHECK( ( retained == updated ) );
     CHECK_FALSE( error.empty() );
 }

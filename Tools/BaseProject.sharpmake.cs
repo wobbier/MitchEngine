@@ -76,6 +76,9 @@ public abstract class BaseProject : Project
         }
 
         conf.Defines.Add("NOMINMAX");
+        // MSVC flags portable C calls (strncpy, sscanf) as deprecated (C4996), which warnings-as-errors
+        // turns into build breaks for code that compiles clean on Linux and macOS.
+        conf.Defines.Add("_CRT_SECURE_NO_WARNINGS");
 
         if (Directory.Exists(Globals.FMOD_Win64_Dir) || Directory.Exists(Globals.FMOD_UWP_Dir))
         {

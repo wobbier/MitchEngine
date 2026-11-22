@@ -318,7 +318,8 @@ namespace TerrainData
                     Require( std::isfinite( h ), "Cooked terrain contains a non-finite height" );
                     min = std::min( min, h ); max = std::max( max, h ); heights.push_back( h );
                 }
-                Require( min == expectedMin && max == expectedMax, "Cooked terrain tile bounds disagree with its samples" );
+                // Explicitly finite: a NaN bound compares equal under MSVC's /fp:fast.
+                Require( std::isfinite( expectedMin ) && std::isfinite( expectedMax ) && min == expectedMin && max == expectedMax, "Cooked terrain tile bounds disagree with its samples" );
                 std::string error;
                 if( !field.LoadTile( coord, std::move( heights ), error ) ) throw std::runtime_error( error );
                 expectedOffset += size;

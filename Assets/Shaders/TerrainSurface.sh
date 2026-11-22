@@ -32,14 +32,14 @@ vec2 terrainAtlasUv(vec2 uv, float layer, float lod)
 void main()
 {
     vec4 weights = texture2D(s_terrainWeights, v_texcoord0 * u_terrainSurface.y + u_terrainSurface.z);
-    float sum = dot(weights, vec4(1.0));
+    float sum = dot(weights, vec4_splat(1.0));
     weights = sum > 0.00001 ? weights / sum : vec4(1.0, 0.0, 0.0, 0.0);
-    vec3 color = vec3(0.0), tangentNormal = vec3(0.0);
+    vec3 color = vec3_splat(0.0), tangentNormal = vec3_splat(0.0);
     float roughness = 0.0, metallic = 0.0, occlusion = 0.0;
     vec2 local = v_worldPos.xz - u_terrainOrigin.xy;
     for (int i = 0; i < 4; ++i)
     {
-        vec4 base = vec4(1.0), normal = vec4(0.5, 0.5, 1.0, 1.0), orm = vec4(1.0);
+        vec4 base = vec4_splat(1.0), normal = vec4(0.5, 0.5, 1.0, 1.0), orm = vec4_splat(1.0);
         if (u_terrainTextures.x > 0.5)
         {
             vec2 uv = local * u_terrainMapping[i].x;
@@ -81,7 +81,7 @@ void main()
     surface.metallic = metallic * u_terrainSurface.x;
     surface.roughness = mix(u_pbrParams.y, roughness, u_terrainSurface.x);
     surface.occlusion = mix(1.0, occlusion, u_terrainSurface.x);
-    surface.emissive = vec3(0.0);
+    surface.emissive = vec3_splat(0.0);
     surface.uv = v_texcoord0;
     gl_FragColor = shadeStandardSurface(surface, v_worldPos, v_normal, v_viewPos, gl_FragCoord.xy, gl_FrontFacing);
 }

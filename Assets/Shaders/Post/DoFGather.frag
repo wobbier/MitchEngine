@@ -8,7 +8,8 @@ vec4 diskTap(vec2 _uv, int _index, float _radius)
 {
 	float distance = sqrt((float(_index) + 0.5) / 64.0) * _radius;
 	float angle = float(_index) * 2.39996323;
-	return texture2D(s_dof0, _uv + vec2(cos(angle), sin(angle)) * distance / u_dofScreen.xy);
+	// Explicit LOD: a gradient sample inside a loop makes the D3D compiler unroll it, and fail.
+	return texture2DLod(s_dof0, _uv + vec2(cos(angle), sin(angle)) * distance / u_dofScreen.xy, 0.0);
 }
 
 vec3 fillBackground(vec2 _uv, vec4 _centre, float _radius)
@@ -79,7 +80,7 @@ void main()
 			vec2 offset = vec2(float(x), float(y));
 			float distance = length(offset * texel);
 			if (distance > radius + 1.0) continue;
-			vec4 tap = texture2D(s_dof0, v_texcoord0 + offset / u_dofScreen.zw);
+			vec4 tap = texture2DLod(s_dof0, v_texcoord0 + offset / u_dofScreen.zw, 0.0);
 			float w;
 			if (nearField)
 			{

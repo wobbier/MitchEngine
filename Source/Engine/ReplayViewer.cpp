@@ -2095,7 +2095,7 @@ void ReplayViewer::DrawTimeline( NetCore& InNet )
         draw->AddRectFilled( ImVec2( xOf( playback->GetLoopFrom() ), origin.y ), ImVec2( xOf( playback->GetLoopTo() ), origin.y + height ), IM_COL32( 80, 80, 120, 90 ) );
     }
     // Markers, the tall kinds last (on top).
-    std::vector<int> near;
+    std::vector<int> nearby;
     const float mouseX = ImGui::GetIO().MousePos.x;
     if( timeline )
     {
@@ -2115,7 +2115,7 @@ void ReplayViewer::DrawTimeline( NetCore& InNet )
                 draw->AddRectFilled( ImVec2( x - ( tall ? 1.f : 0.f ), top ), ImVec2( x2 + ( tall ? 1.f : 0.f ), origin.y + markerHeight ), KindColor( marker.Type ) );
                 if( hovered && std::abs( mouseX - x ) <= 4.f )
                 {
-                    near.push_back( static_cast<int>( i ) );
+                    nearby.push_back( static_cast<int>( i ) );
                 }
             }
         }
@@ -2204,17 +2204,17 @@ void ReplayViewer::DrawTimeline( NetCore& InNet )
                 }
             }
         }
-        for( size_t i = 0; i < near.size() && i < 8; ++i )
+        for( size_t i = 0; i < nearby.size() && i < 8; ++i )
         {
-            const NetReplayMarker& marker = timeline->GetMarkers()[near[i]];
+            const NetReplayMarker& marker = timeline->GetMarkers()[nearby[i]];
             ImGui::TextColored( ImGui::ColorConvertU32ToFloat4( KindColor( marker.Type ) ), "%u %s", marker.Tick, marker.Label.c_str() );
         }
         ImGui::EndTooltip();
         // Click a marker to jump to it (the tallest kind under the mouse), anywhere else to seek.
-        if( ImGui::IsItemClicked( ImGuiMouseButton_Left ) && !near.empty() )
+        if( ImGui::IsItemClicked( ImGuiMouseButton_Left ) && !nearby.empty() )
         {
-            int best = near.front();
-            for( const int index : near )
+            int best = nearby.front();
+            for( const int index : nearby )
             {
                 if( KindHeight( timeline->GetMarkers()[index].Type ) > KindHeight( timeline->GetMarkers()[best].Type ) )
                 {
@@ -2224,7 +2224,7 @@ void ReplayViewer::DrawTimeline( NetCore& InNet )
             m_jumpMarker = best;
             JumpTo( InNet, timeline->GetMarkers()[best].Tick );
         }
-        else if( ImGui::IsItemActive() && ImGui::IsMouseDown( ImGuiMouseButton_Left ) && near.empty() )
+        else if( ImGui::IsItemActive() && ImGui::IsMouseDown( ImGuiMouseButton_Left ) && nearby.empty() )
         {
             playback->Seek( tick );
         }

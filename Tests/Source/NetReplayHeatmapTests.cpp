@@ -341,6 +341,7 @@ TEST_CASE( "Replay heatmap: many replays add up, another scene is refused, and t
     REQUIRE_MESSAGE( heatmap.Save( ( folder / "heatmap.json" ).string(), &error ), error );
     std::ifstream png( folder / "deaths.png", std::ios::binary );
     std::vector<uint8_t> bytes( ( std::istreambuf_iterator<char>( png ) ), std::istreambuf_iterator<char>() );
+    png.close(); // Windows cannot remove a folder that still has an open file in it.
     REQUIRE( bytes.size() > 33 );
     CHECK( bytes[0] == 0x89 );
     CHECK( bytes[1] == 'P' );
@@ -387,9 +388,9 @@ TEST_CASE( "Replay heatmap: a sample far off the map is left out, a file's stray
     CHECK( loaded.GetGrid( Layer::Positions ).Total == doctest::Approx( 1.0 ) );
 
     // Cells a file puts 100 km apart: no grid (no 10^10-cell allocation), and the PNG says why.
-    json far = heatmap.ToJson();
-    far["layers"]["deaths"]["groups"]["all"]["cells"] = json::array( { json::array( { -50000, -50000, 1.0 } ), json::array( { 50000, 50000, 1.0 } ) } );
-    REQUIRE_MESSAGE( loaded.FromJson( far, &error ), error );
+    json farCells = heatmap.ToJson();
+    farCells["layers"]["deaths"]["groups"]["all"]["cells"] = json::array( { json::array( { -50000, -50000, 1.0 } ), json::array( { 50000, 50000, 1.0 } ) } );
+    REQUIRE_MESSAGE( loaded.FromJson( farCells, &error ), error );
     grid = loaded.GetGrid( Layer::Deaths );
     CHECK( grid.Width == 0 );
     CHECK( grid.Values.empty() );

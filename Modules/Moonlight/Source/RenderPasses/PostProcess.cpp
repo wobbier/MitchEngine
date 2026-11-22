@@ -540,7 +540,14 @@ namespace Moonlight
             SetupFullscreenView( scatterView, InTargets.FogBuffer.Buffer, InTargets.FogBuffer.Width, InTargets.FogBuffer.Height );
             setFogState();
             bgfx::setTexture( 0, s_input0, InTargets.DepthTexture, pointClamp );
-            SubmitFullscreen( scatterView, lightSamples > 0 && m_fogScatterLightsProgram.IsLoaded() ? m_fogScatterLightsProgram : m_fogScatterProgram );
+            // #TODO Direct3D: FogScatterLights intermittently writes Inf/NaN there (whole frames go
+            // white once the history holds it), while Vulkan is fine. It follows the compiled
+            // shader, not its inputs: the same passes replay clean in RenderDoc, and adding or
+            // removing unrelated code (the cluster light loop) flips it. Until the cause is found,
+            // Direct3D keeps the cluster march that stands in while this program loads.
+            const bgfx::RendererType::Enum rendererType = bgfx::getRendererType();
+            const bool perLightScatter = rendererType != bgfx::RendererType::Direct3D11 && rendererType != bgfx::RendererType::Direct3D12;
+            SubmitFullscreen( scatterView, perLightScatter && lightSamples > 0 && m_fogScatterLightsProgram.IsLoaded() ? m_fogScatterLightsProgram : m_fogScatterProgram );
 
             bgfx::TextureHandle blurInput = InTargets.FogBuffer.Color;
             if( temporal )

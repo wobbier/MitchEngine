@@ -1248,7 +1248,16 @@ void ModelResourceMetadata::Export()
         const float twoSided = 1.f;
         for( unsigned int m = 0; m < scene->mNumMaterials; ++m )
         {
-            scene->mMaterials[m]->AddProperty( &twoSided, 1, AI_MATKEY_TWOSIDED );
+            // Assimp's assbin loader leaves a material that has no properties with a capacity of
+            // zero, and AddProperty grows by doubling: it would then write past an empty array.
+            aiMaterial& material = *scene->mMaterials[m];
+            if( material.mNumAllocated == 0 )
+            {
+                delete[] material.mProperties;
+                material.mNumAllocated = 4;
+                material.mProperties = new aiMaterialProperty*[material.mNumAllocated]{};
+            }
+            material.AddProperty( &twoSided, 1, AI_MATKEY_TWOSIDED );
         }
     }
 

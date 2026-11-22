@@ -715,7 +715,7 @@ public static class Main
             linuxDescriptor.IsLinkerInvokedViaCompiler = true;
         }
 
-        KitsRootPaths.SetUseKitsRootForDevEnv(DevEnv.vs2022, KitsRootEnum.KitsRoot10, Options.Vc.General.WindowsTargetPlatformVersion.v10_0_19041_0);
+        KitsRootPaths.SetUseKitsRootForDevEnv(DevEnv.vs2022, KitsRootEnum.KitsRoot10, Options.Vc.General.WindowsTargetPlatformVersion.v10_0_22621_0);
 
         // A game checkout's Game.sharpmake.cs declares its solution; the engine's own checkout
         // (GenerateSolution.* in its root, which compiles only this file) has none.

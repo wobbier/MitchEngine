@@ -8,6 +8,7 @@
 #include "JSON.h"
 #include "File.h"
 #include "AssetMetaCache.h"
+#include "AssetDatabase.h"
 #include "CookedAssets.h"
 #include <optional>
 #include <chrono>
@@ -167,6 +168,10 @@ ResourceCache::ResourceCache()
     : m_async( std::make_unique<AsyncLoads>() )
     , m_reimports( std::make_unique<Reimports>() )
 {
+    // The loader threads register metas with the asset database. Statics are destroyed in reverse
+    // order of construction, so make sure it exists before this cache does: it then outlives the
+    // destructor's StopAsyncLoads() instead of going away under a loader thread at exit.
+    AssetDatabase::Get();
     AssetMetaCache::GetInstance().Load();
 }
 

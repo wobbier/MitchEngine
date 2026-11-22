@@ -99,8 +99,8 @@ namespace
         const Quaternion inverse = InRotation.Inverse();
         const Vector3 origin = inverse * ( InOrigin - InCenter );
         const Vector3 direction = inverse * InDirection;
-        float near = 0.f;
-        float far = 1e30f;
+        float tNear = 0.f;
+        float tFar = 1e30f;
         for( int axis = 0; axis < 3; ++axis )
         {
             if( std::abs( direction[axis] ) < 1e-9f )
@@ -117,14 +117,14 @@ namespace
             {
                 std::swap( t0, t1 );
             }
-            near = std::max( near, t0 );
-            far = std::min( far, t1 );
-            if( near > far )
+            tNear = std::max( tNear, t0 );
+            tFar = std::min( tFar, t1 );
+            if( tNear > tFar )
             {
                 return -1.f;
             }
         }
-        return near;
+        return tNear;
     }
 
     // A sphere around the pose's shape (a box's corners, a capsule's caps).
@@ -136,8 +136,8 @@ namespace
     // Ray (unit direction) vs AABB within InMaxDistance.
     bool RayHitsBounds( const Vector3& InOrigin, const Vector3& InDirection, float InMaxDistance, const Vector3& InMin, const Vector3& InMax )
     {
-        float near = 0.f;
-        float far = InMaxDistance;
+        float tNear = 0.f;
+        float tFar = InMaxDistance;
         for( int axis = 0; axis < 3; ++axis )
         {
             if( std::abs( InDirection[axis] ) < 1e-9f )
@@ -154,9 +154,9 @@ namespace
             {
                 std::swap( t0, t1 );
             }
-            near = std::max( near, t0 );
-            far = std::min( far, t1 );
-            if( near > far )
+            tNear = std::max( tNear, t0 );
+            tFar = std::min( tFar, t1 );
+            if( tNear > tFar )
             {
                 return false;
             }

@@ -2018,7 +2018,7 @@ void BGFXRenderer::PrepareFrameLighting()
     uint32_t pointCount = 0;
 
     // Light data: 8 RGBA32F texels per local light (256 lights fit the 2048-wide texture).
-    if( !m_localLights.empty() && bgfx::isValid( m_lightDataTexture ) )
+    if( bgfx::isValid( m_lightDataTexture ) )
     {
         for( size_t i = 0; i < m_localLights.size(); ++i )
         {
@@ -2082,8 +2082,13 @@ void BGFXRenderer::PrepareFrameLighting()
                 light.AxisZ.x, light.AxisZ.y, light.AxisZ.z, light.HalfSize.z };
             std::memcpy( &m_lightData[i * 32], values, sizeof( values ) );
         }
-        const uint16_t width = static_cast<uint16_t>( m_localLights.size() * 8 );
-        bgfx::updateTexture2D( m_lightDataTexture, 0, 0, 0, 0, width, 1, bgfx::copy( m_lightData.data(), width * 4 * sizeof( float ) ) );
+        // The whole row, not just the lights in use: the texture has no initial contents, and a
+        // shader loop the compiler flattens (the D3D11 fog march over FOG_MAX_LOCAL_LIGHTS) reads
+        // texels past the light count. Garbage there turns into NaN/Inf even when its weight is
+        // zero, which washed the frame out to white on Windows.
+        constexpr uint16_t kLightDataWidth = 2048;
+        std::fill( m_lightData.begin() + m_localLights.size() * 32, m_lightData.end(), 0.f );
+        bgfx::updateTexture2D( m_lightDataTexture, 0, 0, 0, 0, kLightDataWidth, 1, bgfx::copy( m_lightData.data(), kLightDataWidth * 4 * sizeof( float ) ) );
     }
     const float width = std::max<float>( m_spotShadowAtlas.Width, 1.f );
     const float height = std::max<float>( m_spotShadowAtlas.Height, 1.f );

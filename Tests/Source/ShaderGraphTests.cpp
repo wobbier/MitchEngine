@@ -686,8 +686,14 @@ TEST_CASE( "ShaderGraph: project graphs match their generated sources" )
             std::ifstream stream( directory + "/" + file.Name, std::ios::binary );
             std::stringstream contents;
             contents << stream.rdbuf();
+            // A Windows checkout may have converted the sources (and the templates the compiler
+            // reads) to CRLF: compare without the carriage returns.
+            const auto withoutCarriageReturns = []( std::string InText ) {
+                InText.erase( std::remove( InText.begin(), InText.end(), char( 13 ) ), InText.end() );
+                return InText;
+            };
             DOCTEST_INFO( file.Name );
-            CHECK_MESSAGE( contents.str() == file.Source, "out of date: recompile the graph (or run the tests with ME_SHADERGRAPH_UPDATE=1)" );
+            CHECK_MESSAGE( withoutCarriageReturns( contents.str() ) == withoutCarriageReturns( file.Source ), "out of date: recompile the graph (or run the tests with ME_SHADERGRAPH_UPDATE=1)" );
         }
     }
 }

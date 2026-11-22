@@ -677,11 +677,11 @@ TEST_CASE( "Net: two concurrent blobs each way reassemble under 20% loss, reorde
     NetTest::Link link( bad, back );
 
     const std::vector<uint8_t> big = NetTest::BlobFor( 300 * 1024 + 11, 1 );
-    const std::vector<uint8_t> small = NetTest::BlobFor( 77 * 1024, 2 );
+    const std::vector<uint8_t> smallBlob = NetTest::BlobFor( 77 * 1024, 2 );
     const std::vector<uint8_t> up1 = NetTest::BlobFor( 50 * 1024 + 3, 3 );
     const std::vector<uint8_t> up2 = NetTest::BlobFor( 9000, 4 );
     const uint32_t bigId = link.ToB.SendBlob( big );
-    const uint32_t smallId = link.ToB.SendBlob( small );
+    const uint32_t smallId = link.ToB.SendBlob( smallBlob );
     const uint32_t up1Id = link.ToA.SendBlob( up1 );
     const uint32_t up2Id = link.ToA.SendBlob( up2 );
     REQUIRE( ( bigId && smallId && up1Id && up2Id ) );
@@ -730,7 +730,7 @@ TEST_CASE( "Net: two concurrent blobs each way reassemble under 20% loss, reorde
     REQUIRE( atA.Blobs.size() == 2 );
     REQUIRE( atB.Blobs.size() == 2 );
     CHECK( *atA.Find( bigId ) == big );
-    CHECK( *atA.Find( smallId ) == small );
+    CHECK( *atA.Find( smallId ) == smallBlob );
     CHECK( *atB.Find( up1Id ) == up1 );
     CHECK( *atB.Find( up2Id ) == up2 );
     // Concurrent, taking turns: the big one was well under way when the small one completed.

@@ -419,6 +419,7 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
 {
     auto [command, args] = SplitWord( InLine );
     World& world = EditorOps::GetWorld();
+    bool handled = true;
 
     if( const AutomationCommands::Handler* handler = AutomationCommands::Find( command ) )
     {
@@ -1632,12 +1633,12 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
     {
         // vertex-snap [x, y, z]   (ED-8: the selection's pivot onto the mesh vertex nearest that point
         // on screen, as V-dragging the move gizmo does; one undo step)
-        const json near = json::parse( args, nullptr, false );
+        const json nearPoint = json::parse( args, nullptr, false );
         SceneViewWidget* view = InApp.Editor ? InApp.Editor->GetSceneView() : nullptr;
         std::vector<Entity*> roots = Selection::Get().GetRootEntities();
         std::vector<EditorOps::ComponentEdit> edits;
         for( Entity* root : roots ) edits.push_back( { root->GetGUID(), "Transform", EditorOps::CaptureComponent( *root, "Transform" ), json() } );
-        if( !near.is_array() || near.size() != 3 || !view || roots.empty() || !view->SnapSelectionToVertex( Vector3( near[0].get<float>(), near[1].get<float>(), near[2].get<float>() ) ) )
+        if( !nearPoint.is_array() || nearPoint.size() != 3 || !view || roots.empty() || !view->SnapSelectionToVertex( Vector3( nearPoint[0].get<float>(), nearPoint[1].get<float>(), nearPoint[2].get<float>() ) ) )
         {
             Fail( "vertex-snap: nothing selected, or no vertex near " + args );
         }
@@ -1934,6 +1935,16 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
 #else
         Fail( command + ": this build has no scripting" );
 #endif
+    }
+    else
+    {
+        handled = false;
+    }
+
+    // MSVC allows 128 nested blocks (C1061) and every else-if nests one deeper, so the command
+    // chain is split in two: the rest runs only when nothing above took the command.
+    if( handled )
+    {
     }
     else if( command == "assert-near" )
     {

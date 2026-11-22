@@ -22,6 +22,15 @@ public class RmlUiLib : BaseProject
         conf.ProjectPath = Path.Combine("[project.SharpmakeCsPath]", ".tmp/rmlui");
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "RmlUi/Include"));
         conf.Defines.Add("RMLUI_STATIC_LIB");
+        // Core/Geometry.cpp and Debugger/Geometry.cpp both compile to Geometry.obj in one MSVC
+        // intermediate folder, so the second overwrites the first and Rml::Geometry never links.
+        if (target.SubPlatform != CommonTarget.SubPlatformType.linux && target.SubPlatform != CommonTarget.SubPlatformType.macOS)
+        {
+            conf.ObjectFileName = sourceFile =>
+            {
+                return sourceFile.Replace('\\', '/').EndsWith("Debugger/Geometry.cpp") ? "$(IntDir)DebuggerGeometry.obj" : null;
+            };
+        }
         conf.Defines.Add("RMLUI_FONT_ENGINE_FREETYPE");
         // RmlUi's internal profiling zones (layout, styles, geometry), opt-in: generate with
         // ME_RMLUI_ZONES=1 in the environment, then rebuild RmlUi. They go to Optick / the Linux

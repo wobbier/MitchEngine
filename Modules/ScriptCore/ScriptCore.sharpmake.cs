@@ -11,6 +11,7 @@ public class ScriptCore : CSharpProject
     {
         Name = "ScriptCore";
 
+        RootPath = SharpmakeCsPath;
         SourceRootPath = @"[project.SharpmakeCsPath]\Source";
 
         string[] ignoredAssets = { ".xml", ".map", ".config", ".bat", ".txt", ".xsd", ".h.template", ".resx", ".cur" };
@@ -77,6 +78,7 @@ public abstract class GameScript : CSharpProject
     {
         Name = "Game.Script";
         // SharpmakeCsPath is the subclass's dir (Game.sharpmake.cs), which sits next to Assets.
+        RootPath = SharpmakeCsPath;
         SourceRootPath = Path.Combine(SharpmakeCsPath, "Assets");
 
         string[] ignoredAssets = { ".xml", ".map", ".config", ".bat", ".txt", ".xsd", ".h.template", ".resx", ".cur" };

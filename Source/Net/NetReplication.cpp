@@ -445,9 +445,9 @@ void NetReplicationServer::Prepare( uint8_t InClient, ClientState& InState ) con
             InState.Accumulators.erase( id );
             continue;
         }
-        const float near = std::max( Settings.NearDistance, 0.001f );
+        const float nearDistance = std::max( Settings.NearDistance, 0.001f );
         float& accumulated = InState.Accumulators[id];
-        accumulated += meta.Priority * ( distance <= near ? 1.f : near / distance );
+        accumulated += meta.Priority * ( distance <= nearDistance ? 1.f : nearDistance / distance );
         candidates.emplace_back( accumulated, id );
     }
     std::sort( candidates.begin(), candidates.end(), []( const auto& InA, const auto& InB ) {

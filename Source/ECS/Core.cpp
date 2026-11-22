@@ -20,9 +20,14 @@ std::string BaseCore::CleanCoreName( const char* rawName )
         result = result.substr( pos + 2 );
     return result;
 #else
+    // MSVC: "class Namespace::Name". Drop the keyword, then the namespaces as above, so a core has
+    // the same name (in scenes and in RunsAfter / RunsBefore) on every compiler.
     std::string name( rawName );
     auto pos = name.find( ' ' );
-    return pos != std::string::npos ? name.substr( pos + 1 ) : name;
+    if( pos != std::string::npos )
+        name = name.substr( pos + 1 );
+    pos = name.rfind( "::" );
+    return pos != std::string::npos ? name.substr( pos + 2 ) : name;
 #endif
 }
 

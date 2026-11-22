@@ -95,10 +95,13 @@ int PlatformUtils::RunCommand( const std::string& inCommand, std::string& OutOut
 
 int PlatformUtils::RunCommand( const std::string& inCommand, const std::function<void( const std::string& )>& inOnLine )
 {
-    const std::string command = inCommand + " 2>&1";
 #if USING( ME_PLATFORM_WIN64 )
+    // cmd /c strips the first and last quote of a line holding more than one quoted token, which
+    // breaks a quoted program path followed by quoted arguments; an outer pair takes the hit.
+    const std::string command = "\"" + inCommand + " 2>&1\"";
     FILE* pipe = _popen( command.c_str(), "r" );
 #else
+    const std::string command = inCommand + " 2>&1";
     FILE* pipe = popen( command.c_str(), "r" );
 #endif
     if( !pipe )

@@ -148,10 +148,10 @@ const NetMispredictRecord* NetPredictor::FindMispredict( uint32_t InTick ) const
 
 bool NetPredictor::Matches( const CharacterController::NetState& InA, const CharacterController::NetState& InB, float InPositionTolerance, float InVelocityTolerance )
 {
-    auto near = []( const Vector3& InX, const Vector3& InY, float InTolerance ) {
+    auto isNear = []( const Vector3& InX, const Vector3& InY, float InTolerance ) {
         return std::abs( InX.x - InY.x ) <= InTolerance && std::abs( InX.y - InY.y ) <= InTolerance && std::abs( InX.z - InY.z ) <= InTolerance;
     };
-    return near( InA.Position, InB.Position, InPositionTolerance ) && near( InA.Velocity, InB.Velocity, InVelocityTolerance ) && InA.Grounded == InB.Grounded;
+    return isNear( InA.Position, InB.Position, InPositionTolerance ) && isNear( InA.Velocity, InB.Velocity, InVelocityTolerance ) && InA.Grounded == InB.Grounded;
 }
 
 

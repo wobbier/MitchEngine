@@ -2264,12 +2264,12 @@ TEST_CASE( "Net: a killcam sent with seconds after the death waits for them, str
 TEST_CASE( "Killcam: the killer's view: the net aim as the camera's front, a point's place in the frame, and the killer's tick that looked at a time (ME-343)" )
 {
     // The net aim convention: yaw about +Y, 0 down +Z, 90 down +X; pitch up from level.
-    const auto near = []( const Vector3& InA, const Vector3& InB ) { return ( InA - InB ).Length() < 1e-4f; };
-    CHECK( near( KillcamPlayer::AimDirection( 0.f, 0.f ), Vector3( 0.f, 0.f, 1.f ) ) );
-    CHECK( near( KillcamPlayer::AimDirection( 90.f, 0.f ), Vector3( 1.f, 0.f, 0.f ) ) );
-    CHECK( near( KillcamPlayer::AimDirection( 180.f, 0.f ), Vector3( 0.f, 0.f, -1.f ) ) );
-    CHECK( near( KillcamPlayer::AimDirection( 0.f, 90.f ), Vector3( 0.f, 1.f, 0.f ) ) );
-    CHECK( near( KillcamPlayer::AimDirection( 270.f, -45.f ), Vector3( -0.70710678f, -0.70710678f, 0.f ) ) );
+    const auto isNear = []( const Vector3& InA, const Vector3& InB ) { return ( InA - InB ).Length() < 1e-4f; };
+    CHECK( isNear( KillcamPlayer::AimDirection( 0.f, 0.f ), Vector3( 0.f, 0.f, 1.f ) ) );
+    CHECK( isNear( KillcamPlayer::AimDirection( 90.f, 0.f ), Vector3( 1.f, 0.f, 0.f ) ) );
+    CHECK( isNear( KillcamPlayer::AimDirection( 180.f, 0.f ), Vector3( 0.f, 0.f, -1.f ) ) );
+    CHECK( isNear( KillcamPlayer::AimDirection( 0.f, 90.f ), Vector3( 0.f, 1.f, 0.f ) ) );
+    CHECK( isNear( KillcamPlayer::AimDirection( 270.f, -45.f ), Vector3( -0.70710678f, -0.70710678f, 0.f ) ) );
 
     // A camera put at an eye looking along an aim (as PlaceView does) has that front, the level quarter turn
     // as its right and Project's up as its up: Project's frame is the camera's.
@@ -2284,7 +2284,7 @@ TEST_CASE( "Killcam: the killer's view: the net aim as the camera's front, a poi
         transform.SetWorldPosition( eye );
         transform.LookAt( eye + KillcamPlayer::AimDirection( aim.first, aim.second ) );
         const Vector3 front = transform.Front().Normalized();
-        CHECK( near( front, KillcamPlayer::AimDirection( aim.first, aim.second ) ) );
+        CHECK( isNear( front, KillcamPlayer::AimDirection( aim.first, aim.second ) ) );
         // A point ahead, up and to the right of the view lands up and right in the frame, as far ahead as it is.
         const Vector3 right = KillcamPlayer::AimDirection( aim.first + 90.f, 0.f );
         const Vector3 up = front.Cross( right );
@@ -2338,7 +2338,7 @@ TEST_CASE( "Killcam: the killer's view: the net aim as the camera's front, a poi
     CHECK( std::abs( view.Yaw - 358.5f ) < 1e-3f );      // 357 to 0 the short way round
     CHECK( std::abs( view.Pitch - ( -10.f + 4.5f * 0.5f ) ) < 1e-4f );
     REQUIRE( view.HasPosition );
-    CHECK( near( view.Position, Vector3( 10.45f, 1.f, -2.f ) ) );
+    CHECK( isNear( view.Position, Vector3( 10.45f, 1.f, -2.f ) ) );
     // On a view tick exactly: that tick. Before the first sample's view: the first; past the last's: the
     // last (the killer's last command: the kill).
     CHECK( std::abs( KillcamPlayer::FindKillerView( samples, 107.5 ).Tick - 120.0 ) < 1e-9 );
@@ -2359,7 +2359,7 @@ TEST_CASE( "Killcam: the killer's view: the net aim as the camera's front, a poi
     view = KillcamPlayer::FindKillerView( samples, 110.25 );
     REQUIRE( view.HasAim );
     CHECK( std::abs( view.Yaw - samples[10].Yaw ) < 1e-4f );
-    CHECK( near( view.Position, samples[10].Position ) );
+    CHECK( isNear( view.Position, samples[10].Position ) );
     CHECK_FALSE( KillcamPlayer::FindKillerView( {}, 3.0 ).HasAim );
 
     // A recorded tick as a sample: its client's command and the killer's state.

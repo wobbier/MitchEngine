@@ -1089,7 +1089,15 @@ void SceneViewWidget::DrawManipulator()
 	const bool isPerspective = MainCamera->Projection == Moonlight::ProjectionType::Perspective;
 	ImGuizmo::SetOrthographic(!isPerspective);
 	ImGuizmo::SetDrawlist();
+	// ImGuizmo deprecates SetID for PushID/PopID, which nest an ID rather than set it; MSVC makes that an error.
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4996)
+#endif
 	ImGuizmo::SetID(0);
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 	ImGuizmo::SetRect(m_viewportScreenMin.x, m_viewportScreenMin.y, m_viewportScreenSize.x, m_viewportScreenSize.y);
 	ApplyGizmoStyle(GizmoSelectionColor(ImGuizmo::IsUsing() ? ImGuizmo::GetActiveHandleType() : ImGuizmo::GetHoveredHandleType()));
 
