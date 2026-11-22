@@ -57,7 +57,9 @@ class BGFXRenderer
     : public ISystem
 {
     static constexpr bgfx::ViewId kClearView = Moonlight::RenderView::Clear;
-    static constexpr std::size_t kMeshTransparencyTempSize = 128;
+    // Reserved for the transparent meshes in view; a scene dressed in additive flames, light
+    // shafts and glows (Drumsmith's Hell venue) has several hundred.
+    static constexpr std::size_t kMeshTransparencyTempSize = 1024;
     friend class RenderCore;
 public:
     ME_SYSTEM_ID( BGFXRenderer );
