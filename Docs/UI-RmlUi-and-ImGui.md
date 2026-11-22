@@ -56,6 +56,7 @@ flowchart LR
 - Text scales through dp units (`SetTextScale`, the context's density-independent pixel ratio; `ui-set-text-scale`).
 - `SetLanguage( "es" )` loads `Assets/UI/Strings/es.json` and reloads documents; exact-match keys translate through `TranslateString`. Extra glyph coverage loads from `Assets/Fonts/Fallback/`.
 - The UI's requested cursor applies through SDL. The RmlUi debugger toggles on **F7** outside retail.
+- **Alt+Z** hides the whole UI for screenshots, in every build including Retail (`RmlUiCore::SetUIHidden` / `IsUIHidden`). Hidden documents and overlays keep updating (models, animations) but draw nothing and take no mouse, key or gamepad input; Alt+Z again or Escape shows them. The flag survives scene changes. The Escape that restores the UI also reaches the game (a controller reading `Input::WasKeyPressed` still acts on it).
 
 ### Wiring documents to the game
 

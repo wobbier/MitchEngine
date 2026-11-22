@@ -524,7 +524,30 @@ void RmlUiCore::CloseDocument( UIDocument& InDocument )
 
 bool RmlUiCore::WantsMouse() const
 {
-    return m_context != nullptr && m_context->IsMouseInteracting();
+    return m_context != nullptr && !m_uiHidden && m_context->IsMouseInteracting();
+}
+
+
+void RmlUiCore::SetUIHidden( bool InHidden )
+{
+    if( m_uiHidden == InHidden )
+    {
+        return;
+    }
+    m_uiHidden = InHidden;
+    if( InHidden && m_context != nullptr )
+    {
+        // Nothing stays pressed or hovered under the hidden UI.
+        for( int index = 0; index < 3; ++index )
+        {
+            if( m_mouseWasDown[index] )
+            {
+                m_context->ProcessMouseButtonUp( index, 0 );
+                m_mouseWasDown[index] = false;
+            }
+        }
+        m_context->ProcessMouseLeave();
+    }
 }
 
 
@@ -968,11 +991,30 @@ void RmlUiCore::Update( const UpdateContext& inUpdateContext )
         }
     }
 
+    // Alt+Z hides the UI for screenshots, in every build; Alt+Z again or Escape shows it. Not
+    // while a "press a key" rebind owns the input.
+    if( !RmlSettings::HoldsInput() )
+    {
+        Input& gameInput = GetEngine().GetInput();
+        const bool altDown = gameInput.IsKeyDown( KeyCode::LeftAlt ) || gameInput.IsKeyDown( KeyCode::RightAlt );
+        if( altDown && gameInput.WasKeyPressed( KeyCode::Z ) )
+        {
+            SetUIHidden( !m_uiHidden );
+        }
+        else if( m_uiHidden && gameInput.WasKeyPressed( KeyCode::Escape ) )
+        {
+            SetUIHidden( false );
+        }
+    }
+
     if( anyVisible )
     {
         OPTICK_EVENT( "RmlUi::Input", Optick::Category::UI );
         ME_STAT_SCOPE( "UI Input" );
-        ProcessInput();
+        if( !m_uiHidden )
+        {
+            ProcessInput();
+        }
         ApplyRequestedCursor();
     }
 
@@ -984,7 +1026,7 @@ void RmlUiCore::Update( const UpdateContext& inUpdateContext )
     }
 
     Moonlight::CameraData* cameraData = GetEngine().GetRenderer().GetCameraCache().Get( mainCamera->GetCameraId() );
-    if( anyVisible )
+    if( anyVisible && !m_uiHidden )
     {
         const uint16_t width = static_cast<uint16_t>( outputSize.x );
         const uint16_t height = static_cast<uint16_t>( outputSize.y );

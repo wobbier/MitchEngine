@@ -110,6 +110,12 @@ public:
     void SetLanguage( const std::string& InCode );
     const std::string& GetLanguage() const { return m_language; }
     void InjectUiKey( int InKeyIdentifier, int InModifiers = 0 );
+
+    // Alt+Z, in every build: hides the whole UI (documents and overlays) for screenshots. Hidden
+    // documents keep updating but draw nothing and take no input; Alt+Z again or Escape brings
+    // them back. Stays set across scene changes.
+    void SetUIHidden( bool InHidden );
+    bool IsUIHidden() const { return m_uiHidden; }
 #endif
 
 private:
@@ -138,6 +144,7 @@ private:
     bool m_modelsMaterialized = false;   // a model/variable appeared: reload loaded documents once
     float m_textScale = 1.f;
     bool m_highContrast = false;
+    bool m_uiHidden = false;   // Alt+Z
     std::string m_language;
     bool m_gamepadNavDown[5] = {};   // dpad + south, for press transitions
 
