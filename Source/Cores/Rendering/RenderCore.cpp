@@ -990,7 +990,11 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         std::vector<Moonlight::LightCommand>& lights = renderer.GetLights();
         lights.clear();
         GetWorld().Each<Transform, Light>( [&]( Entity& entity, Transform& transform, Light& light ) {
-            if( entity.IsActiveInHierarchy() && light.IsEnabled() )
+            // A local light turned right down (a venue's story group that isn't showing, a rig
+            // light between cues) lights nothing, but would still take one of a cluster's 64
+            // places: in a scene with many of them the lights that are on were being dropped.
+            const bool dark = light.Intensity <= 0.f && light.LightType != Moonlight::LightType::Directional;
+            if( entity.IsActiveInHierarchy() && light.IsEnabled() && !dark )
             {
                 lights.push_back( light.BuildCommand( transform ) );
             }

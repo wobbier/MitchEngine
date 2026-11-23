@@ -10,7 +10,7 @@ uniform vec4 u_fogProjection;   // x P[2][2], y P[3][2], z 1 = orthographic, w 1
 uniform vec4 u_fogProjection2;  // x P[0][0], y P[1][1], z far distance (sky), w temporal march jitter
 uniform vec4 u_fogScreen;       // xy full-resolution size, zw half-resolution (raymarch) size
 uniform mat4 u_fogInvView;      // view -> world
-uniform vec4 u_fogForward;      // x 1 = forward-shaded surfaces drawn after the fog pass apply it themselves
+uniform vec4 u_fogForward;      // x 1 = forward-shaded surfaces drawn after the fog pass apply it themselves; y 1 = the draw blends additively (per mesh draw)
 uniform vec4 u_fogVolume2;      // x local-light anisotropy, y history weight, z 1 = history valid, w blur radius (texels)
 
 // Henyey-Greenstein phase (normalised over the sphere); _cosTheta between the light's travel

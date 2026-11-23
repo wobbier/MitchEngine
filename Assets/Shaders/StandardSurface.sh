@@ -114,10 +114,16 @@ vec4 shadeStandardSurface(SurfaceInput _in, vec3 _worldPos, vec3 _vertexNormal, 
 	s.roughness = lightingOnly ? 0.7 : roughness;
 	s.NoV = max(dot(N, s.view), 1e-4);
 
+	// An additive surface adds its whole output to the scene. With a black base colour it is a
+	// pure emitter (a glow card, a light shaft): what little it would reflect (the dielectric
+	// specular, under every light that reaches it) would show its whole quad, so it is not lit.
+	bool additive = u_fogForward.y > 0.5;
+	bool lit = !(additive && max(base.r, max(base.g, base.b)) <= 0.0);
+
 	vec3 color = vec3_splat(0.0);
 	for (int i = 0; i < MAX_DIRECTIONAL_LIGHTS; ++i)
 	{
-		if (float(i) >= u_lightParams.x)
+		if (!lit || float(i) >= u_lightParams.x)
 		{
 			break;
 		}
@@ -132,11 +138,14 @@ vec4 shadeStandardSurface(SurfaceInput _in, vec3 _worldPos, vec3 _vertexNormal, 
 		color += shadeTranslucency(s, L, directionalRadiance(i, s.position), _in.translucency) * visibility;
 #endif
 	}
-	color += shadeClusteredLights(s, _fragCoord, _viewPos.z);
+	if (lit)
+	{
+		color += shadeClusteredLights(s, _fragCoord, _viewPos.z);
 #ifdef SURFACE_TRANSLUCENCY
-	color *= _in.directOcclusion;
+		color *= _in.directOcclusion;
 #endif
-	color += ambientLighting(s, occlusion);
+		color += ambientLighting(s, occlusion);
+	}
 	color += lightingOnly ? vec3_splat(0.0) : emissive;
 
 	color *= cascadeDebugTint(_viewPos.z);
@@ -144,7 +153,9 @@ vec4 shadeStandardSurface(SurfaceInput _in, vec3 _worldPos, vec3 _vertexNormal, 
 	// Transparent surfaces are drawn after the fog pass, so they fog themselves.
 	vec3 sunColor = u_lightParams.x > 0.5 ? directionalRadiance(0, _worldPos) : vec3_splat(0.0);
 	vec4 fog = fogForward(cameraPos, _worldPos, sunColor, u_dirLightDirection[0].xyz);
-	color = color * fog.a + fog.rgb;
+	// The scene behind an additive surface already carries the fog's in-scattered light; adding
+	// it again would light the whole quad. The fog only dims what the surface adds.
+	color = additive ? color * fog.a : color * fog.a + fog.rgb;
 
 	return vec4(color, alpha);
 }

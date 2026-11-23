@@ -577,7 +577,8 @@ private:
         bgfx::TextureHandle EnvIrradiance = BGFX_INVALID_HANDLE;
         float EnvParams[4] = {};
         // Fog (Fog.sh), from the camera's post settings; FogForward[0] is 1 while drawing passes
-        // after the fog pass (transparents, particles), which fog themselves.
+        // after the fog pass (transparents, particles), which fog themselves. FogForward[1] is 1 for an
+        // additively blended mesh draw (BindMeshDrawState).
         float FogParams[4] = {};
         float FogColor[4] = {};
         float FogVolume[4] = {};

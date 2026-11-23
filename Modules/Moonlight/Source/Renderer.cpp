@@ -3760,7 +3760,11 @@ bgfx::ProgramHandle BGFXRenderer::BindMeshDrawState( const Moonlight::MeshComman
     bgfx::setTexture( 5, s_texOcclusion, textureOr( Moonlight::TextureType::Occlusion, m_whiteTexture ) );
     bgfx::setTexture( 6, s_texMetallic, textureOr( Moonlight::TextureType::Metallic, m_whiteTexture ) );
     bgfx::setTexture( 7, s_texRoughness, textureOr( Moonlight::TextureType::Roughness, m_whiteTexture ) );
+    // Additive draws add their whole output to the scene: the surface shader leaves the fog's
+    // in-scattered light (and a black surface's reflections) out of them (StandardSurface.sh).
+    m_lighting.FogForward[1] = ( state & BGFX_STATE_BLEND_MASK ) == BGFX_STATE_BLEND_ADD ? 1.f : 0.f;
     BindLighting();
+    m_lighting.FogForward[1] = 0.f;
 
     material.Use();
 
