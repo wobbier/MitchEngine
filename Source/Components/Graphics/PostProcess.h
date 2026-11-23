@@ -73,9 +73,16 @@ public:
     bool VolumetricTemporal = true;
     float FogLocalAnisotropy = 0.f;
     int VolumetricLightSamples = 0;
+    // Froxel volumetric fog for this camera (ME-376), whatever the renderer's global switch says.
+    bool FroxelFog = false;
 
     // Colour grading
     float Saturation = 1.f;
+    // Colours a desaturating grade (and the LUT) leaves in: reds, blues, and how far the reds
+    // reach into orange and yellow (PostProcessSettings documents each).
+    float SaturationKeepRed = 0.f;
+    float SaturationKeepBlue = 0.f;
+    float SaturationKeepWarmth = 0.f;
     float Contrast = 1.f;
     float Temperature = 0.f;
     float Tint = 0.f;

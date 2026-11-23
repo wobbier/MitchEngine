@@ -61,7 +61,9 @@ ME_REFLECT_BEGIN( Camera )
     ME_FIELD( OverlayDarkOpacity ).Display( "Overlay Dark Opacity" ).Range( 0.f, 1.f ).Unit( Reflection::Unit::Percent ).Tooltip( "Overlay only: how much the overlay's darkest pixels cover the scene (bright ones always do)" );
     ME_FIELD( Zoom ).Hidden();
     ME_FIELD( TargetTexture ).Category( "Render Texture" ).Display( "Target Texture" ).Asset( "RenderTexture" ).Tooltip( "Render into this render texture, at its size, instead of the screen. Materials show the image by using the same asset as a texture" );
-    ME_FIELD( UpdateInterval ).Category( "Render Texture" ).Display( "Update Interval" ).Range( 1.f, 60.f ).Unit( Reflection::Unit::Frames ).Tooltip( "Render every Nth frame; the texture keeps its last image in between" );
+    ME_FIELD( UpdateInterval ).Category( "Render Texture" ).Display( "Update Interval" ).Range( 1.f, 60.f ).Unit( Reflection::Unit::Frames ).Tooltip( "Render every Nth frame; the texture keeps its last image in between. Cameras with the same interval take turns" );
+    ME_FIELD( MirrorMainCamera ).Category( "Render Texture" ).Display( "Mirror Main Camera" ).Tooltip( "Fill the texture from the main camera's image (after its post, before overlays and UI; the centre, cropped to the texture's shape) instead of rendering the scene: one downsample instead of a second scene render" );
+    ME_FIELD( RenderWhenUnseen ).Category( "Render Texture" ).Display( "Render When Unseen" ).Tooltip( "Keep rendering while nothing drawn shows the texture. Off, the camera skips those frames and renders again as soon as a material, decal, particle or UI viewport draws it" );
     ME_FIELD( SunShadows ).Category( "Render Passes" ).Display( "Sun Shadows" ).Tooltip( "Draw the sun's shadow cascades for this camera. Spot and point light shadows are shared by every camera and stay" );
     ME_FIELD( AmbientOcclusion ).Category( "Render Passes" ).Display( "Ambient Occlusion" ).Tooltip( "Allow screen-space ambient occlusion when the post settings turn it on" );
     ME_FIELD( VolumetricFog ).Category( "Render Passes" ).Display( "Volumetric Fog" ).Tooltip( "Allow volumetric fog when the post settings turn it on; off falls back to the analytic height fog" );
@@ -454,6 +456,8 @@ void Camera::DrawTargetPreview()
     const float width = std::max( 1.f, std::min( ImGui::GetContentRegionAvail().x, ImGuiTheme::Em( 21.f ) ) );
     const float height = width * target->mHeight / std::max( 1.f, static_cast<float>( target->mWidth ) );
     ImGui::Image( target->TexHandle, ImVec2( width, height ) );
+    // The preview is a consumer too: keep the camera rendering while it shows (ME-406).
+    Moonlight::Texture::MarkSampled( target->TexHandle );
     if( target->GetRenderCount() == 0 )
     {
         ImGui::TextDisabled( "%d x %d, not rendered yet", target->mWidth, target->mHeight );

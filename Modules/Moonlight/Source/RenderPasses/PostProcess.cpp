@@ -96,6 +96,7 @@ namespace Moonlight
         m_taaProgram = LoadPost( "TAA" );
         m_copyProgram = LoadPost( "Copy" );
         m_upscaleProgram = LoadPost( "Upscale" );
+        m_mirrorProgram = LoadPost( "Mirror" );
         m_overlayProgram = LoadPost( "OverlayComposite" );
         m_eraProgram = LoadPost( "Era" );
         m_dofCoCProgram = LoadPost( "DoFCoC" );
@@ -119,6 +120,8 @@ namespace Moonlight
         s_input0 = bgfx::createUniform( "s_input0", bgfx::UniformType::Sampler );
         u_upscaleParams = bgfx::createUniform( "u_upscaleParams", bgfx::UniformType::Vec4 );
         u_upscaleSize = bgfx::createUniform( "u_upscaleSize", bgfx::UniformType::Vec4 );
+        u_mirrorRect = bgfx::createUniform( "u_mirrorRect", bgfx::UniformType::Vec4 );
+        u_mirrorTaps = bgfx::createUniform( "u_mirrorTaps", bgfx::UniformType::Vec4 );
         u_overlayParams = bgfx::createUniform( "u_overlayParams", bgfx::UniformType::Vec4 );
         u_overlayFade = bgfx::createUniform( "u_overlayFade", bgfx::UniformType::Vec4 );
         u_overlayLook = bgfx::createUniform( "u_overlayLook", bgfx::UniformType::Vec4 );
@@ -131,6 +134,7 @@ namespace Moonlight
         u_tonemap = bgfx::createUniform( "u_tonemap", bgfx::UniformType::Vec4 );
         u_grading = bgfx::createUniform( "u_grading", bgfx::UniformType::Vec4 );
         u_grading2 = bgfx::createUniform( "u_grading2", bgfx::UniformType::Vec4 );
+        u_grading3 = bgfx::createUniform( "u_grading3", bgfx::UniformType::Vec4 );
         u_exposure = bgfx::createUniform( "u_exposure", bgfx::UniformType::Vec4 );
         u_bloom = bgfx::createUniform( "u_bloom", bgfx::UniformType::Vec4 );
         u_ssao = bgfx::createUniform( "u_ssao", bgfx::UniformType::Vec4 );
@@ -179,10 +183,10 @@ namespace Moonlight
 
     PostProcess::~PostProcess()
     {
-        for( bgfx::UniformHandle* uniform : { &s_input0, &s_input1, &s_hdrColor, &s_bloom, &s_exposure, &s_ldrColor, &u_tonemap, &u_grading, &u_grading2, &u_exposure, &u_bloom, &u_ssao, &u_ssaoProjection, &u_ssaoScreen, &u_ssaoInvProjection, &u_adapt,
+        for( bgfx::UniformHandle* uniform : { &s_input0, &s_input1, &s_hdrColor, &s_bloom, &s_exposure, &s_ldrColor, &u_tonemap, &u_grading, &u_grading2, &u_grading3, &u_exposure, &u_bloom, &u_ssao, &u_ssaoProjection, &u_ssaoScreen, &u_ssaoInvProjection, &u_adapt,
             &u_fogProjection, &u_fogProjection2, &u_fogScreen, &u_fogInvView, &u_fogVolume2, &u_fogScatter, &u_fogReproject, &s_fogHistory,
             &u_froxelGrid, &u_froxelDepth, &u_froxelParams, &u_froxelPrevView, &s_froxelRaw, &s_froxelHistory, &s_froxelIn, &s_froxelVolume, &s_taaCurrent, &s_taaHistory, &s_taaDepth, &u_taaParams, &u_taaJitter, &u_taaReproject, &u_graphSceneFilter,
-            &s_dof0, &s_dof1, &s_dof2, &s_dof3, &s_dof4, &u_dofLens, &u_dofSplit, &u_dofProjection, &u_dofScreen, &u_dofPass, &u_dofJitter, &s_lut, &s_lutStrip, &u_lut, &u_outline, &u_outlineParams, &u_upscaleParams, &u_upscaleSize, &u_overlayParams, &u_overlayFade, &u_overlayLook, &u_eraPost, &u_grain, &u_lens } )
+            &s_dof0, &s_dof1, &s_dof2, &s_dof3, &s_dof4, &u_dofLens, &u_dofSplit, &u_dofProjection, &u_dofScreen, &u_dofPass, &u_dofJitter, &s_lut, &s_lutStrip, &u_lut, &u_outline, &u_outlineParams, &u_upscaleParams, &u_upscaleSize, &u_mirrorRect, &u_mirrorTaps, &u_overlayParams, &u_overlayFade, &u_overlayLook, &u_eraPost, &u_grain, &u_lens } )
         {
             DestroyUniform( *uniform );
         }
@@ -451,7 +455,8 @@ namespace Moonlight
         // light on its own stretch of the ray (x: samples per light); without it the march lights
         // every step from its cluster, in the shader it always had.
         const int lightSamples = std::clamp( settings.VolumetricLightSamples, 0, kMaxVolumetricLightSamples );
-        const float fogScatter[4] = { static_cast<float>( lightSamples ), 0.f, 0.f, 0.f };
+        // y: how many of the local lights the fog shows (they come first in the light data, ME-409).
+        const float fogScatter[4] = { static_cast<float>( lightSamples ), static_cast<float>( FogLocalLightCount ), 0.f, 0.f };
         auto setFogState = [&]() {
             InBindLighting();
             bgfx::setUniform( u_fogProjection, fogProjection );
@@ -820,6 +825,37 @@ namespace Moonlight
     }
 
 
+    bool PostProcess::RenderMirror( ViewAllocator& InViews, bgfx::TextureHandle InSource, uint16_t InSourceWidth, uint16_t InSourceHeight, bgfx::FrameBufferHandle InTarget, uint16_t InWidth, uint16_t InHeight )
+    {
+        if( !bgfx::isValid( InSource ) || !bgfx::isValid( InTarget ) || InSourceWidth == 0 || InSourceHeight == 0 || InWidth == 0 || InHeight == 0 || !m_mirrorProgram.IsLoaded() )
+        {
+            return false;
+        }
+        const bgfx::ViewId view = InViews.Allocate( "Mirror" );
+        if( view == UINT16_MAX )
+        {
+            return false;
+        }
+        // The largest centred crop of the source with the target's shape.
+        const float sourceAspect = static_cast<float>( InSourceWidth ) / static_cast<float>( InSourceHeight );
+        const float targetAspect = static_cast<float>( InWidth ) / static_cast<float>( InHeight );
+        const float cropWidth = sourceAspect > targetAspect ? targetAspect / sourceAspect : 1.f;
+        const float cropHeight = sourceAspect > targetAspect ? 1.f : sourceAspect / targetAspect;
+        const float rect[4] = { ( 1.f - cropWidth ) * 0.5f, ( 1.f - cropHeight ) * 0.5f, cropWidth, cropHeight };
+        // Each tap is bilinear (2 x 2 texels): enough taps per axis to cover an output texel's
+        // footprint, up to 4 (8 texels; past that it thins out, like a mip).
+        const float texelsPerPixel = cropWidth * static_cast<float>( InSourceWidth ) / static_cast<float>( InWidth );
+        const float taps = std::clamp( std::ceil( texelsPerPixel * 0.5f ), 1.f, 4.f );
+        const float footprint[4] = { cropWidth / static_cast<float>( InWidth ), cropHeight / static_cast<float>( InHeight ), taps, 0.f };
+        SetupFullscreenView( view, InTarget, InWidth, InHeight );
+        bgfx::setUniform( u_mirrorRect, rect );
+        bgfx::setUniform( u_mirrorTaps, footprint );
+        bgfx::setTexture( 0, s_input0, InSource, BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP );
+        SubmitFullscreen( view, m_mirrorProgram );
+        return true;
+    }
+
+
     void PostProcess::RenderUpscale( ViewAllocator& InViews, const CameraData& InCamera, FrameBuffer& InTargets, uint32_t InPixelFactor, bgfx::FrameBufferHandle InOutput, uint16_t InOutputWidth, uint16_t InOutputHeight, uint16_t InOutputX, uint16_t InOutputY )
     {
         const bgfx::ViewId view = InViews.Allocate( "Upscale" );
@@ -828,8 +864,6 @@ namespace Moonlight
             return;
         }
         SetupFullscreenView( view, InOutput, InOutputWidth, InOutputHeight, InOutputX, InOutputY );
-        // The output's own depth (overlays drawn after this test against a clean one).
-        bgfx::setViewClear( view, BGFX_CLEAR_DEPTH, 0, 1.f, 0 );
         const float params[4] = { static_cast<float>( InCamera.Upscale ), InCamera.UpscaleSharpness, static_cast<float>( InPixelFactor ), 0.f };
         const float size[4] = { static_cast<float>( InTargets.UpscaleInput.Width ), static_cast<float>( InTargets.UpscaleInput.Height ), static_cast<float>( InOutputWidth ), static_cast<float>( InOutputHeight ) };
         bgfx::setUniform( u_upscaleParams, params );
@@ -1071,6 +1105,7 @@ namespace Moonlight
         const float tonemap[4] = { compensation, static_cast<float>( settings.Operator ), bloom ? settings.BloomIntensity : 0.f, settings.VignetteIntensity };
         const float grading[4] = { settings.Saturation, settings.Contrast, settings.Temperature, settings.Tint };
         const float grading2[4] = { settings.VignetteSmoothness, settings.Gamma, settings.Lift, settings.Gain };
+        const float grading3[4] = { std::clamp( settings.SaturationKeepRed, 0.f, 1.f ), std::clamp( settings.SaturationKeepBlue, 0.f, 1.f ), std::clamp( settings.SaturationKeepWarmth, 0.f, 1.f ), 0.f };
         const float exposure[4] = { settings.AutoExposure ? 1.f : 0.f, compensation, fxaa ? 1.f : 0.f, InCamera.PixelPerfect ? 0.f : 1.f };
         // The grading LUT: a .cube volume, else an image strip of N slices of NxN (height N,
         // width NxN; anything else is ignored rather than sampled wrongly).
@@ -1099,6 +1134,7 @@ namespace Moonlight
         bgfx::setUniform( u_tonemap, tonemap );
         bgfx::setUniform( u_grading, grading );
         bgfx::setUniform( u_grading2, grading2 );
+        bgfx::setUniform( u_grading3, grading3 );
         bgfx::setUniform( u_exposure, exposure );
         bgfx::setUniform( u_lut, lut );
         // The grain's pattern: the camera's, else a new one each pass. Kept small so the shader's

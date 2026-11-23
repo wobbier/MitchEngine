@@ -242,6 +242,9 @@ namespace Moonlight
             return 0.f;
         }
 
+        // Volumetric fog scale on top of Color (ME-409); 0: the fog passes skip the light.
+        float Volumetric = 1.f;
+
         bool CastShadows = false;
         // Biases are in shadow texels, so they hold across cascade sizes and spot distances.
         float ShadowBias = 0.5f;          // receiver pushed towards the light

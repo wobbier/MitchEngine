@@ -35,6 +35,7 @@ public:
     void SetEmissiveIntensity( float InValue );
     void SetAlphaCutoff( float InValue );
     void SetInvertRoughness( bool InValue );
+    void SetRim( float InValue );
 
     ME_MATERIAL_FIELD float Opacity = 1.f;
     ME_MATERIAL_FIELD float Metallic = 0.f;
@@ -45,6 +46,10 @@ public:
     ME_MATERIAL_FIELD float EmissiveIntensity = 1.f;
     ME_MATERIAL_FIELD float AlphaCutoff = 0.f;
     ME_MATERIAL_FIELD bool InvertRoughness = false;
+    // A spectral rim, 0 (off) to 1: the surface thins where it faces the eye and its edges glow
+    // with the emissive colour, so a see-through figure reads as a ghost, not as tinted glass.
+    // Wants RenderingMode::Transparent and an emissive colour.
+    ME_MATERIAL_FIELD float Rim = 0.f;
 
 protected:
     // Subclasses that keep their own registry name (e.g. the legacy DiffuseMaterial), or also draw

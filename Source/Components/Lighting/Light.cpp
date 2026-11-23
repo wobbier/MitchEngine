@@ -13,6 +13,7 @@ ME_REFLECT_BEGIN( Light )
     ME_FIELD( Color ).Color();
     ME_FIELD( Intensity ).Unit( Reflection::Unit::Multiplier ).Log().SoftRange( 0.f, 10.f ).Range( 0.f, 100.f ).Speed( 0.05f );
     ME_FIELD( Range ).Unit( Reflection::Unit::Meters ).Log().SoftRange( 0.5f, 50.f ).Range( 0.01f, 1000.f ).Tooltip( "Local lights: fade distance from the source; bar/box/rectangle: measured from the emitter surface" );
+    ME_FIELD( VolumetricMultiplier ).Display( "Volumetric Multiplier" ).Unit( Reflection::Unit::Multiplier ).Range( 0.f, 16.f ).SoftRange( 0.f, 4.f ).Speed( 0.01f ).Tooltip( "Local lights: how strongly the light shows in volumetric fog (1 as bright as it lights surfaces). 0 leaves the fog out entirely, so the fog passes skip it" );
     ME_FIELD( InnerConeAngle ).Unit( Reflection::Unit::Degrees ).Range( 0.f, 89.f ).Tooltip( "Spot / rectangle: full intensity inside this half-angle (degrees); the gap to the outer angle is the beam's feathered edge" );
     ME_FIELD( OuterConeAngle ).Unit( Reflection::Unit::Degrees ).Range( 0.f, 89.f ).Tooltip( "Spot / rectangle: no light outside this half-angle (degrees). A rectangle measures it from the closest point on its face, so its beam starts the full panel size; 89 is a near hemisphere" );
     ME_FIELD( Length ).Display( "Bar Length" ).Unit( Reflection::Unit::Meters ).Log().SoftRange( 0.f, 5.f ).Range( 0.f, 1000.f ).Speed( 0.01f ).Tooltip( "Bar: segment length along local X, before transform scale; rounded ends extend by Radius" );
@@ -112,6 +113,7 @@ Moonlight::LightCommand Light::BuildCommand( const Transform& InTransform ) cons
     command.CastShadows = CastShadows && !extended;
     command.ShadowBias = ShadowBias;
     command.ShadowNormalBias = ShadowNormalBias;
+    command.Volumetric = std::max( VolumetricMultiplier, 0.f );
     command.ShadowDistance = std::max( ShadowDistance, 1.f );
     command.OuterConeAngle = outer;
     return command;

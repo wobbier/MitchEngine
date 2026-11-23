@@ -569,3 +569,31 @@ TEST_CASE( "Light: invalid dimensions stay finite and point spot shadows remain 
         CHECK( light.BuildCommand( transform ).CastShadows );
     }
 }
+
+
+TEST_CASE( "Light: the volumetric multiplier round-trips and reaches the command (ME-409)" )
+{
+    Light light;
+    CHECK( light.VolumetricMultiplier == doctest::Approx( 1.f ) );
+    Transform transform;
+    CHECK( light.BuildCommand( transform ).Volumetric == doctest::Approx( 1.f ) );
+
+    light.VolumetricMultiplier = 0.f;
+    json saved;
+    light.Serialize( saved );
+    Light restored;
+    restored.Deserialize( saved );
+    CHECK( restored.VolumetricMultiplier == doctest::Approx( 0.f ) );
+    CHECK( restored.BuildCommand( transform ).Volumetric == doctest::Approx( 0.f ) );
+
+    // Old scenes have no field: the fog keeps showing their lights.
+    Light old;
+    old.Deserialize( json{ { "LightType", "Point" }, { "Range", 4.f } } );
+    CHECK( old.VolumetricMultiplier == doctest::Approx( 1.f ) );
+
+    // Never negative in the command.
+    light.VolumetricMultiplier = -2.f;
+    CHECK( light.BuildCommand( transform ).Volumetric == doctest::Approx( 0.f ) );
+    light.VolumetricMultiplier = 2.5f;
+    CHECK( light.BuildCommand( transform ).Volumetric == doctest::Approx( 2.5f ) );
+}

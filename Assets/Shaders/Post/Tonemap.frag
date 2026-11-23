@@ -13,6 +13,7 @@ SAMPLER2D(s_lutStrip, 4);  // strip LUT: N slices of NxN side by side, blue pick
 
 uniform vec4 u_tonemap;   // x exposure (linear multiplier), y operator (0 clamp, 1 ACES, 2 AgX, 3 Reinhard), z bloom intensity, w vignette intensity
 uniform vec4 u_grading;   // x saturation, y contrast, z temperature, w tint
+uniform vec4 u_grading3;  // colours a desaturating grade keeps: x reds, y blues (0 none .. 1 all of it), z how far the reds reach into orange and yellow (0 pure red .. 1 fire)
 uniform vec4 u_grading2;  // x vignette smoothness, y gamma, z lift, w gain
 uniform vec4 u_exposure;  // x auto exposure on, y compensation multiplier (2^EV), z luma in alpha (FXAA follows), w dither (0 for pixel-perfect cameras)
 uniform vec4 u_lut;       // x LUT size N, y contribution, z mode (0 off, 1 volume, 2 strip)
@@ -89,7 +90,22 @@ void main()
 
 	// Grading in linear display space: saturation and contrast around mid grey, lift/gain/gamma.
 	float l = lumaRec709(color);
-	color = mix(vec3_splat(l), color, u_grading.x);
+	// Kept colours (u_grading3): where the picture is red (out to orange and yellow by z) or blue,
+	// a grade that takes the colour out leaves it in, and the LUT below leaves it alone: a black
+	// and white picture with its emergency lights and its fire still in colour.
+	float keep = 0.0;
+	if (u_grading3.x + u_grading3.y > 0.0)
+	{
+		float top = max(max(color.r, color.g), color.b);
+		float red = (color.r - max(color.g, color.b)) / max(color.r, 1e-4);
+		float warm = color.g <= color.r ? (color.r - color.b) / max(color.r, 1e-4) : 0.0;
+		float blue = (color.b - max(color.r, color.g)) / max(color.b, 1e-4);
+		// The wider the reds reach, the more colour it takes to count: skin and warm white stay grey.
+		float from = mix(0.12, 0.4, u_grading3.z);
+		keep = max(u_grading3.x * smoothstep(from, from + 0.33, mix(red, warm, u_grading3.z)), u_grading3.y * smoothstep(0.12, 0.45, blue));
+		keep *= smoothstep(0.02, 0.08, top);
+	}
+	color = mix(vec3_splat(l), color, mix(u_grading.x, max(u_grading.x, 1.0), keep));
 	color = (color - 0.18) * u_grading.y + 0.18;
 	color = color * u_grading2.w + u_grading2.z * (1.0 - color);
 	color = pow(max(color, vec3_splat(0.0)), vec3_splat(1.0 / max(u_grading2.y, 0.01)));
@@ -111,13 +127,13 @@ void main()
 		vec2 cell = vec2((c.r + 0.5) / (n * n), (c.g + 0.5) / n);
 		vec3 lutA = texture2DLod(s_lutStrip, vec2(cell.x + slice / n, cell.y), 0.0).rgb;
 		vec3 lutB = texture2DLod(s_lutStrip, vec2(cell.x + next / n, cell.y), 0.0).rgb;
-		display = mix(display, mix(lutA, lutB, c.b - slice), u_lut.y);
+		display = mix(display, mix(lutA, lutB, c.b - slice), u_lut.y * (1.0 - keep));
 	}
 	else if (u_lut.z > 0.5)
 	{
 		float n = u_lut.x;
 		vec3 coord = clamp(display, 0.0, 1.0) * ((n - 1.0) / n) + 0.5 / n;
-		display = mix(display, texture3DLod(s_lut, coord, 0.0).rgb, u_lut.y);
+		display = mix(display, texture3DLod(s_lut, coord, 0.0).rgb, u_lut.y * (1.0 - keep));
 	}
 
 	// Film grain: monochrome, triangular (two hashes summed, -1..1), strongest in the midtones like

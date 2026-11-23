@@ -14,7 +14,7 @@ $input v_texcoord0
 
 SAMPLER2D(s_input0, 0);   // camera depth
 
-uniform vec4 u_fogScatter;   // x samples per local light along its own stretch of the ray
+uniform vec4 u_fogScatter;   // x samples per local light along its own stretch of the ray, y lights the fog shows (first in the light data, ME-409)
 
 #define FOG_MAX_LOCAL_LIGHTS 256   // LIGHT_DATA_WIDTH / LIGHT_DATA_TEXELS
 #define FOG_MAX_LIGHT_SAMPLES 32
@@ -151,7 +151,12 @@ vec3 fogLightBeam(float _light, vec3 _origin, vec3 _dir, float _marchStart, floa
 
 	bool spot = lightType > 1.5 && lightType < 2.5;
 	vec4 t2 = vec4_splat(0.0);
-	vec4 t3 = vec4_splat(0.0);
+	// cosInner, and w the light's fog scale (ME-409).
+	vec4 t3 = fetchLightTexel(_light, 3.0);
+	if (t3.w <= 0.0)
+	{
+		return vec3_splat(0.0);
+	}
 	if (spot)
 	{
 		t2 = fetchLightTexel(_light, 2.0);   // direction, cosOuter
@@ -164,7 +169,6 @@ vec3 fogLightBeam(float _light, vec3 _origin, vec3 _dir, float _marchStart, floa
 				return vec3_splat(0.0);
 			}
 		}
-		t3 = fetchLightTexel(_light, 3.0);   // cosInner
 	}
 	vec4 shadowInfo = vec4(-1.0, 0.0, 0.0, 0.0);
 	if (lightType < 2.5)
@@ -214,7 +218,7 @@ vec3 fogLightBeam(float _light, vec3 _origin, vec3 _dir, float _marchStart, floa
 		float weight = (approach * approach + offset * offset) / approach;   // 1 / pdf, less the angle and count
 		sum += attenuation * henyeyGreenstein(dot(_dir, geometry.xyz), u_fogVolume2.x) * scatter * weight;
 	}
-	return t1.rgb * (sum * (thetaEnd - thetaStart) / _samples);
+	return t1.rgb * (sum * (thetaEnd - thetaStart) / _samples * t3.w);
 }
 
 void main()
@@ -277,11 +281,13 @@ void main()
 	}
 	if (marchEnd > marchStart)
 	{
-		// Every local light of the frame, not a cluster's list: a ray crosses many clusters.
+		// Every local light of the frame the fog shows, not a cluster's list: a ray crosses many
+		// clusters. The renderer puts the lights with a zero VolumetricMultiplier last.
 		vec3 beams = vec3_splat(0.0);
+		float fogLights = min(u_lightParams.y, u_fogScatter.y);
 		for (int i = 0; i < FOG_MAX_LOCAL_LIGHTS; ++i)
 		{
-			if (float(i) >= u_lightParams.y)
+			if (float(i) >= fogLights)
 			{
 				break;
 			}

@@ -119,6 +119,9 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
     init.limits.maxTransientVbSize = kTransientInstanceBufferBytes;
     init.swapChain.width  = static_cast<uint32_t>( PreviousSize.x );
     init.swapChain.height = static_cast<uint32_t>( PreviousSize.y );
+    // Nothing depth-tests on the back buffer (the scene draws offscreen; post, composites, UI and
+    // ImGui are flat), so it gets no depth surface (ME-410): a full-screen D24S8 saved.
+    init.swapChain.formatDepthStencil = bgfx::TextureFormat::Count;
 #if USING( ME_PLATFORM_MACOS )
     init.reset = BGFX_RESET_VSYNC;
 #else
@@ -314,6 +317,12 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         m_depthPrepassPrograms[1][1] = Moonlight::ShaderCommand( "Assets/Shaders/StandardSkinned", "Assets/Shaders/StandardDepth" );
         EnableDepthPrepass = !CommandLine::Has( "--no-depth-prepass" );
         EnableFroxelFog = CommandLine::Has( "--froxel-fog" );
+        SkipUnseenRenderTextures = !CommandLine::Has( "--no-skip-unseen-render-textures" );
+        Moonlight::ClusterBuilder::TestClusterBoxes = !CommandLine::Has( "--cluster-block-bounds" );
+        if( CommandLine::Has( "--fog-light-threshold" ) )
+        {
+            FogLightThreshold = std::max( 0.f, CommandLine::GetFloat( "--fog-light-threshold", 0.f ) );
+        }
         RetainMeshCommands = !CommandLine::Has( "--no-retained-meshes" );
         VerifyRetainedMeshes = CommandLine::Has( "--verify-retained-meshes" );
         EnableGpuCulling = !CommandLine::Has( "--no-gpu-culling" );
@@ -450,6 +459,7 @@ void BGFXRenderer::ResetMainSwapChain()
     swapChain.width = static_cast<uint32_t>( CurrentSize.x );
     swapChain.height = static_cast<uint32_t>( CurrentSize.y );
     swapChain.flags = m_resetFlags & swapChainFlags;
+    swapChain.formatDepthStencil = bgfx::TextureFormat::Count;   // no depth on the back buffer (ME-410)
     bgfx::reset( m_resetFlags & ~swapChainFlags, &swapChain );
 }
 
@@ -839,6 +849,9 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
     m_gameCounts = m_editorCounts = m_frameCounts = m_textureCounts = SceneCounts();
     m_counting = &m_frameCounts;
     ++m_frameIndex;
+    // Every binder stamps the textures it draws with this frame (render texture cameras skip
+    // frames nothing showed their image in: CameraCore, ME-406).
+    Moonlight::Texture::SetSampleFrame( static_cast<uint32_t>( m_frameIndex ) );
     DebugDraw::CollectFrame( m_debugLines );
     PrepareFrameLighting();
     RunFrameCompute();
@@ -846,11 +859,33 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
     // Render texture cameras first, so every view after them (the editor's scene view, other
     // cameras, the main camera) samples this frame's image. Between themselves they go by GUID: one
     // sampling a texture rendered later in the frame sees last frame's image.
+    // ME-414: a mirror camera takes the main camera's final image after it renders, when the main
+    // camera has one of its own (offscreen, full screen); otherwise it renders the scene as usual.
+    const Moonlight::CameraData* mirrorSource = nullptr;
+#if USING( ME_EDITOR )
+    const bool mainOffscreen = true;
+#else
+    const bool mainOffscreen = PresentMainOffscreen;
+#endif
+    for( auto& camData : m_cameraCache.Commands )
+    {
+        if( mainOffscreen && camData.IsMain && camData.ShouldRender && camData.Buffer && camData.Viewport == glm::vec4( 0.f, 0.f, 1.f, 1.f ) )
+        {
+            mirrorSource = &camData;
+            break;
+        }
+    }
     m_textureCameras.clear();
+    m_mirrorCameras.clear();
     for( auto& camData : m_cameraCache.Commands )
     {
         if( camData.ShouldRender && RendersToTexture( camData ) )
         {
+            if( camData.MirrorMain && mirrorSource )
+            {
+                m_mirrorCameras.push_back( &camData );
+                continue;
+            }
             m_textureCameras.push_back( &camData );
         }
     }
@@ -919,6 +954,7 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
         {
             RenderCameraView( *mainCamera, kMainCameraToBackbuffer );
         }
+        RenderMirrorCameras( *mainCamera );
 
         for( auto& camData : m_cameraCache.Commands )
         {
@@ -1009,6 +1045,7 @@ void BGFXRenderer::GatherFrameStats()
     m_spriteBatches = 0;
     out.DroppedParticles = m_droppedParticles;
     m_droppedParticles = 0;
+    out.TextureCameras = static_cast<uint32_t>( m_textureCameras.size() + m_mirrorCameras.size() );
     out.SceneTriangles = scene.Triangles + m_frameCounts.Triangles + m_textureCounts.Triangles;
     out.SceneWidth = scene.Width;
     out.SceneHeight = scene.Height;
@@ -1404,12 +1441,17 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     const uint16_t chainX = era ? 0 : afterEraX;
     const uint16_t chainY = era ? 0 : afterEraY;
 
-    auto setupSceneView = [&]( bgfx::ViewId view ) {
+    // InTouch: run the view even when nothing is submitted to it. Views that only draw (no clear
+    // to apply) skip it, so an empty one opens no render pass (ME-411).
+    auto setupSceneView = [&]( bgfx::ViewId view, bool InTouch = true ) {
         bgfx::setViewTransform( view, &camera.View.GetInternalMatrix()[0][0], &camera.ProjectionMatrix.GetInternalMatrix()[0][0] );
         bgfx::setViewFrameBuffer( view, camera.Buffer->SceneBuffer );
         bgfx::setViewRect( view, 0, 0, width, height );
         bgfx::setViewMode( view, bgfx::ViewMode::Sequential );
-        bgfx::touch( view );
+        if( InTouch )
+        {
+            bgfx::touch( view );
+        }
     };
     setupSceneView( id );
     if( prepassView != UINT16_MAX )
@@ -1804,7 +1846,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     if( sceneEffects && options.Decals && world ) RenderDecals( camera );
     m_postProcess->RenderAmbientOcclusion( m_views, camera, *camera.Buffer );
     m_postProcess->RenderOutlineEdges( m_views, camera, *camera.Buffer );
-    m_postProcess->RenderFog( m_views, camera, *camera.Buffer, [this]() { BindLighting(); }, IsComputeActive() && EnableFroxelFog );
+    m_postProcess->RenderFog( m_views, camera, *camera.Buffer, [this]() { BindLighting(); }, IsComputeActive() && ( EnableFroxelFog || camera.Post.FroxelFog ) );
     // Everything drawn from here on (transparents, particles) is in front of the fogged scene.
     m_lighting.FogForward[0] = camera.Post.Fog && camera.Post.FogDensity > 0.f && camera.Post.FogMaxOpacity > 0.f ? 1.f : 0.f;
 
@@ -1816,7 +1858,9 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     }
     else
     {
-        setupSceneView( transparentView );
+        // Untouched: without transparents or debug lines it loads and stores the full-size HDR
+        // colour and depth for nothing.
+        setupSceneView( transparentView, false );
     }
     if( EnableDebugDraw && options.DebugDraw )
     {
@@ -1949,6 +1993,33 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
 }
 
 
+void BGFXRenderer::RenderMirrorCameras( const Moonlight::CameraData& InMain )
+{
+    // After the main camera's post and before overlays and the UI composite write into its output.
+    if( m_mirrorCameras.empty() || !InMain.Buffer || !bgfx::isValid( InMain.Buffer->Texture ) )
+    {
+        return;
+    }
+    const uint16_t sourceWidth = static_cast<uint16_t>( InMain.Buffer->GetOutputWidth() );
+    const uint16_t sourceHeight = static_cast<uint16_t>( InMain.Buffer->GetOutputHeight() );
+    for( Moonlight::CameraData* camera : m_mirrorCameras )
+    {
+        Moonlight::Texture* texture = camera->Target.get();
+        if( !texture || !texture->IsRenderTarget() )
+        {
+            continue;
+        }
+        const bgfx::FrameBufferHandle target = texture->GetRenderTarget();
+        m_postProcess->FlippedTarget = bgfx::getCaps()->originBottomLeft ? target : bgfx::FrameBufferHandle( BGFX_INVALID_HANDLE );
+        if( m_postProcess->RenderMirror( m_views, InMain.Buffer->Texture, sourceWidth, sourceHeight, target, static_cast<uint16_t>( texture->mWidth ), static_cast<uint16_t>( texture->mHeight ) ) )
+        {
+            texture->MarkRendered( m_frameIndex );
+        }
+        m_postProcess->FlippedTarget = BGFX_INVALID_HANDLE;
+    }
+}
+
+
 bool BGFXRenderer::RendersToTexture( const Moonlight::CameraData& InCamera )
 {
     return !InCamera.IsMain && !InCamera.IsEditorView && InCamera.Target && InCamera.Target->IsRenderTarget() && bgfx::isValid( InCamera.Target->GetRenderTarget() );
@@ -1994,6 +2065,25 @@ void BGFXRenderer::PrepareFrameLighting()
     {
         if( light.Type == Moonlight::LightType::Directional ) ++m_directionalLightCount;
         else if( m_localLights.size() < 256 ) m_localLights.push_back( light );
+    }
+    // ME-409: the lights the fog shows first, so the per-light fog march stops at their count and
+    // never visits the rest (cluster-based fog checks each light's scale instead). Dim ones under
+    // FogLightThreshold count as left out.
+    if( FogLightThreshold > 0.f )
+    {
+        for( Moonlight::LightCommand& light : m_localLights )
+        {
+            const float brightest = std::max( { light.Color.x, light.Color.y, light.Color.z } ) * light.Volumetric;
+            if( brightest < FogLightThreshold )
+            {
+                light.Volumetric = 0.f;
+            }
+        }
+    }
+    const auto fogEnd = std::stable_partition( m_localLights.begin(), m_localLights.end(), []( const Moonlight::LightCommand& InLight ) { return InLight.Volumetric > 0.f; } );
+    if( m_postProcess )
+    {
+        m_postProcess->FogLocalLightCount = static_cast<uint32_t>( fogEnd - m_localLights.begin() );
     }
     m_lighting.Params[1] = static_cast<float>( m_localLights.size() );
     m_lighting.Params[2] = 1.f;
@@ -2075,7 +2165,7 @@ void BGFXRenderer::PrepareFrameLighting()
                 light.Position.x, light.Position.y, light.Position.z, light.Range,
                 light.Color.x, light.Color.y, light.Color.z, static_cast<float>( light.Type ),
                 dir.x, dir.y, dir.z, light.CosOuter,
-                light.CosInner, light.Type == Moonlight::LightType::Bar ? light.HalfSize.y : 0.f, light.GetNearFieldArea(), 0.f,
+                light.CosInner, light.Type == Moonlight::LightType::Bar ? light.HalfSize.y : 0.f, light.GetNearFieldArea(), light.Volumetric,
                 shadowSlot, texelScale, light.ShadowBias, light.ShadowNormalBias,
                 light.AxisX.x, light.AxisX.y, light.AxisX.z, light.HalfSize.x,
                 light.AxisY.x, light.AxisY.y, light.AxisY.z, light.HalfSize.y,

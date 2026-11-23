@@ -191,7 +191,6 @@ void Moonlight::FrameBuffer::Release()
     DestroyIfValid( ClusterIndices );
     DestroyIfValid( Texture );
     DestroyIfValid( DepthTexture );
-    DestroyIfValid( OutputDepth );
     DestroyIfValid( SceneColor );
     DestroyIfValid( PostColor );
 }
@@ -467,14 +466,10 @@ void Moonlight::FrameBuffer::ReCreate( uint32_t resetFlags )
         const uint16_t outputHeight = static_cast<uint16_t>( std::max<uint32_t>( GetOutputHeight(), 1 ) );
         Texture = bgfx::createTexture2D( outputWidth, outputHeight, false, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT | kClampLinear );
         bgfx::setName( Texture, "Camera Output" );
-        // Scaled: the scene's depth is the wrong size, so overlays get a depth of their own.
-        if( outputWidth != width || outputHeight != height )
-        {
-            OutputDepth = bgfx::createTexture2D( outputWidth, outputHeight, false, 1, GetDepthFormat(), BGFX_TEXTURE_RT_WRITE_ONLY );
-            bgfx::setName( OutputDepth, "Camera Output Depth" );
-        }
-        const bgfx::TextureHandle outputAttachments[] = { Texture, bgfx::isValid( OutputDepth ) ? OutputDepth : DepthTexture };
-        Buffer = CreateChecked( 2, outputAttachments, "Camera Output" );
+        // Colour only (ME-410): every pass that writes the final image (post, upscale, the
+        // overlay and UI composites, split screens) is a flat full-screen draw, so a depth
+        // attachment would only be loaded and stored for nothing.
+        Buffer = CreateChecked( 1, &Texture, "Camera Output" );
     }
 
     // Sized for ClusterBuilder (16 x 9 tiles, 24 slices; 1024 x 128 light indices).

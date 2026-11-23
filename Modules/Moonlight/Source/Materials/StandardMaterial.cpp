@@ -89,7 +89,7 @@ void StandardMaterial::Use()
     bgfx::setUniform( u_pbrParams, pbr );
     bgfx::setUniform( u_emissive, emissive );
     bgfx::setUniform( u_uvTransform, uvTransform );
-    const float maps[4] = { GetTexture( Moonlight::TextureType::Metallic ) ? 1.f : 0.f, GetTexture( Moonlight::TextureType::Roughness ) ? 1.f : 0.f, InvertRoughness ? 1.f : 0.f, 0.f };
+    const float maps[4] = { GetTexture( Moonlight::TextureType::Metallic ) ? 1.f : 0.f, GetTexture( Moonlight::TextureType::Roughness ) ? 1.f : 0.f, InvertRoughness ? 1.f : 0.f, Rim };
     bgfx::setUniform( u_pbrTextureParams, maps );
 }
 
@@ -154,6 +154,12 @@ void StandardMaterial::SetInvertRoughness( bool InValue )
 }
 
 
+void StandardMaterial::SetRim( float InValue )
+{
+    SetDrawValue( Rim, InValue );
+}
+
+
 uint64_t StandardMaterial::GetInstanceBatchKey() const
 {
     uint64_t h = Material::GetInstanceBatchKey();
@@ -167,7 +173,7 @@ uint64_t StandardMaterial::GetInstanceBatchKey() const
     h = Mix( h, texId( Moonlight::TextureType::Metallic ) );
     h = Mix( h, texId( Moonlight::TextureType::Roughness ) );
     h = Mix( h, InvertRoughness );
-    for( float value : { Opacity, Metallic, Roughness, NormalStrength, OcclusionStrength, EmissiveColor.x, EmissiveColor.y, EmissiveColor.z, EmissiveIntensity, AlphaCutoff } )
+    for( float value : { Opacity, Metallic, Roughness, NormalStrength, OcclusionStrength, EmissiveColor.x, EmissiveColor.y, EmissiveColor.z, EmissiveIntensity, AlphaCutoff, Rim } )
     {
         h = Mix( h, FloatBits( value ) );
     }
@@ -187,6 +193,10 @@ void StandardMaterial::OnSerialize( json& OutJson )
     OutJson["EmissiveIntensity"] = EmissiveIntensity;
     OutJson["AlphaCutoff"] = AlphaCutoff;
     OutJson["InvertRoughness"] = InvertRoughness;
+    if( Rim != 0.f )
+    {
+        OutJson["Rim"] = Rim;
+    }
 }
 
 
@@ -202,6 +212,7 @@ void StandardMaterial::OnDeserialize( const json& InJson )
     SetEmissiveIntensity( ReadFloat( InJson, "EmissiveIntensity", EmissiveIntensity ) );
     SetAlphaCutoff( ReadFloat( InJson, "AlphaCutoff", AlphaCutoff ) );
     SetInvertRoughness( InJson.value( "InvertRoughness", InvertRoughness ) );
+    SetRim( ReadFloat( InJson, "Rim", Rim ) );
     auto emissive = InJson.find( "EmissiveColor" );
     if( emissive != InJson.end() && emissive->is_array() && emissive->size() == 3 )
     {
@@ -276,5 +287,6 @@ void StandardMaterial::OnEditorInspect()
         SetEmissiveIntensity( static_cast<float>( intensity ) );
     }
     row( "Alpha Cutoff", AlphaCutoff, &StandardMaterial::SetAlphaCutoff, spec( MeWidgets::Unit::Percent, 1.0, 0.0, -1 ) );
+    row( "Spectral Rim", Rim, &StandardMaterial::SetRim, spec( MeWidgets::Unit::Percent, 1.0, 0.0, -1 ) );
 }
 #endif

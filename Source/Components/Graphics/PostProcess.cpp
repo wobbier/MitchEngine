@@ -55,8 +55,12 @@ ME_REFLECT_BEGIN( PostProcess )
     ME_FIELD( VolumetricSteps ).Category( "Fog" ).Range( 4.f, 256.f ).Log().Tooltip( "Raymarch samples per pixel (hardware profiles may cap it). With the renderer's Froxel Fog on (and compute active) this is the froxel grid's depth in slices instead (8-128)" );
     ME_FIELD( VolumetricTemporal ).Display( "Volumetric Temporal" ).Category( "Fog" ).Tooltip( "Accumulate the raymarch over frames against a reprojected history (independent of Temporal AA): smooth shafts for the same step count; a fast cut or a moving light trails for a few frames. With Froxel Fog it jitters and blends the grid's cells the same way" );
     ME_FIELD( FogLocalAnisotropy ).Display( "Local Light Anisotropy" ).Category( "Fog" ).Range( 0.f, 0.95f ).Tooltip( "Henyey-Greenstein g for point, spot and area lights in volumetric fog: 0 scatters evenly; towards 1 beams brighten when seen from in front of the fixture" );
+    ME_FIELD( FroxelFog ).Display( "Froxel Fog" ).Category( "Fog" ).Tooltip( "Light the volumetric fog in a camera-aligned grid of cells (compute) instead of the per-pixel march: several times cheaper and well suited to broad haze and sun shafts, but narrow beams come out softer. Needs compute (Vulkan, OpenGL 4.3); elsewhere the march runs. The renderer's Froxel Fog switch turns it on for every camera" );
     ME_FIELD( VolumetricLightSamples ).Display( "Volumetric Light Samples" ).Category( "Fog" ).Range( 0.f, 32.f ).Tooltip( "0: every raymarch step lights itself from its cluster's point, spot and area lights. Above 0: each light is integrated on its own with this many samples along the part of the ray inside its range and cone, which costs far less with many narrow beams and resolves thin ones; 8 is a good start. The march only: Froxel Fog's grid lights every cell from its cluster" );
     ME_FIELD( Saturation ).Category( "Color Grading" ).Range( 0.f, 2.f ).Unit( Reflection::Unit::Percent );
+    ME_FIELD( SaturationKeepRed ).Display( "Keep Reds" ).Category( "Color Grading" ).Range( 0.f, 1.f ).Unit( Reflection::Unit::Percent ).Tooltip( "How much of the picture's red a Saturation under 100% (and the LUT) leaves in colour: black and white with the red left in" );
+    ME_FIELD( SaturationKeepBlue ).Display( "Keep Blues" ).Category( "Color Grading" ).Range( 0.f, 1.f ).Unit( Reflection::Unit::Percent ).Tooltip( "The same for blue" );
+    ME_FIELD( SaturationKeepWarmth ).Display( "Kept Reds Reach" ).Category( "Color Grading" ).Range( 0.f, 1.f ).Tooltip( "How far Keep Reds reaches round the wheel: 0 pure red only, 1 through orange to yellow (fire)" );
     ME_FIELD( Contrast ).Category( "Color Grading" ).Range( 0.f, 2.f ).Unit( Reflection::Unit::Percent );
     ME_FIELD( Temperature ).Category( "Color Grading" ).Range( -1.f, 1.f );
     ME_FIELD( Tint ).Category( "Color Grading" ).Range( -1.f, 1.f );
@@ -170,7 +174,11 @@ Moonlight::PostProcessSettings PostProcess::ToSettings() const
     settings.VolumetricTemporal = VolumetricTemporal;
     settings.FogLocalAnisotropy = FogLocalAnisotropy;
     settings.VolumetricLightSamples = VolumetricLightSamples;
+    settings.FroxelFog = FroxelFog;
     settings.Saturation = Saturation;
+    settings.SaturationKeepRed = SaturationKeepRed;
+    settings.SaturationKeepBlue = SaturationKeepBlue;
+    settings.SaturationKeepWarmth = SaturationKeepWarmth;
     settings.Contrast = Contrast;
     settings.Temperature = Temperature;
     settings.Tint = Tint;

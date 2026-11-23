@@ -10,6 +10,7 @@
 #include "Renderer.h"
 #include "Mathf.h"
 #include "Components/Graphics/PostProcess.h"
+#include "Graphics/Texture.h"
 #include <utility>
 
 CameraCore::CameraCore() : Base( ComponentFilter().Requires<Camera>().Requires<Transform>() )
@@ -100,6 +101,28 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
         return;
     }
     const bool unhide = std::exchange( m_wasHidden, false );
+
+    // Render texture turns (ME-407) and the unseen window (ME-406), from every render texture camera.
+    ++m_textureFrame;
+    m_turns.clear();
+    int longestInterval = 1;
+    for( auto& InEntity : Cameras )
+    {
+        Camera& camera = InEntity.GetComponent<Camera>();
+        if( camera.RendersToTexture() )
+        {
+            const int interval = std::max( camera.UpdateInterval, 1 );
+            longestInterval = std::max( longestInterval, interval );
+            m_turns.push_back( { interval, camera.TargetTexture.GetLocalPathString(), InEntity.GetGUID(), &camera, 0 } );
+        }
+    }
+    AssignRenderTextureTurns( m_turns );
+    for( const RenderTextureTurn& turn : m_turns )
+    {
+        turn.Owner->m_turnSlot = turn.Slot;
+    }
+    const bool skipUnseen = renderer->SkipUnseenRenderTextures;
+    const uint32_t unseenWindow = UnseenFrameWindow( longestInterval );
 
     for( auto& InEntity : Cameras )
     {
@@ -220,6 +243,7 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
                 CamData->DynamicResolution = false;
             }
             CamData->Target = target ? CameraComponent.m_target : nullptr;
+            CamData->MirrorMain = toTexture && CameraComponent.MirrorMainCamera;
             if( unhide && !toTexture )
             {
                 // Back on screen after another world's turn (a render texture camera keeps its schedule).
@@ -230,32 +254,44 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
             if( toTexture )
             {
                 // Render textures render on their own schedule, counted in frames so captures stay
-                // deterministic: every UpdateInterval frames, and at once for a new or recreated target.
-                // Without a target there's nothing to render into.
+                // deterministic: on their turn every UpdateInterval frames (cameras sharing an
+                // interval take turns, ME-407), and at once for a new or recreated target. Without a
+                // target there's nothing to render into.
                 CamData->ShouldRender = false;
                 CameraComponent.m_secondsSinceRender += inUpdateContext.GetDeltaTime();
                 if( target )
                 {
                     const bool retarget = target != CameraComponent.m_scheduledTarget || target->GetRenderTargetRevision() != CameraComponent.m_targetRevision;
-                    if( retarget || CameraComponent.m_framesUntilRender <= 0 )
+                    // ME-406: nothing drawn lately showed this image (a screen out of every shot),
+                    // so skip it. Once something draws it again it renders at once, so it shows a
+                    // stale image for a frame at most.
+                    const bool unseen = skipUnseen && !retarget && !CameraComponent.RenderWhenUnseen
+                        && !Moonlight::Texture::IsShown( target->TexHandle, unseenWindow );
+                    bool render = false;
+                    if( retarget )
+                    {
+                        render = true;
+                    }
+                    else if( unseen )
+                    {
+                        CameraComponent.m_skippedUnseen = true;
+                    }
+                    else if( CameraComponent.m_skippedUnseen )
+                    {
+                        render = true;
+                    }
+                    else
+                    {
+                        render = IsRenderTextureTurn( m_textureFrame, CameraComponent.m_turnSlot, std::max( CameraComponent.UpdateInterval, 1 ) );
+                    }
+                    if( render )
                     {
                         CamData->ShouldRender = true;
                         CamData->RenderDeltaSeconds = CameraComponent.m_secondsSinceRender;
                         CameraComponent.m_secondsSinceRender = 0.f;
-                        const int interval = std::max( CameraComponent.UpdateInterval, 1 );
-                        CameraComponent.m_framesUntilRender = interval - 1;
-                        if( retarget )
-                        {
-                            // A new target renders at once; then feeds sharing an interval take turns
-                            // (by GUID, so it's the same every run).
-                            CameraComponent.m_framesUntilRender -= static_cast<int>( InEntity.GetGUID() % static_cast<uint64_t>( interval ) );
-                        }
+                        CameraComponent.m_skippedUnseen = false;
                         CameraComponent.m_scheduledTarget = target;
                         CameraComponent.m_targetRevision = target->GetRenderTargetRevision();
-                    }
-                    else
-                    {
-                        --CameraComponent.m_framesUntilRender;
                     }
                 }
                 // Nothing editor-only or screen-only belongs in a texture.
@@ -388,4 +424,29 @@ void CameraCore::OnEntityRemoved( Entity& InEntity )
     {
         main->SetMain( *DefaultCamera );
     }
+}
+
+
+void CameraCore::AssignRenderTextureTurns( std::vector<RenderTextureTurn>& InOutTurns )
+{
+    std::sort( InOutTurns.begin(), InOutTurns.end(), []( const RenderTextureTurn& InA, const RenderTextureTurn& InB ) {
+        if( InA.Interval != InB.Interval ) return InA.Interval < InB.Interval;
+        if( InA.Target != InB.Target ) return InA.Target < InB.Target;
+        return InA.Guid < InB.Guid;
+    } );
+    // Slots count up within each interval and wrap past it: with more cameras than frames in the
+    // interval some share a frame, as evenly as they can.
+    for( size_t i = 0; i < InOutTurns.size(); ++i )
+    {
+        const bool first = i == 0 || InOutTurns[i - 1].Interval != InOutTurns[i].Interval;
+        const int previous = first ? -1 : InOutTurns[i - 1].Slot;
+        InOutTurns[i].Slot = ( previous + 1 ) % std::max( InOutTurns[i].Interval, 1 );
+    }
+}
+
+
+bool CameraCore::IsRenderTextureTurn( uint64_t InFrame, int InSlot, int InInterval )
+{
+    const uint64_t interval = static_cast<uint64_t>( std::max( InInterval, 1 ) );
+    return ( InFrame + static_cast<uint64_t>( std::max( InSlot, 0 ) ) ) % interval == 0;
 }

@@ -236,3 +236,109 @@ TEST_CASE( "ClusterBuilder: a spot covers every cluster its cone lights, and a n
     const uint32_t sphere = fixture.TotalAssignments();
     CHECK( narrow * 4 < sphere );
 }
+
+
+namespace
+{
+    // The cluster a view-space point falls in, or false when the camera doesn't see it.
+    bool ClusterOf( const ClusterFixture& InFixture, const glm::vec3& InPoint, uint32_t& OutX, uint32_t& OutY, uint32_t& OutZ )
+    {
+        if( InPoint.z <= 0.11f || InPoint.z >= 99.f )
+        {
+            return false;
+        }
+        const glm::vec4 clip = InFixture.Projection.GetInternalMatrix() * glm::vec4( InPoint, 1.f );
+        const float x = clip.x / clip.w, y = clip.y / clip.w;
+        if( std::abs( x ) >= 0.999f || std::abs( y ) >= 0.999f )
+        {
+            return false;
+        }
+        OutX = static_cast<uint32_t>( ( x * 0.5f + 0.5f ) * ClusterBuilder::kGridX );
+        OutY = static_cast<uint32_t>( ( 0.5f - y * 0.5f ) * ClusterBuilder::kGridY );
+        OutZ = static_cast<uint32_t>( std::clamp( InFixture.Slice( InPoint.z ), 0, static_cast<int>( ClusterBuilder::kGridZ ) - 1 ) );
+        return true;
+    }
+}
+
+TEST_CASE( "ClusterBuilder: a light beside the camera stays out of the far side's clusters (ME-408)" )
+{
+    ClusterFixture fixture;
+    // Its range reaches past the near plane: it used to fill every tile of every slice it reached.
+    fixture.Build( { PointLight( Vector3( -3.f, 0.f, 0.5f ), 4.f ) } );
+    const uint32_t deep = static_cast<uint32_t>( fixture.Slice( 3.f ) );
+    CHECK( fixture.Count( 0, 4, static_cast<uint32_t>( fixture.Slice( 1.f ) ) ) == 1 );
+    CHECK( fixture.Count( 15, 4, deep ) == 0 );
+    CHECK( fixture.Count( 15, 0, deep ) == 0 );
+
+    // Near slices are narrow enough that it reaches every tile there; deeper ones only on its
+    // side. Before, it filled the whole screen in all 14 slices it reaches (2016 clusters).
+    uint32_t block = 0;
+    for( int z = 0; z <= fixture.Slice( 4.5f ); ++z )
+    {
+        block += ClusterBuilder::kGridX * ClusterBuilder::kGridY;
+    }
+    CHECK( fixture.TotalAssignments() < block * 9 / 10 );
+    uint32_t farRight = 0;
+    for( uint32_t z = static_cast<uint32_t>( fixture.Slice( 2.f ) ); z < ClusterBuilder::kGridZ; ++z )
+    {
+        for( uint32_t y = 0; y < ClusterBuilder::kGridY; ++y )
+        {
+            for( uint32_t x = 12; x < ClusterBuilder::kGridX; ++x )
+            {
+                farRight += fixture.Count( x, y, z );
+            }
+        }
+    }
+    CHECK( farRight == 0 );
+}
+
+TEST_CASE( "ClusterBuilder: every point a light reaches lands in a cluster listing it" )
+{
+    // A ring of lights around and in front of the camera, close and far, inside and outside the
+    // near plane; points sampled through each sphere must find their light in their cluster.
+    ClusterFixture fixture;
+    std::vector<Moonlight::LightCommand> lights;
+    const glm::vec3 centres[] = { { 0.f, 0.f, 0.f }, { -3.f, 1.f, 0.5f }, { 4.f, -1.f, 2.f }, { 0.5f, 2.f, 6.f }, { -6.f, -2.f, 15.f }, { 8.f, 3.f, 30.f }, { 0.f, 0.f, 60.f } };
+    const float ranges[] = { 1.5f, 4.f, 3.f, 2.5f, 6.f, 9.f, 20.f };
+    for( int i = 0; i < 7; ++i )
+    {
+        lights.push_back( PointLight( Vector3( centres[i].x, centres[i].y, centres[i].z ), ranges[i] ) );
+    }
+    fixture.Build( lights );
+    const std::vector<float>& grid = fixture.Builder.GetGrid();
+    const std::vector<float>& indices = fixture.Builder.GetIndices();
+    int checked = 0;
+    for( int i = 0; i < 7; ++i )
+    {
+        CAPTURE( i );
+        for( int d = 0; d <= 8; ++d )
+        {
+            const float distance = ranges[i] * d / 8.f * 0.995f;
+            for( int t = 0; t < 10; ++t )
+            {
+                for( int p = 0; p < 20; ++p )
+                {
+                    const float theta = glm::pi<float>() * ( t + 0.5f ) / 10.f;
+                    const float phi = glm::two_pi<float>() * p / 20.f;
+                    const glm::vec3 point = centres[i] + distance * glm::vec3( std::sin( theta ) * std::cos( phi ), std::cos( theta ), std::sin( theta ) * std::sin( phi ) );
+                    uint32_t x, y, z;
+                    if( !ClusterOf( fixture, point, x, y, z ) )
+                    {
+                        continue;
+                    }
+                    const uint32_t cluster = x + y * ClusterBuilder::kGridX + z * ClusterBuilder::kGridX * ClusterBuilder::kGridY;
+                    const uint32_t offset = static_cast<uint32_t>( grid[cluster * 4] );
+                    const uint32_t count = static_cast<uint32_t>( grid[cluster * 4 + 1] );
+                    bool listed = false;
+                    for( uint32_t k = 0; k < count; ++k )
+                    {
+                        listed = listed || indices[offset + k] == static_cast<float>( i );
+                    }
+                    CHECK( listed );
+                    ++checked;
+                }
+            }
+        }
+    }
+    CHECK( checked > 2000 );
+}

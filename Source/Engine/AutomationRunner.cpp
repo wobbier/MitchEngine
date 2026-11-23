@@ -90,6 +90,7 @@ bool AutomationRunner::OnFrameEnd( BGFXRenderer& renderer, double frameMilliseco
     {
         m_frameTimes.push_back( frameMilliseconds );
         AccumulateJobStats( FrameStats::Get().GetJobStats(), frameMilliseconds );
+        m_textureCameraRenders += FrameStats::Get().GetRenderStats().TextureCameras;
     }
 
     if( m_targetFrames <= 0 || m_frameIndex < static_cast<uint64_t>( m_targetFrames ) )
@@ -208,6 +209,8 @@ void AutomationRunner::WritePerfReport() const
     report["Triangles"] = render.Triangles;
     report["SpriteBatches"] = render.SpriteBatches;
     report["DroppedParticles"] = render.DroppedParticles;
+    // Render texture camera renders over the measured frames (feeds skip off-turn and unseen frames).
+    report["TextureCameraRenders"] = m_textureCameraRenders;
     json views = json::array();
     for( const FrameStats::GpuView& view : render.Views )
     {

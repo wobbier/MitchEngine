@@ -9,6 +9,7 @@
 #include "VFS/VFS.h"
 #include "Components/Transform.h"
 #include "Engine/World.h"
+#include "Cores/Cameras/CameraCore.h"
 #if USING( ME_SCRIPTING )
 #include "Scripting/Bindings/BindingContext.h"
 #include "Scripting/Bindings/Components/Camera.bindings.h"
@@ -218,6 +219,130 @@ TEST_CASE( "Render textures: a feed camera fills its target and never takes the 
     main.TargetTexture = Path( "Assets/Textures/Feed.rendertexture" );
     CHECK( main.HasTargetTexture() );
     CHECK_FALSE( main.RendersToTexture() );
+}
+
+
+TEST_CASE( "Render textures: cameras sharing an interval take turns, whatever their GUIDs (ME-407)" )
+{
+    // Two feeds at interval 2 whose GUIDs are both even: by GUID alone they'd land on one frame.
+    std::vector<CameraCore::RenderTextureTurn> turns = {
+        { 2, "Assets/Textures/Venue/StageProgram.rendertexture", 40, nullptr, 0 },
+        { 2, "Assets/Textures/Venue/StageFeed.rendertexture", 12, nullptr, 0 },
+    };
+    CameraCore::AssignRenderTextureTurns( turns );
+    REQUIRE( turns.size() == 2 );
+    // Ordered by target path, so the same every run (new GUIDs each run don't swap them, ME-369).
+    CHECK( turns[0].Target == "Assets/Textures/Venue/StageFeed.rendertexture" );
+    CHECK( turns[0].Slot == 0 );
+    CHECK( turns[1].Slot == 1 );
+    for( uint64_t frame = 1; frame <= 8; ++frame )
+    {
+        const bool first = CameraCore::IsRenderTextureTurn( frame, turns[0].Slot, 2 );
+        const bool second = CameraCore::IsRenderTextureTurn( frame, turns[1].Slot, 2 );
+        CHECK( first != second );
+    }
+
+    // Swapped GUIDs keep the same order.
+    std::swap( turns[0].Guid, turns[1].Guid );
+    CameraCore::AssignRenderTextureTurns( turns );
+    CHECK( turns[0].Target == "Assets/Textures/Venue/StageFeed.rendertexture" );
+
+    // Each interval counts its own slots; more cameras than frames wrap and share as evenly as they can.
+    std::vector<CameraCore::RenderTextureTurn> mixed = {
+        { 3, "c", 1, nullptr, 0 }, { 1, "a", 2, nullptr, 0 }, { 3, "a", 3, nullptr, 0 },
+        { 3, "b", 4, nullptr, 0 }, { 3, "d", 5, nullptr, 0 },
+    };
+    CameraCore::AssignRenderTextureTurns( mixed );
+    CHECK( mixed[0].Interval == 1 );
+    CHECK( mixed[0].Slot == 0 );
+    CHECK( mixed[1].Target == "a" );
+    CHECK( mixed[1].Slot == 0 );
+    CHECK( mixed[2].Slot == 1 );
+    CHECK( mixed[3].Slot == 2 );
+    CHECK( mixed[4].Slot == 0 );
+    // Interval 1 renders every frame.
+    CHECK( CameraCore::IsRenderTextureTurn( 7, 0, 1 ) );
+    CHECK( CameraCore::IsRenderTextureTurn( 8, 0, 1 ) );
+}
+
+
+TEST_CASE( "Render textures: binders stamp what they draw, so unseen feeds can skip (ME-406)" )
+{
+    using Moonlight::Texture;
+    const uint32_t savedFrame = Texture::GetSampleFrame();
+    const bgfx::TextureHandle screen = { 4001 };
+    const bgfx::TextureHandle other = { 4002 };
+    const bgfx::TextureHandle black = { 4003 };
+
+    Texture::SetSampleFrame( 100 );
+    CHECK( Texture::Sampleable( screen, black ).idx == screen.idx );
+    CHECK( Texture::FramesSinceSampled( screen ) == 0 );
+
+    // The camera drawing into a texture never samples it, and that doesn't count as a use.
+    Texture::SetDrawingTarget( other );
+    CHECK( Texture::Sampleable( other, black ).idx == black.idx );
+    Texture::SetDrawingTarget( BGFX_INVALID_HANDLE );
+    CHECK( Texture::FramesSinceSampled( other ) > 1000000u );
+
+    // Frames later, the window decides: a consumer at interval 2 draws every other frame.
+    Texture::SetSampleFrame( 103 );
+    CHECK( Texture::FramesSinceSampled( screen ) == 3 );
+    CHECK( CameraCore::UnseenFrameWindow( 2 ) == 3 );
+    CHECK_FALSE( Texture::FramesSinceSampled( screen ) > CameraCore::UnseenFrameWindow( 2 ) );
+    Texture::SetSampleFrame( 104 );
+    CHECK( Texture::FramesSinceSampled( screen ) > CameraCore::UnseenFrameWindow( 2 ) );
+
+    // Non-material consumers (the RmlUi viewport, the inspector preview) mark directly.
+    Texture::MarkSampled( screen );
+    CHECK( Texture::FramesSinceSampled( screen ) == 0 );
+    CHECK( Texture::FramesSinceSampled( BGFX_INVALID_HANDLE ) > 1000000u );
+    CHECK( CameraCore::UnseenFrameWindow( 0 ) == 2 );
+
+    // Marks made while a render texture camera draws only count while that camera's image is shown.
+    // Two feeds filming each other's screens: nothing on screen shows either, so neither is shown.
+    const bgfx::TextureHandle feedA = { 4010 };
+    const bgfx::TextureHandle feedB = { 4011 };
+    const bgfx::TextureHandle feedC = { 4012 };
+    Texture::SetSampleFrame( 200 );
+    Texture::SetDrawingTarget( feedA );
+    Texture::Sampleable( feedB, black );
+    Texture::SetDrawingTarget( feedB );
+    Texture::Sampleable( feedA, black );
+    Texture::SetDrawingTarget( BGFX_INVALID_HANDLE );
+    CHECK( Texture::FramesSinceSampled( feedA ) > 1000000u );
+    CHECK_FALSE( Texture::IsShown( feedA, 3 ) );
+    CHECK_FALSE( Texture::IsShown( feedB, 3 ) );
+    // The main view draws A's screen: A is shown, and so is B, through A's image.
+    Texture::Sampleable( feedA, black );
+    CHECK( Texture::IsShown( feedA, 3 ) );
+    CHECK( Texture::IsShown( feedB, 3 ) );
+    // C is filmed only by B; it follows B. Once nothing refreshes them they age out together.
+    Texture::SetDrawingTarget( feedB );
+    Texture::Sampleable( feedC, black );
+    Texture::SetDrawingTarget( BGFX_INVALID_HANDLE );
+    CHECK( Texture::IsShown( feedC, 3 ) );
+    Texture::SetSampleFrame( 204 );
+    CHECK_FALSE( Texture::IsShown( feedA, 3 ) );
+    CHECK_FALSE( Texture::IsShown( feedB, 3 ) );
+    CHECK_FALSE( Texture::IsShown( feedC, 3 ) );
+
+    // A new camera field, default off, round-trips.
+    Camera camera;
+    CHECK_FALSE( camera.RenderWhenUnseen );
+    camera.Deserialize( json{ { "RenderWhenUnseen", true } } );
+    CHECK( camera.RenderWhenUnseen );
+    json saved;
+    camera.Serialize( saved );
+    CHECK( saved["RenderWhenUnseen"] == true );
+    // ME-414: mirroring the main camera, default off, round-trips too.
+    CHECK_FALSE( camera.MirrorMainCamera );
+    camera.Deserialize( json{ { "MirrorMainCamera", true } } );
+    CHECK( camera.MirrorMainCamera );
+    json mirrored;
+    camera.Serialize( mirrored );
+    CHECK( mirrored["MirrorMainCamera"] == true );
+
+    Texture::SetSampleFrame( savedFrame );
 }
 
 

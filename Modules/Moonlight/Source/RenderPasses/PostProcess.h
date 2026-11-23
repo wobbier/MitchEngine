@@ -60,6 +60,10 @@ namespace Moonlight
 
         // Render scaling (LOOK-S1): InTargets.UpscaleInput (the internal-size result) stretched
         // into InOutput's rect with the camera's UpscaleFilter.
+        // ME-414: InSource (InSourceWidth x InSourceHeight, a display-encoded final image) down into
+        // InTarget, its centre cropped to the target's shape and box-filtered in linear light.
+        // Honours FlippedTarget like the other passes. False when nothing was submitted.
+        bool RenderMirror( ViewAllocator& InViews, bgfx::TextureHandle InSource, uint16_t InSourceWidth, uint16_t InSourceHeight, bgfx::FrameBufferHandle InTarget, uint16_t InWidth, uint16_t InHeight );
         void RenderUpscale( ViewAllocator& InViews, const CameraData& InCamera, FrameBuffer& InTargets, uint32_t InPixelFactor, bgfx::FrameBufferHandle InOutput, uint16_t InOutputWidth, uint16_t InOutputHeight, uint16_t InOutputX = 0, uint16_t InOutputY = 0 );
 
         // An overlay camera's final image (Camera::Overlay) over InOutput, the main camera's: it
@@ -104,6 +108,9 @@ namespace Moonlight
         int FroxelGridRows = kFroxelGridRows;
         int FroxelSlices = 0;
         float FroxelNearDepth = kFroxelNearDepth;
+        // The frame's local lights the fog shows (Volumetric > 0); the renderer orders them first
+        // in the light data, so the per-light fog march loops over these only (ME-409).
+        uint32_t FogLocalLightCount = 0;
         // A render texture's target on a backend whose framebuffers start at the bottom (OpenGL):
         // passes writing it flip vertically, so it holds its top row first like an image.
         bgfx::FrameBufferHandle FlippedTarget = BGFX_INVALID_HANDLE;
@@ -137,6 +144,7 @@ namespace Moonlight
         ShaderCommand m_taaProgram;
         ShaderCommand m_copyProgram;
         ShaderCommand m_upscaleProgram;
+        ShaderCommand m_mirrorProgram;
         ShaderCommand m_overlayProgram;
         ShaderCommand m_eraProgram;
         ShaderCommand m_dofCoCProgram;
@@ -160,6 +168,8 @@ namespace Moonlight
         bgfx::UniformHandle s_input0 = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_upscaleParams = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_upscaleSize = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_mirrorRect = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_mirrorTaps = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_overlayParams = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_overlayFade = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_overlayLook = BGFX_INVALID_HANDLE;
@@ -172,6 +182,7 @@ namespace Moonlight
         bgfx::UniformHandle u_tonemap = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_grading = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_grading2 = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_grading3 = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_exposure = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_bloom = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_ssao = BGFX_INVALID_HANDLE;

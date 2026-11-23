@@ -214,6 +214,8 @@ void RmlRenderInterface::SubmitGeometry( const Geometry& InGeometry, Rml::Vector
     bgfx::setState( InState );
     bgfx::setStencil( InStencil, BGFX_STENCIL_NONE );
     bgfx::setTexture( 0, m_textureSampler, InTexture, BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP );
+    // A <viewport> showing a render texture keeps its camera rendering (ME-406).
+    Moonlight::Texture::MarkSampled( InTexture );
     bgfx::setVertexBuffer( 0, InGeometry.Vertices );
     bgfx::setIndexBuffer( InGeometry.Indices, 0, InGeometry.IndexCount );
     bgfx::submit( m_view, m_program );

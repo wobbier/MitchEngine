@@ -58,6 +58,8 @@ public:
         uint32_t SpriteBatches = 0;
         // CPU particle instances that did not fit bgfx's transient instance buffer this frame (every camera): not drawn.
         uint32_t DroppedParticles = 0;
+        // Render texture cameras that rendered this frame (the rest skipped: interval or unseen, ME-406).
+        uint32_t TextureCameras = 0;
         uint64_t SceneTriangles = 0;
         // Output size of the main game camera (else the scene view), and this frame's lights.
         uint32_t SceneWidth = 0;

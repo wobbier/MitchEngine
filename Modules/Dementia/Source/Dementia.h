@@ -161,10 +161,11 @@ Class& operator=(Class&&) = delete;
 #define ME_PHYSICS_3D NOT_IN_USE
 #endif
 
-// RenderDoc's in-app API (Moonlight/Source/Debug/RenderDocManager.h). Windows: on when the
-// generator found RenderDoc installed. Linux: always compiled in outside Retail; it is dlopen'd at
-// runtime only with --renderdoc, or attaches when launched from qrenderdoc.
-#if defined( DEFINE_ME_RENDERDOC ) || ( defined( DEFINE_ME_PLATFORM_LINUX ) && !defined( DEFINE_ME_RETAIL ) )
+// RenderDoc's in-app API (Moonlight/Source/Debug/RenderDocManager.h; F11 captures). Windows: on
+// when the generator found RenderDoc installed. Linux: compiled in outside Retail, and in the
+// Profile build (Retail with the profilers); librenderdoc.so is dlopen'd at start-up unless
+// --no-renderdoc, or attached when launched from qrenderdoc.
+#if defined( DEFINE_ME_RENDERDOC ) || ( defined( DEFINE_ME_PLATFORM_LINUX ) && ( !defined( DEFINE_ME_RETAIL ) || defined( DEFINE_ME_PROFILE ) ) )
 #define ME_ENABLE_RENDERDOC IN_USE
 #else
 #define ME_ENABLE_RENDERDOC NOT_IN_USE

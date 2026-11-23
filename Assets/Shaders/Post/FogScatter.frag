@@ -80,9 +80,15 @@ void main()
 					}
 					// Phase against the direction towards the source (the same convention as the
 					// sun's -direction above); g = 0 is the even 1 / 4pi.
+					float lightIndex = clusterLight(range, j);
+					float fogScale = localLightFogScale(lightIndex);
+					if (fogScale <= 0.0)
+					{
+						continue;
+					}
 					vec3 toLight;
-					vec3 radiance = volumeLocalLightDir(p, clusterLight(range, j), toLight);
-					light += radiance * henyeyGreenstein(dot(dir, toLight), u_fogVolume2.x) * localScale;
+					vec3 radiance = volumeLocalLightDir(p, lightIndex, toLight);
+					light += radiance * henyeyGreenstein(dot(dir, toLight), u_fogVolume2.x) * (localScale * fogScale);
 				}
 			}
 			float stepTransmittance = exp(-sigma * stepLength);

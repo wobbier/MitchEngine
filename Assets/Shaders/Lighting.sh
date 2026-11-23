@@ -124,6 +124,13 @@ vec4 fetchLightTexel(float _light, float _texel)
 	return texture2DLod(s_lightData, vec2((_light * LIGHT_DATA_TEXELS + _texel + 0.5) / LIGHT_DATA_WIDTH, 0.5), 0.0);
 }
 
+// How strongly a local light shows in volumetric fog (Light::VolumetricMultiplier, ME-409); 0 means
+// the fog leaves it out.
+float localLightFogScale(float _light)
+{
+	return fetchLightTexel(_light, 3.0).w;
+}
+
 // One-hot select of a vec4 component by a float index (0..3).
 float vec4Component(vec4 _v, float _index)
 {

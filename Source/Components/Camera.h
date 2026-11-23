@@ -62,7 +62,18 @@ public:
     // camera ignores its target).
     Path TargetTexture;
     // Renders every Nth frame (1 = every frame); the texture keeps the last image in between.
+    // Cameras sharing an interval take turns (CameraCore, ME-407).
     int UpdateInterval = 1;
+    // Render on the interval even while nothing drawn lately shows the texture. Off (the default),
+    // the camera skips the frames no material, decal, particle or UI viewport drew its image in
+    // (ME-406), and renders at once when one does again. Turn it on for an image read some other way.
+    bool RenderWhenUnseen = false;
+    // Fill the texture from the main camera's final image (after its post, before overlays and the
+    // UI; the centre, cropped to the texture's shape) instead of rendering the scene (ME-414): a
+    // screen showing "what the cameras see" for one downsample pass. Its own projection, post and
+    // pass switches are unused. Falls back to rendering the scene while the main camera has no
+    // offscreen image (split screen, or a game build presenting straight to the back buffer).
+    bool MirrorMainCamera = false;
     // Passes this camera skips whatever its post settings say: cheaper feeds for render textures.
     // Sun shadows off leaves spot and point light shadows (they render once per frame for every camera).
     bool SunShadows = true;
@@ -175,7 +186,10 @@ private:
     std::string m_loadedTarget;
     const Moonlight::Texture* m_scheduledTarget = nullptr;
     uint32_t m_targetRevision = 0;
-    int m_framesUntilRender = 0;
+    // Its turn among the render texture cameras with the same interval (CameraCore, ME-407), and
+    // whether it is skipping frames because nothing showed its image (ME-406).
+    int m_turnSlot = 0;
+    bool m_skippedUnseen = false;
     float m_secondsSinceRender = 0.f;
     bool m_renderedToTexture = false;
     virtual void OnDeserialize( const json& inJson ) final;

@@ -63,5 +63,6 @@ private:
     // The measured frames' job system totals (FrameStats::GetJobStats summed), for "Workers".
     FrameStats::JobStats m_jobTotals;
     uint64_t m_jobFrames = 0;
+    uint64_t m_textureCameraRenders = 0;
     double m_jobFrameMilliseconds = 0.0;
 };

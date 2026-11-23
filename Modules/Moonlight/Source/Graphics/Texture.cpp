@@ -24,10 +24,54 @@
 #include "Graphics/DefaultTextures.h"
 #include "Graphics/SpriteSheet.h"
 #include "Procedural/Tree/TreeTextures.h"
+#include <atomic>
+#include <limits>
+#include <mutex>
 
 
 namespace
 {
+    // ME-406: the renderer frame each texture handle was last bound through Sampleable (0: never).
+    // Handles are 16-bit, so the table covers every one; relaxed atomics because binders may run on
+    // job threads.
+    std::atomic<uint32_t> s_sampleFrame{ 0 };
+    std::atomic<uint32_t> s_lastSampled[std::numeric_limits<uint16_t>::max() + 1];
+
+    // Marks made inside a render texture camera's views: that camera's image (Consumer) showed
+    // Sampled at Frame. Few (one per feed and screen it films), so a locked list.
+    struct SampleEdge
+    {
+        uint16_t Consumer;
+        uint16_t Sampled;
+        uint32_t Frame;
+    };
+    std::mutex s_edgeMutex;
+    std::vector<SampleEdge> s_edges;
+
+    bool IsShownLocked( uint16_t InIdx, uint32_t InNow, uint32_t InWindow, std::vector<uint16_t>& InOutVisiting )
+    {
+        const uint32_t root = s_lastSampled[InIdx].load( std::memory_order_relaxed );
+        if( root != 0 && InNow - root <= InWindow )
+        {
+            return true;
+        }
+        if( std::find( InOutVisiting.begin(), InOutVisiting.end(), InIdx ) != InOutVisiting.end() || InOutVisiting.size() >= 8 )
+        {
+            return false;
+        }
+        InOutVisiting.push_back( InIdx );
+        for( const SampleEdge& edge : s_edges )
+        {
+            if( edge.Sampled == InIdx && InNow - edge.Frame <= InWindow && IsShownLocked( edge.Consumer, InNow, InWindow, InOutVisiting ) )
+            {
+                InOutVisiting.pop_back();
+                return true;
+            }
+        }
+        InOutVisiting.pop_back();
+        return false;
+    }
+
 #if USING( ME_PLATFORM_LINUX ) && USING( ME_TOOLS )
     std::filesystem::path FindTextureCompilerLauncher()
     {
@@ -360,7 +404,86 @@ namespace Moonlight
 
     bgfx::TextureHandle Texture::Sampleable( bgfx::TextureHandle InHandle, bgfx::TextureHandle InInstead )
     {
-        return ( bgfx::isValid( InHandle ) && InHandle.idx == s_drawingTarget.idx ) ? InInstead : InHandle;
+        if( !bgfx::isValid( InHandle ) )
+        {
+            return InHandle;
+        }
+        if( InHandle.idx == s_drawingTarget.idx )
+        {
+            return InInstead;
+        }
+        MarkSampled( InHandle );
+        return InHandle;
+    }
+
+
+    void Texture::SetSampleFrame( uint32_t InFrame )
+    {
+        s_sampleFrame.store( InFrame, std::memory_order_relaxed );
+    }
+
+
+    uint32_t Texture::GetSampleFrame()
+    {
+        return s_sampleFrame.load( std::memory_order_relaxed );
+    }
+
+
+    void Texture::MarkSampled( bgfx::TextureHandle InHandle )
+    {
+        if( !bgfx::isValid( InHandle ) )
+        {
+            return;
+        }
+        const uint32_t frame = s_sampleFrame.load( std::memory_order_relaxed );
+        if( !bgfx::isValid( s_drawingTarget ) )
+        {
+            s_lastSampled[InHandle.idx].store( frame, std::memory_order_relaxed );
+            return;
+        }
+        // Inside a render texture camera: an edge from its image to this texture.
+        std::lock_guard<std::mutex> lock( s_edgeMutex );
+        for( SampleEdge& edge : s_edges )
+        {
+            if( edge.Consumer == s_drawingTarget.idx && edge.Sampled == InHandle.idx )
+            {
+                edge.Frame = frame;
+                return;
+            }
+        }
+        // Forget edges nothing has refreshed for a long while (cameras gone, screens rebuilt).
+        if( s_edges.size() >= 64 )
+        {
+            s_edges.erase( std::remove_if( s_edges.begin(), s_edges.end(), [frame]( const SampleEdge& InEdge ) { return frame - InEdge.Frame > 600u; } ), s_edges.end() );
+        }
+        s_edges.push_back( { s_drawingTarget.idx, InHandle.idx, frame } );
+    }
+
+
+    bool Texture::IsShown( bgfx::TextureHandle InHandle, uint32_t InWindow )
+    {
+        if( !bgfx::isValid( InHandle ) )
+        {
+            return false;
+        }
+        std::lock_guard<std::mutex> lock( s_edgeMutex );
+        std::vector<uint16_t> visiting;
+        return IsShownLocked( InHandle.idx, GetSampleFrame(), InWindow, visiting );
+    }
+
+
+    uint32_t Texture::FramesSinceSampled( bgfx::TextureHandle InHandle )
+    {
+        if( !bgfx::isValid( InHandle ) )
+        {
+            return std::numeric_limits<uint32_t>::max();
+        }
+        const uint32_t last = s_lastSampled[InHandle.idx].load( std::memory_order_relaxed );
+        if( last == 0 )
+        {
+            return std::numeric_limits<uint32_t>::max();
+        }
+        return GetSampleFrame() - last;
     }
 
 

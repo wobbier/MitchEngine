@@ -83,6 +83,25 @@ namespace Moonlight
         static bgfx::TextureHandle Sampleable( bgfx::TextureHandle InHandle );
         static bgfx::TextureHandle Sampleable( bgfx::TextureHandle InHandle, bgfx::TextureHandle InInstead );
 
+        // Who still shows a render texture (ME-406). Sampleable stamps every handle it lets through
+        // with the renderer's frame index, so a render texture camera can tell whether anything drew
+        // its image lately and skip frames when nothing did. Consumers that bind a texture without a
+        // material (the RmlUi viewport, the Camera inspector preview) call MarkSampled themselves.
+        // The renderer sets the frame index as it starts each frame (main thread); marking is safe
+        // from any thread.
+        static void SetSampleFrame( uint32_t InFrame );
+        static uint32_t GetSampleFrame();
+        static void MarkSampled( bgfx::TextureHandle InHandle );
+        // A mark made while a render texture camera draws (SetDrawingTarget set) is not a use on its
+        // own: it records that this camera's image shows InHandle, which counts only while that image
+        // is shown itself. So two feeds filming each other's screens don't keep each other rendering.
+        // Frames since InHandle was last marked outside any render texture camera (0: the latest
+        // frame); UINT32_MAX when it never was.
+        static uint32_t FramesSinceSampled( bgfx::TextureHandle InHandle );
+        // Whether something on screen showed InHandle within the last InWindow frames: directly, or
+        // through a render texture camera's image that is itself shown (cycles count for nothing).
+        static bool IsShown( bgfx::TextureHandle InHandle, uint32_t InWindow );
+
         // A texture from an image built in memory, uploaded now (main thread). Takes ownership of
         // InImage; InName only labels it (nothing is read from or cached under it).
         static SharedPtr<Texture> CreateFromImage( const std::string& InName, bimg::ImageContainer* InImage, WrapMode InMode = WrapMode::Wrap );

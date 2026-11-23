@@ -79,6 +79,8 @@ namespace Moonlight
         // the cluster's lights: with many long, narrow beams in one room nearly every light is in
         // nearly every cluster, and almost all of that work finds nothing.
         int VolumetricLightSamples = 0;
+        // Froxel fog for this camera (ME-376), on top of BGFXRenderer::EnableFroxelFog.
+        bool FroxelFog = false;
 
         // Edge outlines over the opaque scene: depth silhouettes and crease folds, from depth alone.
         bool Outline = false;
@@ -89,6 +91,12 @@ namespace Moonlight
 
         // Colour grading
         float Saturation = 1.f;
+        // Colours a grade below full saturation (and the LUT) leaves in: how much of the reds and
+        // of the blues (0 none .. 1 all), and how far the reds reach into orange and yellow
+        // (0 pure red .. 1 fire). Tonemap.frag, u_grading3.
+        float SaturationKeepRed = 0.f;
+        float SaturationKeepBlue = 0.f;
+        float SaturationKeepWarmth = 0.f;
         float Contrast = 1.f;
         float Temperature = 0.f;            // -1 cool .. 1 warm
         float Tint = 0.f;                   // -1 green .. 1 magenta

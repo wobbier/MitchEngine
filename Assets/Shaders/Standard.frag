@@ -17,7 +17,7 @@ SAMPLER2D(s_texRoughness, 7);
 
 // u_baseColor, u_emissive, u_uvTransform, u_drawParams and u_portalClipPlane: StandardCutout.sh.
 uniform vec4 u_pbrParams;   // x metallic, y roughness, z normal strength, w occlusion strength
-uniform vec4 u_pbrTextureParams; // xy separate metallic/roughness maps, z invert roughness
+uniform vec4 u_pbrTextureParams; // xy separate metallic/roughness maps, z invert roughness, w spectral rim
 
 void main()
 {
@@ -58,6 +58,16 @@ void main()
 	surface.roughness = u_pbrParams.y * roughMap;
 	surface.occlusion = mix(1.0, texture2D(s_texOcclusion, uv).r, u_pbrParams.w);
 	surface.emissive = toLinear(texture2D(s_texEmissive, uv).rgb) * u_emissive.rgb;
+	// The spectral rim (StandardMaterial::Rim): thin where the surface faces the eye, solid and
+	// glowing with the emissive colour where it turns away.
+	if (u_pbrTextureParams.w > 0.0)
+	{
+		vec3 eye = mul(u_invView, vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+		float rim = 1.0 - abs(dot(N, normalize(eye - v_worldPos)));
+		rim = rim * rim;
+		surface.emissive += u_emissive.rgb * (rim * 1.5 * u_pbrTextureParams.w);
+		surface.alpha = alpha * mix(1.0, min(0.3 + 1.3 * rim, 1.0), u_pbrTextureParams.w);
+	}
 	surface.uv = uv;
 	gl_FragColor = shadeStandardSurface(surface, v_worldPos, v_normal, v_viewPos, gl_FragCoord.xy, gl_FrontFacing);
 }

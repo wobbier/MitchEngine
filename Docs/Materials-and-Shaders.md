@@ -82,6 +82,7 @@ classDiagram
 | Occlusion | `Occlusion` texture R, blended by `OcclusionStrength`; also drives specular occlusion |
 | Emissive | `EmissiveColor` × `EmissiveIntensity` (HDR) × Emissive texture |
 | Opacity | Alpha of base colour × Opacity texture R; `AlphaCutoff > 0` alpha-tests (also in shadow maps) |
+| Spectral rim | `Rim` 0-1 (`u_pbrTextureParams.w`, `Standard.frag` only): alpha thins where the surface faces the eye and the edges add the emissive colour, for ghosts and holograms. Use with `Transparent` and an emissive colour |
 | UVs | Every map samples at `uv × Tiling + Offset` (`u_uvTransform`; `Foliage.frag` too, and alpha-tested shadow casters and the overdraw view cut their holes there: `u_shadowAlpha` carries the tiling, `u_shadowUvOffset` the offset). `Offset` is saved only when it isn't (0, 0). The built-in primitives map v up their faces, so `Tiling` (1, -1) with `Offset` (0, 1) shows an image upright on them |
 
 Any texture slot can name a `.rendertexture` instead of an image: a camera's live, tonemapped image, display-encoded and decoded like any image (`Docs/Rendering-Pipeline.md`, Render textures). Emissive suits a screen, Diffuse a lit print. The material inspector, its pickers and drag and drop take render textures too.

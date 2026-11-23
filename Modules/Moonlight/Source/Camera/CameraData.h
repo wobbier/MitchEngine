@@ -145,6 +145,9 @@ namespace Moonlight
         // Render texture cameras render in this order (the entity's GUID: stable across play,
         // reloads and builds, unlike cache slots).
         uint64_t TargetOrder = 0;
+        // Render texture cameras: fill the target from the main camera's final image instead of
+        // rendering the scene (Camera::MirrorMainCamera, ME-414).
+        bool MirrorMain = false;
         // Per-camera pass switches (masks over the post settings, like the renderer's feature caps).
         bool SunShadows = true;
         bool AmbientOcclusion = true;

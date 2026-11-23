@@ -238,6 +238,17 @@ public:
     // --froxel-fog starts with it on.
     bool EnableFroxelFog = false;
 
+    // Render texture cameras skip the frames nothing drawn lately showed their image in (ME-406:
+    // CameraCore checks Texture::FramesSinceSampled). --no-skip-unseen-render-textures starts with
+    // it off, rendering every render texture on its interval as before.
+    bool SkipUnseenRenderTextures = true;
+
+    // Local lights whose brightest colour channel (linear colour x intensity x the light's
+    // VolumetricMultiplier) is below this stay out of volumetric fog, as if their multiplier were 0
+    // (ME-409): a cheap way to drop dim practicals from the fog passes. 0 (the default) keeps them
+    // all; --fog-light-threshold X sets it.
+    float FogLightThreshold = 0.f;
+
     // Alpha GPU particle systems sort back to front on the GPU per camera (ME-381);
     // --no-gpu-particle-sort starts with it off (they then draw in slot order: a debug/cost switch).
     bool EnableGpuParticleSort = true;
@@ -300,6 +311,8 @@ private:
     bgfx::ProgramHandle BindMeshDrawState( const Moonlight::MeshCommand& mesh, uint64_t state, bgfx::ViewId InPrepassView = UINT16_MAX, bool InSkinned = false, uint32_t InInstances = 1, bool InDepthOnly = false );
     // A render texture camera: it has a loaded target texture and isn't the main camera.
     static bool RendersToTexture( const Moonlight::CameraData& InCamera );
+    // ME-414: fills this frame's mirror cameras' textures from InMain's final image.
+    void RenderMirrorCameras( const Moonlight::CameraData& InMain );
 
     // Compute work that runs once per frame, after the frame's lights are gathered and before any
     // camera view, so every camera reads its results. Each pass allocates its own named view here
@@ -367,6 +380,8 @@ private:
     SceneCounts m_textureCounts;    // render texture cameras (added to the scene's draws)
     // This frame's render texture cameras, in the order they render.
     std::vector<Moonlight::CameraData*> m_textureCameras;
+    // Render texture cameras filled from the main camera's image this frame (ME-414).
+    std::vector<Moonlight::CameraData*> m_mirrorCameras;
     std::vector<Moonlight::CameraData*> m_overlayCameras;
     SceneCounts* m_counting = nullptr;
 

@@ -34,6 +34,9 @@ public:
     Vector3 Color { 1.f, 1.f, 1.f };
     float Intensity = 1.f;
     float Range = 10.f;
+    // Local lights: how strongly the light shows in volumetric fog, on top of Intensity (ME-409).
+    // 0 leaves the fog alone (the light costs the fog passes nothing): small practicals, fills.
+    float VolumetricMultiplier = 1.f;
     float InnerConeAngle = 20.f;
     float OuterConeAngle = 30.f;
     float Length = 1.2f;
