@@ -911,7 +911,8 @@ namespace Moonlight
         // Near, far, fade start, fade end.
         const float fade[4] = { InOverlayCamera.Near, InOverlayCamera.Far, InOverlayCamera.OverlayFade.x, InOverlayCamera.OverlayFade.y };
         bgfx::setUniform( u_overlayFade, fade );
-        const float look[4] = { InOverlayCamera.OverlayDarkOpacity, 0.f, 0.f, 0.f };
+        // Dark opacity, overall opacity, top fade (share of the height), 1 when uv's v runs up the screen.
+        const float look[4] = { InOverlayCamera.OverlayDarkOpacity, InOverlayCamera.OverlayOpacity, InOverlayCamera.OverlayTopFade, bgfx::getCaps()->originBottomLeft ? 1.f : 0.f };
         bgfx::setUniform( u_overlayLook, look );
         bgfx::setTexture( 0, s_input0, InOverlay.Texture, BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP );
         bgfx::setTexture( 1, s_input1, InOverlay.DepthTexture, BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP | BGFX_SAMPLER_POINT );

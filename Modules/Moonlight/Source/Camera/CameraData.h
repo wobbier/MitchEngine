@@ -127,6 +127,10 @@ namespace Moonlight
         // Distances (start, end) the overlay fades out over; end <= start: no fade.
         glm::vec2 OverlayFade = glm::vec2( 0.f, 0.f );
         float OverlayDarkOpacity = 1.f;
+        // The whole overlay's opacity, and the share of the screen's height it fades out over
+        // toward the top (0: no fade).
+        float OverlayOpacity = 1.f;
+        float OverlayTopFade = 0.f;
         // Normalized rect (x, y from the top left, width, height) of the main output this camera
         // draws into; a partial rect is split screen and OutputSize is already the rect's size.
         glm::vec4 Viewport = glm::vec4( 0.f, 0.f, 1.f, 1.f );

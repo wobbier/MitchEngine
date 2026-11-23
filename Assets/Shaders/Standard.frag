@@ -59,14 +59,23 @@ void main()
 	surface.occlusion = mix(1.0, texture2D(s_texOcclusion, uv).r, u_pbrParams.w);
 	surface.emissive = toLinear(texture2D(s_texEmissive, uv).rgb) * u_emissive.rgb;
 	// The spectral rim (StandardMaterial::Rim): thin where the surface faces the eye, solid and
-	// glowing with the emissive colour where it turns away.
+	// glowing with the emissive colour where it turns away. A spectre is of one colour, its
+	// glow's: what it wore shows only as light and dark in it. It takes a share of the room's
+	// light in that colour (a wash that burns a living figure white, or daylight, would hide
+	// that it is see-through), and nothing glints off it.
 	if (u_pbrTextureParams.w > 0.0)
 	{
+		float spectral = u_pbrTextureParams.w;
 		vec3 eye = mul(u_invView, vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 		float rim = 1.0 - abs(dot(N, normalize(eye - v_worldPos)));
 		rim = rim * rim;
-		surface.emissive += u_emissive.rgb * (rim * 1.5 * u_pbrTextureParams.w);
-		surface.alpha = alpha * mix(1.0, min(0.3 + 1.3 * rim, 1.0), u_pbrTextureParams.w);
+		float tone = dot(base.rgb, vec3(0.299, 0.587, 0.114));
+		vec3 hue = mix(vec3_splat(1.0), u_emissive.rgb / max(max(u_emissive.r, max(u_emissive.g, u_emissive.b)), 0.0001), 0.45);
+		surface.baseColor = mix(base.rgb, mix(vec3_splat(tone), base.rgb, 0.15) * hue * 0.4, spectral);
+		surface.metallic *= 1.0 - spectral;
+		surface.roughness = mix(surface.roughness, 1.0, spectral);
+		surface.emissive = surface.emissive * mix(1.0, 0.3 + 1.4 * tone, spectral) + u_emissive.rgb * (rim * 0.9 * spectral);
+		surface.alpha = alpha * mix(1.0, min(0.45 + 1.2 * rim, 1.0), spectral);
 	}
 	surface.uv = uv;
 	gl_FragColor = shadeStandardSurface(surface, v_worldPos, v_normal, v_viewPos, gl_FragCoord.xy, gl_FrontFacing);

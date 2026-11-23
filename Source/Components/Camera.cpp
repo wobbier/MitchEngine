@@ -59,6 +59,8 @@ ME_REFLECT_BEGIN( Camera )
     ME_FIELD( OverlayFadeStart ).Display( "Overlay Fade Start" ).Range( 0.f, 10000.f ).Unit( Reflection::Unit::Meters ).SoftRange( 0.f, 500.f ).Tooltip( "Overlay only: distance where the overlay starts fading into the scene below" );
     ME_FIELD( OverlayFadeEnd ).Display( "Overlay Fade End" ).Range( 0.f, 10000.f ).Unit( Reflection::Unit::Meters ).SoftRange( 0.f, 500.f ).Tooltip( "Overlay only: distance where the overlay is gone (at or before the start: no fade)" );
     ME_FIELD( OverlayDarkOpacity ).Display( "Overlay Dark Opacity" ).Range( 0.f, 1.f ).Unit( Reflection::Unit::Percent ).Tooltip( "Overlay only: how much the overlay's darkest pixels cover the scene (bright ones always do)" );
+    ME_FIELD( OverlayOpacity ).Display( "Overlay Opacity" ).Range( 0.f, 1.f ).Unit( Reflection::Unit::Percent ).Tooltip( "Overlay only: the whole overlay's opacity, its glow included" );
+    ME_FIELD( OverlayTopFade ).Display( "Overlay Top Fade" ).Range( 0.f, 1.f ).Unit( Reflection::Unit::Percent ).Tooltip( "Overlay only: fades out toward the top of the screen over this much of its height (0: no fade)" );
     ME_FIELD( Zoom ).Hidden();
     ME_FIELD( TargetTexture ).Category( "Render Texture" ).Display( "Target Texture" ).Asset( "RenderTexture" ).Tooltip( "Render into this render texture, at its size, instead of the screen. Materials show the image by using the same asset as a texture" );
     ME_FIELD( UpdateInterval ).Category( "Render Texture" ).Display( "Update Interval" ).Range( 1.f, 60.f ).Unit( Reflection::Unit::Frames ).Tooltip( "Render every Nth frame; the texture keeps its last image in between. Cameras with the same interval take turns" );

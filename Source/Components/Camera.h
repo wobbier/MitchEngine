@@ -55,6 +55,11 @@ public:
     // 1, dark surfaces let the scene through while bright ones stay solid: a see-through backing
     // under bright markings.
     float OverlayDarkOpacity = 1.f;
+    // The whole overlay's opacity (0: nothing of it reaches the screen, its glow included).
+    float OverlayOpacity = 1.f;
+    // The overlay fades out toward the top of the screen over this much of the screen's height
+    // (0: no fade), so a surface running off the top melts away below the edge at any aspect.
+    float OverlayTopFade = 0.f;
 
     // Render texture: the camera renders into this .rendertexture asset, at the asset's size, instead
     // of to the screen; materials show the image by naming the same asset in a texture slot. Such

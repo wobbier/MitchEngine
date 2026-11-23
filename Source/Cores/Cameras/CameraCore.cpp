@@ -220,6 +220,8 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
             CamData->Overlay = CameraComponent.Overlay && !CamData->IsMain && !toTexture;
             CamData->OverlayFade = glm::vec2( CameraComponent.OverlayFadeStart, CameraComponent.OverlayFadeEnd );
             CamData->OverlayDarkOpacity = std::clamp( CameraComponent.OverlayDarkOpacity, 0.f, 1.f );
+            CamData->OverlayOpacity = std::clamp( CameraComponent.OverlayOpacity, 0.f, 1.f );
+            CamData->OverlayTopFade = std::clamp( CameraComponent.OverlayTopFade, 0.f, 1.f );
             const PostProcess* post = InEntity.TryGetComponent<PostProcess>();
             CamData->Post = ( post && post->IsEnabled() ) ? post->ToSettings() : Moonlight::PostProcessSettings();
             CamData->SunShadows = CameraComponent.SunShadows;
