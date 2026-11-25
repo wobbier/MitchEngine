@@ -64,6 +64,7 @@ namespace
         if( InKept.Outlined != InBuilt.Outlined || InKept.OutlineWidth != InBuilt.OutlineWidth || InKept.OutlineColor.InternalVector != InBuilt.OutlineColor.InternalVector ) return "Outline";
         if( InKept.Active != InBuilt.Active ) return "Active";
         if( InKept.Retained != InBuilt.Retained ) return "Retained";
+        if( InKept.LayerBit != InBuilt.LayerBit ) return "LayerBit";
         return "another field";
     }
 }
@@ -717,6 +718,11 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         {
             return false;
         }
+        // A layer change is too (Camera::CullingMask).
+        if( command.LayerBit != ( 1u << ( entity.GetLayer() & 31u ) ) )
+        {
+            return false;
+        }
         if( command.PortalClipPlane != mesh.PortalClipPlane || command.InstanceData != mesh.InstanceData || command.Type != mesh.GetType() )
         {
             return false;
@@ -1014,6 +1020,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
             if( entity.IsActiveInHierarchy() && decal.IsEnabled() && decal.Resolve() )
             {
                 Moonlight::DecalCommand command = decal.BuildCommand( transform );
+                command.LayerBit = 1u << ( entity.GetLayer() & 31u );
                 // A zero scale can't be projected through.
                 if( std::abs( glm::determinant( command.World ) ) > 1e-12f )
                 {
@@ -1034,6 +1041,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                 Moonlight::SpriteCommand command = sprite.BuildCommand( transform );
                 command.Sequence = static_cast<uint32_t>( sprites.size() );
                 command.ID = entity.GetId().Value();
+                command.LayerBit = 1u << ( entity.GetLayer() & 31u );
                 sprites.push_back( command );
             }
         } );
@@ -1050,14 +1058,18 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         GetWorld().Each<Transform, TextRenderer>( [&]( Entity& entity, Transform& transform, TextRenderer& text ) {
             if( entity.IsActiveInHierarchy() && text.IsEnabled() )
             {
+                const size_t first = sprites.size();
                 text.BuildCommands( transform, cameraRotation, sprites, entity.GetId().Value() );
+                for( size_t i = first; i < sprites.size(); ++i ) sprites[i].LayerBit = 1u << ( entity.GetLayer() & 31u );
             }
         } );
         // Tilemaps (LOOK-S5): one sprite per filled cell, batched like any sprites.
         GetWorld().Each<Transform, Tilemap>( [&]( Entity& entity, Transform& transform, Tilemap& tilemap ) {
             if( entity.IsActiveInHierarchy() && tilemap.IsEnabled() && tilemap.Resolve() )
             {
+                const size_t first = sprites.size();
                 tilemap.BuildCommands( transform, sprites, entity.GetId().Value() );
+                for( size_t i = first; i < sprites.size(); ++i ) sprites[i].LayerBit = 1u << ( entity.GetLayer() & 31u );
             }
         } );
     }
@@ -1160,6 +1172,8 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                             Moonlight::MeshCommand command;
                             command.Visible = isVisible && item.Owner->IsActiveInHierarchy();
                             command.Active = item.Owner->IsActiveInHierarchy();
+                            // Which cameras draw it (Camera::CullingMask).
+                            command.LayerBit = 1u << ( item.Owner->GetLayer() & 31u );
                             // Kept across frames: an entity's own static Mesh (ME-390).
                             command.Retained = retain && item.Retainable && !model.PortalImage && !skinned && !model.HasVertexAnimation() && !bgfx::isValid( model.m_posedVertices );
                             command.WorldBounds = worldBounds;

@@ -73,6 +73,8 @@ void ParticleCore::Update( const UpdateContext& inUpdateContext )
                 continue;
             }
             const glm::mat4& world = entity.GetComponent<Transform>().GetLocalToWorldMatrix().GetInternalMatrix();
+            // Which cameras draw it (Camera::CullingMask).
+            batches[i].LayerBit = 1u << ( entity.GetLayer() & 31u );
             if( system.UsesGpuSimulation() )
             {
                 // Only the emitter runs here; the renderer dispatches the step.

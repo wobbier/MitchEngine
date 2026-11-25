@@ -1292,8 +1292,9 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
 
     // GPU-driven culling (ME-389): one compute view before the cascades and the scene views culls
     // the GPU path's shadow casters for the cascades and its opaque meshes for this camera. Not for
-    // editor previews (other render groups), overdraw or wireframe, which draw on the CPU path.
-    const bool gpuCamera = m_gpuCullingActive && camera.RenderGroup == 0 && !overdraw && !wireframe;
+    // editor previews (other render groups), overdraw or wireframe, or a camera that leaves layers
+    // out (Camera::CullingMask: the GPU path's set has no layers), which draw on the CPU path.
+    const bool gpuCamera = m_gpuCullingActive && camera.RenderGroup == 0 && !overdraw && !wireframe && !Moonlight::CameraMasksLayers( camera );
     // Depth prepass (ME-363), decided here because occlusion culling builds on it.
     const bool depthPrepass = EnableDepthPrepass && FeatureCaps.DepthPrepass && !overdraw && !wireframe;
     bgfx::ViewId gpuCullView = UINT16_MAX;
@@ -1654,7 +1655,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
             const Moonlight::MeshCommand& mesh = m_meshCache.Commands[i];
             // Resident foliage can retain a hidden command whose old visibility index
             // exceeds this frame's smaller draw list. Ignore it before reading that list.
-            if( !mesh.Visible || !mesh.MeshMaterial || mesh.RenderGroup != camera.RenderGroup ) return;
+            if( !mesh.Visible || !mesh.MeshMaterial || mesh.RenderGroup != camera.RenderGroup || !Moonlight::CameraDrawsLayer( camera, mesh.LayerBit ) ) return;
             // A GPU path mesh RenderCore didn't cull (ME-401) reaches here only when this camera draws
             // it on the CPU after all: CameraSeesMesh tests it against the frustum then.
             if( hasCullingInfo && !Moonlight::CameraSeesMesh( camera, mesh ) )
@@ -3339,7 +3340,7 @@ void BGFXRenderer::RenderParticles( Moonlight::CameraData& camera )
     {
         const Moonlight::ParticleBatch& batch = m_particleBatches[i];
         const bool gpuDrawable = batch.Gpu && batch.Gpu->Initialized && batch.GpuInstanceCount > 0;
-        if( ( batch.Instances.empty() && !gpuDrawable ) || ( camera.ShouldCull && !camera.ViewFrustum.Intersects( batch.Bounds ) ) )
+        if( ( batch.Instances.empty() && !gpuDrawable ) || !Moonlight::CameraDrawsLayer( camera, batch.LayerBit ) || ( camera.ShouldCull && !camera.ViewFrustum.Intersects( batch.Bounds ) ) )
         {
             continue;
         }
@@ -3529,7 +3530,7 @@ void BGFXRenderer::RenderDecals( Moonlight::CameraData& camera )
     m_decalOrder.clear();
     for( const Moonlight::DecalCommand& decal : m_decals )
     {
-        if( !camera.ShouldCull || camera.ViewFrustum.Intersects( decal.WorldBounds ) )
+        if( Moonlight::CameraDrawsLayer( camera, decal.LayerBit ) && ( !camera.ShouldCull || camera.ViewFrustum.Intersects( decal.WorldBounds ) ) )
         {
             m_decalOrder.push_back( &decal );
         }

@@ -138,6 +138,9 @@ namespace Moonlight
         // Active. A camera that draws or picks it on the CPU after all (a fallback, a mesh that left
         // the GPU set) tests WorldBounds against its own frustum: CameraSeesMesh (CameraData.h).
         bool CullDeferred = false;
+        // The owning entity's layer as a bit (1 << Entity::GetLayer()): cameras whose CullingMask
+        // leaves it out don't draw this command (CameraSeesMesh).
+        uint32_t LayerBit = 1u;
     };
 
     // Fills the geometry and material fields of a static mesh's command (what RenderCore does for
@@ -158,7 +161,7 @@ namespace Moonlight
             && InA.OutlineWidth == InB.OutlineWidth && InA.AlphaCutoff == InB.AlphaCutoff && InA.CustomShadow == InB.CustomShadow
             && InA.WorldBounds.Min.InternalVector == InB.WorldBounds.Min.InternalVector && InA.WorldBounds.Max.InternalVector == InB.WorldBounds.Max.InternalVector
             && InA.SkinPalette == InB.SkinPalette && InA.SkinBoneCount == InB.SkinBoneCount && InA.PosedVertices.idx == InB.PosedVertices.idx
-            && InA.RenderGroup == InB.RenderGroup && InA.Active == InB.Active && InA.Retained == InB.Retained;
+            && InA.RenderGroup == InB.RenderGroup && InA.Active == InB.Active && InA.Retained == InB.Retained && InA.LayerBit == InB.LayerBit;
     }
 
     enum class LightType : uint8_t
@@ -200,6 +203,8 @@ namespace Moonlight
         SharedPtr<ShaderGraphAsset> Graph;
         // The decal's values for the graph's properties.
         ShaderGraphBinding GraphBinding;
+        // The entity's layer as a bit (CameraData::CullingMask).
+        uint32_t LayerBit = 1u;
     };
 
     // One light for this frame, gathered from Light components by RenderCore.
@@ -298,6 +303,7 @@ namespace Moonlight
         int32_t Order = 0;
         uint32_t Sequence = 0;     // gathering order: the last tie-break
         uint64_t ID = 0u;          // the entity (editor picking)
+        uint32_t LayerBit = 1u;    // the entity's layer as a bit (CameraData::CullingMask; Layer above is the sorting layer)
         bgfx::TextureHandle Texture = BGFX_INVALID_HANDLE;     // invalid: white
         // Lit sprites (LOOK-S9): a tangent-space normal map over the same region (invalid: flat).
         bgfx::TextureHandle NormalMap = BGFX_INVALID_HANDLE;
@@ -361,6 +367,8 @@ namespace Moonlight
         ParticleSortCameras GpuSortCameras = ParticleSortCameras::Every;
         // A Particle-target shader graph colouring the quads (null: the built-in particle shader).
         SharedPtr<ShaderGraphAsset> Graph;
+        // The system's entity layer as a bit (CameraData::CullingMask).
+        uint32_t LayerBit = 1u;
         // The particle system's values for the graph's properties.
         ShaderGraphBinding GraphBinding;
     };

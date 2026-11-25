@@ -151,7 +151,7 @@ void BGFXRenderer::RenderSprites( Moonlight::CameraData& camera )
     for( uint32_t i = 0; i < m_sprites.size(); ++i )
     {
         const Moonlight::SpriteCommand& sprite = m_sprites[i];
-        if( camera.ShouldCull && !camera.ViewFrustum.Intersects( sprite.Bounds ) )
+        if( !Moonlight::CameraDrawsLayer( camera, sprite.LayerBit ) || ( camera.ShouldCull && !camera.ViewFrustum.Intersects( sprite.Bounds ) ) )
         {
             continue;
         }

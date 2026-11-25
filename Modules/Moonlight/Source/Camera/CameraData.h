@@ -131,6 +131,9 @@ namespace Moonlight
         // toward the top (0: no fade).
         float OverlayOpacity = 1.f;
         float OverlayTopFade = 0.f;
+        // The entity layers drawn (Camera::CullingMask; bit N is layer N). A command's LayerBit
+        // outside it is left out (CameraDrawsLayer).
+        uint32_t CullingMask = 0xFFFFFFFFu;
         // Normalized rect (x, y from the top left, width, height) of the main output this camera
         // draws into; a partial rect is split screen and OutputSize is already the rect's size.
         glm::vec4 Viewport = glm::vec4( 0.f, 0.f, 1.f, 1.f );
@@ -193,12 +196,24 @@ namespace Moonlight
         bool VisibleMeshesExcludeGpu = false;
     };
 
+    // Whether InCamera draws what is on the layers in InLayerBit (a command's LayerBit).
+    inline bool CameraDrawsLayer( const CameraData& InCamera, uint32_t InLayerBit )
+    {
+        return ( InCamera.CullingMask & InLayerBit ) != 0;
+    }
+
+    // Whether InCamera leaves any layer out (it then draws on the CPU path, not the GPU-driven one).
+    inline bool CameraMasksLayers( const CameraData& InCamera )
+    {
+        return InCamera.CullingMask != 0xFFFFFFFFu;
+    }
+
     // Whether a camera RenderCore culls for (one with VisibleFlags, ShouldCull) sees InMesh: its flag,
     // or for a command whose cull RenderCore left to the GPU path (MeshCommand::CullDeferred, ME-401)
     // its world bounds against the camera's frustum, the test RenderCore would have made.
     inline bool CameraSeesMesh( const CameraData& InCamera, const MeshCommand& InMesh )
     {
-        if( InMesh.VisibilityIndex < 0 || static_cast<size_t>( InMesh.VisibilityIndex ) >= InCamera.VisibleFlags.size() )
+        if( !CameraDrawsLayer( InCamera, InMesh.LayerBit ) || InMesh.VisibilityIndex < 0 || static_cast<size_t>( InMesh.VisibilityIndex ) >= InCamera.VisibleFlags.size() )
         {
             return false;
         }

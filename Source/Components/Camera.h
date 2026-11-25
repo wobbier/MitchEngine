@@ -60,6 +60,11 @@ public:
     // The overlay fades out toward the top of the screen over this much of the screen's height
     // (0: no fade), so a surface running off the top melts away below the edge at any aspect.
     float OverlayTopFade = 0.f;
+    // The entity layers this camera draws (bit N: layer N, Entity::SetLayer): meshes, particles,
+    // sprites, text and decals on other layers are left out. Lights still light everything, and
+    // shadow casters are not filtered. A camera that leaves layers out draws on the CPU path,
+    // not the GPU-driven one.
+    uint32_t CullingMask = 0xFFFFFFFFu;
 
     // Render texture: the camera renders into this .rendertexture asset, at the asset's size, instead
     // of to the screen; materials show the image by naming the same asset in a texture slot. Such

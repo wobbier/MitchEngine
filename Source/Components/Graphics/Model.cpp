@@ -212,6 +212,8 @@ void Model::Expand()
             if( !importedRoot )
             {
                 EntityHandle entity = world.CreateEntity( root->Name );
+                // A model's nodes are on its layer (Camera::CullingMask draws them with it).
+                entity->SetLayer( Parent->GetLayer() );
                 importedRoot = &entity->AddComponent<Transform>();
                 importedRoot->SetParent( parentTransform );
                 importedRoot->SetPosition( root->Position );
@@ -368,6 +370,7 @@ EntityHandle Model::ExposeNode( const std::string& InPath )
     auto existing = m_exposed.find( index );
     if( existing != m_exposed.end() && existing->second ) return existing->second;
     EntityHandle entity = Parent.GetWorld()->CreateEntity( m_nodes[index].Source->Name );
+    entity->SetLayer( Parent->GetLayer() );
     Transform& transform = entity->AddComponent<Transform>();
     transform.SetParent( Parent->GetComponent<Transform>() );
     ModelNode& attachment = entity->AddComponent<ModelNode>();
@@ -615,6 +618,7 @@ void Model::RecursiveLoadMesh( Moonlight::Node& root, EntityHandle& parentEnt, f
         else
         {
             entityNode = world.CreateEntity( childNode.Name );
+            entityNode->SetLayer( Parent->GetLayer() );
             auto& transform = entityNode->AddComponent<Transform>();
             transform.SetParent( parentTransform );
             transform.SetPosition( childNode.Position );
@@ -660,6 +664,7 @@ void Model::RecursiveLoadMesh( Moonlight::Node& root, EntityHandle& parentEnt, f
             else
             {
                 ent = world.CreateEntity( name );
+                ent->SetLayer( Parent->GetLayer() );
                 Transform& transform = ent->AddComponent<Transform>();
                 transform.SetParent( parentTransform );
             }
