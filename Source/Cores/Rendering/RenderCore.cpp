@@ -660,6 +660,10 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         {
             return "IsTransparent";
         }
+        if( InCommand.IsShell != ( InMaterial.IsTransparent() && InMaterial.IsShell() ) )
+        {
+            return "IsShell";
+        }
         if( InCommand.SupportsInstancing != InMaterial.SupportsInstancing )
         {
             return "SupportsInstancing";

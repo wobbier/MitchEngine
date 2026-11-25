@@ -1550,6 +1550,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         ;
 
     TransparentIndicies.clear();
+    ShellIndicies.clear();
 
     for( size_t b = 0; b < m_activeBatchCount; ++b )
     {
@@ -1667,7 +1668,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
 
             if( mesh.IsTransparent )
             {
-                if( options.Transparencies ) TransparentIndicies.push_back( i );
+                if( options.Transparencies ) ( mesh.IsShell && !overdraw && !wireframe ? ShellIndicies : TransparentIndicies ).push_back( i );
                 return;
             }
 
@@ -1920,6 +1921,8 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     if( options.DebugDraw && world ) SubmitDebugLines( camera, transparentView );
     if( world ) RenderSprites( camera );
     if( sceneEffects && options.Particles && world ) RenderParticles( camera );
+    // The shells last: what is behind one (transparents and particles too) shows through it.
+    RenderShell( camera, label, transparentState );
 
     // A render texture holds its top row first, like an image file. Backends whose framebuffers
     // start at the bottom (OpenGL) get the passes writing it flipped.
@@ -3709,7 +3712,7 @@ bgfx::ProgramHandle BGFXRenderer::BindMeshDrawState( const Moonlight::MeshComman
     // rasterize the same surface. Everything bound so far stays bound for the colour draw
     // (BGFX_DISCARD_NONE), which shares the instance data too. Any other material draws once, as
     // without a prepass, and depth-tests against what the prepass wrote.
-    if( InPrepassView != UINT16_MAX && !m_lighting.Wireframe && ( state & BGFX_STATE_BLEND_MASK ) == 0
+    if( InPrepassView != UINT16_MAX && !m_lighting.Wireframe && ( ( state & BGFX_STATE_BLEND_MASK ) == 0 || m_shellDepth )
         && bgfx::isValid( program ) && program.idx == ( InSkinned ? m_standardSkinnedProgram : m_standardProgram ).GetProgram().idx )
     {
         // A surface that drops no fragments draws with the variant that has no discard.
@@ -3725,7 +3728,7 @@ bgfx::ProgramHandle BGFXRenderer::BindMeshDrawState( const Moonlight::MeshComman
             {
                 material.Use();
             }
-            bgfx::setState( ( state & ~( BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_DEPTH_TEST_MASK ) ) | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS );
+            bgfx::setState( ( state & ~( BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_DEPTH_TEST_MASK | BGFX_STATE_BLEND_MASK ) ) | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS );
             const uint8_t discard = InDepthOnly ? BGFX_DISCARD_ALL : BGFX_DISCARD_NONE;
             if( bgfx::isValid( m_bindIndirect ) )
             {
@@ -3771,6 +3774,90 @@ bgfx::ProgramHandle BGFXRenderer::BindMeshDrawState( const Moonlight::MeshComman
     bgfx::setState( state );
 
     return program;
+}
+
+
+void BGFXRenderer::RenderShell( Moonlight::CameraData& camera, const char* InLabel, uint64_t InState )
+{
+    if( ShellIndicies.empty() || !camera.Buffer )
+    {
+        return;
+    }
+    // Two views on the scene's target, after everything else that draws into it: depth, then
+    // colour. The depth is the nearest surface of all the shells together, so a shell hides the
+    // one behind it as it hides its own far side.
+    char viewName[64];
+    bx::snprintf( viewName, sizeof( viewName ), "%s Shell Depth", InLabel );
+    const bgfx::ViewId depthView = m_views.Allocate( viewName );
+    bx::snprintf( viewName, sizeof( viewName ), "%s Shell", InLabel );
+    const bgfx::ViewId colorView = m_views.Allocate( viewName );
+    if( depthView == UINT16_MAX || colorView == UINT16_MAX )
+    {
+        return;
+    }
+    for( const bgfx::ViewId view : { depthView, colorView } )
+    {
+        bgfx::setViewTransform( view, &camera.View.GetInternalMatrix()[0][0], &camera.ProjectionMatrix.GetInternalMatrix()[0][0] );
+        bgfx::setViewFrameBuffer( view, camera.Buffer->SceneBuffer );
+        bgfx::setViewRect( view, 0, 0, static_cast<uint16_t>( camera.Buffer->Width ), static_cast<uint16_t>( camera.Buffer->Height ) );
+        bgfx::setViewMode( view, bgfx::ViewMode::Sequential );
+    }
+    constexpr uint16_t kInstanceStride = sizeof( glm::mat4 );
+    // Sets the mesh's transform the way its colour draw does; false when it can't be drawn.
+    const auto place = [this]( const Moonlight::MeshCommand& mesh, bool InSkinnedMesh ) {
+        if( !mesh.SingleMesh || !bgfx::isValid( mesh.SingleMesh->GetVertexBuffer() ) )
+        {
+            return false;
+        }
+        const bool instanced = InSkinnedMesh || mesh.SupportsInstancing || ( bgfx::isValid( mesh.PosedVertices ) && mesh.MeshMaterial->SupportsInstancing );
+        if( !instanced )
+        {
+            bgfx::setTransform( &mesh.Transform );
+            return true;
+        }
+        if( bgfx::getAvailInstanceDataBuffer( 1, kInstanceStride ) == 0 )
+        {
+            return false;
+        }
+        const glm::mat4 instance = InSkinnedMesh ? mesh.Transform : InstanceMatrix( mesh );
+        bgfx::InstanceDataBuffer idb;
+        bgfx::allocInstanceDataBuffer( &idb, 1, kInstanceStride );
+        std::memcpy( idb.data, &instance, kInstanceStride );
+        bgfx::setInstanceDataBuffer( &idb );
+        return true;
+    };
+    // A material that isn't one of the stock Standard programs has no depth-only draw: it draws
+    // as any transparent does, against the depth the others laid down.
+    m_shellDepth = true;
+    for( const size_t index : ShellIndicies )
+    {
+        const Moonlight::MeshCommand& mesh = m_meshCache.Commands[index];
+        const bool skinnedMesh = mesh.SkinBoneCount > 0;
+        if( place( mesh, skinnedMesh ) )
+        {
+            const bool skinned = skinnedMesh && bgfx::isValid( mesh.MeshMaterial->GetSkinnedProgram() ) && bgfx::isValid( mesh.SingleMesh->GetSkinBuffer() );
+            BindMeshDrawState( mesh, InState, depthView, skinned, 1, true );
+        }
+    }
+    m_shellDepth = false;
+    const uint64_t state = ( InState & ~BGFX_STATE_DEPTH_TEST_MASK ) | BGFX_STATE_DEPTH_TEST_LEQUAL;
+    for( const size_t index : ShellIndicies )
+    {
+        const Moonlight::MeshCommand& mesh = m_meshCache.Commands[index];
+        if( mesh.SkinBoneCount > 0 )
+        {
+            RenderSkinnedMesh( colorView, mesh, state );
+        }
+        else if( mesh.SupportsInstancing || ( bgfx::isValid( mesh.PosedVertices ) && mesh.MeshMaterial->SupportsInstancing ) )
+        {
+            const glm::mat4 instance = InstanceMatrix( mesh );
+            RenderMeshInstanced( colorView, mesh, &instance, 1, state );
+        }
+        else
+        {
+            RenderSingleMesh( colorView, mesh, state );
+        }
+    }
 }
 
 
@@ -4138,6 +4225,7 @@ void Moonlight::FillMeshCommand( MeshCommand& OutCommand, MeshData* InMesh, cons
     if( InMaterial )
     {
         OutCommand.IsTransparent = InMaterial->IsTransparent();
+        OutCommand.IsShell = OutCommand.IsTransparent && InMaterial->IsShell();
         OutCommand.SupportsInstancing = InMaterial->SupportsInstancing;
         OutCommand.BatchKey = InMaterial->GetInstanceBatchKey();
         OutCommand.AlphaCutoff = InMaterial->GetAlphaCutoff();

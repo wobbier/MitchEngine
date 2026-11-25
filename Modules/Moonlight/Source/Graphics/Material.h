@@ -128,6 +128,9 @@ namespace Moonlight
         virtual void LoadShader( const std::string& inShaderName );
 
         const bool IsTransparent() const;
+        // A transparent material that shows only its outermost surface (StandardMaterial::Shell):
+        // the renderer lays its depth down first, so nothing of the mesh behind that draws.
+        virtual bool IsShell() const { return false; }
 
         // Draw-state revision (ME-399). Anything a mesh command takes from a material (the fields
         // GetInstanceBatchKey hashes, textures, the shader, transparency, instancing, alpha cutoff,

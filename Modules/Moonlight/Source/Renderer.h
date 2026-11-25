@@ -661,6 +661,13 @@ private:
     CommandCache<Moonlight::MeshCommand> m_meshCache;
     CommandCache<Moonlight::DebugColliderCommand> m_debugDrawCache;
     std::vector<size_t> TransparentIndicies;
+    // The transparent meshes that draw only their outermost surface (MeshCommand::IsShell), and
+    // their pass: depth for all of them first, then their colour where it is that depth.
+    std::vector<size_t> ShellIndicies;
+    void RenderShell( Moonlight::CameraData& camera, const char* InLabel, uint64_t InState );
+    // Set while RenderShell lays the depth down: BindMeshDrawState's depth-only draw then takes a
+    // blended material too.
+    bool m_shellDepth = false;
 
     Moonlight::FrameBuffer* EditorCameraBuffer = nullptr;
     // Scene targets for a split screen main camera, whose own buffer stays the full size display.

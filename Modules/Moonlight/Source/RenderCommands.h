@@ -106,6 +106,8 @@ namespace Moonlight
         // complementary mask (DitherFade negated), so the switch doesn't pop.
         uint8_t CrossfadeLod = 0xFF;
         bool IsTransparent = false;
+        // Transparent, outermost surface only (Material::IsShell): drawn in the shell pass.
+        bool IsShell = false;
         bool SupportsInstancing = false;
         bool CastShadows = true;
         // Per-object outline (Outline component): an inverted-hull draw after the opaque scene.
@@ -151,7 +153,7 @@ namespace Moonlight
             && InA.Type == InB.Type && InA.ID == InB.ID && InA.VisibilityIndex == InB.VisibilityIndex && InA.BatchKey == InB.BatchKey
             && InA.VertexBufferIdx == InB.VertexBufferIdx && InA.IndexBufferIdx == InB.IndexBufferIdx && InA.Lod == InB.Lod
             && InA.DitherFade == InB.DitherFade && InA.PortalClipPlane == InB.PortalClipPlane && InA.InstanceData == InB.InstanceData
-            && InA.CrossfadeLod == InB.CrossfadeLod && InA.IsTransparent == InB.IsTransparent && InA.SupportsInstancing == InB.SupportsInstancing
+            && InA.CrossfadeLod == InB.CrossfadeLod && InA.IsTransparent == InB.IsTransparent && InA.IsShell == InB.IsShell && InA.SupportsInstancing == InB.SupportsInstancing
             && InA.CastShadows == InB.CastShadows && InA.Outlined == InB.Outlined && InA.OutlineColor.InternalVector == InB.OutlineColor.InternalVector
             && InA.OutlineWidth == InB.OutlineWidth && InA.AlphaCutoff == InB.AlphaCutoff && InA.CustomShadow == InB.CustomShadow
             && InA.WorldBounds.Min.InternalVector == InB.WorldBounds.Min.InternalVector && InA.WorldBounds.Max.InternalVector == InB.WorldBounds.Max.InternalVector

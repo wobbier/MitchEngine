@@ -36,6 +36,8 @@ public:
     void SetAlphaCutoff( float InValue );
     void SetInvertRoughness( bool InValue );
     void SetRim( float InValue );
+    void SetShell( bool InValue );
+    bool IsShell() const override { return Shell; }
 
     ME_MATERIAL_FIELD float Opacity = 1.f;
     ME_MATERIAL_FIELD float Metallic = 0.f;
@@ -50,6 +52,11 @@ public:
     // with the emissive colour, so a see-through figure reads as a ghost, not as tinted glass.
     // Wants RenderingMode::Transparent and an emissive colour.
     ME_MATERIAL_FIELD float Rim = 0.f;
+    // Transparent, but only the outermost surface: what is see-through is the world behind the
+    // mesh, not the mesh's own far side, its inside faces or the limb behind a limb. Every Shell
+    // mesh on screen shares one surface (the nearest), drawn after the other transparents and the
+    // particles, and it writes depth, so depth of field focuses on it. For a ghost.
+    ME_MATERIAL_FIELD bool Shell = false;
 
 protected:
     // Subclasses that keep their own registry name (e.g. the legacy DiffuseMaterial), or also draw

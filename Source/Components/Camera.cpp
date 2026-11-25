@@ -42,6 +42,10 @@ ME_REFLECT_BEGIN( Moonlight::ProceduralSkySettings )
     ME_FIELD( CloudThickness ).Range( 100.f, 8000.f ).Unit( Reflection::Unit::Meters ).Log();
     ME_FIELD( WindSpeed ).Range( 0.f, 100.f ).Unit( Reflection::Unit::MetersPerSecond ).SoftRange( 0.f, 30.f );
     ME_FIELD( WindDirection ).Display( "Wind Direction" ).Range( 0.f, 360.f ).Unit( Reflection::Unit::Degrees );
+    ME_FIELD( ViewerAltitude ).Display( "Viewer Altitude" ).Range( 0.f, 20000.f ).Unit( Reflection::Unit::Meters ).Tooltip( "Metres added to the camera's height for the sky alone: the sky and clouds as seen from up there" );
+    ME_FIELD( Convection ).Range( 0.f, 1.f ).Unit( Reflection::Unit::Percent ).Tooltip( "Heaped cloud tops, and cumulonimbus towers standing up out of the layer far off" );
+    ME_FIELD( CloudClearing ).Display( "Cloud Clearing" ).Range( 0.f, 1.f ).Unit( Reflection::Unit::Percent ).Tooltip( "How much the cloud thins out round the camera: a gap to climb through" );
+    ME_FIELD( CloudClearingRadius ).Display( "Cloud Clearing Radius" ).Range( 10.f, 20000.f ).Unit( Reflection::Unit::Meters ).Log();
 ME_REFLECT_END()
 
 ME_REFLECT_BEGIN( Camera )
@@ -616,6 +620,18 @@ void Camera::OnEditorInspect()
         HavanaUtils::Label( "Wind Direction" );
         changed |= ImGui::SliderFloat( "##SkyWindDirection", &ProceduralSky.WindDirection, 0.f, 360.f, "%.0f deg", ImGuiSliderFlags_AlwaysClamp );
         CameraTooltip( "Where the wind blows towards, clockwise from north (+Z): 90 is east (+X)." );
+        HavanaUtils::Label( "Viewer Altitude" );
+        changed |= ImGui::DragFloat( "##SkyViewerAltitude", &ProceduralSky.ViewerAltitude, 10.f, 0.f, 20000.f, "%.0f m", ImGuiSliderFlags_AlwaysClamp );
+        CameraTooltip( "Metres added to the camera's height for the sky alone: the sky and its clouds as seen from up there (through the layer, or above it)." );
+        HavanaUtils::Label( "Convection" );
+        changed |= ImGui::SliderFloat( "##SkyConvection", &ProceduralSky.Convection, 0.f, 1.f, "%.2f", ImGuiSliderFlags_AlwaysClamp );
+        CameraTooltip( "0 a plain layer; up to 1 its clouds heap up and cumulonimbus towers, most with anvils, stand up out of it far off toward the horizon." );
+        HavanaUtils::Label( "Clearing" );
+        changed |= ImGui::SliderFloat( "##SkyCloudClearing", &ProceduralSky.CloudClearing, 0.f, 1.f, "%.2f", ImGuiSliderFlags_AlwaysClamp );
+        CameraTooltip( "How much the cloud thins out round the camera: a gap in the layer to climb through." );
+        HavanaUtils::Label( "Clearing Radius" );
+        changed |= ImGui::DragFloat( "##SkyCloudClearingRadius", &ProceduralSky.CloudClearingRadius, 10.f, 10.f, 20000.f, "%.0f m", ImGuiSliderFlags_AlwaysClamp );
+        CameraTooltip( "Roughly how far from the camera the clearing reaches." );
         if( changed ) OnPropertyChanged( "ProceduralSky" );
     }
 }

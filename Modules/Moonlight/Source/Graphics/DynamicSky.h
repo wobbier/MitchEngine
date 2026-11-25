@@ -68,7 +68,8 @@ namespace Moonlight
         // The camera's sky passes (lookup tables, clouds); before its scene view and environment probe.
         void Prepare( ViewAllocator& InViews, CameraData& InCamera );
 
-        // Draws the sky behind everything already in the depth buffer (submit after the opaque scene).
+        // Draws the sky behind everything already in the depth buffer (submit after the opaque scene),
+        // and with SceneUnderClouds lays its clouds over the scene under the layer first.
         void Draw( bgfx::ViewId InView, const CameraData& InCamera );
 
         // Binds the sky for an environment probe face and returns the program to submit.
@@ -80,6 +81,11 @@ namespace Moonlight
         const bx::Vec3& GetAmbientSky() const { return m_ambientSky; }
         // Changes whenever the sky looks different enough to recapture an environment probe.
         uint64_t GetEnvironmentKey() const { return m_environmentKey; }
+        // How thick the cloud is (0 clear air .. 1) at a world position in metres, under these
+        // settings (their ViewerAltitude added) at their AnimationTime: for a game to fog its
+        // scene while its camera is inside a cloud, which the sky pass alone can't do (it draws
+        // behind the scene). 0 until the cloud noise is ready.
+        float SampleCloudDensity( const ProceduralSkySettings& InSettings, const bx::Vec3& InPosition ) const;
 
 
     private:
@@ -95,12 +101,15 @@ namespace Moonlight
         bool CloudsEnabled() const;
         float CloudVisibility( const bx::Vec3& InLightDir ) const;
         float CloudDensity( float InX, float InAltitude, float InZ ) const;
+        float CloudDensity( const ProceduralSkySettings& InSettings, const float InWind[3], float InX, float InAltitude, float InZ, float InViewerX, float InViewerZ ) const;
+        static void WindOffset( const ProceduralSkySettings& InSettings, float InTimeSeconds, float OutWind[3] );
         void UpdateSceneLight();
         void SetCommonUniforms( bool InClouds, float InSteps, float InLightSteps );
         void BindTextures( bool InClouds );
         void RenderLuts( ViewAllocator& InViews );
         void RenderClouds( ViewAllocator& InViews, CameraData& InCamera );
         void ComputeBasis( const CameraData& InCamera, float OutRight[4], float OutUp[4], float OutForward[4], float& OutTanX, float& OutTanY ) const;
+        void DrawVeil( bgfx::ViewId InView, const CameraData& InCamera, bgfx::TextureHandle InClouds );
 
         // Programs (hot reloadable)
         ShaderCommand m_skyProgram;
@@ -109,6 +118,7 @@ namespace Moonlight
         ShaderCommand m_skyViewProgram;
         ShaderCommand m_cloudProgram;
         ShaderCommand m_captureProgram;
+        ShaderCommand m_veilProgram;
 
         // Lookup tables
         bgfx::TextureHandle m_transmittanceLut = BGFX_INVALID_HANDLE;
@@ -152,6 +162,7 @@ namespace Moonlight
         bgfx::UniformHandle u_cloudLayer = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_cloudWind = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_cloudMarch = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_cloudConvection = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_cloudHistoryRight = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_cloudHistoryUp = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_cloudHistoryForward = BGFX_INVALID_HANDLE;

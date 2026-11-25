@@ -35,6 +35,8 @@ namespace Moonlight
         constexpr int kWeatherSize = 256;
         constexpr float kWeatherTile = 60.f;        // km, match Clouds.sh
         constexpr float kShapeTile = 9.f;
+        constexpr float kConvectiveShapeTile = 3.2f; // match Clouds.sh (CLOUD_CONVECTIVE_SHAPE_TILE, CLOUD_HEAP_TILE)
+        constexpr float kHeapTile = 2.6f;
 
         // Real angular radii (radians); the settings scale them.
         constexpr float kSunRadius = 0.004654f;
@@ -635,6 +637,7 @@ namespace Moonlight
         m_skyViewProgram = ShaderCommand( "Assets/Shaders/Post/Fullscreen", "Assets/Shaders/Sky/SkyViewLut" );
         m_cloudProgram = ShaderCommand( "Assets/Shaders/Post/Fullscreen", "Assets/Shaders/Sky/Clouds" );
         m_captureProgram = ShaderCommand( "Assets/Shaders/Post/Fullscreen", "Assets/Shaders/Sky/SkyCapture" );
+        m_veilProgram = ShaderCommand( "Assets/Shaders/Sky/CloudVeil" );
 
         const std::pair<bgfx::UniformHandle*, const char*> vectors[] = {
             { &u_skySun, "u_skySun" }, { &u_skySunColor, "u_skySunColor" }, { &u_skyMoon, "u_skyMoon" }, { &u_skyMoonColor, "u_skyMoonColor" },
@@ -644,7 +647,7 @@ namespace Moonlight
             { &u_eclipseSun, "u_eclipseSun" }, { &u_eclipseMoon, "u_eclipseMoon" }, { &u_eclipseParams, "u_eclipseParams" },
             { &u_skyGalaxyCentre, "u_skyGalaxyCentre" }, { &u_skyMoonUp, "u_skyMoonUp" }, { &u_cloudLayer, "u_cloudLayer" },
             { &u_cloudWind, "u_cloudWind" }, { &u_cloudMarch, "u_cloudMarch" }, { &u_cloudHistoryRight, "u_cloudHistoryRight" },
-            { &u_cloudHistoryUp, "u_cloudHistoryUp" }, { &u_cloudHistoryForward, "u_cloudHistoryForward" }, { &u_cloudFrame, "u_cloudFrame" } };
+            { &u_cloudHistoryUp, "u_cloudHistoryUp" }, { &u_cloudHistoryForward, "u_cloudHistoryForward" }, { &u_cloudFrame, "u_cloudFrame" }, { &u_cloudConvection, "u_cloudConvection" } };
         for( const auto& [handle, name] : vectors )
         {
             *handle = bgfx::createUniform( name, bgfx::UniformType::Vec4 );
@@ -707,7 +710,7 @@ namespace Moonlight
         }
         for( bgfx::UniformHandle* uniform : { &u_skySun, &u_skySunColor, &u_skyMoon, &u_skyMoonColor, &u_skyAtmosphere, &u_skyCamera, &u_skyScattering, &u_skyBasisRight,
             &u_skyBasisUp, &u_skyBasisForward, &u_skyStarsX, &u_skyStarsY, &u_skyStarsZ, &u_skyGalaxy, &u_skyGalaxyCentre, &u_skyMoonUp, &u_eclipseSun, &u_eclipseMoon, &u_eclipseParams, &u_cloudLayer,
-            &u_cloudWind, &u_cloudMarch, &u_cloudHistoryRight, &u_cloudHistoryUp, &u_cloudHistoryForward, &u_cloudFrame, &s_skyTransmittance,
+            &u_cloudWind, &u_cloudMarch, &u_cloudConvection, &u_cloudHistoryRight, &u_cloudHistoryUp, &u_cloudHistoryForward, &u_cloudFrame, &s_skyTransmittance,
             &s_skyMultiScatter, &s_skyView, &s_skyClouds, &s_cloudHistory, &s_cloudShape, &s_cloudDetail, &s_cloudWeather } )
         {
             DestroyIfValid( *uniform );
@@ -758,7 +761,7 @@ namespace Moonlight
 
     bool DynamicSky::CloudsEnabled() const
     {
-        return m_showsSky && m_noiseReady && m_settings.CloudCoverage > 0.f && m_settings.CloudDensity > 0.f && m_cloudProgram.IsLoaded();
+        return m_showsSky && m_noiseReady && ( m_settings.CloudCoverage > 0.f || m_settings.Convection > 0.f ) && m_settings.CloudDensity > 0.f && m_cloudProgram.IsLoaded();
     }
 
 
@@ -771,7 +774,7 @@ namespace Moonlight
         // show no clouds, so the clouds mustn't shade them.
         m_showsSky = InCamera.ClearType == ClearColorType::Procedural;
         // The atmosphere needs the camera at least 10 m up (precision near the planet's surface).
-        m_cameraKm = { InCamera.Position.x * 0.001f, std::max( InCamera.Position.y * 0.001f, 0.01f ), InCamera.Position.z * 0.001f };
+        m_cameraKm = { InCamera.Position.x * 0.001f, std::max( ( InCamera.Position.y + m_settings.ViewerAltitude ) * 0.001f, 0.01f ), InCamera.Position.z * 0.001f };
         // Turbidity: total over clean-air optical depth (Linke). 1 is clean air, 2 a clear day.
         m_aerosol = 9.f * ( m_settings.Turbidity - 1.f );
 
@@ -782,11 +785,7 @@ namespace Moonlight
         m_eclipse.MoonRadius = kMoonRadius * m_settings.MoonSize;
 
         // The wind carries the cloud field towards WindDirection; the shapes slowly evolve.
-        const float windAngle = m_settings.WindDirection * kDegrees;
-        const float windDistance = m_settings.WindSpeed * InTimeSeconds * 0.001f;
-        m_windOffset[0] = -std::sin( windAngle ) * windDistance;
-        m_windOffset[1] = -std::cos( windAngle ) * windDistance;
-        m_windOffset[2] = InTimeSeconds * kCloudEvolution;
+        WindOffset( m_settings, InTimeSeconds, m_windOffset );
         // The clouds, the moon's surface and the Milky Way all use the noise.
         if( m_showsSky )
         {
@@ -820,31 +819,84 @@ namespace Moonlight
             key = Mix( Mix( Mix( key, Quantize( m_settings.CloudCoverage, 100.f ) ), Quantize( m_settings.CloudDensity, 50.f ) ), Quantize( m_settings.CloudAltitude, 0.01f ) );
             key = Mix( Mix( Mix( key, Quantize( m_settings.CloudThickness, 0.01f ) ), Quantize( m_windOffset[0], 4.f ) ), Quantize( m_windOffset[1], 4.f ) );
             key = Mix( Mix( key, Quantize( m_cameraKm.x, 0.25f ) ), Quantize( m_cameraKm.z, 0.25f ) );
+            key = Mix( Mix( Mix( key, Quantize( m_settings.Convection, 20.f ) ), Quantize( m_settings.CloudClearing, 20.f ) ), Quantize( m_settings.CloudClearingRadius, 0.01f ) );
         }
         m_environmentKey = key;
     }
 
 
+    void DynamicSky::WindOffset( const ProceduralSkySettings& InSettings, float InTimeSeconds, float OutWind[3] )
+    {
+        const float windAngle = InSettings.WindDirection * kDegrees;
+        const float windDistance = InSettings.WindSpeed * InTimeSeconds * 0.001f;
+        OutWind[0] = -std::sin( windAngle ) * windDistance;
+        OutWind[1] = -std::cos( windAngle ) * windDistance;
+        OutWind[2] = InTimeSeconds * kCloudEvolution;
+    }
+
+
+    float DynamicSky::SampleCloudDensity( const ProceduralSkySettings& InSettings, const bx::Vec3& InPosition ) const
+    {
+        if( !m_noiseReady )
+        {
+            return 0.f;
+        }
+        ProceduralSkySettings settings = InSettings;
+        settings.Clamp();
+        if( settings.CloudCoverage <= 0.f || settings.CloudDensity <= 0.f )
+        {
+            return 0.f;
+        }
+        float wind[3];
+        WindOffset( settings, settings.AnimationTime, wind );
+        // The clearing is round the camera asking (it samples where it is).
+        return CloudDensity( settings, wind, InPosition.x * 0.001f, ( InPosition.y + settings.ViewerAltitude ) * 0.001f, InPosition.z * 0.001f, InPosition.x * 0.001f, InPosition.z * 0.001f );
+    }
+
+
     float DynamicSky::CloudDensity( float InX, float InAltitude, float InZ ) const
     {
+        return CloudDensity( m_settings, m_windOffset, InX, InAltitude, InZ, m_cameraKm.x, m_cameraKm.z );
+    }
+
+
+    float DynamicSky::CloudDensity( const ProceduralSkySettings& InSettings, const float InWind[3], float InX, float InAltitude, float InZ, float InViewerX, float InViewerZ ) const
+    {
         // Clouds.sh cloudDensity, with the detail erosion averaged out.
-        const float base = m_settings.CloudAltitude * 0.001f;
-        const float thickness = m_settings.CloudThickness * 0.001f;
+        const float base = InSettings.CloudAltitude * 0.001f;
+        const float thickness = InSettings.CloudThickness * 0.001f;
         const float height = ( InAltitude - base ) / thickness;
         if( height <= 0.f || height >= 1.f )
         {
             return 0.f;
         }
-        const float x = InX + m_windOffset[0];
-        const float z = InZ + m_windOffset[1];
-        const float coverage = std::clamp( SampleWeather( m_noise.Weather, x / kWeatherTile, z / kWeatherTile, 0 ) + m_settings.CloudCoverage * 2.f - 1.f, 0.f, 1.f );
+        const float x = InX + InWind[0];
+        const float z = InZ + InWind[1];
+        // The clearing round the viewer.
+        float clearing = 0.f;
+        if( InSettings.CloudClearing > 0.f )
+        {
+            const float dx = InX - InViewerX;
+            const float dz = InZ - InViewerZ;
+            clearing = InSettings.CloudClearing * ( 1.f - Smoothstep( 0.35f, 1.6f, std::sqrt( dx * dx + dz * dz ) / ( InSettings.CloudClearingRadius * 0.001f ) ) );
+        }
+        const float coverage = std::clamp( SampleWeather( m_noise.Weather, x / kWeatherTile, z / kWeatherTile, 0 ) + InSettings.CloudCoverage * 2.f - 1.f - clearing, 0.f, 1.f );
         if( coverage <= 0.f )
         {
             return 0.f;
         }
-        const float top = 0.3f + 0.7f * SampleWeather( m_noise.Weather, x / kWeatherTile, z / kWeatherTile, 1 );
-        const float profile = Smoothstep( 0.f, 0.07f, height ) * ( 1.f - Smoothstep( top * 0.45f, top, height ) );
-        const float shape = SampleVolume( m_noise.Shape, kShapeSize, x / kShapeTile, ( height * thickness + m_windOffset[2] ) / kShapeTile, z / kShapeTile );
+        const float convection = InSettings.Convection;
+        float type = SampleWeather( m_noise.Weather, x / kWeatherTile, z / kWeatherTile, 1 );
+        if( convection > 0.f )
+        {
+            const float heap = std::clamp( SampleWeather( m_noise.Weather, x / kHeapTile + 0.31f, z / kHeapTile + 0.67f, 1 ) * 1.3f - 0.1f, 0.f, 1.f );
+            type += ( heap - type ) * convection;
+        }
+        const float top = 0.3f + 0.7f * type;
+        const float shoulder = 0.45f + ( 0.72f - 0.45f ) * convection;
+        const float profile = Smoothstep( 0.f, 0.07f, height ) * ( 1.f - Smoothstep( top * shoulder, top, height ) );
+        const float shapeTile = kShapeTile + ( kConvectiveShapeTile - kShapeTile ) * convection;
+        const float shape = SampleVolume( m_noise.Shape, kShapeSize, x / shapeTile, ( height * thickness + InWind[2] ) / shapeTile, z / shapeTile );
         const float density = std::clamp( ( shape * profile - ( 1.f - coverage ) ) / std::max( coverage, 1e-4f ), 0.f, 1.f );
         // The detail erosion on average (it eats away about a quarter at the thin edges).
         return std::clamp( ( density - 0.25f ) / 0.75f, 0.f, 1.f );
@@ -953,6 +1005,7 @@ namespace Moonlight
         const float layer[4] = { base, base + m_settings.CloudThickness * 0.001f, InClouds ? m_settings.CloudCoverage : 0.f, kCloudExtinction * m_settings.CloudDensity };
         const float wind[4] = { m_windOffset[0], m_windOffset[1], m_windOffset[2], kCloudAmbient };
         const float march[4] = { InSteps, InLightSteps, kCloudMaxDistance, kCloudFadeDistance };
+        const float convection[4] = { m_settings.Convection, m_settings.WindDirection * kDegrees, m_settings.CloudClearing, m_settings.CloudClearingRadius * 0.001f };
         bgfx::setUniform( u_skySun, sun );
         bgfx::setUniform( u_skySunColor, sunColor );
         bgfx::setUniform( u_skyMoon, moon );
@@ -969,6 +1022,7 @@ namespace Moonlight
         bgfx::setUniform( u_cloudLayer, layer );
         bgfx::setUniform( u_cloudWind, wind );
         bgfx::setUniform( u_cloudMarch, march );
+        bgfx::setUniform( u_cloudConvection, convection );
     }
 
 
@@ -1125,6 +1179,11 @@ namespace Moonlight
         bgfx::setUniform( u_skyBasisRight, right );
         bgfx::setUniform( u_skyBasisUp, up );
         bgfx::setUniform( u_skyBasisForward, forward );
+        // The scene under the layer first: the sky below overwrites what the sheet drew over it.
+        if( clouds && m_settings.SceneUnderClouds && InCamera.Position.y > m_settings.SceneUnderCloudsBelow + 0.5f )
+        {
+            DrawVeil( InView, InCamera, targets->CloudHistory[targets->CloudIndex].Color );
+        }
 
         const float height = targets ? static_cast<float>( std::max<uint32_t>( targets->Height, 1 ) ) : 720.f;
         const float starsX[4] = { m_bodies.Equatorial[0].x, m_bodies.Equatorial[0].y, m_bodies.Equatorial[0].z, m_settings.StarBrightness };
@@ -1151,6 +1210,38 @@ namespace Moonlight
         bgfx::setState( BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_LEQUAL );
         screenSpaceQuad( 1.f, 1.f, 0.f, bgfx::getCaps()->originBottomLeft );
         bgfx::submit( InView, m_skyProgram.GetProgram() );
+    }
+
+
+    void DynamicSky::DrawVeil( bgfx::ViewId InView, const CameraData& InCamera, bgfx::TextureHandle InClouds )
+    {
+        // A level sheet at the height, out past the far plane round the camera: wherever the scene
+        // lies beyond it (under it, seen from above) the sky's clouds go over the scene, blended
+        // scene * a + rgb as the sky blends them over itself, and far off the scene gives way to the
+        // sky's own ground (CloudVeil.frag). Nothing nearer is touched, and the sky drawn next
+        // replaces what the sheet put on the background. Draw has set the sky's uniforms.
+        if( !m_veilProgram.IsLoaded() || bgfx::getAvailTransientVertexBuffer( 6, PosTexCoordVertex::ms_layout ) < 6 )
+        {
+            return;
+        }
+        bgfx::TransientVertexBuffer vertices;
+        bgfx::allocTransientVertexBuffer( &vertices, 6, PosTexCoordVertex::ms_layout );
+        PosTexCoordVertex* vertex = reinterpret_cast<PosTexCoordVertex*>( vertices.data );
+        const float reach = std::max( InCamera.Far, 1.f ) * 1.5f;
+        const float y = m_settings.SceneUnderCloudsBelow;
+        const float corners[4][2] = { { -reach, -reach }, { reach, -reach }, { reach, reach }, { -reach, reach } };
+        const int order[6] = { 0, 1, 2, 0, 2, 3 };
+        for( int i = 0; i < 6; ++i )
+        {
+            vertex[i].vec = Vector3( InCamera.Position.x + corners[order[i]][0], y, InCamera.Position.z + corners[order[i]][1] );
+            vertex[i].coords = Vector2( 0.f, 0.f );
+        }
+        bgfx::setVertexBuffer( 0, &vertices );
+        bgfx::setTexture( 0, s_skyTransmittance, m_transmittanceLut );
+        bgfx::setTexture( 2, s_skyView, m_skyViewLut );
+        bgfx::setTexture( 3, s_skyClouds, InClouds );
+        bgfx::setState( BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_BLEND_FUNC( BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_SRC_ALPHA ) );
+        bgfx::submit( InView, m_veilProgram.GetProgram() );
     }
 
 

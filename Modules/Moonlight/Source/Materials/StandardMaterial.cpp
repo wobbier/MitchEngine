@@ -160,6 +160,12 @@ void StandardMaterial::SetRim( float InValue )
 }
 
 
+void StandardMaterial::SetShell( bool InValue )
+{
+    SetDrawValue( Shell, InValue );
+}
+
+
 uint64_t StandardMaterial::GetInstanceBatchKey() const
 {
     uint64_t h = Material::GetInstanceBatchKey();
@@ -173,6 +179,7 @@ uint64_t StandardMaterial::GetInstanceBatchKey() const
     h = Mix( h, texId( Moonlight::TextureType::Metallic ) );
     h = Mix( h, texId( Moonlight::TextureType::Roughness ) );
     h = Mix( h, InvertRoughness );
+    h = Mix( h, Shell );
     for( float value : { Opacity, Metallic, Roughness, NormalStrength, OcclusionStrength, EmissiveColor.x, EmissiveColor.y, EmissiveColor.z, EmissiveIntensity, AlphaCutoff, Rim } )
     {
         h = Mix( h, FloatBits( value ) );
@@ -197,6 +204,10 @@ void StandardMaterial::OnSerialize( json& OutJson )
     {
         OutJson["Rim"] = Rim;
     }
+    if( Shell )
+    {
+        OutJson["Shell"] = Shell;
+    }
 }
 
 
@@ -213,6 +224,7 @@ void StandardMaterial::OnDeserialize( const json& InJson )
     SetAlphaCutoff( ReadFloat( InJson, "AlphaCutoff", AlphaCutoff ) );
     SetInvertRoughness( InJson.value( "InvertRoughness", InvertRoughness ) );
     SetRim( ReadFloat( InJson, "Rim", Rim ) );
+    SetShell( InJson.value( "Shell", false ) );
     auto emissive = InJson.find( "EmissiveColor" );
     if( emissive != InJson.end() && emissive->is_array() && emissive->size() == 3 )
     {
@@ -288,5 +300,15 @@ void StandardMaterial::OnEditorInspect()
     }
     row( "Alpha Cutoff", AlphaCutoff, &StandardMaterial::SetAlphaCutoff, spec( MeWidgets::Unit::Percent, 1.0, 0.0, -1 ) );
     row( "Spectral Rim", Rim, &StandardMaterial::SetRim, spec( MeWidgets::Unit::Percent, 1.0, 0.0, -1 ) );
+    HavanaUtils::Label( "Outer Shell Only" );
+    bool shell = Shell;
+    if( ImGui::Checkbox( "##Shell", &shell ) )
+    {
+        SetShell( shell );
+    }
+    if( ImGui::IsItemHovered() )
+    {
+        ImGui::SetTooltip( "Transparent materials only: draw just the outermost surface, so the mesh's far side and inside faces don't show through it" );
+    }
 }
 #endif
